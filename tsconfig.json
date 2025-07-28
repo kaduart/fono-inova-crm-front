@@ -9,18 +9,33 @@
     }
   ],
   "compilerOptions": {
-    "allowJs": true,
-    "jsx": "react-jsx",
+    "target": "ESNext",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "module": "ESNext",
+    "skipLibCheck": true,
     "moduleResolution": "node",
-      "skipLibCheck": true,
-    "noEmitOnError": false,
-    "typeRoots": [
-      "./types",
-      "./node_modules/@types"
-    ],
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
-  "include": [
-    "src/**/*.{js,jsx,ts,tsx}"
+   "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.js",
+    "src/**/*.jsx",
+    "vite.config.ts"
   ],
-  "noEmitOnError": false
+  "exclude": ["node_modules"]
 }

@@ -1,27 +1,25 @@
-import react from '@vitejs/plugin-react';
-import path from 'path';
-import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react'
+import { visualizer } from 'rollup-plugin-visualizer'
+import { defineConfig } from 'vite'
 
+// Configuração mínima para fazer o build funcionar
 export default defineConfig({
-  plugins: [react()],
-  server: {
-    host: '0.0.0.0',
-    port: 3000,
-    watch: {
-      usePolling: true,
-      interval: 100  // opcional: ajusta o intervalo para checagem
-    },
-    proxy: {
-      '/api': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-        secure: false,
+  plugins: [
+    react(), 
+      visualizer({
+      open: true,
+      gzipSize: true
+    })],
+  build: {
+  rollupOptions: {
+    output: {
+      manualChunks: {
+        mui: ['@mui/material'],
+        react: ['react', 'react-dom', 'react-router-dom'],
+        vendor: ['lodash', 'date-fns', 'axios']
       }
     }
   },
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, 'src')
-    }
-  }
-});
+  chunkSizeWarningLimit: 1000
+}
+})

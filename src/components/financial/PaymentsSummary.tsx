@@ -1,5 +1,5 @@
 import { Box, Grid, Typography } from '@mui/material';
-import { CreditCard, DollarSign, CircleDollarSign, Clock } from 'lucide-react';
+import { CircleDollarSign, Clock, CreditCard } from 'lucide-react';
 import React from 'react';
 
 interface FinancialSummaryCardProps {
@@ -33,7 +33,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
       <Typography variant="h6" sx={{ mb: 3, fontWeight: 600, color: '#333' }}>
         Resumo Financeiro
       </Typography>
-      
+
       <Grid container spacing={3}>
         {/* Total Recebido */}
         <Grid item xs={12} sm={6} md={3}>
@@ -53,11 +53,11 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
                 Total Recebido
               </Typography>
             </Box>
-            
+
             <Typography variant="h5" sx={{ fontWeight: 700 }}>
               {formatCurrency(data.totalReceived)}
             </Typography>
-            
+
             <Box display="flex" alignItems="center" mt={1}>
               <CreditCard size={16} />
               <Typography variant="body2" sx={{ ml: 1, color: '#666' }}>
@@ -66,7 +66,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
             </Box>
           </Box>
         </Grid>
-        
+
         {/* Total Pendente */}
         <Grid item xs={12} sm={6} md={3}>
           <Box
@@ -85,11 +85,11 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
                 Total Pendente
               </Typography>
             </Box>
-            
+
             <Typography variant="h5" sx={{ fontWeight: 700 }}>
               {formatCurrency(data.totalPending)}
             </Typography>
-            
+
             <Box display="flex" alignItems="center" mt={1}>
               <CreditCard size={16} />
               <Typography variant="body2" sx={{ ml: 1, color: '#666' }}>
@@ -98,7 +98,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
             </Box>
           </Box>
         </Grid>
-        
+
         {/* Quantidade Recebida */}
         <Grid item xs={12} sm={6} md={3}>
           <Box
@@ -117,17 +117,17 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
                 Pagamentos Recebidos
               </Typography>
             </Box>
-            
+
             <Typography variant="h5" sx={{ fontWeight: 700 }}>
               {data.countReceived}
             </Typography>
-            
+
             <Typography variant="body2" sx={{ mt: 1, color: '#666' }}>
               Transações concluídas
             </Typography>
           </Box>
         </Grid>
-        
+
         {/* Quantidade Pendente */}
         <Grid item xs={12} sm={6} md={3}>
           <Box
@@ -146,11 +146,11 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
                 Pagamentos Pendentes
               </Typography>
             </Box>
-            
+
             <Typography variant="h5" sx={{ fontWeight: 700 }}>
               {data.countPending}
             </Typography>
-            
+
             <Typography variant="body2" sx={{ mt: 1, color: '#666' }}>
               Aguardando confirmação
             </Typography>

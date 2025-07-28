@@ -6,6 +6,5 @@ export const BASE_URL = process.env.NODE_ENV === "development"
 
 
 //local 
-export const BASE_URL = process.env.NODE_ENV === "development"
-  ? "http://localhost:5000/api"  // Local (se ainda usa)
-  : "https://fono-inova-crm-back.onrender.com/api"; 
+// src/config/api.ts
+export const BASE_URL = "https://fono-inova-crm-back.onrender.com/api";
