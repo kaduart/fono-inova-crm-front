@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import DatePicker, { registerLocale } from 'react-datepicker';
 
 import { ptBR } from "date-fns/locale";
+import toast from 'react-hot-toast';
 import ReactInputMask from 'react-input-mask';
 import Modal from 'react-modal';
 import { IDoctor, IPatient, ScheduleAppointment } from '../../utils/types/types';
@@ -36,6 +37,8 @@ type Props = {
     patients?: IPatient[];
     packages?: any[];
     initialData?: ScheduleAppointment | null;
+    erroMessage?: string | null,
+    isLoading: boolean
 };
 
 const ScheduleAppointmentModal = ({
@@ -45,19 +48,20 @@ const ScheduleAppointmentModal = ({
     initialData,
     doctors,
     patients,
+    erroMessage,
+    isLoading
 }: Props) => {
     const [formData, setFormData] = useState<ScheduleAppointment>(defaultForm);
     const [serviceType, setServiceType] = useState<ServiceType>('individual_session');
-    const [isLoading, setIsLoading] = useState(false);
     const [packages, setPackages] = useState<any[]>([]);
     const [selectedPatient, setSelectedPatient] = useState<IPatient | null>(null);
     registerLocale("pt-BR", ptBR);
-
-
+    console.log('inciciou component', initialData)
     useEffect(() => {
         if (initialData) {
             const isoDate = new Date(initialData.date);
             const formattedDate = isoDate.toISOString().split('T')[0]; // "YYYY-MM-DD"
+            console.log('inciciou component', initialData)
 
             setFormData({
                 ...initialData,
@@ -112,8 +116,6 @@ const ScheduleAppointmentModal = ({
         }));
     };
 
-
-
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -128,9 +130,11 @@ const ScheduleAppointmentModal = ({
     const handleSubmit = () => {
         if (serviceType === 'package_session') {
             formData.paymentAmount = 0;
-            //  formData.paymentMethod = '';
         }
-        onSave(formData);
+
+        onSave({
+            ...formData,
+        });
     };
 
     // Verificação completa de campos obrigatórios
@@ -171,10 +175,25 @@ const ScheduleAppointmentModal = ({
         }
     };
 
-    function buildLocalDateOnly(dateString: string) {
+    const buildLocalDateOnly = (dateString: string) => {
         const [year, month, day] = dateString.split('-').map(Number);
         return new Date(year, month - 1, day); // cria com hora 00:00 no fuso local
     }
+
+    useEffect(() => {
+        if (erroMessage) {
+            toast.error(erroMessage, {
+                position: 'top-center',
+                style: {
+                    zIndex: 999999,
+                },
+                duration: 4000,
+            });
+
+        }
+        erroMessage = null
+    }, [erroMessage]);
+
     return (
         <Modal
             isOpen={isOpen}
@@ -196,6 +215,11 @@ const ScheduleAppointmentModal = ({
                     <X size={24} />
                 </button>
             </div>
+            {erroMessage && (
+                <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 rounded">
+                    <p>{erroMessage}</p>
+                </div>
+            )}
 
             <div className="space-y-6">
                 {/* Profissional e Paciente */}
@@ -285,15 +309,12 @@ const ScheduleAppointmentModal = ({
                         <Label className="block mb-2 font-medium text-gray-700">
                             Data
                         </Label>
-                        {/*  <Input
-                            type="date"
-                            name="date"
-                            value={formData.date}
-                            onChange={handleChange}
-                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        /> */}
                         <DatePicker
-                            selected={formData.date ? buildLocalDateOnly(formData.date) : null}
+                            selected={
+                                formData.date
+                                    ? new Date(formData.date + 'T00:00:00') // força horário local
+                                    : null
+                            }
                             onChange={(date) => {
                                 if (!date) return;
                                 const formatted = date.toLocaleDateString('sv-SE'); // yyyy-MM-dd
@@ -481,16 +502,29 @@ const ScheduleAppointmentModal = ({
                     Cancelar
                 </Button>
                 <Button
-                    disabled={!canSchedule}
+                    disabled={!canSchedule || isLoading}
                     onClick={handleSubmit}
-                    className={`px-6 py-3 text-white transition-colors ${!canSchedule
+                    className={`px-6 py-3 text-white transition-colors flex items-center justify-center gap-2 ${!canSchedule || isLoading
                         ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed'
                         : 'bg-blue-600 hover:bg-blue-700'
                         }`}
                 >
-                    Salvar Agendamento
+                    {isLoading ? (
+                        <>
+                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Processando...
+                        </>
+                    ) : (
+                        'Salvar Agendamento'
+                    )}
+
                 </Button>
+
             </div>
+
         </Modal>
     );
 };

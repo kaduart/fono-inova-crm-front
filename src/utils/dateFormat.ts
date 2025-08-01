@@ -1,3 +1,4 @@
+ 
 export const dateFormat = (date: any): string => {
   date = new Date(date);
   const year = date.getFullYear();
@@ -51,6 +52,21 @@ export function mergeDateAndTime(dateString: string, timeString: string): Date {
   return new Date(year, month - 1, day, hours, minutes, 0, 0);
 }
 
+export function mergeDateAndTimeToAppointment(date: string, time: string): string {
+  const [year, month, day] = date.split('-').map(Number);
+  const [hours, minutes] = time.split(':').map(Number);
+
+  // Cria um Date em fuso local (UTC-3 se no Brasil)
+  const localDate = new Date(year, month - 1, day, hours, minutes);
+
+  // Monta string com fuso -03:00
+  const pad = (n: number) => n.toString().padStart(2, '0');
+
+  const dateStr = `${year}-${pad(month)}-${pad(day)}T${pad(hours)}:${pad(minutes)}:00-03:00`;
+
+  return dateStr;
+}
+
 
 export const formatDateTimeForBackend = (dateStr: string, timeStr: string): string => {
   // Combina data e hora em formato ISO sem conversão de fuso
@@ -61,4 +77,28 @@ export const formatDateTimeForBackend = (dateStr: string, timeStr: string): stri
 export function buildLocalDateOnly(dateString: string) {
   const [year, month, day] = dateString.split('-').map(Number);
   return new Date(year, month - 1, day); // cria com hora 00:00 no fuso local
+}
+
+export function buildLocalTime(timeString: string) {
+  const [hours, minutes] = timeString.split(':').map(Number);
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  return date;
+}
+
+export function combineLocalDateTime(datePart: Date, timePart: Date): string {
+  // Cria uma nova data no fuso local
+  const combined = new Date(
+    datePart.getFullYear(),
+    datePart.getMonth(),
+    datePart.getDate(),
+    timePart.getHours(),
+    timePart.getMinutes()
+  );
+
+  // Converte para ISO string com offset correto (-03:00 para Brasil)
+  const offset = -combined.getTimezoneOffset() / 60;
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  
+  return `${combined.getFullYear()}-${pad(combined.getMonth()+1)}-${pad(combined.getDate())}T${pad(combined.getHours())}:${pad(combined.getMinutes())}:00${offset >= 0 ? '+' : '-'}${pad(Math.abs(offset))}:00`;
 }

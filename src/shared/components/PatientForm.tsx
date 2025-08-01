@@ -16,6 +16,7 @@ import { Label } from '../../components/ui/Label';
 import { Select } from '../../components/ui/Select';
 import { Textarea } from '../../components/ui/TextArea';
 import { IPatient } from '../../utils/types/types';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
 const BR_STATES = [
     { value: '', label: 'Selecione' },
@@ -493,7 +494,7 @@ const PatientForm = ({ patient, patients, isLoading, onSuccess }: PatientFormPro
                         <Button type="submit" disabled={isLoading}>
                             {isLoading ? (
                                 <span className="flex items-center">
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    <LoadingSpinner className="mr-2 h-4 w-4 animate-spin" />
                                     Salvando...
                                 </span>
                             ) : (

@@ -1,8 +1,8 @@
 import dayjs from 'dayjs';
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import toast from 'react-hot-toast';
 import appointmentService from '../../services/appointmentService';
-import { mergeDateAndTime } from '../../utils/dateFormat';
+import { mergeDateAndTimeToAppointment } from '../../utils/dateFormat';
 import { IDoctor, IPatient, ScheduleAppointment } from "../../utils/types/types";
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
 import { Button } from "../ui/Button";
@@ -23,19 +23,25 @@ const initialSchedules = {
 
 interface ManageDoctorsProps {
     doctors: IDoctor[],
-    patients: IPatient[], // Defina o tipo correto para pacientes
+    patients: IPatient[],
+    loading: boolean,
     onSubmitDoctor: () => Promise<void>;
+    modalShouldClose: () => Promise<void>;
+    setOpenModal: () => Promise<void>;
 
 };
 
 const ManageDoctors: React.FC<ManageDoctorsProps> = ({
     doctors = [],
     patients = [],
+    loading,
     onSubmitDoctor,
+    modalShouldClose,
+    setOpenModal
 }) => {
     const [doctorSchedules, setDoctorSchedules] = useState(initialSchedules);
     const [selectedDoctor, setSelectedDoctor] = useState<IDoctor | null>(null);
-
+    const [localShouldClose, setLocalShouldClose] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [dataUpdateSlots, setdataUpdateSlots] = useState<ScheduleAppointment | undefined>();
     const [showAddDoctorModal, setShowAddDoctorModal] = useState(false);
@@ -44,11 +50,12 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [showScheduleModal, setShowScheduleModal] = useState(false);
     const [allDaySlots, setAllDaySlots] = useState<(any)[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [selectedBookingData, setSelectedBookingData] = useState<{
         time: string,
         isBookingModalOpen: boolean
     } | null>(null);
-
     const [scheduleAppointmentData, setScheduleAppointmentData] = useState<ScheduleAppointment>({
         doctorId: '',
         patientId: '',
@@ -61,6 +68,16 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
         status: 'agendado',
     });
 
+    useEffect(() => {
+        console.log('ffff', modalShouldClose)
+        if (modalShouldClose) {
+            setShowModal(false);
+            const timer = setTimeout(() => {
+                setOpenModal(false);
+            }, 300); // Tempo para animação de fechamento
+            return () => clearTimeout(timer);
+        }
+    }, [modalShouldClose, setOpenModal]);
 
     const handleViewAgenda = (doctor: IDoctor) => {
 
@@ -93,6 +110,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
 
     //aqui chama o agendamento por hora
     const onOpenCloseModals = async (data: any) => {
+        console.log('data no  closeopen modal ', data);
 
         setScheduleAppointmentData({
             date: selectedDate ? selectedDate.toISOString() : '',
@@ -111,6 +129,8 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
     }
 
     const handleBookingSubmit = async (data: any) => {
+
+        console.log('data no submit ', data);
         setScheduleAppointmentData({
             ...scheduleAppointmentData,
             date: data.date,
@@ -123,25 +143,37 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
     };
 
     //to do ja ta no admiondash so adaptar
-    const handleBooking = async (payload: ScheduleAppointment) => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            toast.error('Usuário não autenticado. Por favor, faça login novamente.');
-            return;
-        }
+    const handleBooking = async (payload: ScheduleAppointment,) => {
+        console.log('pay original 2', payload)
+        const mergedDate = mergeDateAndTimeToAppointment(payload.date, payload.time);
 
-        payload.date = mergeDateAndTime(payload.date, payload.time).toISOString();
         payload.specialty = payload.sessionType;
+        setIsLoading(true);
+        setErrorMessage(null);
+        console.log('pay atualizado 2', mergedDate)
+
         try {
-            await appointmentService.create(payload)
+            await appointmentService.create({
+                ...payload,
+                date: mergedDate,
+                specialty: payload.sessionType
+            });
 
             toast.success('Sessão agendada e pagamento registrado com sucesso!');
 
             setdataUpdateSlots(payload);
             setShowScheduleModal(false);
 
-        } catch (err: any) {
-            toast.error('Erro inesperado ao agendar.');
+        } catch (error: unknown) {
+
+            if (error instanceof Error) {
+                console.log('erro detalhado:', error);
+                setErrorMessage(error.response.data.error);
+            } else {
+                console.log('erro bruto:', error);
+            }
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -171,8 +203,13 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
                 <DoctorFormModal
                     selectedDoctor={selectedDoctor}
                     open={showModal}
+                    loading={loading}
                     onClose={() => setShowModal(false)}
-                    onSubmitDoctor={onSubmitDoctor}
+                    onSubmitDoctor={async (doctor) => {
+                        await onSubmitDoctor(doctor);
+                    }}
+                    modalShouldClose={modalShouldClose}
+                    onCancel={() => setOpenModal(false)}
                     onSubmitSlotBooking={handleBookingSubmit}
                 />
             )}
@@ -188,8 +225,9 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
                     onClose={() => setShowScheduleModal(false)}
                     onSave={(appointment) => {
                         handleBooking(appointment);
-                    }
-                    }
+                    }}
+                    isLoading={isLoading}
+                    erroMessage={errorMessage}
 
                 />
             )}

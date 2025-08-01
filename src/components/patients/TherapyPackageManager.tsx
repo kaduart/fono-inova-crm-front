@@ -38,7 +38,6 @@ export default function TherapyPackageManager({ packages, patient, doctors, tota
             setLoading(false);
         }
     };
-    console.error('packageDatassss:', packages);
 
     const handleEdit = (pkg: ITherapyPackage) => {
         setSelected(pkg);

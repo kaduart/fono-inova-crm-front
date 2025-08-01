@@ -66,9 +66,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         }
     }, [closeModalSignal]);
 
-    useEffect(() => {
-        console.log('Appointments updated:', appointments);
-    }, [appointments])
+   
 
     const getStatusConfig = (status: string) => {
         if (statusConfig[status]) return statusConfig[status];
@@ -168,12 +166,6 @@ console.log('appointments', appointments)
     };
 
     const handleBooking = async (payload: ScheduleAppointment) => {
-
-        const token = localStorage.getItem('token');
-        if (!token) {
-            toast.error('Usuário não autenticado. Por favor, faça login novamente.');
-            return;
-        }
         const mergedDate = mergeDateAndTime(payload.date, payload.time);
         if (isNaN(mergedDate.getTime())) {
             toast.error('Data/hora inválida');

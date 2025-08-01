@@ -1,9 +1,10 @@
-import { ptBR } from 'date-fns/locale';
 import { PlusCircle, Save, UserX } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import toast from 'react-hot-toast';
+import ReactInputMask from 'react-input-mask';
+import { buildLocalDateOnly, buildLocalTime, combineLocalDateTime } from '../../utils/dateFormat';
 import { IDoctor, ISession, THERAPY_TYPES, TherapyType } from '../../utils/types/types';
 import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
@@ -38,9 +39,54 @@ export const SessionModal = ({
 }: SessionModalProps) => {
     const title = action === 'edit' ? 'Editar Sessão' : 'Registrar Uso';
     const submitText = action === 'edit' ? 'Salvar Alterações' : 'Registrar Uso';
-    const [localDate, setLocalDate] = useState<Date | null>(
-        sessionData.date ? new Date(sessionData.date) : null
-    );
+    // Estados separados para data e hora
+    const [localDate, setLocalDate] = useState<Date | null>(null);
+    const [localTime, setLocalTime] = useState<Date | null>(null);
+    const [isFormValid, setIsFormValid] = useState(false);
+
+    // Inicializa os estados com os valores da sessão
+    useEffect(() => {
+        if (sessionData.date) {
+            const dateOnly = sessionData.date.split('T')[0];
+            setLocalDate(buildLocalDateOnly(dateOnly));
+
+            if (sessionData.time) {
+                setLocalTime(buildLocalTime(sessionData.time));
+            }
+        }
+    }, [sessionData.date, sessionData.time]);
+
+    // Atualiza o sessionData quando data ou hora mudam
+    // Atualização dos dados
+    useEffect(() => {
+        if (localDate && localTime) {
+            const dateTimeISO = combineLocalDateTime(localDate, localTime);
+            const formattedTime = `${localTime.getHours().toString().padStart(2, '0')}:${localTime.getMinutes().toString().padStart(2, '0')}`;
+            console.log('payload pasession package', formattedTime)
+
+            onSessionDataChange({
+                ...sessionData,
+                date: dateTimeISO,
+                time: formattedTime,
+                formattedDate: {
+                    date: localDate.toLocaleDateString('pt-BR'),
+                    time: formattedTime,
+                    full: `${localDate.toLocaleDateString('pt-BR')}, ${formattedTime}`
+                }
+            });
+        }
+    }, [localDate, localTime]);
+
+    useEffect(() => {
+        const isValid = Boolean(
+            sessionData.doctorId &&
+            localDate &&
+            localTime &&
+            sessionData.time // Garante que o time foi formatado corretamente
+        );
+        setIsFormValid(isValid);
+    }, [sessionData.doctorId, localDate, localTime, sessionData.time]);
+
 
     const validateForm = () => {
         if (!localDate) {
@@ -57,32 +103,22 @@ export const SessionModal = ({
     const handleSubmit = async () => {
         if (!validateForm()) return;
 
-        // Atualiza a data no sessionData
-        const updatedSessionData = {
-            ...sessionData,
-            date: localDate?.toISOString() || null
-        };
-        onSessionDataChange(updatedSessionData);
         onSubmit();
-    };
-
-    const handleDateChange = (date: Date | null) => {
-        setLocalDate(date);
     };
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
             <div className="bg-white rounded-xl w-full max-w-md shadow-lg border border-gray-200 overflow-hidden transition-all duration-300 animate-fade-in">
                 {/* Cabeçalho com gradiente */}
-                <div className={`p-4 flex items-center ${action === 'edit' ? 'bg-gradient-to-r from-blue-600 to-blue-700' : 'bg-gradient-to-r from-green-600 to-green-700'}`}>
+                <div className={`p-4 flex items-center ${action === 'edit' ? 'bg-indigo-50 font-medium text-indigo-700' : 'bg-green-50 text-green-700'}`}>
                     <div className="bg-white/20 p-2 rounded-lg">
                         {action === 'edit' ? (
-                            <Save className="w-5 h-5 text-white" />
+                            <Save className="w-5 h-5 blue-white" />
                         ) : (
-                            <PlusCircle className="w-5 h-5 text-white" />
+                            <PlusCircle className="w-5 h-5 green-white" />
                         )}
                     </div>
-                    <h2 className="text-lg font-bold text-white ml-2 tracking-tight">
+                    <h2 className="text-lg font-bold text-blue ml-2 tracking-tight">
                         {title}
                     </h2>
                 </div>
@@ -113,22 +149,50 @@ export const SessionModal = ({
                                 </div>
                             </div>
 
-                            <div className="mb-2">
-                                <label className="block mb-2 text-sm font-medium text-gray-700">
-                                    <span className="text-red-500 mr-1">*</span>
-                                    Data e Hora
-                                </label>
-                                <DatePicker
-                                    selected={localDate}
-                                    onChange={handleDateChange}
-                                    showTimeSelect
-                                    timeFormat="HH:mm"
-                                    timeIntervals={15}
-                                    dateFormat="dd/MM/yyyy HH:mm"
-                                    placeholderText="Selecione data e hora"
-                                    locale={ptBR}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Campo Data */}
+                                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Data *
+                                    </label>
+                                    <DatePicker
+                                        selected={localDate}
+                                        onChange={(date: Date | null) => setLocalDate(date)}
+                                        customInput={
+                                            <ReactInputMask
+                                                mask="99/99/9999"
+                                                className="w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            />
+                                        }
+                                        placeholderText='dd/MM/yyyy'
+                                        dateFormat="dd/MM/yyyy"
+                                        className="w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+
+                                {/* Campo Hora */}
+                                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Hora *
+                                    </label>
+                                    <DatePicker
+                                        selected={localTime}
+                                        onChange={(time: Date | null) => setLocalTime(time)}
+                                        showTimeSelect
+                                        showTimeSelectOnly
+                                        timeIntervals={15}
+                                        timeFormat="HH:mm"
+                                        dateFormat="HH:mm"
+                                        placeholderText='HH:MM'
+                                        customInput={
+                                            <ReactInputMask
+                                                mask="99:99"
+                                                className="w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            />
+                                        }
+                                        className="w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -260,8 +324,10 @@ export const SessionModal = ({
                     </Button>
                     <Button
                         onClick={handleSubmit}
-                        disabled={loading}
-                        className={`px-5 py-2.5 text-white font-medium rounded-lg transition-colors ${action === 'edit'
+                        disabled={!isFormValid || loading}
+                        className={`text-white ${!isFormValid
+                            ? 'opacity-50 cursor-not-allowed'
+                            : action === 'edit'
                                 ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
                                 : 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800'
                             }`}

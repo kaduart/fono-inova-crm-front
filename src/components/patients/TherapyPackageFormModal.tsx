@@ -66,7 +66,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 patientId: patient._id,
             }));
         }
-    }, [patient]); 
+    }, [patient]);
 
     useEffect(() => {
         const newBalance = Math.max(
@@ -102,29 +102,30 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         };
 
         setLoading(true);
+        const packageData = {
+            patientId: patient._id,
+            doctorId: formData.doctorId,
+            sessionType: formData.sessionType,
+            sessionValue: formData.sessionValue || 0,
+            /*totalSessions: formData.totalSessions || 0, */
+            paymentType: formData.paymentType,
+            amountPaid: formData.totalPaid || 0,
+            paymentMethod: formData.paymentMethod,
+            sessionsPerWeek: +formData.sessionsPerWeek,
+            durationMonths: formData.durationMonths,
+            dateTime: backendDateTime,
+            specialty: formData.sessionType,
+            time: formData.time
+        };
+
         try {
-            const packageData = {
-                patientId: patient._id,
-                doctorId: formData.doctorId,
-                sessionType: formData.sessionType,
-                sessionValue: formData.sessionValue || 0,
-                /*totalSessions: formData.totalSessions || 0, */
-                paymentType: formData.paymentType,
-                amountPaid: formData.totalPaid || 0,
-                paymentMethod: formData.paymentMethod,
-                sessionsPerWeek: +formData.sessionsPerWeek,
-                durationMonths: formData.durationMonths,
-                dateTime: backendDateTime,
-                specialty: formData.sessionType,
-                time: formData.time
-            };
-
+            console.log('Pacote a ser salvo:', packageData);
             await packageService.createPackage(packageData as CreatePackageParams);
-
+            console.log('Pacote salvo com sucesso.');
             onSubmit();
             onClose();
         } catch (err) {
-            console.error('Erro ao salvar pacote:', err);
+            console.log('Erro ao salvar pacote:', err);
             toast.error('Erro ao salvar pacote.');
         } finally {
             setLoading(false);

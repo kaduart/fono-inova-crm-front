@@ -102,16 +102,19 @@ export type AvailableSlotsParams = {
 };
 
 export const appointmentService = {
-    // Operações básicas
-    create: async (data: CreateAppointmentParams) => {
-        return API.post<IAppointmentResponse>('/appointments', {
-            ...data
-        });
-    },
-
-    get: async (id: string) => {
-        return API.get<IAppointmentResponse>(`/appointments/patient/${id}`);
-    },
+  create: async (appointmentData: any) => {
+    try {
+      const response = await API.post('/appointments', appointmentData);
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao criar agendamento:', error);
+      throw error;
+    }
+  },
+  
+  get: async (id: string) => {
+    return API.get(`/appointments/patient/${id}`);
+  },
 
     update: async (id: string, data: UpdateAppointmentParams) => {
 

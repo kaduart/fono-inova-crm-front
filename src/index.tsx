@@ -7,11 +7,11 @@ import './index.css';
 const rootElement = document.getElementById('root')!;
 
 const RootApp = () => (
-  <BrowserRouter>
-    <StrictMode>
+  <StrictMode>
+    <BrowserRouter>
       <App />
-    </StrictMode>
-  </BrowserRouter>
+    </BrowserRouter>
+  </StrictMode>
 );
 
 ReactDOM.createRoot(rootElement).render(<RootApp />);

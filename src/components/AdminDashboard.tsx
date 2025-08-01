@@ -282,7 +282,7 @@ export default function AdminDashboard() {
       toast.success('Agendamento criado com sucesso!');
       console.log('Agendamento criado com sucesso!');
       await fetchAppointments();
-      
+
       setCloseModalSignal(s => s + 1);
     } catch (error: any) {
       console.error('[FRONT] Erro ao criar agendamento:', error);
@@ -658,21 +658,26 @@ export default function AdminDashboard() {
     }
   };
 
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
   const handleSaveDoctor = async (doctor: CreateDoctorParams) => {
+    setIsLoading(true)
     try {
       if (doctor._id) {
         await doctorService.updateDoctor(doctor._id, doctor);
-        toast.success("Profissional atualizado com sucesso!");
+        setSuccessMessage("Profissional atualizado com sucesso!");
       } else {
         await doctorService.createDoctor(doctor);
-        toast.success("Profissional cadastrado com sucesso!");
+        setSuccessMessage("Profissional cadastrado com sucesso!");
       }
 
-      setModalShouldClose(true);
-      setShowModalAddProfessional(false);
+      setShowSuccessToast(true);
+      setModalShouldClose(true); // Fecha o modal
 
-      await fetchDoctors(); // Atualiza a lista
-      await fetchTotalDoctors(); // Atualiza total
+      // Atualiza os dados em segundo plano
+      await Promise.all([fetchDoctors(), fetchTotalDoctors()]);
+
     } catch (error: any) {
       if (error.message?.includes("expirado")) {
         toast.error("Sessão expirada. Faça login novamente.");
@@ -680,6 +685,9 @@ export default function AdminDashboard() {
       } else {
         toast.error(error.message || "Erro ao salvar profissional.");
       }
+    }
+    finally {
+      setIsLoading(false);
     }
   };
 
@@ -906,7 +914,7 @@ export default function AdminDashboard() {
               }}
               onSaveSuccess={(patient) => {
                 handleSavePatient(patient);
-                 setShouldShowPatientModal(false);
+                setShouldShowPatientModal(false);
               }}
             />
           )}
@@ -915,6 +923,7 @@ export default function AdminDashboard() {
           open={showModalAddProfessional}
           onClose={() => setShowModalAddProfessional(false)}
           onSubmitDoctor={handleSaveDoctor}
+          loading={isLoading}
         />
       </>
     );
@@ -1010,14 +1019,16 @@ export default function AdminDashboard() {
 
   const renderAddDoctor = () => {
     return (
-      <ManageDoctors
-        onSubmitDoctor={handleSaveDoctor}
-        doctors={doctors}
-        patients={patients}
-        openModal={openModal}
-        setOpenModal={setOpenModal}
-        modalShouldClose={modalShouldClose}
-      />
+      <>
+        <ManageDoctors
+          onSubmitDoctor={handleSaveDoctor}
+          doctors={doctors}
+          patients={patients}
+          openModal={openModal}
+          setOpenModal={setOpenModal}
+          modalShouldClose={modalShouldClose}
+        />
+      </>
     );
   }
 

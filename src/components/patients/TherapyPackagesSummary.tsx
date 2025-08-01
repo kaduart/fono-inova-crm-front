@@ -89,6 +89,7 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
     };
 
     const handleUseSession = async (packId: string, sessionData: UseSessionParams, modalAction: string) => {
+        console.log('👉 Usando sessão:', sessionData);
         try {
             validatePayment(sessionData.paymentAmount, selectedPackage?.balance);
             const payload = {
@@ -108,6 +109,8 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                     method: sessionData.paymentMethod || 'dinheiro'
                 },
             };
+
+            console.log('👉 Usando sessão - payload:', payload);
 
             await packageService.updateSession(packId, payload);
 

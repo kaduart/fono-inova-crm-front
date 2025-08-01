@@ -1,8 +1,9 @@
-import { Check, ChevronDown, Loader2, Plus, X } from 'lucide-react';
+import { Check, ChevronDown, Plus, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { IDoctor, IPatient } from '../../utils/types/types';
 import InputCurrency from '../ui/InputCurrency';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 interface AdvancedPaymentModalProps {
     open: boolean;
@@ -385,8 +386,7 @@ export const AdvancedPaymentModal = ({
                     >
                         {isLoading ? (
                             <>
-                                <Loader2 className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" />
-                                Registrando...
+                                <LoadingSpinner />
                             </>
                         ) : (
                             <>

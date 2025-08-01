@@ -1,4 +1,4 @@
-import { Calendar, Check, ChevronDown, DollarSign, Loader2, Plus, User, Users, X } from 'lucide-react';
+import { Calendar, Check, ChevronDown, DollarSign, Plus, User, Users, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import Modal from 'react-modal';
@@ -8,6 +8,7 @@ import { Button } from '../ui/Button';
 import Input from '../ui/Input';
 import InputCurrency from '../ui/InputCurrency';
 import { Label } from '../ui/Label';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/TextArea';
 
@@ -477,7 +478,7 @@ export const PaymentModal = ({
                 >
                     {isLoading ? (
                         <>
-                            <Loader2 className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" />
+                            <LoadingSpinner />
                             Registrando...
                         </>
                     ) : (

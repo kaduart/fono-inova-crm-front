@@ -1,8 +1,10 @@
+import { Box } from '@mui/material';
 import { Eye, EyeOff, Shield, Stethoscope, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { BASE_URL } from '../constants/constants';
+import { LoadingSpinner } from './ui/LoadingSpinner';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -11,6 +13,8 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useState(null);
 
   const roles = [
     { id: 'admin', label: 'Admin', icon: Shield },
@@ -34,44 +38,78 @@ const Login = () => {
     return () => clearInterval(interval); // Cleanup
   }, []);
 
+  // No seu componente de login
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const errorCode = searchParams.get('error');
+
+    if (errorCode === 'TOKEN_EXPIRED') {
+      alert('Sua sessão expirou. Por favor, faça login novamente.');
+    }
+  }, [location]);
+
   const handleSubmit = async (e) => {
+    console.log('👉 Botão clicado - início da função');
     e.preventDefault();
+    console.log('👉 Botão clicado - início da função 222');
+    setIsLoading(true);
+    console.log('👉 Submetendo: 33333', { email, role: selectedRole }); // Debug
+
     try {
-      const response = await fetch(BASE_URL + '/login', {
+      const response = await fetch(`${BASE_URL}/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password, role: selectedRole }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          role: selectedRole
+        }),
       });
-      if (response.ok) {
-        const data = await response.json();
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('userRole', data.role);
-        localStorage.setItem('userEmail', email);
-        // Redirect based on role
-        if (data.role === 'admin') {
-          navigate('/admin');
-        } else if (data.role === 'doctor') {
-          navigate('/dashboard');
-        } else {
-          navigate('/patient');
-        }
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error);
-        return toast.error("Ocorreu um erro. Tente novamente.");
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        const text = await response.text();
+        throw new Error(text || 'Resposta inválida do servidor');
       }
+
+      const data = await response.json();
+      console.log('✅ Login success:', data); // Debug
+
+      // Armazenamento único dos dados
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('userRole', data.role);
+      localStorage.setItem('userEmail', email);
+      setUser(data.user);
+
+      // Redirecionamento
+      switch (data.role) {
+        case 'admin':
+          navigate('/admin');
+          break;
+        case 'doctor':
+          navigate('/dashboard');
+          break;
+        default:
+          navigate('/patient');
+      }
+
     } catch (error) {
-      setError('Ocorreu um erro. Tente novamente.');
-      localStorage.removeItem('authToken');
-      return toast.error("Ocorreu um erro. Tente novamente.");
+      if (error instanceof Error) {
+        console.error('Erro ao conectar ao servidor:', error.message);
+        toast.error(error.message || 'Erro ao conectar ao servidor');
+      }
+
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  return (
+  return isLoading ? (
+    <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }} >
+      <LoadingSpinner />
+    </Box >
+  ) : (
     <div className='min-h-screen flex flex-row'>
-      {/* Left Side - Image Slider */}
       <div className="w-1/2 bg-white flex justify-center items-center relative h-screen overflow-hidden">
         <div className="flex flex-col justify-center items-center gap-5">
 
@@ -93,9 +131,6 @@ const Login = () => {
         </div>
       </div>
 
-
-
-      {/* Right Side - Login */}
       <div className="w-1/2 bg-blue-600 flex items-center justify-center p-4">
         <div className="w-full max-w-md overflow-hidden">
           <div className="bg-blue-600 p-6 text-white">
@@ -182,6 +217,7 @@ const Login = () => {
         </div>
       </div>
     </div>
+
   );
 };
 

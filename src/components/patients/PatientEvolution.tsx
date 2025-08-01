@@ -1,7 +1,6 @@
 import {
     Box,
     Button,
-    CircularProgress,
     FormControl,
     InputLabel,
     MenuItem,
@@ -31,6 +30,7 @@ import {
     XAxis,
     YAxis
 } from 'recharts';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Select } from '../ui/Select';
 import EvolutionForm, { EvolutionFormData } from './EvolutionForm';
 
@@ -210,7 +210,7 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
         <div className="space-y-6 p-4">
             {isLoading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-                    <CircularProgress />
+                    <LoadingSpinner />
                 </Box>
             ) : (
                 <Box sx={{ p: 3 }}>
