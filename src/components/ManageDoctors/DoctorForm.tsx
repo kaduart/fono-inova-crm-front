@@ -39,9 +39,9 @@ const daysOfWeek = {
 // Gerar todos os slots das 8:00 às 16:20 com intervalos de 40 minutos
 const generateAllTimeSlots = () => {
     const times: string[] = [];
-    for (let hour = 8; hour <= 16; hour++) {
+    for (let hour = 8; hour <= 18; hour++) {
         for (let minute = 0; minute < 60; minute += 40) {
-            if (hour === 16 && minute > 20) break;
+            if (hour === 18 && minute > 20) break;
             times.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
         }
     }
