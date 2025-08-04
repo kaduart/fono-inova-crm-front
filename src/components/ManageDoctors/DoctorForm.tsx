@@ -36,19 +36,27 @@ const daysOfWeek = {
 };
 
 
-// Gerar todos os slots das 8:00 às 16:20 com intervalos de 40 minutos
-const generateAllTimeSlots = () => {
-    const times: string[] = [];
-    for (let hour = 8; hour <= 18; hour++) {
-        for (let minute = 0; minute < 60; minute += 40) {
-            if (hour === 18 && minute > 20) break;
-            times.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
-        }
+const generateTimeSlots = (startHour: number, endHour: number, intervalMinutes: number) => {
+    const slots = [];
+    const date = new Date();
+    date.setHours(startHour, 0, 0, 0); // Define hora inicial
+
+    const endDate = new Date(date);
+    endDate.setHours(endHour, 0, 0, 0); // Define hora final
+
+    while (date <= endDate) {
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        slots.push(`${hours}:${minutes}`);
+
+        date.setMinutes(date.getMinutes() + intervalMinutes);
     }
-    return times;
+
+    return slots;
 };
 
-const allTimeSlots = generateAllTimeSlots();
+const allTimeSlots = generateTimeSlots(8, 18, 40);
+
 
 const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: DoctorFormProps) => {
     const [form, setForm] = useState<IDoctor>({

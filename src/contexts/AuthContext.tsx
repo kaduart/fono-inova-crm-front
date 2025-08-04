@@ -43,19 +43,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [navigate]);
 
   useEffect(() => {
-
-
     const validateSession = async () => {
-
-      const userRes = await API.get('/users/me');
-
-      setUser(userRes.data);
-      return true; // true = token válido
-
+      try {
+        const userRes = await API.get('/users/me');
+        setUser(userRes.data);
+        setIsLoading(false);
+      } catch (error) {
+        // Se 401, já vai cair no interceptor acima e redirecionar
+        setUser(null);
+        setIsLoading(false);
+      }
     };
 
     validateSession();
   }, [logout]);
+
 
   useEffect(() => {
     const renewToken = async () => {
