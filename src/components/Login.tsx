@@ -49,11 +49,8 @@ const Login = () => {
   }, [location]);
 
   const handleSubmit = async (e) => {
-    console.log('👉 Botão clicado - início da função');
     e.preventDefault();
-    console.log('👉 Botão clicado - início da função 222');
     setIsLoading(true);
-    console.log('👉 Submetendo: 33333', { email, role: selectedRole }); // Debug
 
     try {
       const response = await fetch(`${BASE_URL}/login`, {

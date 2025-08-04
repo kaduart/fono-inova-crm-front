@@ -9,6 +9,7 @@ import { Label } from '../ui/Label';
 import { Select } from '../ui/Select';
 
 interface AppointmentDetailModalProps {
+
     isOpen: boolean;
     onClose: () => void;
     doctors: IDoctor[];

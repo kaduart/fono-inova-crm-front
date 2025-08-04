@@ -662,6 +662,7 @@ export default function AdminDashboard() {
   const [successMessage, setSuccessMessage] = useState("");
 
   const handleSaveDoctor = async (doctor: CreateDoctorParams) => {
+    console.log('bateuuuu', doctor)
     setIsLoading(true)
     try {
       if (doctor._id) {

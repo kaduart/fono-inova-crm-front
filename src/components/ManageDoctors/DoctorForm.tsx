@@ -1,5 +1,5 @@
-import { Checkbox, FormControlLabel } from "@mui/material";
-import { Eye, EyeOff, UserPlus } from "lucide-react";
+import { Box, Checkbox, Chip, FormControlLabel } from "@mui/material";
+import { Clock, Eye, EyeOff, Trash2, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { FaUserEdit } from "react-icons/fa";
@@ -16,6 +16,40 @@ interface DoctorFormProps {
     loading?: boolean;
 }
 
+interface TimeSlot {
+    day: string;
+    period: 'morning' | 'afternoon';
+    time: string;
+}
+
+interface TimeSlot {
+    day: string;
+    time: string;
+}
+
+const daysOfWeek = {
+    'Segunda-feira': 'monday',
+    'Terça-feira': 'tuesday',
+    'Quarta-feira': 'wednesday',
+    'Quinta-feira': 'thursday',
+    'Sexta-feira': 'friday'
+};
+
+
+// Gerar todos os slots das 8:00 às 16:20 com intervalos de 40 minutos
+const generateAllTimeSlots = () => {
+    const times: string[] = [];
+    for (let hour = 8; hour <= 16; hour++) {
+        for (let minute = 0; minute < 60; minute += 40) {
+            if (hour === 16 && minute > 20) break;
+            times.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
+        }
+    }
+    return times;
+};
+
+const allTimeSlots = generateAllTimeSlots();
+
 const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: DoctorFormProps) => {
     const [form, setForm] = useState<IDoctor>({
         _id: selectedDoctor?._id || "",
@@ -26,8 +60,10 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
         licenseNumber: selectedDoctor?.licenseNumber || "",
         password: "",
         active: selectedDoctor?.active ?? true,
+        weeklyAvailability: selectedDoctor?.weeklyAvailability || [],
     });
 
+    const [selectedTimeSlots, setSelectedTimeSlots] = useState<TimeSlot[]>([]);
     const [showPassword, setShowPassword] = useState(false);
     const [formErrors, setFormErrors] = useState({
         fullName: false,
@@ -38,17 +74,38 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
         specialty: false
     });
 
-    // Validação em tempo real
+    // Inicializa os slots selecionados com base no schedule existente
     useEffect(() => {
-        setFormErrors({
-            fullName: !form.fullName.trim(),
-            email: !form.email.trim(),
-            password: !selectedDoctor && !form.password.trim(),
-            licenseNumber: !form.licenseNumber,
-            phoneNumber: !form.phoneNumber,
-            specialty: !form.specialty
-        });
-    }, [form, selectedDoctor]);
+        if (selectedDoctor?.weeklyAvailability) {
+            const slots: TimeSlot[] = [];
+            selectedDoctor.weeklyAvailability.forEach(daySchedule => {
+                daySchedule.slots?.forEach((time: string) => {
+                    slots.push({
+                        day: daySchedule.day,
+                        time
+                    });
+                });
+            });
+            setSelectedTimeSlots(slots);
+        }
+    }, [selectedDoctor]);
+
+    // Atualiza form.schedule quando selectedTimeSlots muda
+    useEffect(() => {
+        const weeklyAvailability = Object.entries(daysOfWeek).map(([label, enDay]) => {
+            const times = selectedTimeSlots
+                .filter(slot => slot.day === enDay)  // comparar com valor em inglês
+                .map(slot => slot.time);
+
+            return times.length > 0 ? { day: enDay, times } : null;
+        }).filter(Boolean);
+
+        setForm(prev => ({
+            ...prev,
+            weeklyAvailability
+        }));
+    }, [selectedTimeSlots]);
+
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -56,21 +113,49 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
         if (formErrors.fullName) return toast.error("Nome é obrigatório");
         if (formErrors.email) return toast.error("Email é obrigatório");
         if (formErrors.specialty) return toast.error("Especialidade é obrigatória");
-        if (formErrors.licenseNumber) return toast.error("Número conselho é obrigatório");
-        if (formErrors.phoneNumber) return toast.error("Número telefone é obrigatório");
+        if (formErrors.licenseNumber) return toast.error("Número do conselho é obrigatório");
+        if (formErrors.phoneNumber) return toast.error("Telefone é obrigatório");
         if (!selectedDoctor && formErrors.password) return toast.error("Senha é obrigatória para novo cadastro");
 
         onSubmitDoctor(form);
+    };
+
+    const toggleTimeSlot = (day: string, time: string) => {
+        setSelectedTimeSlots(prev => {
+            const existingIndex = prev.findIndex(slot => slot.day === day && slot.time === time);
+            if (existingIndex >= 0) {
+                return prev.filter((_, index) => index !== existingIndex);
+            } else {
+                return [...prev, { day, time }];
+            }
+        });
+    };
+
+    const toggleAllDay = (day: string) => {
+        const allDaySlotsSelected = allTimeSlots.every(time =>
+            selectedTimeSlots.some(slot => slot.day === day && slot.time === time)
+        );
+
+        if (allDaySlotsSelected) {
+            // Remove todos os slots do dia
+            setSelectedTimeSlots(prev => prev.filter(slot => slot.day !== day));
+        } else {
+            // Adiciona todos os slots do dia
+            const newSlots = [...selectedTimeSlots];
+            allTimeSlots.forEach(time => {
+                if (!newSlots.some(slot => slot.day === day && slot.time === time)) {
+                    newSlots.push({ day, time });
+                }
+            });
+            setSelectedTimeSlots(newSlots);
+        }
     };
 
     const isFormValid = !Object.values(formErrors).some(Boolean);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-            <form
-                onSubmit={handleSubmit}
-                className="w-full max-w-2xl overflow-hidden bg-white border rounded-lg shadow-xl border-gray-100"
-            >
+            <form onSubmit={handleSubmit} className="w-full max-w-4xl overflow-y-auto max-h-[90vh] bg-white border rounded-lg shadow-xl border-gray-100">
                 {/* Cabeçalho */}
                 <div className={`flex items-center px-6 py-4 ${selectedDoctor
                     ? 'bg-gradient-to-r from-blue-600 to-blue-700'
@@ -89,7 +174,7 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                 </div>
 
                 {/* Corpo do formulário */}
-                <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                <div className="p-6 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Nome */}
                         <div>
@@ -149,7 +234,7 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
 
                         {/* Telefone */}
                         <div>
-                            <Label htmlFor="phoneNumber" error={formErrors.phoneNumber}>Telefone</Label>
+                            <Label htmlFor="phoneNumber" error={formErrors.phoneNumber}>Telefone *</Label>
                             <Input
                                 id="phoneNumber"
                                 mask="(99) 99999-9999"
@@ -157,7 +242,6 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                                 value={form.phoneNumber}
                                 onChange={e => setForm({ ...form, phoneNumber: e.target.value })}
                                 error={formErrors.phoneNumber}
-
                             />
                             {formErrors.phoneNumber && (
                                 <p className="mt-1 text-xs text-red-500">Telefone é obrigatório</p>
@@ -204,6 +288,55 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                                 )}
                             </div>
                         )}
+                    </div>
+
+                    {/* Agenda Semanal */}
+                    <div className="pt-4 mt-4 border-t border-gray-200">
+                        <h3 className="mb-6 text-lg font-medium">Agenda Semanal</h3>
+
+                        <div className="space-y-6">
+                            {Object.entries(daysOfWeek).map(([label, day]) => (
+                                <div key={day} className="p-4 border rounded-lg bg-gray-50">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h4 className="text-md font-medium text-gray-800">{label}</h4>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => toggleAllDay(day)}
+                                        >
+                                            {allTimeSlots.every(time =>
+                                                selectedTimeSlots.some(slot =>
+                                                    slot.day === day && slot.time === time
+                                                )
+                                            ) ? 'Desmarcar todos' : 'Marcar todos'}
+                                        </Button>
+                                    </div>
+
+                                    <Box display="flex" flexWrap="wrap" gap={1}>
+                                        {allTimeSlots.map(time => {
+                                            const isSelected = selectedTimeSlots.some(slot =>
+                                                slot.day === day && slot.time === time
+                                            );
+
+                                            return (
+                                                <Chip
+                                                    key={`${day}-${time}`}
+                                                    label={time}
+                                                    icon={<Clock style={{ fontSize: 14 }} />}
+                                                    onClick={() => toggleTimeSlot(day, time)}
+                                                    onDelete={isSelected ? () => toggleTimeSlot(day, time) : undefined}
+                                                    color={isSelected ? "primary" : "default"}
+                                                    variant={isSelected ? "filled" : "outlined"}
+                                                    deleteIcon={<Trash2 size={14} />}
+                                                    style={{ margin: '2px' }}
+                                                />
+                                            );
+                                        })}
+                                    </Box>
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
                     {/* Ativo */}
