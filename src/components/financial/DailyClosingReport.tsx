@@ -116,18 +116,20 @@ const DailyClosingReport = () => {
                                     <td className="py-3 px-4 text-gray-800 font-medium">{professional.doctorName}</td>
                                     <td className="py-3 px-4 text-gray-600">{professional.specialty}</td>
                                     <td className="py-3 px-4">
-                                        <div className="font-medium">{professional.scheduled}</div>
-                                        <div className="text-xs text-gray-500">{formatCurrency(professional.scheduledValue)}</div>
+                                        <div className="font-medium">{professional.scheduled.count}</div>
+                                        <div className="text-xs text-gray-500">{formatCurrency(professional.scheduled.value)}</div>
                                     </td>
                                     <td className="py-3 px-4">
-                                        <div className="font-medium">{professional.completed}</div>
-                                        <div className="text-xs text-gray-500">{formatCurrency(professional.completedValue)}</div>
+                                        <div className="font-medium">{professional.completed.count}</div>
+                                        <div className="text-xs text-gray-500">{formatCurrency(professional.completed.value)}</div>
                                     </td>
                                     <td className="py-3 px-4">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${professional.absences > 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                                            }`}>
-                                            {professional.absences}
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${professional.absences.count > 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                                            {professional.absences.count}
                                         </span>
+                                        {professional.absences.count > 0 && (
+                                            <div className="text-xs text-gray-500 mt-1">Perda: {formatCurrency(professional.absences.estimatedLoss)}</div>
+                                        )}
                                     </td>
                                     <td className="py-3 px-4">
                                         <div className="font-medium text-gray-800">{formatCurrency(professional.payments.total)}</div>
@@ -259,7 +261,7 @@ const DailyClosingReport = () => {
                                     Fechamento Diário
                                 </h2>
                                 <h2 className="text-xl font-bold text-green-800">
-                                   R$ {report.financialSummary.totalAReceber}
+                                    R$ {report.financialSummary.totalAReceber}
                                 </h2>
                             </div>
                         </div>
@@ -326,7 +328,7 @@ const DailyClosingReport = () => {
                                     <p className="text-2xl font-bold mt-1 text-gray-800">
                                         {report.totals.payments.count}
                                     </p>
-                                    <p className="text-purple-600 font-medium mt-1">{formatCurrency(report.totals.payments.value)}</p>
+                                    <p className="text-purple-600 font-medium mt-1">{formatCurrency(report.financialSummary.totalAReceber)}</p>
                                 </div>
                             </div>
                             <div className="mt-3 pt-3 border-t border-gray-100">
@@ -352,6 +354,7 @@ const DailyClosingReport = () => {
                                     <span className="font-medium">{formatCurrency(report.totals.payments.methods.cartão)}</span>
                                 </div>
                             </div>
+
                         </div>
 
                         {/* Faltas */}

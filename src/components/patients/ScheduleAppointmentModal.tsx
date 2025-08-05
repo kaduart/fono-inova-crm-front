@@ -434,19 +434,19 @@ const ScheduleAppointmentModal = ({
                 )}
 
                 {/* Pagamento (para sessão avulsa) */}
-                {serviceType === 'individual_session' && (
+                {(serviceType === 'individual_session' || serviceType === 'evaluation') && (
                     <div className="bg-green-50 p-4 rounded-lg border border-green-100">
                         <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                             <span className="bg-green-100 p-2 rounded-full">
                                 <DollarSign size={18} className="text-green-600" />
                             </span>
-                            Pagamento da Sessão
+                            Pagamento
                         </h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <Label className="block mb-2 font-medium text-gray-700">
-                                    Valor da Sessão
+                                    Valor
                                 </Label>
                                 <InputCurrency
                                     name="paymentAmount"
