@@ -143,7 +143,7 @@ const usePayment = () => {
     setLoading(true);
     try {
       const data = await getDailyClosing(date);
-      setDailyClosing(data.data);
+      setDailyClosing(data.data.data);
       setError(null);
     } catch (err) {
       setError('Erro ao buscar fechamento diário');

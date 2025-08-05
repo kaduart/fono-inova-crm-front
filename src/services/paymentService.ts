@@ -41,6 +41,10 @@ export interface DailyClosingReport {
             count: number;
             value: number;
         };
+        confirmed: {
+            count: number;
+            value: number;
+        };
         payments: {
             count: number;
             value: number;

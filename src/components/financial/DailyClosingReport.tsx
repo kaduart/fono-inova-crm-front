@@ -1,3 +1,4 @@
+// src/components/DailyClosingReport.tsx
 import { format } from 'date-fns';
 import { CalendarIcon, CheckCircleIcon, XCircleIcon } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
@@ -65,13 +66,13 @@ const DailyClosingReport = () => {
     useEffect(() => {
         fetchDailyClosing(dateFilter);
     }, [dateFilter, fetchDailyClosing]);
+
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat('pt-BR', {
             style: 'currency',
             currency: 'BRL'
         }).format(value);
     };
-    console.log('doooo', report)
 
     const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setDateFilter(e.target.value);
@@ -241,6 +242,8 @@ const DailyClosingReport = () => {
         );
     }
 
+    console.log('reportttttttttt', report)
+    console.log('reportttttttttt', report.totals.scheduled)
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
@@ -255,9 +258,9 @@ const DailyClosingReport = () => {
                                 <h2 className="text-xl font-bold text-gray-800">
                                     Fechamento Diário
                                 </h2>
-                                <p className="text-sm text-gray-600 mt-1">
-                                    {report.date}
-                                </p>
+                                <h2 className="text-xl font-bold text-green-800">
+                                   R$ {report.financialSummary.totalAReceber}
+                                </h2>
                             </div>
                         </div>
                         <div className="mt-4 md:mt-0">
@@ -303,10 +306,10 @@ const DailyClosingReport = () => {
                                 <div>
                                     <h3 className="font-medium text-gray-700">Realizadas</h3>
                                     <p className="text-2xl font-bold mt-1 text-gray-800">
-                                        {report.totals.completed.count}
+                                        {report.totals.confirmed.count}
                                     </p>
                                     <div className="mt-2 text-sm text-gray-600">
-                                        Valor: <span className="font-medium text-green-600">{formatCurrency(report.totals.completed.value)}</span>
+                                        Valor: <span className="font-medium text-green-600">{formatCurrency(report.totals.confirmed.value)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -376,13 +379,13 @@ const DailyClosingReport = () => {
                             <div className="text-center">
                                 <div className="text-sm text-gray-600">Taxa de comparecimento</div>
                                 <div className="text-xl font-bold text-green-600">
-                                    {Math.round((report.totals.completed.count / report.totals.scheduled.count) * 100 || 0)}%
+                                    {Math.round((report.totals.confirmed.count / report.totals.scheduled.count) * 100 || 0)}%
                                 </div>
                             </div>
                             <div className="text-center">
                                 <div className="text-sm text-gray-600">Média por sessão</div>
                                 <div className="text-xl font-bold text-blue-600">
-                                    {formatCurrency(report.totals.completed.value / report.totals.completed.count || 0)}
+                                    {formatCurrency(report.totals.confirmed.value / report.totals.confirmed.count || 0)}
                                 </div>
                             </div>
                             <div className="text-center">
