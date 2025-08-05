@@ -12,6 +12,16 @@
   ],
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "https://fono-inova-crm-back.onrender.com/api/$1",
+      "headers": {
+        "Access-Control-Allow-Origin": "https://app.clinicafonoinova.com.br",
+        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Credentials": "true"
+      }
+    },
+    {
       "src": "/assets/(.*)",
       "dest": "/dist/assets/$1",
       "headers": {
