@@ -1,11 +1,11 @@
 // types.ts
-export type TherapyType = 'fonoaudiologia' | 'terapeuta ocupacional' | 'psicologia' | 'fisioterapia';
+export type TherapyType = 'fonoaudiologia' | 'terapia_ocupacional' | 'psicologia' | 'fisioterapia';
 export type PaymentType = 'full' | 'per-session' | 'partial';
 export type PackageStatus = 'ativo' | 'finalizado';
 
 export const THERAPY_TYPES = [
     { value: 'fonoaudiologia', label: 'Fonoaudiologia' },
-    { value: 'terapeuta ocupacional', label: 'Terapia Ocupacional' },
+    { value: 'terapia_ocupacional', label: 'Terapia Ocupacional' },
     { value: 'psicologia', label: 'Psicologia' },
     { value: 'fisioterapia', label: 'Fisioterapia' },
     { value: 'pediatria', label: 'Pediatria' },
@@ -65,7 +65,7 @@ export interface ISession {
     sessionId?: string;
     patientId: string;
     package: string;
-    sessionType: 'fonoaudiologia' | 'terapeuta ocupacional' | 'psicologia' | 'fisioterapia';
+    sessionType: 'fonoaudiologia' | 'terapia_ocupacional' | 'psicologia' | 'fisioterapia';
     status: 'pending' | 'completed' | 'canceled';
     paymentAmount?: number;
     paymentMethod?: 'dinheiro' | 'pix' | 'cartão';
@@ -81,7 +81,7 @@ export interface ITherapyPackage {
     _id: string;
     patient: string;
     professional: string;
-    sessionType: 'fonoaudiologia' | 'terapeuta ocupacional' | 'psicologia' | 'fisioterapia';
+    sessionType: 'fonoaudiologia' | 'terapia_ocupacional' | 'psicologia' | 'fisioterapia';
     totalSessions: number;
     sessions: ISession[];
     sessionsDone: number;
@@ -184,8 +184,8 @@ export interface ScheduleAppointment {
     doctorId: string;
     date: string;
     time: string;
-    sessionType: 'fonoaudiologia' | 'terapeuta ocupacional' | 'psicologia' | 'fisioterapia';
-    specialty: 'fonoaudiologia' | 'terapeuta ocupacional' | 'psicologia' | 'fisioterapia';
+    sessionType: 'fonoaudiologia' | 'terapia_ocupacional' | 'psicologia' | 'fisioterapia';
+    specialty: 'fonoaudiologia' | 'terapia_ocupacional' | 'psicologia' | 'fisioterapia';
     notes?: string;
     serviceType: 'evaluation' | 'session' | 'package_session' | 'individual_session';
     paymentAmount?: number;
