@@ -1,4 +1,4 @@
-import { Calendar, Pencil, User } from 'lucide-react';
+import { Calendar, ClipboardList, Mail, Pencil, Phone, User } from 'lucide-react';
 
 interface DoctorCardProps {
     doctor: any;
@@ -6,17 +6,20 @@ interface DoctorCardProps {
     onViewAgenda?: (doctor: any) => void;
 }
 
+const formatPhoneNumber = (phone) => {
+    return phone.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+};
+
 const DoctorCard = ({ doctor, onEdit, onViewAgenda }: DoctorCardProps) => {
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all hover:shadow-md">
             <div className="p-5">
-                <div className="flex items-center space-x-4 mb-4">
-                    <div className="flex-shrink-0">
-                        <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center">
-                            <User className="text-emerald-600" size={20} />
-                        </div>
+                {/* Cabeçalho com avatar */}
+                <div className="flex items-center gap-4 mb-6">
+                    <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                        <User className="text-emerald-600" size={20} />
                     </div>
-                    <div className="flex-1 min-w-0">
+                    <div>
                         <h3 className="text-lg font-semibold text-gray-900 truncate">
                             {doctor.fullName}
                         </h3>
@@ -26,21 +29,52 @@ const DoctorCard = ({ doctor, onEdit, onViewAgenda }: DoctorCardProps) => {
                     </div>
                 </div>
 
-                <div className="space-y-2 text-sm text-gray-600 mb-5">
-                    <p className="flex items-center">
-                        <span className="font-medium mr-2">Email:</span>
-                        {doctor.email}
-                    </p>
-                    <p className="flex items-center">
-                        <span className="font-medium mr-2">Telefone:</span>
-                        {doctor.phoneNumber}
-                    </p>
-                    <p className="flex items-center">
-                        <span className="font-medium mr-2">Registro:</span>
-                        {doctor.licenseNumber}
-                    </p>
+                {/* Informações de contato - Versão aprimorada */}
+                <div className="space-y-4 mb-6">
+                    <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                        <div className="p-2 bg-white rounded-md shadow-xs">
+                            <Mail className="text-gray-500" size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-xs text-gray-400 mb-1">E-mail</p>
+                            <a
+                                href={`mailto:${doctor.email}`}
+                                className="text-sm font-medium text-gray-700 hover:text-emerald-600 transition-colors truncate block"
+                            >
+                                {doctor.email}
+                            </a>
+                        </div>
+                    </div>
+
+                    <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                        <div className="p-2 bg-white rounded-md shadow-xs">
+                            <Phone className="text-gray-500" size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-xs text-gray-400 mb-1">Telefone</p>
+                            <a
+                                href={`tel:${doctor.phoneNumber}`}
+                                className="text-sm font-medium text-gray-700 hover:text-emerald-600 transition-colors"
+                            >
+                                {formatPhoneNumber(doctor.phoneNumber)}
+                            </a>
+                        </div>
+                    </div>
+
+                    <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                        <div className="p-2 bg-white rounded-md shadow-xs">
+                            <ClipboardList className="text-gray-500" size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-xs text-gray-400 mb-1">Registro</p>
+                            <span className="text-sm font-mono text-gray-600">
+                                {doctor.licenseNumber}
+                            </span>
+                        </div>
+                    </div>
                 </div>
 
+                {/* Botões - Mantido igual */}
                 <div className="flex space-x-2 border-t border-gray-100 pt-4">
                     <button
                         onClick={() => onEdit(doctor)}
