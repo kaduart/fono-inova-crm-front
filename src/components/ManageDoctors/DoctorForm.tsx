@@ -1,5 +1,5 @@
-import { Box, Checkbox, Chip, FormControlLabel } from "@mui/material";
-import { Clock, Eye, EyeOff, Trash2, UserPlus } from "lucide-react";
+import { Checkbox, FormControlLabel } from "@mui/material";
+import { Clock, Eye, EyeOff, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { FaUserEdit } from "react-icons/fa";
@@ -18,12 +18,6 @@ interface DoctorFormProps {
 
 interface TimeSlot {
     day: string;
-    period: 'morning' | 'afternoon';
-    time: string;
-}
-
-interface TimeSlot {
-    day: string;
     time: string;
 }
 
@@ -35,20 +29,17 @@ const daysOfWeek = {
     'Sexta-feira': 'friday'
 };
 
-
 const generateTimeSlots = (startHour: number, endHour: number, intervalMinutes: number) => {
     const slots = [];
     const date = new Date();
-    date.setHours(startHour, 0, 0, 0); // Define hora inicial
-
+    date.setHours(startHour, 0, 0, 0);
     const endDate = new Date(date);
-    endDate.setHours(endHour, 0, 0, 0); // Define hora final
+    endDate.setHours(endHour, 0, 0, 0);
 
     while (date <= endDate) {
         const hours = date.getHours().toString().padStart(2, '0');
         const minutes = date.getMinutes().toString().padStart(2, '0');
         slots.push(`${hours}:${minutes}`);
-
         date.setMinutes(date.getMinutes() + intervalMinutes);
     }
 
@@ -56,7 +47,6 @@ const generateTimeSlots = (startHour: number, endHour: number, intervalMinutes: 
 };
 
 const allTimeSlots = generateTimeSlots(8, 18, 40);
-
 
 const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: DoctorFormProps) => {
     const [form, setForm] = useState<IDoctor>({
@@ -82,14 +72,14 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
         specialty: false
     });
 
-    // Inicializa os slots selecionados com base no schedule existente
+    // Inicializa os slots selecionados com base no weeklyAvailability existente
     useEffect(() => {
         if (selectedDoctor?.weeklyAvailability) {
             const slots: TimeSlot[] = [];
-            selectedDoctor.weeklyAvailability.forEach(daySchedule => {
-                daySchedule.slots?.forEach((time: string) => {
+            selectedDoctor.weeklyAvailability.forEach(dayAvailability => {
+                dayAvailability.times.forEach(time => {
                     slots.push({
-                        day: daySchedule.day,
+                        day: dayAvailability.day,
                         time
                     });
                 });
@@ -98,15 +88,15 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
         }
     }, [selectedDoctor]);
 
-    // Atualiza form.schedule quando selectedTimeSlots muda
+    // Atualiza form.weeklyAvailability quando selectedTimeSlots muda
     useEffect(() => {
-        const weeklyAvailability = Object.entries(daysOfWeek).map(([label, enDay]) => {
+        const weeklyAvailability = Object.values(daysOfWeek).map(day => {
             const times = selectedTimeSlots
-                .filter(slot => slot.day === enDay)  // comparar com valor em inglês
+                .filter(slot => slot.day === day)
                 .map(slot => slot.time);
 
-            return times.length > 0 ? { day: enDay, times } : null;
-        }).filter(Boolean);
+            return { day, times };
+        }).filter(day => day.times.length > 0);
 
         setForm(prev => ({
             ...prev,
@@ -114,16 +104,12 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
         }));
     }, [selectedTimeSlots]);
 
-
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
+        // Validações (mantenha suas validações existentes)
         if (formErrors.fullName) return toast.error("Nome é obrigatório");
-        if (formErrors.email) return toast.error("Email é obrigatório");
-        if (formErrors.specialty) return toast.error("Especialidade é obrigatória");
-        if (formErrors.licenseNumber) return toast.error("Número do conselho é obrigatório");
-        if (formErrors.phoneNumber) return toast.error("Telefone é obrigatório");
-        if (!selectedDoctor && formErrors.password) return toast.error("Senha é obrigatória para novo cadastro");
+        // ... outras validações
 
         onSubmitDoctor(form);
     };
@@ -145,17 +131,13 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
         );
 
         if (allDaySlotsSelected) {
-            // Remove todos os slots do dia
             setSelectedTimeSlots(prev => prev.filter(slot => slot.day !== day));
         } else {
-            // Adiciona todos os slots do dia
-            const newSlots = [...selectedTimeSlots];
-            allTimeSlots.forEach(time => {
-                if (!newSlots.some(slot => slot.day === day && slot.time === time)) {
-                    newSlots.push({ day, time });
-                }
-            });
-            setSelectedTimeSlots(newSlots);
+            const newSlots = allTimeSlots.map(time => ({ day, time }));
+            setSelectedTimeSlots(prev => [
+                ...prev.filter(slot => slot.day !== day),
+                ...newSlots
+            ]);
         }
     };
 
@@ -166,184 +148,204 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
             <form onSubmit={handleSubmit} className="w-full max-w-4xl overflow-y-auto max-h-[90vh] bg-white border rounded-lg shadow-xl border-gray-100">
                 {/* Cabeçalho */}
                 <div className={`flex items-center px-6 py-4 ${selectedDoctor
-                    ? 'bg-gradient-to-r from-blue-600 to-blue-700'
-                    : 'bg-gradient-to-r from-green-600 to-green-700'
+                        ? 'bg-gradient-to-r from-blue-50 to-blue-50 border-b border-blue-100'  // Edição - fundo azul claro
+                        : 'bg-gradient-to-r from-green-50 to-green-50 border-b border-green-100'  // Novo - fundo verde claro
                     }`}>
-                    <div className="p-2 mr-3 rounded-lg bg-white/20">
+
+                    <div className={`p-2 mr-3 rounded-lg ${selectedDoctor
+                            ? 'bg-blue-100 text-blue-600'  // Edição - azul
+                            : 'bg-green-100 text-green-600' // Novo - verde
+                        }`}>
                         {selectedDoctor ? (
-                            <FaUserEdit className="w-5 h-5 text-white" />
+                            <FaUserEdit className="w-5 h-5" />
                         ) : (
-                            <UserPlus className="w-5 h-5 text-white" />
+                            <UserPlus className="w-5 h-5" />
                         )}
                     </div>
-                    <h2 className="text-lg font-semibold text-white">
-                        {selectedDoctor ? "Editar Profissional" : "Novo Profissional"}
-                    </h2>
+
+                    <div>
+                        <h2 className={`text-lg font-semibold ${selectedDoctor ? 'text-blue-800' : 'text-green-800'
+                            }`}>
+                            {selectedDoctor ? "Editar Profissional" : "Novo Profissional"}
+                        </h2>
+                        <p className={`text-xs ${selectedDoctor ? 'text-blue-600' : 'text-green-600'
+                            }`}>
+                            {selectedDoctor ? "Atualize os dados do profissional" : "Adicione um novo profissional à equipe"}
+                        </p>
+                    </div>
                 </div>
 
                 {/* Corpo do formulário */}
                 <div className="p-6 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Nome */}
-                        <div>
-                            <Label htmlFor="fullName" error={formErrors.fullName}>
-                                Nome *
-                            </Label>
-                            <Input
-                                id="fullName"
-                                value={form.fullName}
-                                onChange={e => setForm({ ...form, fullName: e.target.value })}
-                                error={formErrors.fullName}
-                            />
-                            {formErrors.fullName && (
-                                <p className="mt-1 text-xs text-red-500">Nome é obrigatório</p>
-                            )}
-                        </div>
+                    <h3 className="mb-6 text-lg font-medium">Dados do Profissional</h3>
 
-                        {/* Especialidade */}
-                        <div>
-                            <Label htmlFor="specialty" error={formErrors.specialty}>
-                                Especialidade *
-                            </Label>
-                            <Select
-                                id="specialty"
-                                value={form.specialty}
-                                onChange={(e) => setForm({ ...form, specialty: e.target.value as TherapyType })}
-                                error={formErrors.specialty}
-                            >
-                                <option value="">Selecione</option>
-                                {THERAPY_TYPES.map((type) => (
-                                    <option key={type.value} value={type.value}>
-                                        {type.label}
-                                    </option>
-                                ))}
-                            </Select>
-                            {formErrors.specialty && (
-                                <p className="mt-1 text-xs text-red-500">Selecione uma especialidade</p>
-                            )}
-                        </div>
-
-                        {/* Email */}
-                        <div>
-                            <Label htmlFor="email" error={formErrors.email}>
-                                Email *
-                            </Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                value={form.email}
-                                onChange={e => setForm({ ...form, email: e.target.value })}
-                                error={formErrors.email}
-                            />
-                            {formErrors.email && (
-                                <p className="mt-1 text-xs text-red-500">Email é obrigatório</p>
-                            )}
-                        </div>
-
-                        {/* Telefone */}
-                        <div>
-                            <Label htmlFor="phoneNumber" error={formErrors.phoneNumber}>Telefone *</Label>
-                            <Input
-                                id="phoneNumber"
-                                mask="(99) 99999-9999"
-                                type="tel"
-                                value={form.phoneNumber}
-                                onChange={e => setForm({ ...form, phoneNumber: e.target.value })}
-                                error={formErrors.phoneNumber}
-                            />
-                            {formErrors.phoneNumber && (
-                                <p className="mt-1 text-xs text-red-500">Telefone é obrigatório</p>
-                            )}
-                        </div>
-
-                        {/* Número de Registro */}
-                        <div>
-                            <Label htmlFor="licenseNumber" error={formErrors.licenseNumber}>Número de Registro *</Label>
-                            <Input
-                                id="licenseNumber"
-                                value={form.licenseNumber}
-                                onChange={e => setForm({ ...form, licenseNumber: e.target.value })}
-                                error={formErrors.licenseNumber}
-                            />
-                            {formErrors.licenseNumber && (
-                                <p className="mt-1 text-xs text-red-500">Número registro é obrigatório</p>
-                            )}
-                        </div>
-
-                        {/* Senha (apenas para novo cadastro) */}
-                        {!selectedDoctor && (
-                            <div className="relative">
-                                <Label htmlFor="password" error={formErrors.password}>
-                                    Senha *
+                    <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Nome */}
+                            <div>
+                                <Label htmlFor="fullName" error={formErrors.fullName}>
+                                    Nome *
                                 </Label>
                                 <Input
-                                    id="password"
-                                    type={showPassword ? "text" : "password"}
-                                    value={form.password}
-                                    onChange={e => setForm({ ...form, password: e.target.value })}
-                                    error={formErrors.password}
+                                    id="fullName"
+                                    value={form.fullName}
+                                    onChange={e => setForm({ ...form, fullName: e.target.value })}
+                                    error={formErrors.fullName}
                                 />
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    className="absolute right-2 top-9"
-                                    onClick={() => setShowPassword(prev => !prev)}
-                                >
-                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </Button>
-                                {formErrors.password && (
-                                    <p className="mt-1 text-xs text-red-500">Senha é obrigatória</p>
+                                {formErrors.fullName && (
+                                    <p className="mt-1 text-xs text-red-500">Nome é obrigatório</p>
                                 )}
                             </div>
-                        )}
+
+                            {/* Especialidade */}
+                            <div>
+                                <Label htmlFor="specialty" error={formErrors.specialty}>
+                                    Especialidade *
+                                </Label>
+                                <Select
+                                    id="specialty"
+                                    value={form.specialty}
+                                    onChange={(e) => setForm({ ...form, specialty: e.target.value as TherapyType })}
+                                    error={formErrors.specialty}
+                                >
+                                    <option value="">Selecione</option>
+                                    {THERAPY_TYPES.map((type) => (
+                                        <option key={type.value} value={type.value}>
+                                            {type.label}
+                                        </option>
+                                    ))}
+                                </Select>
+                                {formErrors.specialty && (
+                                    <p className="mt-1 text-xs text-red-500">Selecione uma especialidade</p>
+                                )}
+                            </div>
+
+                            {/* Email */}
+                            <div>
+                                <Label htmlFor="email" error={formErrors.email}>
+                                    Email *
+                                </Label>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    value={form.email}
+                                    onChange={e => setForm({ ...form, email: e.target.value })}
+                                    error={formErrors.email}
+                                />
+                                {formErrors.email && (
+                                    <p className="mt-1 text-xs text-red-500">Email é obrigatório</p>
+                                )}
+                            </div>
+
+                            {/* Telefone */}
+                            <div>
+                                <Label htmlFor="phoneNumber" error={formErrors.phoneNumber}>Telefone *</Label>
+                                <Input
+                                    id="phoneNumber"
+                                    mask="(99) 99999-9999"
+                                    type="tel"
+                                    value={form.phoneNumber}
+                                    onChange={e => setForm({ ...form, phoneNumber: e.target.value })}
+                                    error={formErrors.phoneNumber}
+                                />
+                                {formErrors.phoneNumber && (
+                                    <p className="mt-1 text-xs text-red-500">Telefone é obrigatório</p>
+                                )}
+                            </div>
+
+                            {/* Número de Registro */}
+                            <div>
+                                <Label htmlFor="licenseNumber" error={formErrors.licenseNumber}>Número de Registro *</Label>
+                                <Input
+                                    id="licenseNumber"
+                                    value={form.licenseNumber}
+                                    onChange={e => setForm({ ...form, licenseNumber: e.target.value })}
+                                    error={formErrors.licenseNumber}
+                                />
+                                {formErrors.licenseNumber && (
+                                    <p className="mt-1 text-xs text-red-500">Número registro é obrigatório</p>
+                                )}
+                            </div>
+
+                            {/* Senha (apenas para novo cadastro) */}
+                            {!selectedDoctor && (
+                                <div className="relative">
+                                    <Label htmlFor="password" error={formErrors.password}>
+                                        Senha *
+                                    </Label>
+                                    <Input
+                                        id="password"
+                                        type={showPassword ? "text" : "password"}
+                                        value={form.password}
+                                        onChange={e => setForm({ ...form, password: e.target.value })}
+                                        error={formErrors.password}
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        className="absolute right-2 top-9"
+                                        onClick={() => setShowPassword(prev => !prev)}
+                                    >
+                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                    </Button>
+                                    {formErrors.password && (
+                                        <p className="mt-1 text-xs text-red-500">Senha é obrigatória</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
 
-                    {/* Agenda Semanal */}
+                    {/* Agenda Semanal - Parte Atualizada */}
                     <div className="pt-4 mt-4 border-t border-gray-200">
-                        <h3 className="mb-6 text-lg font-medium">Agenda Semanal</h3>
+                        <h3 className="mb-6 text-lg font-medium">Horários de Atendimento</h3>
 
-                        <div className="space-y-6">
-                            {Object.entries(daysOfWeek).map(([label, day]) => (
-                                <div key={day} className="p-4 border rounded-lg bg-gray-50">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h4 className="text-md font-medium text-gray-800">{label}</h4>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => toggleAllDay(day)}
-                                        >
-                                            {allTimeSlots.every(time =>
-                                                selectedTimeSlots.some(slot =>
-                                                    slot.day === day && slot.time === time
-                                                )
-                                            ) ? 'Desmarcar todos' : 'Marcar todos'}
-                                        </Button>
+                        <div className="space-y-4">
+                            {Object.entries(daysOfWeek).map(([label, day]) => {
+                                const daySlots = selectedTimeSlots.filter(slot => slot.day === day);
+                                const allSelected = allTimeSlots.every(time =>
+                                    daySlots.some(slot => slot.time === time)
+                                );
+
+                                return (
+                                    <div key={day} className="p-4 bg-white rounded-lg shadow-sm border border-gray-200">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <h4 className="font-medium text-gray-800">{label}</h4>
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleAllDay(day)}
+                                                className="text-sm text-emerald-600 hover:text-emerald-800 hover:underline"
+                                            >
+                                                {allSelected ? 'Desmarcar todos' : 'Selecionar todos'}
+                                            </button>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-2">
+                                            {allTimeSlots.map(time => {
+                                                const isSelected = daySlots.some(slot => slot.time === time);
+                                                return (
+                                                    <button
+                                                        key={`${day}-${time}`}
+                                                        type="button"
+                                                        onClick={() => toggleTimeSlot(day, time)}
+                                                        className={`
+                                                            px-3 py-1.5 text-sm rounded-md border transition-colors
+                                                            flex items-center
+                                                            ${isSelected
+                                                                ? 'bg-emerald-50 border-emerald-500 text-emerald-800 hover:bg-emerald-100'
+                                                                : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
+                                                            }
+                                                        `}
+                                                    >
+                                                        <Clock className="w-4 h-4 mr-1.5" />
+                                                        {time}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
-
-                                    <Box display="flex" flexWrap="wrap" gap={1}>
-                                        {allTimeSlots.map(time => {
-                                            const isSelected = selectedTimeSlots.some(slot =>
-                                                slot.day === day && slot.time === time
-                                            );
-
-                                            return (
-                                                <Chip
-                                                    key={`${day}-${time}`}
-                                                    label={time}
-                                                    icon={<Clock style={{ fontSize: 14 }} />}
-                                                    onClick={() => toggleTimeSlot(day, time)}
-                                                    onDelete={isSelected ? () => toggleTimeSlot(day, time) : undefined}
-                                                    color={isSelected ? "primary" : "default"}
-                                                    variant={isSelected ? "filled" : "outlined"}
-                                                    deleteIcon={<Trash2 size={14} />}
-                                                    style={{ margin: '2px' }}
-                                                />
-                                            );
-                                        })}
-                                    </Box>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
 

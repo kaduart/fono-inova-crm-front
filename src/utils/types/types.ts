@@ -138,6 +138,7 @@ export interface IDoctor {
     licenseNumber: string;
     password: string;
     active: boolean;
+    weeklyAvailability: any[]
 }
 
 export const PatientInitialValues = {

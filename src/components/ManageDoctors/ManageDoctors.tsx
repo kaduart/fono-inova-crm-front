@@ -1,8 +1,7 @@
-import dayjs from 'dayjs';
+import { User, UserPlus } from 'lucide-react';
 import React, { useEffect, useState } from "react";
 import toast from 'react-hot-toast';
 import appointmentService from '../../services/appointmentService';
-import { mergeDateAndTimeToAppointment } from '../../utils/dateFormat';
 import { IDoctor, IPatient, ScheduleAppointment } from "../../utils/types/types";
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
 import { Button } from "../ui/Button";
@@ -45,7 +44,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
     const [showModal, setShowModal] = useState(false);
     const [dataUpdateSlots, setdataUpdateSlots] = useState<ScheduleAppointment | undefined>();
     const [showAddDoctorModal, setShowAddDoctorModal] = useState(false);
-    const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs | null>(null);
+    const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [showAgendaModal, setshowAgendaModal] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -86,8 +85,8 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
     };
 
     const handleDaySlotsChange = (slots: { date: string; slots: string[] }[]) => {
-
-        setSelectedDate(dayjs(slots[0].date));
+        console.log('ddddddd', slots)
+        setSelectedDate(slots[0].date);
         setAllDaySlots(slots);
     };
 
@@ -110,10 +109,13 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
 
     //aqui chama o agendamento por hora
     const onOpenCloseModals = async (data: any) => {
-        console.log('data no  closeopen modal ', data);
 
         setScheduleAppointmentData({
-            date: selectedDate ? selectedDate.toISOString() : '',
+            date: selectedDate
+                ? (selectedDate instanceof Date
+                    ? selectedDate.toISOString().split('T')[0]
+                    : selectedDate.toString())
+                : '',
             time: data.time,
             doctorId: '',
             patientId: '',
@@ -145,17 +147,15 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
     //to do ja ta no admiondash so adaptar
     const handleBooking = async (payload: ScheduleAppointment,) => {
         console.log('pay original 2', payload)
-        const mergedDate = mergeDateAndTimeToAppointment(payload.date, payload.time);
+        // const mergedDate = mergeDateAndTimeToAppointment(payload.date, payload.time);
 
         payload.specialty = payload.sessionType;
         setIsLoading(true);
         setErrorMessage(null);
-        console.log('pay atualizado 2', mergedDate)
 
         try {
             await appointmentService.create({
                 ...payload,
-                date: mergedDate,
                 specialty: payload.sessionType
             });
 
@@ -179,10 +179,24 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
 
     return (
         <div className="p-4">
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Gestão de Profissionais</h2>
-                <Button onClick={() => handleAddOrEditDoctor(null)}>Adicionar Profissional</Button>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 p-4 bg-white rounded-lg shadow-sm border border-gray-100">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-50 rounded-lg">
+                        <User className="w-5 h-5 text-blue-600" /> {/* Ícone de usuário */}
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-semibold text-gray-800">Gestão de Profissionais</h2>
+                        <p className="text-sm text-gray-500">Cadastre e gerencie os profissionais da clínica</p>
+                    </div>
+                </div>
 
+                <Button
+                    onClick={() => handleAddOrEditDoctor(null)}
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                    <UserPlus className="w-4 h-4" /> {/* Ícone de adicionar usuário */}
+                    Adicionar Profissional
+                </Button>
             </div>
 
             <DoctorList doctors={doctors} onEdit={handleAddOrEditDoctor} onViewAgenda={handleViewAgenda} />

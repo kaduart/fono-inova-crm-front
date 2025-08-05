@@ -922,6 +922,7 @@ export default function AdminDashboard() {
         </div>
         <DoctorFormModal
           open={showModalAddProfessional}
+          patients={patients}
           onClose={() => setShowModalAddProfessional(false)}
           onSubmitDoctor={handleSaveDoctor}
           loading={isLoading}

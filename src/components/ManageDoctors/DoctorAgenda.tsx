@@ -41,8 +41,9 @@ const DoctorAgenda = ({ doctors = [], updateSlots, patients, onDaySlotsChange, s
 
     useEffect(() => {
         if (!updateSlots) return;
-
+        console.log('updatessssslo', updateSlots)
         const dataSendToSlots = new Date(updateSlots.date).toISOString().split('T')[0];;
+        console.log('dataSendToSlots', dataSendToSlots)
 
         if (updateSlots && updateSlots.doctorId) {
             setSelectedDoctorId(updateSlots.doctorId);

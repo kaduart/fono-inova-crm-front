@@ -66,7 +66,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         }
     }, [closeModalSignal]);
 
-   
+
 
     const getStatusConfig = (status: string) => {
         if (statusConfig[status]) return statusConfig[status];
@@ -77,23 +77,17 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             label: status.charAt(0).toUpperCase() + status.slice(1)
         };
     };
-console.log('appointments', appointments)
 
     const events = appointments?.map(appointment => {
-        // Converter a string ISO para objeto Date
-        const dateObj = new Date(appointment.date);
+        // Extrair ano, mês e dia da string date
+        const [year, month, day] = appointment.date.split('-').map(Number);
 
         // Extrair horas e minutos do campo time
         const [hours, minutes] = appointment.time.split(':').map(Number);
 
-        // Criar data completa combinando date e time
-        const startDate = new Date(
-            dateObj.getFullYear(),
-            dateObj.getMonth(),
-            dateObj.getDate(),
-            hours,
-            minutes
-        );
+        // Criar data completa combinando date e time (sem conversão de fuso)
+        const startDate = new Date(year, month - 1, day, hours, minutes);
+
         // Calcular data de término
         const duration = appointment.duration || 60;
         const endDate = new Date(startDate.getTime() + duration * 60 * 1000);
@@ -104,8 +98,8 @@ console.log('appointments', appointments)
         return {
             id: appointment._id || appointment.id,
             title: `${appointment.patient?.fullName || 'Paciente'} - ${appointment.doctor?.fullName || 'Profissional'}`,
-            start: startDate,  // Objeto Date unificado
-            end: endDate,      // Objeto Date unificado
+            start: startDate,
+            end: endDate,
             extendedProps: {
                 patient: appointment.patient,
                 doctor: appointment.doctor,
@@ -120,6 +114,7 @@ console.log('appointments', appointments)
             textColor: config.textColor,
         };
     });
+
 
     const handlePayloadToSlots = async (data: { doctorId: string; date: string }) => {
         setFormData(prev => ({ ...prev, ...data }));
@@ -173,9 +168,11 @@ console.log('appointments', appointments)
         }
         payload.specialty = payload.sessionType;
         try {
+            console.log('payload', payload)
+            console.log('mergedDate', mergedDate)
             await appointmentService.create({
                 ...payload,
-                date: mergedDate.toISOString(),
+                // date: mergedDate.toISOString(),
                 specialty: payload.sessionType
             });
 
@@ -187,8 +184,6 @@ console.log('appointments', appointments)
             toast.success('Sessão agendada e pagamento registrado com sucesso!');
             // setdataUpdateSlots(payload);
             setOpenSchedule(false);
-
-
         } catch (err: any) {
             toast.error(err.response.data.error || 'Erro ao agendar sessão');
         }

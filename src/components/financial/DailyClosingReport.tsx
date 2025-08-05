@@ -1,4 +1,3 @@
-// src/components/DailyClosingReport.tsx
 import { format } from 'date-fns';
 import { CalendarIcon, CheckCircleIcon, XCircleIcon } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
@@ -66,13 +65,13 @@ const DailyClosingReport = () => {
     useEffect(() => {
         fetchDailyClosing(dateFilter);
     }, [dateFilter, fetchDailyClosing]);
-
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat('pt-BR', {
             style: 'currency',
             currency: 'BRL'
         }).format(value);
     };
+    console.log('doooo', report)
 
     const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setDateFilter(e.target.value);

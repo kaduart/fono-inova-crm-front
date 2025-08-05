@@ -79,8 +79,6 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         e.preventDefault();
         if (!validate()) return;
 
-        // await formatDateTimeForBackend(dateTime.date, dateTime.time);
-
         if (!formData.sessionType || !formData.paymentType || !formData.doctorId) { // Adicionado doctorId
             toast.error('Preencha todos os campos obrigatórios (profissional, tipo de sessão, tipo de pagamento do pacote).');
             return;

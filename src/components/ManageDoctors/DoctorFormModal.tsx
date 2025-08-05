@@ -10,6 +10,7 @@ interface DoctorFormModalProps {
     selectedDoctor: IDoctor | null;
     loading?: boolean;
     modalShouldClose?: boolean;
+    onCancel?: () => void;
 };
 
 const DoctorFormModal = ({
