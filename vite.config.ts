@@ -1,89 +1,57 @@
 import react from '@vitejs/plugin-react';
-import path from 'path';
 import { visualizer } from 'rollup-plugin-visualizer';
-import { fileURLToPath } from 'url';
 import { defineConfig, loadEnv } from 'vite';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const isDevelopment = mode === 'development';
-  const baseUrl = env.VITE_API_BASE_URL || 
-    (isDevelopment 
-      ? 'http://localhost:5000' 
-      : 'https://fono-inova-crm-back.onrender.com');
 
   return {
-    base: '/', // Adicionado para garantir rotas absolutas
     plugins: [
       react(),
-      ...(mode === 'production' ? [visualizer({
+      visualizer({
         open: true,
-        gzipSize: true,
-        filename: 'bundle-stats.html'
-      })] : [])
+        gzipSize: true
+      })
     ],
     build: {
-      outDir: '../backend/frontend/dist', // Caminho absoluto recomendado
-      emptyOutDir: true,
-      sourcemap: isDevelopment,
       rollupOptions: {
         output: {
           manualChunks: {
-            mui: ['@mui/material', '@mui/icons-material'],
+            mui: ['@mui/material'],
             react: ['react', 'react-dom', 'react-router-dom'],
-            vendors: ['lodash', 'date-fns', 'axios'],
-            charts: ['recharts', 'chart.js']
-          },
-          entryFileNames: `assets/[name]-[hash].js`,
-          chunkFileNames: `assets/[name]-[hash].js`,
-          assetFileNames: `assets/[name]-[hash].[ext]`
+            vendor: ['lodash', 'date-fns', 'axios']
+          }
         }
       },
-      chunkSizeWarningLimit: 1600,
-      minify: isDevelopment ? false : 'terser'
+      chunkSizeWarningLimit: 1000
     },
     server: {
-      port: 5173,
-      strictPort: true,
       proxy: {
         '/api': {
-          target: baseUrl,
+          target: isDevelopment 
+            ? 'http://localhost:5000' // Backend local em desenvolvimento
+            : 'https://fono-inova-crm-back.onrender.com', // Backend remoto em produção
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, ''),
-          secure: !isDevelopment,
-          ws: true,
+          secure: !isDevelopment, // Desativa verificação SSL em desenvolvimento
           configure: (proxy) => {
-            proxy.on('proxyReq', (proxyReq) => {
-              console.log('[PROXY]', proxyReq.method, proxyReq.path);
+            // Opcional: Configurações adicionais do proxy
+            proxy.on('error', (err) => {
+              console.error('Proxy error:', err);
             });
           }
         }
       }
     },
-    preview: {
-      port: 4173,
-      host: true,
-      proxy: {
-        '/api': {
-          target: baseUrl,
-          changeOrigin: true,
-          secure: true
-        }
-      }
-    },
-    resolve: {
-      alias: {
-        '@': path.resolve(__dirname, './src'),
-        '~': path.resolve(__dirname, './public')
-      }
-    },
     define: {
       'process.env': {
-        VITE_API_BASE_URL: JSON.stringify(`${baseUrl}/api`),
-        VITE_MODE: JSON.stringify(mode),
-        VITE_BUILD_TIME: JSON.stringify(new Date().toISOString())
+        VITE_USE_LOCAL_API: JSON.stringify(env.VITE_USE_LOCAL_API),
+        VITE_API_URL: JSON.stringify(
+          isDevelopment 
+            ? 'http://localhost:5000/api' 
+            : 'https://fono-inova-crm-back.onrender.com/api'
+        )
       }
     }
   };
