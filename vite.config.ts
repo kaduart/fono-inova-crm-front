@@ -1,8 +1,8 @@
 import react from '@vitejs/plugin-react';
-import { visualizer } from 'rollup-plugin-visualizer';
-import { defineConfig, loadEnv } from 'vite';
-import { fileURLToPath } from 'url';
 import path from 'path';
+import { visualizer } from 'rollup-plugin-visualizer';
+import { fileURLToPath } from 'url';
+import { defineConfig, loadEnv } from 'vite';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -25,7 +25,7 @@ export default defineConfig(({ mode }) => {
       })] : [])
     ],
     build: {
-      outDir: '../backend/frontend/dist', // Caminho absoluto recomendado
+       outDir: path.resolve(__dirname, 'dist'),
       emptyOutDir: true,
       sourcemap: isDevelopment,
       rollupOptions: {
@@ -34,7 +34,6 @@ export default defineConfig(({ mode }) => {
             mui: ['@mui/material', '@mui/icons-material'],
             react: ['react', 'react-dom', 'react-router-dom'],
             vendors: ['lodash', 'date-fns', 'axios'],
-            charts: ['recharts', 'chart.js']
           },
           entryFileNames: `assets/[name]-[hash].js`,
           chunkFileNames: `assets/[name]-[hash].js`,
@@ -42,7 +41,7 @@ export default defineConfig(({ mode }) => {
         }
       },
       chunkSizeWarningLimit: 1600,
-      minify: isDevelopment ? false : 'terser'
+      minify: isDevelopment ? false : 'esbuild'
     },
     server: {
       port: 5173,
@@ -76,7 +75,8 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
-        '~': path.resolve(__dirname, './public')
+        '~': path.resolve(__dirname, './public'),
+        'chart.js': path.resolve(__dirname, 'node_modules/chart.js')
       }
     },
     define: {
