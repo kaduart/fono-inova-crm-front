@@ -146,7 +146,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
 
     //to do ja ta no admiondash so adaptar
     const handleBooking = async (payload: ScheduleAppointment,) => {
-        console.log('pay original 2', payload)
+        console.log('Bateu no manage doctor', payload)
         // const mergedDate = mergeDateAndTimeToAppointment(payload.date, payload.time);
 
         payload.specialty = payload.sessionType;

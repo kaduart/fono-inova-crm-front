@@ -162,6 +162,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
     const handleBooking = async (payload: ScheduleAppointment) => {
         const mergedDate = mergeDateAndTime(payload.date, payload.time);
+        console.log('Bateu no enhanced', payload)
+     
         if (isNaN(mergedDate.getTime())) {
             toast.error('Data/hora inválida');
             return;

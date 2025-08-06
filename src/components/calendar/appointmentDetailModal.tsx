@@ -109,14 +109,14 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         }
 
         // Para garantir que não converta para UTC:
-        const isoLocal = `${editedAppointment.date}T${editedAppointment.time}:00`;
+       // const isoLocal = `${editedAppointment.date}T${editedAppointment.time}:00`;
 
         setIsEditing(true);
         try {
             const appointmentData = {
                 doctorId: editedAppointment.doctorId,
                 patientId: editedAppointment.patientId,
-                date: isoLocal,
+                date: editedAppointment.date,
                 time: editedAppointment.time,
                 reason: editedAppointment.reason,
                 operationalStatus: editedAppointment.operationalStatus,

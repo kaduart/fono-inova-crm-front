@@ -4,7 +4,7 @@ import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import toast from 'react-hot-toast';
 import ReactInputMask from 'react-input-mask';
-import { buildLocalDateOnly, buildLocalTime, combineLocalDateTime } from '../../utils/dateFormat';
+import { buildLocalDateOnly } from '../../utils/dateFormat';
 import { IDoctor, ISession, THERAPY_TYPES, TherapyType } from '../../utils/types/types';
 import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
@@ -40,57 +40,32 @@ export const SessionModal = ({
     const title = action === 'edit' ? 'Editar Sessão' : 'Registrar Uso';
     const submitText = action === 'edit' ? 'Salvar Alterações' : 'Registrar Uso';
     // Estados separados para data e hora
-    const [localDate, setLocalDate] = useState<Date | null>(null);
-    const [localTime, setLocalTime] = useState<Date | null>(null);
     const [isFormValid, setIsFormValid] = useState(false);
-
-    // Inicializa os estados com os valores da sessão
-    useEffect(() => {
-        if (sessionData.date) {
-            const dateOnly = sessionData.date.split('T')[0];
-            setLocalDate(buildLocalDateOnly(dateOnly));
-
-            if (sessionData.time) {
-                setLocalTime(buildLocalTime(sessionData.time));
-            }
-        }
-    }, [sessionData.date, sessionData.time]);
-
-    // Atualiza o sessionData quando data ou hora mudam
-    // Atualização dos dados
-    useEffect(() => {
-        if (localDate && localTime) {
-            const dateTimeISO = combineLocalDateTime(localDate, localTime);
-            const formattedTime = `${localTime.getHours().toString().padStart(2, '0')}:${localTime.getMinutes().toString().padStart(2, '0')}`;
-            console.log('payload pasession package', formattedTime)
-
-            onSessionDataChange({
-                ...sessionData,
-                date: dateTimeISO,
-                time: formattedTime,
-                formattedDate: {
-                    date: localDate.toLocaleDateString('pt-BR'),
-                    time: formattedTime,
-                    full: `${localDate.toLocaleDateString('pt-BR')}, ${formattedTime}`
-                }
-            });
-        }
-    }, [localDate, localTime]);
 
     useEffect(() => {
         const isValid = Boolean(
             sessionData.doctorId &&
-            localDate &&
-            localTime &&
+            sessionData.date &&
             sessionData.time // Garante que o time foi formatado corretamente
         );
         setIsFormValid(isValid);
-    }, [sessionData.doctorId, localDate, localTime, sessionData.time]);
+    }, [sessionData.doctorId, sessionData.date, sessionData.time]);
 
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value, type } = e.target;
+        onSessionDataChange(prev => ({
+            ...prev,
+            [name]: type === 'number' ? Number(value) : value
+        }));
+    };
 
     const validateForm = () => {
-        if (!localDate) {
+        if (!sessionData.date) {
             toast.error("Data é obrigatória!");
+            return false;
+        }
+        if (!sessionData.time) {
+            toast.error("Hora é obrigatória!");
             return false;
         }
         if (!sessionData.doctorId) {
@@ -105,7 +80,7 @@ export const SessionModal = ({
 
         onSubmit();
     };
-
+    console.log('dados da sessao==================', sessionData)
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
             <div className="bg-white rounded-xl w-full max-w-md shadow-lg border border-gray-200 overflow-hidden transition-all duration-300 animate-fade-in">
@@ -156,8 +131,22 @@ export const SessionModal = ({
                                         Data *
                                     </label>
                                     <DatePicker
-                                        selected={localDate}
-                                        onChange={(date: Date | null) => setLocalDate(date)}
+                                        selected={sessionData.date ? buildLocalDateOnly(sessionData.date) : null}
+                                        onChange={(date: Date | null) => {
+                                            if (!date) return;
+
+                                            const formattedDate = date.toISOString().split('T')[0];
+
+                                            const fakeEvent = {
+                                                target: {
+                                                    name: 'date',
+                                                    value: formattedDate,
+                                                    type: 'text',
+                                                },
+                                            } as React.ChangeEvent<HTMLInputElement>;
+
+                                            handleChange(fakeEvent);
+                                        }}
                                         customInput={
                                             <ReactInputMask
                                                 mask="99/99/9999"
@@ -176,14 +165,37 @@ export const SessionModal = ({
                                         Hora *
                                     </label>
                                     <DatePicker
-                                        selected={localTime}
-                                        onChange={(time: Date | null) => setLocalTime(time)}
+                                        selected={
+                                            sessionData.time
+                                                ? (() => {
+                                                    const [hours, minutes] = sessionData.time.split(':').map(Number);
+                                                    const date = new Date();
+                                                    date.setHours(hours, minutes, 0, 0);
+                                                    return date;
+                                                })()
+                                                : null
+                                        }
+                                        onChange={(date: Date | null) => {
+                                            if (!date) return;
+                                            const formattedTime = date
+                                                .toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+                                            const fakeEvent = {
+                                                target: {
+                                                    name: 'time',
+                                                    value: formattedTime,
+                                                    type: 'text',
+                                                },
+                                            } as React.ChangeEvent<HTMLInputElement>;
+
+                                            handleChange(fakeEvent);
+                                        }}
                                         showTimeSelect
                                         showTimeSelectOnly
                                         timeIntervals={15}
                                         timeFormat="HH:mm"
                                         dateFormat="HH:mm"
-                                        placeholderText='HH:MM'
+                                        placeholderText="HH:MM"
                                         customInput={
                                             <ReactInputMask
                                                 mask="99:99"
@@ -192,6 +204,7 @@ export const SessionModal = ({
                                         }
                                         className="w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     />
+
                                 </div>
                             </div>
                         </div>
