@@ -62,6 +62,7 @@ export type UseSessionParams = {
   package: string;
   patient: string;
   doctorId: string;
+  serviceType: 'individual_session' | 'package_session' | 'evaluation';
   sessionType: 'fonoaudiologia' | 'terapia_ocupacional' | 'psicologia' | 'fisioterapia';
   paymentAmount?: number;
   paymentMethod?: 'dinheiro' | 'pix' | 'cartão';

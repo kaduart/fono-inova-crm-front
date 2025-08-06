@@ -50,8 +50,9 @@ export default function TherapyPackageCard({
   const handleSessionSubmit = async () => {
     const payload = {
       ...selectedSession,
-      package: pack._id, // Garante envio do packageId
-      sessionType: pack.sessionType, // Herda do pacote
+      package: pack._id,
+      sessionType: pack.sessionType,
+      serviceType: 'package_session',
     };
 
     setLoading(true);

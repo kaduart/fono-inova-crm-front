@@ -101,6 +101,7 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                 notes: sessionData.notes,
                 package: sessionData.package,
                 sessionType: sessionData.sessionType,
+                serviceType: sessionData.serviceType,
                 specialty: sessionData.sessionType,
                 sessionId: sessionData._id,
                 confirmedAbsence: sessionData.confirmedAbsence,
