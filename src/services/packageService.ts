@@ -20,10 +20,8 @@ export type CreatePackageParams = {
   amountPaid: number;
   paymentMethod: string;
   durationMonths: number;
-  dateTime?: {
-    date: string;
-    time: string;
-  };
+  date: string;
+  time: string;
   sessionsPerWeek: number;
 };
 
@@ -78,13 +76,6 @@ export const packageService = {
   // Operações com Pacotes
   createPackage: async (data: CreatePackageParams) => {
     try {
-      // Garante que dateTime existe
-      if (!data.dateTime) {
-        data.dateTime = {
-          date: new Date().toISOString().split('T')[0],
-          time: data.time || '12:00'
-        };
-      }
       const response = await API.post<ITherapyPackage>('/packages', data);
       return response.data;
     } catch (error) {

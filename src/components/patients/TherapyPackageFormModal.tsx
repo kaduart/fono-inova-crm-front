@@ -94,10 +94,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             return;
         }
 
-        const backendDateTime = {
-            date: formData.date,  // "2025-07-22"
-            time: formData.time   // "17:00"
-        };
+
 
         setLoading(true);
         const packageData = {
@@ -111,7 +108,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             paymentMethod: formData.paymentMethod,
             sessionsPerWeek: +formData.sessionsPerWeek,
             durationMonths: formData.durationMonths,
-            dateTime: backendDateTime,
+            date: formData.date,
             specialty: formData.sessionType,
             time: formData.time
         };

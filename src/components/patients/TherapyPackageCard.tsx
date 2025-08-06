@@ -212,7 +212,16 @@ export default function TherapyPackageCard({
 
         <ul className="mt-2 space-y-2">
           {pack.sessions && pack.sessions
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .sort((a, b) => {
+              // Comparação direta de strings no formato "YYYY-MM-DD"
+              if (a.date < b.date) return -1;
+              if (a.date > b.date) return 1;
+
+              // Se as datas forem iguais, compara os horários
+              if (a.time < b.time) return -1;
+              if (a.time > b.time) return 1;
+              return 0;
+            })
             .map((session, sessionNumber) => (
               <SessionListItem
                 key={session._id}
