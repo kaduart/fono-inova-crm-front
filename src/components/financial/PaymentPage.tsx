@@ -260,7 +260,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                                 </td>
                                                 <td className="px-2 py-2 text-left whitespace-nowrap text-sm text-gray-500">
                                                     {payment && payment.appointment
-                                                        ? `${new Date(payment.appointment.date).toLocaleDateString('pt-BR')} às ${payment.appointment.time}`
+                                                        ? `${payment.appointment.date} às ${payment.appointment.time}`
                                                         : '0'}
                                                 </td>
                                                 <td className="px-2 py-2 text-left whitespace-nowrap text-sm text-gray-500">
