@@ -1,5 +1,6 @@
 import { AlertTriangle, BookOpenText, CalendarCheck, CheckCircle, Clock4, Edit, XCircle } from "lucide-react";
 import { ISession } from '../../utils/types/types';
+import { formatDateToDMY } from "../../utils/dateFormat";
 
 export interface SessionListItemProps {
     session: ISession;
@@ -79,7 +80,7 @@ export const SessionListItem = ({ session, sessionNumber, onEdit, onUse }: Sessi
                     <div className="flex justify-end items-center mt-2">
                         {isDateValid ? (
                             <>
-                                <span className="font-medium">{dateStr}</span>
+                                <span className="font-medium">{formatDateToDMY(dateStr)}</span>
                                 <span className="text-gray-400">&nbsp; às &nbsp;</span>
                                 <span className="text-gray-600">{timeStr}</span>
 

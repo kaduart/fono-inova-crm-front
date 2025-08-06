@@ -7,6 +7,13 @@ export const dateFormat = (date: any): string => {
   return `${day}/${month}/${year}`;
 };
 
+export function formatDateToDMY(isoDate) {
+  if (!isoDate) return '';
+  const [year, month, day] = isoDate.split('-');
+  return `${day}/${month}/${year}`;
+}
+
+
 export const formatValidDate = (date: Date) => {
   const dateStr = date.toLocaleDateString('pt-BR', {
     weekday: 'long',

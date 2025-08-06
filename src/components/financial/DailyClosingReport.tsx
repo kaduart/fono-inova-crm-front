@@ -1,10 +1,11 @@
 // src/components/DailyClosingReport.tsx
 import { format } from 'date-fns';
-import { CalendarIcon, CheckCircleIcon, XCircleIcon } from 'lucide-react';
+import { BanIcon, Banknote, CalendarIcon, CheckCircleIcon, CreditCardIcon, QrCodeIcon, ScaleIcon, TrendingUpIcon, UsersIcon, XCircleIcon } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { BsCurrencyDollar } from 'react-icons/bs';
 import usePayment from '../../hooks/usePayment';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { formatCurrency } from '../../utils/format';
 
 // Tipos TypeScript atualizados
 type PaymentMethod = 'dinheiro' | 'pix' | 'cartão';
@@ -248,176 +249,295 @@ const DailyClosingReport = () => {
     console.log('reportttttttttt', report.totals.scheduled)
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {/* Cabeçalho moderno */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Relatório Diário</h1>
+                    <p className="text-gray-600 mt-1">
+                        Resumo completo das atividades e finanças do dia
+                    </p>
+                </div>
+                <div className="mt-4 md:mt-0">
+                    {renderDateSelector()}
+                </div>
+            </div>
+
+            {/* Seção de Pagamentos Não Agendados - Design Moderno */}
+            <div className="bg-white rounded-xl shadow-md overflow-hidden mb-8 border border-gray-100">
+                <div className="bg-gradient-to-r from-indigo-50 to-blue-50 px-6 py-4 border-b border-gray-200">
+                    <h2 className="text-lg font-semibold text-gray-800 flex items-center">
+                        <BsCurrencyDollar className="h-5 w-5 text-indigo-600 mr-2" />
+                        Pagamentos Diretos (Não Agendados)
+                    </h2>
+                </div>
+
+                <div className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        {/* Card Total */}
+                        <div className="bg-blue-50 rounded-lg p-5 border border-blue-100">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-blue-800">Total Recebido</p>
+                                    <p className="text-2xl font-bold text-blue-900 mt-1">
+                                        R$ {report.financialSummary.otherPayments?.total?.toFixed(2) || '0,00'}
+                                    </p>
+                                </div>
+                                <div className="bg-blue-100 p-3 rounded-full">
+                                    <BsCurrencyDollar className="h-6 w-6 text-blue-600" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Métodos de Pagamento */}
+                        <div className="bg-white rounded-lg p-5 border border-gray-200 shadow-sm">
+                            <h3 className="font-medium text-gray-700 mb-3">Por Método</h3>
+                            <div className="space-y-3">
+                                {Object.entries(report.financialSummary.otherPayments?.byMethod || {}).map(([method, value]) => (
+                                    <div key={method} className="flex justify-between items-center">
+                                        <span className="capitalize flex items-center">
+                                            {method === 'pix' ? (
+                                                <QrCodeIcon className="h-4 w-4 text-green-500 mr-2" />
+                                            ) : method === 'cartão' ? (
+                                                <CreditCardIcon className="h-4 w-4 text-purple-500 mr-2" />
+                                            ) : (
+                                                <Banknote className="h-4 w-4 text-blue-500 mr-2" />
+                                            )}
+                                            {method}
+                                        </span>
+                                        <span className="font-medium">R$ {value.toFixed(2)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Tipos de Serviço */}
+                        <div className="bg-white rounded-lg p-5 border border-gray-200 shadow-sm">
+                            <h3 className="font-medium text-gray-700 mb-3">Por Tipo</h3>
+                            <div className="space-y-3">
+                                {Object.entries(report.financialSummary.otherPayments?.byType || {}).map(([type, value]) => (
+                                    <div key={type} className="flex justify-between items-center">
+                                        <span className="capitalize">
+                                            {type.replace('_', ' ')}
+                                        </span>
+                                        <span className="font-medium">R$ {value.toFixed(2)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Tabela de Detalhes */}
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paciente</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data/Hora</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {report.financialSummary.otherPayments?.details?.map((item) => (
+                                    <tr key={item.id} className="hover:bg-gray-50">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            {item.patient}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
+                                            {item.type.replace('_', ' ')}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">
+                                            R$ {item.amount.toFixed(2)}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
+                                            {item.method}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {new Date(item.createdAt).toLocaleString('pt-BR')}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            {/* Relatório Principal - Design Atualizado */}
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
                 {/* Header modernizado */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-5 border-b border-gray-200">
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-5">
                     <div className="flex flex-col md:flex-row md:justify-between md:items-center">
                         <div className="flex items-center">
-                            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-2 rounded-lg mr-3">
+                            <div className="bg-white/20 p-2 rounded-lg mr-3">
                                 <CalendarIcon className="h-6 w-6 text-white" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold text-gray-800">
+                                <h2 className="text-xl font-bold text-white">
                                     Fechamento Diário
                                 </h2>
-                                <h2 className="text-xl font-bold text-green-800">
-                                    R$ {report.financialSummary.totalAReceber}
-                                </h2>
+                                <p className="text-blue-100 text-sm mt-1">
+                                    {new Date(report.date).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                                </p>
                             </div>
                         </div>
                         <div className="mt-4 md:mt-0">
-                            {renderDateSelector()}
+                            <div className="bg-white/10 rounded-lg px-4 py-2">
+                                <span className="text-white font-medium">
+                                    Total Recebido: <span className="text-blue-100">R$ {report.financialSummary.totalRecebido.toFixed(2)}</span>
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Totais Gerais - Design modernizado */}
+                {/* Totais Gerais */}
                 <div className="px-6 py-5">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-semibold text-gray-800">Resumo Geral</h3>
-                        <div className="text-sm text-gray-500">
-                            Atualizado às {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                    </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
                         {/* Agendadas */}
-                        <div className="border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
-                            <div className="flex items-start">
-                                <div className="bg-blue-100/20 p-3 rounded-lg mr-4">
-                                    <CalendarIcon className="h-6 w-6 text-blue-500" />
-                                </div>
-                                <div>
-                                    <h3 className="font-medium text-gray-700">Agendadas</h3>
-                                    <p className="text-2xl font-bold mt-1 text-gray-800">
-                                        {report.totals.scheduled.count}
-                                    </p>
-                                    <div className="mt-2 text-sm text-gray-600">
-                                        Valor: <span className="font-medium text-blue-600">{formatCurrency(report.totals.scheduled.value)}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <DashboardCard
+                            icon={<CalendarIcon className="h-6 w-6 text-blue-500" />}
+                            title="Agendadas"
+                            value={report.totals.scheduled.count}
+                            secondaryText={`Valor: ${formatCurrency(report.totals.scheduled.value)}`}
+                            color="blue"
+                        />
 
                         {/* Realizadas */}
-                        <div className="border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
-                            <div className="flex items-start">
-                                <div className="bg-green-100/20 p-3 rounded-lg mr-4">
-                                    <CheckCircleIcon className="h-6 w-6 text-green-500" />
-                                </div>
-                                <div>
-                                    <h3 className="font-medium text-gray-700">Realizadas</h3>
-                                    <p className="text-2xl font-bold mt-1 text-gray-800">
-                                        {report.totals.confirmed.count}
-                                    </p>
-                                    <div className="mt-2 text-sm text-gray-600">
-                                        Valor: <span className="font-medium text-green-600">{formatCurrency(report.totals.confirmed.value)}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <DashboardCard
+                            icon={<CheckCircleIcon className="h-6 w-6 text-green-500" />}
+                            title="Realizadas"
+                            value={report.totals.completed.count}
+                            secondaryText={`Valor: ${formatCurrency(report.totals.completed.value)}`}
+                            color="green"
+                        />
 
                         {/* Pagamentos */}
-                        <div className="border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
-                            <div className="flex items-start">
-                                <div className="bg-purple-100/20 p-3 rounded-lg mr-4">
-                                    <BsCurrencyDollar className="h-6 w-6 text-purple-500" />
-                                </div>
-                                <div>
-                                    <h3 className="font-medium text-gray-700">Pagamentos</h3>
-                                    <p className="text-2xl font-bold mt-1 text-gray-800">
-                                        {report.totals.payments.count}
-                                    </p>
-                                    <p className="text-purple-600 font-medium mt-1">{formatCurrency(report.financialSummary.totalAReceber)}</p>
-                                </div>
-                            </div>
-                            <div className="mt-3 pt-3 border-t border-gray-100">
-                                <div className="flex justify-between text-sm text-gray-600">
-                                    <span className="flex items-center">
-                                        <div className="w-2 h-2 rounded-full bg-gray-400 mr-2"></div>
-                                        Dinheiro
-                                    </span>
-                                    <span className="font-medium">{formatCurrency(report.totals.payments.methods.dinheiro)}</span>
-                                </div>
-                                <div className="flex justify-between text-sm text-gray-600 mt-2">
-                                    <span className="flex items-center">
-                                        <div className="w-2 h-2 rounded-full bg-gray-400 mr-2"></div>
-                                        PIX
-                                    </span>
-                                    <span className="font-medium">{formatCurrency(report.totals.payments.methods.pix)}</span>
-                                </div>
-                                <div className="flex justify-between text-sm text-gray-600 mt-2">
-                                    <span className="flex items-center">
-                                        <div className="w-2 h-2 rounded-full bg-gray-400 mr-2"></div>
-                                        Cartão
-                                    </span>
-                                    <span className="font-medium">{formatCurrency(report.totals.payments.methods.cartão)}</span>
-                                </div>
-                            </div>
-
-                        </div>
+                        <DashboardCard
+                            icon={<BsCurrencyDollar className="h-6 w-6 text-purple-500" />}
+                            title="Pagamentos"
+                            value={report.totals.payments.total}
+                            secondaryText={`A receber: ${formatCurrency(report.financialSummary.totalAReceber)}`}
+                            color="purple"
+                        />
 
                         {/* Faltas */}
-                        <div className="border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
-                            <div className="flex items-start">
-                                <div className="bg-red-100/20 p-3 rounded-lg mr-4">
-                                    <XCircleIcon className="h-6 w-6 text-red-500" />
-                                </div>
-                                <div>
-                                    <h3 className="font-medium text-gray-700">Faltas</h3>
-                                    <p className="text-2xl font-bold mt-1 text-gray-800">
-                                        {report.totals.absences.count}
-                                    </p>
-                                    <div className="mt-2 text-sm text-red-500">
-                                        Perda estimada: <span className="font-medium">{formatCurrency(report.totals.absences.estimatedLoss)}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <DashboardCard
+                            icon={<XCircleIcon className="h-6 w-6 text-red-500" />}
+                            title="Faltas"
+                            value={report.totals.absences.count}
+                            secondaryText={`Perda: ${formatCurrency(report.totals.absences.estimatedLoss)}`}
+                            color="red"
+                        />
                     </div>
 
-                    {/* Barra de status adicional */}
-                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <div className="grid grid-cols-4 gap-4">
-                            <div className="text-center">
-                                <div className="text-sm text-gray-600">Taxa de comparecimento</div>
-                                <div className="text-xl font-bold text-green-600">
-                                    {Math.round((report.totals.confirmed.count / report.totals.scheduled.count) * 100 || 0)}%
-                                </div>
-                            </div>
-                            <div className="text-center">
-                                <div className="text-sm text-gray-600">Média por sessão</div>
-                                <div className="text-xl font-bold text-blue-600">
-                                    {formatCurrency(report.totals.confirmed.value / report.totals.confirmed.count || 0)}
-                                </div>
-                            </div>
-                            <div className="text-center">
-                                <div className="text-sm text-gray-600">Sessões canceladas</div>
-                                <div className="text-xl font-bold text-gray-600">
-                                    {report.totals.canceled?.count || 0}
-                                </div>
-                            </div>
-                            <div className="text-center">
-                                <div className="text-sm text-gray-600">Pacientes atendidos</div>
-                                <div className="text-xl font-bold text-purple-600">
-                                    {report.totals.uniquePatients || 0}
-                                </div>
-                            </div>
-                        </div>
+                    {/* Métricas */}
+                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <MetricCard
+                            title="Taxa de comparecimento"
+                            value={`${Math.round((report.totals.completed.count / report.totals.scheduled.count) * 100 || 0)}%`}
+                            icon={<TrendingUpIcon className="h-5 w-5 text-green-500" />}
+                        />
+                        <MetricCard
+                            title="Média por sessão"
+                            value={formatCurrency(report.totals.completed.value / report.totals.completed.count || 0)}
+                            icon={<ScaleIcon className="h-5 w-5 text-blue-500" />}
+                        />
+                        <MetricCard
+                            title="Sessões canceladas"
+                            value={report.totals.canceled?.count || 0}
+                            icon={<BanIcon className="h-5 w-5 text-red-500" />}
+                        />
+                        <MetricCard
+                            title="Pacientes atendidos"
+                            value={report.totals.uniquePatients || 0}
+                            icon={<UsersIcon className="h-5 w-5 text-indigo-500" />}
+                        />
                     </div>
                 </div>
 
-                {/* Conteúdo principal */}
+                {/* Detalhes por profissional */}
                 <div className="px-6 pb-6">
-                    {renderProfessionalSummary()}
-                    {renderDetailsButtons()}
-                    {detailsType && (
-                        <DetailsView
-                            type={detailsType}
-                            date={dateFilter}
-                            onClose={() => setDetailsType(null)}
-                        />
-                    )}
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Por Profissional</h3>
+                    <div className="space-y-4">
+                        {report.byProfessional.map((professional) => (
+                            <ProfessionalCard
+                                key={professional.doctorId}
+                                professional={professional}
+                            />
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const ProfessionalCard = ({ professional }) => (
+    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+            <h4 className="font-medium text-gray-800">
+                {professional.doctorName} - {professional.specialty}
+            </h4>
+        </div>
+        <div className="p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+                <p className="text-sm text-gray-600">Agendadas</p>
+                <p className="font-medium">{professional.scheduled.count}</p>
+            </div>
+            <div>
+                <p className="text-sm text-gray-600">Realizadas</p>
+                <p className="font-medium text-green-600">{professional.completed.count}</p>
+            </div>
+            <div>
+                <p className="text-sm text-gray-600">Faltas</p>
+                <p className="font-medium text-red-600">{professional.absences.count}</p>
+            </div>
+            <div>
+                <p className="text-sm text-gray-600">Recebido</p>
+                <p className="font-medium text-blue-600">
+                    {formatCurrency(professional.payments.total)}
+                </p>
+            </div>
+        </div>
+    </div>
+);
+
+// Componente de Card para Métricas
+const MetricCard = ({ title, value, icon }) => (
+    <div className="text-center">
+        <div className="flex items-center justify-center">
+            {icon}
+            <div className="text-sm text-gray-600 ml-2">{title}</div>
+        </div>
+        <div className="text-xl font-bold mt-1">{value}</div>
+    </div>
+);
+
+// Componente de Card para Dashboard
+const DashboardCard = ({ icon, title, value, secondaryText, color }) => {
+    const colors = {
+        blue: { bg: 'bg-blue-50', border: 'border-blue-100', text: 'text-blue-800' },
+        green: { bg: 'bg-green-50', border: 'border-green-100', text: 'text-green-800' },
+        purple: { bg: 'bg-purple-50', border: 'border-purple-100', text: 'text-purple-800' },
+        red: { bg: 'bg-red-50', border: 'border-red-100', text: 'text-red-800' },
+    };
+
+    return (
+        <div className={`${colors[color].bg} rounded-xl p-5 border ${colors[color].border} shadow-sm hover:shadow-md transition-shadow`}>
+            <div className="flex items-start">
+                <div className={`${colors[color].bg} p-3 rounded-lg mr-4`}>
+                    {icon}
+                </div>
+                <div>
+                    <h3 className={`font-medium ${colors[color].text}`}>{title}</h3>
+                    <p className="text-2xl font-bold mt-1 text-gray-800">
+                        {value}
+                    </p>
+                    <div className="mt-2 text-sm text-gray-600">
+                        {secondaryText}
+                    </div>
                 </div>
             </div>
         </div>

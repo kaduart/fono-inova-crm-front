@@ -15,6 +15,7 @@ import { EditPaymentModal } from './EditPaymentModal';
 import { PaymentActionIcons } from './PaymentAction';
 import { PaymentsFilters } from './PaymentsFilters';
 import FinancialSummaryCard from './PaymentsSummary';
+import { formatDateToDMY } from '../../utils/dateFormat';
 
 interface PaymentPageProps {
     patients?: IPatient[];
@@ -44,8 +45,8 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
     const [userRole, setUserRole] = useState<string | null>(null);
 
     useEffect(() => {
-    const role = localStorage.getItem('userRole');
-    setUserRole(role);
+        const role = localStorage.getItem('userRole');
+        setUserRole(role);
     }, []);
 
     useEffect(() => {
@@ -101,7 +102,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                 paymentMethod: data.paymentMethod
             });
 
-             loadPayments();
+            loadPayments();
             toast.success('Pagamento atualizado com sucesso!');
         } catch (error) {
             toast.error('Erro ao atualizar pagamento');
@@ -260,8 +261,8 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                                 </td>
                                                 <td className="px-2 py-2 text-left whitespace-nowrap text-sm text-gray-500">
                                                     {payment && payment.appointment
-                                                        ? `${payment.appointment.date} às ${payment.appointment.time}`
-                                                        : '0'}
+                                                        ? `${formatDateToDMY(payment.appointment.date)} às ${payment.appointment.time}`
+                                                        : 'Pacote'}
                                                 </td>
                                                 <td className="px-2 py-2 text-left whitespace-nowrap text-sm text-gray-500">
                                                     {payment && payment.advancedSessions?.length > 0 ? payment.advancedSessions.length : '0'}
@@ -392,7 +393,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                     Recolher Todos
                 </button>
             </div>
-        </div>
+        </div >
     );
 };
 
