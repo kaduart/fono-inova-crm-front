@@ -80,3 +80,29 @@
   @apply justify-end;
 }
 
+
+
+.fc .fc-toolbar {
+  @apply p-4 border-b border-gray-100;
+}
+
+.fc .fc-toolbar-title {
+  @apply text-lg font-semibold text-gray-800;
+}
+
+.fc .fc-button {
+  @apply px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-all shadow-sm;
+}
+
+
+.fc .fc-button-active {
+  @apply bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200 text-blue-600;
+}
+
+.fc .fc-daygrid-day-frame {
+  @apply p-1;
+}
+
+.fc .fc-scrollgrid-section-header th {
+  @apply bg-gray-50;
+}

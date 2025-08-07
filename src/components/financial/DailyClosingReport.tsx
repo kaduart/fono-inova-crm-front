@@ -1,11 +1,22 @@
 // src/components/DailyClosingReport.tsx
 import { format } from 'date-fns';
-import { BanIcon, Banknote, CalendarIcon, CheckCircleIcon, CreditCardIcon, QrCodeIcon, ScaleIcon, TrendingUpIcon, UsersIcon, XCircleIcon } from 'lucide-react';
+import dayjs from 'dayjs';
+import { BanIcon, CalendarIcon, CheckCircleIcon, ScaleIcon, TrendingUpIcon, UsersIcon, XCircleIcon } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { BsCurrencyDollar } from 'react-icons/bs';
 import usePayment from '../../hooks/usePayment';
-import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { formatCurrency } from '../../utils/format';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
+
+import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
+import { FiCreditCard, FiDollarSign, FiList } from 'react-icons/fi';
+
+// Ativando os plugins
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+type PaymentType = "session" | "evaluation" | "package_session" | "individual_session";
 
 // Tipos TypeScript atualizados
 type PaymentMethod = 'dinheiro' | 'pix' | 'cartão';
@@ -74,6 +85,22 @@ const DailyClosingReport = () => {
             currency: 'BRL'
         }).format(value);
     };
+
+
+    function translatePaymentType(type: string): string {
+        const translations: Record<PaymentType, string> = {
+            session: "Sessão",
+            evaluation: "Avaliação",
+            package_session: "Pacote",
+            individual_session: "Sessão Avulsa",
+        };
+
+        if (type in translations) {
+            return translations[type as PaymentType];
+        }
+
+        return "Tipo desconhecido";
+    }
 
     const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setDateFilter(e.target.value);
@@ -245,6 +272,10 @@ const DailyClosingReport = () => {
         );
     }
 
+    const formatDateBrazilian = (date: string | Date) => {
+        return dayjs.utc(date).tz("America/Sao_Paulo").format("DD/MM/YYYY HH:mm");
+    };
+
     console.log('reportttttttttt', report)
     console.log('reportttttttttt', report.totals.scheduled)
     return (
@@ -263,98 +294,117 @@ const DailyClosingReport = () => {
             </div>
 
             {/* Seção de Pagamentos Não Agendados - Design Moderno */}
-            <div className="bg-white rounded-xl shadow-md overflow-hidden mb-8 border border-gray-100">
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-8 border border-gray-200">
+                {/* Cabeçalho com gradiente sutil */}
                 <div className="bg-gradient-to-r from-indigo-50 to-blue-50 px-6 py-4 border-b border-gray-200">
                     <h2 className="text-lg font-semibold text-gray-800 flex items-center">
                         <BsCurrencyDollar className="h-5 w-5 text-indigo-600 mr-2" />
-                        Pagamentos Diretos (Não Agendados)
+                        Pagamentos Diretos
                     </h2>
                 </div>
 
                 <div className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                        {/* Card Total */}
+                    {/* Grid de Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        {/* Card Total Recebido - Mais destacado */}
                         <div className="bg-blue-50 rounded-lg p-5 border border-blue-100">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm font-medium text-blue-800">Total Recebido</p>
-                                    <p className="text-2xl font-bold text-blue-900 mt-1">
-                                        R$ {report.financialSummary.otherPayments?.total?.toFixed(2) || '0,00'}
-                                    </p>
-                                </div>
-                                <div className="bg-blue-100 p-3 rounded-full">
+                            <div className="flex items-center gap-4">
+                                {/* Ícone */}
+                                <div className="bg-blue-100 p-3 rounded-full flex-shrink-0">
                                     <BsCurrencyDollar className="h-6 w-6 text-blue-600" />
+                                </div>
+
+                                {/* Textos */}
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-blue-800 truncate">Total Recebido</p>
+                                    <p className="text-2xl font-bold text-blue-900 truncate">
+                                        R$ {report.financialSummary.otherPayments?.total?.toFixed(2).replace('.', ',') || '0,00'}
+                                    </p>
                                 </div>
                             </div>
                         </div>
-
-                        {/* Métodos de Pagamento */}
-                        <div className="bg-white rounded-lg p-5 border border-gray-200 shadow-sm">
-                            <h3 className="font-medium text-gray-700 mb-3">Por Método</h3>
+                        {/* Card Métodos de Pagamento */}
+                        <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-xs">
+                            <h3 className="font-medium text-gray-700 mb-3 flex items-center">
+                                <FiCreditCard className="h-4 w-4 text-gray-500 mr-2" />
+                                Por Método
+                            </h3>
                             <div className="space-y-3">
                                 {Object.entries(report.financialSummary.otherPayments?.byMethod || {}).map(([method, value]) => (
                                     <div key={method} className="flex justify-between items-center">
-                                        <span className="capitalize flex items-center">
+                                        <span className="capitalize flex items-center text-sm">
                                             {method === 'pix' ? (
-                                                <QrCodeIcon className="h-4 w-4 text-green-500 mr-2" />
+                                                <FiDollarSign className="h-4 w-4 text-green-500 mr-2" />
                                             ) : method === 'cartão' ? (
-                                                <CreditCardIcon className="h-4 w-4 text-purple-500 mr-2" />
+                                                <FiCreditCard className="h-4 w-4 text-indigo-500 mr-2" />
                                             ) : (
-                                                <Banknote className="h-4 w-4 text-blue-500 mr-2" />
+                                                <FiDollarSign className="h-4 w-4 text-blue-500 mr-2" />
                                             )}
                                             {method}
                                         </span>
-                                        <span className="font-medium">R$ {value.toFixed(2)}</span>
+                                        <span className="font-medium text-sm">R$ {value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                     </div>
                                 ))}
                             </div>
                         </div>
 
-                        {/* Tipos de Serviço */}
-                        <div className="bg-white rounded-lg p-5 border border-gray-200 shadow-sm">
-                            <h3 className="font-medium text-gray-700 mb-3">Por Tipo</h3>
+                        {/* Card Tipos de Serviço */}
+                        <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-xs">
+                            <h3 className="font-medium text-gray-700 mb-3 flex items-center">
+                                <FiList className="h-4 w-4 text-gray-500 mr-2" />
+                                Por Tipo
+                            </h3>
                             <div className="space-y-3">
                                 {Object.entries(report.financialSummary.otherPayments?.byType || {}).map(([type, value]) => (
                                     <div key={type} className="flex justify-between items-center">
-                                        <span className="capitalize">
+                                        <span className="capitalize text-sm">
                                             {type.replace('_', ' ')}
                                         </span>
-                                        <span className="font-medium">R$ {value.toFixed(2)}</span>
+                                        <span className="font-medium text-sm">R$ {value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     </div>
 
-                    {/* Tabela de Detalhes */}
-                    <div className="overflow-x-auto">
+                    {/* Tabela de Detalhes - Estilo mais clean */}
+                    <div className="overflow-x-auto rounded-lg border border-gray-200">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paciente</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data/Hora</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paciente</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profissional</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data/Hora</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {report.financialSummary.otherPayments?.details?.map((item) => (
-                                    <tr key={item.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                                             {item.patient}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
-                                            {item.type.replace('_', ' ')}
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                            {item.doctor.fullName}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">
-                                            R$ {item.amount.toFixed(2)}
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 capitalize">
+                                            {translatePaymentType(item.type)}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
-                                            {item.method}
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            R$ {item.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {new Date(item.createdAt).toLocaleString('pt-BR')}
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 capitalize">
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.method === 'pix' ? 'bg-green-100 text-green-800' :
+                                                item.method === 'cartão' ? 'bg-indigo-100 text-indigo-800' :
+                                                    'bg-blue-100 text-blue-800'
+                                                }`}>
+                                                {item.method}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                            {formatDateBrazilian(item.createdAt)}
                                         </td>
                                     </tr>
                                 ))}

@@ -163,7 +163,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     const handleBooking = async (payload: ScheduleAppointment) => {
         const mergedDate = mergeDateAndTime(payload.date, payload.time);
         console.log('Bateu no enhanced', payload)
-     
+
         if (isNaN(mergedDate.getTime())) {
             toast.error('Data/hora inválida');
             return;
@@ -211,66 +211,101 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     </button>
                 </div>
 
-                <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
                     <FullCalendar
                         ref={calendarRef}
                         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                        initialView="dayGridMonth"
                         headerToolbar={{
                             left: "prev,next today",
                             center: "title",
-                            right: "dayGridMonth,timeGridWeek,timeGridDay",
+                            right: "dayGridMonth,timeGridWeek,timeGridDay"
                         }}
                         locale={ptBR}
-                        initialView="dayGridMonth"
                         weekends
                         events={events}
                         dateClick={onDateClick}
                         eventClick={handleEventClick}
-                        height="auto"
-                        eventDisplay="block"
-                        eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
+
+                        // Configurações de tamanho responsivo
+                        height="75vh"
+                        contentHeight="auto"
+                        aspectRatio={1.8}
+                        windowResizeDelay={100}
+
+                        // Estilização premium
                         eventContent={(arg) => {
-                            // Obter o status operacional do evento
                             const status = arg.event.extendedProps.operationalStatus || 'agendado';
                             const config = getStatusConfig(status);
 
                             return (
-                                <div
-                                    className="flex flex-col p-1 rounded"
+                                <div className={`flex flex-col p-2 rounded-lg border-l-[3px] transition-all duration-200 hover:shadow-xs`}
                                     style={{
-                                        backgroundColor: config.backgroundColor,
+                                        backgroundColor: `${config.backgroundColor}10`,
+                                        borderLeftColor: config.backgroundColor,
                                         color: config.textColor,
-                                        borderLeft: `3px solid ${config.backgroundColor}`
-                                    }}
-                                >
-                                    <span className="text-xs font-medium">
-                                        {arg.timeText}
-                                    </span>
-                                    <span className="text-sm font-semibold truncate">
-                                        {arg.event.title.split(' - ')[0]}
-                                    </span>
-                                    <span className="text-xs truncate">
-                                        {arg.event.title.split(' - ')[1]}
-                                    </span>
-                                    <span className="text-xxs mt-1 font-semibold">
+                                        backdropFilter: 'blur(2px)'
+                                    }}>
+                                    <div className="flex items-start gap-2">
+                                        <span className="text-xs font-medium flex-shrink-0 bg-white/30 px-1 rounded">
+                                            {arg.timeText}
+                                        </span>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-semibold truncate leading-tight">
+                                                {arg.event.title.split(' - ')[0]}
+                                            </p>
+                                            <p className="text-xs truncate opacity-80 leading-tight">
+                                                {arg.event.title.split(' - ')[1]}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <span className="text-[0.65rem] mt-1 font-medium px-2 py-0.5 rounded-full self-start shadow-xs"
+                                        style={{
+                                            backgroundColor: config.backgroundColor,
+                                            color: 'white',
+                                            boxShadow: `0 1px 2px ${config.backgroundColor}50`
+                                        }}>
                                         {config.label}
                                     </span>
                                 </div>
                             );
                         }}
+
+                        // Cabeçalho moderno
+                        headerToolbar={{
+                            left: 'prev,next today',
+                            center: 'title',
+                            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                        }}
+
+                        // Dias da semana
                         dayHeaderContent={(arg) => (
-                            <span className="text-sm font-medium text-gray-600">
+                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 {arg.text.substring(0, 3)}
                             </span>
                         )}
+
+                        // Números dos dias
                         dayCellContent={(arg) => (
                             <div className="flex justify-end p-1">
-                                <span className={`text-sm ${arg.isToday ? 'font-bold text-blue-600' : 'text-gray-700'}`}>
+                                <span className={`text-sm rounded-full w-7 h-7 flex items-center justify-center transition-all ${arg.isToday
+                                        ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white font-bold shadow-sm'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                    }`}>
                                     {arg.dayNumberText}
                                 </span>
                             </div>
                         )}
-                        eventClassNames="cursor-pointer"
+
+                        // Configurações avançadas
+                        eventClassNames="cursor-pointer hover:!opacity-90 transition-all duration-200"
+                        dayCellClassNames="hover:bg-gray-50/50 transition-colors duration-200"
+                        dayMaxEventRows={4}
+                        eventDisplay="block"
+                        eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
+
+                        // Estilo dos botões
+                        themeSystem="standard"
                     />
                 </div>
             </div>
