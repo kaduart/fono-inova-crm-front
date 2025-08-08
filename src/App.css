@@ -106,3 +106,14 @@
 .fc .fc-scrollgrid-section-header th {
   @apply bg-gray-50;
 }
+
+@media (max-width: 600px) {
+  .MuiGrid-item {
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+  }
+
+  .MuiTypography-h5 {
+    font-size: 1.25rem !important;
+  }
+}
