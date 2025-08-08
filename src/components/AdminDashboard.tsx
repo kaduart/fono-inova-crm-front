@@ -455,13 +455,28 @@ export default function AdminDashboard() {
 
     try {
       if (paymentContext.payment?._id) {
-        await updatePayment(paymentContext.payment._id, data);
-        toast.success('Pagamento atualizado com sucesso!');
-        setPaymentModalOpen(false);
-        setPaymentContext({ mode: 'create' });
+  console.log('caiuuu no log');
 
-        loadPayments();
-      }
+  await updatePayment(paymentContext.payment._id, data);
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  const container = document.querySelector('.meu-container-scroll') as HTMLElement;
+  if (container) {
+    container.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // Primeiro dispara o toast
+  toast.success('Pagamento atualizado com sucesso!');
+
+  // Depois de um pequeno delay, fecha modal e reseta contexto
+  setTimeout(() => {
+    setPaymentModalOpen(false);
+    setPaymentContext({ mode: 'create' });
+    loadPayments();
+  }, 300); // 300ms já é suficiente
+}
+
     } catch (error) {
       toast.error('Erro ao atualizar pagamento');
     }
