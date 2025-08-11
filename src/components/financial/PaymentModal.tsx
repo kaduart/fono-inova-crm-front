@@ -138,6 +138,7 @@ export const PaymentModal = ({
                 payload.advanceSessions = advanceSessions;
             }
             await onPaymentSuccess(payload);
+
             onClose();
         } catch (error: any) {
             console.error('Erro ao registrar pagamento:', error);

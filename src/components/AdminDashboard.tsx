@@ -427,6 +427,8 @@ export default function AdminDashboard() {
     setShowAdvancedPayment(true);
   }
   const handleCreatePayment = async (data: any) => {
+    console.log('caiuuu no log');
+
     try {
       await createPayment(data);
       toast.success('Pagamento registrado com sucesso!');
@@ -486,7 +488,6 @@ export default function AdminDashboard() {
 
     try {
       if (paymentContext.payment?._id) {
-        console.log('caiuuu no log');
 
         await updatePayment(paymentContext.payment._id, data);
 
@@ -496,6 +497,8 @@ export default function AdminDashboard() {
         if (container) {
           container.scrollTo({ top: 0, behavior: 'smooth' });
         }
+
+        fetchAppointments();
 
         // Primeiro dispara o toast
         toast.success('Pagamento atualizado com sucesso!');
