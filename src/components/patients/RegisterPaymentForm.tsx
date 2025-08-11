@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 import { createPayment } from '../../services/paymentService';
 
 interface RegisterPaymentFormProps {
@@ -14,7 +14,7 @@ const RegisterPaymentForm: React.FC<RegisterPaymentFormProps> = ({ packageId, on
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         try {
             await createPayment({
                 packageId,

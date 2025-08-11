@@ -1,6 +1,6 @@
 import { Info } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 import packagesService, { packageService, UseSessionParams, validatePayment } from '../../services/packageService';
 import { IDoctors, IPatient, ITherapyPackage } from '../../utils/types/types';
 import TherapyPackageCard from './TherapyPackageCard';

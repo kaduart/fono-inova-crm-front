@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 import {
     exportCSV,
     exportPDF,
@@ -9,13 +9,13 @@ import {
     getPayments,
     updatePayment
 } from '../../services/paymentService';
+import { formatDateToDMY } from '../../utils/dateFormat';
 import { IDoctor, IPatient } from '../../utils/types/types';
 import DailyClosingReport from './DailyClosingReport';
 import { EditPaymentModal } from './EditPaymentModal';
 import { PaymentActionIcons } from './PaymentAction';
 import { PaymentsFilters } from './PaymentsFilters';
 import FinancialSummaryCard from './PaymentsSummary';
-import { formatDateToDMY } from '../../utils/dateFormat';
 
 interface PaymentPageProps {
     patients?: IPatient[];
@@ -155,7 +155,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
 
     return (
         <div className="space-y-4">
-            
+
             <div className="border rounded-lg overflow-hidden">
                 <button
                     className={`flex justify-between items-center w-full p-4 text-left font-medium ${dailyReportOpen ? 'bg-blue-50 text-blue-700' : 'bg-gray-50 text-gray-700'
@@ -172,7 +172,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                 )}
             </div>
 
-            
+
             <div className="border rounded-lg overflow-hidden">
                 <button
                     className={`flex justify-between items-center w-full p-4 text-left font-medium ${financialControlOpen ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-700'
@@ -236,7 +236,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                             </div>
                         ) : (
                             <div className="overflow-x-auto bg-white rounded-lg shadow">
-                                <table className="w-full min-w-[800px]"> 
+                                <table className="w-full min-w-[800px]">
                                     <thead className="bg-gray-50">
                                         <tr>
                                             <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[15%]">Paciente</th>
@@ -370,7 +370,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                 )}
             </div>
 
-            
+
             <div className="flex gap-4">
                 <button
                     className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"

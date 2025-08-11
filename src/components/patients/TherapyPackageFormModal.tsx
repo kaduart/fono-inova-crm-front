@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
-import toast from 'react-hot-toast';
 import ReactInputMask from 'react-input-mask';
+import { toast } from 'react-toastify';
 import packageService, { CreatePackageParams } from '../../services/packageService';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
 import { DURATION_OPTIONS, FREQUENCY_OPTIONS, IDoctor, IPatient, ITherapyPackage, PAYMENT_TYPES, THERAPY_TYPES } from '../../utils/types/types';

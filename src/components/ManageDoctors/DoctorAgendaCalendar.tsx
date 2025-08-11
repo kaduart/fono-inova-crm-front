@@ -1,11 +1,12 @@
 'use client';
 
-import { addDays, format, formatISO, startOfWeek } from 'date-fns';
+import { addDays, format, formatISO, isSameDay, startOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import dayjs from 'dayjs';
+import { motion } from 'framer-motion';
+import { Calendar, ChevronLeftIcon, ChevronRightIcon, XIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { IPatient } from '../../utils/types/types';
-import { Button } from '../ui/Button';
 import { TimeMultiSelect } from './TimeMultiSelect';
 
 const weekdays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
@@ -65,6 +66,8 @@ const DoctorAgendaCalendar = ({
     const slotData = daySlots.find((d) => d.date === formatted);
     if (slotData && slotData.slots.length > 0) {
       setExpandedDate(formatted);
+      console.log('mandou para atualziar slots ', formatted)
+
     } else {
       setExpandedDate(null);
     }
@@ -76,90 +79,155 @@ const DoctorAgendaCalendar = ({
   const weekStartOn = startOfWeek(now, { weekStartsOn: 1 });
 
   return (
-    <div className="mt-4">
-      <div className="flex justify-between items-center mb-2">
-        <Button variant="outline" onClick={handlePrevWeek}>
-          ← Semana Anterior
-        </Button>
-        <p className="text-center font-medium">
-          {format(weekStart, 'dd/MM/yyyy')} - {format(addDays(weekStart, 6), 'dd/MM/yyyy')}
-        </p>
-        <Button variant="outline" onClick={handleNextWeek}>
-          Próxima Semana →
-        </Button>
+    <div className="mt-6 space-y-6">
+      {/* Header com navegação entre semanas */}
+      <div className="flex items-center justify-between px-2">
+        <button
+          onClick={handlePrevWeek}
+          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors rounded-lg hover:bg-gray-50"
+        >
+          <ChevronLeftIcon className="h-4 w-4" />
+          <span>Semana anterior</span>
+        </button>
+
+        <div className="text-center">
+          <p className="text-sm font-medium text-gray-500">Semana de</p>
+          <p className="text-lg font-semibold text-gray-800">
+            {format(weekStart, 'dd MMM')} - {format(addDays(weekStart, 6), 'dd MMM yyyy')}
+          </p>
+        </div>
+
+        <button
+          onClick={handleNextWeek}
+          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors rounded-lg hover:bg-gray-50"
+        >
+          <span>Próxima semana</span>
+          <ChevronRightIcon className="h-4 w-4" />
+        </button>
       </div>
 
-
-      <div className="grid grid-cols-5 gap-6 justify-center">
-        {[0, 1, 2, 3, 4, 5, 6].map((index) => {
+      {/* Grade de dias */}
+      <div className="grid grid-cols-7 gap-2">
+        {[0, 1, 2, 3, 4, 5].map((index) => {
           const date = addDays(weekStart, index);
           const formattedDate = formatISO(date, { representation: 'date' });
           const slotsForThisDate = daySlots.find((d) => d.date === formattedDate)?.slots || [];
-          const monthName = format(date, 'MMMM', { locale: ptBR });
+          const dayOfWeek = format(date, 'EEE', { locale: ptBR });
+          const dayNumber = format(date, 'd');
+          const isToday = isSameDay(date, new Date());
 
-          const dayLabel = format(date, 'EEE', { locale: ptBR });
           return (
-            <div key={index} className="flex justify-center">
-              <div className="col-span-1 flex justify-center ">
-                <div
-                  onClick={() => handleDayClick(date)}
-                  className={`rounded-xl p-4 w-28 h-28  flex flex-col items-center justify-center cursor-pointer border shadow-md transition-all duration-200
-                ${isSelected(date) ? 'bg-blue-50 border-blue-600' : 'bg-green-100 hover:bg-gray-50'}`}
-                >
-                  <div className="text-center">
-                    <h2 className="text-xl font-bold text-gray-800 mb-0 capitalize">
-                      {monthName}
-                    </h2>
-                    <p className="text-sm font-bold text-gray-800">{dayLabel}</p>
-                    <p className="text-xs text-gray-500">{format(date, 'dd/MM')}</p>
-                  </div>
+            <div
+              key={index}
+              onClick={() => handleDayClick(date)}
+              className={`
+              flex flex-col items-center p-3 rounded-xl border cursor-pointer transition-all
+              ${isSelected(date)
+                  ? 'bg-blue-50 border-blue-300 shadow-md'
+                  : 'border-transparent hover:bg-gray-50'
+                }
+              ${isToday ? 'ring-2 ring-blue-200' : ''}
+            `}
+            >
+              <span className={`text-sm font-medium ${isToday
+                ? 'text-blue-600'
+                : isSelected(date)
+                  ? 'text-gray-800'
+                  : 'text-gray-500'
+                }`}>
+                {dayOfWeek}
+              </span>
+              <span className={`
+              mt-1 text-lg font-semibold 
+              ${isToday
+                  ? 'text-white bg-blue-600 rounded-full w-8 h-8 flex items-center justify-center'
+                  : isSelected(date)
+                    ? 'text-gray-900'
+                    : 'text-gray-700'
+                }`}
+              >
+                {dayNumber}
+              </span>
 
-                  <div className="text-sm text-center mt-2">
-                    {isSelected(date) ? (
-                      slotsForThisDate.length > 0 ? (
-                        <p className="text-blue-700 font-semibold text-xs">{slotsForThisDate.length} horário(s)</p>
-                      ) : (
-                        <p className="text-gray-400 italic text-xs">Sem disponibilidade</p>
-                      )
-                    ) : null}
-                  </div>
-                </div>
-              </div>
+              {slotsForThisDate.length > 0 && (
+                <span className={`
+                mt-2 text-xs px-2 py-1 rounded-full 
+                ${isSelected(date)
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-gray-100 text-gray-600'
+                  }
+              `}>
+                  {slotsForThisDate.length} horário{slotsForThisDate.length !== 1 ? 's' : ''}
+                </span>
+              )}
             </div>
           );
         })}
       </div>
 
-
-      {/* ⬇️ EXPANSÃO ABAIXO DA GRADE COMPLETA */}
+      {/* Painel expansível de horários */}
       {expandedDate && (
-        <div className="mt-4 border rounded-lg p-4 bg-gray-50 shadow-inner">
-          <h4 className="text-md font-semibold mb-2 text-gray-700">
-            Horários disponíveis para {dayjs(expandedDate).format('DD/MM/YYYY')}
-          </h4>
-          <TimeMultiSelect
-            availableTimes={daySlots.find((d) => d.date === expandedDate)?.slots || []}
-            selectedDate={selectedDate?.toDate() || null}
-            patients={patients}
-            selectedDoctorId={selectedDoctorId}
-            onChange={(times) =>
-              setSelectedTimes((prev) => ({
-                ...prev,
-                [expandedDate]: times,
-              }))
-            }
-            onSubmit={(data) => {
-              if (onSubmitSlotBooking) {
-                onSubmitSlotBooking(data);
-              }
-            }}
-          />
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          transition={{ duration: 0.2 }}
+          className="mt-4 bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm"
+        >
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-lg font-semibold text-gray-800">
+                Horários para {format(expandedDate, 'EEEE, d MMMM', { locale: ptBR })}
+              </h4>
+              <button
+                onClick={() => setExpandedDate(null)}
+                className="p-1 rounded-full hover:bg-gray-100"
+              >
+                <XIcon className="h-5 w-5 text-gray-400" />
+              </button>
+            </div>
 
-        </div>
+            {/* Adicione esta verificação */}
+            {daySlots.find((d) => d.date === expandedDate)?.slots?.length ? (
+              <TimeMultiSelect
+                availableTimes={daySlots.find((d) => d.date === expandedDate)?.slots || []}
+                selectedDate={selectedDate?.toDate() || null}
+                patients={patients}
+                selectedDoctorId={selectedDoctorId}
+                onChange={(times) =>
+                  setSelectedTimes((prev) => ({
+                    ...prev,
+                    [expandedDate]: times,
+                  }))
+                }
+                onSubmit={(data) => {
+                  if (onSubmitSlotBooking) {
+                    onSubmitSlotBooking(data);
+                  }
+                }}
+              />
+            ) : (
+              <EmptyAgendaMessage />
+            )}
+          </div>
+        </motion.div>
       )}
 
+      {/* Adicione esta verificação para quando não há slots na semana */}
+      {daySlots.length === 0 && !expandedDate && (
+        <EmptyAgendaMessage />
+      )}
     </div>
   );
+
 };
+const EmptyAgendaMessage = () => (
+  <div className="mt-6 bg-white rounded-xl border border-gray-200 p-6 text-center">
+    <Calendar className="mx-auto h-10 w-10 text-gray-400" />
+    <h3 className="mt-3 text-lg font-medium text-gray-900">Nenhuma disponibilidade</h3>
+    <p className="mt-1 text-gray-500">
+      Não há horários disponíveis para agendamento nesta data
+    </p>
+  </div>
+);
 
 export default DoctorAgendaCalendar;

@@ -3,7 +3,6 @@ import { useCallback, useState } from 'react';
 import {
   createPayment,
   DailyAbsence,
-  DailyClosingReport,
   DailyPayment,
   DailySession,
   deletePayment,
@@ -21,6 +20,7 @@ import {
   Summary,
   updatePayment
 } from '../services/paymentService';
+import { DailyClosingData } from '../utils/types/daily-closing-model';
 
 type PaymentFilters = Record<string, any>;
 
@@ -28,7 +28,7 @@ const usePayment = () => {
   const [payments, setPayments] = useState<FinancialRecord[]>([]);
   const [payment, setPayment] = useState<FinancialRecord | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
-  const [dailyClosing, setDailyClosing] = useState<DailyClosingReport | null>(null);
+  const [dailyClosing, setDailyClosing] = useState<DailyClosingData | null>(null);
   const [dailySessions, setDailySessions] = useState<DailySession[]>([]);
   const [dailyPayments, setDailyPayments] = useState<DailyPayment[]>([]);
   const [dailyAbsences, setDailyAbsences] = useState<DailyAbsence[]>([]);

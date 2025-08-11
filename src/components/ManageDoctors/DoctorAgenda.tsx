@@ -41,15 +41,14 @@ const DoctorAgenda = ({ doctors = [], updateSlots, patients, onDaySlotsChange, s
 
     useEffect(() => {
         if (!updateSlots) return;
-        console.log('updatessssslo', updateSlots)
-        const dataSendToSlots = new Date(updateSlots.date).toISOString().split('T')[0];;
-        console.log('dataSendToSlots', dataSendToSlots)
 
-        if (updateSlots && updateSlots.doctorId) {
-            setSelectedDoctorId(updateSlots.doctorId);
-            fetchSlotsForDate(dataSendToSlots);
-        }
-    }, [updateSlots]);
+        if (!updateSlots?.date || !updateSlots?.doctorId) return;
+
+        setSelectedDoctorId(updateSlots.doctorId);
+
+        fetchSlotsForDate(new Date(updateSlots.date).toISOString().split('T')[0]);
+
+    }, [updateSlots?._syncKey]);
 
     useEffect(() => {
         if (selectedDoctor && selectedDoctor._id) {
@@ -79,6 +78,7 @@ const DoctorAgenda = ({ doctors = [], updateSlots, patients, onDaySlotsChange, s
             };
             const response = await appointmentService.getAvailableSlots(payload)
             const slots = await response.data;
+            console.log('slots atualizado', slots)
             setDaySlots([{ date, slots }]);
             onDaySlotsChange?.([{ date, slots }]);
 

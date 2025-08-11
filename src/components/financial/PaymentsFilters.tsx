@@ -48,12 +48,17 @@ export function PaymentsFilters({ doctors, payments, onFilter, initialFilters = 
             }
 
             // Filtro por data
-            const paymentDate = new Date(payment.date || payment.createdAt).toISOString().split('T')[0];
-            if (filters.from && paymentDate < filters.from) {
-                return false;
+            const paymentDate = new Date(payment.date || payment.createdAt);
+            console.log('aquii', paymentDate)
+            console.log('aquii', payment)
+            if (filters.from) {
+                const fromDate = new Date(filters.from);
+                if (paymentDate < fromDate) return false;
             }
-            if (filters.to && paymentDate > filters.to) {
-                return false;
+
+            if (filters.to) {
+                const toDate = new Date(filters.to);
+                if (paymentDate > toDate) return false;
             }
 
             return true;

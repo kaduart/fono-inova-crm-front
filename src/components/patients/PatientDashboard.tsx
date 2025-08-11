@@ -212,7 +212,7 @@ export default function PatientDashboard() {
         navigate('/login');
         return;
       }
-      const response = await fetch(BASE_URL + '/doctor', {
+      const response = await fetch(BASE_URL + '/doctors', {
         headers: {
           'Authorization': `Bearer ${token}`
         }

@@ -1,9 +1,10 @@
 
 import { DateClickArg } from '@fullcalendar/interaction/index.js';
+import axios from 'axios';
 import { Activity, ChevronDown, Clock, Eye, EyeOff, Hospital, Stethoscope, User2, UserPlus, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import toast from 'react-hot-toast';
 import { NavLink, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { BASE_URL } from '../constants/constants';
 import { useAppointments } from '../hooks/useAppointments';
 import { usePatients } from '../hooks/usePatients';
@@ -267,26 +268,47 @@ export default function AdminDashboard() {
 
   // Handler para novo agendamento
   const handleNewAppointment = async (appointmentData: IAppointment) => {
+    console.log('bateuuu no paiiii', appointmentData)
     const payload: CreateAppointmentParams = {
       patientId: appointmentData.patientId,
       doctorId: appointmentData.doctorId,
       date: appointmentData.date,
       time: appointmentData.time,
+      serviceType: appointmentData.serviceType,
+      notes: appointmentData.notes,
+      paymentAmount: appointmentData.paymentAmount,
+      paymentMethod: appointmentData.paymentMethod,
       reason: appointmentData.reason,
       specialty: appointmentData.sessionType,
       clinicalStatus: 'pendente',
-      operationalStatus: 'agendado'
+      operationalStatus: 'agendado',
+      packageId: appointmentData.packageId
     };
     try {
-      await createAppointment(payload);
-      toast.success('Agendamento criado com sucesso!');
-      console.log('Agendamento criado com sucesso!');
+      const createdAppointment = await createAppointment(payload);
+
       await fetchAppointments();
+      console.log('Agendamento criado com sucesso!');
 
       setCloseModalSignal(s => s + 1);
+
+      toast.success('Agendamento criado com sucesso!');
+      // 2. Retorna os dados COMPLETOS para atualização
+      return {
+        ...createdAppointment,
+        _syncKey: Date.now() // Garante nova renderização
+      };
     } catch (error: any) {
-      console.error('[FRONT] Erro ao criar agendamento:', error);
-      toast.error(error.message || 'Erro ao criar agendamento');
+      if (axios.isAxiosError(error)) {
+        const apiError = error.response?.data;
+        if (apiError?.message) {
+          toast.error(`${apiError.message}`);
+        } else {
+          toast.error('Erro ao atualizar agendamento');
+        }
+      } else {
+        toast.error('Erro inesperado');
+      }
     }
   };
 
@@ -337,8 +359,17 @@ export default function AdminDashboard() {
       fetchAppointments();
       setCloseModalSignal(s => s + 1);
 
-    } catch (error) {
-      toast.error('Erro ao atualizar agendamento');
+    } catch (error: any) {
+      if (axios.isAxiosError(error)) {
+        const apiError = error.response?.data;
+        if (apiError?.message) {
+          toast.error(`${apiError.message} — ${apiError.suggestion || ''}`);
+        } else {
+          toast.error('Erro ao atualizar agendamento');
+        }
+      } else {
+        toast.error('Erro inesperado');
+      }
       console.error(error);
     }
   };
@@ -455,27 +486,27 @@ export default function AdminDashboard() {
 
     try {
       if (paymentContext.payment?._id) {
-  console.log('caiuuu no log');
+        console.log('caiuuu no log');
 
-  await updatePayment(paymentContext.payment._id, data);
+        await updatePayment(paymentContext.payment._id, data);
 
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
 
-  const container = document.querySelector('.meu-container-scroll') as HTMLElement;
-  if (container) {
-    container.scrollTo({ top: 0, behavior: 'smooth' });
-  }
+        const container = document.querySelector('.meu-container-scroll') as HTMLElement;
+        if (container) {
+          container.scrollTo({ top: 0, behavior: 'smooth' });
+        }
 
-  // Primeiro dispara o toast
-  toast.success('Pagamento atualizado com sucesso!');
+        // Primeiro dispara o toast
+        toast.success('Pagamento atualizado com sucesso!');
 
-  // Depois de um pequeno delay, fecha modal e reseta contexto
-  setTimeout(() => {
-    setPaymentModalOpen(false);
-    setPaymentContext({ mode: 'create' });
-    loadPayments();
-  }, 300); // 300ms já é suficiente
-}
+        // Depois de um pequeno delay, fecha modal e reseta contexto
+        setTimeout(() => {
+          setPaymentModalOpen(false);
+          setPaymentContext({ mode: 'create' });
+          loadPayments();
+        }, 300); // 300ms já é suficiente
+      }
 
     } catch (error) {
       toast.error('Erro ao atualizar pagamento');
@@ -489,7 +520,7 @@ export default function AdminDashboard() {
         navigate('/login');
         return;
       }
-      const response = await fetch(BASE_URL + '/doctor', {
+      const response = await fetch(BASE_URL + '/doctors', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -673,22 +704,18 @@ export default function AdminDashboard() {
     }
   };
 
-  const [showSuccessToast, setShowSuccessToast] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-
   const handleSaveDoctor = async (doctor: CreateDoctorParams) => {
     console.log('bateuuuu', doctor)
     setIsLoading(true)
     try {
       if (doctor._id) {
         await doctorService.updateDoctor(doctor._id, doctor);
-        setSuccessMessage("Profissional atualizado com sucesso!");
+        toast.success("Profissional atualizado com sucesso!");
       } else {
         await doctorService.createDoctor(doctor);
-        setSuccessMessage("Profissional cadastrado com sucesso!");
+        toast.success("Profissional cadastrado com sucesso!");
       }
 
-      setShowSuccessToast(true);
       setModalShouldClose(true); // Fecha o modal
 
       // Atualiza os dados em segundo plano
@@ -1042,8 +1069,13 @@ export default function AdminDashboard() {
           doctors={doctors}
           patients={patients}
           openModal={openModal}
+          appointments={appointments}
           setOpenModal={setOpenModal}
+          onNewAppointment={handleNewAppointment}
           modalShouldClose={modalShouldClose}
+          closeModalSignal={closeModalSignal}
+
+
         />
       </>
     );

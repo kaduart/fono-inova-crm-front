@@ -310,6 +310,7 @@ export interface IAppointment {
     paymentMethod?: string;
     paymentAmount: number;
     notes?: string;
+    serviceType: string;
     createdAt: Date;
     updatedAt: Date;
     canceledAt?: Date;

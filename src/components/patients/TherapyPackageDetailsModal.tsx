@@ -1,6 +1,6 @@
 // src/components/TherapyPackageDetailsModal.tsx
 import { useState } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 import { TherapyPackageData } from './TherapyPackageCard';
 
 type Props = {

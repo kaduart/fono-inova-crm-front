@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 import { sendTemplateMessage } from '../../services/whatsappService';
 
 export function TesteEnvioWpp() {
@@ -9,8 +9,8 @@ export function TesteEnvioWpp() {
         setLoading(true);
         try {
             await sendTemplateMessage({
-                phone: '55XXXXXXXXXXX', 
-                template:'Agendamento',
+                phone: '55XXXXXXXXXXX',
+                template: 'Agendamento',
                 parameters: [{
                     nome: 'Ricardo',
                     servico: 'Psicologia',

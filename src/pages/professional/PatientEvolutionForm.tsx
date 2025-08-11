@@ -1,14 +1,14 @@
 import { useState } from 'react';
+import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
+import Input from '../../components/ui/Input';
 import { Label } from '../../components/ui/Label';
 import { Select } from '../../components/ui/Select';
-import Input from '../../components/ui/Input';
-import { Textarea } from '../../components/ui/TextArea';
-import { Button } from '../../components/ui/Button';
-import { SelectTrigger } from '../../components/ui/SelectTrigger';
-import { SelectValue } from '../../components/ui/SelectValue';
 import { SelectContent } from '../../components/ui/SelectContent';
 import { SelectItem } from '../../components/ui/SelectItem';
+import { SelectTrigger } from '../../components/ui/SelectTrigger';
+import { SelectValue } from '../../components/ui/SelectValue';
+import { Textarea } from '../../components/ui/TextArea';
 
 interface Patient {
     _id: string;
@@ -51,7 +51,7 @@ export default function PatientEvolutionForm({ patients, onSuccess }: PatientEvo
 
         try {
             // Na implementação real:
-            // const response = await API.post('/doctor/therapy-sessions', formData);
+            // const response = await API.post('/doctors/therapy-sessions', formData);
             await new Promise(resolve => setTimeout(resolve, 1000));
 
             onSuccess({

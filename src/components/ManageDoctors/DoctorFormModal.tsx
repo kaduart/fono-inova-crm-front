@@ -2,6 +2,7 @@ import { Box, Modal } from "@mui/material";
 import { useEffect, useState } from "react";
 import { IDoctor } from "../../utils/types/types";
 import DoctorForm from "./DoctorForm";
+import { toast } from "react-toastify";
 
 interface DoctorFormModalProps {
     open: boolean;
@@ -39,7 +40,7 @@ const DoctorFormModal = ({
     const handleSubmit = async (data: IDoctor) => {
         try {
             await onSubmitDoctor(data);
-            setShouldClose(true); // Fecha após sucesso
+            setShouldClose(true); 
         } catch (error) {
             // Erros são tratados no componente pai
         }

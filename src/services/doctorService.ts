@@ -30,43 +30,43 @@ export type Doctor = {
 
 export const doctorService = {
     createDoctor: async (data: CreateDoctorParams) => {
-        return API.post<Doctor>('/doctor', data);
+        return API.post<Doctor>('/doctors', data);
     },
 
     getAllDoctors: async () => {
-        return API.get<Doctor[]>('/doctor');
+        return API.get<Doctor[]>('/doctors');
     },
 
     getDoctorById: async (id: string) => {
-        return API.get<Doctor>(`/doctor/${id}`);
+        return API.get<Doctor>(`/doctors/${id}`);
     },
 
     deleteDoctor: async (id: string) => {
-        return API.delete<{ message: string }>(`/doctor/${id}`);
+        return API.delete<{ message: string }>(`/doctors/${id}`);
     },
 
     updateDoctor: async (id: string, data: CreateDoctorParams) => {
-        return API.patch<Doctor>(`/doctor/${id}`, data);
+        return API.patch<Doctor>(`/doctors/${id}`, data);
     }
 };
 
 export const fetchPatients = async (): Promise<any[]> => {
-    const response = await API.get('/doctor/patients');
+    const response = await API.get('/doctors/patients');
     return response.data;
 };
 
 export const fetchStats = async (): Promise<any> => {
-    const response = await API.get('/doctor/appointments/stats');
+    const response = await API.get('/doctors/appointments/stats');
     return response.data;
 };
 
 export const fetchTherapySessions = async (): Promise<any[]> => {
-    const response = await API.get('/doctor/therapy-sessions');
+    const response = await API.get('/doctors/therapy-sessions');
     return response.data;
 };
 
 export const fetchTodaysAppointments = async (): Promise<any[]> => {
-    const response = await API.get('/doctor/appointments/today');
+    const response = await API.get('/doctors/appointments/today');
     return response.data;
 };
 
@@ -111,7 +111,7 @@ export const fetchCurrentDoctor = async () => {
 // frontend/services/appointmentService.ts
 export const fetchFutureAppointments = async (): Promise<Appointment[]> => {
     try {
-        const response = await API.get('/doctor/appointments/future');
+        const response = await API.get('/doctors/appointments/future');
         return response.data;
     } catch (error) {
         console.error('Erro ao buscar agendamentos futuros:', error);

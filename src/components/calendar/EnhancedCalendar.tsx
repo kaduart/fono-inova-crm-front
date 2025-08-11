@@ -5,11 +5,9 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import { Box, Paper, Typography } from '@mui/material';
 import { ptBR } from "date-fns/locale";
 import { Plus } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import toast from 'react-hot-toast';
-import appointmentService, { OPERATIONAL_STATUS_CONFIG, StatusConfig } from '../../services/appointmentService';
-import { mergeDateAndTime } from '../../utils/dateFormat';
-import { IAppointment, IDoctor, IPatient, ScheduleAppointment, SelectedEvent } from '../../utils/types/types';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { OPERATIONAL_STATUS_CONFIG, StatusConfig } from '../../services/appointmentService';
+import { IAppointment, IDoctor, IPatient, SelectedEvent } from '../../utils/types/types';
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
 import AppointmentDetailModal from './appointmentDetailModal';
 
@@ -78,43 +76,46 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         };
     };
 
-    const events = appointments?.map(appointment => {
-        // Extrair ano, mês e dia da string date
-        const [year, month, day] = appointment.date.split('-').map(Number);
+    // calendarRef = useRef<FullCalendar | null>(null);
+    const events = useMemo(() => {
+        return appointments?.filter(appointment => appointment?.date) // Filtra appointments válidos
+            .map(appointment => {
+                // Extrair ano, mês e dia da string date
+                const [year, month, day] = appointment.date.split('-').map(Number);
 
-        // Extrair horas e minutos do campo time
-        const [hours, minutes] = appointment.time.split(':').map(Number);
+                // Extrair horas e minutos do campo time
+                const [hours, minutes] = appointment.time?.split(':').map(Number) || [0, 0]; // Fallback para 00:00
 
-        // Criar data completa combinando date e time (sem conversão de fuso)
-        const startDate = new Date(year, month - 1, day, hours, minutes);
+                // Criar data completa combinando date e time
+                const startDate = new Date(year, month - 1, day, hours, minutes);
 
-        // Calcular data de término
-        const duration = appointment.duration || 60;
-        const endDate = new Date(startDate.getTime() + duration * 60 * 1000);
+                // Calcular data de término
+                const duration = appointment.duration || 60;
+                const endDate = new Date(startDate.getTime() + duration * 60 * 1000);
 
-        const operationalStatus = appointment.operationalStatus || 'agendado';
-        const config = getStatusConfig(operationalStatus);
+                const operationalStatus = appointment.operationalStatus || 'agendado';
+                const config = getStatusConfig(operationalStatus);
 
-        return {
-            id: appointment._id || appointment.id,
-            title: `${appointment.patient?.fullName || 'Paciente'} - ${appointment.doctor?.fullName || 'Profissional'}`,
-            start: startDate,
-            end: endDate,
-            extendedProps: {
-                patient: appointment.patient,
-                doctor: appointment.doctor,
-                operationalStatus,
-                clinicalStatus: appointment.clinicalStatus || 'pendente',
-                reason: appointment.reason || '',
-                specialty: appointment.specialty || '',
-                duration: appointment.duration || 60
-            },
-            backgroundColor: config.backgroundColor,
-            borderColor: config.backgroundColor,
-            textColor: config.textColor,
-        };
-    });
-
+                return {
+                    id: appointment._id || appointment.id,
+                    title: `${appointment.patient?.fullName || 'Paciente'} - ${appointment.doctor?.fullName || 'Profissional'}`,
+                    start: startDate,
+                    end: endDate,
+                    extendedProps: {
+                        patient: appointment.patient,
+                        doctor: appointment.doctor,
+                        operationalStatus,
+                        clinicalStatus: appointment.clinicalStatus || 'pendente',
+                        reason: appointment.reason || '',
+                        specialty: appointment.specialty || '',
+                        duration: appointment.duration || 60
+                    },
+                    backgroundColor: config.backgroundColor,
+                    borderColor: config.backgroundColor,
+                    textColor: config.textColor,
+                };
+            });
+    }, [appointments]);
 
     const handlePayloadToSlots = async (data: { doctorId: string; date: string }) => {
         setFormData(prev => ({ ...prev, ...data }));
@@ -160,36 +161,36 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         setIsAppointmentDetailModalOpen(true);
     };
 
-    const handleBooking = async (payload: ScheduleAppointment) => {
-        const mergedDate = mergeDateAndTime(payload.date, payload.time);
-        console.log('Bateu no enhanced', payload)
-
-        if (isNaN(mergedDate.getTime())) {
-            toast.error('Data/hora inválida');
-            return;
-        }
-        payload.specialty = payload.sessionType;
-        try {
-            console.log('payload', payload)
-            console.log('mergedDate', mergedDate)
-            await appointmentService.create({
-                ...payload,
-                // date: mergedDate.toISOString(),
-                specialty: payload.sessionType
-            });
-
-            if (calendarRef.current) {
-                calendarRef.current.getApi().refetchEvents();
-            }
-
-
-            toast.success('Sessão agendada e pagamento registrado com sucesso!');
-            // setdataUpdateSlots(payload);
-            setOpenSchedule(false);
-        } catch (err: any) {
-            toast.error(err.response.data.error || 'Erro ao agendar sessão');
-        }
-    };
+    /*  const handleBooking = async (payload: ScheduleAppointment) => {
+         const mergedDate = mergeDateAndTime(payload.date, payload.time);
+         console.log('Bateu no enhanced', payload)
+ 
+         if (isNaN(mergedDate.getTime())) {
+             toast.error('Data/hora inválida');
+             return;
+         }
+         payload.specialty = payload.sessionType;
+         try {
+             console.log('payload', payload)
+             console.log('mergedDate', mergedDate)
+             await appointmentService.create({
+                 ...payload,
+                 // date: mergedDate.toISOString(),
+                 specialty: payload.sessionType
+             });
+ 
+             if (calendarRef.current) {
+                 calendarRef.current.getApi().refetchEvents();
+             }
+ 
+ 
+             toast.success('Sessão agendada e pagamento registrado com sucesso!');
+             // setdataUpdateSlots(payload);
+             setOpenSchedule(false);
+         } catch (err: any) {
+             toast.error(err.response.data.error || 'Erro ao agendar sessão');
+         }
+     }; */
 
     const handleOpenSchedule = (appointment: IAppointment | null = null, modeType: 'create' | 'edit' = 'create') => {
         setAppointmentData(appointment);
@@ -271,13 +272,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             );
                         }}
 
-                        // Cabeçalho moderno
-                        headerToolbar={{
-                            left: 'prev,next today',
-                            center: 'title',
-                            right: 'dayGridMonth,timeGridWeek,timeGridDay'
-                        }}
-
                         // Dias da semana
                         dayHeaderContent={(arg) => (
                             <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -289,8 +283,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         dayCellContent={(arg) => (
                             <div className="flex justify-end p-1">
                                 <span className={`text-sm rounded-full w-7 h-7 flex items-center justify-center transition-all ${arg.isToday
-                                        ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white font-bold shadow-sm'
-                                        : 'text-gray-700 hover:bg-gray-100'
+                                    ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white font-bold shadow-sm'
+                                    : 'text-gray-700 hover:bg-gray-100'
                                     }`}>
                                     {arg.dayNumberText}
                                 </span>
@@ -330,10 +324,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 //loading={false}
                 // onSubmit={handleCloseScheduleModal}
                 onClose={() => setOpenSchedule(false)}
-                onSave={(appointment) => {
-                    handleBooking(appointment);
-                }
-                }
+                onSave={onNewAppointment}
 
             />
 

@@ -84,7 +84,7 @@ export default function Dashboard() {
 
   const handleCompleteSession = async (sessionId: string) => {
     try {
-      await API.patch(`/doctor/therapy-sessions/${sessionId}/complete`);
+      await API.patch(`/doctors/therapy-sessions/${sessionId}/complete`);
       toast.success('Sessão marcada como concluída!');
 
       const updatedSessions = therapySessions.map(session =>

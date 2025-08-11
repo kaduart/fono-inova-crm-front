@@ -1,8 +1,6 @@
 import { User, UserPlus } from 'lucide-react';
 import React, { useEffect, useState } from "react";
-import toast from 'react-hot-toast';
-import appointmentService from '../../services/appointmentService';
-import { IDoctor, IPatient, ScheduleAppointment } from "../../utils/types/types";
+import { IAppointment, IDoctor, IPatient, ScheduleAppointment } from "../../utils/types/types";
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
 import { Button } from "../ui/Button";
 import DoctorAgenda from "./DoctorAgenda";
@@ -24,16 +22,21 @@ interface ManageDoctorsProps {
     doctors: IDoctor[],
     patients: IPatient[],
     loading: boolean,
+    appointments: IAppointment,
     onSubmitDoctor: () => Promise<void>;
-    modalShouldClose: () => Promise<void>;
+    modalShouldClose: boolean;
+    closeModalSignal: number;
     setOpenModal: () => Promise<void>;
-
+    onNewAppointment: (data: any) => Promise<void>;
 };
 
 const ManageDoctors: React.FC<ManageDoctorsProps> = ({
     doctors = [],
     patients = [],
     loading,
+    appointments,
+    closeModalSignal,
+    onNewAppointment,
     onSubmitDoctor,
     modalShouldClose,
     setOpenModal
@@ -68,7 +71,6 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
     });
 
     useEffect(() => {
-        console.log('ffff', modalShouldClose)
         if (modalShouldClose) {
             setShowModal(false);
             const timer = setTimeout(() => {
@@ -76,7 +78,10 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
             }, 300); // Tempo para animação de fechamento
             return () => clearTimeout(timer);
         }
-    }, [modalShouldClose, setOpenModal]);
+        if (closeModalSignal) {
+            setShowScheduleModal(false);
+        }
+    }, [modalShouldClose, closeModalSignal, setOpenModal]);
 
     const handleViewAgenda = (doctor: IDoctor) => {
 
@@ -85,26 +90,13 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
     };
 
     const handleDaySlotsChange = (slots: { date: string; slots: string[] }[]) => {
-        console.log('ddddddd', slots)
         setSelectedDate(slots[0].date);
         setAllDaySlots(slots);
-    };
-
-    const handleCloseScheduleModal = () => {
-        setShowScheduleModal(false);
-        setSelectedBookingData(null);
     };
 
     const handleAddOrEditDoctor = (doctor: IDoctor | null) => {
         setSelectedDoctor(doctor);
         setShowModal(true);
-    };
-
-    const handleUpdateSchedule = (doctorId: IDoctor, newSchedule: any) => {
-        setDoctorSchedules((prev) => ({
-            ...prev,
-            [doctorId]: newSchedule,
-        }));
     };
 
     //aqui chama o agendamento por hora
@@ -144,34 +136,22 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
         setShowScheduleModal(true);
     };
 
-    //to do ja ta no admiondash so adaptar
-    const handleBooking = async (payload: ScheduleAppointment,) => {
-        console.log('Bateu no manage doctor', payload)
-        // const mergedDate = mergeDateAndTimeToAppointment(payload.date, payload.time);
-
-        payload.specialty = payload.sessionType;
+    const handleBookingComplete = async (data: ScheduleAppointment) => {
         setIsLoading(true);
-        setErrorMessage(null);
 
         try {
-            await appointmentService.create({
-                ...payload,
-                specialty: payload.sessionType
+            // 1. Envia para o pai e AGUARDA resposta
+            const result = await onNewAppointment(data);
+            // 2. Só atualiza após confirmação
+            setdataUpdateSlots({
+                ...result,
+                date: data.date,
+                doctorId: data.doctorId
             });
 
-            toast.success('Sessão agendada e pagamento registrado com sucesso!');
-
-            setdataUpdateSlots(payload);
-            setShowScheduleModal(false);
-
-        } catch (error: unknown) {
-
-            if (error instanceof Error) {
-                console.log('erro detalhado:', error);
-                setErrorMessage(error.response.data.error);
-            } else {
-                console.log('erro bruto:', error);
-            }
+        } catch (error) {
+            console.error("Erro no intermediário:", error);
+            setErrorMessage(error.message);
         } finally {
             setIsLoading(false);
         }
@@ -237,9 +217,11 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
                     //loading={false}
                     // onSubmit={handleCloseScheduleModal}
                     onClose={() => setShowScheduleModal(false)}
-                    onSave={(appointment) => {
-                        handleBooking(appointment);
+                    onSave={(data) => {
+                        handleBookingComplete(data),
+                            setdataUpdateSlots(data)
                     }}
+
                     isLoading={isLoading}
                     erroMessage={errorMessage}
 

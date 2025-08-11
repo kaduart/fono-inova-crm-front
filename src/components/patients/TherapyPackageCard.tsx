@@ -1,6 +1,6 @@
 import { User } from 'lucide-react';
 import { useState } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 import { IDoctors, IPatient, ISession, ITherapyPackage } from '../../utils/types/types';
 import { SessionListItem } from './SessionListItem';
 import { SessionModal } from './SessionModal';

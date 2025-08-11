@@ -3,9 +3,9 @@ import { useEffect, useMemo, useState } from 'react';
 import DatePicker, { registerLocale } from 'react-datepicker';
 
 import { ptBR } from "date-fns/locale";
-import toast from 'react-hot-toast';
 import ReactInputMask from 'react-input-mask';
 import Modal from 'react-modal';
+import { toast } from 'react-toastify';
 import { IDoctor, IPatient, ScheduleAppointment } from '../../utils/types/types';
 import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
@@ -56,12 +56,11 @@ const ScheduleAppointmentModal = ({
     const [packages, setPackages] = useState<any[]>([]);
     const [selectedPatient, setSelectedPatient] = useState<IPatient | null>(null);
     registerLocale("pt-BR", ptBR);
-    console.log('inciciou component', initialData)
+
     useEffect(() => {
         if (initialData) {
             const isoDate = new Date(initialData.date);
             const formattedDate = isoDate.toISOString().split('T')[0]; // "YYYY-MM-DD"
-            console.log('inciciou component', initialData)
 
             setFormData({
                 ...initialData,
@@ -181,12 +180,13 @@ const ScheduleAppointmentModal = ({
     }
 
     useEffect(() => {
+        console.log('bateiuuuu', erroMessage)
         if (erroMessage) {
             toast.error(erroMessage, {
                 position: 'top-center',
-                style: {
-                    zIndex: 999999,
-                },
+                /*   style: {
+                      zIndex: 999999,
+                  }, */
                 duration: 4000,
             });
 

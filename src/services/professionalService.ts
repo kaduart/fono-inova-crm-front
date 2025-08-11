@@ -16,23 +16,23 @@ API.interceptors.request.use((config) => {
 
 export const professionalService = {
     fetchAll: (): Promise<IDoctor[]> =>
-        API.get<IDoctor[]>('/doctor/all')
+        API.get<IDoctor[]>('/doctors/all')
             .then(res => res.data),
 
     fetchById: (id: string): Promise<IDoctor> =>
-        API.get<IDoctor>(`/doctor/${id}`)
+        API.get<IDoctor>(`/doctors/${id}`)
             .then(res => res.data),
 
     create: (data: Partial<IDoctor>): Promise<IDoctor> =>
-        API.post<IDoctor>('/doctor', data)
+        API.post<IDoctor>('/doctors', data)
             .then(res => res.data),
 
     update: (id: string, data: Partial<IDoctor>): Promise<IDoctor> =>
-        API.put<IDoctor>(`/doctor/${id}`, data)
+        API.put<IDoctor>(`/doctors/${id}`, data)
             .then(res => res.data),
 
     remove: (id: string): Promise<void> =>
-        API.delete<void>(`/doctor/${id}`)
+        API.delete<void>(`/doctors/${id}`)
             .then(() => { }),
 };
 

@@ -5,10 +5,10 @@ import './App.css';
 // Importe as novas páginas
 //import usePaymentNotifications from './hooks/usePaymentNotifications';
 import { BrowserRouter } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
 import AppRoutes from './AppRoutes';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { AuthProvider } from './contexts/AuthContext';
-import { ToastContainer } from 'react-toastify';
 
 const App: React.FC = () => {
   Modal.setAppElement('#root');
@@ -22,14 +22,13 @@ const App: React.FC = () => {
           <AppRoutes />
           <ToastContainer
             position="top-center"
-            autoClose={3000}
-            hideProgressBar={false}
-            newestOnTop={false}
+            autoClose={4000}
+            newestOnTop
             closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
             draggable
             pauseOnHover
+            theme="colored"
+            style={{ zIndex: 100000 }}
           />
         </Suspense>
       </AuthProvider>

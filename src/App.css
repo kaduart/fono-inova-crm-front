@@ -121,3 +121,25 @@
 .Toastify__toast-container {
   z-index: 99999 !important;
 }
+
+.agenda-section {
+  transition: all 0.3s ease;
+}
+
+.agenda-section-highlight {
+  animation: highlight 2s ease;
+}
+
+@keyframes highlight {
+  0% {
+    background-color: transparent;
+  }
+
+  20% {
+    background-color: #f0fdf4;
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}

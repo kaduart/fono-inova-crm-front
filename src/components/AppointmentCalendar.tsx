@@ -4,7 +4,7 @@ import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 
 const AppointmentCalendar = () => {
     const [events, setEvents] = useState([]);

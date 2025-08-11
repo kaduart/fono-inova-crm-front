@@ -61,7 +61,7 @@ export default function DoctorDashboard() {
     if (!patientId) return;
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(BASE_URL + `/doctor/prescriptions/${patientId}`, {
+      const response = await fetch(BASE_URL + `/doctors/prescriptions/${patientId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -86,7 +86,7 @@ export default function DoctorDashboard() {
         navigate('/login');
         return;
       }
-      const response = await fetch(BASE_URL + '/doctor/profile', {
+      const response = await fetch(BASE_URL + '/doctors/profile', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -110,7 +110,7 @@ export default function DoctorDashboard() {
         navigate('/login');
         return;
       }
-      const response = await fetch(BASE_URL + '/doctor/patients-with-appointments', {
+      const response = await fetch(BASE_URL + '/doctors/patients-with-appointments', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -133,7 +133,7 @@ export default function DoctorDashboard() {
         navigate('/login');
         return;
       }
-      const response = await fetch(BASE_URL + '/doctor/appointments', {
+      const response = await fetch(BASE_URL + '/doctors/appointments', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -162,7 +162,7 @@ export default function DoctorDashboard() {
         return;
       }
 
-      const response = await fetch(BASE_URL + '/doctor/appointment/completed', {
+      const response = await fetch(BASE_URL + '/doctors/appointment/completed', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -193,7 +193,7 @@ export default function DoctorDashboard() {
         return;
       }
 
-      const response = await fetch(BASE_URL + '/doctor/appointments/upcoming', {
+      const response = await fetch(BASE_URL + '/doctors/appointments/upcoming', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -219,7 +219,7 @@ export default function DoctorDashboard() {
   const handleUpdateStatus = async (appointmentId, status) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(BASE_URL + `/doctor/appointment/${appointmentId}/${status}`, {
+      const response = await fetch(BASE_URL + `/doctors/appointment/${appointmentId}/${status}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -431,7 +431,7 @@ export default function DoctorDashboard() {
     const handleSave = async () => {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(BASE_URL + '/doctor/profile', {
+        const response = await fetch(BASE_URL + '/doctors/profile', {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -562,7 +562,7 @@ export default function DoctorDashboard() {
 
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(BASE_URL + `/doctor/available-slots?patientId=${patientId}&date=${date}`, {
+        const response = await fetch(BASE_URL + `/doctors/available-slots?patientId=${patientId}&date=${date}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -597,7 +597,7 @@ export default function DoctorDashboard() {
       if (window.confirm('Are you sure you want to delete this prescription?')) {
         try {
           const token = localStorage.getItem('token');
-          const response = await fetch(BASE_URL + `/doctor/prescriptions/${prescriptionId}`, {
+          const response = await fetch(BASE_URL + `/doctors/prescriptions/${prescriptionId}`, {
             method: 'DELETE',
             headers: {
               'Authorization': `Bearer ${token}`
@@ -624,8 +624,8 @@ export default function DoctorDashboard() {
         try {
           const token = localStorage.getItem('token');
           const url = appointmentData.prescriptionId
-            ? BASE_URL + `/doctor/prescriptions/${appointmentData.prescriptionId}`
-            : BASE_URL + '/doctor/prescribe-medication';
+            ? BASE_URL + `/doctors/prescriptions/${appointmentData.prescriptionId}`
+            : BASE_URL + '/doctors/prescribe-medication';
           const method = appointmentData.prescriptionId ? 'PUT' : 'POST';
           const response = await fetch(url, {
             method,
@@ -667,7 +667,7 @@ export default function DoctorDashboard() {
       } else if (selectedAction === 'schedule-appointment') {
         try {
           const token = localStorage.getItem('token');
-          const response = await fetch(BASE_URL + '/doctor/schedule-appointment', {
+          const response = await fetch(BASE_URL + '/doctors/schedule-appointment', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

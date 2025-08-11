@@ -1,7 +1,7 @@
 import { Eye, EyeOff } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { BASE_URL } from '../constants/constants';
 
 interface FormErrors {

@@ -89,7 +89,7 @@ const DoctorCard = ({ doctor, onEdit, onViewAgenda }: DoctorCardProps) => {
                             className="flex-1 flex items-center justify-center px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors"
                         >
                             <Calendar size={16} className="mr-2" />
-                            Agenda
+                            VerAgenda
                         </button>
                     )}
                 </div>
@@ -105,6 +105,18 @@ interface DoctorListProps {
 }
 
 const DoctorList = ({ doctors, onEdit, onViewAgenda }: DoctorListProps) => {
+    const handleViewAgendaClick = (doctor: any) => {
+        onViewAgenda?.(doctor);
+
+        // Rola até o final da página
+        setTimeout(() => {
+            window.scrollTo({
+                top: document.body.scrollHeight,
+                behavior: 'smooth'
+            });
+        }, 100);
+    };
+
     if (!doctors.length) {
         return (
             <div className="bg-white rounded-lg shadow-sm p-8 text-center">
@@ -126,7 +138,7 @@ const DoctorList = ({ doctors, onEdit, onViewAgenda }: DoctorListProps) => {
                     key={doctor._id}
                     doctor={doctor}
                     onEdit={onEdit}
-                    onViewAgenda={onViewAgenda}
+                    onViewAgenda={handleViewAgendaClick}
                 />
             ))}
         </div>
