@@ -4,6 +4,7 @@ import Input from '../../components/ui/Input';
 import { Label } from '../../components/ui/Label';
 import { BASE_URL } from '../../constants/constants';
 import { IPatient } from '../../utils/types/types';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 const initialPatientState: IPatient = {
     fullName: '',
     dateOfBirth: '',
@@ -92,7 +93,7 @@ const PatientDetails = ({ patients }: PatientDetailsProps) => {
     }, [id]);
 
     if (loading) {
-        return <div>Carregando...</div>;
+        return <LoadingSpinner />;
     }
 
     return (

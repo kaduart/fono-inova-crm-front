@@ -154,7 +154,7 @@ const SignUp = () => {
                   {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                 </div>
                 <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-blue-800 text-left">Password</label>
+                  <label htmlFor="password" className="block text-sm font-medium text-blue-800 text-left">Senha</label>
                   <div className="flex items-center">
                     <input
                       id="password"
@@ -176,7 +176,7 @@ const SignUp = () => {
                   {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
                 </div>
                 <div>
-                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-blue-800 text-left">Confirm Password</label>
+                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-blue-800 text-left">Confirme a Senha</label>
                   <div className="flex items-center">
                     <input
                       id="confirmPassword"
@@ -201,13 +201,13 @@ const SignUp = () => {
                   type="submit"
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
                 >
-                  Create Account
+                  Criar Conta
                 </button>
               </form>
             </div>
             <div className="bg-blue-50 px-6 py-4 rounded-b-lg">
               <p className="text-sm text-blue-600 text-center">
-                Already have an account?{" "}
+                Já tem conta?{" "}
                 <button onClick={() => navigate('/login')} className="text-blue-600 font-semibold hover:underline">
                   Log in
                 </button>

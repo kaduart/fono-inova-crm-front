@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BsCheck2, BsCheck2All } from 'react-icons/bs';
 import { FiMic, FiPaperclip, FiSend } from 'react-icons/fi';
+import { LoadingSpinner } from '../../ui/LoadingSpinner';
 
 interface Contact {
     id: string;
@@ -211,7 +212,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             <div className="flex-1 overflow-y-auto p-4 bg-[url('https://web.whatsapp.com/img/bg-chat-tile-light_a4be512e7195b6b733d9110b408f075d.png')] bg-repeat bg-opacity-5">
                 {loading && (
                     <div className="flex justify-center items-center h-full">
-                        <div className="animate-pulse text-gray-500">Carregando mensagens...</div>
+                        <div className="animate-pulse text-gray-500"><LoadingSpinner /></div>
                     </div>
                 )}
 

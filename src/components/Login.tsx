@@ -4,16 +4,28 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { BASE_URL } from '../constants/constants';
+import { useAuth } from '../contexts/AuthContext';
+import { useAuthNavigation } from '../hooks/useAuthNavigation';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 
 const Login = () => {
+  const { login } = useAuthNavigation();
   const navigate = useNavigate();
+  const auth = useAuth();
+
+  // Acesso seguro ao loading
+  const loading = auth?.loading || {
+    isLoading: false,
+    showLoading: () => { },
+    hideLoading: () => { }
+  };
+
+
   const [selectedRole, setSelectedRole] = useState('admin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [user, setUser] = useState(null);
   const [showCreatePassword, setShowCreatePassword] = useState(false);
   const [newPassword, setNewPassword] = useState('');
@@ -49,64 +61,26 @@ const Login = () => {
     const errorCode = searchParams.get('error');
 
     if (errorCode === 'TOKEN_EXPIRED') {
-      alert('Sua sessão expirou. Por favor, faça login novamente.');
+      toast.error('Sua sessão expirou. Por favor, faça login novamente.');
     }
   }, [location]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    loading.showLoading();
+    setError(null);
 
     try {
-      const response = await fetch(`${BASE_URL}/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          password,
-          role: selectedRole
-        }),
-      });
+      const result = await login({ email, password, role: selectedRole });
 
-      const contentType = response.headers.get('content-type');
-      if (!contentType?.includes('application/json')) {
-        const text = await response.text();
-        throw new Error(text || 'Resposta inválida do servidor');
-      }
-
-      const data = await response.json();
-      console.log('✅ Login success:', data);
-
-      if (data.requiresPasswordCreation) {
+      if (result.requiresPasswordCreation) {
         setShowCreatePassword(true);
-        return;
-      }
-
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('userRole', data.role);
-      localStorage.setItem('userEmail', email);
-      setUser(data.user);
-
-      switch (data.role) {
-        case 'admin':
-          navigate('/admin');
-          break;
-        case 'doctor':
-          navigate('/dashboard');
-          break;
-        default:
-          navigate('/patient');
-      }
-
-    } catch (error) {
-      if (error instanceof Error) {
-        console.error('Erro ao conectar ao servidor:', error.message);
-        toast.error(error.message || 'Erro ao conectar ao servidor');
       }
     } finally {
-      setIsLoading(false);
+      loading.hideLoading();
     }
   };
+
 
   const handleCreatePassword = async (e) => {
     e.preventDefault();
@@ -116,7 +90,7 @@ const Login = () => {
       return;
     }
 
-    setIsLoading(true);
+    loading.showLoading();
 
     try {
       const response = await fetch(`${BASE_URL}/reset-password`, {
@@ -141,19 +115,28 @@ const Login = () => {
     } catch (error) {
       toast.error(error.message);
     } finally {
-      setIsLoading(false);
+      loading.hideLoading();
     }
   };
 
   const handleForgotPassword = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
+
+    if (!resetEmail) {
+      toast.error('Por favor, informe seu email');
+      return;
+    }
+
+    loading.showLoading();
 
     try {
       const response = await fetch(`${BASE_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: resetEmail }),
+        body: JSON.stringify({
+          email: resetEmail,
+          role: selectedRole // Envia o role selecionado
+        }),
       });
 
       const data = await response.json();
@@ -164,14 +147,15 @@ const Login = () => {
 
       toast.success('Instruções enviadas para seu email!');
       setShowForgotPassword(false);
+      setResetEmail('');
     } catch (error) {
       toast.error(error.message);
     } finally {
-      setIsLoading(false);
+      loading.hideLoading();
     }
   };
 
-  return isLoading ? (
+  return loading.showLoading() ? (
     <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
       <LoadingSpinner />
     </Box>
@@ -209,37 +193,63 @@ const Login = () => {
           <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-md bg-white">
             <div className="p-6">
               {showForgotPassword ? (
-                <form onSubmit={handleForgotPassword} className="space-y-4">
-                  <div>
-                    <label htmlFor="resetEmail" className="block text-lg font-medium text-gray-700 mb-1 text-left">
-                      Email Cadastrado
-                    </label>
-                    <input
-                      id="resetEmail"
-                      type="email"
-                      value={resetEmail}
-                      onChange={(e) => setResetEmail(e.target.value)}
-                      placeholder="Insira o email da sua conta"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
+                <>
+                  <div className="flex bg-blue-100 rounded-lg p-1 mb-4">
+                    {roles.map((role) => (
+                      <button
+                        key={role.id}
+                        onClick={() => setSelectedRole(role.id)}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-colors ${selectedRole === role.id ? 'bg-blue-600 text-white' : 'text-blue-600'}`}
+                      >
+                        <role.icon size={16} />
+                        <span>{role.label}</span>
+                      </button>
+                    ))}
                   </div>
 
-                  <button
-                    type="submit"
-                    className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors"
-                  >
-                    Enviar Instruções
-                  </button>
+                  <form onSubmit={handleForgotPassword} className="space-y-4">
+                    <div>
+                      <label htmlFor="resetEmail" className="block text-lg font-medium text-gray-700 mb-1 text-left">
+                        Email Cadastrado
+                      </label>
+                      <input
+                        id="resetEmail"
+                        type="email"
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        placeholder="Insira o email da sua conta"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setShowForgotPassword(false)}
-                    className="w-full text-blue-600 mt-2 text-sm hover:underline"
-                  >
-                    Voltar ao login
-                  </button>
-                </form>
+                    <div className="bg-blue-50 p-3 rounded-md">
+                      <p className="text-sm text-blue-800">
+                        Solicitando redefinição para: <strong className="font-semibold">
+                          {roles.find(r => r.id === selectedRole)?.label}
+                        </strong>
+                      </p>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                      Enviar Instruções
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowForgotPassword(false);
+                        setResetEmail('');
+                      }}
+                      className="w-full text-blue-600 mt-2 text-sm hover:underline"
+                    >
+                      Voltar ao login
+                    </button>
+                  </form>
+                </>
               ) : showCreatePassword ? (
                 <form onSubmit={handleCreatePassword} className="space-y-4">
                   <div>
@@ -387,7 +397,10 @@ const Login = () => {
 
                     <button
                       type="button"
-                      onClick={() => setShowForgotPassword(true)}
+                      onClick={() => {
+                        setShowForgotPassword(true);
+                        setResetEmail(email); // Preenche com o email já digitado
+                      }}
                       className="w-full text-blue-600 mt-2 text-sm hover:underline"
                     >
                       Esqueci minha senha

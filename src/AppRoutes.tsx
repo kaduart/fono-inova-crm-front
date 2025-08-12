@@ -2,8 +2,9 @@
 import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
-import { PrivateRoute } from './utils/PrivateRoute';
+import { useAuth } from './contexts/AuthContext';
 import SchedulePage from './pages/schedule';
+import { PrivateRoute } from './utils/PrivateRoute';
 
 /* // Layouts
 const MainLayout = lazy(() => import('./src/layouts/MainLayout'));
@@ -12,15 +13,22 @@ const MainLayout = lazy(() => import('./src/layouts/MainLayout'));
 const Home = lazy(() => import('./components/Home'));
 const Login = lazy(() => import('./components/Login'));
 const SignUp = lazy(() => import('./components/SignUp'));
+const ResetPassword = lazy(() => import('./components/ResetPassword'));
 
 // Páginas privadas
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
-const DoctorDashboard = lazy(() => import('./components/Doctors'));
+const DoctorDashboard = lazy(() => import('./components/DoctorDashboard'));
 const PatientDashboard = lazy(() => import('./components/patients/PatientDashboard'));
 const CreateAppointmentPage = lazy(() => import('./pages/appointments/create'));
 // ... outros imports lazy
 
 const AppRoutes = () => {
+    const { isLoading, isAuthenticated, user } = useAuth();
+
+    if (isLoading) {
+        return <LoadingSpinner fullscreen />;
+    }
+
     return (
         <Suspense fallback={<LoadingSpinner fullscreen />}>
             <Routes>
@@ -28,23 +36,24 @@ const AppRoutes = () => {
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<SignUp />} />
+                <Route path="/reset-password/:token" element={<ResetPassword />} />
 
-                {/* Rotas com layout comum */}
-                {/*   <Route element={<MainLayout />}> */}
                 <Route>
                     {/* Rotas administrativas */}
                     <Route
-                        path="/admin"
+                        path="/admin/*"
                         element={
-                            <PrivateRoute allowedRoles={['admin']}>
+                            isAuthenticated && user?.role === 'admin' ? (
                                 <AdminDashboard />
-                            </PrivateRoute>
+                            ) : (
+                                <Navigate to="/login" />
+                            )
                         }
                     />
                     <Route
-                        path="/admin/doctors"
+                        path="/doctors"
                         element={
-                            <PrivateRoute allowedRoles={['admin']}>
+                            <PrivateRoute allowedRoles={['doctor']}>
                                 <DoctorDashboard />
                             </PrivateRoute>
                         }

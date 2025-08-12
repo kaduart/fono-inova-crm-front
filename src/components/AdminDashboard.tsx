@@ -28,6 +28,7 @@ import { Button } from './ui/Button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from './ui/Card';
 import Input from './ui/Input';
 import { Label } from './ui/Label';
+import { LoadingSpinner } from './ui/LoadingSpinner';
 
 const NavButton = ({
   children,
@@ -978,7 +979,7 @@ export default function AdminDashboard() {
 
   const renderProfile = () => {
     if (!adminInfo) {
-      return <div>Carregando perfil...</div>;
+      return <div><LoadingSpinner /></div>;
     }
 
     const handleInputChange = (e) => {

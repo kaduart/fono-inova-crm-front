@@ -27,38 +27,48 @@ export function PaymentsFilters({ doctors, payments, onFilter, initialFilters = 
                 return false;
             }
 
-            // Filtro por paciente (busca por ID ou nome)
-            if (filters.patientId &&
-                !payment.patient?._id.includes(filters.patientId) &&
-                !payment.patient?.fullName.toLowerCase().includes(filters.patientId.toLowerCase())) {
-                return false;
+            // Filtro por paciente
+            if (filters.patientId) {
+                const searchTerm = filters.patientId.toLowerCase();
+                const patientMatch =
+                    payment.patient?._id?.toLowerCase().includes(searchTerm) ||
+                    payment.patient?.fullName?.toLowerCase().includes(searchTerm);
+
+                if (!patientMatch) return false;
             }
 
             // Filtro por status
             if (filters.status) {
-                // Verifica se o pagamento tem a propriedade 'paid' (booleano)
-                if (payment.paid !== undefined) {
-                    if (filters.status === 'paid' && !payment.paid) return false;
-                    if (filters.status === 'pending' && payment.paid) return false;
-                }
-                // Caso tenha a propriedade 'status' (string)
-                else if (payment.status !== filters.status) {
+                if (filters.status === 'paid' && payment.status !== 'paid') return false;
+                if (filters.status === 'pending' && payment.status !== 'pending') return false;
+                if (filters.status === 'canceled' && payment.status !== 'canceled') return false;
+            }
+
+            // Filtro por data do agendamento (appointment.date)
+            if (filters.from || filters.to) {
+                const appointmentDateStr = payment.appointment?.date;
+
+                if (!appointmentDateStr) return false; // Se não tiver data de agendamento, exclui
+
+                try {
+                    const appointmentDate = new Date(appointmentDateStr);
+                    appointmentDate.setHours(0, 0, 0, 0); // Ignora horário
+
+                    if (filters.from) {
+                        const fromDate = new Date(filters.from);
+                        fromDate.setHours(0, 0, 0, 0);
+                        if (appointmentDate < fromDate) return false;
+                    }
+
+                    if (filters.to) {
+                        const toDate = new Date(filters.to);
+                        toDate.setHours(23, 59, 59, 999); // Fim do dia
+                        if (appointmentDate > toDate) return false;
+                    }
+                } catch (e) {
+                    console.error("Erro ao processar data do agendamento:", e);
                     return false;
                 }
-            }
-
-            // Filtro por data
-            const paymentDate = new Date(payment.date || payment.createdAt);
-            console.log('aquii', paymentDate)
-            console.log('aquii', payment)
-            if (filters.from) {
-                const fromDate = new Date(filters.from);
-                if (paymentDate < fromDate) return false;
-            }
-
-            if (filters.to) {
-                const toDate = new Date(filters.to);
-                if (paymentDate > toDate) return false;
             }
 
             return true;

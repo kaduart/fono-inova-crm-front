@@ -10,6 +10,7 @@ import {
     Contact,
     fetchContacts,
 } from '../../../services/whatsappService';
+import { LoadingSpinner } from '../../ui/LoadingSpinner';
 
 const AppChat: React.FC = () => {
     const [contacts, setContacts] = useState<Contact[]>([]);
@@ -96,7 +97,7 @@ const AppChat: React.FC = () => {
                 contacts={contacts}
                 active={active}
                 onSelect={setActive}
-             //   onAddContact={() => setShowAddModal(true)}
+                //   onAddContact={() => setShowAddModal(true)}
                 onAdd={addContact}
                 onEdit={editContact}
                 onDelete={deleteContact}
@@ -141,7 +142,7 @@ const AppChat: React.FC = () => {
                 <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-40 backdrop-blur-sm">
                     <div className="bg-white p-6 rounded-xl shadow-2xl flex items-center space-x-3">
                         <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                        <span className="text-gray-700 font-medium">Carregando...</span>
+                        <span className="text-gray-700 font-medium"><LoadingSpinner /></span>
                     </div>
                 </div>
             )}

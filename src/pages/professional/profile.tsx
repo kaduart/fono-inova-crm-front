@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import SpecialtySelector from '../../components/common/SpecialtySelector';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import API from '../../services/api';
 
 export default function ProfessionalProfilePage() {
@@ -46,7 +47,7 @@ export default function ProfessionalProfilePage() {
         }
     };
 
-    if (!user) return <div>Carregando...</div>;
+    if (!user) return <div><LoadingSpinner /></div>;
 
     return (
         <div className="container mx-auto p-4">
@@ -62,7 +63,7 @@ export default function ProfessionalProfilePage() {
                         //   multiSelect={true}
                         />
                     </div>
-                     <h2 className="text-xl font-semibold mb-3">Especialidades</h2>
+                    <h2 className="text-xl font-semibold mb-3">Especialidades</h2>
                     <p className="text-gray-600 mb-4">Selecione as especialidades que você atende:</p>
 
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

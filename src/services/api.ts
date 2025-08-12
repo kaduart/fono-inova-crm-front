@@ -61,4 +61,14 @@ export const checkPixStatus = async (txid: string) => {
   return response.data;
 };
 
+
+// src/services/api.ts (ou em outro arquivo, desde que importe depois)
+
+
+export const loginAPI = async (credentials: { email: string; password: string }) => {
+  const response = await API.post('/login', credentials);
+  // supondo que o backend retorne { token, user } no body
+  return response.data;
+};
+
 export default API;

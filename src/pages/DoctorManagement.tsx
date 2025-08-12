@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import API from '../services/api';
 import SpecialtyCard from './SpecialtyCard';
 
@@ -44,7 +45,7 @@ export default function ProfessionalProfilePage() {
         }
     };
 
-    if (!user) return <div>Carregando...</div>;
+    if (!user) return <div><LoadingSpinner /></div>;
 
     return (
         <div className="container mx-auto p-4">
@@ -90,7 +91,7 @@ export default function ProfessionalProfilePage() {
                             </div>
                         ))}
                     </div>
-                    
+
                 </div>
 
                 <button

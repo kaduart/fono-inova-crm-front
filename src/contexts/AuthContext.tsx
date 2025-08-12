@@ -1,62 +1,102 @@
 // AuthContext.tsx
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
 import { BASE_URL } from '../constants/constants';
 import API from '../services/api';
 
-interface User {
-  id: string;
-  name: string;
+export interface User {
+  _id: string;
+  fullName: string;
   email: string;
-  role: string;
-  // Adicione outros campos conforme necessário
+  specialty?: string;
+  specialties?: string[];
+  licenseNumber?: string;
+  phoneNumber?: string;
+  active: boolean;
+  role: 'doctor' | 'admin' | 'patient';
+  weeklyAvailability?: {
+    day: string;
+    times: string[];
+  }[];
+  createdAt: string;
+  updatedAt: string;
+  __v?: number;
 }
+
+interface LoadingState {
+  isLoading: boolean;
+  showLoading: () => void;
+  hideLoading: () => void;
+}
+
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (token: string, userData: User) => void;
-  logout: () => void;
+  login: (token: string, userData: User) => Promise<{ success: boolean; userRole?: string }>;
+  logout: () => Promise<{ success: boolean }>;
   isAuthenticated: boolean;
   setUser: (user: User | null) => void;
+  loading: LoadingState;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
-  const location = useLocation();
+  const [authLoading, setAuthLoading] = useState(true);
+  const [operationLoading, setOperationLoading] = useState(false);
 
-  const login = useCallback((token: string, userData: User) => {
-    localStorage.setItem('token', token);
-    setUser(userData);
-    const origin = location.state?.from?.pathname || '/dashboard';
-    navigate(origin, { replace: true });
-  }, [navigate, location.state]);
+  const showLoading = useCallback(() => setOperationLoading(true), []);
+  const hideLoading = useCallback(() => setOperationLoading(false), []);
+
+  const login = useCallback(async (token: string, userData: User) => {
+    showLoading();
+    try {
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+      API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+      setUser(userData);
+      API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      return { success: true, userRole: userData.role };
+    } catch {
+      hideLoading();
+    }
+  }, [showLoading, hideLoading]);
+
 
   const logout = useCallback(() => {
-    localStorage.removeItem('token');
-    setUser(null);
-    navigate('/login', { replace: true });
-  }, [navigate]);
+    showLoading();
+    try {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+      delete API.defaults.headers.common['Authorization'];
+
+      // Delay para visualização do loading
+      return { success: true };
+    } finally {
+      setTimeout(hideLoading, 1000);
+    }
+  }, [showLoading, hideLoading]);
 
   useEffect(() => {
     const validateSession = async () => {
       try {
+        setAuthLoading(true);
         const userRes = await API.get('/users/me');
         setUser(userRes.data);
-        setIsLoading(false);
       } catch (error) {
-        // Se 401, já vai cair no interceptor acima e redirecionar
         setUser(null);
-        setIsLoading(false);
+      } finally {
+        setAuthLoading(false);
       }
     };
 
     validateSession();
-  }, [logout]);
+  }, [showLoading, hideLoading]);
+
 
 
   useEffect(() => {
@@ -90,12 +130,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const value = useMemo(() => ({
     user,
-    isLoading,
+    isLoading: authLoading,
     isAuthenticated: !!user,
     login,
     logout,
     setUser,
-  }), [user, isLoading, login, logout]);
+    loading: {
+      isLoading: operationLoading,
+      showLoading,
+      hideLoading
+    }
+  }), [user, authLoading, operationLoading, login, logout, showLoading, hideLoading]);
 
   return (
     <AuthContext.Provider value={value}>
@@ -103,6 +148,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     </AuthContext.Provider>
   );
 };
+
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

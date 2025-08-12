@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import API from '../../services/api';
 import { Specialty, SpecialtySelectorProps } from '../../utils/types';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 const SpecialtySelector: React.FC<SpecialtySelectorProps> = ({
   value,
@@ -25,7 +26,7 @@ const SpecialtySelector: React.FC<SpecialtySelectorProps> = ({
     fetchSpecialties();
   }, []);
 
-  if (loading) return <div className="p-2">Carregando especialidades...</div>;
+  if (loading) return <div className="p-2"><LoadingSpinner /></div>;
   return (
     <div className="w-full">
       <select

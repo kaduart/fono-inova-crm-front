@@ -2,6 +2,7 @@
 import { useUser } from '@/context/UserContext';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
 export default function ProfessionalHomePage() {
     const { user } = useUser();
@@ -16,5 +17,5 @@ export default function ProfessionalHomePage() {
         }
     }, [user, navigate]);
 
-    return <div>Carregando...</div>;
+    return <div><LoadingSpinner /></div>;
 }
