@@ -9,9 +9,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const isDevelopment = mode === 'development';
-  const baseUrl = env.VITE_API_BASE_URL ||
-    (isDevelopment
-      ? 'http://localhost:5000'
+  const baseUrl = env.VITE_API_BASE_URL || 
+    (isDevelopment 
+      ? 'http://localhost:5000' 
       : 'https://fono-inova-crm-back.onrender.com');
 
   return {
@@ -25,7 +25,7 @@ export default defineConfig(({ mode }) => {
       })] : [])
     ],
     build: {
-      outDir: path.resolve(__dirname, 'dist'),
+       outDir: path.resolve(__dirname, 'dist'),
       emptyOutDir: true,
       sourcemap: isDevelopment,
       rollupOptions: {
@@ -38,9 +38,6 @@ export default defineConfig(({ mode }) => {
           entryFileNames: `assets/[name]-[hash].js`,
           chunkFileNames: `assets/[name]-[hash].js`,
           assetFileNames: `assets/[name]-[hash].[ext]`
-        },
-        input: {
-          main: './index.html'
         }
       },
       chunkSizeWarningLimit: 1600,
