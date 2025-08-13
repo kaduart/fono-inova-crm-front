@@ -8,6 +8,7 @@ const API = axios.create({
   withCredentials: true,
 });
 
+
 API.interceptors.request.use(config => {
   // Verifica múltiplas fontes de token
   const token = localStorage.getItem('token') ||
