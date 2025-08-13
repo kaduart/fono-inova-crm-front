@@ -8,15 +8,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const isDev = mode === 'development';
-  
-  // Configuração mínima de URLs
-  const baseUrl = isDev 
-    ? 'http://localhost:5000' 
+
+  // Configuração robusta de URLs
+  const baseUrl = isDev
+    ? 'http://localhost:5000'
     : env.VITE_API_BASE_URL || 'https://fono-inova-crm-back.onrender.com';
+
+  const frontendUrl = isDev
+    ? 'http://localhost:5173'
+    : env.VITE_FRONTEND_URL || 'https://seu-app.vercel.app';
 
   return {
     base: '/',
-    plugins: [react()], // Apenas o plugin básico do React
+    plugins: [react()],
     build: {
       outDir: path.resolve(__dirname, 'dist'),
       emptyOutDir: true,
@@ -25,17 +29,22 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             mui: ['@mui/material', '@mui/icons-material'],
             react: ['react', 'react-dom', 'react-router-dom']
-          }
+          },
+          chunkFileNames: 'assets/[name]-[hash].js'
         }
       }
     },
     server: {
       port: 5173,
+      strictPort: true,
       proxy: {
         '/api': {
           target: baseUrl,
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, '')
+          rewrite: (path) => path.replace(/^\/api/, ''),
+          headers: {
+            'X-Forwarded-Host': new URL(frontendUrl).host
+          }
         }
       }
     },
@@ -45,7 +54,10 @@ export default defineConfig(({ mode }) => {
       }
     },
     define: {
-      'process.env.VITE_API_BASE_URL': JSON.stringify(baseUrl)
+      'process.env': {
+        VITE_API_BASE_URL: JSON.stringify(baseUrl),
+        VITE_FRONTEND_URL: JSON.stringify(frontendUrl) // Adição crucial
+      }
     }
   };
 });

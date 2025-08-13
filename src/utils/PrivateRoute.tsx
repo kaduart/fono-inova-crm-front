@@ -17,8 +17,12 @@ export const PrivateRoute = ({ children, allowedRoles }: PrivateRouteProps) => {
         return <LoadingSpinner />;
     }
 
-    if (!user || !allowedRoles.includes(user.role)) {
+    if (!user) {
         return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+
+    if (!allowedRoles.includes(user.role)) {
+        return <Navigate to="/" replace />;
     }
 
     return <>{children}</>;
