@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
 
   const frontendUrl = isDev
     ? 'http://localhost:5173'
-    : env.VITE_FRONTEND_URL || 'https://seu-app.vercel.app';
+    : env.VITE_FRONTEND_URL || 'https://app.clinicafonoinova.com.br';
 
   return {
     base: '/',
