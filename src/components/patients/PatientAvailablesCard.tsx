@@ -61,7 +61,7 @@ export function PatientAvailablesCard({ doctors, evaluations, onDelete, patientI
   };
 
 
-
+  console.log('çaiuuuuu', evaluations)
 
   return (
     <>
@@ -106,8 +106,8 @@ export function PatientAvailablesCard({ doctors, evaluations, onDelete, patientI
                 <tbody className="divide-y divide-gray-100 bg-white">
                   {evaluations.map((evalItem) => (
                     <tr key={evalItem._id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3">{evalItem.doctorId.fullName}</td>
-                      <td className="px-4 py-3 capitalize">{evalItem.doctorId.specialty}</td>
+                      <td className="px-4 py-3">{evalItem.doctor.fullName}</td>
+                      <td className="px-4 py-3 capitalize">{evalItem.doctor.specialty}</td>
                       <td className="px-4 py-3">{evalItem.date.slice(0, 10).split("-").reverse().join("/")}</td>
                       <td className="px-4 py-3">{evalItem.time}</td>
                       <td className="px-4 py-3 capitalize">  {new Intl.NumberFormat('pt-BR', {

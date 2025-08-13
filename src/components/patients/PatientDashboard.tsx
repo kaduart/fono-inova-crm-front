@@ -166,9 +166,9 @@ export default function PatientDashboard() {
     }
   };
 
-  /* useEffect(() => {
-    setAppointments(appointments);
-  }, [appointments]); */
+  console.log('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaappp', appointments)
+  useEffect(() => {
+  }, [appointments]);
 
   useEffect(() => {
     if (patients.length > 0 && patientId) {
@@ -493,6 +493,9 @@ export default function PatientDashboard() {
     setMode('edit');
     setOpenSchedule(true);
   };
+
+  console.log('aaaaa', todaysAppointments)
+
   const renderDashboard = () => (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -539,7 +542,7 @@ export default function PatientDashboard() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <h4 className="font-medium text-gray-900 truncate">
-                          Dr. {appointment.doctor?.fullName}
+                          {appointment.doctor ? `Dr. ${appointment.doctor.fullName}` : 'Profissional não especificado'}
                         </h4>
                         <span className="text-sm font-medium text-gray-500">
                           {appointment.time}
@@ -825,44 +828,6 @@ export default function PatientDashboard() {
           <PatientMiniCalendar appointments={allAppointmentsById} />
         )
         }
-        <Card className="w-full max-w-2xl mx-auto">
-          <CardHeader>
-            <CardTitle>Marque uma consulta</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="doctorId">Selecione o profissional</Label>
-                <Select id="doctorId" name="doctorId" value={appointmentData.doctorId} onChange={handleInputChange}>
-                  <option value="">Escolha o profissional</option>
-                  {doctors.map((doctor) => (
-                    <option key={doctor._id} value={doctor._id}>
-                      Dr. {doctor.fullName} - {doctor.specialty}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="date">Data da consulta</Label>
-                <Input id="date" name="date" type="date" value={appointmentData.date} onChange={handleInputChange} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="time">Hora pretendida</Label>
-                <Select id="time" name="time" value={appointmentData.time} onChange={handleInputChange} disabled={availableSlots.length === 0}>
-                  <option value="">Escolha um horário</option>
-                  {availableSlots.map((slot) => (
-                    <option key={slot} value={slot}>{slot}</option>
-                  ))}
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="reason">Razão da visita</Label>
-                <Input id="reason" name="reason" value={appointmentData.reason} onChange={handleInputChange} placeholder="Brief description of your concern" />
-              </div>
-              <Button type="submit" className="ml-auto">Marcar consulta</Button>
-            </form>
-          </CardContent>
-        </Card>
       </div>
     );
   };
