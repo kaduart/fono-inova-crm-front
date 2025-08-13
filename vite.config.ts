@@ -8,14 +8,24 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const isDevelopment = mode === 'development';
-  const baseUrl = env.VITE_API_BASE_URL || 
-    (isDevelopment 
-      ? 'http://localhost:5000' 
-      : 'https://fono-inova-crm-back.onrender.com');
+  const isDev = mode === 'development';
+
+  // Configuração explícita de URLs por ambiente
+  const getApiBaseUrl = () => {
+    if (env.VITE_API_BASE_URL) return env.VITE_API_BASE_URL;
+    return isDev ? 'http://localhost:5000' : 'https://fono-inova-crm-back.onrender.com';
+  };
+
+  const getFrontendUrl = () => {
+    if (env.VITE_FRONTEND_URL) return env.VITE_FRONTEND_URL;
+    return isDev ? 'http://localhost:5173' : 'https://seu-app.vercel.app';
+  };
+
+  const baseUrl = getApiBaseUrl();
+  const frontendUrl = getFrontendUrl();
 
   return {
-    base: '/', // Adicionado para garantir rotas absolutas
+    base: '/',
     plugins: [
       react(),
       ...(mode === 'production' ? [visualizer({
@@ -25,9 +35,9 @@ export default defineConfig(({ mode }) => {
       })] : [])
     ],
     build: {
-       outDir: path.resolve(__dirname, 'dist'),
+      outDir: path.resolve(__dirname, 'dist'),
       emptyOutDir: true,
-      sourcemap: isDevelopment,
+      sourcemap: isDev,
       rollupOptions: {
         output: {
           manualChunks: {
@@ -40,8 +50,13 @@ export default defineConfig(({ mode }) => {
           assetFileNames: `assets/[name]-[hash].[ext]`
         }
       },
-      chunkSizeWarningLimit: 1600,
-      minify: isDevelopment ? false : 'esbuild'
+      chunkSizeWarningLimit: 2000,
+      minify: isDev ? false : 'esbuild',
+      terserOptions: {
+        compress: {
+          drop_console: !isDev
+        }
+      }
     },
     server: {
       port: 5173,
@@ -51,11 +66,12 @@ export default defineConfig(({ mode }) => {
           target: baseUrl,
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, ''),
-          secure: !isDevelopment,
+          secure: false,
           ws: true,
           configure: (proxy) => {
             proxy.on('proxyReq', (proxyReq) => {
-              console.log('[PROXY]', proxyReq.method, proxyReq.path);
+              proxyReq.setHeader('X-Forwarded-Host', new URL(frontendUrl).host);
+              proxyReq.setHeader('X-Forwarded-Proto', new URL(frontendUrl).protocol.replace(':', ''));
             });
           }
         }
@@ -81,10 +97,21 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       'process.env': {
-        VITE_API_BASE_URL: JSON.stringify(`${baseUrl}/api`),
+        VITE_API_BASE_URL: JSON.stringify(baseUrl),
+        VITE_FRONTEND_URL: JSON.stringify(frontendUrl),
         VITE_MODE: JSON.stringify(mode),
         VITE_BUILD_TIME: JSON.stringify(new Date().toISOString())
       }
+    },
+    optimizeDeps: {
+      include: [
+        'react',
+        'react-dom',
+        'react-router-dom',
+        '@mui/material',
+        '@emotion/react'
+      ],
+      force: isDev
     }
   };
 });
