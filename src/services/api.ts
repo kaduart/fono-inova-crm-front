@@ -10,10 +10,10 @@ const API = axios.create({
 
 API.interceptors.request.use(config => {
   // Verifica múltiplas fontes de token
-  const token = localStorage.getItem('token') || 
-                document.cookie.split('; ')
-                  .find(row => row.startsWith('token='))
-                  ?.split('=')[1];
+  const token = localStorage.getItem('token') ||
+    document.cookie.split('; ')
+      .find(row => row.startsWith('token='))
+      ?.split('=')[1];
 
   if (!token) {
     console.error('Token não encontrado para:', config.url);
@@ -25,7 +25,7 @@ API.interceptors.request.use(config => {
   const headers = new AxiosHeaders(config.headers);
   headers.set('Authorization', `Bearer ${token}`);
   headers.set('Content-Type', 'application/json');
-  
+
   config.headers = headers;
   return config;
 });

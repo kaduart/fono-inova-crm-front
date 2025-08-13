@@ -1,4 +1,3 @@
-// hooks/useAuthNavigation.ts
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -7,14 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 export const useAuthNavigation = () => {
   const navigate = useNavigate();
-  const auth = useAuth();
-
-  const { login: authLogin, logout: authLogout } = auth;
-  const loading = auth?.loading || {
-    isLoading: false,
-    showLoading: () => { },
-    hideLoading: () => { }
-  };
+  const { login: authLogin, logout: authLogout, loading } = useAuth();
 
   const login = async (credentials: { email: string; password: string; role: string }) => {
     loading.showLoading();
@@ -27,33 +19,38 @@ export const useAuthNavigation = () => {
         return { requiresPasswordCreation: true };
       }
 
-      console.log('bateu no loginnn', data)
-      const result = await authLogin(data.token, data.user);
+      // 1. Faz o login sem redirecionar ainda
+      await authLogin(data.token, data.user);
 
-      setTimeout(() => {
-        navigate(data.user.role === 'admin' ? '/admin' : '/dashboard');
-        loading.hideLoading(); // Só esconde após navegar
-      }, 500);
-
-      // Redirecionamento seguro
+      // 2. Delay para visualização do loading
       await new Promise(resolve => setTimeout(resolve, 500));
-      console.log('bateu no loginnn', result)
-      if (result.userRole === 'doctor') {
-        navigate('/doctors');
-      } else if (result.userRole === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/patient');
+
+      // 3. Redireciona baseado no role (agora simplificado)
+      switch (data.user.role) {
+        case 'doctor':
+          navigate('/doctors');
+          break;
+        case 'admin':
+          navigate('/admin');
+          break;
+        case 'patient':
+          navigate('/patient');
+          break;
+        default:
+          navigate('/dashboard');
       }
 
       return { success: true };
     } catch (error: any) {
+      loading.hideLoading();
       const message = error.response?.data?.error || 'Erro ao fazer login';
       toast.error(message);
       return { success: false };
     } finally {
-      loading.hideLoading();
+      // Esconde o loading após navegação
+      setTimeout(() => loading.hideLoading(), 300);
     }
+
   };
 
   const logout = async () => {
@@ -62,10 +59,9 @@ export const useAuthNavigation = () => {
       await authLogout();
       navigate('/login');
     } finally {
-      loading.hideLoading();
+      setTimeout(() => loading.hideLoading(), 500);
     }
   };
 
   return { login, logout };
 };
-

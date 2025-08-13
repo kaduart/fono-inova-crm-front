@@ -6,6 +6,7 @@
     "dev": "vite",
     "build": "vite build || true",
     "lint": "eslint .",
+    "postinstall": "vite build && vite cache clear",
     "preview": "vite preview"
   },
   "dependencies": {

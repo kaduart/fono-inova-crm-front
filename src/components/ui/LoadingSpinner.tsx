@@ -1,39 +1,28 @@
-// components/ui/LoadingSpinner.tsx
-import { ReactNode } from 'react';
-
 type LoadingSpinnerProps = {
     size?: 'small' | 'medium' | 'large';
     message?: string;
     isLoading?: boolean;
-    children?: ReactNode;
     overlay?: boolean;
 };
 
 export const LoadingSpinner = ({
     size = 'medium',
-    message = 'Carregando...',
+    message = '',
     isLoading = false,
-    children,
-    overlay = true
+    overlay = false
 }: LoadingSpinnerProps) => {
-    if (!isLoading) return <>{children}</>;
+    if (!isLoading) return null;
+
+    const spinnerSize = {
+        small: 'h-4 w-4',
+        medium: 'h-6 w-6',
+        large: 'h-8 w-8'
+    }[size];
 
     return (
-        <div className="relative">
-            {children && (
-                <div className={overlay ? 'opacity-50 pointer-events-none' : ''}>
-                    {children}
-                </div>
-            )}
-
-            <div className={`flex items-center justify-center ${overlay ? 'absolute inset-0 z-50' : ''}`}>
-                <div
-                    className={`animate-spin rounded-full border-b-2 border-blue-600 ${size === 'small' ? 'h-4 w-4' :
-                            size === 'large' ? 'h-8 w-8' : 'h-6 w-6'
-                        }`}
-                />
-                {message && <span className="ml-2 text-gray-600">{message}</span>}
-            </div>
+        <div className={`flex flex-col items-center justify-center ${overlay ? 'bg-black bg-opacity-20 absolute inset-0' : ''}`}>
+            <div className={`animate-spin rounded-full border-2 border-transparent border-b-blue-600 ${spinnerSize}`} />
+            {message && <span className="mt-2 text-white">{message}</span>}
         </div>
     );
 };

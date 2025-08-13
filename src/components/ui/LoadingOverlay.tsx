@@ -1,13 +1,31 @@
-// components/ui/LoadingOverlay.tsx
 import { LoadingSpinner } from './LoadingSpinner';
 
-export const LoadingOverlay = ({ show }: { show: boolean }) => {
+interface LoadingOverlayProps {
+    show: boolean;
+    zIndex?: number;
+    spinnerSize?: 'small' | 'medium' | 'large';
+    message?: string;
+}
+
+export const LoadingOverlay = ({
+    show,
+    zIndex = 100001,
+    spinnerSize = 'medium',
+    message = 'Carregando...'
+}: LoadingOverlayProps) => {
     if (!show) return null;
 
     return (
-        <div className="fixed inset-0 flex items-center justify-center bg-white bg-opacity-90 z-50">
-            <LoadingSpinner size="large" />
-            <span className="ml-3 text-lg font-medium text-gray-700">Carregando...</span>
+        <div
+            style={{ zIndex }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+        >
+            <LoadingSpinner
+                size={spinnerSize}
+                message={message}
+                isLoading={true}
+                overlay={false} // Desativa o overlay interno do Spinner
+            />
         </div>
     );
 };

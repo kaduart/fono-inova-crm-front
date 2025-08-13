@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { BASE_URL } from '../constants/constants';
 import API from '../services/api';
 
+export type UserRole = 'doctor' | 'admin' | 'patient';
 export interface User {
   _id: string;
   fullName: string;
@@ -12,7 +13,7 @@ export interface User {
   licenseNumber?: string;
   phoneNumber?: string;
   active: boolean;
-  role: 'doctor' | 'admin' | 'patient';
+  role: UserRole;
   weeklyAvailability?: {
     day: string;
     times: string[];
@@ -60,8 +61,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(userData);
       API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       return { success: true, userRole: userData.role };
-    } catch {
-      hideLoading();
+    } catch (error) {
+      console.error('Login error:', error);
+      return { success: false };
     }
   }, [showLoading, hideLoading]);
 

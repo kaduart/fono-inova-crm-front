@@ -12,21 +12,13 @@ const Login = () => {
   const { login } = useAuthNavigation();
   const navigate = useNavigate();
   const auth = useAuth();
-
-  // Acesso seguro ao loading
-  const loading = auth?.loading || {
-    isLoading: false,
-    showLoading: () => { },
-    hideLoading: () => { }
-  };
-
+  const { loading } = useAuth();
 
   const [selectedRole, setSelectedRole] = useState('admin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [user, setUser] = useState(null);
   const [showCreatePassword, setShowCreatePassword] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -155,12 +147,13 @@ const Login = () => {
     }
   };
 
-  return loading.showLoading() ? (
-    <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-      <LoadingSpinner />
-    </Box>
-  ) : (
+  return (
     <div className='min-h-screen flex flex-row'>
+      {loading.isLoading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+          <LoadingSpinner />
+        </Box>
+      )}
       <div className="w-1/2 bg-white flex justify-center items-center relative h-screen overflow-hidden">
         <div className="flex flex-col justify-center items-center gap-5">
           <div className="relative h-[50vh] w-[50vh]">

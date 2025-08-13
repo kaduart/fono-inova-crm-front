@@ -97,9 +97,8 @@ const AppRoutes = () => {
 
                     {/* Adicione outras rotas seguindo o mesmo padrão */}
 
-                    {/* Rota curinga para 404 */}
-                    <Route path="*" element={<Navigate to="/" replace />} />
                 </Route>
+                <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </Suspense>
     );

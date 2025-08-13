@@ -19,7 +19,12 @@ const App: React.FC = () => {
 
   return (
     <BrowserRouter>
-      <LoadingOverlay show={isLoading} />
+      <LoadingOverlay
+        show={isLoading}
+        zIndex={100001}
+        spinnerSize="large"
+        message="Autenticando..."
+      />
       <Suspense fallback={<LoadingSpinner />}>
         <AppRoutes />
         <ToastContainer
