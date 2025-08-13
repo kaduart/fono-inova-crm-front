@@ -29,9 +29,9 @@ const AppRoutes = () => {
   }
 
   // Redirecionamento seguro para o domínio correto
-  if (window.location.hostname !== 'seu-app.vercel.app' && 
+  if (window.location.hostname !== 'app.clinicafonoinova.com.br' && 
       window.location.hostname !== 'localhost') {
-    window.location.replace(`https://seu-app.vercel.app${location.pathname}`);
+    window.location.replace(`https://app.clinicafonoinova.com.br${location.pathname}`);
     return <LoadingSpinner fullscreen />;
   }
 
