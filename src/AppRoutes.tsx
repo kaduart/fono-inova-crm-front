@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { useAuth } from './contexts/AuthContext';
@@ -27,6 +27,13 @@ const AppRoutes = () => {
   if (isLoading) {
     return <LoadingSpinner fullscreen />;
   }
+
+  useEffect(() => {
+  if (window.location.hostname === 'app.clinicafonoinova.com.br') {
+    const newUrl = `https://seu-app.vercel.app${window.location.pathname}`;
+    window.location.replace(newUrl);
+  }
+}, []);
 
   // Redirecionamento seguro para o domínio correto
   if (window.location.hostname !== 'app.clinicafonoinova.com.br' && 
