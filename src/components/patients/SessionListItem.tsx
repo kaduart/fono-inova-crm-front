@@ -1,6 +1,6 @@
 import { AlertTriangle, BookOpenText, CalendarCheck, CheckCircle, Clock4, Edit, XCircle } from "lucide-react";
-import { ISession } from '../../utils/types/types';
 import { formatDateToDMY } from "../../utils/dateFormat";
+import { ISession } from '../../utils/types/types';
 
 export interface SessionListItemProps {
     session: ISession;
@@ -12,20 +12,12 @@ export interface SessionListItemProps {
 export const SessionListItem = ({ session, sessionNumber, onEdit, onUse }: SessionListItemProps) => {
     const sessionDate = new Date(session.date);
     const isDateValid = !isNaN(sessionDate.getTime());
-    console.log('session qeu vem do pai', session)
-    console.log('sessionDate', sessionDate)
-    console.log('isDateValid', isDateValid)
 
     const [dateStr, timeStr] = isDateValid
         ? [session.date, session.time]
         : ['--/--/----', '--:--'];
 
-
-    console.log('dateStr', dateStr)
-    console.log('timeStr', timeStr)
-
     const isOverdue = session.status === 'pending' && isDateValid && sessionDate < new Date();
-    console.log('isOverdue', isOverdue)
 
     return (
         <li className={`p-3 mb-3 rounded-lg grid grid-cols-[1fr_auto] gap-4 items-center 

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { BASE_URL } from '../constants/constants';
+import { useAppointmentsContext } from '../contexts/AppointmentsContext';
 import { useAppointments } from '../hooks/useAppointments';
 import { usePatients } from '../hooks/usePatients';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
@@ -224,14 +225,13 @@ export default function AdminDashboard() {
   } = usePatients();
 
   const {
-    appointments,
-    fetchAppointments,
     createAppointment,
     updateAppointment,
     completeAppointment,
     cancelAppointment,
     getAvailableSlots
   } = useAppointments();
+  const { appointments, fetchAppointments } = useAppointmentsContext();
 
   useEffect(() => {
     fetchAppointments();
@@ -269,7 +269,6 @@ export default function AdminDashboard() {
 
   // Handler para novo agendamento
   const handleNewAppointment = async (appointmentData: IAppointment) => {
-    console.log('bateuuu no paiiii', appointmentData)
     const payload: CreateAppointmentParams = {
       patientId: appointmentData.patientId,
       doctorId: appointmentData.doctorId,
@@ -289,7 +288,6 @@ export default function AdminDashboard() {
       const createdAppointment = await createAppointment(payload);
 
       await fetchAppointments();
-      console.log('Agendamento criado com sucesso!');
 
       setCloseModalSignal(s => s + 1);
 
@@ -428,7 +426,6 @@ export default function AdminDashboard() {
     setShowAdvancedPayment(true);
   }
   const handleCreatePayment = async (data: any) => {
-    console.log('caiuuu no log');
 
     try {
       await createPayment(data);
@@ -709,7 +706,6 @@ export default function AdminDashboard() {
   };
 
   const handleSaveDoctor = async (doctor: CreateDoctorParams) => {
-    console.log('bateuuuu', doctor)
     setIsLoading(true)
     try {
       if (doctor._id) {

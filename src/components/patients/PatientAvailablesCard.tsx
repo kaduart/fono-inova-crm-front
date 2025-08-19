@@ -60,9 +60,6 @@ export function PatientAvailablesCard({ doctors, evaluations, onDelete, patientI
     setShowModal(false);
   };
 
-
-  console.log('çaiuuuuu', evaluations)
-
   return (
     <>
       <Card>

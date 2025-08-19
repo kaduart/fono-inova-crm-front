@@ -56,7 +56,6 @@ export default function TherapyPackageCard({
     };
 
     setLoading(true);
-    console.log('payload pasession package', payload)
     try {
 
       await onUseSession(pack._id, payload, modalAction);

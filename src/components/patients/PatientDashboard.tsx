@@ -13,9 +13,6 @@ import AppointmentHistoryModal from '../AppointmentHistoryModal';
 import ScheduleModal from '../AppointmentPage';
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../ui/Card';
-import Input from '../ui/Input';
-import { Label } from '../ui/Label';
-import { Select } from '../ui/Select';
 import { FutureSessionsCard } from './FutureSessionsCard';
 import { PatientAvailablesCard } from './PatientAvailablesCard';
 import PatientEvolution from './PatientEvolution';
@@ -166,7 +163,6 @@ export default function PatientDashboard() {
     }
   };
 
-  console.log('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaappp', appointments)
   useEffect(() => {
   }, [appointments]);
 
@@ -493,8 +489,6 @@ export default function PatientDashboard() {
     setMode('edit');
     setOpenSchedule(true);
   };
-
-  console.log('aaaaa', todaysAppointments)
 
   const renderDashboard = () => (
     <>

@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import ReactInputMask from 'react-input-mask';
 import { toast } from 'react-toastify';
+import { useAppointmentsContext } from '../../contexts/AppointmentsContext';
+import { useAuth } from '../../contexts/AuthContext';
+import appointmentService from '../../services/appointmentService';
 import packageService, { CreatePackageParams } from '../../services/packageService';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
-import { DURATION_OPTIONS, FREQUENCY_OPTIONS, IDoctor, IPatient, ITherapyPackage, PAYMENT_TYPES, THERAPY_TYPES } from '../../utils/types/types';
+import { DURATION_OPTIONS, FREQUENCY_OPTIONS, IAppointment, IDoctor, IPatient, ITherapyPackage, PAYMENT_TYPES, THERAPY_TYPES } from '../../utils/types/types';
 import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
 import { Select } from '../ui/Select';
@@ -30,12 +33,14 @@ const initialFormState = {
     paymentMethod: '',
     durationMonths: 0,
     sessionsPerWeek: 0,
+    appointmentId: '',
 };
 
 export default function TherapyPackageFormModal({ initialData, patient, doctors, onClose, onSubmit }: Props) {
-    const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState(initialFormState);
     const [errors, setErrors] = useState({});
+    const [appointments, setAppointments] = useState<IAppointment[]>([]);
+    const { loading } = useAuth();
 
     // Calculados dinamicamente
     const totalSessions = (formData.durationMonths || 0) * 4 * (formData.sessionsPerWeek || 0);
@@ -57,14 +62,11 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         formData.sessionsPerWeek > 0
     );
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        const numericFields = ['durationMonths', 'sessionsPerWeek', 'totalSessions', 'sessionValue', 'totalPaid'];
-        setFormData(prev => ({
-            ...prev,
-            [name]: numericFields.includes(name) ? Number(value) : value
-        }));
-    };
+    const { fetchAppointments } = useAppointmentsContext();
+
+    useEffect(() => {
+        fetchAppointments(); // vai popular appointments ao montar
+    }, [fetchAppointments]);
 
     useEffect(() => {
         if (patient?._id) {
@@ -72,8 +74,44 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 ...prev,
                 patientId: patient._id,
             }));
+            fetchAppointmentsByPatient(patient._id);
         }
     }, [patient]);
+
+    const fetchAppointmentsByPatient = async (patientId: string) => {
+        loading.showLoading();
+        try {
+            const data = await appointmentService.get(patientId);
+            setAppointments(data.data);
+        } catch (error) {
+            toast.error('Erro ao carregar agendamentos');
+        } finally {
+            loading.hideLoading();
+        }
+    };
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        const numericFields = ['durationMonths', 'sessionsPerWeek', 'totalSessions', 'sessionValue', 'totalPaid'];
+        setFormData(prev => ({
+            ...prev,
+            [name]: numericFields.includes(name) ? Number(value) : value
+        }));
+
+        // Quando selecionar um agendamento, preencher automaticamente os dados
+        if (name === 'appointmentId') {
+            const selectedAppointment = appointments.find(a => a._id === value);
+            if (selectedAppointment) {
+                setFormData(prev => ({
+                    ...prev,
+                    doctorId: selectedAppointment.doctor._id,
+                    date: selectedAppointment.date,
+                    time: selectedAppointment.time,
+                    sessionType: selectedAppointment.specialty
+                }));
+            }
+        }
+    };
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -83,17 +121,14 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             toast.error('Preencha todos os campos obrigatórios (profissional, tipo de sessão, tipo de pagamento do pacote).');
             return;
         }
-        if (formData.totalPaid < totalValuePackage) {
-            toast.error('💳 O valor do pacote deve ser quitado integralmente no ato da contratação.');
+
+        if (formData.totalPaid < remainingBalance) {
+            toast.warning('Valor a ser pago deve ser o valor total do package');
             return;
         }
 
-        if ((formData.totalPaid || 0) > 0 && !formData.paymentMethod) {
-            toast.error('Se um valor foi pago, selecione o método de pagamento.');
-            return;
-        }
+        loading.showLoading();
 
-        setLoading(true);
         const packageData = {
             patientId: patient._id,
             doctorId: formData.doctorId,
@@ -106,20 +141,21 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             durationMonths: formData.durationMonths,
             date: formData.date,
             specialty: formData.sessionType,
-            time: formData.time
+            time: formData.time,
+            appointmentId: formData.appointmentId || undefined,
         };
 
         try {
-            console.log('Pacote a ser salvo:', packageData);
             await packageService.createPackage(packageData as CreatePackageParams);
-            console.log('Pacote salvo com sucesso.');
+            toast.success('Pacote criado com sucesso!');
+            await fetchAppointments();
             onSubmit();
             onClose();
         } catch (err) {
-            console.log('Erro ao salvar pacote:', err);
-            toast.error('Erro ao salvar pacote.');
+            const errorMessage = err?.message || 'Erro ao salvar pacote.';
+            toast.error(errorMessage);
         } finally {
-            setLoading(false);
+            loading.hideLoading();
         }
     };
 
@@ -136,22 +172,69 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         return Object.keys(newErrors).length === 0;
     };
 
+    // Função auxiliar para formatar a data
+    const formatAppointmentDate = (dateString) => {
+        if (!dateString) return 'Data inválida';
+
+        // A API retorna no formato "YYYY-MM-DD" que o JavaScript pode interpretar incorretamente
+        // Vamos forçar o formato ISO corrigido
+        const isoDate = `${dateString}T00:00:00`; // Adiciona meio-dia como horário padrão
+        const dateObj = new Date(isoDate);
+
+        // Verifica se a data é válida
+        if (isNaN(dateObj.getTime())) return dateString; // Retorna o original se inválido
+
+        return dateObj.toLocaleDateString('pt-BR');
+    };
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 w-full max-w-3xl space-y-4 max-h-[90vh] overflow-y-auto">
-                <h2 className="text-xl font-semibold border-b pb-2">
-                    {initialData ? 'Editar Pacote' : 'Novo Pacote'}
-                </h2>
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-4xl space-y-6 max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center border-b pb-4">
+                    <h2 className="text-2xl font-semibold text-gray-800">
+                        {initialData ? 'Editar Pacote' : 'Novo Pacote'}
+                    </h2>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+                        ✕
+                    </button>
+                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Coluna 1 */}
                     <div className="space-y-4">
+                        {/* Novo Select de Agendamentos */}
                         <div className="form-group">
-                            <label className="block text-sm font-medium mb-1">Duração do Pacote</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Agendamento Existente (Opcional)
+                            </label>
+                            <Select
+                                name="appointmentId"
+                                value={formData.appointmentId}
+                                onChange={handleChange}
+                                className="w-full p-2 border rounded"
+                            >
+                                <option value="">Selecione um agendamento</option>
+                                {appointments.map((appt) => (
+                                    <option
+                                        key={appt._id}
+                                        value={appt._id}
+                                        className="text-sm"
+                                    >
+                                        {formatAppointmentDate(appt.date)} - {appt.time || 'Horário não definido'} •
+                                        Dr. {appt.doctor?.fullName || 'Profissional não especificado'} •
+                                        {appt.specialty || 'Tipo não especificado'}
+                                    </option>
+                                ))}
+                            </Select>
+                        </div>
+
+                        <div className="form-group">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Duração do Pacote</label>
                             <Select
                                 name="durationMonths"
                                 value={formData.durationMonths}
                                 onChange={handleChange}
+                                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             >
                                 <option value="">Escolha duração do pacote</option>
                                 {DURATION_OPTIONS.map(opt => (
@@ -163,11 +246,12 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                         </div>
 
                         <div className="form-group">
-                            <label className="block text-sm font-medium mb-1">Sessões por Semana</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Sessões por Semana</label>
                             <Select
                                 name="sessionsPerWeek"
                                 value={formData.sessionsPerWeek}
                                 onChange={handleChange}
+                                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             >
                                 <option value="">Escolha quantidade de vez na semana</option>
                                 {FREQUENCY_OPTIONS.map(opt => (
@@ -178,44 +262,10 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                             </Select>
                         </div>
 
-                        <div className="form-group">
-                            <label className="block text-sm font-medium mb-1">Profissional</label>
-                            <Select
-                                name="doctorId"
-                                value={formData.doctorId}
-                                onChange={handleChange}
-                            >
-                                <option value="">Escolha um profissional</option>
-                                {doctors.map((doc) => (
-                                    <option key={doc._id} value={doc._id}>
-                                        {doc.fullName}
-                                    </option>
-                                ))}
-                            </Select>
-                        </div>
-
-                        <div className="form-group">
-                            <label className="block text-sm font-medium mb-1">Tipo de Sessão</label>
-                            <Select
-                                name="sessionType"
-                                value={formData.sessionType}
-                                onChange={handleChange}
-                            >
-                                <option value="">Escolha um tipo de terapia</option>
-                                {THERAPY_TYPES.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                        {option.label}
-                                    </option>
-                                ))}
-                            </Select>
-                        </div>
-
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* Campo Data */}
-                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Data *
-                                </label>
+                            <div className="form-group">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Data *</label>
                                 <DatePicker
                                     selected={formData.date ? buildLocalDateOnly(formData.date) : null}
                                     onChange={(date: Date | null) => {
@@ -224,19 +274,20 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                         handleChange({ target: { name: 'date', value: formattedDate } } as any);
                                     }}
                                     customInput={
-                                        <ReactInputMask mask="99/99/9999" className="w-full py-2 px-3 border rounded-md" />
+                                        <ReactInputMask
+                                            mask="99/99/9999"
+                                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        />
                                     }
                                     placeholderText="dd/MM/yyyy"
                                     dateFormat="dd/MM/yyyy"
-                                    className="w-full py-2 px-3 border rounded-md"
+                                    className="w-full p-2 border border-gray-300 rounded-md"
                                 />
                             </div>
 
                             {/* Campo Hora */}
-                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Hora *
-                                </label>
+                            <div className="form-group">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Hora *</label>
                                 <DatePicker
                                     selected={formData.time ? new Date(`1970-01-01T${formData.time}`) : null}
                                     onChange={(date: Date | null) => {
@@ -250,7 +301,12 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     timeFormat="HH:mm"
                                     dateFormat="HH:mm"
                                     placeholderText="HH:MM"
-                                    customInput={<ReactInputMask mask="99:99" className="w-full py-2 px-3 border rounded-md" />}
+                                    customInput={
+                                        <ReactInputMask
+                                            mask="99:99"
+                                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    }
                                 />
                             </div>
                         </div>
@@ -258,15 +314,34 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
                     {/* Coluna 2 */}
                     <div className="space-y-4">
-                        <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-4">
                             <div className="form-group">
-                                <label className="block text-sm font-medium mb-1">Tipo de Pagamento</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Profissional</label>
                                 <Select
-                                    name="paymentType"
-                                    value={formData.paymentType}
+                                    name="doctorId"
+                                    value={formData.doctorId}
                                     onChange={handleChange}
+                                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 >
-                                    {PAYMENT_TYPES.map((option) => (
+                                    <option value="">Escolha um profissional</option>
+                                    {doctors.map((doc) => (
+                                        <option key={doc._id} value={doc._id}>
+                                            {doc.fullName}
+                                        </option>
+                                    ))}
+                                </Select>
+                            </div>
+
+                            <div className="form-group">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Sessão</label>
+                                <Select
+                                    name="sessionType"
+                                    value={formData.sessionType}
+                                    onChange={handleChange}
+                                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                >
+                                    <option value="">Escolha um tipo de terapia</option>
+                                    {THERAPY_TYPES.map((option) => (
                                         <option key={option.value} value={option.value}>
                                             {option.label}
                                         </option>
@@ -275,34 +350,55 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                             </div>
 
                             <div className="form-group">
-                                <label className="block text-sm font-medium mb-1">Valor por Sessão (R$)</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Pagamento</label>
+                                <Select
+                                    name="paymentType"
+                                    value={formData.paymentType}
+                                    onChange={handleChange}
+                                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                >
+                                    {PAYMENT_TYPES.map((option) => (
+                                        <option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </Select>
+                            </div>
+                        </div>
+
+                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-4">
+                            <div className="form-group">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Valor por Sessão (R$)</label>
                                 <InputCurrency
                                     name="sessionValue"
                                     value={formData.sessionValue || 0}
                                     onChange={handleChange}
                                     min="0"
                                     step="0.01"
+                                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 />
                             </div>
 
                             <div className="form-group">
-                                <label className="block text-sm font-medium mb-1">Valor Pago (R$)</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Valor Pago (R$)</label>
                                 <InputCurrency
                                     name="totalPaid"
                                     value={formData.totalPaid}
                                     onChange={handleChange}
                                     min="0"
                                     step="0.01"
+                                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 />
                             </div>
 
                             {(formData.totalPaid && formData.totalPaid > 0) && (
                                 <div className="form-group">
-                                    <label className="block text-sm font-medium mb-1">Método de Pagamento</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Método de Pagamento</label>
                                     <Select
                                         name="paymentMethod"
                                         value={formData.paymentMethod}
                                         onChange={handleChange}
+                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     >
                                         <option value="">Escolha um método</option>
                                         <option value="dinheiro">Dinheiro</option>
@@ -316,35 +412,59 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 </div>
 
                 {/* Preview e Saldo */}
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                        <h3 className="text-sm font-semibold mb-2">Pré-visualização</h3>
-                        <div className="space-y-1">
-                            <p className="text-sm">Valor por sessão: R$ {formData.sessionValue}</p>
-                            <p className="text-sm">Total de sessões: {totalSessions}</p>
-                            <p className="text-sm font-semibold">Valor total: R$ {totalValuePackage}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                        <h3 className="text-sm font-semibold text-blue-800 mb-2">Resumo do Pacote</h3>
+                        <div className="space-y-2">
+                            <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">Valor por sessão:</span>
+                                <span className="text-sm font-medium">R$ {formData.sessionValue.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">Total de sessões:</span>
+                                <span className="text-sm font-medium">{totalSessions}</span>
+                            </div>
+                            <div className="flex justify-between pt-2 border-t border-blue-100">
+                                <span className="text-sm font-semibold text-blue-800">Valor total:</span>
+                                <span className="text-sm font-semibold text-blue-800">R$ {totalValuePackage.toFixed(2)}</span>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                        <label className="block text-sm font-medium mb-1">Saldo Restante</label>
-                        <p className="bg-red-100">
-                            <b>{remainingBalance}</b>
-                        </p>
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <h3 className="text-sm font-semibold text-gray-700 mb-2">Pagamento</h3>
+                        <div className="space-y-2">
+                            <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">Valor pago:</span>
+                                <span className="text-sm font-medium">R$ {formData.totalPaid.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between pt-2 border-t border-gray-200">
+                                <span className="text-sm font-semibold text-gray-700">Saldo restante:</span>
+                                <span className={`text-sm font-semibold ${remainingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                    R$ {remainingBalance.toFixed(2)}
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div className="flex justify-end gap-2 mt-6">
-                    <Button type="button" onClick={onClose} className="bg-gray-400 text-white px-4 py-2 rounded-md hover:bg-gray-500 transition">
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                    <Button
+                        type="button"
+                        onClick={onClose}
+                        variant="outline"
+                        className="px-6 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50"
+                    >
                         Cancelar
                     </Button>
                     <Button
                         type="submit"
                         onClick={handleSave}
-                        disabled={!isFormValid}
-                        className={`px-4 py-2 rounded-md text-white transition ${isFormValid ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-300 cursor-not-allowed'}`}
+                        disabled={!isFormValid || loading.isLoading}
+                        className={`px-6 py-2 text-white ${isFormValid ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-300 cursor-not-allowed'}`}
+                        loading={loading.isLoading}
                     >
-                        Agendar
+                        {initialData ? 'Atualizar' : 'Criar'} Pacote
                     </Button>
                 </div>
             </div>

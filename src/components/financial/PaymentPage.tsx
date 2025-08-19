@@ -63,7 +63,6 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
             const res = await getPayments();
             const financial = await getPaymentCountFinancialRecord();
             setAllPayments(res.data.data);
-            console.log('Pagamentos carregados:', res.data);
             setFinancialRecord(financial.data.data);
         } catch (error) {
             console.error('Erro ao carregar pagamentos:', error);
@@ -80,7 +79,6 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
 
     const handleEditAmount = (paymentId: string) => {
         const payment = allPayments.find(p => p._id === paymentId);
-        console.log('Editing payment:', payment);
         setPaymentToEdit(payment);
         setIsEditModalOpen(true);
     };

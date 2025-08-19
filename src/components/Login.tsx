@@ -11,7 +11,6 @@ import { LoadingSpinner } from './ui/LoadingSpinner';
 const Login = () => {
   const { login } = useAuthNavigation();
   const navigate = useNavigate();
-  const auth = useAuth();
   const { loading } = useAuth();
 
   const [selectedRole, setSelectedRole] = useState('admin');

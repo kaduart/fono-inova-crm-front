@@ -135,20 +135,9 @@ export default function TherapyEvolution({ patients }) {
             }));
 
 
-            console.log("Métricas a enviar:", metricsArray);
-            console.log("Dados completos:", {
-                patient: selectedPatient,
-                doctor: user._id,
-                specialty: user.specialty,
-                date: newEvaluation.date,
-                content: newEvaluation.content,
-                metrics: metricsArray,
-                evaluationTypes: newEvaluation.evaluationTypes,
-                time: newEvaluation.time
-            });
             const response = await API.post('/evolutions', {
                 patient: selectedPatient,
-                doctor: user._id, // ID do médico logado
+                doctor: user.id, // ID do médico logado
                 specialty: user.specialty, // Especialidade do médico
                 date: newEvaluation.date,
                 content: newEvaluation.content,

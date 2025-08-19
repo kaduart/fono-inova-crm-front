@@ -66,7 +66,6 @@ const DoctorAgendaCalendar = ({
     const slotData = daySlots.find((d) => d.date === formatted);
     if (slotData && slotData.slots.length > 0) {
       setExpandedDate(formatted);
-      console.log('mandou para atualziar slots ', formatted)
 
     } else {
       setExpandedDate(null);

@@ -124,7 +124,6 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
 
     const handleBookingSubmit = async (data: any) => {
 
-        console.log('data no submit ', data);
         setScheduleAppointmentData({
             ...scheduleAppointmentData,
             date: data.date,

@@ -78,7 +78,6 @@ const DoctorAgenda = ({ doctors = [], updateSlots, patients, onDaySlotsChange, s
             };
             const response = await appointmentService.getAvailableSlots(payload)
             const slots = await response.data;
-            console.log('slots atualizado', slots)
             setDaySlots([{ date, slots }]);
             onDaySlotsChange?.([{ date, slots }]);
 

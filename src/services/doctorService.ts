@@ -4,14 +4,14 @@ import API from "./api";
 export type DoctorRole = 'doctor';
 
 export type CreateDoctorParams = {
-    _id?: string; // opcional para criação, obrigatório para atualização
+    _id?: string; 
     fullName: string;
     email: string;
     password: string;
     specialty: string;
     licenseNumber: string;
     phoneNumber: string;
-    active: string; // pode ser 'true' ou 'false' como string, conforme seu backend
+    active: string; 
     role?: DoctorRole;
 };
 

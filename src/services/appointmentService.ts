@@ -102,19 +102,19 @@ export type AvailableSlotsParams = {
 };
 
 export const appointmentService = {
-  create: async (appointmentData: any) => {
-    try {
-      const response = await API.post('/appointments', appointmentData);
-      return response.data;
-    } catch (error) {
-      console.error('Erro ao criar agendamento:', error);
-      throw error;
-    }
-  },
-  
-  get: async (id: string) => {
-    return API.get(`/appointments/patient/${id}`);
-  },
+    create: async (appointmentData: any) => {
+        try {
+            const response = await API.post('/appointments', appointmentData);
+            return response.data;
+        } catch (error) {
+            console.error('Erro ao criar agendamento:', error);
+            throw error;
+        }
+    },
+
+    get: async (id: string) => {
+        return API.get(`/appointments/patient/${id}`);
+    },
 
     update: async (id: string, data: UpdateAppointmentParams) => {
 
@@ -161,7 +161,6 @@ export const appointmentService = {
 
         return API.patch<IAppointmentResponse>(`/appointments/${id}/cancel`, data);
     },
-
 
     reschedule: async (id: string, data: RescheduleParams) => {
         const payload = {

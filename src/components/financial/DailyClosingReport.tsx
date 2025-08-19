@@ -99,7 +99,6 @@ const DailyClosingReport = () => {
     };
 
     const renderFinancialSummary = () => {
-        console.log('report============>', report)
         if (!report?.financial) return null;
 
         const financial = report.financial;

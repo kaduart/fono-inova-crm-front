@@ -1,7 +1,6 @@
 // hooks/useAppointments.ts
 import { useCallback, useState } from 'react';
-import {
-    appointmentService,
+import appointmentService, {
     AvailableSlotsParams,
     CancelParams,
     CreateAppointmentParams,
@@ -20,7 +19,7 @@ export const useAppointments = () => {
         setLoading(true);
         setError(null);
         try {
-           const response = await appointmentService.list(params);
+            const response = await appointmentService.list(params);
             setAppointments(response.data);
         } catch (err) {
             setError('Falha ao carregar agendamentos');

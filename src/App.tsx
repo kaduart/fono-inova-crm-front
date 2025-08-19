@@ -9,6 +9,7 @@ import { ToastContainer } from 'react-toastify';
 import AppRoutes from './AppRoutes';
 import { LoadingOverlay } from './components/ui/LoadingOverlay';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
+import { AppointmentsProvider } from './contexts/AppointmentsContext';
 import { useAuth } from './contexts/AuthContext';
 
 const App: React.FC = () => {
@@ -26,7 +27,10 @@ const App: React.FC = () => {
         message="Autenticando..."
       />
       <Suspense fallback={<LoadingSpinner />}>
-        <AppRoutes />
+        <AppointmentsProvider>
+          <AppRoutes />
+        </AppointmentsProvider>
+
         <ToastContainer
           position="top-center"
           autoClose={4000}

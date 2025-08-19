@@ -75,47 +75,49 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             label: status.charAt(0).toUpperCase() + status.slice(1)
         };
     };
-
     // calendarRef = useRef<FullCalendar | null>(null);
     const events = useMemo(() => {
-        return appointments?.filter(appointment => appointment?.date) // Filtra appointments válidos
-            .map(appointment => {
-                // Extrair ano, mês e dia da string date
-                const [year, month, day] = appointment.date.split('-').map(Number);
+        if (!appointments) return [];
+        const twelveAppointments = appointments.filter(appt => appt.time === '08:40');
 
-                // Extrair horas e minutos do campo time
-                const [hours, minutes] = appointment.time?.split(':').map(Number) || [0, 0]; // Fallback para 00:00
+        const map = new Map<string, any>();
 
-                // Criar data completa combinando date e time
-                const startDate = new Date(year, month - 1, day, hours, minutes);
+        appointments
+            .filter(a => a?.date && a?.time) // garante que só pega appointments válidos
+            .forEach(appt => {
+                // ID único
+                const id = appt._id?.toString() || appt.id?.toString() || crypto.randomUUID();
 
-                // Calcular data de término
-                const duration = appointment.duration || 60;
-                const endDate = new Date(startDate.getTime() + duration * 60 * 1000);
+                const [hours, minutes] = appt.time.split(':').map(Number);
+                const [year, month, day] = appt.date.split('-').map(Number);
+                const startDate = new Date(year, month - 1, day, hours, minutes); // hora local
+                const endDate = new Date(startDate.getTime() + (appt.duration || 60) * 60000);
 
-                const operationalStatus = appointment.operationalStatus || 'agendado';
+
+                // Configuração de cores/status
+                const operationalStatus = appt.operationalStatus || 'agendado';
                 const config = getStatusConfig(operationalStatus);
 
-                return {
-                    id: appointment._id || appointment.id,
-                    title: `${appointment.patient?.fullName || 'Paciente'} - ${appointment.doctor?.fullName || 'Profissional'}`,
+                // Monta o evento
+                map.set(id, {
+                    id,
+                    title: `${appt.patient?.fullName || 'Paciente'} - ${appt.doctor?.fullName || 'Profissional'}`,
                     start: startDate,
                     end: endDate,
                     extendedProps: {
-                        patient: appointment.patient,
-                        doctor: appointment.doctor,
+                        ...appt,
                         operationalStatus,
-                        clinicalStatus: appointment.clinicalStatus || 'pendente',
-                        reason: appointment.reason || '',
-                        specialty: appointment.specialty || '',
-                        duration: appointment.duration || 60
                     },
                     backgroundColor: config.backgroundColor,
                     borderColor: config.backgroundColor,
                     textColor: config.textColor,
-                };
+                });
             });
+
+        return Array.from(map.values());
     }, [appointments]);
+
+
 
     const handlePayloadToSlots = async (data: { doctorId: string; date: string }) => {
         setFormData(prev => ({ ...prev, ...data }));
@@ -160,37 +162,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
         setIsAppointmentDetailModalOpen(true);
     };
-
-    /*  const handleBooking = async (payload: ScheduleAppointment) => {
-         const mergedDate = mergeDateAndTime(payload.date, payload.time);
-         console.log('Bateu no enhanced', payload)
- 
-         if (isNaN(mergedDate.getTime())) {
-             toast.error('Data/hora inválida');
-             return;
-         }
-         payload.specialty = payload.sessionType;
-         try {
-             console.log('payload', payload)
-             console.log('mergedDate', mergedDate)
-             await appointmentService.create({
-                 ...payload,
-                 // date: mergedDate.toISOString(),
-                 specialty: payload.sessionType
-             });
- 
-             if (calendarRef.current) {
-                 calendarRef.current.getApi().refetchEvents();
-             }
- 
- 
-             toast.success('Sessão agendada e pagamento registrado com sucesso!');
-             // setdataUpdateSlots(payload);
-             setOpenSchedule(false);
-         } catch (err: any) {
-             toast.error(err.response.data.error || 'Erro ao agendar sessão');
-         }
-     }; */
 
     const handleOpenSchedule = (appointment: IAppointment | null = null, modeType: 'create' | 'edit' = 'create') => {
         setAppointmentData(appointment);
@@ -303,18 +274,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     />
                 </div>
             </div>
-
-            {/*     <ScheduleModal
-                open={openSchedule}
-                onClose={() => setOpenSchedule(false)}
-                onSave={onNewAppointment}
-                patients={patients}
-                doctors={doctors}
-                initialData={appointmentData}
-                payloadToSlots={handlePayloadToSlots}
-                availableSlots={availableSlots}
-                mode={mode}
-            /> */}
 
             <ScheduleAppointmentModal
                 isOpen={openSchedule}

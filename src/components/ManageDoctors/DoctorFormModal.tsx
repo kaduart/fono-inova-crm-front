@@ -28,7 +28,6 @@ const DoctorFormModal = ({
 
     // Sincroniza o estado aberto/fechado
     useEffect(() => {
-        console.log('modalShouldClose', modalShouldClose)
         if (open) {
             setLocalOpen(true);
             setShouldClose(false);

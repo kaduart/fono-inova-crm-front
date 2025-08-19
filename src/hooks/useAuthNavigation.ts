@@ -18,7 +18,6 @@ export const useAuthNavigation = () => {
         loading.hideLoading();
         return { requiresPasswordCreation: true };
       }
-
       // 1. Faz o login sem redirecionar ainda
       await authLogin(data.token, data.user);
 

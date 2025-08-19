@@ -180,7 +180,6 @@ const ScheduleAppointmentModal = ({
     }
 
     useEffect(() => {
-        console.log('bateiuuuu', erroMessage)
         if (erroMessage) {
             toast.error(erroMessage, {
                 position: 'top-center',
@@ -377,9 +376,11 @@ const ScheduleAppointmentModal = ({
                             onChange={handleTypeChange}
                             className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
+                            <option value="alignment ">Alinhamento</option>
+                            <option value="evaluation">Avaliação</option>
+                            <option value="meet">Reunião</option>
                             <option value="individual_session">Sessão Avulsa</option>
                             <option value="package_session">Sessão de Pacote</option>
-                            <option value="evaluation">Avaliação</option>
                         </Select>
                     </div>
                 </div>
