@@ -11,7 +11,6 @@ import { LoadingSpinner } from './ui/LoadingSpinner';
 const Login = () => {
   const { login } = useAuthNavigation();
   const navigate = useNavigate();
-  const { loading } = useAuth();
 
   const [selectedRole, setSelectedRole] = useState('admin');
   const [email, setEmail] = useState('');
@@ -58,7 +57,6 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    loading.showLoading();
     setError(null);
 
     try {
@@ -68,7 +66,6 @@ const Login = () => {
         setShowCreatePassword(true);
       }
     } finally {
-      loading.hideLoading();
     }
   };
 
@@ -80,8 +77,6 @@ const Login = () => {
       toast.error('As senhas não coincidem');
       return;
     }
-
-    loading.showLoading();
 
     try {
       const response = await fetch(`${BASE_URL}/reset-password`, {
@@ -106,7 +101,6 @@ const Login = () => {
     } catch (error) {
       toast.error(error.message);
     } finally {
-      loading.hideLoading();
     }
   };
 
@@ -118,7 +112,6 @@ const Login = () => {
       return;
     }
 
-    loading.showLoading();
 
     try {
       const response = await fetch(`${BASE_URL}/auth/forgot-password`, {
@@ -142,17 +135,12 @@ const Login = () => {
     } catch (error) {
       toast.error(error.message);
     } finally {
-      loading.hideLoading();
     }
   };
 
   return (
     <div className='min-h-screen flex flex-row'>
-      {loading.isLoading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-          <LoadingSpinner />
-        </Box>
-      )}
+
       <div className="w-1/2 bg-white flex justify-center items-center relative h-screen overflow-hidden">
         <div className="flex flex-col justify-center items-center gap-5">
           <div className="relative h-[50vh] w-[50vh]">
