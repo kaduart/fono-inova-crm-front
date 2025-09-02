@@ -19,10 +19,15 @@ import SiteAnalyticsTable from './SiteAnalyticsTable';
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d'];
 
 const AnalyticsDashboard = () => {
+    const today = new Date();
+    const daysAgo7 = new Date();
+    daysAgo7.setDate(today.getDate() - 7);
+
     const [dateRange, setDateRange] = useState({
-        startDate: '30daysAgo',
-        endDate: 'today'
+        startDate: daysAgo7.toISOString().split('T')[0], // 7 dias atrás
+        endDate: today.toISOString().split('T')[0],      // hoje
     });
+
     const [selectedEventType, setSelectedEventType] = useState('all');
 
     const { events, metrics, loading, error } = useAnalytics(dateRange);

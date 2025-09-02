@@ -1,5 +1,4 @@
 import API from './api';
-import { GAEvent, GAMetrics } from '../utils/types';
 
 export interface GAEvent {
   action: string;

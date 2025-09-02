@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { Calendar, ChevronLeftIcon, ChevronRightIcon, XIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { IPatient } from '../../utils/types/types';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { TimeMultiSelect } from './TimeMultiSelect';
 
 const weekdays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
@@ -38,6 +39,7 @@ const DoctorAgendaCalendar = ({
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const [selectedTimes, setSelectedTimes] = useState<{ [key: string]: string[] }>({});
+  const [loadingDay, setLoadingDay] = useState<string | null>(null);
 
   const handlePrevWeek = () => setWeekStart(addDays(weekStart, -7));
   const handleNextWeek = () => setWeekStart(addDays(weekStart, 7));
@@ -45,15 +47,20 @@ const DoctorAgendaCalendar = ({
   const isSelected = (date: Date) =>
     selectedDate && dayjs(date).isSame(selectedDate, 'day');
 
-  const handleDayClick = (date: Date) => {
+  const handleDayClick = async (date: Date) => {
+    console.log("Dia clicado:", date);
     if (!selectedDoctorId) return;
 
     const formatted = format(date, 'yyyy-MM-dd');
+    setLoadingDay(formatted); // inicia loading
     onDateChange(dayjs(date));
-    onDaySelect(formatted);         // dispara busca por horários
-    // NÃO expande ainda — espera os dados chegarem via props
-  };
 
+    try {
+      await onDaySelect(formatted); // assume que onDaySelect retorna Promise
+    } finally {
+      setLoadingDay(null); // encerra loading mesmo se der erro
+    }
+  };
   useEffect(() => {
     if (!selectedDate) return;
     const formatted = selectedDate.format('YYYY-MM-DD');
@@ -120,46 +127,46 @@ const DoctorAgendaCalendar = ({
               key={index}
               onClick={() => handleDayClick(date)}
               className={`
-              flex flex-col items-center p-3 rounded-xl border cursor-pointer transition-all
-              ${isSelected(date)
-                  ? 'bg-blue-50 border-blue-300 shadow-md'
-                  : 'border-transparent hover:bg-gray-50'
-                }
-              ${isToday ? 'ring-2 ring-blue-200' : ''}
-            `}
+    relative flex flex-col items-center p-3 rounded-xl border cursor-pointer transition-all
+    ${isSelected(date) ? 'bg-blue-50 border-blue-300 shadow-md' : 'border-transparent hover:bg-gray-50'}
+    ${isToday ? 'ring-2 ring-blue-200' : ''}
+  `}
             >
-              <span className={`text-sm font-medium ${isToday
-                ? 'text-blue-600'
-                : isSelected(date)
-                  ? 'text-gray-800'
-                  : 'text-gray-500'
-                }`}>
+              {/* Loading overlay */}
+              {loadingDay === formattedDate && (
+                <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center rounded-xl z-10">
+                  <LoadingSpinner />
+                </div>
+              )}
+
+              <span
+                className={`text-sm font-medium ${isToday ? 'text-blue-600' : isSelected(date) ? 'text-gray-800' : 'text-gray-500'
+                  }`}
+              >
                 {dayOfWeek}
               </span>
-              <span className={`
-              mt-1 text-lg font-semibold 
-              ${isToday
-                  ? 'text-white bg-blue-600 rounded-full w-8 h-8 flex items-center justify-center'
-                  : isSelected(date)
-                    ? 'text-gray-900'
-                    : 'text-gray-700'
-                }`}
+              <span
+                className={`
+      mt-1 text-lg font-semibold
+      ${isToday ? 'text-white bg-blue-600 rounded-full w-8 h-8 flex items-center justify-center'
+                    : isSelected(date) ? 'text-gray-900' : 'text-gray-700'}
+    `}
               >
                 {dayNumber}
               </span>
 
               {slotsForThisDate.length > 0 && (
-                <span className={`
-                mt-2 text-xs px-2 py-1 rounded-full 
-                ${isSelected(date)
-                    ? 'bg-blue-100 text-blue-800'
-                    : 'bg-gray-100 text-gray-600'
-                  }
-              `}>
+                <span
+                  className={`
+        mt-2 text-xs px-2 py-1 rounded-full
+        ${isSelected(date) ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}
+      `}
+                >
                   {slotsForThisDate.length} horário{slotsForThisDate.length !== 1 ? 's' : ''}
                 </span>
               )}
             </div>
+
           );
         })}
       </div>

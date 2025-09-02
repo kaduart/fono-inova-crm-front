@@ -44,7 +44,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({ open, mode, initialData, 
     };
 
     return (
-        <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">z
+        <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
             <DialogTitle>{mode === 'edit' ? 'Editar Agendamento' : 'Novo Agendamento'}</DialogTitle>
             <DialogContent>
                 <form onSubmit={handleSubmit}>

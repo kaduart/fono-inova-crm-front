@@ -13,7 +13,6 @@ import { AppointmentsProvider } from './contexts/AppointmentsContext';
 import { useAuth } from './contexts/AuthContext';
 
 const App: React.FC = () => {
-  Modal.setAppElement('#root');
   // qdo configurar o socket, descomentar
   //usePaymentNotifications();
   const { isLoading } = useAuth();

@@ -170,7 +170,6 @@ const DailyClosingReport = () => {
             </div>
         );
     };
-    console.log(report);
     const renderProfessionalSummary = () => {
         if (!report?.byProfessional) return null;
 

@@ -56,8 +56,6 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
                 return false;
             }
 
-            console.log('Filtro por método de pagamento:', filters.paymentMethod);
-            console.log('Método do pagamento atual:', payment);
             // Filtro por método de pagamento
             if (filters.paymentMethod && payment.paymentMethod !== filters.paymentMethod) {
                 return false;

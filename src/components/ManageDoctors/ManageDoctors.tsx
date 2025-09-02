@@ -137,7 +137,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
 
     const handleBookingComplete = async (data: ScheduleAppointment) => {
         setIsLoading(true);
-
+console.log("Dados recebidos no intermediário:", data);
         try {
             // 1. Envia para o pai e AGUARDA resposta
             const result = await onNewAppointment(data);
