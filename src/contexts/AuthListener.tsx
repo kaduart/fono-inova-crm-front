@@ -6,6 +6,7 @@ export const AuthListener = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
+          console.log("Login component montou");
         const handleAuthError = (event: CustomEvent) => {
             navigate('/login', {
                 state: {

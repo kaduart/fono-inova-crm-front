@@ -4,14 +4,14 @@ import API from "./api";
 export type DoctorRole = 'doctor';
 
 export type CreateDoctorParams = {
-    _id?: string; 
+    _id?: string;
     fullName: string;
     email: string;
     password: string;
     specialty: string;
     licenseNumber: string;
     phoneNumber: string;
-    active: string; 
+    active: string;
     role?: DoctorRole;
 };
 
@@ -47,7 +47,22 @@ export const doctorService = {
 
     updateDoctor: async (id: string, data: CreateDoctorParams) => {
         return API.patch<Doctor>(`/doctors/${id}`, data);
-    }
+    },
+
+    getTotalDoctors: async (): Promise<{ totalDoctors: number }> => {
+        const response = await API.get('/admin/total-doctors');
+        return response.data;
+    },
+
+    getDoctorOverview: async (): Promise<any> => {
+        const response = await API.get('/admin/doctor-overview');
+        return response.data;
+    },
+
+    completeTherapySession: async (sessionId: any) => {
+        const res = await API.patch(`/doctors/therapy-sessions/${sessionId}/complete`);
+        return res.data;
+    },
 };
 
 export const fetchPatients = async (): Promise<any[]> => {
@@ -69,6 +84,7 @@ export const fetchTodaysAppointments = async (): Promise<any[]> => {
     const response = await API.get('/doctors/appointments/today');
     return response.data;
 };
+
 
 export const updateClinicalStatus = async ({ appointmentId, status }: ClinicalStatusUpdate) => {
     try {

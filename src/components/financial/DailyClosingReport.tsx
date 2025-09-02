@@ -14,6 +14,7 @@ import React, { useEffect, useState } from 'react';
 import { BsCurrencyDollar } from 'react-icons/bs';
 import { FiCreditCard, FiDollarSign } from 'react-icons/fi';
 import usePayment from '../../hooks/usePayment';
+import { formatDateBrazilian } from '../../utils/dateFormat';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 dayjs.extend(utc);
@@ -169,13 +170,16 @@ const DailyClosingReport = () => {
             </div>
         );
     };
-
+    console.log(report);
     const renderProfessionalSummary = () => {
         if (!report?.byProfessional) return null;
 
         return (
             <div className="mt-8">
                 <h3 className="text-xl font-bold mb-4 text-gray-700">Resumo por Profissional</h3>
+                {report.byProfessional.length === 0 ? (
+                    <p className="text-gray-600">Nenhum profissional com atividades nesta data.</p>
+                ) : (
                 <div className="overflow-x-auto rounded-lg border border-gray-200">
                     <table className="min-w-full bg-white">
                         <thead className="bg-gray-50">
@@ -210,6 +214,7 @@ const DailyClosingReport = () => {
                         </tbody>
                     </table>
                 </div>
+              )}
             </div>
         );
     };
@@ -282,7 +287,7 @@ const DailyClosingReport = () => {
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-bold text-gray-800">
                         {detailsType === 'scheduled' && 'Agendamentos'}
-                        {detailsType === 'attended' && 'Atendimentos Confirmados'}
+                        {detailsType === 'attended' && 'Histórico Diário'}
                         {detailsType === 'canceled' && 'Cancelamentos'}
                         {detailsType === 'pending' && 'Pendentes'}
                     </h3>
@@ -300,7 +305,7 @@ const DailyClosingReport = () => {
                             <tr>
                                 <th className="py-3 px-4 text-left text-sm font-medium text-gray-700 uppercase tracking-wider">Paciente</th>
                                 <th className="py-3 px-4 text-left text-sm font-medium text-gray-700 uppercase tracking-wider">Serviço</th>
-                                <th className="py-3 px-4 text-left text-sm font-medium text-gray-700 uppercase tracking-wider">Valor</th>
+                                <th className="py-3 px-4 text-left text-sm font-medium text-gray-700 uppercase tracking-wider">Recebido</th>
                                 <th className="py-3 px-4 text-left text-sm font-medium text-gray-700 uppercase tracking-wider">Método</th>
                                 <th className="py-3 px-4 text-left text-sm font-medium text-gray-700 uppercase tracking-wider">Status</th>
                                 <th className="py-3 px-4 text-left text-sm font-medium text-gray-700 uppercase tracking-wider">Data/Hora</th>
@@ -331,7 +336,7 @@ const DailyClosingReport = () => {
                                         </span>
                                     </td>
                                     <td className="py-3 px-4 text-gray-500">
-                                        {item.date} {item.time}
+                                        {formatDateBrazilian(item.date)} {item.time}
                                     </td>
                                 </tr>
                             ))}
@@ -359,7 +364,6 @@ const DailyClosingReport = () => {
             {loading && (
                 <div className="flex justify-center items-center h-64">
                     <LoadingSpinner />
-                    <p className="mt-3 text-gray-600">Carregando fechamento diário...</p>
                 </div>
             )}
 

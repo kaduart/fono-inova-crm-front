@@ -40,11 +40,8 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': {
           target: baseUrl,
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, ''),
-          headers: {
-            'X-Forwarded-Host': new URL(frontendUrl).host
-          }
+    changeOrigin: true,
+    rewrite: (path) => path, 
         }
       }
     },

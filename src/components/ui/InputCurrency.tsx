@@ -1,5 +1,4 @@
-// InputCurrency.tsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 type InputCurrencyProps = {
     name: string;
@@ -11,27 +10,32 @@ type InputCurrencyProps = {
 };
 
 export const InputCurrency = ({ name, value, label, onChange, disabled, className }: InputCurrencyProps) => {
-    const safeValue = typeof value === 'number' && !isNaN(value) ? value : 0;
+    const [isFocused, setIsFocused] = useState(false);
+    const [displayValue, setDisplayValue] = useState('');
 
-    const formattedValue = new Intl.NumberFormat('pt-BR', {
-        style: 'currency',
-        currency: 'BRL'
-    }).format(safeValue);
+    useEffect(() => {
+        if (!isFocused) {
+            // Fora do foco → mostra formatado
+            const safeValue = typeof value === 'number' && !isNaN(value) ? value : 0;
+            setDisplayValue(
+                new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
+                }).format(safeValue)
+            );
+        } else {
+            // Em foco → mostra cru (sem R$)
+            setDisplayValue(value ? value.toString().replace('.', ',') : '');
+        }
+    }, [value, isFocused]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        // Remove todos os caracteres não numéricos
         const rawValue = e.target.value.replace(/\D/g, '');
+        const numericValue = parseFloat(rawValue) / 100 || 0;
 
-        // Converte para número dividindo por 100 para considerar centavos
-        const numericValue = parseFloat(rawValue) / 100;
-
-        // Simula o evento esperado pelo handleChange
+        setDisplayValue(e.target.value);
         onChange({
-            target: {
-                name: name,
-                value: numericValue,
-                type: "number" // Força o tipo para number
-            }
+            target: { name, value: numericValue, type: 'number' }
         });
     };
 
@@ -45,11 +49,12 @@ export const InputCurrency = ({ name, value, label, onChange, disabled, classNam
             <input
                 type="text"
                 name={name}
-                value={formattedValue}
+                value={displayValue}
                 onChange={handleChange}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
                 disabled={disabled}
                 className={`mt-1 block w-full px-3 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ease-in-out ${className}`}
-
             />
         </div>
     );

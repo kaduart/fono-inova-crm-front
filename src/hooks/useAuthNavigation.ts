@@ -10,6 +10,7 @@ export const useAuthNavigation = () => {
 
   const login = async (credentials: { email: string; password: string; role: string }) => {
     loading.showLoading();
+      console.log("Login component montou");
     try {
       const response = await axios.post(`${BASE_URL}/login`, credentials);
       const data = response.data;

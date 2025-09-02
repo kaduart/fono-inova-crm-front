@@ -1,13 +1,15 @@
+// src/hooks/useDoctorDashboard.ts
 import { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import API from '../services/api';
 import {
-    fetchFutureAppointments,
-    fetchPatients,
-    fetchStats,
-    fetchTherapySessions,
-    fetchTodaysAppointments,
-    updateClinicalStatus
+  doctorService,
+  fetchFutureAppointments,
+  fetchPatients,
+  fetchStats,
+  fetchTherapySessions,
+  fetchTodaysAppointments,
+  updateClinicalStatus
 } from '../services/doctorService';
 import { Appointment } from '../utils/types';
 import { IPatient } from '../utils/types/types';
@@ -25,6 +27,9 @@ export default function useDoctorDashboard() {
     specialties: {}
   });
   const [futureAppointments, setFutureAppointments] = useState<Appointment[]>([]);
+  const [totalDoctors, setTotalDoctors] = useState<number>(0);
+  const [doctorOverview, setDoctorOverview] = useState<any>(null);
+  const [doctors, setDoctors] = useState<any[]>([]);
 
   const loadData = async () => {
     try {
@@ -42,9 +47,20 @@ export default function useDoctorDashboard() {
       setAppointments(appointmentsRes);
       setTherapySessions(sessionsRes);
       setStats(statsRes);
-      
-      const futureApps = await fetchFutureAppointments();
+
+      const [futureApps, doctorsRes, totalDoctorsRes, doctorOverviewRes] = await Promise.all([
+        fetchFutureAppointments(),
+        doctorService.getAllDoctors(),
+        doctorService.getTotalDoctors(),
+        doctorService.getDoctorOverview()
+      ]);
+      console.log('Future doctorsRes[[[[[[[]]]]]]]:', doctorsRes);
+      console.log('Future doctorsRes[[[[[[[]]]]]]]:', totalDoctorsRes);
       setFutureAppointments(futureApps);
+      setDoctors(doctorsRes.data);
+      setTotalDoctors(totalDoctorsRes.totalDoctors);
+      setDoctorOverview(doctorOverviewRes);
+
     } catch (error) {
       toast.error('Erro ao carregar dados do dashboard');
       console.error('Erro no dashboard:', error);
@@ -59,20 +75,36 @@ export default function useDoctorDashboard() {
 
   const handleCompleteSession = async (sessionId: string) => {
     try {
-      await API.patch(`/doctors/therapy-sessions/${sessionId}/complete`);
+      const updated = await doctorService.completeTherapySession(sessionId);
       toast.success('Sessão marcada como concluída!');
 
-      const updatedSessions = therapySessions.map(session =>
-        session._id === sessionId ? { ...session, status: 'concluído' } : session
+      setTherapySessions((prev) =>
+        prev.map((s) =>
+          s._id === sessionId ? { ...s, status: "completed" } : s
+        )
       );
 
-      setTherapySessions(updatedSessions);
-      const newStats = await fetchStats();
-      setStats(newStats);
-    } catch (error) {
-      toast.error('Erro ao atualizar a sessão');
+      return updated;
+    } catch (err) {
+      console.error("Erro ao completar sessão:", err);
+      throw err;
     }
   };
+
+  const fetchDoctors = async () => {
+
+    try {
+      const response = await doctorService.getAllDoctors();
+      console.log('fetchDoctors response:', response);
+      setDoctors(response.data);
+    } catch (error) {
+      toast.error('Erro ao atualizar status');
+      console.error('Erro ao atualizar status:', error);
+    }
+  };
+  useEffect(() => {
+    fetchDoctors();
+  }, []);
 
   const handleUpdateStatus = async (appointmentId: string, status: string) => {
     try {
@@ -87,6 +119,40 @@ export default function useDoctorDashboard() {
     }
   };
 
+  const createDoctor = async (doctor: any) => {
+    setLoading(true);
+    try {
+      await doctorService.createDoctor(doctor);
+      // atualiza a lista local
+      const allDoctors = await doctorService.getAllDoctors();
+      setDoctors(allDoctors.data);
+    } catch (error: any) {
+      console.error("Erro ao criar profissional:", error);
+      toast.error(error.message || "Erro ao criar profissional");
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateDoctor = async (doctor: any) => {
+    if (!doctor._id) throw new Error("ID do profissional é obrigatório");
+    setLoading(true);
+    try {
+      await doctorService.updateDoctor(doctor._id, doctor);
+      const allDoctors = await doctorService.getAllDoctors();
+      setDoctors(allDoctors.data);
+    } catch (error: any) {
+      console.error("Erro ao atualizar profissional:", error);
+      toast.error(error.message || "Erro ao atualizar profissional");
+      throw error;
+    }
+    finally {
+      setLoading(false);
+    }
+  };
+
+
   return {
     loading,
     doctorData,
@@ -95,8 +161,17 @@ export default function useDoctorDashboard() {
     therapySessions,
     stats,
     futureAppointments,
+
+    // 🔥 novos retornos
+    doctors,
+    totalDoctors,
+    doctorOverview,
+
     handleCompleteSession,
     handleUpdateStatus,
-    refreshData: loadData
+    refreshData: loadData,
+    createDoctor,
+    fetchPatients,
+    updateDoctor
   };
 }

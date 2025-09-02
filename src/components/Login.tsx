@@ -1,10 +1,9 @@
-import { Box } from '@mui/material';
 import { Eye, EyeOff, Shield, Stethoscope, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { BASE_URL } from '../constants/constants';
-import { useAuth } from '../contexts/AuthContext';
 import { useAuthNavigation } from '../hooks/useAuthNavigation';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 
@@ -23,6 +22,7 @@ const Login = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const roles = [
     { id: 'admin', label: 'Admin', icon: Shield },
@@ -55,19 +55,37 @@ const Login = () => {
     }
   }, [location]);
 
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
+    // Força o botão a mostrar loading antes de qualquer coisa
+    flushSync(() => setIsLoading(true));
+
+    // Dá tempo para o browser pintar o spinner
+    await new Promise(requestAnimationFrame);
+
     try {
+      console.log('Tentando logar como', selectedRole, 'com email', email);
+
+      // Use o hook de login normalmente
       const result = await login({ email, password, role: selectedRole });
 
-      if (result.requiresPasswordCreation) {
+      if (result?.requiresPasswordCreation) {
         setShowCreatePassword(true);
       }
+
+    } catch (err: any) {
+      console.error('Erro no login', err);
+      toast.error(err?.response?.data?.error || 'Erro ao tentar logar');
+
     } finally {
+      // Certifique-se de limpar o loading depois de tudo
+      flushSync(() => setIsLoading(false));
     }
   };
+
 
 
   const handleCreatePassword = async (e) => {
@@ -370,10 +388,18 @@ const Login = () => {
 
                     <button
                       type="submit"
-                      className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors"
+                      className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors flex justify-center items-center gap-2"
                     >
-                      Login como {roles.find((r) => r.id === selectedRole)?.label}
+                      {isLoading ? (
+                        <>
+                          <LoadingSpinner size="small" color="border-white" />
+                          <span>Salvando...</span>
+                        </>
+                      ) : (
+                        `Login como ${roles.find((r) => r.id === selectedRole)?.label}`
+                      )}
                     </button>
+
 
                     <button
                       type="button"

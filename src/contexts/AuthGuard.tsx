@@ -10,7 +10,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         const publicRoutes = ['/login', '/signup', '/'];
-
+  console.log("Login component montou");
         if (!user && !publicRoutes.includes(location.pathname)) {
             navigate('/login', {
                 state: { from: location },

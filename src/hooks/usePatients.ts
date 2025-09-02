@@ -3,41 +3,50 @@ import { patientService } from '../services/patientService';
 import { IPatient } from '../utils/types/types';
 
 export const usePatients = () => {
-
     const [patients, setPatients] = useState<IPatient[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // 1. Função de fetch com logs detalhados
-    const fetchPatients = useCallback(async () => {
+    const [totalPatients, setTotalPatients] = useState<number>(0);
+    const [patientOverview, setPatientOverview] = useState<any>(null);
 
+    const fetchPatients = useCallback(async () => {
         setLoading(true);
         setError(null);
-
         try {
-
             const data = await patientService.fetchAll();
-
             setPatients(data);
         } catch (err) {
             console.error('❌ Erro ao buscar pacientes:', err);
             setError('Falha ao carregar pacientes');
         } finally {
-
             setLoading(false);
         }
     }, []);
 
-    // 2. useEffect com logs
+    const fetchTotalPatients = useCallback(async () => {
+        try {
+            const data = await patientService.getTotalPatients();
+            setTotalPatients(data.totalPatients);
+        } catch (err) {
+            console.error('❌ Erro ao buscar total de pacientes:', err);
+        }
+    }, []);
+
+    const fetchPatientOverview = useCallback(async () => {
+        try {
+            const data = await patientService.getPatientOverview();
+            setPatientOverview(data);
+        } catch (err) {
+            console.error('❌ Erro ao buscar overview de pacientes:', err);
+        }
+    }, []);
+
     useEffect(() => {
-
         fetchPatients();
-
-        // Log adicional para garantir que não há erros silenciosos
-        fetchPatients().catch(err => {
-            console.error('🚨 ERRO NÃO TRATADO no fetchPatients:', err);
-        });
-    }, [fetchPatients]);
+        fetchTotalPatients();
+        fetchPatientOverview();
+    }, [fetchPatients, fetchTotalPatients, fetchPatientOverview]);
 
     const createPatient = async (IPatient: IPatient) => {
         try {
@@ -45,9 +54,11 @@ export const usePatients = () => {
             setError(null);
 
             const newPatient = await patientService.create(IPatient);
-            setPatients(prev => [...prev, newPatient]);
+            await fetchPatients();
+            await fetchTotalPatients();
+            await fetchPatientOverview();    // ✅ garante overview atualizado
             return newPatient;
-        } catch (error) {
+        } catch (error: any) {
             setError(error.message);
             throw error;
         } finally {
@@ -59,9 +70,9 @@ export const usePatients = () => {
         try {
             setLoading(true);
             const updatedPatient = await patientService.update(id, IPatient);
-            setPatients(prev => prev.map(p =>
-                p._id === id ? { ...p, ...updatedPatient } : p
-            ));
+            await fetchPatients();
+            await fetchTotalPatients();
+            await fetchPatientOverview();
             return updatedPatient;
         } catch (error) {
             setError('Falha ao atualizar paciente');
@@ -76,6 +87,8 @@ export const usePatients = () => {
             setLoading(true);
             await patientService.delete(id);
             setPatients(prev => prev.filter(p => p._id !== id));
+            setTotalPatients(prev => prev - 1); // ✅ decrementa total
+            await fetchPatientOverview();       // ✅ garante overview atualizado
         } catch (error) {
             setError('Falha ao remover paciente');
             throw error;
@@ -86,9 +99,13 @@ export const usePatients = () => {
 
     return {
         patients,
+        totalPatients,
+        patientOverview,
         loading,
         error,
         fetchPatients,
+        fetchTotalPatients,
+        fetchPatientOverview,
         createPatient,
         updatePatient,
         deletePatient,

@@ -75,6 +75,16 @@ export const patientService = {
         return res.data
     }),
 
+    getTotalPatients: async (): Promise<{ totalPatients: number }> => {
+        const response = await API.get('/admin/total-patients');
+        return response.data;
+    },
+
+    getPatientOverview: async (): Promise<any> => {
+        const response = await API.get('/admin/patient-overview');
+        return response.data;
+    },
+
     getPatientSessions: (patientId: string): Promise<any[]> =>
         API.get(`/patients/${patientId}/sessions`).then(res => res.data),
 };

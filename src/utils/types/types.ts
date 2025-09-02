@@ -12,6 +12,12 @@ export const THERAPY_TYPES = [
     { value: 'neuropediatria', label: 'Neuropediatria' }
 ];
 
+export interface AdminInfo {
+    _id?: string;
+    fullName: string;
+    email: string;
+}
+
 export const PAYMENT_TYPES = [
     { value: 'full', label: 'Pagamento total antecipado' },
     { value: 'per-session', label: 'Pagamento por sessão' },
@@ -343,3 +349,32 @@ export type AppointmentStatus =
     | 'agendado' | 'confirmado' | 'cancelado' | 'pago'
     | 'pendente' | 'em_andamento' | 'concluído' | 'faltou';
 
+export interface SiteAnalyticsTableProps {
+    data: {
+        action: string;
+        category?: string;
+        label?: string;
+        timestamp: string;
+        value?: number;
+    }[];
+}
+
+export const translateAction = (action: string) => {
+    const map: Record<string, string> = {
+        page_view: 'Visualizações de Página',
+        scroll: 'Rolagem',
+        user_engagement: 'Engajamento do Usuário',
+        button_click: 'Clique em Botão',
+        session_start: 'Início de Sessão',
+        first_visit: 'Primeira Visita',
+        popup_opened: 'Popup Aberto',
+        popup_closed: 'Popup Fechado',
+        whatsapp_click: 'Clique no WhatsApp',
+        click: 'Clique Geral',
+        article_clicked: 'Clique em Artigo',
+        Clique_Agendamento: 'Clique em Agendamento',
+        Clique_WhatsApp: 'Clique no WhatsApp',
+        social_media_click: 'Clique em Rede Social'
+    };
+    return map[action] || action;
+};

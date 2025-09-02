@@ -5,7 +5,7 @@ import { clearAuthTokens } from './authService';
 
 const API = axios.create({
   baseURL: BASE_URL,
-  withCredentials: true,
+  withCredentials: false,
 });
 
 

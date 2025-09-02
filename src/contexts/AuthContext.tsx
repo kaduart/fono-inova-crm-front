@@ -50,7 +50,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const hideLoading = useCallback(() => setOperationLoading(false), []);
 
   const login = useCallback(async (token: string, userData: User) => {
-    showLoading();
+      console.log("Login component montou");
     try {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
@@ -61,9 +61,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       return { success: true, userRole: userData.role };
     } catch {
-      hideLoading();
+      return { success: false };
     }
-  }, [showLoading, hideLoading]);
+  }, []);
 
 
   const logout = useCallback(() => {
