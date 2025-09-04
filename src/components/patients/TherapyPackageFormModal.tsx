@@ -11,6 +11,7 @@ import { DURATION_OPTIONS, FREQUENCY_OPTIONS, IAppointment, IDoctor, IPatient, I
 import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
 import { Select } from '../ui/Select';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 type Props = {
     initialData: ITherapyPackage | null;
@@ -40,12 +41,21 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     const [formData, setFormData] = useState(initialFormState);
     const [errors, setErrors] = useState({});
     const [appointments, setAppointments] = useState<IAppointment[]>([]);
-    const { loading } = useAuth();
+    const [calculationMode, setCalculationMode] = useState('duration'); // 'sessions' or 'duration'
+    const [isLoading, setIsLoading] = useState(false);
 
     // Calculados dinamicamente
-    const totalSessions = (formData.durationMonths || 0) * 4 * (formData.sessionsPerWeek || 0);
+    const totalSessions = calculationMode === 'sessions'
+        ? formData.totalSessions
+        : (formData.durationMonths || 0) * 4 * (formData.sessionsPerWeek || 0);
+
     const totalValuePackage = totalSessions * formData.sessionValue;
     const remainingBalance = Math.max(totalValuePackage - formData.totalPaid, 0);
+
+    // Calcular duração estimada baseada no número de sessões e frequência
+    const estimatedDuration = calculationMode === 'sessions' && formData.sessionsPerWeek > 0
+        ? Math.ceil(formData.totalSessions / formData.sessionsPerWeek / 4)
+        : formData.durationMonths;
 
     // Form válido
     const isFormValid = !!(
@@ -58,14 +68,13 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         formData.paymentMethod &&
         formData.date &&
         formData.time &&
-        formData.durationMonths > 0 &&
-        formData.sessionsPerWeek > 0
+        (calculationMode === 'sessions' ? formData.totalSessions > 0 : (formData.durationMonths > 0 && formData.sessionsPerWeek > 0))
     );
 
     const { fetchAppointments } = useAppointmentsContext();
 
     useEffect(() => {
-        fetchAppointments(); // vai popular appointments ao montar
+        fetchAppointments();
     }, [fetchAppointments]);
 
     useEffect(() => {
@@ -79,14 +88,15 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     }, [patient]);
 
     const fetchAppointmentsByPatient = async (patientId: string) => {
-        loading.showLoading();
+        setIsLoading(true);
         try {
             const data = await appointmentService.get(patientId);
             setAppointments(data.data);
         } catch (error) {
             toast.error('Erro ao carregar agendamentos');
         } finally {
-            loading.hideLoading();
+            setIsLoading(false);
+
         }
     };
 
@@ -98,7 +108,6 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             [name]: numericFields.includes(name) ? Number(value) : value
         }));
 
-        // Quando selecionar um agendamento, preencher automaticamente os dados
         if (name === 'appointmentId') {
             const selectedAppointment = appointments.find(a => a._id === value);
             if (selectedAppointment) {
@@ -127,7 +136,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             return;
         }
 
-        loading.showLoading();
+        setIsLoading(true);
 
         const packageData = {
             patientId: patient._id,
@@ -138,11 +147,13 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             amountPaid: formData.totalPaid || 0,
             paymentMethod: formData.paymentMethod,
             sessionsPerWeek: +formData.sessionsPerWeek,
-            durationMonths: formData.durationMonths,
+            durationMonths: calculationMode === 'duration' ? formData.durationMonths : estimatedDuration,
+            totalSessions: calculationMode === 'sessions' ? formData.totalSessions : totalSessions,
             date: formData.date,
             specialty: formData.sessionType,
             time: formData.time,
             appointmentId: formData.appointmentId || undefined,
+            calculationMode: calculationMode
         };
 
         try {
@@ -155,35 +166,39 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             const errorMessage = err?.message || 'Erro ao salvar pacote.';
             toast.error(errorMessage);
         } finally {
-            loading.hideLoading();
+            setIsLoading(false);
+
         }
     };
 
     const validate = () => {
         const newErrors: any = {};
-        if (formData.durationMonths < 1 || formData.durationMonths > 12) {
-            newErrors.durationMonths = 'Duração inválida';
-        }
-        if (formData.sessionsPerWeek < 1 || formData.sessionsPerWeek > 5) {
-            newErrors.sessionsPerWeek = 'Frequência inválida';
+
+        if (calculationMode === 'duration') {
+            if (formData.durationMonths < 1 || formData.durationMonths > 12) {
+                newErrors.durationMonths = 'Duração inválida';
+            }
+            if (formData.sessionsPerWeek < 1 || formData.sessionsPerWeek > 5) {
+                newErrors.sessionsPerWeek = 'Frequência inválida';
+            }
+        } else {
+            if (formData.totalSessions < 1 || formData.totalSessions > 100) {
+                newErrors.totalSessions = 'Número de sessões inválido';
+            }
+            if (formData.sessionsPerWeek < 1 || formData.sessionsPerWeek > 5) {
+                newErrors.sessionsPerWeek = 'Frequência inválida';
+            }
         }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    // Função auxiliar para formatar a data
     const formatAppointmentDate = (dateString) => {
         if (!dateString) return 'Data inválida';
-
-        // A API retorna no formato "YYYY-MM-DD" que o JavaScript pode interpretar incorretamente
-        // Vamos forçar o formato ISO corrigido
-        const isoDate = `${dateString}T00:00:00`; // Adiciona meio-dia como horário padrão
+        const isoDate = `${dateString}T00:00:00`;
         const dateObj = new Date(isoDate);
-
-        // Verifica se a data é válida
-        if (isNaN(dateObj.getTime())) return dateString; // Retorna o original se inválido
-
+        if (isNaN(dateObj.getTime())) return dateString;
         return dateObj.toLocaleDateString('pt-BR');
     };
 
@@ -202,7 +217,6 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Coluna 1 */}
                     <div className="space-y-4">
-                        {/* Novo Select de Agendamentos */}
                         <div className="form-group">
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Agendamento Existente (Opcional)
@@ -229,41 +243,113 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                         </div>
 
                         <div className="form-group">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Duração do Pacote</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Modo de Cálculo
+                            </label>
                             <Select
-                                name="durationMonths"
-                                value={formData.durationMonths}
-                                onChange={handleChange}
-                                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                value={calculationMode}
+                                onChange={(e) => setCalculationMode(e.target.value)}
+                                className="w-full p-2 border border-gray-300 rounded-md"
                             >
-                                <option value="">Escolha duração do pacote</option>
-                                {DURATION_OPTIONS.map(opt => (
-                                    <option key={opt} value={opt}>
-                                        {opt} {opt > 1 ? 'meses' : 'mês'}
-                                    </option>
-                                ))}
+                                <option value="sessions">Por número de sessões</option>
+                                <option value="duration">Por duração (meses/semanas)</option>
                             </Select>
                         </div>
 
-                        <div className="form-group">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Sessões por Semana</label>
-                            <Select
-                                name="sessionsPerWeek"
-                                value={formData.sessionsPerWeek}
-                                onChange={handleChange}
-                                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="">Escolha quantidade de vez na semana</option>
-                                {FREQUENCY_OPTIONS.map(opt => (
-                                    <option key={opt} value={opt}>
-                                        {opt} {opt > 1 ? 'vezes' : 'vez'} por semana
-                                    </option>
-                                ))}
-                            </Select>
-                        </div>
+                        {calculationMode === 'sessions' ? (
+                            <>
+                                <div className="form-group">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Número de Sessões
+                                    </label>
+                                    <input
+                                        type="number"
+                                        name="totalSessions"
+                                        min="1"
+                                        max="100"
+                                        value={formData.totalSessions}
+                                        onChange={handleChange}
+                                        className="w-full p-2 border border-gray-300 rounded-md"
+                                    />
+                                    {errors.totalSessions && (
+                                        <span className="text-red-500 text-sm">{errors.totalSessions}</span>
+                                    )}
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Sessões por Semana
+                                    </label>
+                                    <Select
+                                        name="sessionsPerWeek"
+                                        value={formData.sessionsPerWeek}
+                                        onChange={handleChange}
+                                        className="w-full p-2 border border-gray-300 rounded-md"
+                                    >
+                                        <option value="">Selecione a frequência</option>
+                                        {FREQUENCY_OPTIONS.map(opt => (
+                                            <option key={opt} value={opt}>
+                                                {opt} {opt > 1 ? 'vezes' : 'vez'} por semana
+                                            </option>
+                                        ))}
+                                    </Select>
+                                    {errors.sessionsPerWeek && (
+                                        <span className="text-red-500 text-sm">{errors.sessionsPerWeek}</span>
+                                    )}
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Duração estimada: {estimatedDuration} {estimatedDuration > 1 ? 'meses' : 'mês'}
+                                    </p>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="form-group">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Duração do Pacote
+                                    </label>
+                                    <Select
+                                        name="durationMonths"
+                                        value={formData.durationMonths}
+                                        onChange={handleChange}
+                                        className="w-full p-2 border border-gray-300 rounded-md"
+                                    >
+                                        <option value="">Escolha duração do pacote</option>
+                                        {DURATION_OPTIONS.map(opt => (
+                                            <option key={opt} value={opt}>
+                                                {opt} {opt > 1 ? 'meses' : 'mês'}
+                                            </option>
+                                        ))}
+                                    </Select>
+                                    {errors.durationMonths && (
+                                        <span className="text-red-500 text-sm">{errors.durationMonths}</span>
+                                    )}
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Sessões por Semana
+                                    </label>
+                                    <Select
+                                        name="sessionsPerWeek"
+                                        value={formData.sessionsPerWeek}
+                                        onChange={handleChange}
+                                        className="w-full p-2 border border-gray-300 rounded-md"
+                                    >
+                                        <option value="">Escolha quantidade de vez na semana</option>
+                                        {FREQUENCY_OPTIONS.map(opt => (
+                                            <option key={opt} value={opt}>
+                                                {opt} {opt > 1 ? 'vezes' : 'vez'} por semana
+                                            </option>
+                                        ))}
+                                    </Select>
+                                    {errors.sessionsPerWeek && (
+                                        <span className="text-red-500 text-sm">{errors.sessionsPerWeek}</span>
+                                    )}
+                                </div>
+                            </>
+                        )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Campo Data */}
                             <div className="form-group">
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Data *</label>
                                 <DatePicker
@@ -285,7 +371,6 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 />
                             </div>
 
-                            {/* Campo Hora */}
                             <div className="form-group">
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Hora *</label>
                                 <DatePicker
@@ -424,6 +509,12 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 <span className="text-sm text-gray-600">Total de sessões:</span>
                                 <span className="text-sm font-medium">{totalSessions}</span>
                             </div>
+                            {calculationMode === 'sessions' && (
+                                <div className="flex justify-between">
+                                    <span className="text-sm text-gray-600">Duração estimada:</span>
+                                    <span className="text-sm font-medium">{estimatedDuration} {estimatedDuration > 1 ? 'meses' : 'mês'}</span>
+                                </div>
+                            )}
                             <div className="flex justify-between pt-2 border-t border-blue-100">
                                 <span className="text-sm font-semibold text-blue-800">Valor total:</span>
                                 <span className="text-sm font-semibold text-blue-800">R$ {totalValuePackage.toFixed(2)}</span>
@@ -460,11 +551,20 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     <Button
                         type="submit"
                         onClick={handleSave}
-                        disabled={!isFormValid || loading.isLoading}
+                        disabled={!isFormValid || isLoading}
                         className={`px-6 py-2 text-white ${isFormValid ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-300 cursor-not-allowed'}`}
-                        loading={loading.isLoading}
                     >
-                        {initialData ? 'Atualizar' : 'Criar'} Pacote
+                        {isLoading ? (
+                            <>
+                                <LoadingSpinner size="small" color="border-white" />
+                                <span>Salvando...</span>
+                            </>
+                        ) : (
+                            `${initialData ? 'Atualizar' : 'Criar'} Pacote`
+
+
+                        )}
+
                     </Button>
                 </div>
             </div>
