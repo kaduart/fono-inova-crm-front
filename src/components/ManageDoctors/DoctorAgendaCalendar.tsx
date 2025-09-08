@@ -84,6 +84,7 @@ const DoctorAgendaCalendar = ({
   now.setHours(12, 0, 0, 0); // corrige problemas de timezone
   const weekStartOn = startOfWeek(now, { weekStartsOn: 1 });
 
+  console.log('slots disponiveis - doctor agenda calendar  ', daySlots)
   return (
     <div className="mt-6 space-y-6">
       {/* Header com navegação entre semanas */}

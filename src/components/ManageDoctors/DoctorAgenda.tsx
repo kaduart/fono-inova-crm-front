@@ -1,10 +1,8 @@
 'use client';
 
 import { CardHeader } from '@mui/material';
-import axios from 'axios';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
-import { BASE_URL } from '../../constants/constants';
 import appointmentService, { AvailableSlotsParams } from '../../services/appointmentService';
 import { IDoctor, IPatient, ScheduleAppointment } from '../../utils/types/types';
 import { Card, CardContent, CardTitle } from '../ui/Card';
@@ -27,9 +25,6 @@ interface IDoctorAgendaProps {
 
 const DoctorAgenda = ({ doctors = [], updateSlots, patients, onDaySlotsChange, selectedDoctor, onSubmitSlotBooking }: IDoctorAgendaProps) => {
     const [selectedDoctorId, setSelectedDoctorId] = useState('');
-    const [patientId, setPatientId] = useState('');
-    const [selectedSlot, setSelectedSlot] = useState('');
-    const [loading, setLoading] = useState(false);
     const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs | null>(null);
     const [daySlots, setDaySlots] = useState<{ date: string; slots: string[] }[]>([]);
     const [selectedBooking, setSelectedBooking] = useState<{
@@ -60,16 +55,12 @@ const DoctorAgenda = ({ doctors = [], updateSlots, patients, onDaySlotsChange, s
     }, [selectedDoctor]);
 
 
-    const handleSlotClick = (date: string, time: string) => {
-        setSelectedTime(time);
-        setSelectedDate(dayjs(date));
-        setIsModalOpen(true);
-    };
     const onDateChange = (date: dayjs.Dayjs) => {
         setSelectedDate(date);
     };
 
     const fetchSlotsForDate = async (date: string) => {
+
         if (!selectedDoctorId) return;
         try {
             const payload: AvailableSlotsParams = {
@@ -87,47 +78,19 @@ const DoctorAgenda = ({ doctors = [], updateSlots, patients, onDaySlotsChange, s
         }
     };
 
-    const handleSaveAppointment = async () => {
-        if (!selectedDoctorId || !selectedDate || !selectedSlot) return;
-        try {
-            const [hour, minute] = selectedSlot.split(':');
-            const finalDate = dayjs(selectedDate)
-                .hour(Number(hour))
-                .minute(Number(minute))
-                .second(0)
-                .millisecond(0);
-
-            const payload = {
-                doctorId: selectedDoctorId,
-                date: finalDate.toISOString(),
-                // Adicione aqui os outros campos necessários como patientId, motivo, status, etc.
-                reason: 'Consulta padrão',
-                status: 'scheduled',
-                patientId: 'EXEMPLO_ID_PACIENTE', // pode vir de props, contexto ou outro state
-            };
-
-            await axios.post(`${BASE_URL}/appointments`, payload);
-            alert('Agendamento realizado com sucesso!');
-        } catch (error) {
-            console.error('Erro ao agendar horário:', error);
-            alert('Erro ao agendar. Tente novamente.');
-        }
-    };
-
     const handleSlotBooking = (bookingData: {
         patientId: string;
         doctorId: string;
         date: string; // ISO string com data + hora
     }) => {
+        console.log('boooooo ', bookingData)
         setSelectedBooking(bookingData);
         setShowPackageFlow(true);
     };
 
     return (
         <Card className="mb-4 mt-4">
-            <CardHeader>
                 <CardTitle>Agenda por Profissional</CardTitle>
-            </CardHeader>
             <CardContent>
 
                 <div className="space-y-2">

@@ -1,4 +1,4 @@
-// src/contexts/NotificationContext.tsx
+// contexts/NotificationContext.tsx
 import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 
 interface PaymentNotification {
@@ -7,7 +7,6 @@ interface PaymentNotification {
   amount: number;
   date: Date;
   patientName?: string;
-  doctorName?: string;
 }
 
 interface NotificationContextType {
@@ -24,10 +23,10 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const showPaymentNotification = useCallback((notification: Omit<PaymentNotification, 'id'>) => {
     const id = `notif-${Date.now()}`;
     setPaymentNotification({ id, ...notification });
-    
-    // Fechar automaticamente após 10 segundos
+
+    // Fecha depois de 10s
     setTimeout(() => {
-      setPaymentNotification((current) => current?.id === id ? null : current);
+      setPaymentNotification((current) => (current?.id === id ? null : current));
     }, 10000);
   }, []);
 
@@ -36,11 +35,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   }, []);
 
   return (
-    <NotificationContext.Provider value={{ 
-      paymentNotification, 
-      showPaymentNotification, 
-      closePaymentNotification 
-    }}>
+    <NotificationContext.Provider value={{ paymentNotification, showPaymentNotification, closePaymentNotification }}>
       {children}
     </NotificationContext.Provider>
   );
@@ -48,8 +43,6 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
 export const useNotification = () => {
   const context = useContext(NotificationContext);
-  if (!context) {
-    throw new Error('useNotification must be used within a NotificationProvider');
-  }
+  if (!context) throw new Error('useNotification must be used within a NotificationProvider');
   return context;
 };

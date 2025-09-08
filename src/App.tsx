@@ -1,5 +1,4 @@
 import React, { Suspense } from 'react';
-import Modal from 'react-modal';
 import './App.css';
 
 // Importe as novas páginas
@@ -7,15 +6,18 @@ import './App.css';
 import { BrowserRouter } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import AppRoutes from './AppRoutes';
+import PixNotificationPopup from './components/financial/PixNotificationPopup';
 import { LoadingOverlay } from './components/ui/LoadingOverlay';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { AppointmentsProvider } from './contexts/AppointmentsContext';
 import { useAuth } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
+import { usePixSocket } from './hooks/usePixSocket';
 
 const App: React.FC = () => {
-  // qdo configurar o socket, descomentar
-  //usePaymentNotifications();
   const { isLoading } = useAuth();
+
+  usePixSocket();
 
   return (
     <BrowserRouter>
@@ -26,9 +28,14 @@ const App: React.FC = () => {
         message="Autenticando..."
       />
       <Suspense fallback={<LoadingSpinner />}>
-        <AppointmentsProvider>
-          <AppRoutes />
-        </AppointmentsProvider>
+
+          <AppointmentsProvider>
+
+            <AppRoutes />
+            <PixNotificationPopup />
+
+          </AppointmentsProvider>
+
 
         <ToastContainer
           position="top-center"

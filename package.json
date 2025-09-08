@@ -46,6 +46,7 @@
     "react-router-dom": "6.23.1",
     "react-toastify": "^11.0.5",
     "recharts": "^2.15.3",
+    "socket.io-client": "^4.8.1",
     "vite-plugin-compression": "^0.5.1",
     "web-vitals": "^5.0.3",
     "zod": "^3.24.3"
@@ -56,6 +57,7 @@
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@types/react-input-mask": "^3.0.6",
+    "@types/socket.io-client": "^1.4.36",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.0",
     "eslint": "^9.22.0",

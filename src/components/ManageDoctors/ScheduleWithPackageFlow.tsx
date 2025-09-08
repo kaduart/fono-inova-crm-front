@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
-import { IDoctor, ISession } from '../../utils/types/types';
+import { IDoctor, IPatient, ISession } from '../../utils/types/types';
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
 import { SessionModal } from '../patients/SessionModal';
 
@@ -9,6 +9,7 @@ interface ScheduleWithPackageFlowProps {
     onClose: () => void;
     doctors: IDoctor[];
     patients: IPatient[];
+    patient: IPatient;
     defaultDateTime: string; // ISO string do horário clicado
     onComplete: () => void; // callback para recarregar agenda ou outro efeito
 }
@@ -17,6 +18,7 @@ export const ScheduleWithPackageFlow = ({
     isOpen,
     onClose,
     doctors,
+    patient,
     patients,
     defaultDateTime,
     onComplete
@@ -25,11 +27,11 @@ export const ScheduleWithPackageFlow = ({
     const [appointmentData, setAppointmentData] = useState(null);
     const [sessionData, setSessionData] = useState<ISession | null>(null);
     const [loading, setLoading] = useState(false);
-
+    console.log('patientttttttttttttttttt', patient)
     const handleSaveAppointment = async (data) => {
         setLoading(true);
         try {
-            const res = await fetch(`/api/pacotes/${patientId}`);
+            const res = await fetch(`/api/pacotes/${patient._id}`);
             const pacote = await res.json();
 
             if (!res.ok || !pacote?.hasActivePackage) {

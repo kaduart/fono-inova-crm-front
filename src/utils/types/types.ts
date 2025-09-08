@@ -202,6 +202,7 @@ export interface ScheduleAppointment {
     clinicalStatus?: 'pendente' | 'em_andamento' | 'concluído' | 'faltou';
     operationalStatus?: 'agendado' | 'confirmado' | 'cancelado' | 'pago' | 'faltou';
     duration?: number;
+    _syncKey?: Date
 }
 
 export const STATUS_OPTIONS = [

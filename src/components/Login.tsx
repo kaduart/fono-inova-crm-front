@@ -67,8 +67,6 @@ const Login = () => {
     await new Promise(requestAnimationFrame);
 
     try {
-      console.log('Tentando logar como', selectedRole, 'com email', email);
-
       // Use o hook de login normalmente
       const result = await login({ email, password, role: selectedRole });
 

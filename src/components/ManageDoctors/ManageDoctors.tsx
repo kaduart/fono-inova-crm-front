@@ -70,6 +70,8 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
         status: 'agendado',
     });
 
+    console.log('Chamou - manager doctor ')
+
     useEffect(() => {
         if (modalShouldClose) {
             setShowModal(false);
@@ -137,7 +139,6 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
 
     const handleBookingComplete = async (data: ScheduleAppointment) => {
         setIsLoading(true);
-console.log("Dados recebidos no intermediário:", data);
         try {
             // 1. Envia para o pai e AGUARDA resposta
             const result = await onNewAppointment(data);
@@ -145,7 +146,8 @@ console.log("Dados recebidos no intermediário:", data);
             setdataUpdateSlots({
                 ...result,
                 date: data.date,
-                doctorId: data.doctorId
+                doctorId: data.doctorId,
+                _syncKey: Date.now()
             });
 
         } catch (error) {
