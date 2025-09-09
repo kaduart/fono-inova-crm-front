@@ -11,8 +11,8 @@ import { LoadingOverlay } from './components/ui/LoadingOverlay';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { AppointmentsProvider } from './contexts/AppointmentsContext';
 import { useAuth } from './contexts/AuthContext';
-import { NotificationProvider } from './contexts/NotificationContext';
 import { usePixSocket } from './hooks/usePixSocket';
+import SessionExpiryHandler from './components/SessionExpiryHandler';
 
 const App: React.FC = () => {
   const { isLoading } = useAuth();
@@ -21,6 +21,9 @@ const App: React.FC = () => {
 
   return (
     <BrowserRouter>
+
+      <SessionExpiryHandler />
+
       <LoadingOverlay
         show={isLoading}
         zIndex={100001}
@@ -29,12 +32,12 @@ const App: React.FC = () => {
       />
       <Suspense fallback={<LoadingSpinner />}>
 
-          <AppointmentsProvider>
+        <AppointmentsProvider>
 
-            <AppRoutes />
-            <PixNotificationPopup />
+          <AppRoutes />
+          <PixNotificationPopup />
 
-          </AppointmentsProvider>
+        </AppointmentsProvider>
 
 
         <ToastContainer

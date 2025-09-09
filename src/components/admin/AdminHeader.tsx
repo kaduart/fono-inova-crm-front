@@ -1,6 +1,7 @@
 import { Activity, ChevronDown, Clock, Hospital, LogOut, Stethoscope, User, Users } from 'lucide-react';
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import NavButton from '../ui/NavButton';
 import NavDropdownItem from '../ui/NavDropdownItem';
 
@@ -24,10 +25,12 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     onLogout
 }) => {
     const navigate = useNavigate();
+    const { logout: authLogout } = useAuth();
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
     // Função de logout padrão caso não seja fornecida via props
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        await authLogout();
         // Limpar dados de autenticação
         localStorage.removeItem('token');
         localStorage.removeItem('userData');

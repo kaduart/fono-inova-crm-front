@@ -5,6 +5,7 @@ import App from './App'
 import { AuthProvider } from './contexts/AuthContext'
 import './index.css'
 import { NotificationProvider } from './contexts/NotificationContext';
+import SessionExpiryHandler from './components/SessionExpiryHandler';
 
 Modal.setAppElement('#root');
 

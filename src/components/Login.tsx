@@ -1,15 +1,17 @@
 import { Eye, EyeOff, Shield, Stethoscope, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { BASE_URL } from '../constants/constants';
 import { useAuthNavigation } from '../hooks/useAuthNavigation';
 import { LoadingSpinner } from './ui/LoadingSpinner';
+import SessionExpiryHandler from './SessionExpiryHandler';
 
 const Login = () => {
   const { login } = useAuthNavigation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [selectedRole, setSelectedRole] = useState('admin');
   const [email, setEmail] = useState('');
@@ -23,6 +25,7 @@ const Login = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   const roles = [
     { id: 'admin', label: 'Admin', icon: Shield },
@@ -47,18 +50,37 @@ const Login = () => {
   }, []);
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
     const errorCode = searchParams.get('error');
+    const sessionExpiredParam = searchParams.get('sessionExpired');
 
     if (errorCode === 'TOKEN_EXPIRED') {
       toast.error('Sua sessão expirou. Por favor, faça login novamente.');
     }
-  }, [location]);
 
+    if (sessionExpiredParam === 'true') {
+      setSessionExpired(true);
+      toast.info('Sua sessão expirou. Por favor, faça login novamente.');
+    }
+  }, [searchParams]);
+
+  // Handler para evento de sessão expirada
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setSessionExpired(true);
+      toast.info('Sua sessão expirou. Por favor, faça login novamente.');
+    };
+
+    window.addEventListener('sessionExpired', handleSessionExpired);
+
+    return () => {
+      window.removeEventListener('sessionExpired', handleSessionExpired);
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSessionExpired(false);
 
     // Força o botão a mostrar loading antes de qualquer coisa
     flushSync(() => setIsLoading(true));
@@ -84,9 +106,7 @@ const Login = () => {
     }
   };
 
-
-
-  const handleCreatePassword = async (e) => {
+  const handleCreatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (newPassword !== confirmPassword) {
@@ -114,20 +134,18 @@ const Login = () => {
       toast.success('Senha criada com sucesso!');
       setShowCreatePassword(false);
 
-    } catch (error) {
+    } catch (error: any) {
       toast.error(error.message);
-    } finally {
     }
   };
 
-  const handleForgotPassword = async (e) => {
+  const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!resetEmail) {
       toast.error('Por favor, informe seu email');
       return;
     }
-
 
     try {
       const response = await fetch(`${BASE_URL}/auth/forgot-password`, {
@@ -148,14 +166,15 @@ const Login = () => {
       toast.success('Instruções enviadas para seu email!');
       setShowForgotPassword(false);
       setResetEmail('');
-    } catch (error) {
+    } catch (error: any) {
       toast.error(error.message);
-    } finally {
     }
   };
 
   return (
     <div className='min-h-screen flex flex-row'>
+      {/* Componente para manipular expiração de sessão */}
+      <SessionExpiryHandler />
 
       <div className="w-1/2 bg-white flex justify-center items-center relative h-screen overflow-hidden">
         <div className="flex flex-col justify-center items-center gap-5">
@@ -188,6 +207,13 @@ const Login = () => {
 
           <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-md bg-white">
             <div className="p-6">
+              {/* Mensagem de sessão expirada */}
+              {sessionExpired && (
+                <div className="mb-4 p-3 bg-yellow-100 border border-yellow-400 rounded-md text-yellow-800">
+                  Sua sessão expirou. Por favor, faça login novamente.
+                </div>
+              )}
+
               {showForgotPassword ? (
                 <>
                   <div className="flex bg-blue-100 rounded-lg p-1 mb-4">
@@ -391,13 +417,12 @@ const Login = () => {
                       {isLoading ? (
                         <>
                           <LoadingSpinner size="small" color="border-white" />
-                          <span>Salvando...</span>
+                          <span>Entrando...</span>
                         </>
                       ) : (
                         `Login como ${roles.find((r) => r.id === selectedRole)?.label}`
                       )}
                     </button>
-
 
                     <button
                       type="button"

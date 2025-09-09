@@ -1,8 +1,11 @@
 // AuthContext.tsx
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { BASE_URL } from '../constants/constants';
+import { SESSION_CONFIG } from '../constants/session';
 import API from '../services/api';
+
 type UserRole = 'doctor' | 'admin' | 'patient';
+
 export interface User {
   _id: string;
   fullName: string;
@@ -28,7 +31,6 @@ interface LoadingState {
   hideLoading: () => void;
 }
 
-
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
@@ -45,32 +47,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [operationLoading, setOperationLoading] = useState(false);
+  const [lastActivity, setLastActivity] = useState<number>(Date.now());
 
   const showLoading = useCallback(() => setOperationLoading(true), []);
   const hideLoading = useCallback(() => setOperationLoading(false), []);
 
+  // Usando as constantes de SESSION_CONFIG
+  const SESSION_TIMEOUT = SESSION_CONFIG.TIMEOUT;
+  const TOKEN_RENEWAL_INTERVAL = 30 * 60 * 1000; // Manendo 30 minutos para renovação do token
+
+  // Atualiza a última atividade do usuário
+  const updateLastActivity = useCallback(() => {
+    setLastActivity(Date.now());
+    localStorage.setItem('lastActivity', Date.now().toString());
+  }, []);
+
   const login = useCallback(async (token: string, userData: User) => {
-      console.log("Login component montou");
     try {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
-      API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      localStorage.setItem('lastActivity', Date.now().toString());
 
       setUser(userData);
+      setLastActivity(Date.now());
       API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
       return { success: true, userRole: userData.role };
     } catch {
       return { success: false };
     }
   }, []);
 
-
   const logout = useCallback(() => {
     showLoading();
     try {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('lastActivity');
+
       setUser(null);
       delete API.defaults.headers.common['Authorization'];
 
@@ -80,6 +94,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setTimeout(hideLoading, 1000);
     }
   }, [showLoading, hideLoading]);
+
+  // Verifica se a sessão expirou
+  const checkSessionExpiry = useCallback(() => {
+    const storedTime = localStorage.getItem('lastActivity');
+    if (!storedTime) return true;
+
+    const currentTime = Date.now();
+    const elapsedTime = currentTime - parseInt(storedTime);
+
+    return elapsedTime > SESSION_TIMEOUT;
+  }, [SESSION_TIMEOUT]);
+
+  // Efeito para verificar expiração da sessão
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        setAuthLoading(true);
+        const isExpired = checkSessionExpiry();
+
+        if (isExpired) {
+          await logout();
+          window.dispatchEvent(new CustomEvent('sessionExpired'));
+          return;
+        }
+
+        const userRes = await API.get('/users/me');
+        setUser(userRes.data);
+        updateLastActivity();
+      } catch (error) {
+        setUser(null);
+        await logout();
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [checkSessionExpiry, logout, updateLastActivity]);
 
   useEffect(() => {
     const validateSession = async () => {
@@ -95,9 +147,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     validateSession();
-  }, [showLoading, hideLoading]);
-
-
+  }, []); // Removidas as dependências desnecessárias
 
   useEffect(() => {
     const renewToken = async () => {
@@ -123,10 +173,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (user) {
         renewToken();
       }
-    }, 30 * 60 * 1000); // A cada 30 minutos
+    }, TOKEN_RENEWAL_INTERVAL);
 
     return () => clearInterval(interval);
   }, [user]);
+
+  useEffect(() => {
+    const sessionCheckInterval = setInterval(() => {
+      if (checkSessionExpiry() && user) {
+        logout();
+        window.dispatchEvent(new CustomEvent('sessionExpired'));
+      }
+    }, SESSION_CONFIG.CHECK_INTERVAL); // Usando CHECK_INTERVAL da configuração
+
+    return () => clearInterval(sessionCheckInterval);
+  }, [checkSessionExpiry, logout, user]);
 
   const value = useMemo(() => ({
     user,
@@ -148,7 +209,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     </AuthContext.Provider>
   );
 };
-
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

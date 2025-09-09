@@ -1,7 +1,6 @@
 // src/services/api.ts
 import axios, { AxiosHeaders } from 'axios';
 import { BASE_URL } from '../constants/constants';
-import { clearAuthTokens } from './authService';
 
 const API = axios.create({
   baseURL: BASE_URL,
@@ -34,16 +33,20 @@ API.interceptors.request.use(config => {
 // Interceptor de Response
 API.interceptors.response.use(
   response => {
+    // Atualiza a última atividade em respostas bem-sucedidas
+    const lastActivity = localStorage.getItem('lastActivity');
+    if (lastActivity) {
+      localStorage.setItem('lastActivity', Date.now().toString());
+    }
     return response;
   },
   error => {
     if (error.response?.status === 401) {
-      clearAuthTokens();
+      const errorCode = error.response.data?.code || 'UNAUTHORIZED';
+      const errorMessage = error.response.data?.message || 'Sessão expirada';
+
       window.dispatchEvent(new CustomEvent('authError', {
-        detail: {
-          code: error.response.data?.code || 'UNAUTHORIZED',
-          message: error.response.data?.message || 'Sessão expirada'
-        }
+        detail: { code: errorCode, message: errorMessage }
       }));
     }
     return Promise.reject(error);
