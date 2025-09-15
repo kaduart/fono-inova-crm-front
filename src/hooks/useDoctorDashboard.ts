@@ -30,7 +30,8 @@ export default function useDoctorDashboard() {
   const [totalDoctors, setTotalDoctors] = useState<number>(0);
   const [doctorOverview, setDoctorOverview] = useState<any>(null);
   const [doctors, setDoctors] = useState<any[]>([]);
-
+  const [calendarEvents, setCalendarEvents] = useState<any[]>([]); 
+  
   const loadData = async () => {
     try {
       setLoading(true);
@@ -48,6 +49,10 @@ export default function useDoctorDashboard() {
       setTherapySessions(sessionsRes);
       setStats(statsRes);
 
+      if (doctorRes.data && doctorRes.data._id) {
+        const calendarData = await doctorService.getAppointmentCalendarDoctor(doctorRes.data._id);
+        setCalendarEvents(calendarData);
+      }
       const [futureApps, doctorsRes, totalDoctorsRes, doctorOverviewRes] = await Promise.all([
         fetchFutureAppointments(),
         doctorService.getAllDoctors(),
@@ -172,6 +177,7 @@ export default function useDoctorDashboard() {
     refreshData: loadData,
     createDoctor,
     fetchPatients,
+    calendarEvents,
     updateDoctor
   };
 }

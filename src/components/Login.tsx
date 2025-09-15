@@ -5,8 +5,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { BASE_URL } from '../constants/constants';
 import { useAuthNavigation } from '../hooks/useAuthNavigation';
-import { LoadingSpinner } from './ui/LoadingSpinner';
 import SessionExpiryHandler from './SessionExpiryHandler';
+import { LoadingSpinner } from './ui/LoadingSpinner';
 
 const Login = () => {
   const { login } = useAuthNavigation();
@@ -52,7 +52,6 @@ const Login = () => {
   useEffect(() => {
     const errorCode = searchParams.get('error');
     const sessionExpiredParam = searchParams.get('sessionExpired');
-
     if (errorCode === 'TOKEN_EXPIRED') {
       toast.error('Sua sessão expirou. Por favor, faça login novamente.');
     }

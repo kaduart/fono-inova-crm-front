@@ -9,6 +9,18 @@ const API = axios.create({
 
 
 API.interceptors.request.use(config => {
+  // Rotas públicas que não precisam de token
+  const publicEndpoints = [
+    '/auth/forgot-password',
+    '/auth/reset-password',
+    '/auth/verify-reset-token'
+  ];
+
+
+  if (publicEndpoints.some(path => config.url?.includes(path))) {
+    return config;
+  }
+
   // Verifica múltiplas fontes de token
   const token = localStorage.getItem('token') ||
     document.cookie.split('; ')

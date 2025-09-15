@@ -23,6 +23,7 @@ export default function DoctorDashboard() {
     appointments,
     stats,
     futureAppointments,
+    calendarEvents,
     handleUpdateStatus
   } = useDoctorDashboard();
 
@@ -68,6 +69,7 @@ export default function DoctorDashboard() {
         <TabsContent value="appointments">
           <AppointmentsSection
             futureAppointments={futureAppointments}
+            calendarEvents={calendarEvents}
             patients={patients}
             doctorData={doctorData}
             onUpdateStatus={handleUpdateStatus}

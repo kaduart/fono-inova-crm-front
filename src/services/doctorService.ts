@@ -59,6 +59,11 @@ export const doctorService = {
         return response.data;
     },
 
+    getAppointmentCalendarDoctor: async (id: string): Promise<any> => {
+        const response = await API.get(`/doctors/appointments/calendar/${id}`);
+        return response.data;
+    },
+
     completeTherapySession: async (sessionId: any) => {
         const res = await API.patch(`/doctors/therapy-sessions/${sessionId}/complete`);
         return res.data;
