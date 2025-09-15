@@ -21,6 +21,7 @@ function ResetPassword() {
     const [showPassword, setShowPassword] = useState(false);
     const [isTokenValid, setIsTokenValid] = useState(null);
 
+    
     // Verifica se o token é válido ao carregar
     useEffect(() => {
         const verifyToken = async () => {
