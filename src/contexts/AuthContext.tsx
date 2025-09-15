@@ -106,8 +106,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return elapsedTime > SESSION_TIMEOUT;
   }, [SESSION_TIMEOUT]);
 
+
+  const publicPaths = [
+    '/reset-password',
+    '/login',
+    '/signup',
+    '/forgot-password'
+  ];
   // Efeito para verificar expiração da sessão
   useEffect(() => {
+    // se a rota for pública, não roda checkAuth
+    if (publicPaths.some(path => location.pathname.startsWith(path))) {
+      setAuthLoading(false);
+      return;
+    }
+
     const checkAuth = async () => {
       try {
         setAuthLoading(true);
