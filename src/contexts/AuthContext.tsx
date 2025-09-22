@@ -66,6 +66,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('userRole', JSON.stringify(userData.role));
       localStorage.setItem('lastActivity', Date.now().toString());
 
       setUser(userData);

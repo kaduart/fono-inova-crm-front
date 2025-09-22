@@ -1,10 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import AddAdminContent from './admin/AddAdminContent';
-import AdminHeader from './admin/AdminHeader';
-import DashboardContent from './admin/DashboardContent';
-import ProfileContent from './admin/ProfileContent';
 import { useAppointmentsContext } from '../contexts/AppointmentsContext';
 import { useAdmin } from '../hooks/useAdmin';
 import { useAppointments } from '../hooks/useAppointments';
@@ -14,6 +10,11 @@ import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppo
 import { CreateDoctorParams } from '../services/doctorService';
 import { createPayment, FinancialRecord, getPayments, updatePayment } from '../services/paymentService';
 import { IAppointment, IPatient } from '../utils/types/types';
+import AnalyticsDashboard from './ Dashboard/AnalyticsDashboard';
+import AddAdminContent from './admin/AddAdminContent';
+import AdminHeader from './admin/AdminHeader';
+import DashboardContent from './admin/DashboardContent';
+import ProfileContent from './admin/ProfileContent';
 import EnhancedCalendar from './calendar/EnhancedCalendar';
 import { AdvancedPaymentModal } from './financial/AdvancedPaymentModal';
 import { PaymentModal } from './financial/PaymentModal';
@@ -22,7 +23,6 @@ import DoctorFormModal from './ManageDoctors/DoctorFormModal';
 import ManageDoctors from './ManageDoctors/ManageDoctors';
 import AppChat from './mkt/whatsapp/AppChat';
 import { PatientModal } from './patients/PatientModal';
-import AnalyticsDashboard from './ Dashboard/AnalyticsDashboard';
 
 const initialPatientState: IPatient = {
     fullName: '',
@@ -310,6 +310,24 @@ export default function AdminDashboard() {
         }
     };
 
+    const handleUpdatePayment = async (data: any) => {
+        try {
+            if (paymentContext.payment?._id) {
+                await updatePayment(paymentContext.payment._id, data);
+                fetchAppointments();
+                toast.success('Pagamento atualizado com sucesso!');
+
+                setTimeout(() => {
+                    setPaymentModalOpen(false);
+                    setPaymentContext({ mode: 'create' });
+                    loadPayments();
+                }, 300);
+            }
+        } catch (error) {
+            toast.error('Erro ao atualizar pagamento');
+        }
+    };
+
     const handleMarkAsPaid = (payment: FinancialRecord) => {
         if (!payment || typeof payment !== 'object') {
             console.error('Pagamento inválido:', payment);
@@ -340,24 +358,6 @@ export default function AdminDashboard() {
             toast.success('Pagamento cancelado com sucesso!');
         } catch (error) {
             toast.error('Erro ao cancelar pagamento');
-        }
-    };
-
-    const handleUpdatePayment = async (data: any) => {
-        try {
-            if (paymentContext.payment?._id) {
-                await updatePayment(paymentContext.payment._id, data);
-                fetchAppointments();
-                toast.success('Pagamento atualizado com sucesso!');
-
-                setTimeout(() => {
-                    setPaymentModalOpen(false);
-                    setPaymentContext({ mode: 'create' });
-                    loadPayments();
-                }, 300);
-            }
-        } catch (error) {
-            toast.error('Erro ao atualizar pagamento');
         }
     };
 

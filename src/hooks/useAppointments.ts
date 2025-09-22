@@ -50,9 +50,13 @@ export const useAppointments = () => {
             setLoading(true);
             setError(null);
             const response = await appointmentService.update(id, data);
-            setAppointments(prev => prev.map(a =>
-                a._id === id ? { ...a, ...response.data } : a
-            ));
+            setAppointments(prev =>
+                prev
+                    .filter(a => a && a._id) // garante que não tem undefined/null
+                    .map(a =>
+                        a._id === id ? { ...a, ...response.data } : a
+                    )
+            );
             return response.data;
         } catch (error) {
             setError('Falha ao atualizar agendamento');
@@ -108,9 +112,13 @@ export const useAppointments = () => {
             setLoading(true);
             setError(null);
             const response = await appointmentService.confirm(id, { notes });
-            setAppointments(prev => prev.map(a =>
-                a._id === id ? { ...a, ...response.data } : a
-            ));
+            setAppointments(prev =>
+                prev
+                    .filter(a => a && a._id) // garante que não tem undefined/null
+                    .map(a =>
+                        a._id === id ? { ...a, ...response.data } : a
+                    )
+            );
             return response.data;
         } catch (error) {
             setError('Falha ao confirmar agendamento');
@@ -125,9 +133,13 @@ export const useAppointments = () => {
             setLoading(true);
             setError(null);
             const response = await appointmentService.complete(id);
-            setAppointments(prev => prev.map(a =>
-                a._id === id ? { ...a, ...response.data } : a
-            ));
+            setAppointments(prev =>
+                prev
+                    .filter(a => a && a._id) // garante que não tem undefined/null
+                    .map(a =>
+                        a._id === id ? { ...a, ...response.data } : a
+                    )
+            );
             return response.data;
         } catch (error) {
             setError('Falha ao completar agendamento');
@@ -143,9 +155,13 @@ export const useAppointments = () => {
             setLoading(true);
             setError(null);
             const response = await appointmentService.cancel(id, data);
-            setAppointments(prev => prev.map(a =>
-                a._id === id ? { ...a, ...response.data } : a
-            ));
+            setAppointments(prev =>
+                prev
+                    .filter(a => a && a._id) // garante que não tem undefined/null
+                    .map(a =>
+                        a._id === id ? { ...a, ...response.data } : a
+                    )
+            );
             return response.data;
         } catch (error) {
             setError('Falha ao cancelar agendamento');
@@ -160,9 +176,13 @@ export const useAppointments = () => {
             setLoading(true);
             setError(null);
             const response = await appointmentService.reschedule(id, data);
-            setAppointments(prev => prev.map(a =>
-                a._id === id ? { ...a, ...response.data } : a
-            ));
+            setAppointments(prev =>
+                prev
+                    .filter(a => a && a._id) // garante que não tem undefined/null
+                    .map(a =>
+                        a._id === id ? { ...a, ...response.data } : a
+                    )
+            );
             return response.data;
         } catch (error) {
             setError('Falha ao reagendar agendamento');

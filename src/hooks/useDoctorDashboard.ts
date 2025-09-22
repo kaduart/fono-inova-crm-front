@@ -30,8 +30,8 @@ export default function useDoctorDashboard() {
   const [totalDoctors, setTotalDoctors] = useState<number>(0);
   const [doctorOverview, setDoctorOverview] = useState<any>(null);
   const [doctors, setDoctors] = useState<any[]>([]);
-  const [calendarEvents, setCalendarEvents] = useState<any[]>([]); 
-  
+  const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -51,6 +51,7 @@ export default function useDoctorDashboard() {
 
       if (doctorRes.data && doctorRes.data._id) {
         const calendarData = await doctorService.getAppointmentCalendarDoctor(doctorRes.data._id);
+        console.log('calendarData:', calendarData);
         setCalendarEvents(calendarData);
       }
       const [futureApps, doctorsRes, totalDoctorsRes, doctorOverviewRes] = await Promise.all([
@@ -59,8 +60,6 @@ export default function useDoctorDashboard() {
         doctorService.getTotalDoctors(),
         doctorService.getDoctorOverview()
       ]);
-      console.log('Future doctorsRes[[[[[[[]]]]]]]:', doctorsRes);
-      console.log('Future doctorsRes[[[[[[[]]]]]]]:', totalDoctorsRes);
       setFutureAppointments(futureApps);
       setDoctors(doctorsRes.data);
       setTotalDoctors(totalDoctorsRes.totalDoctors);
@@ -100,7 +99,6 @@ export default function useDoctorDashboard() {
 
     try {
       const response = await doctorService.getAllDoctors();
-      console.log('fetchDoctors response:', response);
       setDoctors(response.data);
     } catch (error) {
       toast.error('Erro ao atualizar status');

@@ -42,12 +42,8 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
     const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const currentPayments = filteredPayments.slice(startIndex, startIndex + itemsPerPage);
-    const [userRole, setUserRole] = useState<string | null>(null);
+    const [userRole, setUserRole] = useState<string | null>(() => localStorage.getItem('userRole'));
 
-    useEffect(() => {
-        const role = localStorage.getItem('userRole');
-        setUserRole(role);
-    }, []);
 
     useEffect(() => {
         if (initialPayments) {
@@ -150,6 +146,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
             default: return type;
         }
     };
+    console.log("Status ROLEEEEE:", userRole);
 
     return (
         <div className="space-y-4">
@@ -169,7 +166,6 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                     </div>
                 )}
             </div>
-
 
             <div className="border rounded-lg overflow-hidden">
                 <button
@@ -284,15 +280,15 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                                     {payment.paymentMethod}
                                                 </td>
                                                 <td className="px-2 py-2 text-left whitespace-nowrap text-sm font-medium">
-                                                    {userRole && ['admin', 'secretary'].includes(userRole) && payment.status !== 'canceled' && (
-                                                        <PaymentActionIcons
-                                                            payment={payment}
-                                                            onMarkAsPaid={() => onMarkAsPaid(payment)}
-                                                            onCancelPayment={onCancelPayment}
-                                                            onEditAmount={handleEditAmount}
-                                                        />
-                                                    )}
+                                                    <PaymentActionIcons
+                                                        payment={payment}
+                                                        onMarkAsPaid={() => onMarkAsPaid(payment)}
+                                                        onCancelPayment={onCancelPayment}
+                                                        onEditAmount={handleEditAmount}
+                                                        disabled={!(userRole && ['admin', 'secretary'].includes(userRole) && payment.status !== 'canceled')}
+                                                    />
                                                 </td>
+
                                             </tr>
                                         ))}
                                     </tbody>

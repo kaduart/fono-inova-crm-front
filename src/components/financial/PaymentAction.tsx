@@ -1,7 +1,6 @@
-import { Check, X } from 'lucide-react';
-import { FaCheckCircle, FaEdit, FaRegTimesCircle } from 'react-icons/fa';
-import { FinancialRecord } from '../../services/paymentService';
+import { Check, CircleCheck, CircleX, Edit, X } from 'lucide-react';
 import { useEffect } from 'react';
+import { FinancialRecord } from '../../services/paymentService';
 
 interface PaymentActionIconsProps {
     payment: FinancialRecord;
@@ -20,17 +19,18 @@ export const PaymentActionIcons = ({
     useEffect(() => {
     }, [payment]);
     const getStatusIcon = () => {
+        console.log("Status recebido:", payment.status);
         switch (payment.status) {
             case 'paid':
                 return (
                     <span className="text-green-500 flex items-center">
-                        <FaCheckCircle className="mr-1" />
+                        <CircleCheck className="mr-1" />
                     </span>
                 );
             case 'canceled':
                 return (
                     <span className="text-red-500 flex items-center">
-                        <FaRegTimesCircle className="mr-1" />
+                        <CircleX className="mr-1" />
                     </span>
                 );
             default:
@@ -63,7 +63,7 @@ export const PaymentActionIcons = ({
                         className="text-blue-600 hover:text-blue-800 transition-colors"
                         title="Editar valor"
                     >
-                        <FaEdit size={16} />
+                        <Edit size={16} />
                     </button>
                 </>
             )}

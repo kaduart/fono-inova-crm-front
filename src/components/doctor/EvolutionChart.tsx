@@ -88,9 +88,12 @@ const EvolutionChart = ({ chartData }) => {
   });
 
   // Opções comuns para os gráficos
+  // dentro do EvolutionChart
   const commonOptions = {
-    responsive: true,
+    responsive: false,            // 👈 trava o resize automático
     maintainAspectRatio: false,
+    animation: false,             // 👈 tira animação de entrada
+    resizeDelay: 0,               // 👈 não espera eventos de resize
     plugins: {
       legend: {
         position: 'top' as const,
@@ -112,46 +115,22 @@ const EvolutionChart = ({ chartData }) => {
     }
   };
 
+
   return (
     <div className="space-y-8">
       {/* Gráfico de Métricas */}
       {metricDatasets.length > 0 && (
         <div className="bg-white p-4 rounded-lg shadow-md border border-gray-100">
           <h3 className="font-medium text-lg mb-4 text-gray-800">Evolução das Métricas</h3>
-          <div className="h-72">
+          <div className="h-72 w-full">
             <Line
               data={{
                 labels: chartData.dates,
                 datasets: metricDatasets
               }}
-              options={{
-                ...commonOptions,
-                scales: {
-                  y: {
-                    beginAtZero: false,
-                    grid: {
-                      color: 'rgba(0, 0, 0, 0.05)'
-                    },
-                    title: {
-                      display: true,
-                      text: 'Valor',
-                      color: '#666',
-                      font: {
-                        weight: 'bold'
-                      }
-                    }
-                  },
-                  x: {
-                    grid: {
-                      display: false
-                    }
-                  }
-                },
-                interaction: {
-                  intersect: false,
-                  mode: 'index'
-                }
-              }}
+              options={commonOptions}
+              width={600}   // 👈 fixa a largura
+              height={300}  // 👈 fixa a altura
             />
           </div>
         </div>
@@ -168,33 +147,10 @@ const EvolutionChart = ({ chartData }) => {
                 datasets: evaluationDatasets
               }}
               options={{
-                ...commonOptions,
-                scales: {
-                  y: {
-                    beginAtZero: true,
-                    ticks: {
-                      precision: 0,
-                      stepSize: 1
-                    },
-                    grid: {
-                      color: 'rgba(0, 0, 0, 0.05)'
-                    },
-                    title: {
-                      display: true,
-                      text: 'Quantidade de Avaliações',
-                      color: '#666',
-                      font: {
-                        weight: 'bold'
-                      }
-                    }
-                  },
-                  x: {
-                    grid: {
-                      display: false
-                    }
-                  }
-                }
+                ...commonOptions
               }}
+              width={600}   // 👈 fixa a largura
+              height={300}
             />
           </div>
         </div>
