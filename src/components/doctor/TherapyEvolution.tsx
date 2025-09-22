@@ -1,6 +1,7 @@
 import { format, parseISO } from 'date-fns';
 import { Activity, Calendar, ChevronDown, Clock, FileText, Plus, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import API from '../../services/api';
 import MetricService from '../../services/MetricService';
@@ -141,7 +142,7 @@ export default function TherapyEvolution({ patients }) {
             console.log('sssssssssss', user)
             const response = await API.post('/evolutions', {
                 patient: selectedPatient,
-                doctor: user._id,
+                doctor: user._id || user.id,
                 specialty: user.specialty,
                 date: newEvaluation.date,
                 content: newEvaluation.content,
@@ -150,6 +151,7 @@ export default function TherapyEvolution({ patients }) {
                 time: newEvaluation.time,
             });
 
+            console.log('sssssssssss', response)
             if (response.status >= 200 && response.status < 300) {
                 loadEvaluations();
                 loadChartData();
@@ -161,10 +163,13 @@ export default function TherapyEvolution({ patients }) {
                     evaluationTypes: [],
                     content: ''
                 });
+                toast.success("Evolução cadastrada com sucesso!");
+
             }
             setIsLoading(false);
 
         } catch (error) {
+            toast.error("Erro ao salvar avaliação");
             console.error('Erro ao salvar avaliação:', error);
             setIsLoading(false);
 
@@ -405,6 +410,19 @@ export default function TherapyEvolution({ patients }) {
                             </Button>
                         </div>
 
+                        {/* Gráficos de evolução */}
+                        <div className="mt-8">
+                            <h3 className="font-medium mb-4 text-gray-800">Análise Gráfica da Evolução</h3>
+                            {chartData ? (
+                                <EvolutionChart chartData={chartData} />
+                            ) : (
+                                <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                                    <p className="text-gray-500">
+                                        Nenhum dado disponível para exibir gráficos
+                                    </p>
+                                </div>
+                            )}
+                        </div>
                         {/* Lista de avaliações */}
                         <div className="border border-gray-200 rounded-lg overflow-hidden mb-6">
                             {evaluations.length > 0 ? (
@@ -492,20 +510,6 @@ export default function TherapyEvolution({ patients }) {
                                     <Activity className="h-12 w-12 mx-auto text-gray-400 mb-4" />
                                     <p className="text-gray-500">
                                         Nenhuma avaliação registrada para este paciente
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Gráficos de evolução */}
-                        <div className="mt-8">
-                            <h3 className="font-medium mb-4 text-gray-800">Análise Gráfica da Evolução</h3>
-                            {chartData ? (
-                                <EvolutionChart chartData={chartData} />
-                            ) : (
-                                <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
-                                    <p className="text-gray-500">
-                                        Nenhum dado disponível para exibir gráficos
                                     </p>
                                 </div>
                             )}
