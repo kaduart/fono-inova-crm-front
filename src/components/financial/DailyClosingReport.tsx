@@ -37,7 +37,7 @@ const DailyClosingReport = () => {
             currency: 'BRL'
         }).format(value || 0);
     };
-
+console.log('reporte:', report);
     const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setDateFilter(e.target.value);
     };
@@ -179,41 +179,41 @@ const DailyClosingReport = () => {
                 {report.byProfessional.length === 0 ? (
                     <p className="text-gray-600">Nenhum profissional com atividades nesta data.</p>
                 ) : (
-                <div className="overflow-x-auto rounded-lg border border-gray-200">
-                    <table className="min-w-full bg-white">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="py-3 px-4 text-left text-sm font-medium text-gray-700 uppercase tracking-wider">Profissional</th>
-                                <th className="py-3 px-4 text-left text-sm font-medium text-gray-700 uppercase tracking-wider">Especialidade</th>
-                                <th className="py-3 px-4 text-left text-sm font-medium text-gray-700 uppercase tracking-wider">Atendidos</th>
-                                <th className="py-3 px-4 text-left text-sm font-medium text-gray-700 uppercase tracking-wider">Cancelados</th>
-                                <th className="py-3 px-4 text-left text-sm font-medium text-gray-700 uppercase tracking-wider">Recebido</th>
-                                <th className="py-3 px-4 text-left text-sm font-medium text-gray-700 uppercase tracking-wider">Taxa Atend.</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                            {report.byProfessional.map((professional) => (
-                                <tr key={professional.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="py-3 px-4 text-gray-800 font-medium">{professional.name}</td>
-                                    <td className="py-3 px-4 text-gray-600">{professional.specialty}</td>
-                                    <td className="py-3 px-4">
-                                        {professional.appointments.filter(a => a.status === 'confirmado').length}
-                                    </td>
-                                    <td className="py-3 px-4">
-                                        {professional.appointments.filter(a => a.status === 'cancelado').length}
-                                    </td>
-                                    <td className="py-3 px-4 font-medium text-green-600">
-                                        {formatCurrency(professional.financial.received)}
-                                    </td>
-                                    <td className="py-3 px-4">
-                                        {professional.metrics.attendanceRate}
-                                    </td>
+                    <div className="overflow-x-auto rounded-lg border border-gray-200">
+                        <table className="min-w-full bg-white">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-700 uppercase tracking-wider">Profissional</th>
+                                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-700 uppercase tracking-wider">Especialidade</th>
+                                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-700 uppercase tracking-wider">Atendidos</th>
+                                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-700 uppercase tracking-wider">Cancelados</th>
+                                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-700 uppercase tracking-wider">Recebido</th>
+                                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-700 uppercase tracking-wider">Taxa Atend.</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-              )}
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {report.byProfessional.map((professional) => (
+                                    <tr key={professional.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="py-3 px-4 text-gray-800 font-medium">{professional.name}</td>
+                                        <td className="py-3 px-4 text-gray-600">{professional.specialty}</td>
+                                        <td className="py-3 px-4">
+                                            {professional.appointments.filter(a => a.status === 'confirmado').length}
+                                        </td>
+                                        <td className="py-3 px-4">
+                                            {professional.appointments.filter(a => a.status === 'cancelado').length}
+                                        </td>
+                                        <td className="py-3 px-4 font-medium text-green-600">
+                                            {formatCurrency(professional.financial.received)}
+                                        </td>
+                                        <td className="py-3 px-4">
+                                            {professional.metrics.attendanceRate}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
         );
     };
@@ -280,7 +280,7 @@ const DailyClosingReport = () => {
         if (!report?.summary || !detailsType) return null;
 
         const detailsData = report.summary[detailsType].details;
-
+console.log('detailsData:', detailsData);
         return (
             <div className="mt-8 pt-6 border-t border-gray-200">
                 <div className="flex justify-between items-center mb-4">
@@ -315,9 +315,16 @@ const DailyClosingReport = () => {
                                 <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                                     <td className="py-3 px-4 text-gray-800 font-medium">{item.patient}</td>
                                     <td className="py-3 px-4 text-gray-600">{getServiceTypeLabel(item.service)}</td>
-                                    <td className="py-3 px-4 font-medium">
+                                    <td className="py-3 px-4 font-medium flex items-center gap-2">
                                         {formatCurrency(item.value)}
+
+                                        {item.isAdvancePayment && (
+                                            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 border border-yellow-300">
+                                                Pago Antecipado
+                                            </span>
+                                        )}
                                     </td>
+
                                     <td className="py-3 px-4 capitalize">
                                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${item.method === 'pix' ? 'bg-green-100 text-green-800' :
                                             item.method === 'cartão' ? 'bg-indigo-100 text-indigo-800' :

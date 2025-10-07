@@ -19,7 +19,6 @@ export const PaymentActionIcons = ({
     useEffect(() => {
     }, [payment]);
     const getStatusIcon = () => {
-        console.log("Status recebido:", payment.status);
         switch (payment.status) {
             case 'paid':
                 return (

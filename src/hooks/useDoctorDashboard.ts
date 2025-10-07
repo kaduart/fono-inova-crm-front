@@ -42,7 +42,7 @@ export default function useDoctorDashboard() {
         fetchTherapySessions(),
         fetchStats()
       ]);
-
+      console.log('patientsRes:', patientsRes);
       setDoctorData(doctorRes.data);
       setPatients(patientsRes);
       setAppointments(appointmentsRes);

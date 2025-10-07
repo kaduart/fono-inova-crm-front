@@ -18,6 +18,7 @@ export interface DailyClosingData  {
       start: string;
       end: string;
     };
+    isAdvancePayment: boolean;
     summary: {
       scheduled: {
         count: number;

@@ -22,6 +22,7 @@ export type CreatePackageParams = {
   durationMonths: number;
   date: string;
   time: string;
+  paymentDate: string;
   sessionsPerWeek: number;
 };
 

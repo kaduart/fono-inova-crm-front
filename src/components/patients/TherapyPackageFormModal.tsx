@@ -3,15 +3,14 @@ import DatePicker from 'react-datepicker';
 import ReactInputMask from 'react-input-mask';
 import { toast } from 'react-toastify';
 import { useAppointmentsContext } from '../../contexts/AppointmentsContext';
-import { useAuth } from '../../contexts/AuthContext';
 import appointmentService from '../../services/appointmentService';
 import packageService, { CreatePackageParams } from '../../services/packageService';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
 import { DURATION_OPTIONS, FREQUENCY_OPTIONS, IAppointment, IDoctor, IPatient, ITherapyPackage, PAYMENT_TYPES, THERAPY_TYPES } from '../../utils/types/types';
 import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
-import { Select } from '../ui/Select';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { Select } from '../ui/Select';
 
 type Props = {
     initialData: ITherapyPackage | null;
@@ -32,6 +31,7 @@ const initialFormState = {
     paymentType: 'full',
     totalPaid: 0,
     paymentMethod: '',
+    paymentDate: '',
     durationMonths: 0,
     sessionsPerWeek: 0,
     appointmentId: '',
@@ -152,6 +152,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             date: formData.date,
             specialty: formData.sessionType,
             time: formData.time,
+            paymentDate: formData.paymentDate,
             appointmentId: formData.appointmentId || undefined,
             calculationMode: calculationMode
         };
@@ -351,7 +352,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="form-group">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Data *</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Data 1ª Sessao*</label>
                                 <DatePicker
                                     selected={formData.date ? buildLocalDateOnly(formData.date) : null}
                                     onChange={(date: Date | null) => {
@@ -473,6 +474,27 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     min="0"
                                     step="0.01"
                                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Data Pagamento Pacote*</label>
+                                <DatePicker
+                                    selected={formData.paymentDate ? buildLocalDateOnly(formData.paymentDate) : null}
+                                    onChange={(date: Date | null) => {
+                                        if (!date) return;
+                                        const formattedDate = date.toISOString().split('T')[0];
+                                        handleChange({ target: { name: 'paymentDate', value: formattedDate } } as any);
+                                    }}
+                                    customInput={
+                                        <ReactInputMask
+                                            mask="99/99/9999"
+                                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    }
+                                    placeholderText="dd/MM/yyyy"
+                                    dateFormat="dd/MM/yyyy"
+                                    className="w-full p-2 border border-gray-300 rounded-md"
                                 />
                             </div>
 
