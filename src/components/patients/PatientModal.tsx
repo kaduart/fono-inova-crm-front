@@ -21,7 +21,7 @@ export const PatientModal = ({
 }: PatientModalProps) => {
     // Estado interno para gerenciar os dados do paciente
     const [patient, setPatient] = useState<IPatient | undefined>(patientProp);
-    
+
     // Sincronizar o estado interno quando as props mudam
     useEffect(() => {
         setPatient(patientProp);
@@ -45,10 +45,10 @@ export const PatientModal = ({
         >
             <DialogTitle>
                 <div className="flex items-center justify-between w-full p-4 bg-gray-50 rounded-tl-lg rounded-tr-lg">
-                    <span>{patient?._id ? 'Editar Paciente' : 'Novo Paciente'}</span>
-                    <X 
-                        className="w-6 h-6 cursor-pointer text-gray-500 hover:text-gray-700" 
-                        onClick={onClose} 
+                    <span>{patient?._id ? 'Editar Paciente' : 'Novo Pacientesss'}</span>
+                    <X
+                        className="w-6 h-6 cursor-pointer text-gray-500 hover:text-gray-700"
+                        onClick={onClose}
                     />
                 </div>
             </DialogTitle>
@@ -57,9 +57,11 @@ export const PatientModal = ({
                 {open && ( // Renderizar condicionalmente apenas quando aberto
                     <PatientForm
                         patient={patient}
-                        onSuccess={(savedPatient) => {
-                            onSaveSuccess?.(savedPatient);
-                            onClose(); // Fechar modal após salvar
+                        onSuccess={async (savedPatient) => {
+                            const success = await onSaveSuccess?.(savedPatient);
+                            if (success) {
+                                onClose(); // ✅ só fecha se sucesso === true
+                            }
                         }}
                         isLoading={isLoading}
                     />

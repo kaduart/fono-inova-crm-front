@@ -201,15 +201,15 @@ export default function AdminDashboard() {
                 toast.success("Paciente criado com sucesso!");
             }
 
-            setIsModalOpen(false);
-            setPatientToEdit(undefined);
-            setActiveTab('Dashboard');
+            return true; // sucesso
         } catch (error: any) {
             toast.error(error.response?.data?.error || 'Erro ao salvar paciente.');
+            return false; // falha
         } finally {
             setIsLoading(false);
         }
     };
+
 
     const handleNewAppointment = async (appointmentData: IAppointment) => {
         const payload: CreateAppointmentParams = {
@@ -498,7 +498,14 @@ export default function AdminDashboard() {
                         setIsModalOpen(false);
                         setPatientToEdit(undefined);
                     }}
-                    onSaveSuccess={handleSavePatient}
+                    onSaveSuccess={async (formData) => {
+                        const success = await handleSavePatient(formData);
+                        if (success) {
+                            setIsModalOpen(false);
+                            setPatientToEdit(undefined);
+                            setActiveTab('Dashboard');
+                        }
+                    }}
                 />
             )}
 
