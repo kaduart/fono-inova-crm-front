@@ -72,45 +72,34 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
         specialty: false
     });
 
-    // Inicializa os slots selecionados com base no weeklyAvailability existente
+    // Inicializa os slots a partir do médico selecionado
     useEffect(() => {
         if (selectedDoctor?.weeklyAvailability) {
             const slots: TimeSlot[] = [];
             selectedDoctor.weeklyAvailability.forEach(dayAvailability => {
                 dayAvailability.times.forEach(time => {
-                    slots.push({
-                        day: dayAvailability.day,
-                        time
-                    });
+                    slots.push({ day: dayAvailability.day, time });
                 });
             });
             setSelectedTimeSlots(slots);
         }
     }, [selectedDoctor]);
 
-    // Atualiza form.weeklyAvailability quando selectedTimeSlots muda
+    // Mantém weeklyAvailability em sincronia com os chips selecionados
     useEffect(() => {
         const weeklyAvailability = Object.values(daysOfWeek).map(day => {
             const times = selectedTimeSlots
                 .filter(slot => slot.day === day)
                 .map(slot => slot.time);
-
             return { day, times };
         }).filter(day => day.times.length > 0);
 
-        setForm(prev => ({
-            ...prev,
-            weeklyAvailability
-        }));
+        setForm(prev => ({ ...prev, weeklyAvailability }));
     }, [selectedTimeSlots]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-
-        // Validações (mantenha suas validações existentes)
         if (formErrors.fullName) return toast.error("Nome é obrigatório");
-        // ... outras validações
-
         onSubmitDoctor(form);
     };
 
@@ -145,68 +134,61 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-            <form onSubmit={handleSubmit} className="w-full max-w-4xl overflow-y-auto max-h-[90vh] bg-white border rounded-lg shadow-xl border-gray-100">
-                {/* Cabeçalho */}
-                <div className={`flex items-center px-6 py-4 ${selectedDoctor
-                        ? 'bg-gradient-to-r from-blue-50 to-blue-50 border-b border-blue-100'  // Edição - fundo azul claro
-                        : 'bg-gradient-to-r from-green-50 to-green-50 border-b border-green-100'  // Novo - fundo verde claro
-                    }`}>
-
-                    <div className={`p-2 mr-3 rounded-lg ${selectedDoctor
-                            ? 'bg-blue-100 text-blue-600'  // Edição - azul
-                            : 'bg-green-100 text-green-600' // Novo - verde
-                        }`}>
-                        {selectedDoctor ? (
-                            <FaUserEdit className="w-5 h-5" />
-                        ) : (
-                            <UserPlus className="w-5 h-5" />
-                        )}
-                    </div>
-
-                    <div>
-                        <h2 className={`text-lg font-semibold ${selectedDoctor ? 'text-blue-800' : 'text-green-800'
-                            }`}>
-                            {selectedDoctor ? "Editar Profissional" : "Novo Profissional"}
-                        </h2>
-                        <p className={`text-xs ${selectedDoctor ? 'text-blue-600' : 'text-green-600'
-                            }`}>
-                            {selectedDoctor ? "Atualize os dados do profissional" : "Adicione um novo profissional à equipe"}
-                        </p>
+            <form
+                onSubmit={handleSubmit}
+                className="w-full max-w-5xl overflow-y-auto max-h-[90vh] bg-white rounded-2xl shadow-2xl border border-gray-100 animate-fadeIn"
+            >
+                {/* CABEÇALHO — padrão institucional */}
+                <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-teal-400 via-emerald-500 to-green-400 text-white shadow-sm rounded-t-2xl">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-white/20 rounded-full">
+                            {selectedDoctor ? (
+                                <FaUserEdit className="w-5 h-5" />
+                            ) : (
+                                <UserPlus className="w-5 h-5" />
+                            )}
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-semibold tracking-wide">
+                                {selectedDoctor ? "Editar Profissional" : "Novo Profissional"}
+                            </h2>
+                            <p className="text-sm/5 opacity-90">
+                                {selectedDoctor
+                                    ? "Atualize os dados do profissional"
+                                    : "Adicione um novo profissional à equipe"}
+                            </p>
+                        </div>
                     </div>
                 </div>
 
-                {/* Corpo do formulário */}
-                <div className="p-6 space-y-6">
-                    <h3 className="mb-6 text-lg font-medium">Dados do Profissional</h3>
+                {/* CORPO — mesmo “DNA” do PatientForm (fieldset + legend + grids) */}
+                <div className="p-6 space-y-6 bg-gradient-to-b from-white to-gray-50 rounded-b-2xl">
+                    {/* Dados do Profissional */}
+                    <fieldset className="border border-gray-200 rounded-xl p-4">
+                        <legend className="px-2 text-sm font-semibold text-gray-700">Dados do Profissional</legend>
 
-                    <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Nome */}
-                            <div>
-                                <Label htmlFor="fullName" error={formErrors.fullName}>
-                                    Nome *
-                                </Label>
+                        <div className="grid grid-cols-12 gap-4 mt-2">
+                            <div className="col-span-12 md:col-span-6">
+                                <Label htmlFor="fullName">Nome *</Label>
                                 <Input
                                     id="fullName"
                                     value={form.fullName}
                                     onChange={e => setForm({ ...form, fullName: e.target.value })}
-                                    error={formErrors.fullName}
+                                    placeholder="Digite o nome completo"
+                                    className="mt-1"
                                 />
                                 {formErrors.fullName && (
                                     <p className="mt-1 text-xs text-red-500">Nome é obrigatório</p>
                                 )}
                             </div>
 
-                            {/* Especialidade */}
-                            <div>
-                                <Label htmlFor="specialty" error={formErrors.specialty}>
-                                    Especialidade *
-                                </Label>
+                            <div className="col-span-12 md:col-span-6">
+                                <Label htmlFor="specialty">Especialidade *</Label>
                                 <Select
                                     id="specialty"
                                     value={form.specialty}
                                     onChange={(e) => setForm({ ...form, specialty: e.target.value as TherapyType })}
-                                    error={formErrors.specialty}
+                                    className="mt-1"
                                 >
                                     <option value="">Selecione</option>
                                     {THERAPY_TYPES.map((type) => (
@@ -220,47 +202,43 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                                 )}
                             </div>
 
-                            {/* Email */}
-                            <div>
-                                <Label htmlFor="email" error={formErrors.email}>
-                                    Email *
-                                </Label>
+                            <div className="col-span-12 md:col-span-4">
+                                <Label htmlFor="email">Email *</Label>
                                 <Input
                                     id="email"
                                     type="email"
                                     value={form.email}
                                     onChange={e => setForm({ ...form, email: e.target.value })}
-                                    error={formErrors.email}
+                                    placeholder="exemplo@clinica.com"
+                                    className="mt-1"
                                 />
                                 {formErrors.email && (
                                     <p className="mt-1 text-xs text-red-500">Email é obrigatório</p>
                                 )}
                             </div>
 
-                            {/* Telefone */}
-                            <div>
-                                <Label htmlFor="phoneNumber" error={formErrors.phoneNumber}>Telefone *</Label>
+                            <div className="col-span-12 md:col-span-4">
+                                <Label htmlFor="phoneNumber">Telefone *</Label>
                                 <Input
                                     id="phoneNumber"
                                     mask="(99) 99999-9999"
                                     type="tel"
                                     value={form.phoneNumber}
                                     onChange={e => setForm({ ...form, phoneNumber: e.target.value })}
-                                    error={formErrors.phoneNumber}
+                                    className="mt-1"
                                 />
                                 {formErrors.phoneNumber && (
                                     <p className="mt-1 text-xs text-red-500">Telefone é obrigatório</p>
                                 )}
                             </div>
 
-                            {/* Número de Registro */}
-                            <div>
-                                <Label htmlFor="licenseNumber" error={formErrors.licenseNumber}>Número de Registro *</Label>
+                            <div className="col-span-12 md:col-span-4">
+                                <Label htmlFor="licenseNumber">Número de Registro *</Label>
                                 <Input
                                     id="licenseNumber"
                                     value={form.licenseNumber}
                                     onChange={e => setForm({ ...form, licenseNumber: e.target.value })}
-                                    error={formErrors.licenseNumber}
+                                    className="mt-1"
                                 />
                                 {formErrors.licenseNumber && (
                                     <p className="mt-1 text-xs text-red-500">Número registro é obrigatório</p>
@@ -269,21 +247,19 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
 
                             {/* Senha (apenas para novo cadastro) */}
                             {!selectedDoctor && (
-                                <div className="relative">
-                                    <Label htmlFor="password" error={formErrors.password}>
-                                        Senha *
-                                    </Label>
+                                <div className="col-span-12 md:col-span-6 relative">
+                                    <Label htmlFor="password">Senha *</Label>
                                     <Input
                                         id="password"
                                         type={showPassword ? "text" : "password"}
                                         value={form.password}
                                         onChange={e => setForm({ ...form, password: e.target.value })}
-                                        error={formErrors.password}
+                                        className="mt-1 pr-10"
                                     />
                                     <Button
                                         type="button"
                                         variant="ghost"
-                                        className="absolute right-2 top-9"
+                                        className="absolute right-2 top-[34px] text-gray-500 hover:text-gray-700"
                                         onClick={() => setShowPassword(prev => !prev)}
                                     >
                                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -294,13 +270,13 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </fieldset>
 
-                    {/* Agenda Semanal - Parte Atualizada */}
-                    <div className="pt-4 mt-4 border-t border-gray-200">
-                        <h3 className="mb-6 text-lg font-medium">Horários de Atendimento</h3>
+                    {/* Horários de Atendimento */}
+                    <fieldset className="border border-gray-200 rounded-xl p-4">
+                        <legend className="px-2 text-sm font-semibold text-gray-700">Horários de Atendimento</legend>
 
-                        <div className="space-y-4">
+                        <div className="space-y-4 mt-2">
                             {Object.entries(daysOfWeek).map(([label, day]) => {
                                 const daySlots = selectedTimeSlots.filter(slot => slot.day === day);
                                 const allSelected = allTimeSlots.every(time =>
@@ -308,7 +284,7 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                                 );
 
                                 return (
-                                    <div key={day} className="p-4 bg-white rounded-lg shadow-sm border border-gray-200">
+                                    <div key={day} className="p-4 bg-white rounded-xl shadow-sm border border-gray-200">
                                         <div className="flex items-center justify-between mb-3">
                                             <h4 className="font-medium text-gray-800">{label}</h4>
                                             <button
@@ -328,14 +304,10 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                                                         key={`${day}-${time}`}
                                                         type="button"
                                                         onClick={() => toggleTimeSlot(day, time)}
-                                                        className={`
-                                                            px-3 py-1.5 text-sm rounded-md border transition-colors
-                                                            flex items-center
+                                                        className={`px-3 py-1.5 text-sm rounded-md border transition-all flex items-center
                                                             ${isSelected
                                                                 ? 'bg-emerald-50 border-emerald-500 text-emerald-800 hover:bg-emerald-100'
-                                                                : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
-                                                            }
-                                                        `}
+                                                                : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'}`}
                                                     >
                                                         <Clock className="w-4 h-4 mr-1.5" />
                                                         {time}
@@ -347,22 +319,27 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                                 );
                             })}
                         </div>
-                    </div>
+                    </fieldset>
 
-                    {/* Ativo */}
-                    <FormControlLabel
-                        control={
-                            <Checkbox
-                                checked={form.active === true}
-                                onChange={e => setForm({ ...form, active: e.target.checked })}
+                    {/* Status */}
+                    <fieldset className="border border-gray-200 rounded-xl p-4">
+                        <legend className="px-2 text-sm font-semibold text-gray-700">Status</legend>
+                        <div className="mt-2">
+                            <FormControlLabel
+                                control={
+                                    <Checkbox
+                                        checked={form.active === true}
+                                        onChange={e => setForm({ ...form, active: e.target.checked })}
+                                    />
+                                }
+                                label="Profissional ativo"
                             />
-                        }
-                        label="Ativo"
-                    />
+                        </div>
+                    </fieldset>
                 </div>
 
-                {/* Rodapé */}
-                <div className="flex justify-between px-6 py-4 bg-gray-50 border-t border-gray-200">
+                {/* RODAPÉ — botões padronizados */}
+                <div className="flex justify-between px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-2xl">
                     <Button
                         type="button"
                         variant="outline"
@@ -374,10 +351,7 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                     <Button
                         type="submit"
                         disabled={!isFormValid || loading}
-                        className={`text-white ${!isFormValid ? 'opacity-50 cursor-not-allowed' : ''} ${selectedDoctor
-                            ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
-                            : 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800'
-                            }`}
+                        className={`text-white ${!isFormValid ? 'opacity-50 cursor-not-allowed' : ''} bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600`}
                     >
                         {loading ? (
                             <div className="flex items-center">

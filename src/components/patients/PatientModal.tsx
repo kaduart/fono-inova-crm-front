@@ -1,72 +1,80 @@
-import { Dialog, DialogContent, DialogTitle } from '@mui/material';
-import { X } from 'lucide-react';
-import { useEffect, useState } from 'react'; // Importar useEffect e useState
+import { Dialog, DialogContent, DialogTitle, IconButton, Slide } from '@mui/material';
+import { X, UserPlus2 } from 'lucide-react';
+import { forwardRef, useEffect, useState } from 'react';
 import PatientForm from '../../shared/components/PatientForm';
 import { IPatient } from '../../utils/types/types';
 
+const Transition = forwardRef(function Transition(props: any, ref) {
+  return <Slide direction="up" ref={ref} {...props} />;
+});
+
 interface PatientModalProps {
-    open: boolean;
-    onClose: () => void;
-    patient?: IPatient;
-    onSaveSuccess?: (patient: IPatient) => void;
-    isLoading?: boolean;
+  open: boolean;
+  onClose: () => void;
+  patient?: IPatient;
+  onSaveSuccess?: (patient: IPatient) => Promise<boolean> | boolean;
+  isLoading?: boolean;
 }
 
 export const PatientModal = ({
-    open,
-    onClose,
-    patient: patientProp,
-    isLoading = false,
-    onSaveSuccess
+  open,
+  onClose,
+  patient: patientProp,
+  isLoading = false,
+  onSaveSuccess
 }: PatientModalProps) => {
-    // Estado interno para gerenciar os dados do paciente
-    const [patient, setPatient] = useState<IPatient | undefined>(patientProp);
+  const [patient, setPatient] = useState<IPatient | undefined>(patientProp);
 
-    // Sincronizar o estado interno quando as props mudam
-    useEffect(() => {
-        setPatient(patientProp);
-    }, [patientProp, open]);
+  useEffect(() => {
+    setPatient(patientProp);
+  }, [patientProp, open]);
 
+  return (
+    <Dialog
+      open={open}
+      onClose={isLoading ? undefined : onClose}
+      TransitionComponent={Transition}
+      fullWidth
+      maxWidth="md"
+      PaperProps={{
+        className:
+          'rounded-2xl shadow-xl border border-gray-100 backdrop-blur-sm bg-white/90 overflow-hidden transition-all',
+      }}
+    >
+      {/* Cabeçalho */}
+      <DialogTitle className="p-0">
+        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-teal-400 via-emerald-500 to-green-400 text-white shadow-sm">
+          <div className="flex items-center gap-2">
+            <UserPlus2 className="w-5 h-5 text-white/90" />
+            <span className="font-semibold text-lg tracking-wide">
+              {patient?._id ? 'Editar Paciente' : 'Novo Paciente'}
+            </span>
+          </div>
+          <IconButton
+            onClick={onClose}
+            className="text-white hover:bg-white/20 rounded-full transition-all"
+          >
+            <X className="w-6 h-6" />
+          </IconButton>
+        </div>
+      </DialogTitle>
 
-    return (
-        <Dialog
-            open={open}
-            onClose={isLoading ? undefined : onClose}
-            fullWidth
-            scroll="paper"
-            PaperProps={{
-                style: {
-                    width: '50%',
-                    maxWidth: 'none',
-                    margin: 'auto',
-                    borderRadius: '12px'
-                }
+      {/* Conteúdo */}
+      <DialogContent
+        dividers
+        className="p-6 bg-gradient-to-b from-white to-gray-50 rounded-b-2xl overflow-y-auto"
+      >
+        {open && (
+          <PatientForm
+            patient={patient}
+            isLoading={isLoading}
+            onSuccess={async (savedPatient) => {
+              const success = await onSaveSuccess?.(savedPatient);
+              if (success) onClose(); // fecha só se sucesso
             }}
-        >
-            <DialogTitle>
-                <div className="flex items-center justify-between w-full p-4 bg-gray-50 rounded-tl-lg rounded-tr-lg">
-                    <span>{patient?._id ? 'Editar Paciente' : 'Novo Pacientesss'}</span>
-                    <X
-                        className="w-6 h-6 cursor-pointer text-gray-500 hover:text-gray-700"
-                        onClick={onClose}
-                    />
-                </div>
-            </DialogTitle>
-
-            <DialogContent dividers>
-                {open && ( // Renderizar condicionalmente apenas quando aberto
-                    <PatientForm
-                        patient={patient}
-                        onSuccess={async (savedPatient) => {
-                            const success = await onSaveSuccess?.(savedPatient);
-                            if (success) {
-                                onClose(); // ✅ só fecha se sucesso === true
-                            }
-                        }}
-                        isLoading={isLoading}
-                    />
-                )}
-            </DialogContent>
-        </Dialog>
-    );
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
 };

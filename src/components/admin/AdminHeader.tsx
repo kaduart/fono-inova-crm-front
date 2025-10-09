@@ -1,9 +1,18 @@
-import { Activity, ChevronDown, Clock, Hospital, LogOut, Stethoscope, User, Users } from 'lucide-react';
-import React, { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import NavButton from '../ui/NavButton';
-import NavDropdownItem from '../ui/NavDropdownItem';
+import {
+    Activity,
+    ChevronDown,
+    Clock,
+    LogOut,
+    Stethoscope,
+    User,
+    Users
+} from "lucide-react";
+import React, { useState } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+import NavButton from "../ui/NavButton";
+import NavDropdownItem from "../ui/NavDropdownItem";
+import logoUnica from "../../../public/images/logo-unica.png";
 
 interface AdminHeaderProps {
     activeTab: string;
@@ -12,7 +21,7 @@ interface AdminHeaderProps {
     handleTabChange: (tab: string) => void;
     toggleMenu: (menuName: string) => void;
     setActiveTab: (tab: string) => void;
-    onLogout?: () => void; // Nova prop para logout
+    onLogout?: () => void;
 }
 
 const AdminHeader: React.FC<AdminHeaderProps> = ({
@@ -22,77 +31,81 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     handleTabChange,
     toggleMenu,
     setActiveTab,
-    onLogout
+    onLogout,
 }) => {
     const navigate = useNavigate();
     const { logout: authLogout } = useAuth();
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
-    // Função de logout padrão caso não seja fornecida via props
     const handleLogout = async () => {
         await authLogout();
-        // Limpar dados de autenticação
-        localStorage.removeItem('token');
-        localStorage.removeItem('userData');
-        sessionStorage.removeItem('sessionToken');
+        localStorage.removeItem("token");
+        localStorage.removeItem("userData");
+        sessionStorage.removeItem("sessionToken");
 
-        // Executar função personalizada de logout se fornecida
-        if (onLogout && typeof onLogout === 'function') {
+        if (onLogout && typeof onLogout === "function") {
             onLogout();
         }
 
-        // Redirecionar para a página de login
-        navigate('/login');
+        navigate("/login");
     };
 
     return (
-        <header className="bg-white shadow-sm">
+        <header className="bg-gradient-to-r from-teal-400 via-emerald-500 to-green-400 shadow-md text-white">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between h-16 items-center">
-                    <div className="flex items-center">
+                    {/* Logo e nome da clínica */}
+                    <div className="flex items-center gap-3 cursor-pointer hover:opacity-90 transition-opacity">
                         <NavLink
                             to="/admin"
-                            className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-                            onClick={() => handleTabChange('Dashboard')}
+                            className="flex items-center gap-3"
+                            onClick={() => handleTabChange("Dashboard")}
                         >
-                            <div className="bg-blue-100/80 p-2.5 rounded-xl shadow-sm">
-                                <Hospital className="h-6 w-6 text-blue-600" />
-                            </div>
-                            <span className="text-2xl font-bold bg-gradient-to-r from-blue-800 to-blue-600 bg-clip-text text-transparent hover:from-blue-700 hover:to-blue-500 transition-all duration-300">
-                                Fono<span className="font-extrabold gap-4">Inova</span>&nbsp;&nbsp;
+                            <img
+                                src={logoUnica}
+                                alt="Clínica Fono Inova"
+                                className="h-10 w-auto rounded-md shadow-sm bg-white/10 p-1"
+                            />
+                            <span className="text-2xl font-semibold tracking-wide drop-shadow-sm">
+                                Clínica{" "}
+                                <span className="font-extrabold tracking-tight">Fono Inova</span>
                             </span>
                         </NavLink>
                     </div>
 
+                    {/* Navegação */}
                     <nav className="hidden md:flex items-center space-x-2">
                         <NavButton
-                            active={activeTab === 'Dashboard'}
-                            onClick={() => handleTabChange('Dashboard')}
+                            active={activeTab === "Dashboard"}
+                            onClick={() => handleTabChange("Dashboard")}
+                            className="hover:bg-white/20"
                         >
                             Dashboard
                         </NavButton>
 
                         <div className="relative">
                             <NavButton
-                                active={activeTab === 'Add Profissional' || activeTab === 'Add Paciente'}
-                                onClick={() => toggleMenu('gestao')}
+                                active={
+                                    activeTab === "Add Profissional" || activeTab === "Add Paciente"
+                                }
+                                onClick={() => toggleMenu("gestao")}
                                 hasChevron
                             >
                                 Gestão
                             </NavButton>
 
-                            {openMenu === 'gestao' && (
-                                <div className="absolute z-10 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 py-1">
+                            {openMenu === "gestao" && (
+                                <div className="absolute z-10 mt-2 w-48 rounded-md shadow-lg bg-white text-gray-700 ring-1 ring-emerald-500/20 py-1">
                                     <NavDropdownItem
-                                        active={activeTab === 'Add Profissional'}
-                                        onClick={() => handleTabChange('Add Profissional')}
+                                        active={activeTab === "Add Profissional"}
+                                        onClick={() => handleTabChange("Add Profissional")}
                                         icon={<Stethoscope className="h-4 w-4" />}
                                     >
                                         Profissionais
                                     </NavDropdownItem>
                                     <NavDropdownItem
-                                        active={activeTab === 'Add Paciente'}
-                                        onClick={() => handleTabChange('Add Paciente')}
+                                        active={activeTab === "Add Paciente"}
+                                        onClick={() => handleTabChange("Add Paciente")}
                                         icon={<Users className="h-4 w-4" />}
                                     >
                                         Pacientes
@@ -102,16 +115,16 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         </div>
 
                         <NavButton
-                            active={activeTab === 'Calendário'}
-                            onClick={() => handleTabChange('Calendário')}
+                            active={activeTab === "Calendário"}
+                            onClick={() => handleTabChange("Calendário")}
                             icon={<Clock className="h-4 w-4" />}
                         >
                             Agenda
                         </NavButton>
 
                         <NavButton
-                            active={activeTab === 'Financeiro'}
-                            onClick={() => handleTabChange('Financeiro')}
+                            active={activeTab === "Financeiro"}
+                            onClick={() => handleTabChange("Financeiro")}
                             icon={<span className="text-sm">💵</span>}
                         >
                             Financeiro
@@ -119,19 +132,19 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
 
                         <div className="relative">
                             <NavButton
-                                active={activeTab === 'Leads'}
-                                onClick={() => toggleMenu('marketing')}
+                                active={activeTab === "Leads"}
+                                onClick={() => toggleMenu("marketing")}
                                 icon={<Activity className="h-4 w-4" />}
                                 hasChevron
                             >
                                 Marketing
                             </NavButton>
 
-                            {openMenu === 'marketing' && (
-                                <div className="absolute z-10 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 py-1">
+                            {openMenu === "marketing" && (
+                                <div className="absolute z-10 mt-2 w-48 rounded-md shadow-lg bg-white text-gray-700 ring-1 ring-emerald-500/20 py-1">
                                     <NavDropdownItem
-                                        active={activeTab === 'Leads'}
-                                        onClick={() => handleTabChange('Leads')}
+                                        active={activeTab === "Leads"}
+                                        onClick={() => handleTabChange("Leads")}
                                     >
                                         Leads
                                     </NavDropdownItem>
@@ -140,42 +153,46 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         </div>
 
                         <NavButton
-                            active={activeTab === 'Mensagens'}
-                            onClick={() => handleTabChange('Mensagens')}
+                            active={activeTab === "Mensagens"}
+                            onClick={() => handleTabChange("Mensagens")}
                             icon={<span className="text-sm">📳</span>}
                         >
                             WhatsApp
                         </NavButton>
                     </nav>
 
-                    {/* Área do perfil com dropdown */}
+                    {/* Perfil */}
                     <div className="relative">
                         <button
                             onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                            className="flex items-center space-x-2 p-2 rounded-md text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                            className="flex items-center space-x-2 p-2 rounded-md hover:bg-white/10 transition-colors"
                         >
-                            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                <span className="text-sm font-medium text-blue-600">
-                                    {adminInfo?.fullName?.charAt(0) || 'A'}
+                            <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
+                                <span className="text-sm font-medium">
+                                    {adminInfo?.fullName?.charAt(0) || "A"}
                                 </span>
                             </div>
                             <ChevronDown className="h-4 w-4" />
                         </button>
 
                         {isProfileDropdownOpen && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
+                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-emerald-100">
                                 <div className="px-4 py-2 border-b border-gray-100">
-                                    <p className="text-sm font-medium text-gray-800">{adminInfo?.fullName || 'Admin'}</p>
-                                    <p className="text-xs text-gray-500 truncate">{adminInfo?.email || ''}</p>
+                                    <p className="text-sm font-medium text-gray-800">
+                                        {adminInfo?.fullName || "Admin"}
+                                    </p>
+                                    <p className="text-xs text-gray-500 truncate">
+                                        {adminInfo?.email || ""}
+                                    </p>
                                 </div>
                                 <button
                                     onClick={() => {
-                                        setActiveTab('Profile');
+                                        setActiveTab("Profile");
                                         setIsProfileDropdownOpen(false);
                                     }}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-emerald-50"
                                 >
-                                    <User className="h-4 w-4 mr-2" />
+                                    <User className="h-4 w-4 mr-2 text-emerald-600" />
                                     Meu Perfil
                                 </button>
                                 <button
