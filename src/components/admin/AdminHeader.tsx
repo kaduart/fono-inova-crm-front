@@ -1,18 +1,21 @@
 import {
     Activity,
+    Brain,
     ChevronDown,
     Clock,
     LogOut,
+    Puzzle,
     Stethoscope,
     User,
     Users
 } from "lucide-react";
 import React, { useState } from "react";
+import { BsSoundwave } from "react-icons/bs";
 import { NavLink, useNavigate } from "react-router-dom";
+import logoUnica from "../../../public/images/logo-clinica-site.png";
 import { useAuth } from "../../contexts/AuthContext";
 import NavButton from "../ui/NavButton";
 import NavDropdownItem from "../ui/NavDropdownItem";
-import logoUnica from "../../../public/images/logo-unica.png";
 
 interface AdminHeaderProps {
     activeTab: string;
@@ -61,13 +64,16 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                             className="flex items-center gap-3"
                             onClick={() => handleTabChange("Dashboard")}
                         >
-                            <img
-                                src={logoUnica}
-                                alt="Clínica Fono Inova"
-                                className="h-10 w-auto rounded-md shadow-sm bg-white/10 p-1"
-                            />
+
+                            <div className="h-8 w-auto rounded-md shadow-sm bg-white/10 p-1">
+                                <BsSoundwave className="w-7 h-7 text-emerald-600" />
+                               {/*  <Puzzle className="w-5 h-5 text-yellow-500" /> */}
+
+                            </div>
+
+                           
                             <span className="text-2xl font-semibold tracking-wide drop-shadow-sm">
-                                Clínica{" "}
+                                {/* Clínica{" "} */}
                                 <span className="font-extrabold tracking-tight">Fono Inova</span>
                             </span>
                         </NavLink>

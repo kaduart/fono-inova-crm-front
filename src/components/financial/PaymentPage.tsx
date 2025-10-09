@@ -42,7 +42,17 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
     const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const currentPayments = filteredPayments.slice(startIndex, startIndex + itemsPerPage);
-    const [userRole, setUserRole] = useState<string | null>(() => localStorage.getItem('userRole'));
+    const [userRole, setUserRole] = useState<string | null>(null);
+    const [user, setUser] = useState<string | null>(null);
+
+    useEffect(() => {
+        const userString = localStorage.getItem('user') ?? '{}';
+        const user = JSON.parse(userString);
+        if (user) {
+            setUserRole(user.role.trim().toLowerCase());
+            setUser(user);
+        }
+    }, []);
 
 
     useEffect(() => {
@@ -146,7 +156,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
             default: return type;
         }
     };
-    console.log("Status ROLEEEEE:", userRole);
+    console.log("Status ROLEEEEE:", user);
 
     return (
         <div className="space-y-4">
@@ -179,7 +189,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                 {financialControlOpen && (
                     <div className="space-y-6 p-4">
                         <div className="flex flex-wrap items-center justify-between gap-4 mb-6 p-4 bg-gray-50 rounded-xl">
-                            {userRole === 'admin' && (
+                            {user && user.name?.includes('Ricardo Maia') && (
                                 <FinancialSummaryCard data={financialRecord} />
                             )}
 
