@@ -29,8 +29,11 @@ export const usePixSocket = () => {
 
     useEffect(() => {
         const socket = io('https://fono-inova-crm-back.onrender.com', {
-            transports: ['websocket'],
+            transports: ['websocket', 'polling'],
             reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000,
+
         });
 
         socket.on('connect', () => {
