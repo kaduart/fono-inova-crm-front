@@ -1,22 +1,40 @@
-const getStatusColor = (status: string) => {
-    switch (status) {
-        case 'agendado':
-            return 'bg-yellow-100 text-yellow-800';
-        case 'realizado':
-            return 'bg-green-100 text-green-800';
-        case 'cancelado':
-            return 'bg-red-100 text-red-800';
-        default:
-            return 'bg-gray-100 text-gray-800';
-    }
-};
+import React from "react";
+import Badge from "./ui/Badge";
+import { CheckCircle2, Clock, XCircle, Loader2 } from "lucide-react";
 
-const StatusBadge = ({ status }: { status: string }) => {
-    return (
-        <span className={`text-xs font-semibold px-2.5 py-0.5 rounded ${getStatusColor(status)}`}>
-            {status}
-        </span>
-    );
+const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+  switch (status) {
+    case "sent":
+      return (
+        <Badge color="green" className="gap-1">
+          <CheckCircle2 size={12} /> Enviado
+        </Badge>
+      );
+
+    case "scheduled":
+      return (
+        <Badge color="yellow" className="gap-1">
+          <Clock size={12} /> Agendado
+        </Badge>
+      );
+
+    case "failed":
+      return (
+        <Badge color="red" className="gap-1">
+          <XCircle size={12} /> Falhou
+        </Badge>
+      );
+
+    case "processing":
+      return (
+        <Badge color="blue" className="gap-1">
+          <Loader2 className="animate-spin" size={12} /> Processando
+        </Badge>
+      );
+
+    default:
+      return <Badge color="gray">—</Badge>;
+  }
 };
 
 export default StatusBadge;

@@ -6,11 +6,12 @@ import { useAdmin } from '../hooks/useAdmin';
 import { useAppointments } from '../hooks/useAppointments';
 import useDoctorDashboard from '../hooks/useDoctorDashboard';
 import { usePatients } from '../hooks/usePatients';
+import FollowupPage from '../pages/FollowupPage';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
 import { CreateDoctorParams } from '../services/doctorService';
 import { createPayment, FinancialRecord, getPayments, updatePayment } from '../services/paymentService';
 import { IAppointment, IPatient } from '../utils/types/types';
-import AnalyticsDashboard from './ Dashboard/AnalyticsDashboard';
+import AnalyticsDashboard from './Dashboard/AnalyticsDashboard';
 import AddAdminContent from './admin/AddAdminContent';
 import AdminHeader from './admin/AdminHeader';
 import DashboardContent from './admin/DashboardContent';
@@ -450,6 +451,8 @@ export default function AdminDashboard() {
                     />
                 );
             case 'Leads':
+                return <FollowupPage />;
+            case 'Analytics':
                 return <AnalyticsDashboard />;
             case 'Mensagens':
                 return <AppChat />;

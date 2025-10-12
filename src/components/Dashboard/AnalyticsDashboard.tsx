@@ -18,6 +18,27 @@ import SiteAnalyticsTable from './SiteAnalyticsTable';
 // Cores para os gráficos
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d'];
 
+const handleCreateLead = async (event) => {
+    try {
+        const payload = {
+            name: event.userName || 'Visitante do Site',
+            origin: 'Site',
+            status: 'novo',
+            contact: {
+                email: event.userEmail || '',
+                phone: event.userPhone || '',
+            },
+            notes: `Evento GA4: ${event.name} - Página: ${event.pageTitle}`,
+        };
+
+        await api.post('/leads', payload);
+        toast.success('Lead criado com sucesso!');
+    } catch (err) {
+        toast.error('Erro ao criar lead');
+        console.error(err);
+    }
+};
+
 const AnalyticsDashboard = () => {
     const today = new Date();
     const daysAgo7 = new Date();

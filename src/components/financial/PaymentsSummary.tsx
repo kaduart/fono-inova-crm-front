@@ -45,7 +45,15 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
         </Box>
       </Box>
 
-      <Grid container spacing={2}>
+      <Grid
+        container
+        spacing={2}
+        justifyContent="space-evenly"
+        sx={{
+          maxWidth: '1200px', // limite opcional para centralizar em telas largas
+          margin: '0 auto',   // centraliza o container
+        }}
+      >
         {/* Total Recebido */}
         <Grid item xs={12} sm={6} md={3}>
           <Box

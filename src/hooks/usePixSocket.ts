@@ -1,32 +1,50 @@
 // hooks/usePixSocket.ts
 import { useEffect } from 'react';
-import { io, Socket } from 'socket.io-client';
+import io from 'socket.io-client'; // ✅ <-- corrige o erro
 import { useNotification } from '../contexts/NotificationContext';
-
-let socket: Socket | null = null;
 
 export const usePixSocket = () => {
     const { showPaymentNotification } = useNotification();
 
     useEffect(() => {
-        if (!socket) {
-            socket = io('http://localhost:5000', {
-                transports: ['websocket'],
+        // ✅ Ouve evento manual vindo do console
+        const handleManualPix = (e: any) => {
+            const pix = e.detail;
+            console.log("💰 PIX simulado recebido manualmente:", pix);
+
+            showPaymentNotification({
+                appointmentId: pix.id || 'manual',
+                amount: pix.amount || 0,
+                date: new Date(pix.date),
+                patientName: pix.payer || 'Desconhecido',
             });
-        }
+        };
+
+        window.addEventListener("pix-received", handleManualPix);
+
+        return () => {
+            window.removeEventListener("pix-received", handleManualPix);
+        };
+    }, [showPaymentNotification]);
+
+    useEffect(() => {
+        const socket = io('http://localhost:5000', {
+            transports: ['websocket'],
+            reconnection: true,
+        });
 
         socket.on('connect', () => {
-            console.log('⚡ Frontend conectado ao Socket.IO', socket?.id);
+            console.log('⚡ Frontend conectado ao Socket.IO', socket.id);
         });
 
         socket.on('pix-received', (pix: any) => {
             console.log('💰 PIX RECEBIDO no frontend:', pix);
 
             showPaymentNotification({
-                appointmentId: pix.appointmentId,
-                amount: pix.amount,
-                date: new Date(pix.date),
-                patientName: pix.payer,
+                appointmentId: pix.appointmentId || '',
+                amount: pix.amount || 0,
+                date: new Date(pix.date || Date.now()),
+                patientName: pix.payer || 'Não informado',
             });
         });
 
@@ -35,9 +53,7 @@ export const usePixSocket = () => {
         });
 
         return () => {
-            socket?.off('pix-received');
-            socket?.off('connect');
-            socket?.off('disconnect');
+            socket.disconnect();
         };
     }, [showPaymentNotification]);
 };

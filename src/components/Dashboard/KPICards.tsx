@@ -18,6 +18,22 @@ const KPICards = ({ adsData, analyticsData }) => {
         { title: 'Taxa de CTR', value: `${ctr}%`, icon: 'percent', color: 'orange' },
         { title: 'Custo por Clique', value: `R$ ${cpc}`, icon: 'calculator', color: 'red' },
         { title: 'Taxa de Conversão', value: `${conversionRate}%`, icon: 'trending-up', color: 'indigo' },
+        {
+            title: "Leads Captados",
+            value: totalLeads,
+            subtitle: "Últimos 7 dias"
+        },
+        {
+            title: "Follow-ups Enviados",
+            value: totalFollowupsSent,
+            subtitle: "Mensagens automáticas"
+        },
+        {
+            title: "Taxa de Conversão",
+            value: `${((totalConverted / totalLeads) * 100).toFixed(1)}%`,
+            subtitle: "Leads → Pacientes"
+        }
+
     ];
 
     return (
