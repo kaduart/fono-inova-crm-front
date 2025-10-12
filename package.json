@@ -57,7 +57,6 @@
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@types/react-input-mask": "^3.0.6",
-    "@types/socket.io-client": "^1.4.36",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.0",
     "eslint": "^9.22.0",
