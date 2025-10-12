@@ -28,7 +28,7 @@ export const usePixSocket = () => {
     }, [showPaymentNotification]);
 
     useEffect(() => {
-        const socket = io('http://localhost:5000', {
+        const socket = io('https://fono-inova-crm-back.onrender.com', {
             transports: ['websocket'],
             reconnection: true,
         });
