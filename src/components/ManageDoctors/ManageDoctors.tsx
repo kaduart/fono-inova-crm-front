@@ -1,8 +1,8 @@
-import { User, UserPlus } from 'lucide-react';
+import { Button, Paper, Typography, useTheme } from '@mui/material';
+import { Plus, User, UserPlus, Users } from 'lucide-react';
 import React, { useEffect, useState } from "react";
 import { IAppointment, IDoctor, IPatient, ScheduleAppointment } from "../../utils/types/types";
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
-import { Button } from "../ui/Button";
 import DoctorAgenda from "./DoctorAgenda";
 import DoctorFormModal from "./DoctorFormModal";
 import DoctorList from "./DoctorList";
@@ -69,7 +69,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
         paymentMethod: 'dinheiro',
         status: 'agendado',
     });
-
+    const theme = useTheme();
     console.log('Chamou - manager doctor ')
 
     useEffect(() => {
@@ -160,25 +160,58 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
 
     return (
         <div className="p-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 p-4 bg-white rounded-lg shadow-sm border border-gray-100">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-50 rounded-lg">
-                        <User className="w-5 h-5 text-blue-600" /> {/* Ícone de usuário */}
-                    </div>
-                    <div>
-                        <h2 className="text-xl font-semibold text-gray-800">Gestão de Profissionais</h2>
-                        <p className="text-sm text-gray-500">Cadastre e gerencie os profissionais da clínica</p>
-                    </div>
-                </div>
+            <Paper
+                elevation={2}
+                sx={{
+                    p: 3,
+                    mb: 3,
+                    borderRadius: 2,
+                    background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
+                }}
+            >
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    {/* Ícone e título */}
+                    <div className="flex items-center gap-3">
+                        <div
+                            className="p-2 rounded-lg"
+                            style={{ backgroundColor: 'rgba(55,171,135,0.15)' }}
+                        >
+                            <Users size={24} style={{ color: '#00C087' }} />
+                        </div>
 
-                <Button
-                    onClick={() => handleAddOrEditDoctor(null)}
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                    <UserPlus className="w-4 h-4" /> {/* Ícone de adicionar usuário */}
-                    Adicionar Profissional
-                </Button>
-            </div>
+                        <div>
+                            <Typography variant="h4" fontWeight="bold" color="grey.800">
+                                Gestão de Profissionais
+                            </Typography>
+                            <Typography variant="body2" color="grey.600">
+                                Cadastre e gerencie os profissionais da clínica.
+                            </Typography>
+                        </div>
+                    </div>
+
+                    {/* Botão com gradiente institucional */}
+                    <Button
+                        variant="contained"
+                        startIcon={<Plus size={18} />}
+                        onClick={handleAddOrEditDoctor}
+                        sx={{
+                            borderRadius: 2,
+                            px: 3,
+                            py: 1.5,
+                            fontWeight: 'bold',
+                            background: `linear-gradient(135deg, rgb(55,171,135), rgb(40,130,100))`,
+                            '&:hover': {
+                                background: `linear-gradient(135deg, rgb(60,180,140), rgb(35,115,90))`,
+                                transform: 'translateY(-1px)',
+                                boxShadow: 4,
+                            },
+                            transition: 'all 0.25s ease-in-out',
+                        }}
+                    >
+                        Novo Profissional
+                    </Button>
+                </div>
+            </Paper>
 
             <DoctorList doctors={doctors} onEdit={handleAddOrEditDoctor} onViewAgenda={handleViewAgenda} />
 

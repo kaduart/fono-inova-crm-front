@@ -1,4 +1,5 @@
-import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { Button, Paper, Typography, useTheme } from '@mui/material';
+import { ChevronDown, ChevronUp, DollarSign, Plus, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -55,6 +56,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
     // controle do modal de adicionar pagamento
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
+    const theme = useTheme();
 
 
     useEffect(() => {
@@ -204,9 +206,61 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
         }
     };
     console.log("Status ROLEEEEE:", user);
+    const handleOpenPayment = () => { }
 
     return (
         <div className="space-y-4">
+
+            <Paper
+                elevation={2}
+                sx={{
+                    p: 3,
+                    mb: 3,
+                    borderRadius: 2,
+                    background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
+                }}
+            >
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    {/* Ícone e Título */}
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(55, 171, 135, 0.15)' }}>
+                            <DollarSign size={24} style={{ color: '#00B57A' }} />
+                        </div>
+                        <div>
+                            <Typography variant="h4" fontWeight="bold" color="grey.800">
+                                Painel Financeiro
+                            </Typography>
+                            <Typography variant="body2" color="grey.600">
+                                Controle completo dos pagamentos: recebidos, pendentes e em processamento.
+                            </Typography>
+                        </div>
+                    </div>
+
+                    {/* Botão estilizado */}
+                    <Button
+                        variant="contained"
+                        startIcon={<Plus size={18} />}
+                        onClick={handleOpenPayment}
+                        sx={{
+                            borderRadius: 2,
+                            px: 3,
+                            py: 1.5,
+                            fontWeight: 'bold',
+                            background: `linear-gradient(135deg, rgb(55,171,135), rgb(40,130,100))`,
+                            '&:hover': {
+                                background: `linear-gradient(135deg, rgb(60,180,140), rgb(35,115,90))`,
+                                transform: 'translateY(-1px)',
+                                boxShadow: 4,
+                            },
+                            transition: 'all 0.25s ease-in-out',
+                        }}
+                    >
+                        Novo Registro
+                    </Button>
+
+                </div>
+            </Paper>
+
 
             <div className="border rounded-lg overflow-hidden">
                 <button
@@ -309,21 +363,21 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                         ) : (
 
                             <div className="overflow-x-auto bg-white rounded-lg shadow">
-                            <div className="flex items-center justify-end mb-4">
-  <button
-    onClick={() => {
-      // se quiser selecionar um pacote específico, seta aqui
-      setSelectedPackageId("68fabc1234abcd5678ef9012"); // ← só pra teste, depois pega do real package
-      setIsAddModalOpen(true);
-    }}
-    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow transition-all"
-  >
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-    </svg>
-    Adicionar Pagamento
-  </button>
-</div>
+                                <div className="flex items-center justify-end mb-4">
+                                    <button
+                                        onClick={() => {
+                                            // se quiser selecionar um pacote específico, seta aqui
+                                            setSelectedPackageId("68fabc1234abcd5678ef9012"); // ← só pra teste, depois pega do real package
+                                            setIsAddModalOpen(true);
+                                        }}
+                                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow transition-all"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        Adicionar Pagamento
+                                    </button>
+                                </div>
                                 <table className="w-full min-w-[800px]">
                                     <thead className="bg-gray-50">
                                         <tr>

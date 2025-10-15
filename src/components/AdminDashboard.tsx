@@ -1,3 +1,5 @@
+import { Paper, Typography, useTheme } from '@mui/material';
+import { BarChart3 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -11,12 +13,12 @@ import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppo
 import { CreateDoctorParams } from '../services/doctorService';
 import { createPayment, FinancialRecord, getPayments, updatePayment } from '../services/paymentService';
 import { IAppointment, IPatient } from '../utils/types/types';
-import AnalyticsDashboard from './Dashboard/AnalyticsDashboard';
 import AddAdminContent from './admin/AddAdminContent';
 import AdminHeader from './admin/AdminHeader';
 import DashboardContent from './admin/DashboardContent';
 import ProfileContent from './admin/ProfileContent';
 import EnhancedCalendar from './calendar/EnhancedCalendar';
+import AnalyticsDashboard from './Dashboard/AnalyticsDashboard';
 import { AdvancedPaymentModal } from './financial/AdvancedPaymentModal';
 import { PaymentModal } from './financial/PaymentModal';
 import PaymentPage from './financial/PaymentPage';
@@ -120,6 +122,7 @@ export default function AdminDashboard() {
     }>({ mode: 'create' });
     const [showAdvancedPayment, setShowAdvancedPayment] = useState(false);
     const navigate = useNavigate();
+    const theme = useTheme();
 
     const { patients, totalPatients, patientOverview, fetchPatients, updatePatient, createPatient } = usePatients();
     const { createAppointment, updateAppointment, completeAppointment, cancelAppointment, getAvailableSlots } = useAppointments();
@@ -473,15 +476,50 @@ export default function AdminDashboard() {
                 onLogout={handleLogout}
             />
 
+
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                {activeTab === 'Dashboard' && (
+                    <Paper
+                        elevation={2}
+                        sx={{
+                            p: 3,
+                            mb: 3,
+                            borderRadius: 2,
+                            background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
+                        }}
+                    >
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            {/* Ícone e título */}
+                            <div className="flex items-center gap-3">
+                                <div
+                                    className="p-2 rounded-lg"
+                                    style={{ backgroundColor: 'rgba(55,171,135,0.15)' }}
+                                >
+                                    <BarChart3 size={24} style={{ color: '#00C087' }} />
+                                </div>
+
+                                <div>
+                                    <Typography variant="h4" fontWeight="bold" color="grey.800">
+                                        Visão Geral da Clínica
+                                    </Typography>
+                                    <Typography variant="body2" color="grey.600">
+                                        Acompanhe métricas, desempenho e indicadores do atendimento em tempo real.
+                                    </Typography>
+                                </div>
+                            </div>
+                        </div>
+                    </Paper>
+                )}
+
+                {/* mantém o conteúdo existente */}
                 <div className="mb-6 flex justify-between items-center">
                     <h2 className="text-2xl font-bold text-gray-900">
-                        {activeTab === 'Dashboard' && 'Visão Geral'}
+                        {activeTab === 'Dashboard'}
                         {activeTab === 'Profile' && 'Meu Perfil'}
-                        {activeTab === 'Add Profissional' && 'Gestão de Profissionais'}
-                        {activeTab === 'Calendário' && 'Agenda'}
-                        {activeTab === 'Financeiro' && 'Financeiro'}
-                        {activeTab === 'Leads' && 'Leads e Marketing'}
+                        {activeTab === 'Add Profissional'}
+                        {activeTab === 'Calendário'}
+                        {activeTab === 'Financeiro'}
+                        {activeTab === 'Leads'}
                         {activeTab === 'Mensagens' && 'Mensagens'}
                         {activeTab === 'Add Admin' && 'Adicionar Administrador'}
                     </h2>
@@ -491,6 +529,7 @@ export default function AdminDashboard() {
                     {renderContent()}
                 </div>
             </main>
+
 
             {/* Modais */}
             {isModalOpen && (

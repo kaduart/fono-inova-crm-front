@@ -1,21 +1,22 @@
 // src/pages/FollowupPage.tsx
+import { Paper, Typography, useTheme } from "@mui/material";
 import { AnimatePresence, motion } from "framer-motion";
-import { RefreshCw, X } from "lucide-react";
+import { Megaphone, RefreshCw, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
+import FollowupAvgTimeCard from "../components/Dashboard/FollowupAvgTimeCard";
+import FollowupComposer from "../components/Dashboard/FollowupComposer";
+import FollowupConversionChart from "../components/Dashboard/FollowupConversionChart";
 import { FollowupFilters } from "../components/Dashboard/FollowupFilters";
 import FollowupInsights from "../components/Dashboard/FollowupInsights";
 import FollowupStats from "../components/Dashboard/FollowupStats";
+import FollowupTrendChart from "../components/Dashboard/FollowupTrendChart";
+import MarketingDashboard from "../components/Dashboard/MarketingDashboard";
 import FollowupTimelineItem from "../components/FollowupTimelineItem";
 import { Button } from "../components/ui/Button";
 import Skeleton from "../components/ui/Skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/Tabs";
 import API from "../services/api";
-import FollowupAvgTimeCard from "../components/Dashboard/FollowupAvgTimeCard";
-import FollowupConversionChart from "../components/Dashboard/FollowupConversionChart";
-import FollowupTrendChart from "../components/Dashboard/FollowupTrendChart";
-import FollowupComposer from "../components/Dashboard/FollowupComposer";
-import MarketingDashboard from "../components/Dashboard/MarketingDashboard";
 
 const FollowupPage = () => {
   const [leads, setLeads] = useState<any[]>([]);
@@ -28,6 +29,7 @@ const FollowupPage = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   const [stats, setStats] = useState<any>(null);
+  const theme = useTheme();
 
   /** ======================
    * FETCHERS
@@ -136,23 +138,53 @@ const FollowupPage = () => {
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6 text-gray-800">
-        📊 Leads / Follow-ups
-      </h1>
+     <Paper
+      elevation={2}
+      sx={{
+        p: 3,
+        mb: 3,
+        borderRadius: 2,
+        background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
+      }}
+    >
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        {/* Ícone e título */}
+        <div className="flex items-center gap-3">
+          <div
+            className="p-2 rounded-lg"
+            style={{ backgroundColor: 'rgba(55,171,135,0.15)' }}
+          >
+            <Megaphone size={24} style={{ color: '#00C087' }} />
+          </div>
+
+          <div>
+            <Typography variant="h4" fontWeight="bold" color="grey.800">
+              Leads e Marketing
+            </Typography>
+            <Typography variant="body2" color="grey.600">
+              Gerencie seus leads, campanhas e automações de atendimento com clareza e eficiência.
+            </Typography>
+          </div>
+        </div>
+      </div>
+    </Paper>
+
 
       {/* Painel de Estatísticas */}
-      {stats ? (
-        <FollowupStats data={stats} />
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-          {[...Array(6)].map((_, i) => (
-            <div
-              key={i}
-              className="animate-pulse bg-gray-200 h-20 rounded-lg"
-            ></div>
-          ))}
-        </div>
-      )}
+      {
+        stats ? (
+          <FollowupStats data={stats} />
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+            {[...Array(6)].map((_, i) => (
+              <div
+                key={i}
+                className="animate-pulse bg-gray-200 h-20 rounded-lg"
+              ></div>
+            ))}
+          </div>
+        )
+      }
 
       {/* Tabs principais */}
       <Tabs defaultValue="timeline">
@@ -277,8 +309,8 @@ const FollowupPage = () => {
                             showModal && selectedLead?._id === lead._id
                           }
                           className={`px-3 py-1 rounded text-sm transition ${showModal && selectedLead?._id === lead._id
-                              ? "bg-blue-200 text-blue-800 cursor-not-allowed"
-                              : "bg-blue-500 hover:bg-blue-600 text-white"
+                            ? "bg-blue-200 text-blue-800 cursor-not-allowed"
+                            : "bg-blue-500 hover:bg-blue-600 text-white"
                             }`}
                         >
                           {showModal && selectedLead?._id === lead._id
@@ -390,7 +422,7 @@ const FollowupPage = () => {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </div >
   );
 };
 

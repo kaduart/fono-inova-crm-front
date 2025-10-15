@@ -516,7 +516,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-primary/10 rounded-lg">
-                            <Calendar className="text-primary" size={24} />
+                            <Calendar size={24} style={{ color: '#00C087' }} />
                         </div>
                         <div>
                             <Typography variant="h4" fontWeight="bold" color="grey.800">
@@ -537,12 +537,13 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             px: 3,
                             py: 1.5,
                             fontWeight: 'bold',
-                            background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                            background: `linear-gradient(135deg, rgb(55,171,135), rgb(40,130,100))`,
                             '&:hover': {
+                                background: `linear-gradient(135deg, rgb(60,180,140), rgb(35,115,90))`,
                                 transform: 'translateY(-1px)',
-                                boxShadow: 4
+                                boxShadow: 4,
                             },
-                            transition: 'all 0.2s'
+                            transition: 'all 0.25s ease-in-out',
                         }}
                     >
                         Novo Agendamento
