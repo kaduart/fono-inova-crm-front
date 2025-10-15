@@ -196,6 +196,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         const time = `${String(event.start.getHours()).padStart(2, '0')}:${String(event.start.getMinutes()).padStart(2, '0')}`;
         const extendedProps = event.extendedProps;
 
+
         setSelectedEvent({
             id: event.id,
             patient: {
@@ -257,9 +258,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
                 const visualConfig = VISUAL_FLAG_CONFIG[visualFlagKey];
 
-
                 return {
-                    id: appt._id || crypto.randomUUID(),
+                    id: appt._id || appt.id,
                     title: `${appt.patient?.fullName || 'Paciente'} - ${appt.doctor?.fullName || 'Profissional'}`,
                     start: startDate,
                     end: endDate,
@@ -335,6 +335,11 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         const PaymentIcon = paymentConfig.icon;
         const OperationalIcon = operationalConfig.icon;
         const VisualIcon = arg.event.extendedProps.visualConfig?.icon;
+        const formatTime = (time) => {
+            if (!time) return '';
+            if (time.length === 5 && time.includes(':')) return time; // já está ok
+            return time.toString().padStart(2, '0') + ':00';
+        };
 
         return (
             <Tooltip
@@ -420,7 +425,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 >
                     {/* 🔹 TOPO - Status financeiro principal */}
                     <div className="flex justify-between items-center mb-1">
-                        <span className="text-xs font-semibold text-gray-700">{arg.timeText}</span>
+                        <span className="text-xs font-semibold text-gray-700">{formatTime(arg.timeText)}</span>
                         {VisualIcon && (
                             <div
                                 className="flex items-center gap-1 px-1 py-0.5 rounded text-[9px] font-bold uppercase"
@@ -457,9 +462,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         </span>
                     </div>
                 </Paper>
-
-
-
             </Tooltip>
         );
     };

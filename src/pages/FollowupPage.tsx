@@ -1,7 +1,7 @@
 // src/pages/FollowupPage.tsx
 import { Paper, Typography, useTheme } from "@mui/material";
 import { AnimatePresence, motion } from "framer-motion";
-import { Megaphone, RefreshCw, Users, X } from "lucide-react";
+import { Megaphone, RefreshCw, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import FollowupAvgTimeCard from "../components/Dashboard/FollowupAvgTimeCard";
@@ -138,36 +138,36 @@ const FollowupPage = () => {
 
   return (
     <div className="container mx-auto p-4">
-     <Paper
-      elevation={2}
-      sx={{
-        p: 3,
-        mb: 3,
-        borderRadius: 2,
-        background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
-      }}
-    >
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        {/* Ícone e título */}
-        <div className="flex items-center gap-3">
-          <div
-            className="p-2 rounded-lg"
-            style={{ backgroundColor: 'rgba(55,171,135,0.15)' }}
-          >
-            <Megaphone size={24} style={{ color: '#00C087' }} />
-          </div>
+      <Paper
+        elevation={2}
+        sx={{
+          p: 3,
+          mb: 3,
+          borderRadius: 2,
+          background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
+        }}
+      >
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          {/* Ícone e título */}
+          <div className="flex items-center gap-3">
+            <div
+              className="p-2 rounded-lg"
+              style={{ backgroundColor: 'rgba(55,171,135,0.15)' }}
+            >
+              <Megaphone size={24} style={{ color: '#00C087' }} />
+            </div>
 
-          <div>
-            <Typography variant="h4" fontWeight="bold" color="grey.800">
-              Leads e Marketing
-            </Typography>
-            <Typography variant="body2" color="grey.600">
-              Gerencie seus leads, campanhas e automações de atendimento com clareza e eficiência.
-            </Typography>
+            <div>
+              <Typography variant="h4" fontWeight="bold" color="grey.800">
+                Leads e Marketing
+              </Typography>
+              <Typography variant="body2" color="grey.600">
+                Gerencie seus leads, campanhas e automações de atendimento com clareza e eficiência.
+              </Typography>
+            </div>
           </div>
         </div>
-      </div>
-    </Paper>
+      </Paper>
 
 
       {/* Painel de Estatísticas */}
