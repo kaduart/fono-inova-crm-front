@@ -213,3 +213,11 @@ export const exportPDF = (filters: Record<string, any> = {}) => {
         responseType: 'blob',
     });
 };
+
+export const addManualPayment = (data: {
+    packageId: string;
+    amount: number;
+    paymentMethod?: string;
+    paymentDate?: string;
+    note?: string;
+}) => API.post('/payments/add', data);

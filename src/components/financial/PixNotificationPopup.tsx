@@ -1,18 +1,13 @@
+import { AnimatePresence, motion } from "framer-motion";
+import { Calendar, CheckCircle, User, X, Zap } from "lucide-react";
 import React from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Calendar, DollarSign, User, X, Zap, CheckCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useNotification } from "../../contexts/NotificationContext";
 import { formatCurrency } from "../../utils/format";
 
-interface PaymentNotification {
-  id: string;
-  amount: number;
-  date: Date;
-  patientName: string;
-}
-
 const PixNotificationPopup: React.FC = () => {
   const { paymentNotification, closePaymentNotification } = useNotification();
+  const navigate = useNavigate();
 
   if (!paymentNotification) return null;
 
@@ -29,6 +24,17 @@ const PixNotificationPopup: React.FC = () => {
       minute: "2-digit",
     });
 
+  const handleViewDetails = () => {
+    if (paymentNotification?.patientName) {
+      // envia o usuário para o módulo financeiro filtrando o paciente
+      const encoded = encodeURIComponent(paymentNotification.patientName.trim());
+      navigate(`/financeiro?patient=${encoded}`);
+    } else {
+      navigate(`/financeiro`);
+    }
+    closePaymentNotification();
+  };
+
   return (
     <AnimatePresence>
       {paymentNotification && (
@@ -37,14 +43,14 @@ const PixNotificationPopup: React.FC = () => {
           initial={{ opacity: 0, y: 40, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 40, scale: 0.95 }}
-          transition={{ 
+          transition={{
             type: "spring",
             damping: 25,
             stiffness: 400,
-            duration: 0.35
+            duration: 0.35,
           }}
         >
-          <div className="relative overflow-hidden bg-gradient-to-br from-emerald-700 via-emerald-600 to-green-500 text-white rounded-2xl shadow-2xl shadow-emerald-500/30 border border-emerald-400/50 w-80 backdrop-blur-md">
+          <div className="relative overflow-hidden bg-gradient-to-br from-emerald-700 via-emerald-600 to-green-500 text-white rounded-2xl shadow-2xl shadow-emerald-500/30 border border-emerald-400/50 w-80 backdrop-blur-md cursor-pointer hover:shadow-emerald-400/50 transition-shadow">
             {/* Efeitos de brilho */}
             <div className="absolute -top-20 -right-20 w-40 h-40 bg-green-300/20 rounded-full blur-2xl"></div>
             <div className="absolute -bottom-16 -left-16 w-32 h-32 bg-lime-300/30 rounded-full blur-xl"></div>
@@ -58,7 +64,7 @@ const PixNotificationPopup: React.FC = () => {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center space-x-3">
                   <div className="relative">
-                    <motion.div 
+                    <motion.div
                       className="bg-white/20 p-2 rounded-xl shadow-lg"
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
@@ -94,7 +100,7 @@ const PixNotificationPopup: React.FC = () => {
               </div>
 
               {/* Valor */}
-              <motion.div 
+              <motion.div
                 className="mb-4"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -123,7 +129,8 @@ const PixNotificationPopup: React.FC = () => {
                   <div>
                     <div className="text-lime-100/80 text-xs">Data e horário</div>
                     <div className="font-medium text-white">
-                      {formatDate(paymentNotification.date)} às {formatTime(paymentNotification.date)}
+                      {formatDate(paymentNotification.date)} às{" "}
+                      {formatTime(paymentNotification.date)}
                     </div>
                   </div>
                 </div>
@@ -139,7 +146,15 @@ const PixNotificationPopup: React.FC = () => {
               {/* Rodapé */}
               <div className="mt-4 flex justify-between items-center">
                 <button
-                  onClick={closePaymentNotification}
+                  onClick={() => {
+                    handleViewDetails();
+                    if (paymentNotification.patientName) {
+                      const encoded = encodeURIComponent(paymentNotification.patientName);
+                      navigate(`/financeiro?patient=${encoded}`);
+                    } else {
+                      navigate("/financeiro");
+                    }
+                  }}
                   className="text-emerald-800 font-semibold text-sm py-2 px-4 rounded-lg bg-lime-300 hover:bg-lime-200 transition-all duration-200 shadow-lg hover:shadow-lime-300/25 hover:scale-105 active:scale-95"
                 >
                   Ver detalhes

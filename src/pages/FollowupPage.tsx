@@ -15,6 +15,7 @@ import FollowupAvgTimeCard from "../components/Dashboard/FollowupAvgTimeCard";
 import FollowupConversionChart from "../components/Dashboard/FollowupConversionChart";
 import FollowupTrendChart from "../components/Dashboard/FollowupTrendChart";
 import FollowupComposer from "../components/Dashboard/FollowupComposer";
+import MarketingDashboard from "../components/Dashboard/MarketingDashboard";
 
 const FollowupPage = () => {
   const [leads, setLeads] = useState<any[]>([]);
@@ -168,6 +169,13 @@ const FollowupPage = () => {
           >
             📈 Insights
           </TabsTrigger>
+          <TabsTrigger
+            value="marketing"
+            className="px-4 py-2 rounded-md text-sm font-medium"
+          >
+            📊 Marketing
+          </TabsTrigger>
+
         </TabsList>
 
         {/* ================================== */}
@@ -268,11 +276,10 @@ const FollowupPage = () => {
                           disabled={
                             showModal && selectedLead?._id === lead._id
                           }
-                          className={`px-3 py-1 rounded text-sm transition ${
-                            showModal && selectedLead?._id === lead._id
+                          className={`px-3 py-1 rounded text-sm transition ${showModal && selectedLead?._id === lead._id
                               ? "bg-blue-200 text-blue-800 cursor-not-allowed"
                               : "bg-blue-500 hover:bg-blue-600 text-white"
-                          }`}
+                            }`}
                         >
                           {showModal && selectedLead?._id === lead._id
                             ? "Aberto"
@@ -305,6 +312,16 @@ const FollowupPage = () => {
             <FollowupAvgTimeCard />
           </div>
         </TabsContent>
+
+        {/* ================================== */}
+        {/* 📊 ABA MARKETING DASHBOARD */}
+        {/* ================================== */}
+        <TabsContent value="marketing">
+          <div className="space-y-6">
+            <MarketingDashboard />
+          </div>
+        </TabsContent>
+
       </Tabs>
 
       {/* ===================== */}

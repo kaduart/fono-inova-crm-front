@@ -393,12 +393,11 @@ export const PaymentModal = ({
                                 Valor (R$) {advanceServices.length === 0 ? '*' : '(Opcional)'}
                             </Label>
                             <InputCurrency
+                                name="amount"
                                 value={paymentData.amount}
-                                onValueChange={(value: number) => handlePaymentDataChange('amount', value)}
-                                disabled={isLoading}
-                                className="w-full p-3 border border-gray-300 rounded-lg bg-white"
-                                placeholder="0,00"
+                                onChange={(e) => handlePaymentDataChange(e.target.name, e.target.value)}
                             />
+
                             <p className="text-xs text-gray-500 mt-1">
                                 {advanceServices.length === 0
                                     ? 'Valor obrigatório para pagamento atual'

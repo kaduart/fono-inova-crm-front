@@ -1,6 +1,8 @@
 import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { usePixSocket } from '../../hooks/usePixSocket';
 import {
     exportCSV,
     exportPDF,
@@ -11,6 +13,7 @@ import {
 } from '../../services/paymentService';
 import { formatDateToDMY } from '../../utils/dateFormat';
 import { IDoctor, IPatient } from '../../utils/types/types';
+import { AddPaymentModal } from './AddPaymentModal';
 import DailyClosingReport from './DailyClosingReport';
 import { EditPaymentModal } from './EditPaymentModal';
 import { PaymentActionIcons } from './PaymentAction';
@@ -45,6 +48,15 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
     const [userRole, setUserRole] = useState<string | null>(null);
     const [user, setUser] = useState<string | null>(null);
 
+    const location = useLocation();
+    const params = new URLSearchParams(location.search);
+    const patientParam = params.get("patient");
+
+    // controle do modal de adicionar pagamento
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
+
+
     useEffect(() => {
         const userString = localStorage.getItem('user') ?? '{}';
         const user = JSON.parse(userString);
@@ -54,13 +66,13 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
         }
     }, []);
 
-
     useEffect(() => {
         if (initialPayments) {
             setAllPayments(initialPayments);
         }
     }, [initialPayments]);
 
+    // 🔹 Mantém sua função atual, usada quando quiser recarregar tudo (tabela + resumo)
     const loadPayments = async () => {
         setLoading(true);
         try {
@@ -68,16 +80,51 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
 
             const res = await getPayments();
             const financial = await getPaymentCountFinancialRecord();
+
             setAllPayments(res.data.data);
             setFinancialRecord(financial.data.data);
         } catch (error) {
-            console.error('Erro ao carregar pagamentos:', error);
-            setError(error instanceof Error ? error.message : 'Erro ao carregar pagamentos');
-            toast.error('Erro ao carregar pagamentos');
+            console.error("Erro ao carregar pagamentos:", error);
+            setError(
+                error instanceof Error ? error.message : "Erro ao carregar pagamentos"
+            );
+            toast.error("Erro ao carregar pagamentos");
         } finally {
             setLoading(false);
         }
     };
+
+    // 🔹 NOVA FUNÇÃO: apenas atualiza o card financeiro (sem refazer toda a lista)
+    const refreshFinancialSummary = async () => {
+        try {
+            const financial = await getPaymentCountFinancialRecord();
+            setFinancialRecord(financial.data.data);
+        } catch (error) {
+            console.error("Erro ao atualizar resumo financeiro:", error);
+        }
+    };
+
+
+    useEffect(() => {
+        if (patientParam && allPayments.length > 0) {
+            const filtered = allPayments.filter(p =>
+                p.patient?.fullName?.toLowerCase().includes(patientParam.toLowerCase())
+            );
+
+            if (filtered.length > 0) {
+                toast.info(`🔍 Exibindo pagamentos de ${patientParam}`);
+                setFilteredPayments(filtered);
+            } else {
+                toast.warn(`Nenhum pagamento encontrado para ${patientParam}`);
+            }
+        } else if (!patientParam) {
+            // Se não tiver query param, mostra todos normalmente
+            setFilteredPayments(allPayments);
+        }
+    }, [patientParam, allPayments]);
+
+
+    usePixSocket({ onPaymentRefresh: refreshFinancialSummary });
 
     useEffect(() => {
         loadPayments();
@@ -217,6 +264,27 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                 </button>
                             </div>
                         </div>
+
+                        {/* 🔹 BOTÃO DE LIMPAR FILTRO (novo) */}
+                        {patientParam && (
+                            <div className="flex justify-end mb-2">
+                                <button
+                                    onClick={() => {
+                                        window.history.replaceState(null, "", "/financeiro");
+                                        setFilteredPayments(allPayments);
+                                        toast.info("Filtro de paciente removido");
+                                    }}
+                                    className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg border border-gray-300 transition-all"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                    </svg>
+                                    Limpar filtro de {patientParam}
+                                </button>
+                            </div>
+                        )}
+
+                        {/* 🔹 SEUS FILTROS */}
                         <PaymentsFilters
                             doctors={doctors || []}
                             payments={allPayments}
@@ -239,7 +307,23 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                             </div>
                         ) : (
+
                             <div className="overflow-x-auto bg-white rounded-lg shadow">
+                            <div className="flex items-center justify-end mb-4">
+  <button
+    onClick={() => {
+      // se quiser selecionar um pacote específico, seta aqui
+      setSelectedPackageId("68fabc1234abcd5678ef9012"); // ← só pra teste, depois pega do real package
+      setIsAddModalOpen(true);
+    }}
+    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow transition-all"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+    </svg>
+    Adicionar Pagamento
+  </button>
+</div>
                                 <table className="w-full min-w-[800px]">
                                     <thead className="bg-gray-50">
                                         <tr>
@@ -397,6 +481,14 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                     Recolher Todos
                 </button>
             </div>
+            {isAddModalOpen && (
+                <AddPaymentModal
+                    packageId={selectedPackageId}
+                    onClose={() => setIsAddModalOpen(false)}
+                    onSuccess={loadPayments}
+                />
+            )}
+
         </div >
     );
 };

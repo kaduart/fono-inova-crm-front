@@ -1,10 +1,11 @@
 import {
     Activity,
-    Brain,
     ChevronDown,
     Clock,
+    DollarSign,
+    Home,
     LogOut,
-    Puzzle,
+    MessageCircle,
     Stethoscope,
     User,
     Users
@@ -12,7 +13,6 @@ import {
 import React, { useState } from "react";
 import { BsSoundwave } from "react-icons/bs";
 import { NavLink, useNavigate } from "react-router-dom";
-import logoUnica from "../../../public/images/logo-clinica-site.png";
 import { useAuth } from "../../contexts/AuthContext";
 import NavButton from "../ui/NavButton";
 import NavDropdownItem from "../ui/NavDropdownItem";
@@ -54,67 +54,78 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     };
 
     return (
-        <header className="bg-gradient-to-r from-teal-400 via-emerald-500 to-green-400 shadow-md text-white">
+        <header className="bg-emerald-700 shadow-lg border-b border-emerald-600 text-white">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between h-16 items-center">
                     {/* Logo e nome da clínica */}
-                    <div className="flex items-center gap-3 cursor-pointer hover:opacity-90 transition-opacity">
+                    <div className="flex items-center gap-3 cursor-pointer">
                         <NavLink
                             to="/admin"
                             className="flex items-center gap-3"
                             onClick={() => handleTabChange("Dashboard")}
                         >
-
-                            <div className="h-8 w-auto rounded-md shadow-sm bg-white/10 p-1">
-                                <BsSoundwave className="w-7 h-7 text-emerald-600" />
-                               {/*  <Puzzle className="w-5 h-5 text-yellow-500" /> */}
-
+                            <div className="h-10 w-10 rounded-lg bg-white flex items-center justify-center shadow-md">
+                                <BsSoundwave className="w-6 h-6 text-emerald-600" />
                             </div>
 
-                           
-                            <span className="text-2xl font-semibold tracking-wide drop-shadow-sm">
-                                {/* Clínica{" "} */}
-                                <span className="font-extrabold tracking-tight">Fono Inova</span>
-                            </span>
+                            <div className="flex flex-col">
+                                <span className="text-xl font-bold text-white">
+                                    Fono Inova
+                                </span>
+                                <span className="text-xs text-emerald-100 font-medium">
+                                    Gestão Clínica
+                                </span>
+                            </div>
                         </NavLink>
                     </div>
 
-                    {/* Navegação */}
-                    <nav className="hidden md:flex items-center space-x-2">
+                    {/* Navegação - CORRIGIDO: texto em cinza para não selecionados */}
+                    <nav className="hidden md:flex items-center space-x-1">
                         <NavButton
                             active={activeTab === "Dashboard"}
                             onClick={() => handleTabChange("Dashboard")}
-                            className="hover:bg-white/20"
+                            icon={<Home size={16} className="text-blue-500" />}
+                            className={activeTab === "Dashboard" ? "bg-blue-100 text-blue-600" : "!text-white"}
                         >
                             Dashboard
                         </NavButton>
 
                         <div className="relative">
                             <NavButton
-                                active={
-                                    activeTab === "Add Profissional" || activeTab === "Add Paciente"
-                                }
+                                active={activeTab === "Add Profissional" || activeTab === "Add Paciente"}
                                 onClick={() => toggleMenu("gestao")}
                                 hasChevron
+                                icon={<Users size={16} className="text-purple-500" />}
+                                className={
+                                    activeTab === "Add Profissional" || activeTab === "Add Paciente"
+                                        ? "bg-blue-100 text-blue-600"
+                                        : "!text-white"
+                                }
                             >
                                 Gestão
                             </NavButton>
 
                             {openMenu === "gestao" && (
-                                <div className="absolute z-10 mt-2 w-48 rounded-md shadow-lg bg-white text-gray-700 ring-1 ring-emerald-500/20 py-1">
+                                <div className="absolute z-10 mt-2 w-56 rounded-lg shadow-xl bg-white border border-emerald-200 py-2">
                                     <NavDropdownItem
                                         active={activeTab === "Add Profissional"}
                                         onClick={() => handleTabChange("Add Profissional")}
-                                        icon={<Stethoscope className="h-4 w-4" />}
+                                        icon={<Stethoscope className="h-4 w-4 text-purple-500" />}
                                     >
-                                        Profissionais
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-gray-800">Profissionais</span>
+                                            <span className="text-xs text-gray-500">Gerencie equipe</span>
+                                        </div>
                                     </NavDropdownItem>
                                     <NavDropdownItem
                                         active={activeTab === "Add Paciente"}
                                         onClick={() => handleTabChange("Add Paciente")}
-                                        icon={<Users className="h-4 w-4" />}
+                                        icon={<Users className="h-4 w-4 text-blue-500" />}
                                     >
-                                        Pacientes
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-gray-800">Pacientes</span>
+                                            <span className="text-xs text-gray-500">Cadastro e histórico</span>
+                                        </div>
                                     </NavDropdownItem>
                                 </div>
                             )}
@@ -123,7 +134,8 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         <NavButton
                             active={activeTab === "Calendário"}
                             onClick={() => handleTabChange("Calendário")}
-                            icon={<Clock className="h-4 w-4" />}
+                            icon={<Clock className="h-4 w-4 text-amber-500" />}
+                            className={activeTab === "Calendário" ? "bg-blue-100 text-blue-600" : "!text-white"}
                         >
                             Agenda
                         </NavButton>
@@ -131,7 +143,8 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         <NavButton
                             active={activeTab === "Financeiro"}
                             onClick={() => handleTabChange("Financeiro")}
-                            icon={<span className="text-sm">💵</span>}
+                            icon={<DollarSign className="h-4 w-4 text-green-500" />}
+                            className={activeTab === "Financeiro" ? "bg-blue-100 text-blue-600" : "!text-white"}
                         >
                             Financeiro
                         </NavButton>
@@ -140,19 +153,24 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                             <NavButton
                                 active={activeTab === "Leads"}
                                 onClick={() => toggleMenu("marketing")}
-                                icon={<Activity className="h-4 w-4" />}
+                                icon={<Activity className="h-4 w-4 text-cyan-500" />}
                                 hasChevron
+                                className={activeTab === "Leads" ? "bg-blue-100 text-blue-600" : "!text-white"}
                             >
                                 Marketing
                             </NavButton>
 
                             {openMenu === "marketing" && (
-                                <div className="absolute z-10 mt-2 w-48 rounded-md shadow-lg bg-white text-gray-700 ring-1 ring-emerald-500/20 py-1">
+                                <div className="absolute z-10 mt-2 w-56 rounded-lg shadow-xl bg-white border border-emerald-200 py-2">
                                     <NavDropdownItem
                                         active={activeTab === "Leads"}
                                         onClick={() => handleTabChange("Leads")}
+                                        icon={<Activity className="h-4 w-4 text-cyan-500" />}
                                     >
-                                        Leads
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-gray-800">Leads</span>
+                                            <span className="text-xs text-gray-500">Potenciais pacientes</span>
+                                        </div>
                                     </NavDropdownItem>
                                 </div>
                             )}
@@ -161,53 +179,67 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         <NavButton
                             active={activeTab === "Mensagens"}
                             onClick={() => handleTabChange("Mensagens")}
-                            icon={<span className="text-sm">📳</span>}
+                            icon={<MessageCircle className="h-4 w-4 text-emerald-500" />}
+                            className={activeTab === "Mensagens" ? "bg-blue-100 text-blue-600" : "!text-white"}
                         >
                             WhatsApp
                         </NavButton>
                     </nav>
 
-                    {/* Perfil */}
+                    {/* Perfil - VERSÃO ELEGANTE MELHORADA */}
                     <div className="relative">
                         <button
                             onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                            className="flex items-center space-x-2 p-2 rounded-md hover:bg-white/10 transition-colors"
+                            className="flex items-center space-x-3 p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-200 group shadow-md"
                         >
-                            <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
+                            <div className="flex flex-col items-end">
                                 <span className="text-sm font-medium">
+                                    {adminInfo?.fullName?.split(' ')[0] || "Admin"}
+                                </span>
+                                <span className="text-xs text-emerald-100">
+                                    {adminInfo?.role || "Administrador"}
+                                </span>
+                            </div>
+                            <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center border border-white/30">
+                                <span className="text-sm font-bold">
                                     {adminInfo?.fullName?.charAt(0) || "A"}
                                 </span>
                             </div>
-                            <ChevronDown className="h-4 w-4" />
+                            <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
                         </button>
 
                         {isProfileDropdownOpen && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-emerald-100">
-                                <div className="px-4 py-2 border-b border-gray-100">
-                                    <p className="text-sm font-medium text-gray-800">
-                                        {adminInfo?.fullName || "Admin"}
+                            <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl py-3 z-50 border border-emerald-200">
+                                {/* Header do perfil elegante */}
+                                <div className="px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-t-xl">
+                                    <p className="text-sm font-semibold">
+                                        {adminInfo?.fullName || "Administrador"}
                                     </p>
-                                    <p className="text-xs text-gray-500 truncate">
+                                    <p className="text-xs text-emerald-100 truncate mt-1">
                                         {adminInfo?.email || ""}
                                     </p>
                                 </div>
-                                <button
-                                    onClick={() => {
-                                        setActiveTab("Profile");
-                                        setIsProfileDropdownOpen(false);
-                                    }}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-emerald-50"
-                                >
-                                    <User className="h-4 w-4 mr-2 text-emerald-600" />
-                                    Meu Perfil
-                                </button>
-                                <button
-                                    onClick={handleLogout}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                                >
-                                    <LogOut className="h-4 w-4 mr-2" />
-                                    Sair
-                                </button>
+
+                                <div className="p-2">
+                                    <button
+                                        onClick={() => {
+                                            setActiveTab("Profile");
+                                            setIsProfileDropdownOpen(false);
+                                        }}
+                                        className="flex items-center w-full px-3 py-3 text-sm text-gray-700 hover:bg-emerald-50 rounded-lg transition-colors duration-150"
+                                    >
+                                        <User className="h-4 w-4 mr-3 text-emerald-600" />
+                                        <span>Meu Perfil</span>
+                                    </button>
+
+                                    <button
+                                        onClick={handleLogout}
+                                        className="flex items-center w-full px-3 py-3 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-150 mt-1"
+                                    >
+                                        <LogOut className="h-4 w-4 mr-3" />
+                                        <span className="font-medium">Sair do Sistema</span>
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>

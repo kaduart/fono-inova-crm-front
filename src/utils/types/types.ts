@@ -318,6 +318,7 @@ export interface IAppointment {
     paymentAmount: number;
     notes?: string;
     serviceType: string;
+    paymentStatus: string
     createdAt: Date;
     updatedAt: Date;
     canceledAt?: Date;

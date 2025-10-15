@@ -1112,7 +1112,7 @@ export default function AdminDashboard2() {
                 Financeiro
               </NavButton>
 
-              {/* Marketing */}
+              {/* createClient */}
               <div className="relative">
                 <NavButton
                   active={activeTab === 'Leads'}
