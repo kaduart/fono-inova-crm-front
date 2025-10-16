@@ -363,21 +363,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                         ) : (
 
                             <div className="overflow-x-auto bg-white rounded-lg shadow">
-                                <div className="flex items-center justify-end mb-4">
-                                    <button
-                                        onClick={() => {
-                                            // se quiser selecionar um pacote específico, seta aqui
-                                            setSelectedPackageId("68fabc1234abcd5678ef9012"); // ← só pra teste, depois pega do real package
-                                            setIsAddModalOpen(true);
-                                        }}
-                                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow transition-all"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                        </svg>
-                                        Adicionar Pagamento
-                                    </button>
-                                </div>
+
                                 <table className="w-full min-w-[800px]">
                                     <thead className="bg-gray-50">
                                         <tr>
@@ -416,13 +402,26 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                                     {payment.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                                 </td>
                                                 <td className="px-2 py-2 text-left whitespace-nowrap">
-                                                    <span className={`px-2 py-1 rounded-full text-xs font-semibold 
-            ${payment.status === 'paid' ? 'bg-green-100 text-green-800' :
-                                                            payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                                'bg-red-100 text-red-800'}`}>
-                                                        {payment.status === 'paid' ? 'PAGO' :
-                                                            payment.status === 'pending' ? 'PENDENTE' : 'CANCELADO'}
+                                                    <span
+                                                        className={`px-2 py-1 rounded-full text-xs font-semibold 
+  ${payment.status === 'paid'
+                                                                ? 'bg-green-100 text-green-800'
+                                                                : payment.status === 'partial'
+                                                                    ? 'bg-orange-100 text-orange-800'
+                                                                    : payment.status === 'pending'
+                                                                        ? 'bg-yellow-100 text-yellow-800'
+                                                                        : 'bg-red-100 text-red-800'
+                                                            }`}
+                                                    >
+                                                        {payment.status === 'paid'
+                                                            ? 'PAGO'
+                                                            : payment.status === 'partial'
+                                                                ? 'PARCIAL'
+                                                                : payment.status === 'pending'
+                                                                    ? 'PENDENTE'
+                                                                    : 'CANCELADO'}
                                                     </span>
+
                                                 </td>
                                                 <td className="px-2 py-2 text-left whitespace-nowrap text-sm text-gray-500">
                                                     {payment.paymentMethod}
@@ -433,12 +432,17 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                                         onMarkAsPaid={() => onMarkAsPaid(payment)}
                                                         onCancelPayment={onCancelPayment}
                                                         onEditAmount={handleEditAmount}
+                                                        onAddPaymentToPackage={(packageId) => {
+                                                            setSelectedPackageId(packageId);
+                                                            setIsAddModalOpen(true);
+                                                        }}
                                                         disabled={!(userRole && ['admin', 'secretary'].includes(userRole) && payment.status !== 'canceled')}
                                                     />
                                                 </td>
 
                                             </tr>
                                         ))}
+
                                     </tbody>
                                     <tfoot>
                                         <tr>

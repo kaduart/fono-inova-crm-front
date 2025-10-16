@@ -1,7 +1,7 @@
 // src/pages/FollowupPage.tsx
 import { Paper, Typography, useTheme } from "@mui/material";
 import { AnimatePresence, motion } from "framer-motion";
-import { Megaphone, RefreshCw, X } from "lucide-react";
+import { Megaphone, RefreshCw, X, Search, BarChart3, TrendingUp, MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import FollowupAvgTimeCard from "../components/Dashboard/FollowupAvgTimeCard";
@@ -137,145 +137,140 @@ const FollowupPage = () => {
    * ====================== */
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="min-h-screen bg-slate-50/30 p-6">
+      {/* CABEÇALHO ELEGANTE */}
       <Paper
-        elevation={2}
+        elevation={0}
         sx={{
-          p: 3,
-          mb: 3,
-          borderRadius: 2,
-          background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
+          p: 4,
+          mb: 6,
+          borderRadius: 3,
+          background: `linear-gradient(135deg, ${theme.palette.primary.main}08, ${theme.palette.secondary.main}05)`,
+          border: `1px solid ${theme.palette.grey[200]}`,
         }}
       >
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          {/* Ícone e título */}
-          <div className="flex items-center gap-3">
-            <div
-              className="p-2 rounded-lg"
-              style={{ backgroundColor: 'rgba(55,171,135,0.15)' }}
-            >
-              <Megaphone size={24} style={{ color: '#00C087' }} />
-            </div>
+          <div className="flex items-center gap-4">
+                                    <div className="p-2 bg-primary/10 rounded-lg">
 
+              <Megaphone size={28} className="text-emerald-600" />
+            </div>
             <div>
-              <Typography variant="h4" fontWeight="bold" color="grey.800">
-                Leads e Marketing
+              <Typography variant="h4" fontWeight="bold" color="grey.800" className="mb-1">
+                Gestão de Leads
               </Typography>
-              <Typography variant="body2" color="grey.600">
+              <Typography variant="body2" color="grey.600" className="max-w-2xl">
                 Gerencie seus leads, campanhas e automações de atendimento com clareza e eficiência.
               </Typography>
             </div>
           </div>
+          
+          <Button
+            onClick={handleRefresh}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-200"
+          >
+            <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />
+            Atualizar
+          </Button>
         </div>
       </Paper>
 
+      {/* ESTATÍSTICAS */}
+      {stats ? (
+        <FollowupStats data={stats} />
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="animate-pulse bg-slate-200 h-24 rounded-xl"></div>
+          ))}
+        </div>
+      )}
 
-      {/* Painel de Estatísticas */}
-      {
-        stats ? (
-          <FollowupStats data={stats} />
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-            {[...Array(6)].map((_, i) => (
-              <div
-                key={i}
-                className="animate-pulse bg-gray-200 h-20 rounded-lg"
-              ></div>
-            ))}
-          </div>
-        )
-      }
-
-      {/* Tabs principais */}
+      {/* TABS ELEGANTES */}
       <Tabs defaultValue="timeline">
-        <TabsList className="bg-white rounded-lg shadow mb-6 flex gap-4 p-2">
+        <TabsList className="bg-white rounded-2xl shadow-sm border border-slate-200 mb-6 flex gap-1 p-1.5">
           <TabsTrigger
             value="timeline"
-            className="px-4 py-2 rounded-md text-sm font-medium"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 data-[state=active]:bg-emerald-500 data-[state=active]:text-white"
           >
-            📋 Timeline
+            <MessageCircle size={16} />
+            Timeline
           </TabsTrigger>
           <TabsTrigger
             value="analytics"
-            className="px-4 py-2 rounded-md text-sm font-medium"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 data-[state=active]:bg-emerald-500 data-[state=active]:text-white"
           >
-            📈 Insights
+            <BarChart3 size={16} />
+            Insights
           </TabsTrigger>
           <TabsTrigger
             value="marketing"
-            className="px-4 py-2 rounded-md text-sm font-medium"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 data-[state=active]:bg-emerald-500 data-[state=active]:text-white"
           >
-            📊 Marketing
+            <TrendingUp size={16} />
+            Marketing
           </TabsTrigger>
-
         </TabsList>
 
         {/* ================================== */}
         {/* 📋 ABA TIMELINE */}
         {/* ================================== */}
-        <TabsContent value="timeline">
-          <div className="flex justify-end mb-4">
-            <Button
-              onClick={handleRefresh}
-              className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded flex items-center gap-2 text-sm shadow-sm"
-            >
-              <RefreshCw
-                size={14}
-                className={`${refreshing ? "animate-spin" : ""}`}
-              />{" "}
-              Atualizar agora
-            </Button>
-          </div>
-
+        <TabsContent value="timeline" className="space-y-6">
           <FollowupFilters onFilter={handleFilter} />
 
-          <div className="bg-white p-4 rounded shadow mb-6 flex justify-between items-center">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nome ou telefone..."
-              className="border p-2 rounded w-full mr-4 focus:ring-2 focus:ring-blue-400 focus:outline-none"
-            />
-            <button
-              onClick={fetchLeads}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center gap-2"
-            >
-              <RefreshCw size={16} /> Buscar
-            </button>
+          {/* BARRA DE BUSCA ELEGANTE */}
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <div className="flex gap-3">
+              <div className="flex-1 relative">
+                <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar por nome ou telefone..."
+                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none transition-colors"
+                />
+              </div>
+              <button
+                onClick={fetchLeads}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl flex items-center gap-2 transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                <Search size={16} />
+                Buscar
+              </button>
+            </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="w-full table-auto">
+          {/* TABELA ELEGANTE */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <table className="w-full">
               <thead>
-                <tr className="bg-blue-50 text-left">
-                  <th className="p-3 font-semibold text-blue-700">Nome</th>
-                  <th className="p-3 font-semibold text-blue-700">Origem</th>
-                  <th className="p-3 font-semibold text-blue-700">Status</th>
-                  <th className="p-3 font-semibold text-blue-700">Contato</th>
-                  <th className="p-3 font-semibold text-blue-700 text-center">
-                    Timeline
-                  </th>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="p-4 font-semibold text-slate-700 text-left">Nome</th>
+                  <th className="p-4 font-semibold text-slate-700 text-left">Origem</th>
+                  <th className="p-4 font-semibold text-slate-700 text-left">Status</th>
+                  <th className="p-4 font-semibold text-slate-700 text-left">Contato</th>
+                  <th className="p-4 font-semibold text-slate-700 text-center">Timeline</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   [...Array(6)].map((_, i) => (
-                    <tr key={i}>
-                      <td className="p-3">
-                        <Skeleton className="h-4 w-40" />
+                    <tr key={i} className="border-b border-slate-100 last:border-0">
+                      <td className="p-4">
+                        <Skeleton className="h-4 w-40 rounded" />
                       </td>
-                      <td className="p-3">
-                        <Skeleton className="h-4 w-24" />
+                      <td className="p-4">
+                        <Skeleton className="h-4 w-24 rounded" />
                       </td>
-                      <td className="p-3">
-                        <Skeleton className="h-4 w-20" />
+                      <td className="p-4">
+                        <Skeleton className="h-4 w-20 rounded" />
                       </td>
-                      <td className="p-3">
-                        <Skeleton className="h-4 w-28" />
+                      <td className="p-4">
+                        <Skeleton className="h-4 w-28 rounded" />
                       </td>
-                      <td className="p-3 text-center">
-                        <Skeleton className="h-8 w-24 mx-auto" />
+                      <td className="p-4 text-center">
+                        <Skeleton className="h-8 w-24 rounded mx-auto" />
                       </td>
                     </tr>
                   ))
@@ -283,35 +278,42 @@ const FollowupPage = () => {
                   leads.map((lead) => (
                     <tr
                       key={lead._id}
-                      className="border-b hover:bg-blue-50 transition"
+                      className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors"
                     >
-                      <td className="p-3">{lead.name}</td>
-                      <td className="p-3">{lead.origin}</td>
-                      <td className="p-3 capitalize">{lead.status}</td>
-                      <td className="p-3">
+                      <td className="p-4 font-medium text-slate-800">{lead.name}</td>
+                      <td className="p-4 text-slate-600">{lead.origin}</td>
+                      <td className="p-4">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${
+                          lead.status === 'ativo' ? 'bg-emerald-100 text-emerald-800' :
+                          lead.status === 'inativo' ? 'bg-slate-100 text-slate-800' :
+                          'bg-amber-100 text-amber-800'
+                        }`}>
+                          {lead.status}
+                        </span>
+                      </td>
+                      <td className="p-4">
                         {lead.contact?.phone ? (
                           <a
                             href={`https://wa.me/${lead.contact.phone}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-green-600 hover:underline"
+                            className="text-emerald-600 hover:text-emerald-700 font-medium hover:underline flex items-center gap-1"
                           >
                             {lead.contact.phone}
                           </a>
                         ) : (
-                          lead.contact?.email || "-"
+                          <span className="text-slate-400">-</span>
                         )}
                       </td>
-                      <td className="text-center p-3">
+                      <td className="text-center p-4">
                         <Button
                           onClick={() => openLeadTimeline(lead)}
-                          disabled={
+                          disabled={showModal && selectedLead?._id === lead._id}
+                          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
                             showModal && selectedLead?._id === lead._id
-                          }
-                          className={`px-3 py-1 rounded text-sm transition ${showModal && selectedLead?._id === lead._id
-                            ? "bg-blue-200 text-blue-800 cursor-not-allowed"
-                            : "bg-blue-500 hover:bg-blue-600 text-white"
-                            }`}
+                              ? "bg-slate-100 text-slate-600 cursor-not-allowed"
+                              : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg hover:shadow-xl"
+                          }`}
                         >
                           {showModal && selectedLead?._id === lead._id
                             ? "Aberto"
@@ -331,16 +333,11 @@ const FollowupPage = () => {
         {/* ================================== */}
         <TabsContent value="analytics">
           <div className="space-y-6">
-            {/* KPIs principais */}
             <FollowupInsights />
-
-            {/* Gráficos principais */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <FollowupTrendChart />
               <FollowupConversionChart />
             </div>
-
-            {/* Tempo médio de resposta */}
             <FollowupAvgTimeCard />
           </div>
         </TabsContent>
@@ -353,76 +350,88 @@ const FollowupPage = () => {
             <MarketingDashboard />
           </div>
         </TabsContent>
-
       </Tabs>
 
       {/* ===================== */}
-      {/* MODAL TIMELINE */}
+      {/* MODAL TIMELINE ELEGANTE */}
       {/* ===================== */}
       <AnimatePresence>
         {showModal && selectedLead && (
           <motion.div
-            className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center"
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="bg-white p-6 rounded-xl shadow-lg w-full max-w-md relative overflow-y-auto max-h-[90vh]"
-              initial={{ y: 24, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 24, opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden border border-slate-200"
+              initial={{ y: 20, opacity: 0, scale: 0.95 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 20, opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
             >
-              <button
-                onClick={closeModal}
-                className="absolute right-3 top-3 text-gray-500 hover:text-gray-800"
-              >
-                <X size={18} />
-              </button>
-
-              <h2 className="text-xl font-semibold mb-4 text-gray-800">
-                Timeline de {selectedLead.name}
-              </h2>
-
-              {loadingTimeline ? (
-                <div className="space-y-4">
-                  {[...Array(4)].map((_, i) => (
-                    <div key={i} className="pl-3 border-l border-blue-200">
-                      <Skeleton className="h-3 w-24 mb-2" />
-                      <Skeleton className="h-4 w-64" />
-                    </div>
-                  ))}
+              {/* CABEÇALHO DO MODAL */}
+              <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 p-6 text-white">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold">
+                    Timeline de {selectedLead.name}
+                  </h2>
+                  <button
+                    onClick={closeModal}
+                    className="p-1 hover:bg-white/20 rounded-lg transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
                 </div>
-              ) : followups.length === 0 ? (
-                <p className="text-gray-500 text-sm">
-                  Nenhum follow-up encontrado.
+                <p className="text-emerald-100 text-sm mt-1">
+                  Histórico completo de interações
                 </p>
-              ) : (
-                <ol className="relative border-l border-blue-200 pl-3">
-                  {followups.map((fu) => (
-                    <FollowupTimelineItem
-                      key={fu._id}
-                      fu={fu}
-                      onResend={resendFollowup}
-                    />
-                  ))}
-                </ol>
-              )}
+              </div>
 
-              {selectedLead?._id && (
-                <div className="mt-6">
-                  <FollowupComposer
-                    lead={selectedLead}
-                    onCreated={() => fetchLeadFollowups(selectedLead._id)}
-                  />
-                </div>
-              )}
+              {/* CONTEÚDO DO MODAL */}
+              <div className="max-h-[60vh] overflow-y-auto p-6">
+                {loadingTimeline ? (
+                  <div className="space-y-4">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="pl-4 border-l-2 border-slate-200">
+                        <Skeleton className="h-3 w-24 mb-2 rounded" />
+                        <Skeleton className="h-4 w-64 rounded" />
+                      </div>
+                    ))}
+                  </div>
+                ) : followups.length === 0 ? (
+                  <div className="text-center py-8">
+                    <MessageCircle size={48} className="text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 text-sm">
+                      Nenhum follow-up encontrado.
+                    </p>
+                  </div>
+                ) : (
+                  <ol className="relative border-l-2 border-emerald-200 pl-4 space-y-6">
+                    {followups.map((fu) => (
+                      <FollowupTimelineItem
+                        key={fu._id}
+                        fu={fu}
+                        onResend={resendFollowup}
+                      />
+                    ))}
+                  </ol>
+                )}
+
+                {selectedLead?._id && (
+                  <div className="mt-6 pt-6 border-t border-slate-200">
+                    <FollowupComposer
+                      lead={selectedLead}
+                      onCreated={() => fetchLeadFollowups(selectedLead._id)}
+                    />
+                  </div>
+                )}
+              </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div >
+    </div>
   );
 };
 

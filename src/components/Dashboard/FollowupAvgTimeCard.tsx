@@ -10,10 +10,12 @@ const FollowupAvgTimeCard = () => {
     }, []);
 
     return (
-        <div className="bg-white rounded-lg shadow p-4 mt-6 flex items-center justify-center flex-col">
-            <Clock className="text-blue-500 mb-2" size={32} />
-            <h3 className="text-sm font-semibold text-gray-700">⏱ Tempo médio de resposta</h3>
-            <p className="text-2xl font-bold text-blue-600 mt-1">{avg} min</p>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex items-center justify-center flex-col group hover:shadow-md transition-all duration-200">
+            <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20 mb-3 group-hover:scale-105 transition-transform duration-200">
+                <Clock className="text-blue-600" size={24} />
+            </div>
+            <h3 className="text-sm font-semibold text-slate-600 mb-1">Tempo médio de resposta</h3>
+            <p className="text-2xl font-bold text-slate-800">{avg} min</p>
         </div>
     );
 };
