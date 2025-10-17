@@ -20,9 +20,9 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
         title: appt?.doctor?.fullName || '-',
         date: appt.date,
         backgroundColor:
-            appt.operationalStatus === 'cancelado'
+            appt.operationalStatus === 'canceled'
                 ? '#f87171' // vermelho
-                : appt.operationalStatus === 'realizado'
+                : appt.operationalStatus === 'confirmed'
                     ? '#4ade80' // verde
                     : '#60a5fa', // azul
     }));

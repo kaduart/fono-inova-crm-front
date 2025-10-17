@@ -21,14 +21,14 @@ export const resolveStatus = (
     currentStatus?: AppointmentStatus
 ): { operationalStatus: string; clinicalStatus: string } => {
     const defaults = {
-        operationalStatus: 'agendado',
-        clinicalStatus: 'pendente'
+        operationalStatus: 'scheduled',
+        clinicalStatus: 'pending'
     };
 
     const statusMap: Record<string, { operationalStatus: string; clinicalStatus: string }> = {
         create: defaults,
-        complete: { operationalStatus: 'pago', clinicalStatus: 'concluído' },
-        cancel: { operationalStatus: 'cancelado', clinicalStatus: 'cancelado' },
+        complete: { operationalStatus: 'paid', clinicalStatus: 'completed' },
+        cancel: { operationalStatus: 'canceled', clinicalStatus: 'missed' },
         update: currentStatus ? {
             operationalStatus: getStatusConfig(currentStatus)?.type === 'operational' ? currentStatus : defaults.operationalStatus,
             clinicalStatus: getStatusConfig(currentStatus)?.type === 'clinical' ? currentStatus : defaults.clinicalStatus

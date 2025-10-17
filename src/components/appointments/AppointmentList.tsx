@@ -24,11 +24,11 @@ export default function AppointmentList({ appointments, onUpdateStatus }: Appoin
                                 {new Date(appointment.date).toLocaleDateString('pt-BR')} às {appointment.time}
                             </p>
                         </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${appointment.status === 'confirmado'
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${appointment.status === 'confirmed'
                             ? 'bg-green-100 text-green-800'
-                            : appointment.status === 'cancelado'
+                            : appointment.status === 'canceled'
                                 ? 'bg-red-100 text-red-800'
-                                : appointment.status === 'concluído'
+                                : appointment.status === 'confirmed'
                                     ? 'bg-blue-100 text-blue-800'
                                     : 'bg-yellow-100 text-yellow-800'
                             }`}>
@@ -37,12 +37,12 @@ export default function AppointmentList({ appointments, onUpdateStatus }: Appoin
                     </div>
                     <p className="mt-2 text-sm">{appointment.reason}</p>
 
-                    {appointment.status !== 'concluído' && appointment.status !== 'cancelado' && (
+                    {appointment.status !== 'confirmed' && appointment.status !== 'canceled' && (
                         <div className="mt-4 flex gap-2">
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => onUpdateStatus(appointment._id, 'concluído')}
+                                onClick={() => onUpdateStatus(appointment._id, 'confirmed')}
                             >
                                 <CheckCircle className="h-4 w-4 mr-1 text-green-500" />
                                 Concluirss
@@ -50,7 +50,7 @@ export default function AppointmentList({ appointments, onUpdateStatus }: Appoin
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => onUpdateStatus(appointment._id, 'cancelado')}
+                                onClick={() => onUpdateStatus(appointment._id, 'canceled')}
                             >
                                 <XCircle className="h-4 w-4 mr-1 text-red-500" />
                                 Cancelar

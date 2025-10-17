@@ -310,8 +310,8 @@ export interface IAppointment {
     date: string;
     time: string;
     reason: string;
-    clinicalStatus?: 'pendente' | 'em_andamento' | 'concluído' | 'faltou';
-    operationalStatus?: 'agendado' | 'confirmado' | 'cancelado' | 'pago' | 'faltou';
+    clinicalStatus?: 'pending' | 'in_progress' | 'completed' | 'missed';
+    operationalStatus?: 'scheduled' | 'confirmed' | 'canceled' | 'paid' | 'missed';
     duration: number;
     sessionType: TherapyType;
     paymentMethod?: string;

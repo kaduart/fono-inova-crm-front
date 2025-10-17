@@ -227,8 +227,8 @@ export default function AdminDashboard() {
             paymentMethod: appointmentData.paymentMethod,
             reason: appointmentData.reason,
             specialty: appointmentData.sessionType,
-            clinicalStatus: 'pendente',
-            operationalStatus: 'agendado',
+            clinicalStatus: 'pending',
+            operationalStatus: 'scheduled',
             packageId: appointmentData.packageId
         };
 

@@ -147,8 +147,8 @@ export default function PatientDashboard() {
         time: appointmentData.time,
         reason: appointmentData.reason,
         specialty: appointmentData.sessionType,
-        clinicalStatus: 'pendente',
-        operationalStatus: 'agendado'
+        clinicalStatus: 'pending',
+        operationalStatus: 'scheduled'
       };
 
       await createAppointment(payload);
@@ -544,9 +544,9 @@ export default function PatientDashboard() {
                       </div>
 
                       <div className="flex items-center gap-2 mt-2">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${appointment.operationalStatus === 'confirmado'
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${appointment.operationalStatus === 'confirmed'
                           ? 'bg-green-100 text-green-800'
-                          : appointment.operationalStatus === 'cancelado'
+                          : appointment.operationalStatus === 'canceled'
                             ? 'bg-red-100 text-red-800'
                             : 'bg-blue-100 text-blue-800'
                           }`}>
@@ -616,7 +616,7 @@ export default function PatientDashboard() {
                     <div className="bg-gray-50 rounded-lg p-4">
                       <div className="flex justify-between">
                         <h4 className="font-medium text-gray-900">
-                          {appointment.operationalStatus === 'confirmado'
+                          {appointment.operationalStatus === 'confirmed'
                             ? 'Consulta realizada'
                             : 'Consulta cancelada'}
                         </h4>

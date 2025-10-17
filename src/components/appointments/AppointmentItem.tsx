@@ -1,31 +1,31 @@
-import React from 'react';
-import { 
-  Box, Typography, Chip, Stack, IconButton, Tooltip 
-} from '@mui/material';
 import {
-  AccessTime as TimeIcon,
-  Person as PersonIcon,
-  CheckCircle as CompletedIcon,
   Cancel as CancelledIcon,
+  CheckCircle as CompletedIcon,
   Paid as PaidIcon,
-  HourglassTop as PendingIcon
+  HourglassTop as PendingIcon,
+  Person as PersonIcon,
+  AccessTime as TimeIcon,
 } from '@mui/icons-material';
+import { Box, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import { CheckCircleIcon } from 'lucide-react';
 
-const getStatusIcon = (clinicalStatus, operationalStatus) => {
-  if (clinicalStatus === 'concluído') return <CompletedIcon color="success" />;
-  if (clinicalStatus === 'faltou') return <CancelledIcon color="error" />;
-  if (operationalStatus === 'pago') return <PaidIcon color="success" />;
+// 🔹 Ajuste de status em inglês
+const getStatusIcon = (clinicalStatus: string, operationalStatus: string) => {
+  if (clinicalStatus === 'completed') return <CompletedIcon color="success" />;
+  if (clinicalStatus === 'missed') return <CancelledIcon color="error" />;
+  if (operationalStatus === 'paid') return <PaidIcon color="success" />;
+  if (operationalStatus === 'canceled') return <CancelledIcon color="error" />;
+  if (operationalStatus === 'confirmed') return <CompletedIcon color="info" />;
   return <PendingIcon color="info" />;
 };
 
-const getStatusLabel = (clinicalStatus, operationalStatus) => {
-  if (clinicalStatus === 'em_andamento') return 'Em atendimento';
-  if (clinicalStatus === 'concluído') return 'Atendimento concluído';
-  if (clinicalStatus === 'faltou') return 'Paciente faltou';
-  if (operationalStatus === 'cancelado') return 'Cancelado';
-  if (operationalStatus === 'confirmado') return 'Confirmado';
-  if (operationalStatus === 'pago') return 'Pagamento confirmado';
+const getStatusLabel = (clinicalStatus: string, operationalStatus: string) => {
+  if (clinicalStatus === 'in_progress') return 'Em atendimento';
+  if (clinicalStatus === 'completed') return 'Atendimento concluído';
+  if (clinicalStatus === 'missed') return 'Paciente faltou';
+  if (operationalStatus === 'canceled') return 'Cancelado';
+  if (operationalStatus === 'confirmed') return 'Confirmado';
+  if (operationalStatus === 'paid') return 'Pagamento confirmado';
   return 'Agendado';
 };
 
@@ -40,16 +40,15 @@ const AppointmentItem = ({ appointment, onUpdateStatus }) => {
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
             <TimeIcon fontSize="small" />
             <Typography variant="body2">
-              {new Date(appointment.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {new Date(appointment.date).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
             </Typography>
-            <Chip 
-              label={appointment.specialty} 
-              size="small" 
-              variant="outlined" 
-            />
+            <Chip label={appointment.specialty} size="small" variant="outlined" />
           </Stack>
         </Box>
-        
+
         <Box sx={{ textAlign: 'right' }}>
           <Stack direction="row" spacing={1} alignItems="center">
             <Tooltip title={getStatusLabel(appointment.clinicalStatus, appointment.operationalStatus)}>
@@ -59,28 +58,28 @@ const AppointmentItem = ({ appointment, onUpdateStatus }) => {
               {getStatusLabel(appointment.clinicalStatus, appointment.operationalStatus)}
             </Typography>
           </Stack>
-          
-          {appointment.clinicalStatus === 'pendente' && (
+
+          {appointment.clinicalStatus === 'pending' && (
             <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
               <Tooltip title="Iniciar atendimento">
                 <IconButton
                   size="small"
                   color="primary"
-                  onClick={() => onUpdateStatus('em_andamento')}
+                  onClick={() => onUpdateStatus('in_progress')}
                 >
                   <PersonIcon />
                 </IconButton>
               </Tooltip>
             </Stack>
           )}
-          
-          {appointment.clinicalStatus === 'em_andamento' && (
+
+          {appointment.clinicalStatus === 'in_progress' && (
             <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
               <Tooltip title="Concluir atendimento">
                 <IconButton
                   size="small"
                   color="success"
-                  onClick={() => onUpdateStatus('concluído')}
+                  onClick={() => onUpdateStatus('completed')}
                 >
                   <CheckCircleIcon />
                 </IconButton>
@@ -89,7 +88,7 @@ const AppointmentItem = ({ appointment, onUpdateStatus }) => {
                 <IconButton
                   size="small"
                   color="error"
-                  onClick={() => onUpdateStatus('faltou')}
+                  onClick={() => onUpdateStatus('missed')}
                 >
                   <CancelledIcon />
                 </IconButton>

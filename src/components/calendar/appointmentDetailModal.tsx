@@ -225,10 +225,10 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
                                             <div className="flex items-center">
                                                 <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full">
-                                                    {session.operationalStatus === 'agendado' ? 'Pago' : 'Utilizado'}
+                                                    {session.operationalStatus === 'scheduled' ? 'Pago' : 'Utilizado'}
                                                 </span>
 
-                                                {session.operationalStatus === 'agendado' && onCancelAdvancedSession && (
+                                                {session.operationalStatus === 'scheduled' && onCancelAdvancedSession && (
                                                     <button
                                                         className="ml-2 text-red-500 hover:text-red-700"
                                                         onClick={() => handleCancelAdvancedSession(session._id)}

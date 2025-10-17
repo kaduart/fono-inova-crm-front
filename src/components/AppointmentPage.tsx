@@ -82,9 +82,9 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({ open, mode, initialData, 
                                 label="Status"
                                 onChange={handleChange('status')}
                             >
-                                <MenuItem value="agendado">Agendado</MenuItem>
-                                <MenuItem value="concluído">Concluído</MenuItem>
-                                <MenuItem value="cancelado">Cancelado</MenuItem>
+                                <MenuItem value="scheduled">Agendado</MenuItem>
+                                <MenuItem value="confirmed">Concluído</MenuItem>
+                                <MenuItem value="canceled">Cancelado</MenuItem>
                             </Select>
                         </FormControl>
                         <TextField

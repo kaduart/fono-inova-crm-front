@@ -142,16 +142,28 @@ const usePayment = () => {
   const fetchDailyClosing = useCallback(async (date?: string) => {
     setLoading(true);
     try {
-      const data = await getDailyClosing(date);
-      setDailyClosing(data.data.data);
+      const res = await getDailyClosing(date);
+
+      // O backend retorna { success, data, meta }
+      setDailyClosing(res?.data?.data || null);
       setError(null);
-    } catch (err) {
-      setError('Erro ao buscar fechamento diário');
-      console.error(err);
+    } catch (e: any) {
+      console.error("❌ Erro no fetchDailyClosing:", e);
+      setError(e?.message || "Erro ao buscar fechamento diário");
+      setDailyClosing(null);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  // ✅ retorna tudo centralizado
+  return {
+    dailyClosing,
+    loading,
+    error,
+    fetchDailyClosing,
+  };
+
 
   // Detalhes de pagamentos diários
   const fetchDailyPayments = useCallback(async (date?: string) => {

@@ -15,32 +15,49 @@ export interface StatusConfig {
     };
 }
 export const OPERATIONAL_STATUS_CONFIG: StatusConfig = {
-    agendado: {
-        backgroundColor: '#4CAF50', // Verde
-        textColor: '#FFFFFF',
-        label: 'Agendado'
+    // 🔹 Inglês (novo padrão do backend)
+    scheduled: {
+        backgroundColor: "#F59E0B", // Amarelo
+        textColor: "#FFFFFF",
+        label: "Agendado",
     },
-    confirmado: {
-        backgroundColor: '#2196F3', // Azul
-        textColor: '#FFFFFF',
-        label: 'Concluído'
+    confirmed: {
+        backgroundColor: "#10B981", // Verde
+        textColor: "#FFFFFF",
+        label: "Confirmado",
     },
-    cancelado: {
-        backgroundColor: '#F44336', // Vermelho
-        textColor: '#FFFFFF',
-        label: 'Cancelado'
+    canceled: {
+        backgroundColor: "#EF4444", // Vermelho
+        textColor: "#FFFFFF",
+        label: "Cancelado",
     },
-    pago: {
-        backgroundColor: '#9C27B0', // Roxo
-        textColor: '#FFFFFF',
-        label: 'Pago'
+    paid: {
+        backgroundColor: "#8B5CF6", // Roxo
+        textColor: "#FFFFFF",
+        label: "Pago",
     },
-    faltou: {
-        backgroundColor: '#FF9800', // Laranja
-        textColor: '#FFFFFF',
-        label: 'Faltou'
-    }
+    missed: {
+        backgroundColor: "#FB923C", // Laranja
+        textColor: "#FFFFFF",
+        label: "Faltou",
+    },
+    pending: {
+        backgroundColor: "#9CA3AF", // Cinza
+        textColor: "#FFFFFF",
+        label: "Pendente",
+    },
+    in_progress: {
+        backgroundColor: "#3B82F6", // Azul
+        textColor: "#FFFFFF",
+        label: "Em andamento",
+    },
+    completed: {
+        backgroundColor: "#2563EB", // Azul forte
+        textColor: "#FFFFFF",
+        label: "Concluído",
+    },
 };
+
 
 export type CreateAppointmentParams = {
     patientId: string;
@@ -49,8 +66,8 @@ export type CreateAppointmentParams = {
     time: string;
     reason: string;
     specialty: string;
-    clinicalStatus: 'pendente' | 'em_andamento' | 'concluído' | 'faltou';
-    operationalStatus: 'agendado' | 'confirmado' | 'cancelado' | 'pago' | 'faltou';
+    clinicalStatus: 'pending' | 'in_progress' | 'completed' | 'missed';
+    operationalStatus: 'scheduled' | 'confirmed' | 'pending' | 'canceled' | 'paid' | 'missed';
 };
 
 export interface IAppointmentStatusCount {
@@ -65,8 +82,8 @@ export type UpdateAppointmentParams = Partial<{
     startTime: string;
     duration: number;
     reason: string;
-    clinicalStatus: 'pendente' | 'em_andamento' | 'concluído' | 'canceled' | 'faltou';
-    operationalStatus: 'agendado' | 'confirmado' | 'cancelado' | 'pago' | 'faltou';
+    clinicalStatus: 'pending' | 'in_progress' | 'completed' | 'missed';
+    operationalStatus: 'scheduled' | 'confirmed' | 'pending' | 'canceled' | 'paid' | 'missed';
     sessionType: TherapyType;
     paymentMethod: string;
     notes: string;
