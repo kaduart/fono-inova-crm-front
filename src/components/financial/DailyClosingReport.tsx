@@ -473,47 +473,139 @@ const TimePeriodCard = ({ period, isSelected, onSelect, onTimeSlotClick, formatC
 const TimeSlotCard = ({ slot, onClick, formatCurrency }: any) => {
     const hasAlerts = slot.alerts && Object.values(slot.alerts).some((alert: any) => alert);
 
+    // Determinar a cor baseada no status predominante das sessões
+    const getCardStyle = () => {
+        const total = slot.count;
+        const confirmed = slot.stats.confirmed;
+        const canceled = slot.stats.canceled;
+        const scheduled = slot.stats.scheduled;
+
+        // Se mais de 50% estão cancelados - VERMELHO
+        if (canceled > total * 0.5) {
+            return {
+                background: 'bg-gradient-to-br from-red-50 to-red-100 border-red-200',
+                hover: 'hover:from-red-100 hover:to-red-200',
+                text: 'text-red-900',
+                accent: 'from-red-400 to-red-500',
+                status: 'cancelado'
+            };
+        }
+
+        // Se todos estão confirmados - VERDE
+        if (confirmed === total && total > 0) {
+            return {
+                background: 'bg-gradient-to-br from-green-50 to-green-100 border-green-200',
+                hover: 'hover:from-green-100 hover:to-green-200',
+                text: 'text-green-900',
+                accent: 'from-green-400 to-green-500',
+                status: 'confirmado'
+            };
+        }
+
+        // Se maioria confirmada (>70%) - AZUL (estável)
+        if (confirmed >= total * 0.7) {
+            return {
+                background: 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200',
+                hover: 'hover:from-blue-100 hover:to-blue-200',
+                text: 'text-blue-900',
+                accent: 'from-blue-400 to-blue-500',
+                status: 'estável'
+            };
+        }
+
+        // Se muitos agendamentos pendentes - AMARELO
+        if (scheduled > confirmed) {
+            return {
+                background: 'bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200',
+                hover: 'hover:from-yellow-100 hover:to-yellow-200',
+                text: 'text-yellow-900',
+                accent: 'from-yellow-400 to-yellow-500',
+                status: 'pendente'
+            };
+        }
+
+        // Alertas específicos - LARANJA
+        if (hasAlerts) {
+            return {
+                background: 'bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200',
+                hover: 'hover:from-orange-100 hover:to-orange-200',
+                text: 'text-orange-900',
+                accent: 'from-orange-400 to-orange-500',
+                status: 'atenção'
+            };
+        }
+
+        // Padrão - CINZA (neutro)
+        return {
+            background: 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200',
+            hover: 'hover:from-gray-100 hover:to-gray-200',
+            text: 'text-gray-900',
+            accent: 'from-gray-400 to-gray-500',
+            status: 'agendado'
+        };
+    };
+
+    const cardStyle = getCardStyle();
+
     return (
         <button
             onClick={onClick}
-            className="bg-white border border-gray-200 rounded-xl p-4 text-left hover:shadow-lg hover:border-blue-200 transition-all duration-200 group transform hover:-translate-y-0.5"
+            className={`w-full rounded-xl p-4 text-left transition-all duration-300 group transform hover:-translate-y-1 hover:shadow-xl border ${cardStyle.background} ${cardStyle.hover} ${cardStyle.text} relative overflow-hidden`}
         >
-            <div className="flex justify-between items-start mb-3">
-                <div className="font-bold text-gray-900 text-sm">{slot.time}</div>
-                {hasAlerts && (
-                    <BsExclamationTriangle className="text-amber-500 w-3 h-3 flex-shrink-0 mt-0.5" />
-                )}
+            {/* Barra superior colorida indicando status */}
+            <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${cardStyle.accent}`} />
+
+            {/* Header com horário e badge de status */}
+            <div className="flex justify-between items-start mb-3 pt-1">
+                <div className="font-bold text-sm">
+                    {slot.time}
+                </div>
+                <div className={`text-xs px-2 py-1 rounded-full bg-white bg-opacity-70 backdrop-blur-sm ${cardStyle.text} font-medium`}>
+                    {cardStyle.status}
+                </div>
             </div>
 
+            {/* Conteúdo principal */}
             <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-500">{slot.count} sessões</span>
-                    <span className="font-semibold text-emerald-600 text-sm">
+                    <span className="text-xs opacity-80">
+                        {slot.count} sessão{slot.count !== 1 ? 's' : ''}
+                    </span>
+                    <span className="font-semibold text-sm">
                         {formatCurrency(slot.stats.revenue)}
                     </span>
                 </div>
 
-                {/* Status indicators mais elegantes */}
-                <div className="flex gap-1.5 justify-center">
+                {/* Status badges com cores condizentes */}
+                <div className="flex gap-1 justify-center pt-1">
                     {slot.stats.confirmed > 0 && (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 bg-white bg-opacity-60 px-2 py-1 rounded-full backdrop-blur-sm">
                             <div className="w-2 h-2 bg-green-500 rounded-full" />
-                            <span className="text-xs text-gray-400">{slot.stats.confirmed}</span>
+                            <span className="text-xs font-medium">{slot.stats.confirmed}</span>
                         </div>
                     )}
                     {slot.stats.scheduled > 0 && (
-                        <div className="flex items-center gap-1">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                            <span className="text-xs text-gray-400">{slot.stats.scheduled}</span>
+                        <div className="flex items-center gap-1 bg-white bg-opacity-60 px-2 py-1 rounded-full backdrop-blur-sm">
+                            <div className="w-2 h-2 bg-yellow-500 rounded-full" />
+                            <span className="text-xs font-medium">{slot.stats.scheduled}</span>
                         </div>
                     )}
                     {slot.stats.canceled > 0 && (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 bg-white bg-opacity-60 px-2 py-1 rounded-full backdrop-blur-sm">
                             <div className="w-2 h-2 bg-red-500 rounded-full" />
-                            <span className="text-xs text-gray-400">{slot.stats.canceled}</span>
+                            <span className="text-xs font-medium">{slot.stats.canceled}</span>
                         </div>
                     )}
                 </div>
+
+                {/* Taxa de confirmação sutil */}
+                {slot.stats.confirmationRate > 0 && (
+                    <div className="text-center pt-1">
+                        <div className="text-xs opacity-70">
+                            {Math.round(slot.stats.confirmationRate)}% confirmação
+                        </div>
+                    </div>
+                )}
             </div>
         </button>
     );
