@@ -1,14 +1,15 @@
 import axios from 'axios';
-import { Activity, Calendar, Calendar as CalendarIcon, ChevronDown, FileText, Home, Hospital, LineChart, Plus, UserCircle, Users } from 'lucide-react';
+import { Activity, Calendar, ChevronDown, FileText, Plus, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from "react-hot-toast";
-import { NavLink, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { BASE_URL } from '../../constants/constants';
 import { useAppointments } from '../../hooks/useAppointments';
 import { usePatients } from '../../hooks/usePatients';
 import { AvailableSlotsParams, CreateAppointmentParams } from '../../services/appointmentService';
 import { createEvaluation, deleteEvaluation, getEvaluationsByPatient, updateEvaluation } from '../../services/evaluationService';
 import { IAppointment, IDoctors, IPatient } from '../../utils/types/types';
+import PatientHeader from '../admin/PatientHeader';
 import AppointmentHistoryModal from '../AppointmentHistoryModal';
 import ScheduleModal from '../AppointmentPage';
 import { Button } from '../ui/Button';
@@ -828,110 +829,65 @@ export default function PatientDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-100 text-gray-800">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center">
-              <NavLink
-                to="/admin"
-                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-              >
-                <div className="bg-blue-100/80 p-2.5 rounded-xl shadow-sm">
-                  <Hospital className="h-6 w-6 text-blue-600" />
-                </div>
-                <span className="text-2xl font-bold bg-gradient-to-r from-blue-800 to-blue-600 bg-clip-text text-transparent hover:from-blue-700 hover:to-blue-500 transition-all duration-300">
-                  Fono<span className="font-extrabold">Inova</span>
-                </span>
-              </NavLink>
-            </div>
+      <PatientHeader
+        activeTab={activeTab}
+        patientInfo={patientInfo}
+        handleTabChange={setActiveTab}
+        onNewAppointment={() => setOpenSchedule(true)}
+        onLogout={() => {
+          localStorage.removeItem("token");
+          localStorage.removeItem("userData");
+          navigate("/login");
+        }}
+      />
 
-            <nav className="hidden md:flex items-center space-x-2">
-              <Button
-                variant={activeTab === 'Dashboard' ? 'secondary' : 'ghost'}
-                onClick={() => setActiveTab('Dashboard')}
-                className="px-3 py-2 rounded-md text-sm font-medium"
-              >
-                <Home className="h-4 w-4 mr-2" />
-                Dashboard
-              </Button>
-
-              <Button
-                variant={activeTab === 'Profile' ? 'secondary' : 'ghost'}
-                onClick={() => setActiveTab('Profile')}
-                className="px-3 py-2 rounded-md text-sm font-medium"
-              >
-                <UserCircle className="h-4 w-4 mr-2" />
-                Perfil
-              </Button>
-
-              <Button
-                variant={activeTab === 'Appointment Booking' ? 'secondary' : 'ghost'}
-                onClick={() => setActiveTab('Appointment Booking')}
-                className="px-3 py-2 rounded-md text-sm font-medium"
-              >
-                <CalendarIcon className="h-4 w-4 mr-2" />
-                Agendamentos
-              </Button>
-
-              <Button
-                variant={activeTab === 'Management Packages' ? 'secondary' : 'ghost'}
-                onClick={() => setActiveTab('Management Packages')}
-                className="px-3 py-2 rounded-md text-sm font-medium"
-              >
-                Pacotes
-              </Button>
-
-              <Button
-                variant={activeTab === 'Evolution' ? 'secondary' : 'ghost'}
-                onClick={() => setActiveTab('Evolution')}
-                className="px-3 py-2 rounded-md text-sm font-medium"
-              >
-                <LineChart className="h-4 w-4 mr-2" />
-                Evolução
-              </Button>
-            </nav>
-
-            <button
-              onClick={() => setActiveTab('Profile')}
-              className="p-1 rounded-full text-gray-600 hover:text-blue-600 focus:outline-none"
-            >
-              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                <span className="text-sm font-medium text-blue-600">
-                  {patientInfo?.fullName?.charAt(0) || 'P'}
-                </span>
-              </div>
-            </button>
-          </div>
-        </div>
-      </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center m-4">
-            <UserCircle className="h-8 w-8 text-blue-500" />
-            <h1 className="text-2xl font-semibold text-gray-800">
-              {patientInfo?.fullName || 'Paciente'}
-            </h1>
-          </div>
-          <div className='flex justify-end items-center'>
-            <button
-              /*   onClick={() => handleOpenSchedule(null, 'create')} */
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Plus size={16} />
-              Novo Agendamento
-            </button>
+        {/* 🔹 Cabeçalho institucional */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-emerald-50 rounded-lg">
+              <Calendar size={26} style={{ color: '#00C087' }} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">
+                {patientInfo?.fullName || 'Paciente'}
+              </h1>
+              <p className="text-sm text-gray-600 mt-1">
+                Gerencie avaliações, agendamentos e histórico do paciente.
+              </p>
+            </div>
           </div>
 
+          <button
+            onClick={() => handleOpenSchedule(null, 'create')}
+            className="flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-all duration-200"
+            style={{
+              background: 'linear-gradient(135deg, rgb(55,171,135), rgb(40,130,100))',
+              fontWeight: 600,
+            }}
+            onMouseEnter={(e) =>
+            (e.currentTarget.style.background =
+              'linear-gradient(135deg, rgb(60,180,140), rgb(35,115,90))')
+            }
+            onMouseLeave={(e) =>
+            (e.currentTarget.style.background =
+              'linear-gradient(135deg, rgb(55,171,135), rgb(40,130,100))')
+            }
+          >
+            <Plus size={18} />
+            Novo Agendamento
+          </button>
         </div>
+
 
         <div className="mb-6 flex justify-between items-center">
           <h2 className="text-2xl font-bold text-gray-900">
             {activeTab === 'Dashboard'}
-            {activeTab === 'Profile' && 'Meu Perfil'}
-            {activeTab === 'Appointment Booking' && 'Agendamentos'}
-            {activeTab === 'Management Packages' && 'Pacotes de Terapia'}
-            {activeTab === 'Evolution' && 'Evolução do Tratamento'}
+            {activeTab === 'Profile'}
+            {activeTab === 'Appointment Booking'}
+            {activeTab === 'Management Packages'}
+            {activeTab === 'Evolution'}
           </h2>
         </div>
 

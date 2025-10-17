@@ -27,82 +27,85 @@ interface EnhancedCalendarProps {
 }
 
 const PAYMENT_STATUS_CONFIG = {
-    'paid': {
-        label: 'Pago',
-        color: '#22c55e',
+    paid: {
+        label: "Pago",
+        color: "#1c7721ff",       // 💚 Verde vibrante
         icon: CheckCircle,
-        bgColor: '#dcfce7',
-        textColor: '#166534'
+        bgColor: "#b1eeafff",     // Fundo verde-claro quase branco
+        textColor: "#4da088ff",   // Texto verde escuro
     },
-    'package_paid': {
-        label: 'Pacote',
-        color: '#10b981',
+    package_paid: {
+        label: "Pacote",
+        color: "#16a34a",       // 💚 Verde médio
         icon: CheckCircle,
-        bgColor: '#d1fae5',
-        textColor: '#065f46'
+        bgColor: "#dcfce7",     // Fundo verde pastel
+        textColor: "#166534",   // Texto verde escuro
     },
-    'partial': {
-        label: 'Parcial',
-        color: '#f59e0b',
+    partial: {
+        label: "Parcial",
+        color: "#f59e0b",       // 🟡 Amarelo vivo
         icon: AlertCircle,
-        bgColor: '#fef3c7',
-        textColor: '#92400e'
+        bgColor: "#fef9c3",     // Amarelo suave (lembra atenção leve)
+        textColor: "#92400e",   // Texto âmbar escuro
     },
-    'advanced': {
-        label: 'Adiantado',
-        color: '#3b82f6',
+    advanced: {
+        label: "Adiantado",
+        color: "#2563eb",       // 💙 Azul médio
         icon: DollarSign,
-        bgColor: '#dbeafe',
-        textColor: '#1e40af'
+        bgColor: "#e0f2fe",     // Azul claro, limpo
+        textColor: "#1e3a8a",   // Texto azul escuro
     },
-    'canceled': {
-        label: 'Cancelado',
-        color: '#6b7280',
+    canceled: {
+        label: "Cancelado",
+        color: "#dc2626",       // 🔴 Vermelho vivo (destaque)
         icon: XCircle,
-        bgColor: '#f3f4f6',
-        textColor: '#374151'
+        bgColor: "#e06a6aff",     // Fundo rosado leve
+        textColor: "#7f1d1d",   // Texto vermelho escuro
     },
-    'pending': {
-        label: 'Pendente',
-        color: '#ef4444',
+    pending: {
+        label: "Pendente",
+        color: "#b91c1c",       // 🔴 Vermelho forte (mais tenso)
         icon: Clock,
-        bgColor: '#fef2f2',
-        textColor: '#991b1b'
-    }
+        bgColor: "rgba(243, 236, 144, 1)",     // Fundo igual ao cancelado (mesmo grupo de alerta)
+        textColor: "#7f1d1d",
+    },
 };
 
-const OPERATIONAL_STATUS_VISUAL_CONFIG = {
-    'agendado': {
-        label: 'Agendado',
-        color: '#3b82f6',
-        icon: Clock
+
+
+export const OPERATIONAL_STATUS_VISUAL_CONFIG = {
+    scheduled: {
+        label: "Agendado",
+        color: "#3b82f6",
+        icon: Clock,
     },
-    'confirmado': {
-        label: 'Confirmado',
-        color: '#10b981',
-        icon: CheckCircle
+    confirmed: {
+        label: "Confirmado",
+        color: "#10b981",
+        icon: CheckCircle,
     },
-    'em_andamento': {
-        label: 'Em Andamento',
-        color: '#f59e0b',
-        icon: AlertCircle
+    in_progress: {
+        label: "Em Andamento",
+        color: "#f59e0b",
+        icon: AlertCircle,
     },
-    'concluido': {
-        label: 'Concluído',
-        color: '#22c55e',
-        icon: CheckCircle
+    completed: {
+        label: "Concluído",
+        color: "#22c55e",
+        icon: CheckCircle,
     },
-    'cancelado': {
-        label: 'Cancelado',
-        color: '#6b7280',
-        icon: XCircle
+    canceled: {
+        label: "Cancelado",
+        color: "#6b7280",
+        icon: XCircle,
     },
-    'nao_compareceu': {
-        label: 'Não Compareceu',
-        color: '#ef4444',
-        icon: XCircle
-    }
+    absent: {
+        label: "Não Compareceu",
+        color: "#ef4444",
+        icon: XCircle,
+    },
 };
+
 
 const VISUAL_FLAG_CONFIG = {
     ok: {
@@ -178,8 +181,15 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     };
 
     const getOperationalStatusConfig = (operationalStatus: string) => {
-        return OPERATIONAL_STATUS_VISUAL_CONFIG[operationalStatus as keyof typeof OPERATIONAL_STATUS_VISUAL_CONFIG] || OPERATIONAL_STATUS_VISUAL_CONFIG.agendado;
+        return (
+            OPERATIONAL_STATUS_VISUAL_CONFIG[operationalStatus as keyof typeof OPERATIONAL_STATUS_VISUAL_CONFIG] || {
+                label: "Indefinido",
+                color: "#9ca3af",
+                icon: Clock,
+            }
+        );
     };
+
 
     const handleEventClick = (info: { event: any }) => {
         const { event } = info;
@@ -295,33 +305,43 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         },
         locale: ptBR,
         weekends: true,
-        events: events,
-        dateClick: onDateClick,
-        eventClick: handleEventClick,
 
-        // 📐 CONFIGURAÇÕES DE TAMANHO E PERFORMANCE
-        height: "75vh",
+        // 🔹 Mantém espaçamento vertical fixo e consistente
+        allDaySlot: false,
+        expandRows: true,
+        height: "auto",
         contentHeight: "auto",
         aspectRatio: 1.8,
-        windowResizeDelay: 100,
-        dayMaxEventRows: 3,
+
+        // 🔹 Corrige empilhamento de eventos
+        slotEventOverlap: false,
+        eventOverlap: false,
+
+        // 🔹 Alinha intervalos de horários
+        slotMinTime: "07:00:00",
+        slotMaxTime: "20:00:00",
+        slotLabelInterval: "00:30:00",
+        slotDuration: "00:30:00",
+
+        // 🔹 Mantém título e hora consistentes
         eventDisplay: "block",
         eventTimeFormat: {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
-        },
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+        } as Intl.DateTimeFormatOptions,
 
-        // 🎨 CONFIGURAÇÕES DE ESTILO AVANÇADAS
+        // 🔹 Visual refinado
+        nowIndicator: true,
+        dayMaxEventRows: 4,
+        stickyHeaderDates: true,
+        eventBorderColor: "transparent",
         eventClassNames: "cursor-pointer hover:!opacity-90 transition-all duration-200",
         dayCellClassNames: "hover:bg-gray-50/50 transition-colors duration-200",
 
-        // 🔧 OTIMIZAÇÕES DE PERFORMANCE
-        lazyFetching: true,
-        eventMinHeight: 25,
-        slotMinTime: "06:00:00",
-        slotMaxTime: "22:00:00"
+        windowResizeDelay: 100,
     }), [events, onDateClick]);
+
 
     // 🔹 RENDERIZAÇÃO PREMIUM DE EVENTOS
     const renderEventContent = (arg: any) => {
@@ -413,7 +433,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     className="flex flex-col p-2 rounded-lg w-full h-full relative transition-all duration-200 hover:shadow-md"
                     style={{
                         backgroundColor: paymentConfig.bgColor,
-                        borderLeft: `4px solid ${operationalConfig.color}`,
+                        borderLeft: `8px solid ${operationalConfig.color}`,
                         opacity: ['cancelado', 'nao_compareceu'].includes(operationalStatus) ? 0.6 : 1,
                         boxShadow:
                             operationalStatus === 'confirmado'
@@ -565,28 +585,34 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             >
                 <FullCalendar
                     ref={calendarRef}
-                    plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                    initialView="dayGridMonth"
-                    headerToolbar={{
-                        left: "prev,next today",
-                        center: "title",
-                        right: "dayGridMonth,timeGridWeek,timeGridDay"
-                    }}
-                    locale={ptBR}
-                    weekends
+                    {...calendarOptions}
                     events={events}
                     dateClick={onDateClick}
                     eventClick={handleEventClick}
-                    height="75vh"
-                    contentHeight="auto"
-                    aspectRatio={1.8}
                     eventContent={renderEventContent}
+                    slotMinTime="07:00:00"
+                    slotMaxTime="20:00:00"
+                    eventMaxStack={true}
+                    eventOverlap={false}
+                    slotEventOverlap={false}
+                    expandRows={true}
+                    dayMaxEventRows={4}
+                    dayMaxEvents={true}
+                    eventDisplay="block"
+                    eventMinHeight={120}        // altura mínima mais confortável
+                    eventContentHeight={90}    // garante altura do conteúdo também
+                    eventShortHeight={false}   // impede compactação automática
+
+
+
                     dayCellContent={(arg) => (
                         <div className="flex justify-end p-1">
-                            <span className={`text-sm rounded-full w-7 h-7 flex items-center justify-center transition-all ${arg.isToday
-                                ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white font-bold shadow-lg transform scale-110'
-                                : 'text-gray-700 hover:bg-gray-400'
-                                } ${arg.isPast ? 'opacity-60' : ''}`}>
+                            <span
+                                className={`text-sm rounded-full w-7 h-7 flex items-center justify-center transition-all ${arg.isToday
+                                    ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white font-bold shadow-lg transform scale-110'
+                                    : 'text-gray-700 hover:bg-gray-400'
+                                    } ${arg.isPast ? 'opacity-60' : ''}`}
+                            >
                                 {arg.dayNumberText}
                             </span>
                         </div>
@@ -596,8 +622,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             {arg.text.substring(0, 3)}
                         </span>
                     )}
-                    eventClassNames="cursor-pointer hover:!opacity-90 transition-all duration-200"
-                    dayCellClassNames="hover:bg-gray-50/50 transition-colors duration-200"
                 />
             </Paper>
 
@@ -633,29 +657,61 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 </Paper>
 
                 {/* LEGENDA STATUS FINANCEIRO */}
-                <Paper elevation={1} sx={{ p: 3, borderRadius: 2, flex: 1, minWidth: 300 }}>
-                    <Typography variant="h6" fontWeight="bold" gutterBottom color="grey.800">
+                <Paper
+                    elevation={2}
+                    sx={{
+                        p: 3,
+                        borderRadius: 2,
+                        flex: 1,
+                        minWidth: 300,
+                        background: "linear-gradient(135deg, #ffffff, #f9fafb)",
+                    }}
+                >
+                    <Typography
+                        variant="h6"
+                        fontWeight="bold"
+                        gutterBottom
+                        color="grey.800"
+                    >
                         💰 Status do Pagamento
                     </Typography>
                     <Typography variant="body2" color="grey.600" sx={{ mb: 2 }}>
                         Indicado pela cor de fundo do card
                     </Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
                         {Object.entries(PAYMENT_STATUS_CONFIG).map(([status, config]) => {
                             const IconComponent = config.icon;
                             return (
-                                <Box key={status} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                    <Box sx={{
-                                        width: 20,
-                                        height: 20,
+                                <Box
+                                    key={status}
+                                    sx={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
                                         backgroundColor: config.bgColor,
-                                        border: `2px solid ${config.color}`,
-                                        borderRadius: 1
-                                    }} />
-                                    <IconComponent size={16} color={config.color} />
-                                    <Typography variant="body2" fontWeight="medium">
-                                        {config.label}
-                                    </Typography>
+                                        border: `3px solid ${config.color}`,
+                                        borderRadius: 2,
+                                        px: 2,
+                                        py: 1,
+                                        boxShadow: `0 0 8px ${config.color}30`,
+                                        transition: "all 0.2s ease-in-out",
+                                        "&:hover": {
+                                            transform: "scale(1.02)",
+                                            boxShadow: `0 0 10px ${config.color}60`,
+                                        },
+                                    }}
+                                >
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                                        <IconComponent size={18} color={config.color} />
+                                        <Typography
+                                            variant="body2"
+                                            fontWeight="medium"
+                                            sx={{ color: config.textColor }}
+                                        >
+                                            {config.label}
+                                        </Typography>
+                                    </Box>
                                 </Box>
                             );
                         })}

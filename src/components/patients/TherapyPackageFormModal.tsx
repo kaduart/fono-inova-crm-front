@@ -2,6 +2,19 @@ import { useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import ReactInputMask from 'react-input-mask';
 import { toast } from 'react-toastify';
+import {
+    Package,
+    Calendar,
+    Clock,
+    User,
+    DollarSign,
+    Calculator,
+    Target,
+    TrendingUp,
+    X,
+    Save,
+    Plus
+} from 'lucide-react';
 import { useAppointmentsContext } from '../../contexts/AppointmentsContext';
 import appointmentService from '../../services/appointmentService';
 import packageService, { CreatePackageParams } from '../../services/packageService';
@@ -41,7 +54,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     const [formData, setFormData] = useState(initialFormState);
     const [errors, setErrors] = useState({});
     const [appointments, setAppointments] = useState<IAppointment[]>([]);
-    const [calculationMode, setCalculationMode] = useState('duration'); // 'sessions' or 'duration'
+    const [calculationMode, setCalculationMode] = useState('duration');
     const [isLoading, setIsLoading] = useState(false);
 
     // Calculados dinamicamente
@@ -96,7 +109,6 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             toast.error('Erro ao carregar agendamentos');
         } finally {
             setIsLoading(false);
-
         }
     };
 
@@ -163,12 +175,11 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             await fetchAppointments();
             onSubmit();
             onClose();
-        } catch (err) {
+        } catch (err: any) {
             const errorMessage = err?.message || 'Erro ao salvar pacote.';
             toast.error(errorMessage);
         } finally {
             setIsLoading(false);
-
         }
     };
 
@@ -195,7 +206,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         return Object.keys(newErrors).length === 0;
     };
 
-    const formatAppointmentDate = (dateString) => {
+    const formatAppointmentDate = (dateString: string) => {
         if (!dateString) return 'Data inválida';
         const isoDate = `${dateString}T00:00:00`;
         const dateObj = new Date(isoDate);
@@ -204,390 +215,464 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-4xl space-y-6 max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center border-b pb-4">
-                    <h2 className="text-2xl font-semibold text-gray-800">
-                        {initialData ? 'Editar Pacote' : 'Novo Pacote'}
-                    </h2>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-                        ✕
-                    </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Coluna 1 */}
-                    <div className="space-y-4">
-                        <div className="form-group">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Agendamento Existente (Opcional)
-                            </label>
-                            <Select
-                                name="appointmentId"
-                                value={formData.appointmentId}
-                                onChange={handleChange}
-                                className="w-full p-2 border rounded"
-                            >
-                                <option value="">Selecione um agendamento</option>
-                                {appointments.map((appt) => (
-                                    <option
-                                        key={appt._id}
-                                        value={appt._id}
-                                        className="text-sm"
-                                    >
-                                        {formatAppointmentDate(appt.date)} - {appt.time || 'Horário não definido'} •
-                                        Dr. {appt.doctor?.fullName || 'Profissional não especificado'} •
-                                        {appt.specialty || 'Tipo não especificado'}
-                                    </option>
-                                ))}
-                            </Select>
-                        </div>
-
-                        <div className="form-group">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Modo de Cálculo
-                            </label>
-                            <Select
-                                value={calculationMode}
-                                onChange={(e) => setCalculationMode(e.target.value)}
-                                className="w-full p-2 border border-gray-300 rounded-md"
-                            >
-                                <option value="sessions">Por número de sessões</option>
-                                <option value="duration">Por duração (meses/semanas)</option>
-                            </Select>
-                        </div>
-
-                        {calculationMode === 'sessions' ? (
-                            <>
-                                <div className="form-group">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Número de Sessões
-                                    </label>
-                                    <input
-                                        type="number"
-                                        name="totalSessions"
-                                        min="1"
-                                        max="100"
-                                        value={formData.totalSessions}
-                                        onChange={handleChange}
-                                        className="w-full p-2 border border-gray-300 rounded-md"
-                                    />
-                                    {errors.totalSessions && (
-                                        <span className="text-red-500 text-sm">{errors.totalSessions}</span>
-                                    )}
-                                </div>
-
-                                <div className="form-group">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Sessões por Semana
-                                    </label>
-                                    <Select
-                                        name="sessionsPerWeek"
-                                        value={formData.sessionsPerWeek}
-                                        onChange={handleChange}
-                                        className="w-full p-2 border border-gray-300 rounded-md"
-                                    >
-                                        <option value="">Selecione a frequência</option>
-                                        {FREQUENCY_OPTIONS.map(opt => (
-                                            <option key={opt} value={opt}>
-                                                {opt} {opt > 1 ? 'vezes' : 'vez'} por semana
-                                            </option>
-                                        ))}
-                                    </Select>
-                                    {errors.sessionsPerWeek && (
-                                        <span className="text-red-500 text-sm">{errors.sessionsPerWeek}</span>
-                                    )}
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        Duração estimada: {estimatedDuration} {estimatedDuration > 1 ? 'meses' : 'mês'}
-                                    </p>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <div className="form-group">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Duração do Pacote
-                                    </label>
-                                    <Select
-                                        name="durationMonths"
-                                        value={formData.durationMonths}
-                                        onChange={handleChange}
-                                        className="w-full p-2 border border-gray-300 rounded-md"
-                                    >
-                                        <option value="">Escolha duração do pacote</option>
-                                        {DURATION_OPTIONS.map(opt => (
-                                            <option key={opt} value={opt}>
-                                                {opt} {opt > 1 ? 'meses' : 'mês'}
-                                            </option>
-                                        ))}
-                                    </Select>
-                                    {errors.durationMonths && (
-                                        <span className="text-red-500 text-sm">{errors.durationMonths}</span>
-                                    )}
-                                </div>
-
-                                <div className="form-group">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Sessões por Semana
-                                    </label>
-                                    <Select
-                                        name="sessionsPerWeek"
-                                        value={formData.sessionsPerWeek}
-                                        onChange={handleChange}
-                                        className="w-full p-2 border border-gray-300 rounded-md"
-                                    >
-                                        <option value="">Escolha quantidade de vez na semana</option>
-                                        {FREQUENCY_OPTIONS.map(opt => (
-                                            <option key={opt} value={opt}>
-                                                {opt} {opt > 1 ? 'vezes' : 'vez'} por semana
-                                            </option>
-                                        ))}
-                                    </Select>
-                                    {errors.sessionsPerWeek && (
-                                        <span className="text-red-500 text-sm">{errors.sessionsPerWeek}</span>
-                                    )}
-                                </div>
-                            </>
-                        )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="form-group">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Data 1ª Sessao*</label>
-                                <DatePicker
-                                    selected={formData.date ? buildLocalDateOnly(formData.date) : null}
-                                    onChange={(date: Date | null) => {
-                                        if (!date) return;
-                                        const formattedDate = date.toISOString().split('T')[0];
-                                        handleChange({ target: { name: 'date', value: formattedDate } } as any);
-                                    }}
-                                    customInput={
-                                        <ReactInputMask
-                                            mask="99/99/9999"
-                                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        />
-                                    }
-                                    placeholderText="dd/MM/yyyy"
-                                    dateFormat="dd/MM/yyyy"
-                                    className="w-full p-2 border border-gray-300 rounded-md"
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Hora *</label>
-                                <DatePicker
-                                    selected={formData.time ? new Date(`1970-01-01T${formData.time}`) : null}
-                                    onChange={(date: Date | null) => {
-                                        if (!date) return;
-                                        const formattedTime = date.toTimeString().slice(0, 5);
-                                        handleChange({ target: { name: 'time', value: formattedTime } } as any);
-                                    }}
-                                    showTimeSelect
-                                    showTimeSelectOnly
-                                    timeIntervals={15}
-                                    timeFormat="HH:mm"
-                                    dateFormat="HH:mm"
-                                    placeholderText="HH:MM"
-                                    customInput={
-                                        <ReactInputMask
-                                            mask="99:99"
-                                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        />
-                                    }
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Coluna 2 */}
-                    <div className="space-y-4">
-                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-4">
-                            <div className="form-group">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Profissional</label>
-                                <Select
-                                    name="doctorId"
-                                    value={formData.doctorId}
-                                    onChange={handleChange}
-                                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                    <option value="">Escolha um profissional</option>
-                                    {doctors.map((doc) => (
-                                        <option key={doc._id} value={doc._id}>
-                                            {doc.fullName}
-                                        </option>
-                                    ))}
-                                </Select>
-                            </div>
-
-                            <div className="form-group">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Sessão</label>
-                                <Select
-                                    name="sessionType"
-                                    value={formData.sessionType}
-                                    onChange={handleChange}
-                                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                    <option value="">Escolha um tipo de terapia</option>
-                                    {THERAPY_TYPES.map((option) => (
-                                        <option key={option.value} value={option.value}>
-                                            {option.label}
-                                        </option>
-                                    ))}
-                                </Select>
-                            </div>
-
-                            <div className="form-group">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Pagamento</label>
-                                <Select
-                                    name="paymentType"
-                                    value={formData.paymentType}
-                                    onChange={handleChange}
-                                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                    {PAYMENT_TYPES.map((option) => (
-                                        <option key={option.value} value={option.value}>
-                                            {option.label}
-                                        </option>
-                                    ))}
-                                </Select>
-                            </div>
-                        </div>
-
-                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-4">
-                            <div className="form-group">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Valor por Sessão (R$)</label>
-                                <InputCurrency
-                                    name="sessionValue"
-                                    value={formData.sessionValue || 0}
-                                    onChange={handleChange}
-                                    min="0"
-                                    step="0.01"
-                                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Valor Pago (R$)</label>
-                                <InputCurrency
-                                    name="totalPaid"
-                                    value={formData.totalPaid}
-                                    onChange={handleChange}
-                                    min="0"
-                                    step="0.01"
-                                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Data Pagamento Pacote*</label>
-                                <DatePicker
-                                    selected={formData.paymentDate ? buildLocalDateOnly(formData.paymentDate) : null}
-                                    onChange={(date: Date | null) => {
-                                        if (!date) return;
-                                        const formattedDate = date.toISOString().split('T')[0];
-                                        handleChange({ target: { name: 'paymentDate', value: formattedDate } } as any);
-                                    }}
-                                    customInput={
-                                        <ReactInputMask
-                                            mask="99/99/9999"
-                                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        />
-                                    }
-                                    placeholderText="dd/MM/yyyy"
-                                    dateFormat="dd/MM/yyyy"
-                                    className="w-full p-2 border border-gray-300 rounded-md"
-                                />
-                            </div>
-
-                            {(formData.totalPaid && formData.totalPaid > 0) && (
-                                <div className="form-group">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Método de Pagamento</label>
-                                    <Select
-                                        name="paymentMethod"
-                                        value={formData.paymentMethod}
-                                        onChange={handleChange}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                        <option value="">Escolha um método</option>
-                                        <option value="dinheiro">Dinheiro</option>
-                                        <option value="pix">PIX</option>
-                                        <option value="cartão">Cartão</option>
-                                    </Select>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Preview e Saldo */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                        <h3 className="text-sm font-semibold text-blue-800 mb-2">Resumo do Pacote</h3>
-                        <div className="space-y-2">
-                            <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Valor por sessão:</span>
-                                <span className="text-sm font-medium">R$ {formData.sessionValue.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Total de sessões:</span>
-                                <span className="text-sm font-medium">{totalSessions}</span>
-                            </div>
-                            {calculationMode === 'sessions' && (
-                                <div className="flex justify-between">
-                                    <span className="text-sm text-gray-600">Duração estimada:</span>
-                                    <span className="text-sm font-medium">{estimatedDuration} {estimatedDuration > 1 ? 'meses' : 'mês'}</span>
-                                </div>
-                            )}
-                            <div className="flex justify-between pt-2 border-t border-blue-100">
-                                <span className="text-sm font-semibold text-blue-800">Valor total:</span>
-                                <span className="text-sm font-semibold text-blue-800">R$ {totalValuePackage.toFixed(2)}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <h3 className="text-sm font-semibold text-gray-700 mb-2">Pagamento</h3>
-                        <div className="space-y-2">
-                            <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Valor pago:</span>
-                                <span className="text-sm font-medium">R$ {formData.totalPaid.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between pt-2 border-t border-gray-200">
-                                <span className="text-sm font-semibold text-gray-700">Saldo restante:</span>
-                                <span className={`text-sm font-semibold ${remainingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                    R$ {remainingBalance.toFixed(2)}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                    <Button
-                        type="button"
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl overflow-hidden transition-all duration-300">
+                {/* Header */}
+                <div className="bg-gradient-to-r from-emerald-600 to-green-700 p-6 text-white relative">
+                    <button
                         onClick={onClose}
-                        variant="outline"
-                        className="px-6 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50"
+                        className="absolute top-4 right-4 text-white hover:text-gray-200 transition-colors p-1"
                     >
-                        Cancelar
-                    </Button>
-                    <Button
-                        type="submit"
-                        onClick={handleSave}
-                        disabled={!isFormValid || isLoading}
-                        className={`px-6 py-2 text-white ${isFormValid ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-300 cursor-not-allowed'}`}
-                    >
-                        {isLoading ? (
-                            <>
-                                <LoadingSpinner size="small" color="border-white" />
-                                <span>Salvando...</span>
-                            </>
-                        ) : (
-                            `${initialData ? 'Atualizar' : 'Criar'} Pacote`
+                        <X className="w-6 h-6" />
+                    </button>
 
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-white bg-opacity-20 rounded-xl">
+                            {initialData ? <Save className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-bold">
+                                {initialData ? 'Editar Pacote' : 'Criar Novo Pacote'}
+                            </h2>
+                            <p className="text-emerald-100 mt-1">
+                                {initialData ? 'Atualize as informações do pacote' : `Criar pacote de terapia para ${patient.fullName}`}
+                            </p>
+                        </div>
+                    </div>
+                </div>
 
-                        )}
+                <div className="p-6 max-h-[80vh] overflow-y-auto">
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                        {/* Coluna 1 - Configuração do Pacote */}
+                        <div className="xl:col-span-2 space-y-6">
+                            {/* Agendamento Existente */}
+                            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-100">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                    <Calendar className="w-5 h-5 text-blue-600" />
+                                    Agendamento Existente (Opcional)
+                                </h3>
+                                <Select
+                                    name="appointmentId"
+                                    value={formData.appointmentId}
+                                    onChange={handleChange}
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                >
+                                    <option value="">Selecione um agendamento</option>
+                                    {appointments.map((appt) => (
+                                        <option
+                                            key={appt._id}
+                                            value={appt._id}
+                                            className="text-sm"
+                                        >
+                                            {formatAppointmentDate(appt.date)} - {appt.time || 'Horário não definido'} •
+                                            Dr. {appt.doctor?.fullName || 'Profissional não especificado'} •
+                                            {appt.specialty || 'Tipo não especificado'}
+                                        </option>
+                                    ))}
+                                </Select>
+                            </div>
 
-                    </Button>
+                            {/* Configuração do Pacote */}
+                            <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-5 rounded-xl border border-emerald-100">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                    <Calculator className="w-5 h-5 text-emerald-600" />
+                                    Configuração do Pacote
+                                </h3>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Modo de Cálculo
+                                        </label>
+                                        <Select
+                                            value={calculationMode}
+                                            onChange={(e) => setCalculationMode(e.target.value)}
+                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                        >
+                                            <option value="sessions">Por número de sessões</option>
+                                            <option value="duration">Por duração (meses/semanas)</option>
+                                        </Select>
+                                    </div>
+                                </div>
+
+                                {calculationMode === 'sessions' ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Número de Sessões *
+                                            </label>
+                                            <input
+                                                type="number"
+                                                name="totalSessions"
+                                                min="1"
+                                                max="100"
+                                                value={formData.totalSessions}
+                                                onChange={handleChange}
+                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                            />
+                                            {errors.totalSessions && (
+                                                <span className="text-red-500 text-sm">{errors.totalSessions}</span>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Sessões por Semana *
+                                            </label>
+                                            <Select
+                                                name="sessionsPerWeek"
+                                                value={formData.sessionsPerWeek}
+                                                onChange={handleChange}
+                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                            >
+                                                <option value="">Selecione a frequência</option>
+                                                {FREQUENCY_OPTIONS.map(opt => (
+                                                    <option key={opt} value={opt}>
+                                                        {opt} {opt > 1 ? 'vezes' : 'vez'} por semana
+                                                    </option>
+                                                ))}
+                                            </Select>
+                                            {errors.sessionsPerWeek && (
+                                                <span className="text-red-500 text-sm">{errors.sessionsPerWeek}</span>
+                                            )}
+                                            <p className="text-xs text-emerald-600 mt-2 font-medium">
+                                                Duração estimada: {estimatedDuration} {estimatedDuration > 1 ? 'meses' : 'mês'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Duração do Pacote *
+                                            </label>
+                                            <Select
+                                                name="durationMonths"
+                                                value={formData.durationMonths}
+                                                onChange={handleChange}
+                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                            >
+                                                <option value="">Escolha duração do pacote</option>
+                                                {DURATION_OPTIONS.map(opt => (
+                                                    <option key={opt} value={opt}>
+                                                        {opt} {opt > 1 ? 'meses' : 'mês'}
+                                                    </option>
+                                                ))}
+                                            </Select>
+                                            {errors.durationMonths && (
+                                                <span className="text-red-500 text-sm">{errors.durationMonths}</span>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Sessões por Semana *
+                                            </label>
+                                            <Select
+                                                name="sessionsPerWeek"
+                                                value={formData.sessionsPerWeek}
+                                                onChange={handleChange}
+                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                            >
+                                                <option value="">Escolha quantidade de vez na semana</option>
+                                                {FREQUENCY_OPTIONS.map(opt => (
+                                                    <option key={opt} value={opt}>
+                                                        {opt} {opt > 1 ? 'vezes' : 'vez'} por semana
+                                                    </option>
+                                                ))}
+                                            </Select>
+                                            {errors.sessionsPerWeek && (
+                                                <span className="text-red-500 text-sm">{errors.sessionsPerWeek}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Data e Hora da Primeira Sessão */}
+                            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-5 rounded-xl border border-purple-100">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                    <Clock className="w-5 h-5 text-purple-600" />
+                                    Primeira Sessão
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Data *</label>
+                                        <DatePicker
+                                            selected={formData.date ? buildLocalDateOnly(formData.date) : null}
+                                            onChange={(date: Date | null) => {
+                                                if (!date) return;
+                                                const formattedDate = date.toISOString().split('T')[0];
+                                                handleChange({ target: { name: 'date', value: formattedDate } } as any);
+                                            }}
+                                            customInput={
+                                                <ReactInputMask
+                                                    mask="99/99/9999"
+                                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white"
+                                                />
+                                            }
+                                            placeholderText="dd/MM/yyyy"
+                                            dateFormat="dd/MM/yyyy"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Hora *</label>
+                                        <DatePicker
+                                            selected={formData.time ? new Date(`1970-01-01T${formData.time}`) : null}
+                                            onChange={(date: Date | null) => {
+                                                if (!date) return;
+                                                const formattedTime = date.toTimeString().slice(0, 5);
+                                                handleChange({ target: { name: 'time', value: formattedTime } } as any);
+                                            }}
+                                            showTimeSelect
+                                            showTimeSelectOnly
+                                            timeIntervals={15}
+                                            timeFormat="HH:mm"
+                                            dateFormat="HH:mm"
+                                            placeholderText="HH:MM"
+                                            customInput={
+                                                <ReactInputMask
+                                                    mask="99:99"
+                                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white"
+                                                />
+                                            }
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Coluna 2 - Informações e Resumo */}
+                        <div className="space-y-6">
+                            {/* Informações do Profissional */}
+                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-5 rounded-xl border border-amber-100">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                    <User className="w-5 h-5 text-amber-600" />
+                                    Profissional e Sessão
+                                </h3>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Profissional *</label>
+                                        <Select
+                                            name="doctorId"
+                                            value={formData.doctorId}
+                                            onChange={handleChange}
+                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                                        >
+                                            <option value="">Escolha um profissional</option>
+                                            {doctors.map((doc) => (
+                                                <option key={doc._id} value={doc._id}>
+                                                    {doc.fullName}
+                                                </option>
+                                            ))}
+                                        </Select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Sessão *</label>
+                                        <Select
+                                            name="sessionType"
+                                            value={formData.sessionType}
+                                            onChange={handleChange}
+                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                                        >
+                                            <option value="">Escolha um tipo de terapia</option>
+                                            {THERAPY_TYPES.map((option) => (
+                                                <option key={option.value} value={option.value}>
+                                                    {option.label}
+                                                </option>
+                                            ))}
+                                        </Select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Pagamento *</label>
+                                        <Select
+                                            name="paymentType"
+                                            value={formData.paymentType}
+                                            onChange={handleChange}
+                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                                        >
+                                            {PAYMENT_TYPES.map((option) => (
+                                                <option key={option.value} value={option.value}>
+                                                    {option.label}
+                                                </option>
+                                            ))}
+                                        </Select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Informações Financeiras */}
+                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl border border-green-100">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                    <DollarSign className="w-5 h-5 text-green-600" />
+                                    Informações Financeiras
+                                </h3>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Valor por Sessão (R$) *</label>
+                                        <InputCurrency
+                                            name="sessionValue"
+                                            value={formData.sessionValue || 0}
+                                            onChange={handleChange}
+                                            min="0"
+                                            step="0.01"
+                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Valor Pago (R$) *</label>
+                                        <InputCurrency
+                                            name="totalPaid"
+                                            value={formData.totalPaid}
+                                            onChange={handleChange}
+                                            min="0"
+                                            step="0.01"
+                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Data Pagamento *</label>
+                                        <DatePicker
+                                            selected={formData.paymentDate ? buildLocalDateOnly(formData.paymentDate) : null}
+                                            onChange={(date: Date | null) => {
+                                                if (!date) return;
+                                                const formattedDate = date.toISOString().split('T')[0];
+                                                handleChange({ target: { name: 'paymentDate', value: formattedDate } } as any);
+                                            }}
+                                            customInput={
+                                                <ReactInputMask
+                                                    mask="99/99/9999"
+                                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
+                                                />
+                                            }
+                                            placeholderText="dd/MM/yyyy"
+                                            dateFormat="dd/MM/yyyy"
+                                        />
+                                    </div>
+
+                                    {(formData.totalPaid && formData.totalPaid > 0) && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Método de Pagamento *</label>
+                                            <Select
+                                                name="paymentMethod"
+                                                value={formData.paymentMethod}
+                                                onChange={handleChange}
+                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
+                                            >
+                                                <option value="">Escolha um método</option>
+                                                <option value="dinheiro">Dinheiro</option>
+                                                <option value="pix">PIX</option>
+                                                <option value="cartão">Cartão</option>
+                                            </Select>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Resumo do Pacote */}
+                            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-100">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                    <Package className="w-5 h-5 text-blue-600" />
+                                    Resumo do Pacote
+                                </h3>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-gray-600">Sessões totais:</span>
+                                        <span className="text-sm font-semibold text-gray-900">{totalSessions}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-gray-600">Valor por sessão:</span>
+                                        <span className="text-sm font-semibold text-gray-900">
+                                            R$ {formData.sessionValue.toFixed(2)}
+                                        </span>
+                                    </div>
+                                    {calculationMode === 'sessions' && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-gray-600">Duração estimada:</span>
+                                            <span className="text-sm font-semibold text-gray-900">
+                                                {estimatedDuration} {estimatedDuration > 1 ? 'meses' : 'mês'}
+                                            </span>
+                                        </div>
+                                    )}
+                                    <div className="border-t border-blue-200 pt-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm font-semibold text-blue-700">Valor total:</span>
+                                            <span className="text-sm font-bold text-blue-700">
+                                                R$ {totalValuePackage.toFixed(2)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Resumo de Pagamento */}
+                            <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-5 rounded-xl border border-gray-200">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                    <TrendingUp className="w-5 h-5 text-gray-600" />
+                                    Resumo de Pagamento
+                                </h3>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-gray-600">Valor pago:</span>
+                                        <span className="text-sm font-semibold text-gray-900">
+                                            R$ {formData.totalPaid.toFixed(2)}
+                                        </span>
+                                    </div>
+                                    <div className="border-t border-gray-200 pt-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm font-semibold text-gray-700">Saldo restante:</span>
+                                            <span className={`text-sm font-bold ${remainingBalance > 0 ? 'text-red-600' : 'text-emerald-600'
+                                                }`}>
+                                                R$ {remainingBalance.toFixed(2)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-t border-gray-200">
+                    <div className="text-sm text-gray-500">
+                        {!isFormValid && "Preencha todos os campos obrigatórios (*)"}
+                    </div>
+
+                    <div className="flex gap-3">
+                        <Button
+                            onClick={onClose}
+                            variant="outline"
+                            className="px-6 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-100 transition-all duration-200 font-medium"
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            onClick={handleSave}
+                            disabled={!isFormValid || isLoading}
+                            className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-200 ${!isFormValid || isLoading
+                                    ? 'bg-gray-400 cursor-not-allowed text-white'
+                                    : 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg hover:shadow-xl'
+                                }`}
+                        >
+                            {isLoading ? (
+                                <div className="flex items-center gap-2">
+                                    <LoadingSpinner size="small" color="border-white" />
+                                    <span>Salvando...</span>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2">
+                                    {initialData ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                                    {initialData ? 'Atualizar Pacote' : 'Criar Pacote'}
+                                </div>
+                            )}
+                        </Button>
+                    </div>
                 </div>
             </div>
         </div>
