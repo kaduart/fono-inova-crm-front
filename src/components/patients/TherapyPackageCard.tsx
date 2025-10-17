@@ -57,7 +57,7 @@ export default function TherapyPackageCard({
 
     setLoading(true);
     try {
-
+console
       await onUseSession(pack._id, payload, modalAction);
 
       // Fechar modal e resetar dados
