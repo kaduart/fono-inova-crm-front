@@ -1,20 +1,20 @@
+import {
+    Calculator,
+    Calendar,
+    Clock,
+    DollarSign,
+    Package,
+    Plus,
+    Save,
+    Trash2,
+    TrendingUp,
+    User,
+    X
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import ReactInputMask from 'react-input-mask';
 import { toast } from 'react-toastify';
-import {
-    Package,
-    Calendar,
-    Clock,
-    User,
-    DollarSign,
-    Calculator,
-    Target,
-    TrendingUp,
-    X,
-    Save,
-    Plus
-} from 'lucide-react';
 import { useAppointmentsContext } from '../../contexts/AppointmentsContext';
 import appointmentService from '../../services/appointmentService';
 import packageService, { CreatePackageParams } from '../../services/packageService';
@@ -70,20 +70,6 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         ? Math.ceil(formData.totalSessions / formData.sessionsPerWeek / 4)
         : formData.durationMonths;
 
-    // Form válido
-    const isFormValid = !!(
-        formData.patientId &&
-        formData.doctorId &&
-        formData.sessionType &&
-        formData.paymentType &&
-        formData.sessionValue > 0 &&
-        formData.totalPaid > 0 &&
-        formData.paymentMethod &&
-        formData.date &&
-        formData.time &&
-        (calculationMode === 'sessions' ? formData.totalSessions > 0 : (formData.durationMonths > 0 && formData.sessionsPerWeek > 0))
-    );
-
     const { fetchAppointments } = useAppointmentsContext();
 
     useEffect(() => {
@@ -134,6 +120,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         }
     };
 
+
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
@@ -154,24 +142,29 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             patientId: patient._id,
             doctorId: formData.doctorId,
             sessionType: formData.sessionType,
+            specialty: formData.sessionType,
             sessionValue: formData.sessionValue || 0,
             paymentType: formData.paymentType,
-            amountPaid: formData.totalPaid || 0,
-            paymentMethod: formData.paymentMethod,
             sessionsPerWeek: +formData.sessionsPerWeek,
             durationMonths: calculationMode === 'duration' ? formData.durationMonths : estimatedDuration,
             totalSessions: calculationMode === 'sessions' ? formData.totalSessions : totalSessions,
             date: formData.date,
-            specialty: formData.sessionType,
             time: formData.time,
-            paymentDate: formData.paymentDate,
             appointmentId: formData.appointmentId || undefined,
-            calculationMode: calculationMode
+            calculationMode,
+            // 🔹 Novo campo que o backend espera
+            payments: payments.map(p => ({
+                amount: Number(p.amount),
+                method: p.method,
+                date: p.date,
+                description: p.description
+            }))
         };
+
 
         try {
             await packageService.createPackage(packageData as CreatePackageParams);
-            toast.success('Pacote criado com sucesso!');
+            toast.success(`Pacote criado com sucesso! Total pago: R$ ${getTotalPaid().toFixed(2)}`);
             await fetchAppointments();
             onSubmit();
             onClose();
@@ -213,6 +206,71 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         if (isNaN(dateObj.getTime())) return dateString;
         return dateObj.toLocaleDateString('pt-BR');
     };
+
+    const [payments, setPayments] = useState([
+        {
+            id: 1,
+            amount: 0,
+            date: '',
+            method: '',
+            description: ''
+        }
+    ]);
+
+    useEffect(() => {
+        const total = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+        setFormData(prev => ({ ...prev, totalPaid: total }));
+    }, [payments]);
+
+    const addPayment = () => {
+        setPayments(prev => [
+            ...prev,
+            {
+                id: Date.now(),
+                amount: 0,
+                date: '',
+                method: '',
+                description: ''
+            }
+        ]);
+    };
+
+    const removePayment = (id: number) => {
+        if (payments.length > 1) {
+            setPayments(prev => prev.filter(payment => payment.id !== id));
+        }
+    };
+
+    const updatePayment = (id: number, field: string, value: any) => {
+        setPayments(prev =>
+            prev.map(payment =>
+                payment.id === id ? { ...payment, [field]: value } : payment
+            )
+        );
+    };
+
+    const getTotalPaid = () => {
+        return payments.reduce((total, payment) => total + (Number(payment.amount) || 0), 0);
+    };
+
+    // 🔹 Verifica se todos os pagamentos têm valor, método e data
+    const hasValidPayments = payments.every(
+        p => p.amount > 0 && p.method && p.date
+    );
+
+    const isFormValid = !!(
+        formData.patientId &&
+        formData.doctorId &&
+        formData.sessionType &&
+        formData.paymentType &&
+        formData.sessionValue > 0 &&
+        hasValidPayments && // ✅ usa a nova regra
+        formData.date &&
+        formData.time &&
+        (calculationMode === 'sessions'
+            ? formData.totalSessions > 0
+            : (formData.durationMonths > 0 && formData.sessionsPerWeek > 0))
+    );
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -523,54 +581,108 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                         />
                                     </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Valor Pago (R$) *</label>
-                                        <InputCurrency
-                                            name="totalPaid"
-                                            value={formData.totalPaid}
-                                            onChange={handleChange}
-                                            min="0"
-                                            step="0.01"
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Data Pagamento *</label>
-                                        <DatePicker
-                                            selected={formData.paymentDate ? buildLocalDateOnly(formData.paymentDate) : null}
-                                            onChange={(date: Date | null) => {
-                                                if (!date) return;
-                                                const formattedDate = date.toISOString().split('T')[0];
-                                                handleChange({ target: { name: 'paymentDate', value: formattedDate } } as any);
-                                            }}
-                                            customInput={
-                                                <ReactInputMask
-                                                    mask="99/99/9999"
-                                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
-                                                />
-                                            }
-                                            placeholderText="dd/MM/yyyy"
-                                            dateFormat="dd/MM/yyyy"
-                                        />
-                                    </div>
-
-                                    {(formData.totalPaid && formData.totalPaid > 0) && (
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">Método de Pagamento *</label>
-                                            <Select
-                                                name="paymentMethod"
-                                                value={formData.paymentMethod}
-                                                onChange={handleChange}
-                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
+                                    {/* Múltiplos Pagamentos */}
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between items-center">
+                                            <label className="block text-sm font-medium text-gray-700">
+                                                Formas de Pagamento
+                                            </label>
+                                            <button
+                                                type="button"
+                                                onClick={addPayment}
+                                                className="flex items-center gap-2 px-3 py-1 text-sm text-green-600 hover:bg-green-50 rounded-lg border border-green-200"
                                             >
-                                                <option value="">Escolha um método</option>
-                                                <option value="dinheiro">Dinheiro</option>
-                                                <option value="pix">PIX</option>
-                                                <option value="cartão">Cartão</option>
-                                            </Select>
+                                                <Plus className="w-4 h-4" />
+                                                Adicionar Pagamento
+                                            </button>
                                         </div>
-                                    )}
+
+                                        {payments.map((payment, index) => (
+                                            <div key={payment.id} className="bg-white p-4 rounded-lg border border-gray-200">
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <span className="text-sm font-medium text-gray-700">
+                                                        Pagamento {index + 1}
+                                                    </span>
+                                                    {payments.length > 1 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removePayment(payment.id)}
+                                                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    {/* Valor */}
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                                                            Valor (R$)*
+                                                        </label>
+                                                        <InputCurrency
+                                                            value={payment.amount}
+                                                            onChange={(e) => updatePayment(payment.id, 'amount', e.target.value)}
+                                                            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
+                                                        />
+                                                    </div>
+
+                                                    {/* Data */}
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                                                            Data *
+                                                        </label>
+                                                        <DatePicker
+                                                            selected={payment.date ? buildLocalDateOnly(payment.date) : null}
+                                                            onChange={(date: Date | null) => {
+                                                                if (!date) return;
+                                                                const formattedDate = date.toISOString().split('T')[0];
+                                                                updatePayment(payment.id, 'date', formattedDate);
+                                                            }}
+                                                            customInput={
+                                                                <ReactInputMask
+                                                                    mask="99/99/9999"
+                                                                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
+                                                                />
+                                                            }
+                                                            placeholderText="dd/MM/yyyy"
+                                                            dateFormat="dd/MM/yyyy"
+                                                        />
+                                                    </div>
+
+                                                    {/* Método de Pagamento */}
+                                                    <div className="md:col-span-2">
+                                                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                                                            Método de Pagamento *
+                                                        </label>
+                                                        <select
+                                                            value={payment.method}
+                                                            onChange={(e) => updatePayment(payment.id, 'method', e.target.value)}
+                                                            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
+                                                        >
+                                                            <option value="">Escolha um método</option>
+                                                            <option value="dinheiro">Dinheiro</option>
+                                                            <option value="pix">PIX</option>
+                                                            <option value="cartao_credito">Cartão de Crédito</option>
+                                                            <option value="cartao_debito">Cartão de Débito</option>
+                                                            <option value="transferencia">Transferência</option>
+                                                            <option value="boleto">Boleto</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Total Pago */}
+                                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm font-medium text-blue-800">Total Pago:</span>
+                                            <span className="text-lg font-bold text-blue-800">
+                                                R$ {getTotalPaid().toFixed(2)}
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -620,7 +732,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm text-gray-600">Valor pago:</span>
                                         <span className="text-sm font-semibold text-gray-900">
-                                            R$ {formData.totalPaid.toFixed(2)}
+                                            R$ {getTotalPaid().toFixed(2)}
                                         </span>
                                     </div>
                                     <div className="border-t border-gray-200 pt-2">
@@ -656,8 +768,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                             onClick={handleSave}
                             disabled={!isFormValid || isLoading}
                             className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-200 ${!isFormValid || isLoading
-                                    ? 'bg-gray-400 cursor-not-allowed text-white'
-                                    : 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg hover:shadow-xl'
+                                ? 'bg-gray-400 cursor-not-allowed text-white'
+                                : 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg hover:shadow-xl'
                                 }`}
                         >
                             {isLoading ? (

@@ -187,24 +187,24 @@ const Login = () => {
               />
             ))}
           </div>
-          <h1 className="text-blue-600 text-3xl font-semibold text-center">Acesso inteligente aos cuidados de saúde</h1>
+          <h1 className="text-green-600 text-3xl font-semibold text-center">Acesso inteligente aos cuidados de saúde</h1>
         </div>
       </div>
 
-      <div className="w-1/2 bg-blue-600 flex items-center justify-center p-4">
+      <div className="w-1/2 bg-gradient-to-br from-green-600 to-emerald-700 flex items-center justify-center p-4">
         <div className="w-full max-w-md overflow-hidden">
-          <div className="bg-blue-600 p-6 text-white">
+          <div className="bg-transparent p-6 text-white">
             <h2 className="text-2xl font-bold text-center">
               {showForgotPassword ? 'Recuperar Senha' :
                 showCreatePassword ? 'Criar Nova Senha' : 'Faça login no Portal de Saúde'}
             </h2>
-            <p className="text-center text-blue-100 mt-1">
+            <p className="text-center text-green-100 mt-1">
               {showForgotPassword ? 'Receba instruções por email' :
                 showCreatePassword ? 'Defina sua senha de acesso' : 'Acesse sua conta'}
             </p>
           </div>
 
-          <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-md bg-white">
+          <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-lg bg-white">
             <div className="p-6">
               {/* Mensagem de sessão expirada */}
               {sessionExpired && (
@@ -215,12 +215,12 @@ const Login = () => {
 
               {showForgotPassword ? (
                 <>
-                  <div className="flex bg-blue-100 rounded-lg p-1 mb-4">
+                  <div className="flex bg-green-50 rounded-lg p-1 mb-4 border border-green-100">
                     {roles.map((role) => (
                       <button
                         key={role.id}
                         onClick={() => setSelectedRole(role.id)}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-colors ${selectedRole === role.id ? 'bg-blue-600 text-white' : 'text-blue-600'}`}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-colors ${selectedRole === role.id ? 'bg-green-600 text-white shadow-sm' : 'text-green-600 hover:bg-green-100'}`}
                       >
                         <role.icon size={16} />
                         <span>{role.label}</span>
@@ -239,13 +239,13 @@ const Login = () => {
                         value={resetEmail}
                         onChange={(e) => setResetEmail(e.target.value)}
                         placeholder="Insira o email da sua conta"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                         required
                       />
                     </div>
 
-                    <div className="bg-blue-50 p-3 rounded-md">
-                      <p className="text-sm text-blue-800">
+                    <div className="bg-green-50 p-3 rounded-md border border-green-100">
+                      <p className="text-sm text-green-800">
                         Solicitando redefinição para: <strong className="font-semibold">
                           {roles.find(r => r.id === selectedRole)?.label}
                         </strong>
@@ -254,7 +254,7 @@ const Login = () => {
 
                     <button
                       type="submit"
-                      className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors"
+                      className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 rounded-md hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-md font-medium"
                     >
                       Enviar Instruções
                     </button>
@@ -265,7 +265,7 @@ const Login = () => {
                         setShowForgotPassword(false);
                         setResetEmail('');
                       }}
-                      className="w-full text-blue-600 mt-2 text-sm hover:underline"
+                      className="w-full text-green-600 mt-2 text-sm hover:underline font-medium"
                     >
                       Voltar ao login
                     </button>
@@ -283,7 +283,7 @@ const Login = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Seu email cadastrado"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                       required
                     />
                   </div>
@@ -299,7 +299,7 @@ const Login = () => {
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder="Crie uma senha segura"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                         required
                         minLength={6}
                       />
@@ -327,7 +327,7 @@ const Login = () => {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Repita a senha"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                       required
                     />
                   </div>
@@ -335,14 +335,14 @@ const Login = () => {
                   <div className="flex gap-2">
                     <button
                       type="submit"
-                      className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors"
+                      className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 rounded-md hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-md font-medium"
                     >
                       Criar Senha
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowCreatePassword(false)}
-                      className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-colors"
+                      className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-md hover:bg-gray-200 transition-colors border border-gray-300 font-medium"
                     >
                       Cancelar
                     </button>
@@ -350,12 +350,12 @@ const Login = () => {
                 </form>
               ) : (
                 <>
-                  <div className="flex bg-blue-100 rounded-lg p-1 mb-6">
+                  <div className="flex bg-green-50 rounded-lg p-1 mb-6 border border-green-100">
                     {roles.map((role) => (
                       <button
                         key={role.id}
                         onClick={() => setSelectedRole(role.id)}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-colors ${selectedRole === role.id ? 'bg-blue-600 text-white' : 'text-blue-600'}`}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-all duration-200 ${selectedRole === role.id ? 'bg-green-600 text-white shadow-sm' : 'text-green-600 hover:bg-green-100'}`}
                       >
                         <role.icon size={16} />
                         <span>{role.label}</span>
@@ -374,7 +374,7 @@ const Login = () => {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="Insira o email"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                         required
                       />
                     </div>
@@ -389,7 +389,7 @@ const Login = () => {
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           placeholder="Insira a senha"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                           required
                         />
                         <button
@@ -411,7 +411,7 @@ const Login = () => {
 
                     <button
                       type="submit"
-                      className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors flex justify-center items-center gap-2"
+                      className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 rounded-md hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-md font-medium flex justify-center items-center gap-2"
                     >
                       {isLoading ? (
                         <>
@@ -429,7 +429,7 @@ const Login = () => {
                         setShowForgotPassword(true);
                         setResetEmail(email); // Preenche com o email já digitado
                       }}
-                      className="w-full text-blue-600 mt-2 text-sm hover:underline"
+                      className="w-full text-green-600 mt-2 text-sm hover:underline font-medium"
                     >
                       Esqueci minha senha
                     </button>
@@ -438,11 +438,11 @@ const Login = () => {
               )}
             </div>
 
-            <div className="bg-gray-50 px-6 py-4 text-center">
+            <div className="bg-gray-50 px-6 py-4 text-center border-t border-gray-200">
               {!showForgotPassword && !showCreatePassword && (
                 <p className="text-sm text-gray-600">
                   Não tem conta?{' '}
-                  <button onClick={() => navigate('/signup')} className="text-blue-600 font-semibold hover:underline">
+                  <button onClick={() => navigate('/signup')} className="text-green-600 font-semibold hover:underline">
                     Cadastre-se
                   </button>
                 </p>
