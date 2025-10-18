@@ -4,139 +4,143 @@ import API from "./api";
 export type DoctorRole = 'doctor';
 
 export type CreateDoctorParams = {
-    _id?: string;
-    fullName: string;
-    email: string;
-    password: string;
-    specialty: string;
-    licenseNumber: string;
-    phoneNumber: string;
-    active: string;
-    role?: DoctorRole;
+  _id?: string;
+  fullName: string;
+  email: string;
+  password: string;
+  specialty: string;
+  licenseNumber: string;
+  phoneNumber: string;
+  active: string;
+  role?: DoctorRole;
 };
 
 export type Doctor = {
-    _id: string;
-    fullName: string;
-    email: string;
-    specialty: string;
-    licenseNumber: string;
-    phoneNumber: string;
-    active: string;
-    role: DoctorRole;
-    createdAt?: string;
-    updatedAt?: string;
+  _id: string;
+  fullName: string;
+  email: string;
+  specialty: string;
+  licenseNumber: string;
+  phoneNumber: string;
+  active: string;
+  role: DoctorRole;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
+// ==========================================================
+// 👨‍⚕️ Serviço principal do médico
+// ==========================================================
 export const doctorService = {
-    createDoctor: async (data: CreateDoctorParams) => {
-        return API.post<Doctor>('/doctors', data);
-    },
+  createDoctor: async (data: CreateDoctorParams) => {
+    return API.post<Doctor>("/doctors", data);
+  },
 
-    getAllDoctors: async () => {
-        return API.get<Doctor[]>('/doctors');
-    },
+  getAllDoctors: async () => {
+    return API.get<Doctor[]>("/doctors");
+  },
 
-    getDoctorById: async (id: string) => {
-        return API.get<Doctor>(`/doctors/${id}`);
-    },
+  getDoctorById: async (id: string) => {
+    return API.get<Doctor>(`/doctors/${id}`);
+  },
 
-    deleteDoctor: async (id: string) => {
-        return API.delete<{ message: string }>(`/doctors/${id}`);
-    },
+  deleteDoctor: async (id: string) => {
+    return API.delete<{ message: string }>(`/doctors/${id}`);
+  },
 
-    updateDoctor: async (id: string, data: CreateDoctorParams) => {
-        return API.patch<Doctor>(`/doctors/${id}`, data);
-    },
+  updateDoctor: async (id: string, data: CreateDoctorParams) => {
+    return API.patch<Doctor>(`/doctors/${id}`, data);
+  },
 
-    getTotalDoctors: async (): Promise<{ totalDoctors: number }> => {
-        const response = await API.get('/admin/total-doctors');
-        return response.data;
-    },
+  getTotalDoctors: async (): Promise<{ totalDoctors: number }> => {
+    const response = await API.get("/admin/total-doctors");
+    return response.data;
+  },
 
-    getDoctorOverview: async (): Promise<any> => {
-        const response = await API.get('/admin/doctor-overview');
-        return response.data;
-    },
+  getDoctorOverview: async (): Promise<any> => {
+    const response = await API.get("/admin/doctor-overview");
+    return response.data;
+  },
 
-    getAppointmentCalendarDoctor: async (id: string): Promise<any> => {
-        const response = await API.get(`/doctors/appointments/calendar/${id}`);
-        return response.data;
-    },
+  getAppointmentCalendarDoctor: async (id: string): Promise<any> => {
+    const response = await API.get(`/doctors/appointments/calendar/${id}`);
+    return response.data;
+  },
 
-    completeTherapySession: async (sessionId: any) => {
-        const res = await API.patch(`/doctors/therapy-sessions/${sessionId}/complete`);
-        return res.data;
-    },
+  completeTherapySession: async (sessionId: string) => {
+    const res = await API.patch(`/doctors/therapy-sessions/${sessionId}/complete`);
+    return res.data;
+  },
+
+  // ==========================================================
+  // 🔥 NOVO MÉTODO — Resumo de frequência dos pacientes
+  // ==========================================================
+  getAttendanceSummary: async (doctorId: string) => {
+    const res = await API.get(`/doctors/${doctorId}/attendance-summary`);
+    return res.data;
+  },
 };
 
+// ==========================================================
+// 🔹 Funções auxiliares de dados
+// ==========================================================
 export const fetchPatients = async (): Promise<any[]> => {
-    const response = await API.get('/doctors/patients');
-    return response.data;
+  const response = await API.get("/doctors/patients");
+  return response.data;
 };
 
 export const fetchStats = async (): Promise<any> => {
-    const response = await API.get('/doctors/appointments/stats');
-    return response.data;
+  const response = await API.get("/doctors/appointments/stats");
+  return response.data;
 };
 
 export const fetchTherapySessions = async (): Promise<any[]> => {
-    const response = await API.get('/doctors/therapy-sessions');
-    return response.data;
+  const response = await API.get("/doctors/therapy-sessions");
+  return response.data;
 };
 
 export const fetchTodaysAppointments = async (): Promise<any[]> => {
-    const response = await API.get('/doctors/appointments/today');
-    return response.data;
+  const response = await API.get("/doctors/appointments/today");
+  return response.data;
 };
 
+export const fetchFutureAppointments = async (): Promise<Appointment[]> => {
+  try {
+    const response = await API.get("/doctors/appointments/future");
+    return response.data;
+  } catch (error) {
+    console.error("Erro ao buscar agendamentos futuros:", error);
+    throw new Error("Não foi possível carregar os agendamentos");
+  }
+};
 
 export const updateClinicalStatus = async ({ appointmentId, status }: ClinicalStatusUpdate) => {
-    try {
-        const response = await API.patch(`/appointments/${appointmentId}/clinical-status`, { status });
-        return response.data;
-    } catch (error: any) {
-        console.error('Erro ao atualizar status clínico:', error);
-
-        // Tratamento de erros específicos
-        if (error.response) {
-            const { status, data } = error.response;
-
-            if (status === 400) {
-                throw new Error(data.error || 'Dados inválidos enviados ao servidor');
-            }
-
-            if (status === 403) {
-                throw new Error('Você não tem permissão para atualizar este agendamento');
-            }
-
-            if (status === 404) {
-                throw new Error('Agendamento não encontrado');
-            }
-        }
-
-        throw new Error('Erro ao conectar com o servidor. Tente novamente mais tarde.');
+  try {
+    const response = await API.patch(`/appointments/${appointmentId}/clinical-status`, { status });
+    return response.data;
+  } catch (error: any) {
+    console.error("Erro ao atualizar status clínico:", error);
+    if (error.response) {
+      const { status, data } = error.response;
+      if (status === 400) throw new Error(data.error || "Dados inválidos");
+      if (status === 403) throw new Error("Sem permissão para atualizar");
+      if (status === 404) throw new Error("Agendamento não encontrado");
     }
+    throw new Error("Erro ao conectar com o servidor.");
+  }
 };
-// Função para buscar dados do médico logado
+
+// ==========================================================
+// 👨‍⚕️ Buscar médico logado
+// ==========================================================
 export const fetchCurrentDoctor = async () => {
-    try {
-        const response = await API.get('/users/me');
-        return response.data;
-    } catch (error) {
-        console.error('Error fetching current doctor:', error);
-        throw error;
-    }
+  try {
+    const response = await API.get("/users/me");
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching current doctor:", error);
+    throw error;
+  }
 };
 
-// frontend/services/appointmentService.ts
-export const fetchFutureAppointments = async (): Promise<Appointment[]> => {
-    try {
-        const response = await API.get('/doctors/appointments/future');
-        return response.data;
-    } catch (error) {
-        console.error('Erro ao buscar agendamentos futuros:', error);
-        throw new Error('Não foi possível carregar os agendamentos');
-    }
-};
 export default doctorService;

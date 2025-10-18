@@ -1,4 +1,4 @@
-import { Info } from 'lucide-react';
+import { Info, Plus, Package, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import packagesService, { packageService, UseSessionParams, validatePayment } from '../../services/packageService';
@@ -18,16 +18,17 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
     const [showManager, setShowManager] = useState(false);
     const [selectedPackage, setSelectedPackage] = useState<ITherapyPackage | null>(null);
     const [editing, setEditing] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     // Carregar os pacotes na inicialização do componente
     useEffect(() => {
         fetchBasicPackages();
-    }, []);
+    }, [patient._id]); // Adicionei patient._id como dependência
 
     // Função para buscar pacotes atualizados
     const fetchBasicPackages = async () => {
+        setLoading(true);
         try {
-            // 1. Parâmetros padrão para evitar chamadas sem parâmetros obrigatórios
             const params = {
                 page: 1,
                 limit: 10,
@@ -35,57 +36,36 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                 patientId: patient._id,
             };
 
-            // 2. Chamada à API com tratamento de erro implícito
             const res = await packagesService.listPackages(params);
 
-
-            // 4. Extração de dados com destructuring e fallback
             const responseData = res?.data || {};
             const packageData = (
                 Array.isArray(responseData)
                     ? responseData
                     : responseData.data || []
-            ).filter(pkg => pkg); // Filtra entradas null/undefined
+            ).filter(pkg => pkg);
+            
             setPackages(packageData);
 
-            // 6. Feedback condicional baseado nos dados
-            packageData.length
-                ? toast.success(`${packageData.length} pacotes carregados.`)
-                : toast('Nenhum pacote contratado.', {
+            if (packageData.length > 0) {
+                toast.success(`${packageData.length} pacote${packageData.length > 1 ? 's' : ''} carregado${packageData.length > 1 ? 's' : ''}`);
+            } else {
+                toast.info('Nenhum pacote contratado para este paciente', {
                     icon: <Info className="text-blue-500" />,
                 });
+            }
 
-        } catch (error) {
-            // 7. Tratamento de erro detalhado
+        } catch (error: any) {
             console.error('Erro na requisição:', {
                 error,
                 message: error.response?.data?.message || 'Erro desconhecido'
             });
 
-            setPackages([]); // Estado claro em caso de falha
+            toast.error('Erro ao carregar pacotes');
+            setPackages([]);
+        } finally {
+            setLoading(false);
         }
-    };
-
-    /* const handleUpdateSession = async (packageId: string, sessionData: UseSessionParams) => {
-        try {
-            const updatedPackage = await packageService.updateSession(
-                packageId, 
-                sessionData._id, 
-                sessionData
-            );
-            setPackages(prev => prev.map(p => 
-                p._id === packageId ? updatedPackage : p
-            ));
-            toast.success("Sessão atualizada com sucesso!");
-        } catch (err) {
-            console.error('Erro ao atualizar sessão:', err);
-            toast.error("Erro ao atualizar sessão");
-        }
-    };
-     */
-    const handleAddPackage = () => {
-        fetchBasicPackages();
-        setShowManager(false);
     };
 
     const handleUseSession = async (packId: string, sessionData: UseSessionParams, modalAction: string) => {
@@ -117,7 +97,7 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
 
         } catch (err) {
             console.error('Erro:', err);
-            toast.error(`Falha ao ${modalAction === 'edit' ? 'atualizar' : 'registrar uso'} sessão`);
+            toast.error(`Falha ao ${modalAction === 'edit' ? 'atualizar' : 'registrar'} sessão`);
         }
     }
 
@@ -149,43 +129,106 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
         fetchBasicPackages();
     };
 
+    // Resetar estados quando fechar detalhes
+    const handleCloseDetails = () => {
+        setSelectedPackage(null);
+        setEditing(false);
+    };
+
     return (
-        <div className="mt-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {packages.map(pkg => (
-                    <TherapyPackageCard
-                        key={pkg._id}
-                        pack={pkg}
-                        patient={patient}
-                        doctors={doctors}
-                        onUseSession={handleUseSession}
-                        onRegisterPayment={handleRegisterPayment}
-                        onCardClick={() => setSelectedPackage(pkg)}
-                    />
-                ))}
+        <div className="space-y-6">
+            {/* Header com Estatísticas */}
+            <div className="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-2xl p-6">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                            <Package className="w-8 h-8 text-emerald-600" />
+                            Pacotes de Terapia
+                        </h2>
+                        <p className="text-gray-600 mt-1">
+                            Gerencie os pacotes de {patient.fullName}
+                        </p>
+                    </div>
+                    
+                    <div className="flex items-center gap-4">
+                        {/* Estatísticas */}
+                        <div className="bg-white rounded-xl p-4 border border-emerald-200 min-w-[120px] text-center">
+                            <div className="text-2xl font-bold text-emerald-600">{packages.length}</div>
+                            <div className="text-sm text-gray-600">Pacotes</div>
+                        </div>
+                        
+                        <button
+                            onClick={() => setShowManager(true)}
+                            className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-xl hover:from-emerald-700 hover:to-green-700 transition-all duration-200 font-medium flex items-center gap-2 shadow-lg hover:shadow-xl"
+                        >
+                            <Plus className="w-5 h-5" />
+                            Novo Pacote
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            <div className="mt-6 flex justify-center">
-                <button
-                    onClick={() => setShowManager(true)}
-                    className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
-                >
-                    Gerenciar Pacote
-                </button>
+            {/* Loading State */}
+            {loading && (
+                <div className="flex justify-center items-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+                </div>
+            )}
 
-                {selectedPackage && !editing && (
-                    <TherapyPackageDetails
-                        pack={selectedPackage}
-                        onClose={() => setSelectedPackage(null)}
-                        onEdit={() => setEditing(true)}
-                    />
-                )}
-            </div>
+            {/* Grid de Pacotes */}
+            {!loading && (
+                <>
+                    {packages.length > 0 ? (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                            {packages.map(pkg => (
+                                <TherapyPackageCard
+                                    key={pkg._id}
+                                    pack={pkg}
+                                    patient={patient}
+                                    doctors={doctors}
+                                    onUseSession={handleUseSession}
+                                    onRegisterPayment={handleRegisterPayment}
+                                    onCardClick={setSelectedPackage}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-12 bg-white rounded-2xl border border-gray-200">
+                            <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                                Nenhum pacote encontrado
+                            </h3>
+                            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                                {patient.fullName} não possui pacotes de terapia ativos no momento.
+                            </p>
+                            <button
+                                onClick={() => setShowManager(true)}
+                                className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-xl hover:from-emerald-700 hover:to-green-700 transition-all duration-200 font-medium flex items-center gap-2 mx-auto"
+                            >
+                                <Plus className="w-5 h-5" />
+                                Criar Primeiro Pacote
+                            </button>
+                        </div>
+                    )}
+                </>
+            )}
+
+            {/* Modais */}
+            {selectedPackage && !editing && (
+                <TherapyPackageDetails
+                    pack={selectedPackage}
+                    onClose={handleCloseDetails}
+                    onEdit={() => setEditing(true)}
+                />
+            )}
 
             {showManager && (
                 <TherapyPackageManager
                     onClose={() => setShowManager(false)}
-                    onSave={handleAddPackage}
+                    onSave={() => {
+                        fetchBasicPackages();
+                        setShowManager(false);
+                    }}
                     packages={packages}
                     onRefresh={fetchBasicPackages}
                     doctors={doctors}
@@ -196,11 +239,10 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
             {selectedPackage && editing && (
                 <TherapyPackageDetailsModal
                     pack={selectedPackage}
-                    onClose={() => setEditing(false)}
+                    onClose={handleCloseDetails}
                     onUpdate={(updated) => {
                         handleUpdatePackage(updated);
-                        setEditing(false);
-                        setSelectedPackage(null);
+                        handleCloseDetails();
                     }}
                 />
             )}

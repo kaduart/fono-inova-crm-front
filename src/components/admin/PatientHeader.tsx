@@ -56,11 +56,11 @@ const PatientHeader: React.FC<PatientHeaderProps> = ({
                 <div className="flex justify-between h-16 items-center">
                     {/* Logo e nome da clínica */}
                     <div className="flex items-center gap-3 cursor-pointer">
-                        <NavLink
-                            to="/patient-dashboard"
-                            className="flex items-center gap-3"
-                            onClick={() => handleTabChange("Dashboard")}
+                        <div
+                            onClick={() => navigate("/admin")}
+                            className="flex items-center gap-3 cursor-pointer hover:opacity-90 transition-opacity"
                         >
+
                             <div className="h-10 w-10 rounded-lg bg-white flex items-center justify-center shadow-md">
                                 <Heart className="w-6 h-6 text-emerald-600" />
                             </div>
@@ -73,7 +73,7 @@ const PatientHeader: React.FC<PatientHeaderProps> = ({
                                     Área do Paciente
                                 </span>
                             </div>
-                        </NavLink>
+                        </div>
                     </div>
 
                     {/* Navegação Específica para Pacientes */}

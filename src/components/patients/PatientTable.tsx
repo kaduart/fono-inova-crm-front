@@ -1,5 +1,6 @@
-import { ChevronDown, ChevronUp, DollarSign, Edit, Eye, FileHeart, Hourglass, HourglassIcon, List, Phone } from "lucide-react";
+import { ChevronDown, ChevronUp, Edit, Eye, FileHeart, List, Phone } from "lucide-react";
 import React, { useMemo, useState } from 'react'; // Adicionei useMemo
+import { BsHourglass } from "react-icons/bs";
 import { Link, useNavigate } from 'react-router-dom';
 import { formatDateBrazilian } from "../../utils/dateFormat";
 import { IPatient } from "../../utils/types/types";
@@ -7,7 +8,6 @@ import { WhatsAppActionButtons } from "../mkt/whatsapp/buttons/WhatsAppActionBut
 import { Card, CardHeader } from "../ui/Card";
 import Input from "../ui/Input";
 import PackageAccordion from "./PackageAccordion";
-import { BsHourglass } from "react-icons/bs";
 
 interface PatientTableProps {
     patients: IPatient[];
@@ -38,7 +38,7 @@ const PatientTable = ({ patients, onEditPatient, onPaymentAdvancedSuccess, onReg
         if (patients.length > 0) {
             setLoading(false)
         }
-        
+
         sortablePatients.sort((a, b) => {
             // Trata pacientes sem data
             const dateA = a.nextAppointment?.date
@@ -71,7 +71,9 @@ const PatientTable = ({ patients, onEditPatient, onPaymentAdvancedSuccess, onReg
     const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedPatients = filteredPatients.slice(startIndex, startIndex + itemsPerPage);
-
+    console.log('filteredPatients:', filteredPatients);
+    console.log('Paginated Patients:', paginatedPatients);
+    console.log('patients:', patients);
     const handlePageChange = (direction: 'prev' | 'next') => {
         if (direction === 'prev' && currentPage > 1) {
             setCurrentPage((prev) => prev - 1);

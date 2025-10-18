@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom';
-import { Header } from './Header';
-import PixNotificationPopup from './financial/PixNotificationPopup';
 import { usePixSocket } from '../hooks/usePixSocket';
+import { Header } from './DoctorHeader';
+import PixNotificationPopup from './financial/PixNotificationPopup';
 
 
 //nao sendo usado

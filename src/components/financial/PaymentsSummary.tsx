@@ -1,4 +1,4 @@
-import { Box, Grid, Typography } from '@mui/material';
+import { Box, Grid, Typography, useTheme } from '@mui/material';
 import { AlertCircle, CheckCircle, CircleDollarSign, Clock, CreditCard } from 'lucide-react';
 import React from 'react';
 
@@ -12,290 +12,251 @@ interface FinancialSummaryCardProps {
 }
 
 const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => {
+  const theme = useTheme();
+
   // Formatar valores monetários
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL'
-    }).format(value); // Dividindo por 100 para converter centavos em reais
+    }).format(value);
   };
+
+  const cards = [
+    {
+      title: 'Total Recebido',
+      value: formatCurrency(data.totalReceived),
+      count: data.countReceived,
+      icon: CircleDollarSign,
+      color: '#16A34A',
+      bgColor: '#F0FDF4',
+      iconBg: '#DCFCE7',
+      description: 'pagamentos confirmados'
+    },
+    {
+      title: 'Total Pendente',
+      value: formatCurrency(data.totalPending),
+      count: data.countPending,
+      icon: Clock,
+      color: '#D97706',
+      bgColor: '#FFFBEB',
+      iconBg: '#FEF3C7',
+      description: 'aguardando confirmação'
+    },
+    {
+      title: 'Recebidos',
+      value: data.countReceived.toString(),
+      count: data.countReceived,
+      icon: CreditCard,
+      color: '#2563EB',
+      bgColor: '#EFF6FF',
+      iconBg: '#DBEAFE',
+      description: 'transações concluídas'
+    },
+    {
+      title: 'Pendentes',
+      value: data.countPending.toString(),
+      count: data.countPending,
+      icon: AlertCircle,
+      color: '#DC2626',
+      bgColor: '#FEF2F2',
+      iconBg: '#FEE2E2',
+      description: 'transações pendentes'
+    }
+  ];
 
   return (
     <Box
       sx={{
         backgroundColor: 'white',
-        borderRadius: '12px',
+        borderRadius: 3,
         boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
         p: 3,
-        mb: 3,
-        width: '100%'
+        border: `1px solid ${theme.palette.divider}`,
+        transition: 'all 0.3s ease-in-out',
+        '&:hover': {
+          boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+        }
       }}
     >
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h6" sx={{ fontWeight: 700, color: '#1E293B' }}>
+      {/* Header */}
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
+        <Typography 
+          variant="h5" 
+          sx={{ 
+            fontWeight: 700, 
+            color: 'grey.800',
+            background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+            backgroundClip: 'text',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}
+        >
           Resumo Financeiro
         </Typography>
-        <Box display="flex" alignItems="center">
-          <Typography variant="caption" sx={{ color: '#64748B', mr: 1 }}>
+        <Box display="flex" alignItems="center" sx={{ bgcolor: 'grey.50', px: 2, py: 1, borderRadius: 2 }}>
+          <Typography variant="caption" sx={{ color: 'grey.600', mr: 1 }}>
             Atualizado em:
           </Typography>
-          <Typography variant="caption" sx={{ fontWeight: 500 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: 'grey.700' }}>
             {new Date().toLocaleDateString('pt-BR')}
           </Typography>
         </Box>
       </Box>
 
-      <Grid
-        container
-        spacing={2}
-        justifyContent="space-evenly"
-        sx={{
-          maxWidth: '1200px', // limite opcional para centralizar em telas largas
-          margin: '0 auto',   // centraliza o container
+      {/* Cards Grid */}
+      <Grid container spacing={3}>
+        {cards.map((card, index) => (
+          <Grid item xs={12} sm={6} md={3} key={index}>
+            <Box
+              sx={{
+                backgroundColor: card.bgColor,
+                borderLeft: `4px solid ${card.color}`,
+                borderRadius: '0 12px 12px 0',
+                p: 3,
+                height: '100%',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: `0 8px 25px ${card.color}20`,
+                }
+              }}
+            >
+              {/* Icon and Title */}
+              <Box display="flex" alignItems="center" mb={2.5}>
+                <Box
+                  sx={{
+                    backgroundColor: card.iconBg,
+                    p: 1.5,
+                    borderRadius: '12px',
+                    mr: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <card.icon size={24} color={card.color} />
+                </Box>
+                <Typography 
+                  variant="subtitle1" 
+                  sx={{ 
+                    fontWeight: 600, 
+                    color: 'grey.800',
+                    fontSize: '0.95rem'
+                  }}
+                >
+                  {card.title}
+                </Typography>
+              </Box>
+
+              {/* Value */}
+              <Typography 
+                variant="h4" 
+                sx={{ 
+                  fontWeight: 700, 
+                  color: card.color, 
+                  mb: 1,
+                  fontSize: '1.75rem',
+                  lineHeight: 1.2
+                }}
+              >
+                {card.value}
+              </Typography>
+
+              {/* Description */}
+              <Box display="flex" alignItems="center" mt={2}>
+                <Box
+                  sx={{
+                    backgroundColor: 'rgba(255,255,255,0.7)',
+                    p: 1,
+                    borderRadius: '8px',
+                    mr: 1.5,
+                    display: 'flex'
+                  }}
+                >
+                  {index < 2 ? (
+                    <CreditCard size={16} color={card.color} />
+                  ) : (
+                    <CheckCircle size={16} color={card.color} />
+                  )}
+                </Box>
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    color: 'grey.600',
+                    fontWeight: 500,
+                    fontSize: '0.8rem'
+                  }}
+                >
+                  {card.count} {card.description}
+                </Typography>
+              </Box>
+
+              {/* Progress Bar for received/pending ratio */}
+              {index < 2 && (
+                <Box sx={{ mt: 2, width: '100%', bgcolor: 'rgba(0,0,0,0.1)', borderRadius: 2, height: 4 }}>
+                  <Box 
+                    sx={{ 
+                      width: index === 0 ? '100%' : `${(data.totalPending / (data.totalReceived + data.totalPending)) * 100}%`,
+                      height: '100%',
+                      bgcolor: card.color,
+                      borderRadius: 2,
+                      transition: 'width 0.5s ease'
+                    }} 
+                  />
+                </Box>
+              )}
+            </Box>
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* Total Summary */}
+      <Box 
+        sx={{ 
+          mt: 4, 
+          p: 3, 
+          bgcolor: 'grey.50', 
+          borderRadius: 2,
+          border: `1px solid ${theme.palette.divider}`
         }}
       >
-        {/* Total Recebido */}
-        <Grid item xs={12} sm={6} md={3}>
-          <Box
-            sx={{
-              backgroundColor: '#F0FDF4',
-              borderLeft: '4px solid #16A34A',
-              borderRadius: '0 8px 8px 0',
-              p: 2,
-              height: '100%',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                transform: 'translateY(-2px)',
-                boxShadow: '0 4px 12px rgba(22, 163, 74, 0.1)'
-              }
-            }}
-          >
-            <Box display="flex" alignItems="center" mb={1.5}>
-              <Box
-                sx={{
-                  backgroundColor: '#DCFCE7',
-                  p: 1,
-                  borderRadius: '50%',
-                  mr: 1.5,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <CircleDollarSign size={20} color="#16A34A" />
-              </Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1E293B' }}>
-                Total Recebido
-              </Typography>
-            </Box>
-
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#16A34A', mb: 1 }}>
-              {formatCurrency(data.totalReceived)}
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={6}>
+            <Typography variant="body2" sx={{ color: 'grey.600', mb: 1 }}>
+              Saldo Total
             </Typography>
-
-            <Box display="flex" alignItems="center">
-              <Box
-                sx={{
-                  backgroundColor: '#E2E8F0',
-                  p: 0.5,
-                  borderRadius: '4px',
-                  mr: 1,
-                  display: 'flex'
-                }}
-              >
-                <CreditCard size={14} color="#475569" />
-              </Box>
-              <Typography variant="caption" sx={{ color: '#64748B' }}>
-                {data.countReceived} {data.countReceived === 1 ? 'pagamento' : 'pagamentos'}
-              </Typography>
-            </Box>
-          </Box>
-        </Grid>
-
-        {/* Total Pendente */}
-        <Grid item xs={12} sm={6} md={3}>
-          <Box
-            sx={{
-              backgroundColor: '#FFFBEB',
-              borderLeft: '4px solid #F59E0B',
-              borderRadius: '0 8px 8px 0',
-              p: 2,
-              height: '100%',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                transform: 'translateY(-2px)',
-                boxShadow: '0 4px 12px rgba(245, 158, 11, 0.1)'
-              }
-            }}
-          >
-            <Box display="flex" alignItems="center" mb={1.5}>
-              <Box
-                sx={{
-                  backgroundColor: '#FEF3C7',
-                  p: 1,
-                  borderRadius: '50%',
-                  mr: 1.5,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <Clock size={20} color="#D97706" />
-              </Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1E293B' }}>
-                Total Pendente
-              </Typography>
-            </Box>
-
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#D97706', mb: 1 }}>
-              {formatCurrency(data.totalPending)}
+            <Typography 
+              variant="h4" 
+              sx={{ 
+                fontWeight: 700,
+                background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              {formatCurrency(data.totalReceived + data.totalPending)}
             </Typography>
-
-            <Box display="flex" alignItems="center">
-              <Box
-                sx={{
-                  backgroundColor: '#E2E8F0',
-                  p: 0.5,
-                  borderRadius: '4px',
-                  mr: 1,
-                  display: 'flex'
-                }}
-              >
-                <Clock size={14} color="#475569" />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Box display="flex" gap={2} justifyContent="flex-end">
+              <Box display="flex" alignItems="center">
+                <Box sx={{ width: 12, height: 12, bgcolor: '#16A34A', borderRadius: '50%', mr: 1 }} />
+                <Typography variant="caption" sx={{ color: 'grey.600' }}>
+                  Recebido: {formatCurrency(data.totalReceived)}
+                </Typography>
               </Box>
-              <Typography variant="caption" sx={{ color: '#64748B' }}>
-                {data.countPending} {data.countPending === 1 ? 'pagamento' : 'pagamentos'}
-              </Typography>
+              <Box display="flex" alignItems="center">
+                <Box sx={{ width: 12, height: 12, bgcolor: '#D97706', borderRadius: '50%', mr: 1 }} />
+                <Typography variant="caption" sx={{ color: 'grey.600' }}>
+                  Pendente: {formatCurrency(data.totalPending)}
+                </Typography>
+              </Box>
             </Box>
-          </Box>
+          </Grid>
         </Grid>
-
-        {/* Pagamentos Recebidos */}
-        <Grid item xs={12} sm={6} md={3}>
-          <Box
-            sx={{
-              backgroundColor: '#EFF6FF',
-              borderLeft: '4px solid #3B82F6',
-              borderRadius: '0 8px 8px 0',
-              p: 2,
-              height: '100%',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                transform: 'translateY(-2px)',
-                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.1)'
-              }
-            }}
-          >
-            <Box display="flex" alignItems="center" mb={1.5}>
-              <Box
-                sx={{
-                  backgroundColor: '#DBEAFE',
-                  p: 1,
-                  borderRadius: '50%',
-                  mr: 1.5,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <CreditCard size={20} color="#2563EB" />
-              </Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1E293B' }}>
-                Recebidos
-              </Typography>
-            </Box>
-
-            <Box display="flex" alignItems="flex-end" mb={1}>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: '#2563EB', mr: 1 }}>
-                {data.countReceived}
-              </Typography>
-              <Typography variant="caption" sx={{ color: '#64748B', mb: 0.5 }}>
-                transações
-              </Typography>
-            </Box>
-
-            <Box display="flex" alignItems="center">
-              <Box
-                sx={{
-                  backgroundColor: '#E2E8F0',
-                  p: 0.5,
-                  borderRadius: '4px',
-                  mr: 1,
-                  display: 'flex'
-                }}
-              >
-                <CheckCircle size={14} color="#475569" />
-              </Box>
-              <Typography variant="caption" sx={{ color: '#64748B' }}>
-                Concluídos
-              </Typography>
-            </Box>
-          </Box>
-        </Grid>
-
-        {/* Pagamentos Pendentes */}
-        <Grid item xs={12} sm={6} md={3}>
-          <Box
-            sx={{
-              backgroundColor: '#FEF2F2',
-              borderLeft: '4px solid #EF4444',
-              borderRadius: '0 8px 8px 0',
-              p: 2,
-              height: '100%',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                transform: 'translateY(-2px)',
-                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.1)'
-              }
-            }}
-          >
-            <Box display="flex" alignItems="center" mb={1.5}>
-              <Box
-                sx={{
-                  backgroundColor: '#FEE2E2',
-                  p: 1,
-                  borderRadius: '50%',
-                  mr: 1.5,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <AlertCircle size={20} color="#DC2626" />
-              </Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1E293B' }}>
-                Pendentes
-              </Typography>
-            </Box>
-
-            <Box display="flex" alignItems="flex-end" mb={1}>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: '#DC2626', mr: 1 }}>
-                {data.countPending}
-              </Typography>
-              <Typography variant="caption" sx={{ color: '#64748B', mb: 0.5 }}>
-                transações
-              </Typography>
-            </Box>
-
-            <Box display="flex" alignItems="center">
-              <Box
-                sx={{
-                  backgroundColor: '#E2E8F0',
-                  p: 0.5,
-                  borderRadius: '4px',
-                  mr: 1,
-                  display: 'flex'
-                }}
-              >
-                <Clock size={14} color="#475569" />
-              </Box>
-              <Typography variant="caption" sx={{ color: '#64748B' }}>
-                Aguardando confirmação
-              </Typography>
-            </Box>
-          </Box>
-        </Grid>
-      </Grid>
+      </Box>
     </Box>
   );
 };

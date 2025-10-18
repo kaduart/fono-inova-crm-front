@@ -32,6 +32,8 @@ export default function useDoctorDashboard() {
   const [doctors, setDoctors] = useState<any[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
 
+  const [attendanceSummary, setAttendanceSummary] = useState<any[]>([]);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -42,7 +44,7 @@ export default function useDoctorDashboard() {
         fetchTherapySessions(),
         fetchStats()
       ]);
-      console.log('patientsRes:', patientsRes);
+
       setDoctorData(doctorRes.data);
       setPatients(patientsRes);
       setAppointments(appointmentsRes);
@@ -50,21 +52,24 @@ export default function useDoctorDashboard() {
       setStats(statsRes);
 
       if (doctorRes.data && doctorRes.data._id) {
-        const calendarData = await doctorService.getAppointmentCalendarDoctor(doctorRes.data._id);
-        console.log('calendarData:', calendarData);
-        setCalendarEvents(calendarData);
-      }
-      const [futureApps, doctorsRes, totalDoctorsRes, doctorOverviewRes] = await Promise.all([
-        fetchFutureAppointments(),
-        doctorService.getAllDoctors(),
-        doctorService.getTotalDoctors(),
-        doctorService.getDoctorOverview()
-      ]);
-      setFutureAppointments(futureApps);
-      setDoctors(doctorsRes.data);
-      setTotalDoctors(totalDoctorsRes.totalDoctors);
-      setDoctorOverview(doctorOverviewRes);
+        const [calendarData, futureApps, doctorsRes, totalDoctorsRes, doctorOverviewRes, attendanceRes] =
+          await Promise.all([
+            doctorService.getAppointmentCalendarDoctor(doctorRes.data._id),
+            fetchFutureAppointments(),
+            doctorService.getAllDoctors(),
+            doctorService.getTotalDoctors(),
+            doctorService.getDoctorOverview(),
+            // 🔥 Novo endpoint de frequência
+            doctorService.getAttendanceSummary(doctorRes.data._id)
+          ]);
 
+        setCalendarEvents(calendarData);
+        setFutureAppointments(futureApps);
+        setDoctors(doctorsRes.data);
+        setTotalDoctors(totalDoctorsRes.totalDoctors);
+        setDoctorOverview(doctorOverviewRes);
+        setAttendanceSummary(attendanceRes.data?.data || []);
+      }
     } catch (error) {
       toast.error('Erro ao carregar dados do dashboard');
       console.error('Erro no dashboard:', error);
@@ -169,7 +174,7 @@ export default function useDoctorDashboard() {
     doctors,
     totalDoctors,
     doctorOverview,
-
+    attendanceSummary,
     handleCompleteSession,
     handleUpdateStatus,
     refreshData: loadData,

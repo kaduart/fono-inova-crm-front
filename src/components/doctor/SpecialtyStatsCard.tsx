@@ -1,26 +1,45 @@
-// src/pages/doctor/components/SpecialtyStatsCard.tsx
+import { Box, Card, CardContent, CardHeader, Typography, useTheme } from '@mui/material';
 import { Stethoscope } from 'lucide-react';
-import { Card, CardContent, CardHeader } from '../ui/Card';
 import SpecialtyCard from '../../pages/SpecialtyCard';
 
-export default function SpecialtyStatsCard({ 
-  doctorData, 
-  stats 
-}: { 
-  doctorData: any; 
+export default function SpecialtyStatsCard({
+  doctorData,
+  stats
+}: {
+  doctorData: any;
   stats: any;
 }) {
+  const theme = useTheme();
   const hasStats = doctorData?.specialty && stats.specialty;
-  
+
   return (
-    <Card className="h-full">
-      <CardHeader>
-        <div className="flex items-center gap-2 text-gray-700">
-          <Stethoscope className="h-5 w-5" />
-          <span className="font-medium">Estatísticas da Especialidade</span>
-        </div>
-      </CardHeader>
-      <CardContent>
+    <Card
+      sx={{
+        height: '100%',
+        borderRadius: 3,
+        border: `1px solid ${theme.palette.divider}`,
+        background: 'white',
+        transition: 'all 0.3s ease',
+        '&:hover': {
+          boxShadow: theme.shadows[4],
+        }
+      }}
+    >
+      <CardHeader
+        sx={{
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          background: `linear-gradient(135deg, ${theme.palette.primary.light}10, ${theme.palette.secondary.light}05)`
+        }}
+        title={
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Stethoscope size={20} color={theme.palette.primary.main} />
+            <Typography variant="h6" sx={{ fontWeight: 600, color: 'grey.800' }}>
+              Estatísticas da Especialidade
+            </Typography>
+          </Box>
+        }
+      />
+      <CardContent sx={{ p: 3 }}>
         {hasStats ? (
           <SpecialtyCard
             specialty={{
@@ -37,9 +56,19 @@ export default function SpecialtyStatsCard({
             }}
           />
         ) : (
-          <div className="text-center py-8 text-gray-500">
-            Nenhuma estatística disponível para sua especialidade
-          </div>
+          <Box sx={{
+            textAlign: 'center',
+            py: 4,
+            color: 'grey.500'
+          }}>
+            <Stethoscope size={48} color={theme.palette.grey[400]} style={{ marginBottom: '16px' }} />
+            <Typography variant="body1" sx={{ mb: 1 }}>
+              Nenhuma estatística disponível
+            </Typography>
+            <Typography variant="body2">
+              Para sua especialidade
+            </Typography>
+          </Box>
         )}
       </CardContent>
     </Card>

@@ -17,10 +17,12 @@ import {
   getPayment,
   getPayments,
   getPaymentSummary,
+  getPaymentTotals,
   Summary,
   updatePayment
 } from '../services/paymentService';
 import { DailyClosingData } from '../utils/types/daily-closing-model';
+import { PaymentTotalsResponse } from '../utils/types/types';
 
 type PaymentFilters = Record<string, any>;
 
@@ -34,21 +36,28 @@ const usePayment = () => {
   const [dailyAbsences, setDailyAbsences] = useState<DailyAbsence[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paymentTotals, setPaymentTotals] = useState<PaymentTotalsResponse["data"] | null>(null);
+  const [totalsFilters, setTotalsFilters] = useState<Record<string, any>>({});
 
-  // Buscar lista de pagamentos
+  // Buscar lista de pagamentos (com suporte a filtros)
+  // 🔹 Buscar lista de pagamentos via service
   const fetchPayments = useCallback(async (filters: PaymentFilters = {}) => {
     setLoading(true);
     try {
-      const data = await getPayments(filters);
+      const res = await getPayments(filters); // 👈 aqui usa o service
+      const data = res.data?.data || res.data;
       setPayments(data);
       setError(null);
+      return data;
     } catch (err) {
+      console.error('❌ Erro ao buscar pagamentos:', err);
       setError('Erro ao buscar pagamentos');
-      console.error(err);
+      throw err;
     } finally {
       setLoading(false);
     }
   }, []);
+
 
   // Buscar um pagamento específico
   const fetchPayment = useCallback(async (id: string) => {
@@ -82,6 +91,33 @@ const usePayment = () => {
     }
   }, []);
 
+  // 📊 Buscar totais financeiros detalhados com filtros dinâmicos
+  const fetchPaymentTotals = useCallback(
+    async (filters: {
+      period?: 'day' | 'week' | 'month' | 'year' | 'custom' | 'all';
+      startDate?: string;
+      endDate?: string;
+      doctorId?: string;
+      paymentMethod?: string;
+      serviceType?: string;
+      status?: 'paid' | 'pending' | 'partial';
+    } = {}) => {
+      setLoading(true);
+      try {
+        const res = await getPaymentTotals(filters);
+        setPaymentTotals(res.data.data?.totals || res.data.totals || res.data);
+        setTotalsFilters(res.filters || {});
+        setError(null);
+      } catch (err) {
+        console.error("❌ Erro ao buscar totais financeiros:", err);
+        setError("Erro ao buscar totais financeiros");
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
   // Atualizar pagamento
   const modifyPayment = useCallback(async (id: string, paymentData: any) => {
     setLoading(true);
@@ -110,9 +146,7 @@ const usePayment = () => {
     try {
       await deletePayment(id);
       setPayments(prev => prev.filter(p => p._id !== id));
-      if (payment && payment._id === id) {
-        setPayment(null);
-      }
+      if (payment && payment._id === id) setPayment(null);
       setError(null);
     } catch (err) {
       setError('Erro ao deletar pagamento');
@@ -143,8 +177,6 @@ const usePayment = () => {
     setLoading(true);
     try {
       const res = await getDailyClosing(date);
-
-      // O backend retorna { success, data, meta }
       setDailyClosing(res?.data?.data || null);
       setError(null);
     } catch (e: any) {
@@ -155,15 +187,6 @@ const usePayment = () => {
       setLoading(false);
     }
   }, []);
-
-  // ✅ retorna tudo centralizado
-  return {
-    dailyClosing,
-    loading,
-    error,
-    fetchDailyClosing,
-  };
-
 
   // Detalhes de pagamentos diários
   const fetchDailyPayments = useCallback(async (date?: string) => {
@@ -279,6 +302,7 @@ const usePayment = () => {
     setError(null);
   }, []);
 
+  // ✅ Retorno final unificado
   return {
     payments,
     payment,
@@ -287,6 +311,8 @@ const usePayment = () => {
     dailySessions,
     dailyPayments,
     dailyAbsences,
+    paymentTotals,
+    totalsFilters,
     loading,
     error,
     fetchPayments,
@@ -295,6 +321,7 @@ const usePayment = () => {
     modifyPayment,
     removePayment,
     fetchSummary,
+    fetchPaymentTotals,
     fetchDailyClosing,
     fetchDailyPayments,
     fetchDailyScheduledSessions,

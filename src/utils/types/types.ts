@@ -380,3 +380,62 @@ export const translateAction = (action: string) => {
     };
     return map[action] || action;
 };
+
+// ===========================================
+// 🧱 Base Types
+// ===========================================
+
+export interface PaymentTotals {
+  totalReceived: number;   // Soma de valores com status = "paid"
+  totalPending: number;    // Soma de valores com status = "pending"
+  totalPartial: number;    // Soma de valores com status = "partial"
+  countReceived: number;   // Quantidade de pagamentos pagos
+  countPending: number;    // Quantidade de pagamentos pendentes
+  countPartial: number;    // Quantidade de pagamentos parciais
+}
+
+export interface GroupedSummary {
+  _id: string;             // Exemplo: "pix", "cartão", "package"
+  total: number;           // Valor total neste grupo
+  count: number;           // Quantidade de registros
+}
+
+export interface BreakdownEntry {
+  _id: {
+    year: number;
+    month: number;
+    day: number;
+  };
+  totalPaid: number;
+  totalPending: number;
+  totalPartial: number;
+}
+
+// ===========================================
+// 🎛️ Filtros aplicados na query
+// ===========================================
+export interface PaymentTotalsFilters {
+  period: "day" | "week" | "month" | "year" | "custom";
+  doctorId?: string;
+  paymentMethod?: string;
+  serviceType?: string;
+  status?: "paid" | "pending" | "partial";
+  dateRange: {
+    start: string; // ISO string
+    end: string;   // ISO string
+  };
+}
+
+// ===========================================
+// 📦 Response principal
+// ===========================================
+export interface PaymentTotalsResponse {
+  success: boolean;
+  filters: PaymentTotalsFilters;
+  data: {
+    totals: PaymentTotals;
+    byMethod: GroupedSummary[];
+    byServiceType: GroupedSummary[];
+    breakdown: BreakdownEntry[];
+  };
+}

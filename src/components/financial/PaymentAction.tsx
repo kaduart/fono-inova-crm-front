@@ -58,9 +58,14 @@ export const PaymentActionIcons = ({
                     {payment.serviceType === 'package_session' && (
                         <button
                             onClick={() => {
-                                onAddPaymentToPackage(payment.package?._id);
+                                if (!payment.package?._id) {
+                                    console.warn("⚠️ Pagamento sem pacote associado:", payment._id);
+                                    return;
+                                }
+                                onAddPaymentToPackage(payment.package);
                                 setOpen(false);
                             }}
+
                             className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-emerald-50 text-emerald-700 transition-colors"
                         >
                             <DollarSign size={16} /> Adicionar Pagamento

@@ -1,3 +1,4 @@
+import { PaymentTotalsResponse } from "../utils/types/types";
 import API from "./api";
 
 export interface FinancialRecord {
@@ -128,8 +129,20 @@ export interface DailyAbsence {
 export const getPayments = (filters: Record<string, any> = {}) =>
     API.get<FinancialRecord[]>('/payments', { params: filters });
 
-export const getPaymentCountFinancialRecord = (filters: Record<string, any> = {}) =>
-    API.get<FinancialRecord[]>('/payments/totals', { params: filters });
+export const getPaymentTotals = async (filters: {
+    period?: "day" | "week" | "month" | "year" | "custom";
+    startDate?: string;
+    endDate?: string;
+    doctorId?: string;
+    paymentMethod?: string;
+    serviceType?: string;
+    status?: "paid" | "pending" | "partial";
+} = {}): Promise<PaymentTotalsResponse> => {
+    const res = await API.get<PaymentTotalsResponse>("/payments/totals", {
+        params: filters,
+    });
+    return res.data;
+};
 
 export const getPayment = (id: string) =>
     API.get<FinancialRecord>(`/payments/${id}`);

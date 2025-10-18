@@ -842,7 +842,7 @@ export default function PatientDashboard() {
       />
 
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="max-w-[95%] lg:max-w-[85rem] mx-auto px-8 py-8">
         {/* 🔹 Cabeçalho institucional */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
           <div className="flex items-center gap-3">

@@ -323,7 +323,9 @@ const DailyClosingReport = () => {
 const OverviewView = ({ data, formatCurrency, onTimeSlotClick }: any) => {
     const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
 
-    // Agrupar em períodos do dia
+    // ==========================================================
+    // 🔹 Agrupar horários em períodos do dia
+    // ==========================================================
     const timePeriods = useMemo(() => {
         const periods = {
             manha: { start: '07:00', end: '12:00', slots: [] as any[], label: 'Manhã' },
@@ -333,14 +335,57 @@ const OverviewView = ({ data, formatCurrency, onTimeSlotClick }: any) => {
         data.timeSlots.forEach((slot: any) => {
             const hour = parseInt(slot.time.split(':')[0]);
             if (hour >= 7 && hour < 12) periods.manha.slots.push(slot);
-            else if (hour >= 12 && hour < 18) periods.tarde.slots.push(slot);
+            else if (hour >= 12 && hour < 19) periods.tarde.slots.push(slot);
         });
 
         return periods;
     }, [data.timeSlots]);
 
+    // ==========================================================
+    // 🔹 Filtro dinâmico baseado no período selecionado
+    // ==========================================================
+    const filteredSlots = useMemo(() => {
+        if (!selectedPeriod) return data.timeSlots;
+        if (selectedPeriod === 'manha') return timePeriods.manha.slots;
+        if (selectedPeriod === 'tarde') return timePeriods.tarde.slots;
+        return data.timeSlots;
+    }, [selectedPeriod, data.timeSlots, timePeriods]);
+
+    // ==========================================================
+    // 🔹 Render
+    // ==========================================================
     return (
         <div className="space-y-6">
+            {/* VISÃO FINANCEIRA DO DIA */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumo Financeiro 💚</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    {/* RECEBIDO HOJE */}
+                    <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-green-50 border border-green-100">
+                        <span className="text-sm font-medium text-green-700">Recebido Hoje</span>
+                        <span className="text-2xl font-bold text-green-700 mt-1">
+                            {formatCurrency(data.financial?.totalReceived || 0)}
+                        </span>
+                    </div>
+
+                    {/* A RECEBER */}
+                    <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-yellow-50 border border-yellow-100">
+                        <span className="text-sm font-medium text-yellow-700">A Receber</span>
+                        <span className="text-2xl font-bold text-yellow-700 mt-1">
+                            {formatCurrency(data.financial?.totalRevenue || 0)}
+                        </span>
+                    </div>
+
+                    {/* TOTAL PREVISTO */}
+                    <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-blue-50 border border-blue-100">
+                        <span className="text-sm font-medium text-blue-700">Total Previsto</span>
+                        <span className="text-2xl font-bold text-blue-700 mt-1">
+                            {formatCurrency(data.financial?.totalExpected || 0)}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
             {/* PERÍODOS DO DIA */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {Object.entries(timePeriods).map(([key, period]: [string, any]) => (
@@ -360,11 +405,11 @@ const OverviewView = ({ data, formatCurrency, onTimeSlotClick }: any) => {
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="font-semibold text-gray-900">Horários do Dia</h3>
                     <div className="text-sm text-gray-500">
-                        {data.timeSlots.length} horários ocupados
+                        {filteredSlots.length} horários exibidos
                     </div>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                    {data.timeSlots.slice(0, 12).map((slot: any) => (
+                    {filteredSlots.slice(0, 12).map((slot: any) => (
                         <TimeSlotCard
                             key={slot.time}
                             slot={slot}
@@ -373,10 +418,10 @@ const OverviewView = ({ data, formatCurrency, onTimeSlotClick }: any) => {
                         />
                     ))}
                 </div>
-                {data.timeSlots.length > 12 && (
+                {filteredSlots.length > 12 && (
                     <div className="text-center pt-4">
                         <span className="text-sm text-gray-500">
-                            +{data.timeSlots.length - 12} horários
+                            +{filteredSlots.length - 12} horários
                         </span>
                     </div>
                 )}
@@ -395,6 +440,7 @@ const OverviewView = ({ data, formatCurrency, onTimeSlotClick }: any) => {
         </div>
     );
 };
+
 
 // 🎨 CARD DE PERÍODO DO DIA
 const TimePeriodCard = ({ period, isSelected, onSelect, onTimeSlotClick, formatCurrency }: any) => {
@@ -483,11 +529,11 @@ const TimeSlotCard = ({ slot, onClick, formatCurrency }: any) => {
         // Se mais de 50% estão cancelados - VERMELHO
         if (canceled > total * 0.5) {
             return {
-                background: 'bg-gradient-to-br from-red-50 to-red-100 border-red-200',
-                hover: 'hover:from-red-100 hover:to-red-200',
-                text: 'text-red-900',
-                accent: 'from-red-400 to-red-500',
-                status: 'cancelado'
+                background: 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200',
+                hover: 'hover:from-gray-100 hover:to-gray-200',
+                text: 'text-gray-900',
+                accent: 'from-gray-400 to-gray-500',
+                status: 'Cancelado'
             };
         }
 
@@ -498,7 +544,7 @@ const TimeSlotCard = ({ slot, onClick, formatCurrency }: any) => {
                 hover: 'hover:from-green-100 hover:to-green-200',
                 text: 'text-green-900',
                 accent: 'from-green-400 to-green-500',
-                status: 'confirmado'
+                status: 'Confirmado'
             };
         }
 
@@ -509,7 +555,7 @@ const TimeSlotCard = ({ slot, onClick, formatCurrency }: any) => {
                 hover: 'hover:from-blue-100 hover:to-blue-200',
                 text: 'text-blue-900',
                 accent: 'from-blue-400 to-blue-500',
-                status: 'estável'
+                status: 'Estável'
             };
         }
 
@@ -520,7 +566,7 @@ const TimeSlotCard = ({ slot, onClick, formatCurrency }: any) => {
                 hover: 'hover:from-yellow-100 hover:to-yellow-200',
                 text: 'text-yellow-900',
                 accent: 'from-yellow-400 to-yellow-500',
-                status: 'pendente'
+                status: 'Agendado'
             };
         }
 

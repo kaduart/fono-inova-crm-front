@@ -1,12 +1,12 @@
 import { Calendar, ChartBar, Clipboard, Clock, Cog, DollarSign, Globe, HeartPulse, Hospital, Shield, User, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Header } from './Header';
+import { Header } from './DoctorHeader';
 
 const Button = ({ children, primary, onClick, ...props }) => (
   <button
     className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${primary
-      ? 'text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
-      : 'text-gray-700 bg-white hover:bg-gray-50 focus:ring-blue-500'
+      ? 'text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 focus:ring-green-500'
+      : 'text-gray-700 bg-white hover:bg-gray-50 focus:ring-green-500 border border-gray-300'
       }`}
     onClick={onClick}
     {...props}
@@ -16,11 +16,10 @@ const Button = ({ children, primary, onClick, ...props }) => (
 );
 
 const Card = ({ icon: Icon, title, description, primary }) => (
-  <div className={`rounded-lg shadow-md p-6 ${primary ? 'bg-white' : 'bg-gray-100'}`}>
-    <Icon className="w-8 h-8 text-blue-600 mb-4" />
-    <h3 className="text-xl font-bold mb-2">{title}</h3>
+  <div className={`rounded-lg shadow-md p-6 transition-all duration-300 hover:shadow-lg ${primary ? 'bg-white' : 'bg-gray-50'}`}>
+    <Icon className="w-8 h-8 text-green-600 mb-4" />
+    <h3 className="text-xl font-bold mb-2 text-gray-800">{title}</h3>
     <p className="text-gray-600 mb-4">{description}</p>
-    {/* <Button primary onClick={() => handleButtonClick('/login')}>Explore</Button> */}
   </div>
 );
 
@@ -44,13 +43,13 @@ const Home = () => {
       <Header />
 
       <main className="flex-1">
-        <Section bg="bg-blue-600" height="min-h-[30rem]">
+        <Section bg="bg-gradient-to-r from-green-600 to-emerald-700" height="min-h-[30rem]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center h-full">
             <div>
               <h1 className="text-5xl font-bold text-white mb-6 text-left">
                 Simplifique a gestão do sua clínica
               </h1>
-              <p className="text-xl text-white mb-10 text-left">
+              <p className="text-xl text-green-100 mb-10 text-left">
                 Nosso sistema abrangente de gestão clínica ajuda você a otimizar o atendimento ao paciente, agilizar as operações e melhorar a eficiência geral.
               </p>
               <div className="flex gap-4 justify-left">
@@ -76,13 +75,13 @@ const Home = () => {
           </div>
         </Section>
 
-        <Section bg="bg-gray-100" height="min-h-[25rem]">
+        <Section bg="bg-gray-50" height="min-h-[25rem]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             <div className="bg-gray-200 w-full h-64 min-h-[18rem] rounded-lg overflow-hidden flex justify-center items-center">
               <img src="home-2.jpeg" alt="" className='w-full' />
             </div>
             <div>
-              <h2 className="text-3xl font-bold mb-4 text-left">Modernize as operações do sua clínica</h2>
+              <h2 className="text-3xl font-bold mb-4 text-left text-gray-800">Modernize as operações do sua clínica</h2>
               <p className="text-xl text-gray-600 mb-8 text-left">
                 Nosso sistema de gestão clínica oferece recursos de ponta para otimizar seus fluxos de trabalho, melhorar
                 a satisfação do paciente e gerar melhores resultados.
@@ -96,7 +95,7 @@ const Home = () => {
         </Section>
 
         <Section>
-          <h2 className="text-3xl font-bold mb-12 text-center">
+          <h2 className="text-3xl font-bold mb-12 text-center text-gray-800">
             Por que escolher nosso sistema de gestão clínica?
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -118,18 +117,18 @@ const Home = () => {
         </Section>
       </main>
 
-      <footer className="bg-blue-900 py-6 border-t border-blue-700">
+      <footer className="bg-gradient-to-r from-green-800 to-emerald-900 py-6 border-t border-green-700">
         <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-gray-100 text-sm">&copy; 2025 Clínica Fono Inova. Todos os direitos reservados.</p>
+          <p className="text-green-100 text-sm">&copy; 2025 Clínica Fono Inova. Todos os direitos reservados.</p>
 
           <div className="flex space-x-4">
-            <a href="#" className="text-blue-300 hover:text-white transition-colors duration-200">
+            <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">
               <i className="fab fa-facebook-f"></i>
             </a>
-            <a href="#" className="text-blue-300 hover:text-white transition-colors duration-200">
+            <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">
               <i className="fab fa-instagram"></i>
             </a>
-            <a href="#" className="text-blue-300 hover:text-white transition-colors duration-200">
+            <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">
               <i className="fab fa-linkedin-in"></i>
             </a>
           </div>

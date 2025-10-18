@@ -5,7 +5,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import { Box, Button, Paper, Tooltip, Typography, useTheme } from '@mui/material';
 import { ptBR } from "date-fns/locale";
 import { AlertCircle, Calendar, CheckCircle, Clock, DollarSign, Plus, User, XCircle } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { OPERATIONAL_STATUS_CONFIG, StatusConfig } from '../../services/appointmentService';
 import { IAppointment, IDoctor, IPatient, SelectedEvent } from '../../utils/types/types';
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
@@ -26,7 +26,7 @@ interface EnhancedCalendarProps {
     closeModalSignal?: number;
 }
 
-const PAYMENT_STATUS_CONFIG = {
+export const PAYMENT_STATUS_CONFIG = {
     paid: {
         label: "Pago",
         color: "#1c7721ff",       // 💚 Verde vibrante
@@ -59,19 +59,17 @@ const PAYMENT_STATUS_CONFIG = {
         label: "Cancelado",
         color: "#dc2626",       // 🔴 Vermelho vivo (destaque)
         icon: XCircle,
-        bgColor: "#e06a6aff",     // Fundo rosado leve
+        bgColor: "#a9afb9ff",     // Fundo rosado leve
         textColor: "#7f1d1d",   // Texto vermelho escuro
     },
     pending: {
         label: "Pendente",
         color: "#b91c1c",       // 🔴 Vermelho forte (mais tenso)
         icon: Clock,
-        bgColor: "rgba(243, 236, 144, 1)",     // Fundo igual ao cancelado (mesmo grupo de alerta)
+        bgColor: "rgba(235, 130, 219, 1)",     // Fundo igual ao cancelado (mesmo grupo de alerta)
         textColor: "#7f1d1d",
     },
 };
-
-
 
 export const OPERATIONAL_STATUS_VISUAL_CONFIG = {
     scheduled: {
@@ -106,8 +104,7 @@ export const OPERATIONAL_STATUS_VISUAL_CONFIG = {
     },
 };
 
-
-const VISUAL_FLAG_CONFIG = {
+export const VISUAL_FLAG_CONFIG = {
     ok: {
         label: 'Tudo Pago',
         color: '#22c55e',
@@ -166,6 +163,13 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     console.log('Renderizando EnhancedCalendar', appointments);
     const theme = useTheme();
 
+     useEffect(() => {
+        if (closeModalSignal && closeModalSignal > 0) {
+            setOpenSchedule(false);
+            setSelectedEvent(null); // Se necessário
+        }
+    }, [closeModalSignal]); 
+
     const getStatusConfig = (status: string) => {
         if (statusConfig[status]) return statusConfig[status];
         if (OPERATIONAL_STATUS_CONFIG[status]) return OPERATIONAL_STATUS_CONFIG[status];
@@ -219,8 +223,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             },
             date: event.start ? new Date(event.start) : null,
             startTime: time,
-            operationalStatus: extendedProps.operationalStatus || "agendado",
-            clinicalStatus: extendedProps.clinicalStatus || "pendente",
+            operationalStatus: extendedProps.operationalStatus || "scheduled",
+            clinicalStatus: extendedProps.clinicalStatus || "pending",
             formattedDate,
             backgroundColor: event.backgroundColor,
             borderColor: event.borderColor,

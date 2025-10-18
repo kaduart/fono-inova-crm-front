@@ -3,12 +3,12 @@ import { ChevronDown, ChevronUp, DollarSign, Plus, RefreshCw } from 'lucide-reac
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import usePayment from '../../hooks/usePayment';
 import { usePixSocket } from '../../hooks/usePixSocket';
 import {
     exportCSV,
     exportPDF,
     FinancialRecord,
-    getPaymentCountFinancialRecord,
     getPayments,
     updatePayment
 } from '../../services/paymentService';
@@ -32,7 +32,6 @@ interface PaymentPageProps {
 const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCancelPayment }: PaymentPageProps) => {
     const [allPayments, setAllPayments] = useState<FinancialRecord[]>([]);
     const [filteredPayments, setFilteredPayments] = useState<FinancialRecord[]>([]);
-    const [financialRecord, setFinancialRecord] = useState<FinancialRecord[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
     const [paymentToEdit, setPaymentToEdit] = useState<FinancialRecord | undefined>(undefined);
@@ -41,7 +40,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
     const [financialControlOpen, setFinancialControlOpen] = useState<boolean>(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
-
+    const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month' | 'year' | 'all'>('month');
 
     const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -53,12 +52,31 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
     const params = new URLSearchParams(location.search);
     const patientParam = params.get("patient");
 
-    // controle do modal de adicionar pagamento
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
     const theme = useTheme();
 
+    const {
+        payments,
+        fetchPayments,
+        paymentTotals,
+        fetchPaymentTotals,
+    } = usePayment();
 
+    // 🔹 Carregar dados iniciais
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                await fetchPayments();
+                await fetchPaymentTotals({ period: 'month' });
+            } catch (err) {
+                toast.error('Erro ao carregar dados financeiros');
+            }
+        };
+        loadData();
+    }, [fetchPayments, fetchPaymentTotals]);
+
+    // 🔹 Carregar role do usuário
     useEffect(() => {
         const userString = localStorage.getItem('user') ?? '{}';
         const user = JSON.parse(userString);
@@ -68,45 +86,14 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
         }
     }, []);
 
+    // 🔹 Atualizar pagamentos iniciais
     useEffect(() => {
         if (initialPayments) {
             setAllPayments(initialPayments);
         }
     }, [initialPayments]);
 
-    // 🔹 Mantém sua função atual, usada quando quiser recarregar tudo (tabela + resumo)
-    const loadPayments = async () => {
-        setLoading(true);
-        try {
-            setError(null);
-
-            const res = await getPayments();
-            const financial = await getPaymentCountFinancialRecord();
-
-            setAllPayments(res.data.data);
-            setFinancialRecord(financial.data.data);
-        } catch (error) {
-            console.error("Erro ao carregar pagamentos:", error);
-            setError(
-                error instanceof Error ? error.message : "Erro ao carregar pagamentos"
-            );
-            toast.error("Erro ao carregar pagamentos");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // 🔹 NOVA FUNÇÃO: apenas atualiza o card financeiro (sem refazer toda a lista)
-    const refreshFinancialSummary = async () => {
-        try {
-            const financial = await getPaymentCountFinancialRecord();
-            setFinancialRecord(financial.data.data);
-        } catch (error) {
-            console.error("Erro ao atualizar resumo financeiro:", error);
-        }
-    };
-
-
+    // 🔹 Filtrar por paciente na URL
     useEffect(() => {
         if (patientParam && allPayments.length > 0) {
             const filtered = allPayments.filter(p =>
@@ -120,17 +107,32 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                 toast.warn(`Nenhum pagamento encontrado para ${patientParam}`);
             }
         } else if (!patientParam) {
-            // Se não tiver query param, mostra todos normalmente
             setFilteredPayments(allPayments);
         }
     }, [patientParam, allPayments]);
 
+    // 🔹 Socket para atualizações em tempo real
+    usePixSocket({
+        onPaymentRefresh: () => fetchPaymentTotals({ period: 'month' }),
+    });
 
-    usePixSocket({ onPaymentRefresh: refreshFinancialSummary });
-
+    // 🔹 Carregar todos os pagamentos
     useEffect(() => {
-        loadPayments();
-    }, []);
+        const loadAll = async () => {
+            setLoading(true);
+            try {
+                const res = await getPayments();
+                setAllPayments(res.data.data);
+                await fetchPaymentTotals({ period: 'month' });
+            } catch (err) {
+                console.error("Erro ao carregar dados:", err);
+                toast.error("Erro ao carregar dados financeiros");
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadAll();
+    }, [fetchPaymentTotals]);
 
     const handleEditAmount = (paymentId: string) => {
         const payment = allPayments.find(p => p._id === paymentId);
@@ -154,7 +156,6 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                 serviceType: data.serviceType,
                 paymentMethod: data.paymentMethod
             });
-
             loadPayments();
             toast.success('Pagamento atualizado com sucesso!');
         } catch (error) {
@@ -195,359 +196,467 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
         }
     };
 
-    const getServiceTypeLabel = (type: string) => {
-        switch (type) {
-            case 'evaluation': return 'Avaliação';
-            case 'session': return 'Sessão do Pacote';
-            case 'package_session': return 'Sessão do Pacote';
-            case 'individual_session': return 'Sessão Avulsa';
-            case 'package': return 'Pacote';
-            default: return type;
-        }
+    const [selectedPackage, setSelectedPackage] = useState<any>(null);
+
+    const addPayment = async (newPaymentData?: any) => {
+        if (!newPaymentData) return;
+
+        setSelectedPackage((prev: any) => ({
+            ...prev,
+            payments: [...(prev?.payments || []), newPaymentData.payment],
+            totalPaid: newPaymentData.updatedPackage?.totalPaid,
+            balance: newPaymentData.updatedPackage?.balance,
+            financialStatus: newPaymentData.updatedPackage?.financialStatus
+        }));
+
+        toast.success("Pacote atualizado com o novo pagamento 💚");
     };
-    console.log("Status ROLEEEEE:", user);
-    const handleOpenPayment = () => { }
+
+    const getServiceTypeLabel = (type: string) => {
+        const types: { [key: string]: string } = {
+            'evaluation': 'Avaliação',
+            'session': 'Sessão do Pacote',
+            'package_session': 'Sessão do Pacote',
+            'individual_session': 'Sessão Avulsa',
+            'package': 'Pacote'
+        };
+        return types[type] || type;
+    };
+
+    const handleOpenPayment = () => {
+        // Implementar abertura do modal de pagamento
+    };
 
     return (
-        <div className="space-y-4">
-
+        <div className="space-y-6 p-4">
+            {/* 🔹 HEADER PRINCIPAL */}
             <Paper
                 elevation={2}
                 sx={{
-                    p: 3,
-                    mb: 3,
-                    borderRadius: 2,
+                    p: 4,
+                    borderRadius: 3,
                     background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
+                    border: `1px solid ${theme.palette.divider}`,
                 }}
             >
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    {/* Ícone e Título */}
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(55, 171, 135, 0.15)' }}>
-                            <DollarSign size={24} style={{ color: '#00B57A' }} />
+                    <div className="flex items-center gap-4">
+                        <div
+                            className="p-3 rounded-2xl"
+                            style={{
+                                backgroundColor: 'rgba(55, 171, 135, 0.15)',
+                                backdropFilter: 'blur(10px)'
+                            }}
+                        >
+                            <DollarSign size={28} style={{ color: '#00B57A' }} />
                         </div>
                         <div>
-                            <Typography variant="h4" fontWeight="bold" color="grey.800">
+                            <Typography
+                                variant="h4"
+                                fontWeight="bold"
+                                color="grey.800"
+                                gutterBottom
+                            >
                                 Painel Financeiro
                             </Typography>
-                            <Typography variant="body2" color="grey.600">
-                                Controle completo dos pagamentos: recebidos, pendentes e em processamento.
+                            <Typography
+                                variant="body1"
+                                color="grey.600"
+                                sx={{ opacity: 0.8 }}
+                            >
+                                Controle completo dos pagamentos: recebidos, pendentes e em processamento
                             </Typography>
                         </div>
                     </div>
 
-                    {/* Botão estilizado */}
                     <Button
                         variant="contained"
-                        startIcon={<Plus size={18} />}
+                        startIcon={<Plus size={20} />}
                         onClick={handleOpenPayment}
                         sx={{
-                            borderRadius: 2,
-                            px: 3,
+                            borderRadius: 3,
+                            px: 4,
                             py: 1.5,
                             fontWeight: 'bold',
+                            fontSize: '1rem',
                             background: `linear-gradient(135deg, rgb(55,171,135), rgb(40,130,100))`,
                             '&:hover': {
                                 background: `linear-gradient(135deg, rgb(60,180,140), rgb(35,115,90))`,
-                                transform: 'translateY(-1px)',
-                                boxShadow: 4,
+                                transform: 'translateY(-2px)',
+                                boxShadow: 6,
                             },
-                            transition: 'all 0.25s ease-in-out',
+                            transition: 'all 0.3s ease-in-out',
                         }}
                     >
                         Novo Registro
                     </Button>
-
                 </div>
             </Paper>
 
-
-            <div className="border rounded-lg overflow-hidden">
+            {/* 🔹 SEÇÃO RELATÓRIO DIÁRIO */}
+            <Paper elevation={1} sx={{ borderRadius: 2, overflow: 'hidden' }}>
                 <button
-                    className={`flex justify-between items-center w-full p-4 text-left font-medium ${dailyReportOpen ? 'bg-blue-50 text-blue-700' : 'bg-gray-50 text-gray-700'
+                    className={`flex justify-between items-center w-full p-4 text-left font-semibold transition-colors ${dailyReportOpen
+                            ? 'bg-blue-50 text-blue-800 border-b border-blue-100'
+                            : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                         }`}
                     onClick={() => setDailyReportOpen(!dailyReportOpen)}
                 >
-                    <span className="text-lg font-bold">Relatório Diário</span>
-                    {dailyReportOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    <span className="text-lg font-bold">📊 Relatório Diário</span>
+                    {dailyReportOpen ? <ChevronUp size={22} /> : <ChevronDown size={22} />}
                 </button>
                 {dailyReportOpen && (
-                    <div className="p-4">
+                    <div className="p-4 bg-white">
                         <DailyClosingReport />
                     </div>
                 )}
-            </div>
+            </Paper>
 
-            <div className="border rounded-lg overflow-hidden">
+            {/* 🔹 SEÇÃO CONTROLE FINANCEIRO */}
+            <Paper elevation={1} sx={{ borderRadius: 2, overflow: 'hidden' }}>
                 <button
-                    className={`flex justify-between items-center w-full p-4 text-left font-medium ${financialControlOpen ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-700'
+                    className={`flex justify-between items-center w-full p-4 text-left font-semibold transition-colors ${financialControlOpen
+                            ? 'bg-green-50 text-green-800 border-b border-green-100'
+                            : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                         }`}
                     onClick={() => setFinancialControlOpen(!financialControlOpen)}
                 >
-                    <span className="text-lg font-bold">Controle Financeiro</span>
-                    {financialControlOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    <span className="text-lg font-bold">💰 Controle Financeiro</span>
+                    {financialControlOpen ? <ChevronUp size={22} /> : <ChevronDown size={22} />}
                 </button>
-                {financialControlOpen && (
-                    <div className="space-y-6 p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-4 mb-6 p-4 bg-gray-50 rounded-xl">
-                            {user && user.name?.includes('Ricardo Maia') && (
-                                <FinancialSummaryCard data={financialRecord} />
-                            )}
 
+                {financialControlOpen && (
+                    <div className="space-y-6 p-4 bg-white">
+                        {/* 🔹 RESUMO FINANCEIRO */}
+                        {user && user.name?.includes('Ricardo Maia') && paymentTotals && (
+                            <div className="mb-6">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <label className="text-sm font-medium text-gray-700">Período:</label>
+                                    <select
+                                        className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                        value={selectedPeriod}
+                                        onChange={(e) => {
+                                            const value = e.target.value as 'day' | 'week' | 'month' | 'year' | 'all';
+                                            setSelectedPeriod(value);
+                                            fetchPaymentTotals({ period: value });
+                                        }}
+                                    >
+                                        <option value="day">Hoje</option>
+                                        <option value="week">Esta Semana</option>
+                                        <option value="month">Este Mês</option>
+                                        <option value="year">Este Ano</option>
+                                        <option value="all">Todo Período</option>
+                                    </select>
+                                </div>
+                                <FinancialSummaryCard
+                                    data={{
+                                        totalReceived: paymentTotals.totalReceived || 0,
+                                        totalPending: paymentTotals.totalPending || 0,
+                                        countReceived: paymentTotals.countReceived || 0,
+                                        countPending: paymentTotals.countPending || 0,
+                                    }}
+                                />
+                            </div>
+                        )}
+
+                        {/* 🔹 BOTÕES DE EXPORTAÇÃO */}
+                        <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-gray-50 rounded-2xl">
+                            <Typography variant="h6" fontWeight="600" color="grey.800">
+                                Exportar Relatórios
+                            </Typography>
                             <div className="flex items-center gap-3">
-                                <button
+                                <Button
+                                    variant="outlined"
+                                    startIcon={
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                                        </svg>
+                                    }
                                     onClick={handleExportCSV}
                                     disabled={loading}
-                                    className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                                    sx={{
+                                        borderRadius: 2,
+                                        px: 3,
+                                        py: 1,
+                                        fontWeight: 600,
+                                    }}
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                                    </svg>
                                     Exportar CSV
-                                </button>
+                                </Button>
 
-                                <button
+                                <Button
+                                    variant="outlined"
+                                    startIcon={
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                                        </svg>
+                                    }
                                     onClick={handleExportPDF}
                                     disabled={loading}
-                                    className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                                    sx={{
+                                        borderRadius: 2,
+                                        px: 3,
+                                        py: 1,
+                                        fontWeight: 600,
+                                        borderColor: 'grey.300',
+                                        color: 'grey.700',
+                                        '&:hover': {
+                                            borderColor: 'grey.400',
+                                            backgroundColor: 'grey.50'
+                                        }
+                                    }}
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                                    </svg>
                                     Exportar PDF
-                                </button>
+                                </Button>
                             </div>
                         </div>
 
-                        {/* 🔹 BOTÃO DE LIMPAR FILTRO (novo) */}
+                        {/* 🔹 FILTROS */}
                         {patientParam && (
-                            <div className="flex justify-end mb-2">
-                                <button
+                            <div className="flex justify-end">
+                                <Button
+                                    variant="outlined"
+                                    startIcon={
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                        </svg>
+                                    }
                                     onClick={() => {
                                         window.history.replaceState(null, "", "/financeiro");
                                         setFilteredPayments(allPayments);
                                         toast.info("Filtro de paciente removido");
                                     }}
-                                    className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg border border-gray-300 transition-all"
+                                    sx={{
+                                        borderRadius: 2,
+                                        px: 3,
+                                        py: 1,
+                                        fontSize: '0.875rem'
+                                    }}
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                                    </svg>
                                     Limpar filtro de {patientParam}
-                                </button>
+                                </Button>
                             </div>
                         )}
 
-                        {/* 🔹 SEUS FILTROS */}
                         <PaymentsFilters
                             doctors={doctors || []}
                             payments={allPayments}
                             onFilter={setFilteredPayments}
                         />
 
+                        {/* 🔹 TABELA DE PAGAMENTOS */}
                         {error ? (
-                            <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg text-center">
-                                <p>{error}</p>
-                                <button
+                            <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'error.light', color: 'error.dark' }}>
+                                <Typography variant="body1" gutterBottom>{error}</Typography>
+                                <Button
+                                    variant="contained"
+                                    startIcon={<RefreshCw size={16} />}
                                     onClick={loadPayments}
-                                    className="mt-2 px-4 py-2 bg-red-100 rounded hover:bg-red-200 text-red-700 flex items-center gap-1 mx-auto"
+                                    sx={{ mt: 2 }}
                                 >
-                                    <RefreshCw className="w-4 h-4" />
                                     Tentar novamente
-                                </button>
-                            </div>
+                                </Button>
+                            </Paper>
                         ) : loading ? (
-                            <div className="flex justify-center py-8">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                            <div className="flex justify-center py-12">
+                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
                             </div>
                         ) : (
-
-                            <div className="overflow-x-auto bg-white rounded-lg shadow">
-
-                                <table className="w-full min-w-[800px]">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[15%]">Paciente</th>
-                                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[15%]">Profissional</th>
-                                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[15%]">Agendada Para:</th>
-                                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Sessões</th>
-                                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Tipo</th>
-                                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Valor</th>
-                                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Status</th>
-                                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Método</th>
-                                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[5%]">Ações</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {currentPayments.map(payment => (
-                                            <tr key={payment._id}>
-                                                <td className="px-2 py-2 text-left whitespace-nowrap text-sm text-gray-500 truncate max-w-[120px]" title={payment.patient?.fullName}>
-                                                    {payment.patient?.fullName}
-                                                </td>
-                                                <td className="px-2 py-2 text-left whitespace-nowrap text-sm text-gray-500 truncate max-w-[120px]" title={payment.doctor?.fullName}>
-                                                    {payment.doctor?.fullName}
-                                                </td>
-                                                <td className="px-2 py-2 text-left whitespace-nowrap text-sm text-gray-500">
-                                                    {payment && payment.appointment
-                                                        ? `${formatDateToDMY(payment.appointment.date)} às ${payment.appointment.time}`
-                                                        : 'Pacote'}
-                                                </td>
-                                                <td className="px-2 py-2 text-left whitespace-nowrap text-sm text-gray-500">
-                                                    {payment && payment.advancedSessions?.length > 0 ? payment.advancedSessions.length : '0'}
-                                                </td>
-                                                <td className="px-2 py-2 text-left whitespace-nowrap text-sm text-gray-500">
-                                                    {getServiceTypeLabel(payment.serviceType)}
-                                                </td>
-                                                <td className="px-2 py-2 text-left whitespace-nowrap text-sm text-gray-500">
-                                                    {payment.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                                </td>
-                                                <td className="px-2 py-2 text-left whitespace-nowrap">
-                                                    <span
-                                                        className={`px-2 py-1 rounded-full text-xs font-semibold 
-  ${payment.status === 'paid'
-                                                                ? 'bg-green-100 text-green-800'
-                                                                : payment.status === 'partial'
-                                                                    ? 'bg-orange-100 text-orange-800'
-                                                                    : payment.status === 'pending'
-                                                                        ? 'bg-yellow-100 text-yellow-800'
-                                                                        : 'bg-red-100 text-red-800'
-                                                            }`}
-                                                    >
-                                                        {payment.status === 'paid'
-                                                            ? 'PAGO'
-                                                            : payment.status === 'partial'
-                                                                ? 'PARCIAL'
-                                                                : payment.status === 'pending'
-                                                                    ? 'PENDENTE'
-                                                                    : 'CANCELADO'}
-                                                    </span>
-
-                                                </td>
-                                                <td className="px-2 py-2 text-left whitespace-nowrap text-sm text-gray-500">
-                                                    {payment.paymentMethod}
-                                                </td>
-                                                <td className="px-2 py-2 text-left whitespace-nowrap text-sm font-medium">
-                                                    <PaymentActionIcons
-                                                        payment={payment}
-                                                        onMarkAsPaid={() => onMarkAsPaid(payment)}
-                                                        onCancelPayment={onCancelPayment}
-                                                        onEditAmount={handleEditAmount}
-                                                        onAddPaymentToPackage={(packageId) => {
-                                                            setSelectedPackageId(packageId);
-                                                            setIsAddModalOpen(true);
-                                                        }}
-                                                        disabled={!(userRole && ['admin', 'secretary'].includes(userRole) && payment.status !== 'canceled')}
-                                                    />
-                                                </td>
-
+                            <Paper elevation={0} sx={{ borderRadius: 2, overflow: 'hidden', border: 1, borderColor: 'grey.200' }}>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full min-w-[1000px]">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Paciente</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Profissional</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Agendamento</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Sessões</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tipo</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Valor</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Método</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ações</th>
                                             </tr>
-                                        ))}
-
-                                    </tbody>
-                                    <tfoot>
-                                        <tr>
-                                            <td colSpan={9} className="px-6 py-4">
-                                                <div className="flex justify-between items-center">
-                                                    <div className="flex items-center space-x-2">
-                                                        <span className="text-sm text-gray-500">Exibir:</span>
-                                                        <select
-                                                            value={itemsPerPage}
-                                                            onChange={(e) => {
-                                                                setItemsPerPage(Number(e.target.value));
-                                                                setCurrentPage(1);
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {currentPayments.map(payment => (
+                                                <tr key={payment._id} className="hover:bg-gray-50 transition-colors">
+                                                    <td className="px-4 py-3 text-sm text-gray-900 max-w-[150px] truncate" title={payment.patient?.fullName}>
+                                                        {payment.patient?.fullName}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-gray-600 max-w-[150px] truncate" title={payment.doctor?.fullName}>
+                                                        {payment.doctor?.fullName}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-gray-600">
+                                                        {payment && payment.appointment
+                                                            ? `${formatDateToDMY(payment.appointment.date)} às ${payment.appointment.time}`
+                                                            : 'Pacote'}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-gray-600 text-center">
+                                                        {payment && payment.advancedSessions?.length > 0 ? payment.advancedSessions.length : '0'}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-gray-600">
+                                                        {getServiceTypeLabel(payment.serviceType)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                                                        {payment.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <span
+                                                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${payment.status === 'paid'
+                                                                    ? 'bg-green-100 text-green-800'
+                                                                    : payment.status === 'partial'
+                                                                        ? 'bg-orange-100 text-orange-800'
+                                                                        : payment.status === 'pending'
+                                                                            ? 'bg-yellow-100 text-yellow-800'
+                                                                            : 'bg-red-100 text-red-800'
+                                                                }`}
+                                                        >
+                                                            {payment.status === 'paid'
+                                                                ? 'PAGO'
+                                                                : payment.status === 'partial'
+                                                                    ? 'PARCIAL'
+                                                                    : payment.status === 'pending'
+                                                                        ? 'PENDENTE'
+                                                                        : 'CANCELADO'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-gray-600">
+                                                        {payment.paymentMethod}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm font-medium">
+                                                        <PaymentActionIcons
+                                                            payment={payment}
+                                                            onMarkAsPaid={() => onMarkAsPaid(payment)}
+                                                            onCancelPayment={onCancelPayment}
+                                                            onEditAmount={handleEditAmount}
+                                                            onAddPaymentToPackage={(pkg) => {
+                                                                setSelectedPackage(pkg);
+                                                                setSelectedPackageId(pkg._id);
+                                                                setIsAddModalOpen(true);
                                                             }}
-                                                            className="border border-gray-300 rounded px-2 py-1 text-sm text-gray-700"
-                                                        >
-                                                            <option value={5}>5</option>
-                                                            <option value={10}>10</option>
-                                                            <option value={20}>20</option>
-                                                        </select>
-                                                    </div>
+                                                            disabled={!(userRole && ['admin', 'secretary'].includes(userRole) && payment.status !== 'canceled')}
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
 
-                                                    <div className="flex items-center space-x-1">
-                                                        <button
-                                                            onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-                                                            disabled={currentPage === 1}
-                                                            className="px-2 py-1 border border-gray-300 rounded text-gray-600 text-sm hover:bg-gray-100 disabled:opacity-50"
-                                                        >
-                                                            Anterior
-                                                        </button>
-                                                        {Array.from({ length: totalPages }, (_, index) => {
-                                                            const page = index + 1;
-                                                            const isActive = currentPage === page;
-                                                            return (
-                                                                <button
-                                                                    key={page}
-                                                                    onClick={() => setCurrentPage(page)}
-                                                                    className={`px-3 py-1 rounded border text-sm transition-all duration-150 ${isActive
-                                                                        ? 'border-blue-500 text-blue-600 font-semibold bg-blue-50'
-                                                                        : 'border-transparent text-gray-600 hover:border-gray-300 hover:bg-gray-100'
-                                                                        }`}
-                                                                >
-                                                                    {page}
-                                                                </button>
-                                                            );
-                                                        })}
-                                                        <button
-                                                            onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-                                                            disabled={currentPage === totalPages}
-                                                            className="px-2 py-1 border border-gray-300 rounded text-gray-600 text-sm hover:bg-gray-100 disabled:opacity-50"
-                                                        >
-                                                            Próxima
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-                        )}
+                                {/* 🔹 PAGINAÇÃO */}
+                                <div className="px-6 py-4 border-t border-gray-200">
+                                    <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                                        <div className="flex items-center space-x-2">
+                                            <Typography variant="body2" color="grey.600">
+                                                Itens por página:
+                                            </Typography>
+                                            <select
+                                                value={itemsPerPage}
+                                                onChange={(e) => {
+                                                    setItemsPerPage(Number(e.target.value));
+                                                    setCurrentPage(1);
+                                                }}
+                                                className="border border-gray-300 rounded-lg px-3 py-1 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                            >
+                                                <option value={5}>5</option>
+                                                <option value={10}>10</option>
+                                                <option value={20}>20</option>
+                                                <option value={50}>50</option>
+                                            </select>
+                                        </div>
 
-                        {isEditModalOpen && paymentToEdit && (
-                            <EditPaymentModal
-                                payment={paymentToEdit}
-                                isOpen={isEditModalOpen}
-                                onClose={() => setIsEditModalOpen(false)}
-                                onSave={handleUpdateAmount}
-                            />
+                                        <div className="flex items-center space-x-2">
+                                            <Button
+                                                variant="outlined"
+                                                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                                                disabled={currentPage === 1}
+                                                size="small"
+                                            >
+                                                Anterior
+                                            </Button>
+
+                                            {Array.from({ length: totalPages }, (_, index) => {
+                                                const page = index + 1;
+                                                const isActive = currentPage === page;
+                                                return (
+                                                    <Button
+                                                        key={page}
+                                                        variant={isActive ? "contained" : "outlined"}
+                                                        onClick={() => setCurrentPage(page)}
+                                                        size="small"
+                                                        sx={{
+                                                            minWidth: '40px',
+                                                            height: '40px',
+                                                            fontWeight: isActive ? 'bold' : 'normal'
+                                                        }}
+                                                    >
+                                                        {page}
+                                                    </Button>
+                                                );
+                                            })}
+
+                                            <Button
+                                                variant="outlined"
+                                                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                                                disabled={currentPage === totalPages}
+                                                size="small"
+                                            >
+                                                Próxima
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Paper>
                         )}
                     </div>
                 )}
-            </div>
+            </Paper>
 
-
-            <div className="flex gap-4">
-                <button
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+            {/* 🔹 BOTÕES DE CONTROLE DE VISUALIZAÇÃO */}
+            <div className="flex gap-3 justify-center">
+                <Button
+                    variant="outlined"
+                    startIcon={<ChevronUp size={18} />}
                     onClick={() => {
                         setDailyReportOpen(true);
                         setFinancialControlOpen(true);
                     }}
+                    sx={{ borderRadius: 2 }}
                 >
-                    <ChevronUp size={16} />
                     Expandir Todos
-                </button>
-                <button
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                </Button>
+                <Button
+                    variant="outlined"
+                    startIcon={<ChevronDown size={18} />}
                     onClick={() => {
                         setDailyReportOpen(false);
                         setFinancialControlOpen(false);
                     }}
+                    sx={{ borderRadius: 2 }}
                 >
-                    <ChevronDown size={16} />
                     Recolher Todos
-                </button>
+                </Button>
             </div>
-            {isAddModalOpen && (
-                <AddPaymentModal
-                    packageId={selectedPackageId}
-                    onClose={() => setIsAddModalOpen(false)}
-                    onSuccess={loadPayments}
+
+            {/* 🔹 MODAIS */}
+            {isEditModalOpen && paymentToEdit && (
+                <EditPaymentModal
+                    payment={paymentToEdit}
+                    isOpen={isEditModalOpen}
+                    onClose={() => setIsEditModalOpen(false)}
+                    onSave={handleUpdateAmount}
                 />
             )}
 
-        </div >
+            {isAddModalOpen && (
+                <AddPaymentModal
+                    packageData={selectedPackage}
+                    onClose={() => setIsAddModalOpen(false)}
+                    onSuccess={addPayment}
+                />
+            )}
+        </div>
     );
 };
 
