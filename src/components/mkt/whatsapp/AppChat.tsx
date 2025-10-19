@@ -78,17 +78,14 @@ const AppChat: React.FC = () => {
             setLoading(false);
         }
     };
-
     const sendMessage = async (phone: string, text: string) => {
-        const res = await fetch(`/wpp/chat/${phone}/send`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text }),
-        });
-        if (!res.ok) {
-            throw new Error('Falha ao enviar mensagem');
-        }
-    };
+    try {
+        await API.post(`/whatsapp/send-text`, { phone, text });
+    } catch (error) {
+        console.error("Erro ao enviar mensagem:", error);
+        throw new Error("Falha ao enviar mensagem");
+    }
+};
 
     return (
         <div className="flex h-screen bg-gray-50 font-sans">

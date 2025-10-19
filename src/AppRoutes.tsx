@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { useAuth } from './contexts/AuthContext';
 import { PrivateRoute } from './utils/PrivateRoute';
+import ContactsPage from './components/mkt/whatsapp/ContactsPage';
 
 // Layouts (descomente se necessário)
 // const MainLayout = lazy(() => import('./layouts/MainLayout'));
@@ -43,6 +44,7 @@ const AppRoutes = () => {
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<SignUp />} />
                 <Route path="/reset-password/:token" element={<ResetPassword />} />
+                <Route path="/contacts" element={<ContactsPage />} />
 
                 {/* Rotas administrativas */}
                 <Route

@@ -11,14 +11,14 @@ export const usePixSocket = ({
   onPaymentRefresh,
   onCalendarRefresh,
 }: PixSocketOptions = {}) => {
-  const { showPaymentNotification } = useNotification();
+  const { showPaymentNotification, showMediaNotification } = useNotification();
   const lastEventTime = useRef<number>(0);
 
   useEffect(() => {
     const socket = io(
       import.meta.env.VITE_BACKEND_URL || "https://fono-inova-crm-back.onrender.com",
       {
-        transports: ["polling", "websocket"], // ✅ permite fallback
+        transports: ["polling", "websocket"],
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 2000,
@@ -26,21 +26,18 @@ export const usePixSocket = ({
       }
     );
 
-
     socket.on("connect", () => {
       console.log("✅ Conectado ao Socket.IO:", socket.id);
     });
 
-    // 💰 Evento de recebimento de PIX
+    // 💰 PIX RECEBIDO
     socket.on("pix-received", (pix) => {
-      console.log("💰 PIX RECEBIDO no frontend:", pix);
+      console.log("💰 PIX RECEBIDO:", pix);
 
-      // Evita eventos duplicados em poucos segundos (render triplo, reconexões, etc.)
       const now = Date.now();
       if (now - lastEventTime.current < 2000) return;
       lastEventTime.current = now;
 
-      // Mostra notificação visual elegante
       showPaymentNotification({
         appointmentId: pix.appointmentId || "",
         amount: pix.amount || 0,
@@ -48,12 +45,11 @@ export const usePixSocket = ({
         patientName: pix.payer || "Desconhecido",
       });
 
-      // 🔄 Atualiza apenas as partes necessárias (leve)
       onPaymentRefresh?.();
       onCalendarRefresh?.();
     });
 
-    // 💳 Evento genérico de atualização de pagamento
+    // 💳 ATUALIZAÇÃO DE PAGAMENTO
     socket.on("paymentUpdate", (data) => {
       console.log("📢 Atualização de pagamento:", data);
 
@@ -71,10 +67,26 @@ export const usePixSocket = ({
       onPaymentRefresh?.();
     });
 
+    // 📎 MÍDIA RECEBIDA DO WHATSAPP
+    socket.on("media-received", (media) => {
+      console.log("📎 MÍDIA RECEBIDA:", media);
+
+      const now = Date.now();
+      if (now - lastEventTime.current < 2000) return;
+      lastEventTime.current = now;
+
+      showMediaNotification({
+        from: media.from || "Contato desconhecido",
+        type: media.type || "document",
+        caption: media.caption || "",
+        timestamp: media.timestamp || Date.now(),
+      });
+    });
+
     socket.on("disconnect", () => {
       console.log("⚠️ Desconectado do Socket.IO");
     });
 
     return () => socket.disconnect();
-  }, [showPaymentNotification, onPaymentRefresh, onCalendarRefresh]);
+  }, [showPaymentNotification, showMediaNotification, onPaymentRefresh, onCalendarRefresh]);
 };

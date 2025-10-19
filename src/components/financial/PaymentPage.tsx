@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import usePayment from '../../hooks/usePayment';
-import { usePixSocket } from '../../hooks/usePixSocket';
+import { usePixSocket } from '../../hooks/useSocketNotifications';
 import {
     exportCSV,
     exportPDF,

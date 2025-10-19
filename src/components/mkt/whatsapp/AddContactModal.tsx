@@ -27,7 +27,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({ onClose, onAdd }) => 
         setLoading(true);
         setError('');
         try {
-            const res = await fetch('/wpp/contacts', {
+            const res = await fetch('/whatsapp/contacts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, phone }),

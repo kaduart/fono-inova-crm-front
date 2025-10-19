@@ -1,14 +1,14 @@
-import { Outlet } from 'react-router-dom';
-import { usePixSocket } from '../hooks/usePixSocket';
-import { Header } from './DoctorHeader';
-import PixNotificationPopup from './financial/PixNotificationPopup';
-
-
-//nao sendo usado
-
+// src/layouts/MainLayout.tsx
+import { Outlet } from "react-router-dom";
+import { useNotification } from "../contexts/NotificationContext"; // ✅ Contexto global
+import { usePixSocket } from "../hooks/useSocketNotifications"; // ✅ Hook socket atual
+import PixNotificationPopup from "./financial/PixNotificationPopup";
+import { Header } from "./Header";
+import { MediaNotificationPopup } from "./mkt/whatsapp/MediaNotificationPopup";
 
 const MainLayout = () => {
-  usePixSocket(); // conecta ao Socket.IO para receber notificações
+  usePixSocket(); // ✅ Conecta ao Socket.IO e escuta eventos Pix + mídia
+  const { showMediaNotification } = useNotification(); // ✅ Função do contexto
 
   return (
     <div className="app-container">
@@ -16,8 +16,10 @@ const MainLayout = () => {
       <main className="main-content">
         <Outlet />
       </main>
-      <footer />
+
+      {/* Popups globais de notificação */}
       <PixNotificationPopup />
+      <MediaNotificationPopup />
     </div>
   );
 };

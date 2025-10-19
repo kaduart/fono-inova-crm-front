@@ -21,25 +21,25 @@ export interface Contact {
 
 // Buscar todos os contatos
 export async function fetchContacts(): Promise<Contact[]> {
-    const response = await API.get('/wpp/contacts');
+    const response = await API.get('/whatsapp/contacts');
     return response.data;
 }
 
 // Adicionar novo contato
 export async function addContact(data: Omit<Contact, '_id'>): Promise<Contact> {
-    const response = await API.post('/wpp/contacts', data);
+    const response = await API.post('/whatsapp/contacts', data);
     return response.data;
 }
 
 // Editar contato existente
 export async function editContact(id: string, data: Partial<Omit<Contact, '_id'>>): Promise<Contact> {
-    const response = await API.put(`/wpp/contacts/${id}`, data);
+    const response = await API.put(`/whatsapp/contacts/${id}`, data);
     return response.data;
 }
 
 // Deletar contato
 export async function deleteContact(id: string): Promise<void> {
-    await API.delete(`/wpp/contacts/${id}`);
+    await API.delete(`/whatsapp/contacts/${id}`);
 }
 
 export const whatsappService = {
@@ -53,7 +53,7 @@ export const whatsappService = {
             text: value,
         }));
 
-        const response = await API.post('wpp/send-whatsapp', {
+        const response = await API.post('whatsapp/send-whatsapp', {
             phone,
             template,
             params: paramsArray,
