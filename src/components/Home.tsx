@@ -1,6 +1,6 @@
 import { Calendar, ChartBar, Clipboard, Clock, Cog, DollarSign, Globe, HeartPulse, Hospital, Shield, User, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Header } from './DoctorHeader';
+import { Header } from './Header';
 
 const Button = ({ children, primary, onClick, ...props }) => (
   <button

@@ -18,12 +18,14 @@ export const usePixSocket = ({
     const socket = io(
       import.meta.env.VITE_BACKEND_URL || "https://fono-inova-crm-back.onrender.com",
       {
-        transports: ["websocket", "polling"],
+        transports: ["polling", "websocket"], // ✅ permite fallback
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 2000,
+        withCredentials: true,
       }
     );
+
 
     socket.on("connect", () => {
       console.log("✅ Conectado ao Socket.IO:", socket.id);
