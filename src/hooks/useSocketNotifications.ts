@@ -11,14 +11,20 @@ export const usePixSocket = ({
   onPaymentRefresh,
   onCalendarRefresh,
 }: PixSocketOptions = {}) => {
-  const { showPaymentNotification, showMediaNotification } = useNotification();
+  const {
+    showPaymentNotification,
+    showMediaNotification,
+    showChatNotification, // 👈 novo
+  } = useNotification();
+
   const lastEventTime = useRef<number>(0);
 
   useEffect(() => {
     const socket = io(
-      import.meta.env.VITE_BACKEND_URL || "https://fono-inova-crm-back.onrender.com",
+      import.meta.env.VITE_BACKEND_URL ||
+      "https://fono-inova-crm-back.onrender.com",
       {
-        transports: ["polling", "websocket"],
+        transports: ["websocket"],
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 2000,
@@ -26,11 +32,16 @@ export const usePixSocket = ({
       }
     );
 
+    // 🔹 torna global (para os popups acessarem diretamente, se quiser)
+    (window as any).globalSocket = socket;
+
     socket.on("connect", () => {
       console.log("✅ Conectado ao Socket.IO:", socket.id);
     });
 
+    // ======================================================
     // 💰 PIX RECEBIDO
+    // ======================================================
     socket.on("pix-received", (pix) => {
       console.log("💰 PIX RECEBIDO:", pix);
 
@@ -49,7 +60,9 @@ export const usePixSocket = ({
       onCalendarRefresh?.();
     });
 
+    // ======================================================
     // 💳 ATUALIZAÇÃO DE PAGAMENTO
+    // ======================================================
     socket.on("paymentUpdate", (data) => {
       console.log("📢 Atualização de pagamento:", data);
 
@@ -67,7 +80,9 @@ export const usePixSocket = ({
       onPaymentRefresh?.();
     });
 
+    // ======================================================
     // 📎 MÍDIA RECEBIDA DO WHATSAPP
+    // ======================================================
     socket.on("media-received", (media) => {
       console.log("📎 MÍDIA RECEBIDA:", media);
 
@@ -83,10 +98,36 @@ export const usePixSocket = ({
       });
     });
 
+    // ======================================================
+    // 💬 MENSAGEM DE TEXTO RECEBIDA DO WHATSAPP
+    // ======================================================
+    socket.on("whatsapp:new_message", (msg) => {
+      console.log("💬 NOVA MENSAGEM WHATSAPP:", msg);
+
+      const now = Date.now();
+      if (now - lastEventTime.current < 2000) return;
+      lastEventTime.current = now;
+
+      showChatNotification({
+        from: msg.from || "Contato desconhecido",
+        text: msg.text || "",
+        timestamp: msg.timestamp || Date.now(),
+      });
+    });
+
+    // ======================================================
+    // ⚠️ DESCONECTADO
+    // ======================================================
     socket.on("disconnect", () => {
-      console.log("⚠️ Desconectado do Socket.IO");
+      console.warn("⚠️ Desconectado do Socket.IO");
     });
 
     return () => socket.disconnect();
-  }, [showPaymentNotification, showMediaNotification, onPaymentRefresh, onCalendarRefresh]);
+  }, [
+    showPaymentNotification,
+    showMediaNotification,
+    showChatNotification,
+    onPaymentRefresh,
+    onCalendarRefresh,
+  ]);
 };

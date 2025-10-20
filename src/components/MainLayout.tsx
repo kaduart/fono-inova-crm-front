@@ -5,6 +5,7 @@ import { usePixSocket } from "../hooks/useSocketNotifications"; // ✅ Hook sock
 import PixNotificationPopup from "./financial/PixNotificationPopup";
 import { Header } from "./Header";
 import { MediaNotificationPopup } from "./mkt/whatsapp/MediaNotificationPopup";
+import { ChatNotificationPopup } from "./mkt/whatsapp/ChatNotificationPopup";
 
 const MainLayout = () => {
   usePixSocket(); // ✅ Conecta ao Socket.IO e escuta eventos Pix + mídia
@@ -20,6 +21,7 @@ const MainLayout = () => {
       {/* Popups globais de notificação */}
       <PixNotificationPopup />
       <MediaNotificationPopup />
+      <ChatNotificationPopup />
     </div>
   );
 };
