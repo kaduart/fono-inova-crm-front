@@ -71,6 +71,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         : formData.durationMonths;
 
     const { fetchAppointments } = useAppointmentsContext();
+    const [selectedSlots, setSelectedSlots] = useState([{ day: '', time: '' }]);
 
     useEffect(() => {
         fetchAppointments();
@@ -120,57 +121,74 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         }
     };
 
-
-
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
 
         if (!formData.sessionType || !formData.paymentType || !formData.doctorId) {
-            toast.error('Preencha todos os campos obrigatórios (profissional, tipo de sessão, tipo de pagamento do pacote).');
-            return;
-        }
-
-        if (formData.totalPaid < remainingBalance) {
-            toast.warning('Valor a ser pago deve ser o valor total do package');
+            toast.error('Preencha todos os campos obrigatórios.');
             return;
         }
 
         setIsLoading(true);
 
-        const packageData = {
-            patientId: patient._id,
-            doctorId: formData.doctorId,
-            sessionType: formData.sessionType,
-            specialty: formData.sessionType,
-            sessionValue: formData.sessionValue || 0,
-            paymentType: formData.paymentType,
-            sessionsPerWeek: +formData.sessionsPerWeek,
-            durationMonths: calculationMode === 'duration' ? formData.durationMonths : estimatedDuration,
-            totalSessions: calculationMode === 'sessions' ? formData.totalSessions : totalSessions,
-            date: formData.date,
-            time: formData.time,
-            appointmentId: formData.appointmentId || undefined,
-            calculationMode,
-            // 🔹 Novo campo que o backend espera
-            payments: payments.map(p => ({
-                amount: Number(p.amount),
-                method: p.method,
-                date: p.date,
-                description: p.description
-            }))
-        };
-
-
         try {
+            // 🔹 Garante que o primeiro dia (baseado em date/time) entre no selectedSlots
+            let updatedSlots = [...selectedSlots];
+
+            if (formData.date && formData.time) {
+                const dateObj = new Date(formData.date);
+                const weekday = dateObj
+                    .toLocaleDateString('en-US', { weekday: 'long' })
+                    .toLowerCase();
+
+                const alreadyHas = updatedSlots.some(
+                    (slot) => slot.day === weekday && slot.time === formData.time
+                );
+
+                if (!alreadyHas) {
+                    updatedSlots.unshift({ day: weekday, time: formData.time });
+                }
+            }
+
+            // 🔒 Filtra slots válidos antes de enviar
+            const validSlots = updatedSlots.filter(
+                (slot) => slot.day && slot.time && slot.time.trim() !== ''
+            );
+
+
+            const packageData = {
+                patientId: patient._id,
+                doctorId: formData.doctorId,
+                sessionType: formData.sessionType,
+                specialty: formData.sessionType,
+                sessionValue: formData.sessionValue || 0,
+                paymentType: formData.paymentType,
+                sessionsPerWeek: +formData.sessionsPerWeek,
+                durationMonths:
+                    calculationMode === 'duration' ? formData.durationMonths : estimatedDuration,
+                totalSessions:
+                    calculationMode === 'sessions' ? formData.totalSessions : totalSessions,
+                date: formData.date,
+                time: formData.time,
+                appointmentId: formData.appointmentId || undefined,
+                calculationMode,
+                selectedSlots: validSlots, // ✅ agora inclui a data/hora inicial
+                payments: payments.map((p) => ({
+                    amount: Number(p.amount),
+                    method: p.method,
+                    date: p.date,
+                    description: p.description,
+                })),
+            };
+
             await packageService.createPackage(packageData as CreatePackageParams);
-            toast.success(`Pacote criado com sucesso! Total pago: R$ ${getTotalPaid().toFixed(2)}`);
+            toast.success(`Pacote criado com sucesso! 💚`);
             await fetchAppointments();
             onSubmit();
             onClose();
         } catch (err: any) {
-            const errorMessage = err?.message || 'Erro ao salvar pacote.';
-            toast.error(errorMessage);
+            toast.error(err?.message || 'Erro ao salvar pacote.');
         } finally {
             setIsLoading(false);
         }
@@ -249,6 +267,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         );
     };
 
+
     const getTotalPaid = () => {
         return payments.reduce((total, payment) => total + (Number(payment.amount) || 0), 0);
     };
@@ -257,6 +276,21 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     const hasValidPayments = payments.every(
         p => p.amount > 0 && p.method && p.date
     );
+
+    const addSlot = () => {
+        setSelectedSlots(prev => [...prev, { day: '', time: '' }]);
+    };
+
+    const removeSlot = (index: number) => {
+        setSelectedSlots(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const updateSlot = (index: number, field: string, value: string) => {
+        setSelectedSlots(prev =>
+            prev.map((slot, i) => (i === index ? { ...slot, [field]: value } : slot))
+        );
+    };
+
 
     const isFormValid = !!(
         formData.patientId &&
@@ -498,7 +532,89 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                         />
                                     </div>
                                 </div>
+                                {formData.sessionsPerWeek > 1 && (
+                                    <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-5 rounded-xl border border-emerald-100 mt-4">
+                                        <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                            <Calendar className="w-5 h-5 text-emerald-600" />
+                                            Dias e Horários Adicionais da Semana
+                                        </h3>
+
+                                        {selectedSlots.map((slot, index) => (
+                                            <div
+                                                key={index}
+                                                className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3 bg-white p-4 rounded-lg border border-gray-200"
+                                            >
+                                                {/* Dia da semana */}
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Dia da Semana *</label>
+                                                    <Select
+                                                        value={slot.day}
+                                                        onChange={(e) => updateSlot(index, 'day', e.target.value)}
+                                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                                    >
+                                                        <option value="">Selecione o dia</option>
+                                                        <option value="monday">Segunda-feira</option>
+                                                        <option value="tuesday">Terça-feira</option>
+                                                        <option value="wednesday">Quarta-feira</option>
+                                                        <option value="thursday">Quinta-feira</option>
+                                                        <option value="friday">Sexta-feira</option>
+                                                    </Select>
+                                                </div>
+
+                                                {/* Hora */}
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Horário *</label>
+                                                    <DatePicker
+                                                        selected={slot.time ? new Date(`1970-01-01T${slot.time}`) : null}
+                                                        onChange={(date: Date | null) => {
+                                                            if (!date) return;
+                                                            const formattedTime = date.toTimeString().slice(0, 5);
+                                                            updateSlot(index, 'time', formattedTime);
+                                                        }}
+                                                        showTimeSelect
+                                                        showTimeSelectOnly
+                                                        timeIntervals={15}
+                                                        timeFormat="HH:mm"
+                                                        dateFormat="HH:mm"
+                                                        placeholderText="HH:MM"
+                                                        customInput={
+                                                            <ReactInputMask
+                                                                mask="99:99"
+                                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                                            />
+                                                        }
+                                                    />
+                                                </div>
+
+                                                {/* Botão de remover */}
+                                                {index > 0 && (
+                                                    <div className="md:col-span-2 flex justify-end">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeSlot(index)}
+                                                            className="text-red-600 hover:bg-red-50 px-3 py-1 rounded-lg border border-red-200 flex items-center gap-1"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" /> Remover
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+
+                                        {/* Botão de adicionar novo dia */}
+                                        <button
+                                            type="button"
+                                            onClick={addSlot}
+                                            className="mt-3 text-sm text-emerald-700 flex items-center gap-2 hover:text-emerald-800"
+                                        >
+                                            <Plus className="w-4 h-4" /> Adicionar outro dia
+                                        </button>
+                                    </div>
+                                )}
+
+
                             </div>
+
                         </div>
 
                         {/* Coluna 2 - Informações e Resumo */}
