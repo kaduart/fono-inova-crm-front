@@ -6,14 +6,17 @@ import { useNotification } from "../../../contexts/NotificationContext";
 
 export const ChatNotificationPopup = () => {
     const { chatNotification, closeChatNotification } = useNotification();
-    if (!chatNotification) return null;
 
+    // ✅ CORREÇÃO: useEffect SEMPRE no top nível, ANTES de qualquer condicional
     useEffect(() => {
         if (chatNotification) {
             const audio = new Audio(notifySound);
             audio.play().catch(() => { });
         }
     }, [chatNotification]);
+
+    // ✅ Condicional de renderização DEPOIS de todos os Hooks
+    if (!chatNotification) return null;
 
     return (
         <AnimatePresence>

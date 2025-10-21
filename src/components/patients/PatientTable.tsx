@@ -71,9 +71,6 @@ const PatientTable = ({ patients, onEditPatient, onPaymentAdvancedSuccess, onReg
     const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedPatients = filteredPatients.slice(startIndex, startIndex + itemsPerPage);
-    console.log('filteredPatients:', filteredPatients);
-    console.log('Paginated Patients:', paginatedPatients);
-    console.log('patients:', patients);
     const handlePageChange = (direction: 'prev' | 'next') => {
         if (direction === 'prev' && currentPage > 1) {
             setCurrentPage((prev) => prev - 1);

@@ -3,9 +3,8 @@ import { createRoot } from 'react-dom/client'
 import Modal from 'react-modal'
 import App from './App'
 import { AuthProvider } from './contexts/AuthContext'
+import { NotificationProvider } from './contexts/NotificationContext'
 import './index.css'
-import { NotificationProvider } from './contexts/NotificationContext';
-import SessionExpiryHandler from './components/SessionExpiryHandler';
 
 Modal.setAppElement('#root');
 
