@@ -1,12 +1,11 @@
+// src/AppRoutes.tsx
 import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import MainLayout from './components/MainLayout';
+import ContactsPage from './components/mkt/whatsapp/ContactsPage';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { useAuth } from './contexts/AuthContext';
 import { PrivateRoute } from './utils/PrivateRoute';
-import ContactsPage from './components/mkt/whatsapp/ContactsPage';
-
-// Layouts (descomente se necessário)
-// const MainLayout = lazy(() => import('./layouts/MainLayout'));
 
 // Páginas públicas
 const Home = lazy(() => import('./components/Home'));
@@ -22,16 +21,16 @@ const CreateAppointmentPage = lazy(() => import('./pages/appointments/create'));
 const SchedulePage = lazy(() => import('./pages/schedule'));
 
 const AppRoutes = () => {
-    const { isLoading, isAuthenticated, user } = useAuth();
+    const { isLoading } = useAuth();
     const location = useLocation();
 
-    if (isLoading) {
-        return <LoadingSpinner fullscreen />;
-    }
+    if (isLoading) return <LoadingSpinner fullscreen />;
 
-    // Redirecionamento seguro para o domínio correto
-    if (window.location.hostname !== 'app.clinicafonoinova.com.br' &&
-        window.location.hostname !== 'localhost') {
+    // 🔒 Protege domínio
+    if (
+        window.location.hostname !== 'app.clinicafonoinova.com.br' &&
+        window.location.hostname !== 'localhost'
+    ) {
         window.location.replace(`https://app.clinicafonoinova.com.br${location.pathname}`);
         return <LoadingSpinner fullscreen />;
     }
@@ -39,72 +38,30 @@ const AppRoutes = () => {
     return (
         <Suspense fallback={<LoadingSpinner fullscreen />}>
             <Routes location={location}>
-                {/* Rotas públicas */}
+                {/* PÚBLICAS */}
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<SignUp />} />
                 <Route path="/reset-password/:token" element={<ResetPassword />} />
                 <Route path="/contacts" element={<ContactsPage />} />
 
-                {/* Rotas administrativas */}
+                {/* PRIVADAS COM LAYOUT */}
                 <Route
-                    path="/admin/*"
                     element={
-                        <PrivateRoute allowedRoles={['admin']}>
-                            <AdminDashboard />
+                        <PrivateRoute allowedRoles={['admin', 'professional', 'doctor', 'patient']}>
+                            <MainLayout />
                         </PrivateRoute>
                     }
-                />
+                >
+                    <Route path="admin/*" element={<AdminDashboard />} />
+                    <Route path="doctors" element={<DoctorDashboard />} />
+                    <Route path="patient" element={<PatientDashboard />} />
+                    <Route path="patient-dashboard/:id" element={<PatientDashboard />} />
+                    <Route path="create-appointment" element={<CreateAppointmentPage />} />
+                    <Route path="schedule" element={<SchedulePage />} />
 
-                {/* Rotas para médicos */}
-                <Route
-                    path="/doctors"
-                    element={
-                        <PrivateRoute allowedRoles={['doctor']}>
-                            <DoctorDashboard />
-                        </PrivateRoute>
-                    }
-                />
+                </Route>
 
-                {/* Rotas para pacientes */}
-                <Route
-                    path="/patient"
-                    element={
-                        <PrivateRoute allowedRoles={['admin', 'professional', 'patient']}>
-                            <PatientDashboard />
-                        </PrivateRoute>
-                    }
-                />
-
-                <Route
-                    path="/patient-dashboard/:id"
-                    element={
-                        <PrivateRoute allowedRoles={['admin', 'professional', 'patient']}>
-                            <PatientDashboard />
-                        </PrivateRoute>
-                    }
-                />
-
-                {/* Agendamentos */}
-                <Route
-                    path="/create-appointment"
-                    element={
-                        <PrivateRoute allowedRoles={['admin', 'professional']}>
-                            <CreateAppointmentPage />
-                        </PrivateRoute>
-                    }
-                />
-
-                <Route
-                    path="/schedule"
-                    element={
-                        <PrivateRoute allowedRoles={['admin', 'professional']}>
-                            <SchedulePage />
-                        </PrivateRoute>
-                    }
-                />
-
-                {/* Rota curinga - 404 */}
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </Suspense>

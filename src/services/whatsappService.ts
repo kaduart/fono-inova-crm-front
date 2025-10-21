@@ -1,5 +1,6 @@
-import axios from 'axios';
-import API from './api';
+// src/services/whatsappService.ts
+import axios from "axios";
+import API from "./api";
 
 export interface WhatsAppPayload {
     phone: string;
@@ -19,20 +20,30 @@ export interface Contact {
     avatar?: string;
 }
 
+
+// ========================================================
+// 🟢 CONTATOS
+// ========================================================
+
 // Buscar todos os contatos
 export async function fetchContacts(): Promise<Contact[]> {
-    const response = await API.get('/whatsapp/contacts');
+    const response = await API.get("/whatsapp/contacts");
     return response.data;
 }
 
 // Adicionar novo contato
-export async function addContact(data: Omit<Contact, '_id'>): Promise<Contact> {
-    const response = await API.post('/whatsapp/contacts', data);
+export async function addContact(
+    data: Omit<Contact, "_id">
+): Promise<Contact> {
+    const response = await API.post("/whatsapp/contacts", data);
     return response.data;
 }
 
 // Editar contato existente
-export async function editContact(id: string, data: Partial<Omit<Contact, '_id'>>): Promise<Contact> {
+export async function editContact(
+    id: string,
+    data: Partial<Omit<Contact, "_id">>
+): Promise<Contact> {
     const response = await API.put(`/whatsapp/contacts/${id}`, data);
     return response.data;
 }
@@ -42,6 +53,26 @@ export async function deleteContact(id: string): Promise<void> {
     await API.delete(`/whatsapp/contacts/${id}`);
 }
 
+// ========================================================
+// 💬 MENSAGENS
+// ========================================================
+
+// Buscar histórico de mensagens com um número
+export async function getChatMessages(phone: string) {
+    const res = await API.get(`/whatsapp/chat/${phone}`);
+    return res.data?.data || [];
+}
+
+// Enviar mensagem de texto padrão
+export async function sendWhatsAppText(phone: string, text: string) {
+    const res = await API.post("/whatsapp/send-text", { phone, text });
+    return res.data;
+}
+
+// ========================================================
+// 🧩 TEMPLATES E TOKEN META
+// ========================================================
+
 export const whatsappService = {
     sendTemplateMessage: async ({
         phone,
@@ -49,11 +80,11 @@ export const whatsappService = {
         parameters,
     }: WhatsAppPayload): Promise<WhatsAppResponse> => {
         const paramsArray = Object.values(parameters).map((value) => ({
-            type: 'text',
+            type: "text",
             text: value,
         }));
 
-        const response = await API.post('whatsapp/send-whatsapp', {
+        const response = await API.post("/whatsapp/send-template", {
             phone,
             template,
             params: paramsArray,
@@ -66,6 +97,7 @@ export const whatsappService = {
     },
 };
 
+// Trocar token de curta para longa duração (Meta)
 export async function exchangeLongLivedToken({
     appId,
     appSecret,
@@ -80,7 +112,7 @@ export async function exchangeLongLivedToken({
             `https://graph.facebook.com/v18.0/oauth/access_token`,
             {
                 params: {
-                    grant_type: 'fb_exchange_token',
+                    grant_type: "fb_exchange_token",
                     client_id: appId,
                     client_secret: appSecret,
                     fb_exchange_token: shortLivedToken,
@@ -90,8 +122,8 @@ export async function exchangeLongLivedToken({
 
         return response.data;
     } catch (error: any) {
-        console.error('Erro ao trocar token:', error?.response?.data || error);
-        throw new Error('Falha ao obter token de longa duração');
+        console.error("Erro ao trocar token:", error?.response?.data || error);
+        throw new Error("Falha ao obter token de longa duração");
     }
 }
 

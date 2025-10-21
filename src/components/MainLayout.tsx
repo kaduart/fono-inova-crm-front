@@ -1,20 +1,12 @@
-// src/layouts/MainLayout.tsx
 import { Outlet } from "react-router-dom";
-import { useNotification } from "../contexts/NotificationContext"; // ✅ Contexto global
-import { usePixSocket } from "../hooks/useSocketNotifications"; // ✅ Hook socket atual
+import { usePixSocket } from "../hooks/useSocketNotifications";
 import PixNotificationPopup from "./financial/PixNotificationPopup";
 import { Header } from "./Header";
-import { MediaNotificationPopup } from "./mkt/whatsapp/MediaNotificationPopup";
 import { ChatNotificationPopup } from "./mkt/whatsapp/ChatNotificationPopup";
+import { MediaNotificationPopup } from "./mkt/whatsapp/MediaNotificationPopup";
 
 const MainLayout = () => {
-  const { showMediaNotification } = useNotification(); // ✅ Função do contexto
-
-  useEffect(() => {
-    // garante que o provider já existe no primeiro render
-    usePixSocket();
-  }, []);
-
+  usePixSocket();
 
   return (
     <div className="app-container">

@@ -1,4 +1,4 @@
-import React, { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, ReactNode, useCallback, useContext, useState } from 'react';
 
 // ======================================================
 // 🔹 Tipos de notificação
@@ -55,10 +55,6 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [paymentNotification, setPaymentNotification] = useState<PaymentNotification | null>(null);
   const [mediaNotification, setMediaNotification] = useState<MediaNotification | null>(null);
   const [chatNotification, setChatNotification] = useState<ChatNotification | null>(null);
-
-  useEffect(() => {
-    console.log("🧩 NotificationProvider montado");
-  }, []);
 
   // 💰 PIX
   const showPaymentNotification = useCallback((notification: Omit<PaymentNotification, 'id'>) => {

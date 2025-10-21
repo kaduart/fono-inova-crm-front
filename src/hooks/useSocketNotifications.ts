@@ -18,8 +18,8 @@ export const usePixSocket = ({
   } = useNotification();
 
   useEffect(() => {
-  console.log("⚙️ usePixSocket iniciado");
-}, []);
+    console.log("⚙️ usePixSocket iniciado");
+  }, []);
 
   const lastEventTime = useRef<number>(0);
 
@@ -39,15 +39,10 @@ export const usePixSocket = ({
     // 🔹 torna global (para os popups acessarem diretamente, se quiser)
     (window as any).globalSocket = socket;
 
-    socket.on("connect", () => {
-      console.log("✅ Conectado ao Socket.IO:", socket.id);
-    });
-
     // ======================================================
     // 💰 PIX RECEBIDO
     // ======================================================
     socket.on("pix-received", (pix) => {
-      console.log("💰 PIX RECEBIDO:", pix);
 
       const now = Date.now();
       if (now - lastEventTime.current < 2000) return;
@@ -68,9 +63,8 @@ export const usePixSocket = ({
     // 💳 ATUALIZAÇÃO DE PAGAMENTO
     // ======================================================
     socket.on("paymentUpdate", (data) => {
-      console.log("📢 Atualização de pagamento:", data);
-
       const now = Date.now();
+
       if (now - lastEventTime.current < 2000) return;
       lastEventTime.current = now;
 
@@ -87,7 +81,7 @@ export const usePixSocket = ({
     // ======================================================
     // 📎 MÍDIA RECEBIDA DO WHATSAPP
     // ======================================================
-    socket.on("media-received", (media) => {
+    socket.on("whatsapp:new_media", (media) => {
       console.log("📎 MÍDIA RECEBIDA:", media);
 
       const now = Date.now();
@@ -99,6 +93,7 @@ export const usePixSocket = ({
         type: media.type || "document",
         caption: media.caption || "",
         timestamp: media.timestamp || Date.now(),
+        url: media.url || "",
       });
     });
 
@@ -127,8 +122,8 @@ export const usePixSocket = ({
     });
 
     socket.onAny((event, data) => {
-  console.log("📡 [SOCKET EVENT RECEBIDO]", event, data);
-});
+      console.log("📡 [SOCKET EVENT RECEBIDO]", event, data);
+    });
 
 
     return () => socket.disconnect();
