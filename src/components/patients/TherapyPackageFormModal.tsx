@@ -19,13 +19,13 @@ import ReactInputMask from 'react-input-mask';
 import { toast } from 'react-toastify';
 import { useAppointmentsContext } from '../../contexts/AppointmentsContext';
 import appointmentService from '../../services/appointmentService';
-import packageService from '../../services/packageService';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
 import { DURATION_OPTIONS, FREQUENCY_OPTIONS, IAppointment, IDoctor, IPatient, ITherapyPackage, PAYMENT_TYPES, THERAPY_TYPES } from '../../utils/types/types';
 import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Select } from '../ui/Select';
+import packageService from '../../services/packageService';
 
 type Props = {
     initialData: ITherapyPackage | null;
@@ -138,14 +138,19 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             };
 
             // ✅ Atualiza automaticamente os slots adicionais conforme a frequência
+            // No handleChange, quando sessionsPerWeek muda:
             if (name === 'sessionsPerWeek') {
                 const num = Number(value);
 
                 if (num > 1) {
-                    // Gera (num - 1) blocos de slots adicionais
-                    setSelectedSlots(Array.from({ length: num - 1 }, () => ({ day: '', time: '' })));
+                    // Mantém o primeiro slot sempre preenchido com sexta-feira como padrão
+                    const defaultSlots = Array.from({ length: num - 1 }, (_, index) =>
+                        index === 0
+                            ? { day: 'friday', time: formData.time || '17:00' }
+                            : { day: '', time: '' }
+                    );
+                    setSelectedSlots(defaultSlots);
                 } else {
-                    // Limpa se voltar pra 1x/semana
                     setSelectedSlots([]);
                 }
             }
@@ -168,68 +173,86 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         }
     };
 
-
     function generateSessionDates({
         startDate,
         startTime,
         totalSessions,
         sessionsPerWeek,
+        selectedSlots = [],
     }: {
         startDate: string;
         startTime: string;
         totalSessions: number;
         sessionsPerWeek: number;
+        selectedSlots?: { day: string; time: string }[];
     }) {
         const start = moment(startDate, "YYYY-MM-DD");
         const results: { date: string; time: string }[] = [];
 
-        // 🔹 Função auxiliar para pular fim de semana
-        const nextBusinessDay = (date: moment.Moment) => {
-            const dow = date.isoWeekday(); // 1 = segunda, 7 = domingo
-            if (dow === 6) return date.add(2, "days"); // sábado → segunda
-            if (dow === 7) return date.add(1, "days"); // domingo → segunda
-            return date;
+        // 🔹 Mapeamento de dias da semana
+        const dayToNumber: Record<string, number> = {
+            monday: 1,
+            tuesday: 2,
+            wednesday: 3,
+            thursday: 4,
+            friday: 5,
         };
 
-        // 🔹 Corrige a data inicial se for sábado ou domingo
-        const first = nextBusinessDay(start.clone());
-        results.push({ date: first.format("YYYY-MM-DD"), time: startTime });
+        // 🔹 Determina os dias ativos baseados na primeira sessão + slots adicionais
+        const activeDays: number[] = [];
+        const dayTimes: Record<number, string> = {};
 
-        if (sessionsPerWeek <= 1) {
-            // apenas 1x por semana
-            for (let i = 1; i < totalSessions; i++) {
-                const next = nextBusinessDay(moment(first).add(1, "week"));
-                results.push({ date: next.format("YYYY-MM-DD"), time: startTime });
+        // Primeira sessão (data inicial)
+        const firstSessionDay = start.isoWeekday();
+        activeDays.push(firstSessionDay);
+        dayTimes[firstSessionDay] = startTime;
+
+        // Sessões adicionais (selectedSlots)
+        selectedSlots.forEach(slot => {
+            if (slot.day && dayToNumber[slot.day] && slot.time) {
+                const dayNum = dayToNumber[slot.day];
+                if (!activeDays.includes(dayNum)) {
+                    activeDays.push(dayNum);
+                }
+                dayTimes[dayNum] = slot.time;
             }
-            return results;
-        }
+        });
 
-        // 🔹 Gera múltiplas vezes por semana (ex: 2x → seg e qui)
-        const weekdayOffsets: Record<number, number[]> = {
-            1: [0],
-            2: [0, 3],
-            3: [0, 2, 4],
-            4: [0, 1, 3, 4],
-            5: [0, 1, 2, 3, 4],
-        };
+        // 🔹 Ordena os dias da semana
+        activeDays.sort((a, b) => a - b);
 
-        const offsets = weekdayOffsets[sessionsPerWeek] || [0];
-        let current = first.clone();
-        let created = 1;
+        let sessionsCreated = 0;
+        let currentWeek = start.clone().startOf('isoWeek'); // Segunda-feira da semana inicial
 
-        while (created < totalSessions) {
-            for (let i = 1; i < offsets.length && created < totalSessions; i++) {
-                const next = nextBusinessDay(moment(current).add(offsets[i], "days"));
-                results.push({ date: next.format("YYYY-MM-DD"), time: startTime });
-                created++;
+        while (sessionsCreated < totalSessions) {
+            // Para cada dia ativo na semana atual
+            for (const dayOfWeek of activeDays) {
+                if (sessionsCreated >= totalSessions) break;
+
+                const sessionDate = currentWeek.clone().isoWeekday(dayOfWeek);
+
+                // ⚠️ IMPORTANTE: Só inclui sessões a partir da data de início
+                if (sessionDate.isBefore(start, 'day')) {
+                    continue;
+                }
+
+                // ⚠️ CORREÇÃO: Garante que não cria sessões em dias passados
+                if (sessionDate.isoWeekday() > 5) { // Sábado ou Domingo
+                    continue;
+                }
+
+                const time = dayTimes[dayOfWeek] || startTime;
+
+                results.push({
+                    date: sessionDate.format('YYYY-MM-DD'),
+                    time: time
+                });
+
+                sessionsCreated++;
             }
 
-            // avança uma semana e gera a próxima segunda útil
-            if (created < totalSessions) {
-                current = nextBusinessDay(moment(current).add(7, "days"));
-                results.push({ date: current.format("YYYY-MM-DD"), time: startTime });
-                created++;
-            }
+            // Avança para a próxima semana
+            currentWeek.add(1, 'week');
         }
 
         return results.slice(0, totalSessions);
@@ -240,6 +263,15 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         if (!validate()) return;
         setIsLoading(true);
 
+        // No handleSave, antes de gerar as datas:
+        const hasValidSlots = selectedSlots.every(slot =>
+            formData.sessionsPerWeek === 1 || (slot.day && slot.time)
+        );
+
+        if (!hasValidSlots && formData.sessionsPerWeek > 1) {
+            toast.error('Preencha todos os dias e horários adicionais para sessões múltiplas');
+            return;
+        }
         try {
             // ============================================================
             // 🧩 Cálculo do total de sessões
@@ -261,53 +293,21 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     startTime: formData.time,
                     totalSessions,
                     sessionsPerWeek: formData.sessionsPerWeek,
+                    selectedSlots,
                 });
             } else {
-                // 🔹 Modo 2: Por duração (corrige múltiplas sessões por semana)
-                const totalWeeks = formData.durationMonths * 4; // 4 semanas por mês
-                const totalSessionsToCreate = formData.sessionsPerWeek * totalWeeks;
+                // 🔹 Modo 2: Por duração — usa mesma lógica do modo "sessions"
+                const totalSessions = formData.durationMonths * 4 * formData.sessionsPerWeek;
 
-                const start = moment(formData.date, "YYYY-MM-DD");
-                const results: { date: string; time: string }[] = [];
-
-                // função auxiliar para pular fim de semana
-                const nextBusinessDay = (date: moment.Moment) => {
-                    const dow = date.isoWeekday();
-                    if (dow === 6) return date.add(2, "days"); // sábado → segunda
-                    if (dow === 7) return date.add(1, "days"); // domingo → segunda
-                    return date;
-                };
-
-                // 🔹 offsets fixos dentro da semana
-                const weekdayOffsets: Record<number, number[]> = {
-                    1: [0],          // uma sessão por semana → terça
-                    2: [0, 3],       // duas sessões → terça e sexta
-                    3: [0, 2, 4],    // três → terça/quinta/sábado
-                    4: [0, 1, 3, 4], // quatro → seg/ter/qui/sex
-                    5: [0, 1, 2, 3, 4] // segunda a sexta
-                };
-
-                const offsets = weekdayOffsets[formData.sessionsPerWeek] || [0];
-
-                // 🔹 gera as semanas completas respeitando os dias úteis
-                let created = 0;
-                let currentWeekStart = nextBusinessDay(start.clone());
-
-                for (let week = 0; week < totalWeeks; week++) {
-                    for (let offset of offsets) {
-                        if (created >= totalSessionsToCreate) break;
-                        const next = nextBusinessDay(moment(currentWeekStart).add(offset, "days"));
-                        results.push({ date: next.format("YYYY-MM-DD"), time: formData.time });
-                        created++;
-                    }
-                    currentWeekStart.add(7, "days");
-                }
-
-                generatedSlots = results;
+                generatedSlots = generateSessionDates({
+                    startDate: formData.date,
+                    startTime: formData.time,
+                    totalSessions,
+                    sessionsPerWeek: formData.sessionsPerWeek,
+                    selectedSlots,
+                });
 
             }
-
-
 
             // 🔹 Remove duplicatas e ordena (garantia extra)
             const unique = Array.from(

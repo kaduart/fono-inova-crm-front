@@ -12,19 +12,29 @@ import API from './api';
 
 export type CreatePackageParams = {
   patientId: string;
-  sessionType: TherapyType;
-  /* totalSessions: number;
-  sessionValue: number; */
   doctorId: string;
-  paymentType: string;
-  amountPaid: number;
-  paymentMethod: string;
-  durationMonths: number;
-  date: string;
-  time: string;
-  paymentDate: string;
+  sessionType: TherapyType; // fonoaudiologia, psicologia, etc.
+  specialty: string;
+  sessionValue: number;
+  paymentType: string; // full, parcial, etc.
   sessionsPerWeek: number;
+  durationMonths: number;
+  totalSessions: number;
+  date: string; // primeira sessão
+  time: string; // hora da primeira sessão
+  calculationMode: "sessions" | "duration";
+  selectedSlots: {
+    date: string;
+    time: string;
+  }[];
+  payments: {
+    amount: number;
+    method: string;
+    date: string;
+    description?: string;
+  }[];
 };
+
 
 export type UpdatePackageParams = Partial<{
   totalSessions: number;
