@@ -122,6 +122,11 @@ export const usePixSocket = ({
       console.warn("⚠️ Desconectado do Socket.IO");
     });
 
+    socket.onAny((event, data) => {
+  console.log("📡 [SOCKET EVENT RECEBIDO]", event, data);
+});
+
+
     return () => socket.disconnect();
   }, [
     showPaymentNotification,

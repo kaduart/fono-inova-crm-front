@@ -10,12 +10,9 @@ import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { AppointmentsProvider } from './contexts/AppointmentsContext';
 import { useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext'; // ✅ ADICIONE AQUI
-import { usePixSocket } from './hooks/useSocketNotifications';
 
 const App: React.FC = () => {
   const { isLoading } = useAuth();
-
-  usePixSocket();
 
   return (
     <BrowserRouter>
@@ -33,7 +30,6 @@ const App: React.FC = () => {
         <Suspense fallback={<LoadingSpinner />}>
           <AppointmentsProvider>
             <AppRoutes />
-            <PixNotificationPopup />
           </AppointmentsProvider>
 
           <ToastContainer
