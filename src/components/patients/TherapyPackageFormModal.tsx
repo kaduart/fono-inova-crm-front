@@ -11,13 +11,15 @@ import {
     User,
     X
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import moment from 'moment';
+import 'moment/locale/pt-br';
+import { useEffect, useMemo, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import ReactInputMask from 'react-input-mask';
 import { toast } from 'react-toastify';
 import { useAppointmentsContext } from '../../contexts/AppointmentsContext';
 import appointmentService from '../../services/appointmentService';
-import packageService, { CreatePackageParams } from '../../services/packageService';
+import packageService from '../../services/packageService';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
 import { DURATION_OPTIONS, FREQUENCY_OPTIONS, IAppointment, IDoctor, IPatient, ITherapyPackage, PAYMENT_TYPES, THERAPY_TYPES } from '../../utils/types/types';
 import { Button } from '../ui/Button';
@@ -57,21 +59,44 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     const [calculationMode, setCalculationMode] = useState('duration');
     const [isLoading, setIsLoading] = useState(false);
 
-    // Calculados dinamicamente
-    const totalSessions = calculationMode === 'sessions'
-        ? formData.totalSessions
-        : (formData.durationMonths || 0) * 4 * (formData.sessionsPerWeek || 0);
+    // Calculados dinamicamente (compatível com string ou número)
+    const toNumber = (v: any) => {
+        if (v == null) return 0;
+        if (typeof v === 'number') return isNaN(v) ? 0 : v;
+        if (typeof v === 'string') {
+            const clean = v
+                .replace(/[R$\s]/g, '') // remove R$, espaços
+                .replace(/\./g, '')
+                .replace(',', '.')
+                .trim();
+            const n = Number(clean);
+            return isNaN(n) ? 0 : n;
+        }
+        return Number(v) || 0;
+    };
 
-    const totalValuePackage = totalSessions * formData.sessionValue;
-    const remainingBalance = Math.max(totalValuePackage - formData.totalPaid, 0);
 
     // Calcular duração estimada baseada no número de sessões e frequência
     const estimatedDuration = calculationMode === 'sessions' && formData.sessionsPerWeek > 0
         ? Math.ceil(formData.totalSessions / formData.sessionsPerWeek / 4)
         : formData.durationMonths;
 
+    // 🧩 Atualiza totalSessions dinamicamente
+    useEffect(() => {
+        if (calculationMode === 'duration') {
+            const total = (formData.durationMonths || 0) * 4 * (formData.sessionsPerWeek || 0);
+
+            // evita loop infinito e re-render desnecessário
+            if (formData.totalSessions !== total) {
+                setFormData(prev => ({ ...prev, totalSessions: total }));
+            }
+        }
+    }, [formData.durationMonths, formData.sessionsPerWeek, calculationMode]);
+
+
+
     const { fetchAppointments } = useAppointmentsContext();
-    const [selectedSlots, setSelectedSlots] = useState([{ day: '', time: '' }]);
+    const [selectedSlots, setSelectedSlots] = useState<{ day: ''; time: '' }[]>([]);
 
     useEffect(() => {
         fetchAppointments();
@@ -86,6 +111,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             fetchAppointmentsByPatient(patient._id);
         }
     }, [patient]);
+
 
     const fetchAppointmentsByPatient = async (patientId: string) => {
         setIsLoading(true);
@@ -102,11 +128,32 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         const numericFields = ['durationMonths', 'sessionsPerWeek', 'totalSessions', 'sessionValue', 'totalPaid'];
-        setFormData(prev => ({
-            ...prev,
-            [name]: numericFields.includes(name) ? Number(value) : value
-        }));
 
+        setFormData(prev => {
+            const updated = {
+                ...prev,
+                [name]: numericFields.includes(name)
+                    ? value === '' ? 0 : Number(value)
+                    : value
+            };
+
+            // ✅ Atualiza automaticamente os slots adicionais conforme a frequência
+            if (name === 'sessionsPerWeek') {
+                const num = Number(value);
+
+                if (num > 1) {
+                    // Gera (num - 1) blocos de slots adicionais
+                    setSelectedSlots(Array.from({ length: num - 1 }, () => ({ day: '', time: '' })));
+                } else {
+                    // Limpa se voltar pra 1x/semana
+                    setSelectedSlots([]);
+                }
+            }
+
+            return updated;
+        });
+
+        // 🔹 Sincroniza o agendamento escolhido, se aplicável
         if (name === 'appointmentId') {
             const selectedAppointment = appointments.find(a => a._id === value);
             if (selectedAppointment) {
@@ -121,42 +168,158 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         }
     };
 
+
+    function generateSessionDates({
+        startDate,
+        startTime,
+        totalSessions,
+        sessionsPerWeek,
+    }: {
+        startDate: string;
+        startTime: string;
+        totalSessions: number;
+        sessionsPerWeek: number;
+    }) {
+        const start = moment(startDate, "YYYY-MM-DD");
+        const results: { date: string; time: string }[] = [];
+
+        // 🔹 Função auxiliar para pular fim de semana
+        const nextBusinessDay = (date: moment.Moment) => {
+            const dow = date.isoWeekday(); // 1 = segunda, 7 = domingo
+            if (dow === 6) return date.add(2, "days"); // sábado → segunda
+            if (dow === 7) return date.add(1, "days"); // domingo → segunda
+            return date;
+        };
+
+        // 🔹 Corrige a data inicial se for sábado ou domingo
+        const first = nextBusinessDay(start.clone());
+        results.push({ date: first.format("YYYY-MM-DD"), time: startTime });
+
+        if (sessionsPerWeek <= 1) {
+            // apenas 1x por semana
+            for (let i = 1; i < totalSessions; i++) {
+                const next = nextBusinessDay(moment(first).add(1, "week"));
+                results.push({ date: next.format("YYYY-MM-DD"), time: startTime });
+            }
+            return results;
+        }
+
+        // 🔹 Gera múltiplas vezes por semana (ex: 2x → seg e qui)
+        const weekdayOffsets: Record<number, number[]> = {
+            1: [0],
+            2: [0, 3],
+            3: [0, 2, 4],
+            4: [0, 1, 3, 4],
+            5: [0, 1, 2, 3, 4],
+        };
+
+        const offsets = weekdayOffsets[sessionsPerWeek] || [0];
+        let current = first.clone();
+        let created = 1;
+
+        while (created < totalSessions) {
+            for (let i = 1; i < offsets.length && created < totalSessions; i++) {
+                const next = nextBusinessDay(moment(current).add(offsets[i], "days"));
+                results.push({ date: next.format("YYYY-MM-DD"), time: startTime });
+                created++;
+            }
+
+            // avança uma semana e gera a próxima segunda útil
+            if (created < totalSessions) {
+                current = nextBusinessDay(moment(current).add(7, "days"));
+                results.push({ date: current.format("YYYY-MM-DD"), time: startTime });
+                created++;
+            }
+        }
+
+        return results.slice(0, totalSessions);
+    }
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
-
-        if (!formData.sessionType || !formData.paymentType || !formData.doctorId) {
-            toast.error('Preencha todos os campos obrigatórios.');
-            return;
-        }
-
         setIsLoading(true);
 
         try {
-            // 🔹 Garante que o primeiro dia (baseado em date/time) entre no selectedSlots
-            let updatedSlots = [...selectedSlots];
+            // ============================================================
+            // 🧩 Cálculo do total de sessões
+            // ============================================================
+            const totalSessions =
+                calculationMode === "sessions"
+                    ? formData.totalSessions
+                    : (formData.durationMonths || 0) * 4 * (formData.sessionsPerWeek || 0);
 
-            if (formData.date && formData.time) {
-                const dateObj = new Date(formData.date);
-                const weekday = dateObj
-                    .toLocaleDateString('en-US', { weekday: 'long' })
-                    .toLowerCase();
+            // ============================================================
+            // 📅 Gera as datas reais (usando a função declarada fora)
+            // ============================================================
+            let generatedSlots: { date: string; time: string }[] = [];
 
-                const alreadyHas = updatedSlots.some(
-                    (slot) => slot.day === weekday && slot.time === formData.time
-                );
+            if (calculationMode === "sessions") {
+                // 🔹 Modo 1: Por número de sessões (já está funcionando)
+                generatedSlots = generateSessionDates({
+                    startDate: formData.date,
+                    startTime: formData.time,
+                    totalSessions,
+                    sessionsPerWeek: formData.sessionsPerWeek,
+                });
+            } else {
+                // 🔹 Modo 2: Por duração (corrige múltiplas sessões por semana)
+                const totalWeeks = formData.durationMonths * 4; // 4 semanas por mês
+                const totalSessionsToCreate = formData.sessionsPerWeek * totalWeeks;
 
-                if (!alreadyHas) {
-                    updatedSlots.unshift({ day: weekday, time: formData.time });
+                const start = moment(formData.date, "YYYY-MM-DD");
+                const results: { date: string; time: string }[] = [];
+
+                // função auxiliar para pular fim de semana
+                const nextBusinessDay = (date: moment.Moment) => {
+                    const dow = date.isoWeekday();
+                    if (dow === 6) return date.add(2, "days"); // sábado → segunda
+                    if (dow === 7) return date.add(1, "days"); // domingo → segunda
+                    return date;
+                };
+
+                // 🔹 offsets fixos dentro da semana
+                const weekdayOffsets: Record<number, number[]> = {
+                    1: [0],          // uma sessão por semana → terça
+                    2: [0, 3],       // duas sessões → terça e sexta
+                    3: [0, 2, 4],    // três → terça/quinta/sábado
+                    4: [0, 1, 3, 4], // quatro → seg/ter/qui/sex
+                    5: [0, 1, 2, 3, 4] // segunda a sexta
+                };
+
+                const offsets = weekdayOffsets[formData.sessionsPerWeek] || [0];
+
+                // 🔹 gera as semanas completas respeitando os dias úteis
+                let created = 0;
+                let currentWeekStart = nextBusinessDay(start.clone());
+
+                for (let week = 0; week < totalWeeks; week++) {
+                    for (let offset of offsets) {
+                        if (created >= totalSessionsToCreate) break;
+                        const next = nextBusinessDay(moment(currentWeekStart).add(offset, "days"));
+                        results.push({ date: next.format("YYYY-MM-DD"), time: formData.time });
+                        created++;
+                    }
+                    currentWeekStart.add(7, "days");
                 }
+
+                generatedSlots = results;
+
             }
 
-            // 🔒 Filtra slots válidos antes de enviar
-            const validSlots = updatedSlots.filter(
-                (slot) => slot.day && slot.time && slot.time.trim() !== ''
-            );
 
 
+            // 🔹 Remove duplicatas e ordena (garantia extra)
+            const unique = Array.from(
+                new Map(generatedSlots.map((s) => [`${s.date}|${s.time}`, s])).values()
+            ).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+
+            console.log("📅 Slots gerados (preview antes do envio):");
+            console.table(unique);
+
+            // ============================================================
+            // 🔹 Monta o payload final
+            // ============================================================
             const packageData = {
                 patientId: patient._id,
                 doctorId: formData.doctorId,
@@ -166,14 +329,19 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 paymentType: formData.paymentType,
                 sessionsPerWeek: +formData.sessionsPerWeek,
                 durationMonths:
-                    calculationMode === 'duration' ? formData.durationMonths : estimatedDuration,
+                    calculationMode === "duration"
+                        ? formData.durationMonths
+                        : Math.ceil(
+                            formData.totalSessions / (formData.sessionsPerWeek || 1) / 4
+                        ),
                 totalSessions:
-                    calculationMode === 'sessions' ? formData.totalSessions : totalSessions,
+                    calculationMode === "sessions"
+                        ? formData.totalSessions
+                        : totalSessions,
                 date: formData.date,
                 time: formData.time,
-                appointmentId: formData.appointmentId || undefined,
                 calculationMode,
-                selectedSlots: validSlots, // ✅ agora inclui a data/hora inicial
+                selectedSlots: unique, // ✅ datas reais geradas
                 payments: payments.map((p) => ({
                     amount: Number(p.amount),
                     method: p.method,
@@ -182,13 +350,15 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 })),
             };
 
-            await packageService.createPackage(packageData as CreatePackageParams);
+            console.log("📤 Enviando pacote:", packageData);
+
+            await packageService.createPackage(packageData);
             toast.success(`Pacote criado com sucesso! 💚`);
             await fetchAppointments();
             onSubmit();
             onClose();
         } catch (err: any) {
-            toast.error(err?.message || 'Erro ao salvar pacote.');
+            toast.error(err?.message || "Erro ao salvar pacote.");
         } finally {
             setIsLoading(false);
         }
@@ -306,6 +476,30 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             : (formData.durationMonths > 0 && formData.sessionsPerWeek > 0))
     );
 
+    const { totalSessions, totalValuePackage, remainingBalance } = useMemo(() => {
+        const sessions =
+            calculationMode === 'sessions'
+                ? toNumber(formData.totalSessions)
+                : toNumber(formData.durationMonths) * 4 * toNumber(formData.sessionsPerWeek);
+
+        const totalValue = toNumber(sessions) * toNumber(formData.sessionValue);
+        const totalPaidNow = payments.reduce((sum, p) => sum + toNumber(p.amount || 0), 0);
+        const remaining = Math.max(totalValue - totalPaidNow, 0);
+
+        return {
+            totalSessions: sessions,
+            totalValuePackage: totalValue,
+            remainingBalance: remaining,
+        };
+    }, [
+        calculationMode,
+        formData.totalSessions,
+        formData.durationMonths,
+        formData.sessionsPerWeek,
+        formData.sessionValue,
+        payments, // 👈 adiciona aqui!
+    ]);
+
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl overflow-hidden transition-all duration-300">
@@ -394,7 +588,6 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                 Número de Sessões *
                                             </label>
                                             <input
-                                                type="number"
                                                 name="totalSessions"
                                                 min="1"
                                                 max="100"
@@ -816,7 +1009,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm text-gray-600">Valor por sessão:</span>
                                         <span className="text-sm font-semibold text-gray-900">
-                                            R$ {formData.sessionValue.toFixed(2)}
+                                            R$ {Number(formData.sessionValue || 0).toFixed(2)}
                                         </span>
                                     </div>
                                     {calculationMode === 'sessions' && (
@@ -831,7 +1024,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                         <div className="flex justify-between items-center">
                                             <span className="text-sm font-semibold text-blue-700">Valor total:</span>
                                             <span className="text-sm font-bold text-blue-700">
-                                                R$ {totalValuePackage.toFixed(2)}
+                                                R$ {Number(totalValuePackage || 0).toFixed(2)}
                                             </span>
                                         </div>
                                     </div>
@@ -856,7 +1049,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             <span className="text-sm font-semibold text-gray-700">Saldo restante:</span>
                                             <span className={`text-sm font-bold ${remainingBalance > 0 ? 'text-red-600' : 'text-emerald-600'
                                                 }`}>
-                                                R$ {remainingBalance.toFixed(2)}
+                                                R$ {Number(remainingBalance || 0).toFixed(2)}
                                             </span>
                                         </div>
                                     </div>
