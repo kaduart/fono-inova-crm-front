@@ -5,6 +5,7 @@ import { Socket } from 'socket.io-client';
 import { useNotification } from '../../../contexts/NotificationContext';
 import { getChatMessages, sendWhatsAppText } from '../../../services/whatsappService';
 import { LoadingSpinner } from '../../ui/LoadingSpinner';
+import MessageBubble from './MessageBubble';
 
 interface Contact {
     id: string;
@@ -21,8 +22,10 @@ interface Message {
     timestamp: Date;
     status: 'sent' | 'delivered' | 'read' | 'received';
     fromMe?: boolean;
-    type?: 'text' | 'image' | 'audio' | 'video';
+    type?: 'text' | 'image' | 'audio' | 'video' | 'document';
     mediaUrl?: string;
+    caption: string;
+
 }
 
 interface ChatWindowProps {
@@ -31,37 +34,6 @@ interface ChatWindowProps {
     className?: string;
 }
 
-
-const MessageBubble: React.FC<{ message: Message }> = ({ message }) => (
-    <div
-        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg relative ${message.fromMe
-            ? 'bg-indigo-600 text-white self-end rounded-tr-none'
-            : 'bg-gray-100 text-gray-800 self-start rounded-tl-none'
-            }`}
-    >
-        {message.type === 'image' && message.mediaUrl ? (
-            <img src={message.mediaUrl} alt="Imagem" className="rounded-lg mb-2 max-w-[220px]" />
-        ) : message.type === 'audio' && message.mediaUrl ? (
-            <audio controls className="w-full mb-1">
-                <source src={message.mediaUrl} />
-            </audio>
-        ) : (
-            <p className="whitespace-pre-wrap">{message.text}</p>
-        )}
-
-        <div
-            className={`text-xs mt-1 flex items-center justify-end space-x-1 ${message.fromMe ? 'text-indigo-200' : 'text-gray-500'
-                }`}
-        >
-            <span>
-                {message.timestamp.toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                })}
-            </span>
-        </div>
-    </div>
-);
 
 const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className }) => {
     const [messages, setMessages] = useState<Message[]>([]);
@@ -73,30 +45,29 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
     // ✅ Use useRef para socket para evitar reconexões
     const socketRef = useRef<Socket | null>(null);
 
-    const { chatNotification, closeChatNotification, showChatNotification } = useNotification();
+    const {
+        chatNotification,
+        mediaNotification,          // ✅ adiciona
+        closeChatNotification,
+        closeMediaNotification,     // ✅ adiciona
+    } = useNotification();
+
+    // 🔧 Função de normalização CONSISTENTE
+    const normalizePhone = (phone: string): string => {
+        let cleaned = phone.replace(/\D/g, '');
+        // Remove 55 se tiver
+        if (cleaned.startsWith('55')) cleaned = cleaned.substring(2);
+        // Adiciona 9 se for número de 10 dígitos
+        if (cleaned.length === 10) cleaned = cleaned.substring(0, 2) + '9' + cleaned.substring(2);
+        return cleaned;
+    };
+
 
     // 🔄 Efeito para sincronizar notificações com o chat
     useEffect(() => {
         if (!chatNotification || !contact?.phone) return;
 
         console.log('🔔 ChatWindow: Verificando notificação de chat...', { chatNotification, contact });
-
-        // Função para normalizar números - CORRIGIDA para adicionar o nono dígito
-        const normalizePhone = (phone) => {
-            let cleaned = phone.replace(/\D/g, '');
-
-            // Remove o "55" do início se existir
-            if (cleaned.startsWith('55')) {
-                cleaned = cleaned.substring(2);
-            }
-
-            // SE o número tem 10 dígitos (DDD + 8 dígitos), adiciona o nono dígito "9"
-            if (cleaned.length === 10) {
-                cleaned = cleaned.substring(0, 2) + '9' + cleaned.substring(2);
-            }
-
-            return cleaned;
-        };
 
         const cleanPhone = normalizePhone(contact.phone);
         const notificationPhone = normalizePhone(chatNotification.from);
@@ -145,10 +116,21 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         }
     }, [chatNotification, contact?.phone, closeChatNotification]);
 
+    // Adicione este useEffect para debug das URLs
+    useEffect(() => {
+        console.log('🔍 DEBUG - Todas as mensagens com mídia:');
+        messages.forEach((msg, index) => {
+            if (msg.type !== 'text' && msg.mediaUrl) {
+                console.log(`📦 Mensagem ${index}:`, {
+                    type: msg.type,
+                    url: msg.mediaUrl,
+                    id: msg.id,
+                    caption: msg.caption
+                });
+            }
+        });
+    }, [messages]);
 
-    // ======================================================
-    // 🔹 Carrega histórico ao trocar contato - CORRIGIDO
-    // ======================================================
     // ======================================================
     // 🔹 Carrega histórico ao trocar contato - CORRIGIDO
     // ======================================================
@@ -165,7 +147,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             console.log('📂 Carregando mensagens para:', phone);
 
             // NÃO normalize o phone aqui - a API pode esperar o formato original
-            const msgs = await getChatMessages(phone);
+            let msgs = await getChatMessages(phone);
 
             console.log('📨 Resposta bruta da API:', {
                 rawResponse: msgs,
@@ -232,12 +214,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
 
                 return {
                     id: m.id || m._id || `msg-${Date.now()}-${index}`,
-                    text: text,
+                    text: m.text || m.content || m.body || m.message || m.caption || '',
                     type: m.type || 'text',
                     timestamp: timestamp,
                     fromMe: fromMe,
                     status: m.status || (fromMe ? 'sent' : 'received'),
-                    mediaUrl: m.mediaUrl || m.url || m.media || '',
+                    mediaUrl: m.mediaUrl || m.url || m.media || m.fileUrl || '',
+                    caption: m.caption || m.text || '', // ✅ ADICIONE CAPTION
                 };
             });
 
@@ -283,75 +266,93 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
     }, [contact, messages, chatNotification]);
 
 
-    // ======================================================
-    // 🔹 Funções de tratamento de mensagens - CORRIGIDAS
-    // ======================================================
-    const handleIncomingMessage = useCallback((data: any) => {
-        if (!contact?.phone) return;
+    // ✅ CORREÇÃO DO useEffect PARA MÍDIAS
+    useEffect(() => {
+        if (!mediaNotification || !contact?.phone) return;
 
-        const cleanPhone = contact.phone.replace(/\D/g, '');
-        const incoming = data.from?.replace(/\D/g, '') || '';
+        const cleanPhone = normalizePhone(contact.phone);
+        const notificationPhone = normalizePhone(mediaNotification.from);
 
-        console.log('🔍 Comparando números:', { incoming, cleanPhone });
+        console.log('🔍 DEBUG URL de Mídia:', {
+            url: mediaNotification.url,
+            type: mediaNotification.type,
+            from: mediaNotification.from,
+            normalizedContact: cleanPhone,
+            normalizedNotification: notificationPhone,
+            match: cleanPhone === notificationPhone
+        });
 
-        // ✅ Verifica se a mensagem é para este contato
-        if (incoming.endsWith(cleanPhone)) {
-            console.log('✅ Mensagem para este contato, adicionando...');
+        if (cleanPhone === notificationPhone) {
+            console.log('✅ Adicionando mídia ao chat:', mediaNotification);
 
             const newMessage: Message = {
-                id: data.id || `incoming-${Date.now()}`,
-                text: data.text || data.content || '',
-                type: data.type || 'text',
-                timestamp: new Date(data.timestamp || Date.now()),
+                id: mediaNotification.id,
+                text: mediaNotification.caption || `[${mediaNotification.type?.toUpperCase()}]`,
+                type: mediaNotification.type as any, // 'audio', 'image', etc.
+                mediaUrl: mediaNotification.url,     // URL do áudio/imagem
+                timestamp: new Date(mediaNotification.timestamp),
                 fromMe: false,
                 status: 'received',
-            };
-
-            setMessages(prev => {
-                // ✅ Evita duplicatas
-                const exists = prev.find(m => m.id === newMessage.id);
-                if (exists) return prev;
-
-                return [...prev, newMessage];
-            });
-        }
-    }, [contact?.phone]);
-
-    const handleIncomingMedia = useCallback((data: any) => {
-        if (!contact?.phone) return;
-
-        const cleanPhone = contact.phone.replace(/\D/g, '');
-        const incoming = data.from?.replace(/\D/g, '') || '';
-
-        if (incoming.endsWith(cleanPhone)) {
-            const newMessage: Message = {
-                id: data.id || `media-${Date.now()}`,
-                text: data.caption || `[${data.type?.toUpperCase()}]`,
-                type: data.type,
-                mediaUrl: data.url || '',
-                timestamp: new Date(data.timestamp || Date.now()),
-                fromMe: false,
-                status: 'received',
+                // ✅ ADICIONE A CAPTION SE EXISTIR
+                caption: mediaNotification.caption || ''
             };
 
             setMessages(prev => {
                 const exists = prev.find(m => m.id === newMessage.id);
-                if (exists) return prev;
-
+                if (exists) {
+                    console.log('⚠️ Mídia duplicada, ignorando');
+                    return prev;
+                }
                 return [...prev, newMessage];
             });
-        }
-    }, [contact?.phone]);
 
+            closeMediaNotification();
+        }
+    }, [mediaNotification, contact?.phone, closeMediaNotification]);
+
+    // ======================================================
+    // 📨 Atualização de status (entregue, lido etc.)
+    // ======================================================
     const handleStatusUpdate = useCallback((data: any) => {
-        setMessages(prev =>
-            prev.map(msg =>
-                msg.id === data.messageId
-                    ? { ...msg, status: data.status }
-                    : msg
+        console.log("📩 Atualização de status recebida:", data);
+        setMessages((prev) =>
+            prev.map((msg) =>
+                msg.id === data.messageId ? { ...msg, status: data.status } : msg
             )
         );
     }, []);
+
+    // ======================================================
+    // 🔗 Registrar handlers no socket global
+    // ======================================================
+    useEffect(() => {
+        const socket = (window as any).globalSocket;
+        if (!socket) {
+            console.warn("⚠️ Socket global não encontrado no ChatWindow");
+            return;
+        }
+
+        console.log("🔗 Registrando listeners de WhatsApp no ChatWindow");
+
+        // ✅ Mantém só o de status
+        socket.on("whatsapp:status", handleStatusUpdate);
+
+        // (opcional) Loga tudo pra debug
+        const logAll = (event: string, data: any) => {
+            if (event.startsWith("whatsapp")) {
+                console.log("📡 [ChatWindow] Event recebido:", event, data);
+            }
+        };
+        socket.onAny(logAll);
+
+        return () => {
+            console.log("🧹 Limpando listeners do ChatWindow");
+            socket.off("whatsapp:status", handleStatusUpdate);
+            socket.offAny(logAll);
+        };
+    }, [handleStatusUpdate]);
+
+
 
     // ======================================================
     // 📨 Envio de mensagem - CORRIGIDO
@@ -423,6 +424,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         };
     }, []);
 
+
     // Debug do estado das mensagens
     useEffect(() => {
         console.log('💾 ESTADO DAS MENSAGENS:', {
@@ -435,6 +437,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             }))
         });
     }, [messages]);
+
+    useEffect(() => {
+        const ids = messages.map(m => m.id);
+        const duplicates = ids.filter((id, idx) => ids.indexOf(id) !== idx);
+        if (duplicates.length > 0) {
+            console.warn("🚨 Mensagens duplicadas detectadas:", duplicates);
+        }
+    }, [messages]);
+
+
     // ======================================================
     // 🎨 Renderização
     // ======================================================
@@ -471,13 +483,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             </div>
 
             {/* Botão de recarregar histórico */}
-            <button
+            {/* <button
                 onClick={() => loadMessages(contact.phone)}
                 className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-200"
                 title="Recarregar histórico"
             >
                 🔄
-            </button>
+            </button> */}
 
             {/* Mensagens */}
             <div className="flex-1 overflow-y-auto p-4 bg-[url('https://web.whatsapp.com/img/bg-chat-tile-light_a4be512e7195b6b733d9110b408f075d.png')] bg-repeat bg-opacity-5">
@@ -495,8 +507,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                 )}
 
                 <div className="space-y-2 flex flex-col">
-                    {messages.map((message) => (
-                        <MessageBubble key={message.id} message={message} />
+                    {messages.map((message, index) => (
+                        <MessageBubble
+                            key={message.id || `${message.type}-${index}`}
+                            text={message.text}
+                            isMine={message.fromMe || false}
+                            type={message.type}
+                            mediaUrl={message.mediaUrl}
+                            caption={message.caption} // ← ADICIONE ISSE SE SUAS MENSAGENS TIVEREM LEGENDA
+                        />
                     ))}
                     <div ref={messagesEndRef} />
                 </div>

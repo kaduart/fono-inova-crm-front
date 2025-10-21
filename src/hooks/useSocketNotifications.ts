@@ -14,16 +14,14 @@ export const usePixSocket = ({
   const {
     showPaymentNotification,
     showMediaNotification,
-    showChatNotification, // 👈 novo
+    showChatNotification,
   } = useNotification();
-
-  useEffect(() => {
-    console.log("⚙️ usePixSocket iniciado");
-  }, []);
 
   const lastEventTime = useRef<number>(0);
 
   useEffect(() => {
+    console.log("⚙️ usePixSocket iniciado");
+
     const socket = io(
       import.meta.env.VITE_BACKEND_URL ||
       "https://fono-inova-crm-back.onrender.com",
@@ -36,17 +34,20 @@ export const usePixSocket = ({
       }
     );
 
-    // 🔹 torna global (para os popups acessarem diretamente, se quiser)
     (window as any).globalSocket = socket;
+
+    const throttled = () => {
+      const now = Date.now();
+      if (now - lastEventTime.current < 1500) return true;
+      lastEventTime.current = now;
+      return false;
+    };
 
     // ======================================================
     // 💰 PIX RECEBIDO
     // ======================================================
     socket.on("pix-received", (pix) => {
-
-      const now = Date.now();
-      if (now - lastEventTime.current < 2000) return;
-      lastEventTime.current = now;
+      if (throttled()) return;
 
       showPaymentNotification({
         appointmentId: pix.appointmentId || "",
@@ -63,10 +64,7 @@ export const usePixSocket = ({
     // 💳 ATUALIZAÇÃO DE PAGAMENTO
     // ======================================================
     socket.on("paymentUpdate", (data) => {
-      const now = Date.now();
-
-      if (now - lastEventTime.current < 2000) return;
-      lastEventTime.current = now;
+      if (throttled()) return;
 
       showPaymentNotification({
         appointmentId: data.appointmentId || "",
@@ -79,38 +77,34 @@ export const usePixSocket = ({
     });
 
     // ======================================================
-    // 📎 MÍDIA RECEBIDA DO WHATSAPP
+    // 💬 MENSAGEM DE TEXTO RECEBIDA
     // ======================================================
-    socket.on("whatsapp:new_media", (media) => {
-      console.log("📎 MÍDIA RECEBIDA:", media);
+    socket.on("whatsapp:new_message", (msg) => {
+      if (throttled()) return;
+      console.log("💬 [Socket] Nova mensagem WhatsApp:", msg);
 
-      const now = Date.now();
-      if (now - lastEventTime.current < 2000) return;
-      lastEventTime.current = now;
-
-      showMediaNotification({
-        from: media.from || "Contato desconhecido",
-        type: media.type || "document",
-        caption: media.caption || "",
-        timestamp: media.timestamp || Date.now(),
-        url: media.url || "",
+      showChatNotification({
+        id: msg.id || `msg-${Date.now()}`,
+        from: msg.from || "Contato desconhecido",
+        text: msg.text || msg.content || "",
+        timestamp: msg.timestamp || Date.now(),
       });
     });
 
     // ======================================================
-    // 💬 MENSAGEM DE TEXTO RECEBIDA DO WHATSAPP
+    // 📎 MÍDIA RECEBIDA (áudio, imagem, vídeo, doc)
     // ======================================================
-    socket.on("whatsapp:new_message", (msg) => {
-      console.log("💬 NOVA MENSAGEM WHATSAPP:", msg);
+    socket.on("whatsapp:new_media", (media) => {
+      if (throttled()) return;
+      console.log("📎 [Socket] Nova mídia WhatsApp:", media);
 
-      const now = Date.now();
-      if (now - lastEventTime.current < 2000) return;
-      lastEventTime.current = now;
-
-      showChatNotification({
-        from: msg.from || "Contato desconhecido",
-        text: msg.text || "",
-        timestamp: msg.timestamp || Date.now(),
+      showMediaNotification({
+        id: media.id || `media-${Date.now()}`,
+        from: media.from || "Contato desconhecido",
+        type: media.type || "document",
+        caption: media.caption || "",
+        url: media.url || "",
+        timestamp: media.timestamp || Date.now(),
       });
     });
 
@@ -122,11 +116,15 @@ export const usePixSocket = ({
     });
 
     socket.onAny((event, data) => {
-      console.log("📡 [SOCKET EVENT RECEBIDO]", event, data);
+      if (event.startsWith("whatsapp")) {
+        console.log("📡 [Socket Event]", event, data);
+      }
     });
 
-
-    return () => socket.disconnect();
+    return () => {
+      console.log("🧹 Encerrando conexão socket...");
+      socket.disconnect();
+    };
   }, [
     showPaymentNotification,
     showMediaNotification,
