@@ -8,8 +8,13 @@ import { MediaNotificationPopup } from "./mkt/whatsapp/MediaNotificationPopup";
 import { ChatNotificationPopup } from "./mkt/whatsapp/ChatNotificationPopup";
 
 const MainLayout = () => {
-  usePixSocket(); // ✅ Conecta ao Socket.IO e escuta eventos Pix + mídia
   const { showMediaNotification } = useNotification(); // ✅ Função do contexto
+
+  useEffect(() => {
+    // garante que o provider já existe no primeiro render
+    usePixSocket();
+  }, []);
+
 
   return (
     <div className="app-container">

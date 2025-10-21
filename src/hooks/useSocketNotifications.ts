@@ -17,6 +17,10 @@ export const usePixSocket = ({
     showChatNotification, // 👈 novo
   } = useNotification();
 
+  useEffect(() => {
+  console.log("⚙️ usePixSocket iniciado");
+}, []);
+
   const lastEventTime = useRef<number>(0);
 
   useEffect(() => {
