@@ -173,3 +173,23 @@
     transform: translateY(-5px);
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
 }
+
+
+/* No seu arquivo CSS global ou no style do componente */
+@keyframes pulse-green {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.animate-pulse-green {
+    animation: pulse-green 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes bounce-gentle {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-2px); }
+}
+
+.animate-bounce-gentle {
+    animation: bounce-gentle 2s infinite;
+}
