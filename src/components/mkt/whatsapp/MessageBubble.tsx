@@ -19,21 +19,28 @@ export default function MessageBubble({
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // 🔧 Função para criar URL do proxy
-const getProxiedUrl = (url: string | undefined): string => {
-  if (!url) return '';
-  
-  // Se for URL do WhatsApp, use a rota existente /api/whatsapp/media-proxy
-  if (url.includes('fbsbx.com') || url.includes('facebook.com')) {
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://fono-inova-crm-back.onrender.com';
-    const proxiedUrl = `${backendUrl}/api/whatsapp/media-proxy?url=${encodeURIComponent(url)}`;
-    
-    console.log('🔄 Usando proxy WhatsApp:', proxiedUrl);
-    return proxiedUrl;
-  }
-  
-  return url;
+// 🔧 Cria URL passando pelo proxy do back (/api/proxy-media)
+const getProxiedUrl = (url?: string): string => {
+  if (!url) return "";
+
+  // só proxia URLs do WhatsApp/Meta
+  const isMetaUrl = url.includes("fbsbx.com") || url.includes("facebook.com");
+  if (!isMetaUrl) return url;
+
+  // base do backend (env em prod, fallback pro seu domínio do Render)
+  const backendBase =
+    import.meta.env.VITE_BACKEND_URL || "https://fono-inova-crm-back.onrender.com";
+
+  // garante https e monta a rota correta do back
+  const base = backendBase.replace(/^http:\/\//, "https://").replace(/\/+$/, "");
+  const encoded = encodeURIComponent(url);
+
+  const proxiedUrl = `${base}/api/proxy-media?url=${encoded}`;
+  console.log("🔄 Usando proxy WhatsApp:", proxiedUrl);
+
+  return proxiedUrl;
 };
+
 
   const fixedMediaUrl = getProxiedUrl(mediaUrl);
 
