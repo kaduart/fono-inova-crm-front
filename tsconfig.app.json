@@ -26,6 +26,7 @@
   },
   "include": [
     "src",
-    "../backend/services"
+    "../backend/services",
+    "../backend/utils/amandaPrompt.js"
   ]
 }

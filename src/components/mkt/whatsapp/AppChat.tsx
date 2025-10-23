@@ -12,10 +12,10 @@ import {
     fetchContacts,
     sendWhatsAppText,
 } from "../../../services/whatsappService";
+import { Button } from "../../ui/Button";
 import AddContactModal from "./AddContactModal";
 import ChatWindow from "./ChatWindow";
 import Sidebar from "./Sidebar";
-import { Button } from "../../ui/Button";
 
 const AppChat: React.FC = () => {
     const [contacts, setContacts] = useState<Contact[]>([]);
@@ -320,7 +320,7 @@ const AppChat: React.FC = () => {
                 {error && <ErrorNotification />}
 
                 {/* Adicione este estilo para a animação de progresso */}
-                <style jsx>{`
+                <style>{`
                     @keyframes progress { from { width: 100%; } to { width: 0%; } }
                         .animate-progress { animation: progress 5s linear forwards; }
                         @keyframes fade-in-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

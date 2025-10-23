@@ -7,6 +7,7 @@ import { useNotification } from '../../../contexts/NotificationContext';
 import { getChatMessages, sendWhatsAppText } from '../../../services/whatsappService';
 import { toUIMsg, UIMsg } from '../../../utils/chat';
 import { normalizeE164BR } from '../../../utils/phone';
+import { uid } from '../../../utils/uid';
 import { LoadingSpinner } from '../../ui/LoadingSpinner';
 import MessageBubble from './MessageBubble';
 
@@ -44,6 +45,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
     const [error, setError] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    // no topo do ChatWindow
+    const seenIdsRef = useRef<Set<string>>(new Set());
 
     const socketRef = useRef<Socket | null>(null);
 
@@ -211,8 +214,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                     timestamp = new Date(m.time);
                 }
 
+                const id = pickMsgId(m);
                 return {
-                    id: m.id || m._id || `msg-${Date.now()}-${index}`,
+                    id,
                     text: text,
                     type: m.type || 'text',
                     timestamp: timestamp,
@@ -222,6 +226,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                     caption: m.caption || m.text || '',
                 };
             });
+
+            const unique = [];
+            const seenLocal = new Set<string>();
+            for (const m of formatted) {
+                if (seenLocal.has(m.id)) continue;
+                seenLocal.add(m.id);
+                unique.push(m);
+            }
+            setMessages(unique);
+            seenIdsRef.current = new Set(unique.map(m => m.id));
 
             setMessages(formatted);
 
@@ -285,8 +299,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                     ? (data.caption || `[${String(data.type).toUpperCase()}]`)
                     : (data.content ?? data.text ?? "");
 
+                const id = pickMsgId(data);
+                if (seenIdsRef.current.has(id)) return; // já temos
                 const newMessage: Message = {
-                    id: data.id || `sock-${Date.now()}`,
+                    id,
                     text: body,
                     type: data.type || "text",
                     mediaUrl: data.mediaUrl,
@@ -297,7 +313,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                 };
 
                 setMessages(prev => {
-                    if (prev.some(m => m.id === newMessage.id)) return prev;
+                    if (prev.some(m => m.id === id)) return prev;
+                    seenIdsRef.current.add(id);
                     return [...prev, newMessage];
                 });
             } catch (e) {
@@ -318,7 +335,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
     const handleSend = async () => {
         if (!draft.trim() || !contact || sending) return;
 
-        const tempId = `temp-${Date.now()}`;
+        const tempId = uid("temp");
         const newMessage: Message = {
             id: tempId,
             text: draft,
@@ -330,7 +347,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         };
 
         setSending(true);
-        setMessages(prev => [...prev, newMessage]);
+        setMessages(prev => {
+            seenIdsRef.current.add(tempId);
+            return [...prev, newMessage];
+        });
+
         const messageText = draft;
         setDraft('');
 
@@ -344,6 +365,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                         : m
                 )
             );
+            seenIdsRef.current.delete(tempId);
+            seenIdsRef.current.add(`delivered-${tempId}`);
         } catch (err) {
             console.error('❌ Erro ao enviar mensagem:', err);
             setError('Erro ao enviar mensagem');
@@ -500,6 +523,23 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
 
     if (!contact) {
         return <EmptyState />;
+    }
+
+
+    function pickMsgId(src: any) {
+        // prioriza ids vindos do backend
+        const raw =
+            src?.id ||
+            src?._id ||
+            src?.messageId ||
+            // combine atributos estáveis para reduzir colisão
+            `${src?.direction || "in"}-${src?.timestamp || ""}-${src?.from || ""}-${src?.to || ""}-${src?.type || "text"}-${src?.text || src?.content || src?.caption || ""}`.slice(0, 80);
+
+        // se ainda ficou vazio, usa uid()
+        const base = String(raw && raw.length ? raw : uid("m"));
+
+        // prefixa para padronizar no React DevTools e evitar colisão com outros componentes
+        return base.startsWith("m-") ? base : `m-${base}`;
     }
 
     return (
