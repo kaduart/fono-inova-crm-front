@@ -42,6 +42,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
     const [error, setError] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const [loading, setLoading] = useState(false);
 
     // 🔹 Carregar histórico (formato E.164 + normalização para o UI)
     useEffect(() => {
