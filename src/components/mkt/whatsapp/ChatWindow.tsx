@@ -102,8 +102,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
 
             setMessages(prev => {
                 // Verifica se a mensagem já existe para evitar duplicatas
-                const exists = prev.find(m => 
-                    m.id === newMessage.id || 
+                const exists = prev.find(m =>
+                    m.id === newMessage.id ||
                     (m.text === newMessage.text && m.fromMe === newMessage.fromMe)
                 );
                 if (exists) {
@@ -250,6 +250,80 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         loadMessages(contact.phone);
     }, [contact?.phone, loadMessages]);
 
+    // ======================================================
+    // 📡 Escuta direta de eventos do Socket.IO em tempo real
+    // ======================================================
+    useEffect(() => {
+        const socket = (window as any).globalSocket;
+        if (!socket) {
+            console.warn("⚠️ Socket global não encontrado no ChatWindow");
+            return;
+        }
+
+        console.log("🔗 [ChatWindow] Registrando listeners de mensagens realtime");
+
+        const handleNewMessage = (data: any) => {
+            if (!contact?.phone) return;
+
+            const cleanPhone = normalizePhone(contact.phone);
+            const from = normalizePhone(data.from);
+            if (cleanPhone !== from) return; // ignora mensagens de outros contatos
+
+            console.log("💬 [ChatWindow] Nova mensagem recebida via socket:", data);
+
+            const newMessage: Message = {
+                id: data.id || `socket-${Date.now()}`,
+                text: data.text || '',
+                timestamp: new Date(data.timestamp || Date.now()),
+                fromMe: false,
+                status: 'received',
+                type: 'text',
+                caption: '',
+            };
+
+            setMessages(prev => {
+                const exists = prev.find(m => m.id === newMessage.id);
+                if (exists) return prev;
+                return [...prev, newMessage];
+            });
+        };
+
+        const handleNewMedia = (data: any) => {
+            if (!contact?.phone) return;
+
+            const cleanPhone = normalizePhone(contact.phone);
+            const from = normalizePhone(data.from);
+            if (cleanPhone !== from) return;
+
+            console.log("🎧 [ChatWindow] Nova mídia recebida via socket:", data);
+
+            const newMessage: Message = {
+                id: data.id || `media-${Date.now()}`,
+                text: data.caption || `[${data.type?.toUpperCase()}]`,
+                type: data.type,
+                mediaUrl: data.url,
+                timestamp: new Date(data.timestamp || Date.now()),
+                fromMe: false,
+                status: 'received',
+                caption: data.caption || '',
+            };
+
+            setMessages(prev => {
+                const exists = prev.find(m => m.id === newMessage.id);
+                if (exists) return prev;
+                return [...prev, newMessage];
+            });
+        };
+
+        socket.on("whatsapp:new_message", handleNewMessage);
+        socket.on("whatsapp:new_media", handleNewMedia);
+
+        return () => {
+            socket.off("whatsapp:new_message", handleNewMessage);
+            socket.off("whatsapp:new_media", handleNewMedia);
+        };
+    }, [contact?.phone]);
+
     // 📨 Envio de mensagem aprimorado
     const handleSend = async () => {
         if (!draft.trim() || !contact || sending) return;
@@ -272,7 +346,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
 
         try {
             await sendWhatsAppText(contact.phone, messageText);
-            
+
             setMessages(prev =>
                 prev.map(m =>
                     m.id === tempId
@@ -379,11 +453,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                     />
                 </div>
                 <button
-                    className={`p-3 rounded-2xl transition-all duration-200 ${
-                        draft.trim() && !sending
+                    className={`p-3 rounded-2xl transition-all duration-200 ${draft.trim() && !sending
                             ? 'text-white bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-sm'
                             : 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                    }`}
+                        }`}
                     onClick={handleSend}
                     disabled={!draft.trim() || sending}
                 >

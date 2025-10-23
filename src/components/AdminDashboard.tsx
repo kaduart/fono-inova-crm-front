@@ -520,7 +520,7 @@ export default function AdminDashboard() {
                         {activeTab === 'Calendário'}
                         {activeTab === 'Financeiro'}
                         {activeTab === 'Leads'}
-                        {activeTab === 'Mensagens' && 'Mensagens'}
+                        {activeTab === 'Mensagens'}
                         {activeTab === 'Add Admin' && 'Adicionar Administrador'}
                     </h2>
                 </div>

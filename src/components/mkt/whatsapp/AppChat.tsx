@@ -1,4 +1,6 @@
 // src/components/whatsapp/AppChat.tsx
+import { Paper, Typography, useTheme } from "@mui/material";
+import { MessageCircle, RefreshCw } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { FiAlertCircle, FiMessageCircle, FiUserPlus, FiX } from "react-icons/fi";
 import { useNotification } from "../../../contexts/NotificationContext";
@@ -13,6 +15,7 @@ import {
 import AddContactModal from "./AddContactModal";
 import ChatWindow from "./ChatWindow";
 import Sidebar from "./Sidebar";
+import { Button } from "../../ui/Button";
 
 const AppChat: React.FC = () => {
     const [contacts, setContacts] = useState<Contact[]>([]);
@@ -21,6 +24,7 @@ const AppChat: React.FC = () => {
     const [error, setError] = useState("");
     const [showAddModal, setShowAddModal] = useState(false);
     const { chatNotification, mediaNotification } = useNotification();
+    const theme = useTheme();
 
     // 🟢 Carregar contatos iniciais
     const loadContacts = async () => {
@@ -238,52 +242,92 @@ const AppChat: React.FC = () => {
     );
 
     return (
-        <div className="flex  h-[85vh] bg-gray-50 font-sans overflow-hidden">
-            {/* Sidebar */}
-            <Sidebar
-                contacts={contacts}
-                active={active}
-                onSelect={handleSelectContact}
-                onAdd={addContact}
-                onEdit={editContact}
-                onDelete={deleteContact}
-                cclassName="w-80 shrink-0 bg-gradient-to-b from-indigo-900 to-purple-800 text-white shadow-xl overflow-y-auto"
-            />
+        <div>
+            <Paper
+                elevation={0}
+                sx={{
+                    p: 4,
+                    mb: 6,
+                    borderRadius: 3,
+                    background: `linear-gradient(135deg, ${theme.palette.primary.main}08, ${theme.palette.secondary.main}05)`,
+                    border: `1px solid ${theme.palette.grey[200]}`,
+                }}
+            >
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="p-2 bg-primary/10 rounded-lg">
 
-            {/* Área Principal */}
-            <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-                {active ? (
-                    <ChatWindow
-                        contact={active}
-                        sendMessage={sendMessage}
-                        className="flex-1 min-h-0 overflow-hidden bg-white"
-                    />
-                ) : (
-                    <EmptyState />
-                )}
-            </div>
+                            <MessageCircle size={28} className="text-emerald-600" />
+                        </div>
+                        <div>
+                            <Typography variant="h4" fontWeight="bold" color="grey.800" className="mb-1">
+                                Chat de Gestão de Pacientes
+                            </Typography>
+                            <Typography variant="body2" color="grey.600" className="max-w-2xl">
+                                Gerencie seus pacientes, campanhas e automações de atendimento com clareza e eficiência.
+                            </Typography>
+                        </div>
+                    </div>
 
-            {/* Modal de Adição */}
-            {showAddModal && (
-                <AddContactModal
-                    onClose={() => setShowAddModal(false)}
+                    <Button
+                        /*  onClick={handleRefresh} */
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-200"
+                    >
+                        <RefreshCw size={18} /* className={refreshing ? "animate-spin" : ""} */ />
+                        Atualizar
+                    </Button>
+                </div>
+            </Paper>
+
+
+            <div className="flex  h-[85vh] bg-gray-50 font-sans overflow-hidden">
+                {/* Sidebar */}
+                <Sidebar
+                    contacts={contacts}
+                    active={active}
+                    onSelect={handleSelectContact}
                     onAdd={addContact}
+                    onEdit={editContact}
+                    onDelete={deleteContact}
+                    cclassName="w-80 shrink-0 bg-gradient-to-b from-indigo-900 to-purple-800 text-white shadow-xl overflow-y-auto"
                 />
-            )}
 
-            {/* Loading Overlay */}
-            {loading && <LoadingOverlay />}
+                {/* Área Principal */}
+                <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+                    {active ? (
+                        <ChatWindow
+                            contact={active}
+                            sendMessage={sendMessage}
+                            className="flex-1 min-h-0 overflow-hidden bg-white"
+                        />
+                    ) : (
+                        <EmptyState />
+                    )}
+                </div>
 
-            {/* Error Notification */}
-            {error && <ErrorNotification />}
+                {/* Modal de Adição */}
+                {showAddModal && (
+                    <AddContactModal
+                        onClose={() => setShowAddModal(false)}
+                        onAdd={addContact}
+                    />
+                )}
 
-            {/* Adicione este estilo para a animação de progresso */}
-            <style jsx>{`
-    @keyframes progress { from { width: 100%; } to { width: 0%; } }
-    .animate-progress { animation: progress 5s linear forwards; }
-    @keyframes fade-in-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    .animate-fade-in-up { animation: fade-in-up 0.3s ease-out; }
-  `}</style>
+                {/* Loading Overlay */}
+                {loading && <LoadingOverlay />}
+
+                {/* Error Notification */}
+                {error && <ErrorNotification />}
+
+                {/* Adicione este estilo para a animação de progresso */}
+                <style jsx>{`
+                    @keyframes progress { from { width: 100%; } to { width: 0%; } }
+                        .animate-progress { animation: progress 5s linear forwards; }
+                        @keyframes fade-in-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+                        .animate-fade-in-up { animation: fade-in-up 0.3s ease-out; }
+                    `}
+                </style>
+            </div>
         </div>
     );
 };

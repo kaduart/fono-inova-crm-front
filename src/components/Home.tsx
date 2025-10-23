@@ -40,7 +40,6 @@ const Home = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Header />
 
       <main className="flex-1">
         <Section bg="bg-gradient-to-r from-green-600 to-emerald-700" height="min-h-[30rem]">
