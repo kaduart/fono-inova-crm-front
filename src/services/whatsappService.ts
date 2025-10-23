@@ -1,5 +1,6 @@
 // src/services/whatsappService.ts
 import axios from "axios";
+import { normalizeE164BR } from "../utils/phone";
 import API from "./api";
 
 export interface WhatsAppPayload {
@@ -59,13 +60,15 @@ export async function deleteContact(id: string): Promise<void> {
 
 // Buscar histórico de mensagens com um número
 export async function getChatMessages(phone: string) {
-    const res = await API.get(`/whatsapp/chat/${phone}`);
+    const p = normalizeE164BR(phone);
+    const res = await API.get(`/whatsapp/chat/${p}`);
     return res.data?.data || [];
 }
 
 // Enviar mensagem de texto padrão
 export async function sendWhatsAppText(phone: string, text: string) {
-    const res = await API.post("/whatsapp/send-text", { phone, text });
+    const p = normalizeE164BR(phone);
+    const res = await API.post("/whatsapp/send-text", { phone: p, text });
     return res.data;
 }
 
@@ -79,16 +82,10 @@ export const whatsappService = {
         template,
         parameters,
     }: WhatsAppPayload): Promise<WhatsAppResponse> => {
-        const paramsArray = Object.values(parameters).map((value) => ({
-            type: "text",
-            text: value,
-        }));
+        const p = normalizeE164BR(phone);
+        const paramsArray = Object.values(parameters).map((value) => ({ type: "text", text: value }));
+        const response = await API.post("/whatsapp/send-template", { phone: p, template, params: paramsArray });
 
-        const response = await API.post("/whatsapp/send-template", {
-            phone,
-            template,
-            params: paramsArray,
-        });
 
         return {
             success: true,
