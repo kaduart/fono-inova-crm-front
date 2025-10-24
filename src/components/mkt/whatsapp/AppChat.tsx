@@ -49,14 +49,22 @@ const AppChat: React.FC = () => {
     useEffect(() => {
         if (!chatNotification && !mediaNotification) return;
 
+        // notificação atual (texto OU mídia)
         const notification = chatNotification || mediaNotification;
         console.log('🔔 AppChat: Processando notificação para lista:', notification);
 
-        // Função de normalização (igual à do ChatWindow)
+        // preview cobre: texto → .text; mídia → .content ou .caption
+        const preview =
+            (chatNotification?.text) ??
+            ((mediaNotification as any)?.content) ??
+            (mediaNotification?.caption) ??
+            "Nova mídia";
+
+        // mesma função de normalização usada no ChatWindow
         const normalizePhone = (phone: string): string => {
-            let cleaned = phone.replace(/\D/g, '');
-            if (cleaned.startsWith('55')) cleaned = cleaned.substring(2);
-            if (cleaned.length === 10) cleaned = cleaned.substring(0, 2) + '9' + cleaned.substring(2);
+            let cleaned = (phone || "").replace(/\D/g, "");
+            if (cleaned.startsWith("55")) cleaned = cleaned.substring(2);
+            if (cleaned.length === 10) cleaned = cleaned.substring(0, 2) + "9" + cleaned.substring(2);
             return cleaned;
         };
 
@@ -65,24 +73,23 @@ const AppChat: React.FC = () => {
         setContacts(prevContacts =>
             prevContacts.map(contact => {
                 const contactPhone = normalizePhone(contact.phone);
+                if (contactPhone !== notificationPhone) return contact;
 
-                if (contactPhone === notificationPhone) {
-                    console.log(`✅ AppChat: Atualizando contato ${contact.name} com nova mensagem`);
+                // 👇 não marcar vermelho se este contato já está ativo no chat
+                const isActive = active?._id === contact._id;
 
-                    return {
-                        ...contact,
-                        hasNewMessage: true, // ✅ MARCA como tendo nova mensagem
-                        lastMessage: chatNotification?.text || mediaNotification?.caption || 'Nova mídia',
-                        lastMessagePreview: chatNotification?.text || mediaNotification?.caption || 'Nova mídia',
-                        lastMessageTime: new Date().toISOString(),
-                        unreadCount: (contact.unreadCount || 0) + 1
-                    };
-                }
-                return contact;
+                return {
+                    ...contact,
+                    hasNewMessage: !isActive,
+                    lastMessage: preview,
+                    lastMessagePreview: preview,
+                    lastMessageTime: new Date().toISOString(),
+                    unreadCount: isActive ? 0 : (contact.unreadCount || 0) + 1,
+                };
             })
         );
+    }, [chatNotification, mediaNotification, active]);
 
-    }, [chatNotification, mediaNotification]);
 
     // 🔄 Efeito para limpar a notificação quando o contato é selecionado
     const handleSelectContact = (contact: Contact) => {
@@ -289,7 +296,7 @@ const AppChat: React.FC = () => {
                     onAdd={addContact}
                     onEdit={editContact}
                     onDelete={deleteContact}
-                    cclassName="w-80 shrink-0 bg-gradient-to-b from-indigo-900 to-purple-800 text-white shadow-xl overflow-y-auto"
+                    className="w-80 shrink-0 bg-gradient-to-b from-indigo-900 to-purple-800 text-white shadow-xl overflow-y-auto"
                 />
 
                 {/* Área Principal */}

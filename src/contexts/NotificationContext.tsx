@@ -16,6 +16,7 @@ interface MediaNotification {
   from: string;
   type: string;
   caption?: string;
+  url?: string;
   timestamp: number;
 }
 

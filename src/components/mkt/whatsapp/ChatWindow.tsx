@@ -2,10 +2,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FiMic, FiPaperclip, FiRefreshCw, FiSend, FiUser } from 'react-icons/fi';
 import { IoCheckmark, IoCheckmarkDone, IoTime } from 'react-icons/io5';
-import { Socket } from 'socket.io-client';
 import { useNotification } from '../../../contexts/NotificationContext';
 import { getChatMessages, sendWhatsAppText } from '../../../services/whatsappService';
-import { toUIMsg, UIMsg } from '../../../utils/chat';
 import { normalizeE164BR } from '../../../utils/phone';
 import { uid } from '../../../utils/uid';
 import { LoadingSpinner } from '../../ui/LoadingSpinner';
@@ -45,10 +43,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
     const [error, setError] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
-    // no topo do ChatWindow
     const seenIdsRef = useRef<Set<string>>(new Set());
-
-    const socketRef = useRef<Socket | null>(null);
 
     const {
         chatNotification,
@@ -67,103 +62,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         });
     }, [chatNotification, mediaNotification, contact]);
 
-    // 🔄 Efeito para sincronizar notificações com o chat - CORRIGIDO
-    useEffect(() => {
-        if (!chatNotification || !contact?.phone) {
-            console.log('❌ ChatWindow: Sem notificação de chat ou contato');
-            return;
-        }
-
-        console.log('🔔 ChatWindow: Processando notificação de chat:', chatNotification);
-
-        const cleanPhone = normalizeE164BR(contact.phone);
-        const notificationPhone = normalizeE164BR(chatNotification.from);
-
-        console.log('🔍 Comparando números:', {
-            chat: cleanPhone,
-            notification: notificationPhone,
-            match: cleanPhone === notificationPhone
-        });
-
-        if (cleanPhone === notificationPhone) {
-            console.log('✅ ChatWindow: Adicionando mensagem ao chat');
-
-            const newMessage: Message = {
-                id: chatNotification.id || `chat-${Date.now()}`,
-                text: chatNotification.text,
-                timestamp: new Date(chatNotification.timestamp),
-                status: 'received',
-                fromMe: false,
-                type: 'text',
-                caption: '',
-            };
-
-            setMessages(prev => {
-                // Verifica se a mensagem já existe para evitar duplicatas
-                const exists = prev.find(m =>
-                    m.id === newMessage.id ||
-                    (m.text === newMessage.text && m.fromMe === newMessage.fromMe)
-                );
-                if (exists) {
-                    console.log('⚠️ Mensagem duplicada, ignorando');
-                    return prev;
-                }
-                console.log('➕ Nova mensagem adicionada ao estado do chat');
-                return [...prev, newMessage];
-            });
-
-            // Fecha a notificação após processar
-            closeChatNotification();
-        } else {
-            console.log('❌ Mensagem não é para este contato');
-        }
-    }, [chatNotification, contact?.phone, closeChatNotification]);
-
-    // 🔄 Efeito para mídias - CORRIGIDO
-    useEffect(() => {
-        if (!mediaNotification || !contact?.phone) {
-            console.log('❌ ChatWindow: Sem notificação de mídia ou contato');
-            return;
-        }
-
-        console.log('🔔 ChatWindow: Processando notificação de mídia:', mediaNotification);
-
-        const cleanPhone = normalizeE164BR(contact.phone);
-        const notificationPhone = normalizeE164BR(mediaNotification.from);
-
-        console.log('🔍 Comparando números para mídia:', {
-            chat: cleanPhone,
-            notification: notificationPhone,
-            match: cleanPhone === notificationPhone
-        });
-
-        if (cleanPhone === notificationPhone) {
-            console.log('✅ ChatWindow: Adicionando mídia ao chat');
-
-            const newMessage: Message = {
-                id: mediaNotification.id || `media-${Date.now()}`,
-                text: mediaNotification.caption || `[${mediaNotification.type?.toUpperCase()}]`,
-                type: mediaNotification.type as any,
-                mediaUrl: mediaNotification.url,
-                timestamp: new Date(mediaNotification.timestamp),
-                fromMe: false,
-                status: 'received',
-                caption: mediaNotification.caption || '',
-            };
-
-            setMessages(prev => {
-                const exists = prev.find(m => m.id === newMessage.id);
-                if (exists) {
-                    console.log('⚠️ Mídia duplicada, ignorando');
-                    return prev;
-                }
-                console.log('➕ Nova mídia adicionada ao estado do chat');
-                return [...prev, newMessage];
-            });
-
-            closeMediaNotification();
-        }
-    }, [mediaNotification, contact?.phone, closeMediaNotification]);
 
     // 📨 Carrega histórico
     const loadMessages = useCallback(async (phone: string) => {
@@ -237,8 +135,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             setMessages(unique);
             seenIdsRef.current = new Set(unique.map(m => m.id));
 
-            setMessages(formatted);
-
         } catch (err: any) {
             console.error('❌ Erro ao buscar histórico:', err);
             setError('Erro ao carregar mensagens: ' + (err.message || 'Erro desconhecido'));
@@ -250,48 +146,31 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
     // 🔄 Efeito principal para troca de contato
     useEffect(() => {
         if (!contact?.phone) {
-            console.log('❌ Nenhum contato selecionado');
             setMessages([]);
+            (window as any).activeChatPhone = null; // ⬅️ limpa
             return;
         }
-
-        console.log('🔄 Contato alterado para:', contact.name);
+        (window as any).activeChatPhone = normalizeE164BR(contact.phone); // ⬅️ marca chat aberto
         loadMessages(contact.phone);
+
+        return () => { (window as any).activeChatPhone = null; }; // ⬅️ desmontagem
     }, [contact?.phone, loadMessages]);
 
-    useEffect(() => {
-        let mounted = true;
-        (async () => {
-            if (!contact?.phone) return;
-            const chatPhone = normalizeE164BR(contact.phone);
-            const data = await getChatMessages(chatPhone);
-            // data vem com { from, to, type, content, caption, timestamp, direction, ... }
-            const list: UIMsg[] = data.map((r: any) => toUIMsg(r, chatPhone));
-            if (mounted) setMessages(list);
-        })();
-        return () => { mounted = false; };
-    }, [contact?.phone]);
     // ======================================================
     // 📡 Escuta direta de eventos do Socket.IO em tempo real
     // ======================================================
     useEffect(() => {
         const socket = (window as any).globalSocket;
-        if (!socket) {
-            console.warn("⚠️ Socket global não encontrado no ChatWindow");
-            return;
-        }
-        if (!contact?.phone) return;
+        if (!socket || !contact?.phone) return;
 
-        const chatPhone = normalizeE164BR(contact.phone);
-        console.log("🔗 [ChatWindow] Registrando listener message:new para", chatPhone);
+        const normalize = (v: string) => (v || "").replace(/\D/g, "").replace(/^55/, "");
+        const chatPhone = normalize(contact.phone);
 
         const onNew = (data: any) => {
             try {
-                // backend agora emite { from, to, type, content, mediaUrl, caption, direction, timestamp, ... }
-                const from = normalizeE164BR(data.from);
-                const to = normalizeE164BR(data.to);
+                const from = normalize(data.from);
+                const to = normalize(data.to);
 
-                // entra só se a msg é do chat atual (seja inbound ou outbound)
                 if (from !== chatPhone && to !== chatPhone) return;
 
                 const isMedia = data.type && data.type !== "text" && data.type !== "template";
@@ -300,15 +179,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                     : (data.content ?? data.text ?? "");
 
                 const id = pickMsgId(data);
-                if (seenIdsRef.current.has(id)) return; // já temos
+                if (seenIdsRef.current.has(id)) return;
+
                 const newMessage: Message = {
                     id,
                     text: body,
                     type: data.type || "text",
-                    mediaUrl: data.mediaUrl,
+                    mediaUrl: data.mediaUrl || data.url,
                     caption: data.caption || "",
                     timestamp: new Date(data.timestamp || Date.now()),
-                    fromMe: data.direction ? data.direction === "outbound" : (from !== chatPhone), // fallback
+                    fromMe: data.direction ? data.direction === "outbound" : (from !== chatPhone),
                     status: data.status || "received",
                 };
 
@@ -323,66 +203,57 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         };
 
         socket.on("message:new", onNew);
-
-        // desmontagem
-        return () => {
-            socket.off("message:new", onNew);
-        };
+        return () => { socket.off("message:new", onNew); };
     }, [contact?.phone]);
-
 
     // 📨 Envio de mensagem aprimorado
     const handleSend = async () => {
         if (!draft.trim() || !contact || sending) return;
 
         const tempId = uid("temp");
-        const newMessage: Message = {
+        const optimistic: Message = {
             id: tempId,
             text: draft,
             timestamp: new Date(),
-            status: 'sent',
+            status: "sent",
             fromMe: true,
-            type: 'text',
-            caption: '',
+            type: "text",
+            caption: "",
         };
 
         setSending(true);
         setMessages(prev => {
             seenIdsRef.current.add(tempId);
-            return [...prev, newMessage];
+            return [...prev, optimistic];
         });
 
         const messageText = draft;
-        setDraft('');
+        setDraft("");
 
         try {
-            await sendWhatsAppText(contact.phone, messageText);
+            // ⬇️ PRECISA devolver { messageId } do back
+            const resp = await sendWhatsAppText(contact.phone, messageText);
+            const realId = String(resp?.messageId || `out-${Date.now()}`);
 
             setMessages(prev =>
-                prev.map(m =>
-                    m.id === tempId
-                        ? { ...m, status: 'delivered', id: `delivered-${Date.now()}` }
-                        : m
-                )
+                prev.map(m => (m.id === tempId ? { ...m, id: realId, status: "delivered" } : m))
             );
+
             seenIdsRef.current.delete(tempId);
-            seenIdsRef.current.add(`delivered-${tempId}`);
+            seenIdsRef.current.add(realId);
         } catch (err) {
-            console.error('❌ Erro ao enviar mensagem:', err);
-            setError('Erro ao enviar mensagem');
+            console.error("❌ Erro ao enviar mensagem:", err);
+            setError("Erro ao enviar mensagem");
 
             setMessages(prev =>
-                prev.map(m =>
-                    m.id === tempId
-                        ? { ...m, status: 'sent' }
-                        : m
-                )
+                prev.map(m => (m.id === tempId ? { ...m, status: "sent" } : m))
             );
         } finally {
             setSending(false);
             inputRef.current?.focus();
         }
     };
+
 
     // 🔄 Auto-scroll para novas mensagens
     useEffect(() => {

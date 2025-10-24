@@ -139,20 +139,6 @@ export default function ContactsList({
     const [showForm, setShowForm] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // 🔔 DEBUG: Monitorar notificações e contatos
-    useEffect(() => {
-        console.log('🔔 ContactsList - Contatos atualizados:', {
-            total: contacts.length,
-            contatos: contacts.map(c => ({
-                name: c.name,
-                unread: c.unreadCount,
-                lastMessage: c.lastMessage,
-                lastMessageTime: c.lastMessageTime,
-                hasNewMessage: c.hasNewMessage
-            }))
-        });
-    }, [contacts]);
-
     const handleAddClick = () => {
         setEditingContact(null);
         setShowForm(true);
