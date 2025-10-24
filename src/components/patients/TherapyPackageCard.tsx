@@ -1,4 +1,4 @@
-import { User, Calendar, DollarSign, TrendingUp, Clock, CheckCircle2, Leaf, Sprout, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, CheckCircle2, ChevronDown, Clock, DollarSign, Sprout, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { IDoctors, IPatient, ISession, ITherapyPackage } from '../../utils/types/types';
@@ -70,18 +70,18 @@ export default function TherapyPackageCard({
 
   const getStatusConfig = (status: string) => {
     const configs = {
-      active: { 
-        color: 'bg-emerald-100 text-emerald-800 border-emerald-200', 
+      active: {
+        color: 'bg-emerald-100 text-emerald-800 border-emerald-200',
         label: 'Ativo',
         icon: CheckCircle2
       },
-      pending: { 
-        color: 'bg-amber-100 text-amber-800 border-amber-200', 
+      pending: {
+        color: 'bg-amber-100 text-amber-800 border-amber-200',
         label: 'Pendente',
         icon: Clock
       },
-      completed: { 
-        color: 'bg-green-100 text-green-800 border-green-200', 
+      completed: {
+        color: 'bg-green-100 text-green-800 border-green-200',
         label: 'Completo',
         icon: CheckCircle2
       }
@@ -93,7 +93,7 @@ export default function TherapyPackageCard({
   const StatusIcon = statusConfig.icon;
 
   return (
-    <div 
+    <div
       className="bg-white rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer"
       onClick={() => onCardClick && onCardClick(pack)}
     >
@@ -153,20 +153,17 @@ export default function TherapyPackageCard({
           </div>
 
           {/* Saldo Restante */}
-          <div className={`p-4 rounded-xl border ${
-            pack.balance > 0 
-              ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100' 
-              : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-100'
-          }`}>
+          <div className={`p-4 rounded-xl border ${pack.balance > 0
+            ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100'
+            : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-100'
+            }`}>
             <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className={`h-4 w-4 ${
-                pack.balance > 0 ? 'text-amber-600' : 'text-green-600'
-              }`} />
+              <TrendingUp className={`h-4 w-4 ${pack.balance > 0 ? 'text-amber-600' : 'text-green-600'
+                }`} />
               <span className="text-sm font-medium text-gray-700">Saldo</span>
             </div>
-            <div className={`text-lg font-bold ${
-              pack.balance > 0 ? 'text-amber-600' : 'text-green-600'
-            }`}>
+            <div className={`text-lg font-bold ${pack.balance > 0 ? 'text-amber-600' : 'text-green-600'
+              }`}>
               {new Intl.NumberFormat('pt-BR', {
                 style: 'currency',
                 currency: 'BRL'
@@ -211,17 +208,100 @@ export default function TherapyPackageCard({
             </div>
           )}
 
-          {pack.remaining < 0 && (
-            <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 p-3 rounded-lg flex items-center gap-3">
-              <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-              <div className="flex-1">
-                <div className="text-sm font-medium text-amber-800">Sessões Extras</div>
-                <div className="text-xs text-amber-600">
-                  {Math.abs(pack.remaining)} sessões realizadas além do pacote
+          {/* Alertas Elegantes (SUBSTITUIR TODO O BLOCO) */}
+          <div className="space-y-2">
+            {/* DEBUG opcional — ajuda a ver o que está chegando  */}
+            {(() => {
+              // Ative isso no console: window.__SHOW_PACK_DEBUG__ = true
+              if (!(window as any).__SHOW_PACK_DEBUG__) return null;
+              return (
+                <pre className="text-xs bg-gray-50 p-2 rounded border border-gray-200 overflow-auto">
+                  {JSON.stringify({
+                    sessionsDone: pack?.sessionsDone,
+                    paidSessions: pack?.paidSessions,
+                    totalSessions: pack?.totalSessions,
+                    paymentsLen: Array.isArray(pack?.payments) ? pack.payments.length : 'no-array',
+                    payments: pack?.payments?.map(p => ({ status: p?.status, amount: p?.amount })),
+                  }, null, 2)}
+                </pre>
+              );
+            })()}
+
+            {/* Crédito (saldo negativo) */}
+            {Number(pack?.balance) < 0 && (
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 p-3 rounded-lg flex items-center gap-3">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-green-800">Crédito Disponível</div>
+                  <div className="text-xs text-green-600">
+                    Valor: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+                      .format(Math.abs(Number(pack?.balance || 0)))}
+                    {' '}• Verificar reembolso
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+
+            {/* SESSÕES EXTRAS — só mostra se done > (paidSessions || totalSessions) */}
+            {(() => {
+              const done = Number(pack?.sessionsDone ?? 0);
+              const paidOrTotal = Number(
+                (pack?.paidSessions ?? null) != null
+                  ? pack?.paidSessions
+                  : (pack?.totalSessions ?? 0)
+              );
+
+              if (!Number.isFinite(done) || !Number.isFinite(paidOrTotal)) return null;
+
+              const extra = done - paidOrTotal;
+              if (extra <= 0) return null;
+
+              return (
+                <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 p-3 rounded-lg flex items-center gap-3">
+                  <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-amber-800">Sessões Extras</div>
+                    <div className="text-xs text-amber-600">{extra} sessões realizadas além do pacote</div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* PAGAMENTO PENDENTE — só se REALMENTE não houver pagamento útil */}
+            {(() => {
+              if (!Array.isArray(pack?.payments) || pack.payments.length === 0) {
+                // não tem nada registrado → pendente
+                return (
+                  <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 p-3 rounded-lg flex items-center gap-3">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-orange-800">Pagamento Pendente</div>
+                      <div className="text-xs text-orange-600">Nenhum pagamento registrado para este pacote</div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // há pagamentos: só mostra pendência se TODOS forem claramente "não pagos"
+              const hasUsefulPayment = pack.payments.some(p => {
+                const status = String(p?.status || '').toLowerCase();
+                const amount = Number(p?.amount || 0);
+                return status === 'paid' || status === 'partial' || amount > 0;
+              });
+
+              if (hasUsefulPayment) return null;
+
+              return (
+                <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 p-3 rounded-lg flex items-center gap-3">
+                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-orange-800">Pagamento Pendente</div>
+                    <div className="text-xs text-orange-600">Nenhum pagamento válido encontrado para este pacote</div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
 
           {pack?.payments?.length === 0 && (
             <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 p-3 rounded-lg flex items-center gap-3">
@@ -253,9 +333,8 @@ export default function TherapyPackageCard({
               {pack?.sessions?.length || 0}
             </span>
           </div>
-          <div className={`transform transition-transform duration-300 ${
-            isExpanded ? 'rotate-180' : ''
-          }`}>
+          <div className={`transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''
+            }`}>
             <ChevronDown className="w-5 h-5 text-emerald-500" />
           </div>
         </button>
