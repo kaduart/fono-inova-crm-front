@@ -325,7 +325,7 @@ export const PaymentModal = ({
                         >
                             <option value="individual_session">Sessão Individual</option>
                             <option value="evaluation">Avaliação</option>
-                            <option value="package">Pacote</option>
+                            <option value="package_session">Pacote</option>
                             <option value="workshop">Workshop</option>
                             <option value="consultation">Consulta</option>
                         </Select>
@@ -504,7 +504,7 @@ export const PaymentModal = ({
                                     >
                                         <option value="individual_session">Sessão Individual</option>
                                         <option value="evaluation">Avaliação</option>
-                                        <option value="package">Pacote</option>
+                                        <option value="package_session">Pacote</option>
                                     </Select>
                                 </div>
 

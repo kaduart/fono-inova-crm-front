@@ -5,7 +5,6 @@ import DatePicker, { registerLocale } from 'react-datepicker';
 import ReactInputMask from 'react-input-mask';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
 import { IDoctor, SelectedEvent } from '../../utils/types/types';
-import { Label } from '../ui/Label';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Select } from '../ui/Select';
 
@@ -232,10 +231,10 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 <DollarSign className="w-4 h-4 text-green-600" />
                                 <span className="font-medium text-sm text-gray-700">Status Financeiro:</span>
                                 <span className={`px-3 py-1 rounded-full text-xs font-semibold ${event.extendedProps.paymentStatus === 'paid'
-                                        ? 'bg-green-100 text-green-800 border border-green-200'
-                                        : event.extendedProps.paymentStatus === 'partial'
-                                            ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
-                                            : 'bg-red-100 text-red-800 border border-red-200'
+                                    ? 'bg-green-100 text-green-800 border border-green-200'
+                                    : event.extendedProps.paymentStatus === 'partial'
+                                        ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                                        : 'bg-red-100 text-red-800 border border-red-200'
                                     }`}>
                                     {translateStatus(event.extendedProps.paymentStatus, 'payment')}
                                 </span>
@@ -331,8 +330,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
                                             <div className="flex items-center gap-2">
                                                 <span className={`text-xs font-medium px-3 py-1 rounded-full ${session.operationalStatus === 'scheduled'
-                                                        ? 'bg-green-100 text-green-800 border border-green-200'
-                                                        : 'bg-gray-100 text-gray-600 border border-gray-200'
+                                                    ? 'bg-green-100 text-green-800 border border-green-200'
+                                                    : 'bg-gray-100 text-gray-600 border border-gray-200'
                                                     }`}>
                                                     {session.operationalStatus === 'scheduled' ? 'Pago' : 'Utilizado'}
                                                 </span>
@@ -737,8 +736,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
                                     className={`w-full text-left p-4 rounded-xl transition-all duration-200 flex items-center gap-3 ${activeTab === tab
-                                            ? `bg-white shadow-lg border border-${config.color}-200 text-${config.color}-700 font-semibold`
-                                            : 'hover:bg-white/50 text-gray-600 hover:text-gray-800'
+                                        ? `bg-white shadow-lg border border-${config.color}-200 text-${config.color}-700 font-semibold`
+                                        : 'hover:bg-white/50 text-gray-600 hover:text-gray-800'
                                         }`}
                                 >
                                     <Icon size={20} className={`${activeTab === tab ? `text-${config.color}-600` : 'text-gray-400'}`} />
@@ -760,8 +759,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
                                     className={`flex-shrink-0 px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 ${activeTab === tab
-                                            ? `bg-${config.color}-100 text-${config.color}-700 font-medium`
-                                            : 'text-gray-600 hover:bg-gray-200'
+                                        ? `bg-${config.color}-100 text-${config.color}-700 font-medium`
+                                        : 'text-gray-600 hover:bg-gray-200'
                                         }`}
                                 >
                                     <Icon size={16} />
