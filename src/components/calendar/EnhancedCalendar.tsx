@@ -163,12 +163,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     console.log('Renderizando EnhancedCalendar', appointments);
     const theme = useTheme();
 
-     useEffect(() => {
+    useEffect(() => {
         if (closeModalSignal && closeModalSignal > 0) {
             setOpenSchedule(false);
             setSelectedEvent(null); // Se necessário
         }
-    }, [closeModalSignal]); 
+    }, [closeModalSignal]);
 
     const getStatusConfig = (status: string) => {
         if (statusConfig[status]) return statusConfig[status];
@@ -235,6 +235,13 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         setIsAppointmentDetailModalOpen(true);
     };
 
+    useEffect(() => {
+        appointments?.forEach(a => {
+            if (a?.date && a?.time) {
+                console.debug('[CALllllllllllllllllll] appt=', a._id, 'date=', a.date, 'time=', a.time);
+            }
+        });
+    }, [appointments]);
     // 🔹 MEMOIZAÇÃO AVANÇADA PARA EVENTOS
     const events = useMemo(() => {
         if (!appointments) return [];
@@ -281,6 +288,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         ...appt,
                         paymentConfig,
                         operationalConfig,
+                        time: (appt.time || '').trim(),
                         visualConfig,
                         patientName: appt.patient?.fullName || 'Paciente',
                         doctorName: appt.doctor?.fullName || 'Profissional'
@@ -307,10 +315,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             center: "title",
             right: "dayGridMonth,timeGridWeek,timeGridDay"
         },
-        locale: ptBR,
+        locales: [ptBR],
         weekends: true,
-
-        // 🔹 Mantém espaçamento vertical fixo e consistente
+        locale: 'pt-br',
         allDaySlot: false,
         expandRows: true,
         height: "auto",
@@ -416,7 +423,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-600">
                             <span className="text-xs font-medium text-slate-400">Horário</span>
                             <span className="text-xs font-bold text-white bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-600">
-                                ⏰ {arg.timeText}
+                                ⏰{(arg.event?.extendedProps?.time || '').trim()}
                             </span>
                         </div>
                     </div>
