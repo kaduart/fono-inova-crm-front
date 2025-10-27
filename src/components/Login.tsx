@@ -26,6 +26,7 @@ const Login = () => {
   const [resetEmail, setResetEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [resetMode, setResetMode] = useState<'email' | 'local'>('email');
 
   const roles = [
     { id: 'admin', label: 'Admin', icon: Shield },
@@ -140,35 +141,30 @@ const Login = () => {
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!resetEmail) {
       toast.error('Por favor, informe seu email');
       return;
     }
 
     try {
-      const response = await fetch(`${BASE_URL}/auth/forgot-password`, {
+      const resp = await fetch(`${BASE_URL}/auth/forgot/manual`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: resetEmail,
-          role: selectedRole // Envia o role selecionado
-        }),
+        body: JSON.stringify({ email: resetEmail, role: selectedRole }),
       });
+      const data = await resp.json();
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Erro ao solicitar recuperação');
+      if (!resp.ok || !data?.resetUrl) {
+        throw new Error(data?.message || 'Erro ao gerar link de redefinição');
       }
 
-      toast.success('Instruções enviadas para seu email!');
-      setShowForgotPassword(false);
-      setResetEmail('');
-    } catch (error: any) {
-      toast.error(error.message);
+      toast.info('Abrindo tela de redefinição...');
+      window.location.href = data.resetUrl; // 🔹 sem e-mail, vai direto
+    } catch (err: any) {
+      toast.error(err.message || 'Falha ao solicitar redefinição');
     }
   };
+
 
   return (
     <div className='min-h-screen flex flex-row'>
@@ -215,12 +211,17 @@ const Login = () => {
 
               {showForgotPassword ? (
                 <>
+                  {/* seletor de perfil */}
                   <div className="flex bg-green-50 rounded-lg p-1 mb-4 border border-green-100">
                     {roles.map((role) => (
                       <button
                         key={role.id}
+                        type="button"
                         onClick={() => setSelectedRole(role.id)}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-colors ${selectedRole === role.id ? 'bg-green-600 text-white shadow-sm' : 'text-green-600 hover:bg-green-100'}`}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-colors ${selectedRole === role.id
+                          ? 'bg-green-600 text-white shadow-sm'
+                          : 'text-green-600 hover:bg-green-100'
+                          }`}
                       >
                         <role.icon size={16} />
                         <span>{role.label}</span>
@@ -228,9 +229,37 @@ const Login = () => {
                     ))}
                   </div>
 
+                  {/* toggle email/local */}
+                  <div className="flex bg-green-50 rounded-lg p-1 mb-3 border border-green-100">
+                    <button
+                      type="button"
+                      onClick={() => setResetMode('email')}
+                      className={`flex-1 py-2 rounded-md ${resetMode === 'email'
+                        ? 'bg-green-600 text-white'
+                        : 'text-green-700 hover:bg-green-100'
+                        }`}
+                    >
+                      Enviar por e-mail
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setResetMode('local')}
+                      className={`flex-1 py-2 rounded-md ${resetMode === 'local'
+                        ? 'bg-green-600 text-white'
+                        : 'text-green-700 hover:bg-green-100'
+                        }`}
+                    >
+                      Gerar link local
+                    </button>
+                  </div>
+
+                  {/* form */}
                   <form onSubmit={handleForgotPassword} className="space-y-4">
                     <div>
-                      <label htmlFor="resetEmail" className="block text-lg font-medium text-gray-700 mb-1 text-left">
+                      <label
+                        htmlFor="resetEmail"
+                        className="block text-lg font-medium text-gray-700 mb-1 text-left"
+                      >
                         Email Cadastrado
                       </label>
                       <input
@@ -246,8 +275,13 @@ const Login = () => {
 
                     <div className="bg-green-50 p-3 rounded-md border border-green-100">
                       <p className="text-sm text-green-800">
-                        Solicitando redefinição para: <strong className="font-semibold">
-                          {roles.find(r => r.id === selectedRole)?.label}
+                        Solicitando redefinição para:{' '}
+                        <strong className="font-semibold">
+                          {roles.find((r) => r.id === selectedRole)?.label}
+                        </strong>{' '}
+                        • Modo:{' '}
+                        <strong className="font-semibold">
+                          {resetMode === 'email' ? 'E-mail' : 'Link local'}
                         </strong>
                       </p>
                     </div>
@@ -256,7 +290,9 @@ const Login = () => {
                       type="submit"
                       className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 rounded-md hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-md font-medium"
                     >
-                      Enviar Instruções
+                      {resetMode === 'email'
+                        ? 'Enviar instruções por e-mail'
+                        : 'Gerar link local de redefinição'}
                     </button>
 
                     <button
