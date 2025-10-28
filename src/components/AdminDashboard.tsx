@@ -1,7 +1,7 @@
 import { Paper, Typography, useTheme } from '@mui/material';
 import { BarChart3 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { ErrorResponse, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAppointmentsContext } from '../contexts/AppointmentsContext';
 import { useAdmin } from '../hooks/useAdmin';
@@ -253,7 +253,9 @@ export default function AdminDashboard() {
             fetchAppointments();
             setCloseModalSignal(prev => prev + 1);
         } catch (error) {
-            toast.error('Erro ao cancelar agendamento');
+            console.log('Erro ao cancelar agendamento:', error);
+            const errorResponse = error.response.data.error as ErrorResponse;
+            toast.error(errorResponse);
         }
     };
 
@@ -275,7 +277,9 @@ export default function AdminDashboard() {
             fetchAppointments();
             setCloseModalSignal(prev => prev + 1);
         } catch (error: any) {
-            toast.error(error.response?.data?.message || 'Erro ao atualizar agendamento');
+            console.log('Erro ao cancelar agendamento:', error);
+            const errorResponse = error.response.data.error as ErrorResponse;
+            toast.error(errorResponse);
         }
     };
 
