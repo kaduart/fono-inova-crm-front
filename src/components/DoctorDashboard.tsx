@@ -4,13 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import DashboardHeader from '../components/doctor/DashboardHeader';
 import useDoctorDashboard from '../hooks/useDoctorDashboard';
 import AppointmentsSection from './doctor/AppointmentsSection';
-import PatientsTable from './doctor/PatientsTable';
+import AttendanceOverview from './doctor/AttendanceOverview';
+import PatientsTable from './doctor/patient/PatientsTable';
 import ReportsSection from './doctor/ReportsSection';
 import SpecialtyStatsCard from './doctor/SpecialtyStatsCard';
 import TherapyEvolution from './doctor/TherapyEvolution';
 import TodayAppointmentsCard from './doctor/TodayAppointmentsCard';
 import { LoadingSpinner } from './ui/LoadingSpinner';
-import AttendanceOverview from './doctor/AttendanceOverview';
 
 export default function DoctorDashboard() {
   const [activeTab, setActiveTab] = useState('overview');

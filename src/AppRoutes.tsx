@@ -20,6 +20,13 @@ const PatientDashboard = lazy(() => import('./components/patients/PatientDashboa
 const CreateAppointmentPage = lazy(() => import('./pages/appointments/create'));
 const SchedulePage = lazy(() => import('./pages/schedule'));
 
+// Novas páginas de paciente e relatórios
+const PatientsTable = lazy(() => import('./components/doctor/patient/PatientsTable'));
+const PatientDetail = lazy(() => import('./components/doctor/patient/PatientDetail'));
+//const AnamnesisReport = lazy(() => import('./components/doctor/patient/report/AnamnesisReport'));
+//const SchoolReport = lazy(() => import('./components/doctor/patient/reports/SchoolReport'));
+const MedicalReportsSection = lazy(() => import('./components/doctor/patient/reports/MedicalReportsSection'));
+
 const AppRoutes = () => {
     const { isLoading } = useAuth();
     const location = useLocation();
@@ -59,6 +66,13 @@ const AppRoutes = () => {
                     <Route path="patient-dashboard/:id" element={<PatientDashboard />} />
                     <Route path="create-appointment" element={<CreateAppointmentPage />} />
                     <Route path="schedule" element={<SchedulePage />} />
+
+                    {/* NOVAS ROTAS PARA GESTÃO DE PACIENTES - CORRIGIDAS */}
+                    <Route path="patients" element={<PatientsTable />} />
+                    <Route path="patients/:id" element={<PatientDetail />} />
+                 {/*    <Route path="patients/:id/anamnesis" element={<AnamnesisReport />} />
+                    <Route path="patients/:id/school-report" element={<SchoolReport />} /> */}
+                    <Route path="patients/:id/medical-reports" element={<MedicalReportsSection />} />
 
                 </Route>
 

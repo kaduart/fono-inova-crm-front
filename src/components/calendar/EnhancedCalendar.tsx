@@ -151,16 +151,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     const [mode, setMode] = useState<'create' | 'edit'>('create');
     const [isAppointmentDetailModalOpen, setIsAppointmentDetailModalOpen] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState<SelectedEvent | null>(null);
-    const [availableSlots, setAvailableSlots] = useState<string[]>([]);
-    const [formData, setFormData] = useState({
-        patientId: '',
-        doctorId: '',
-        date: '',
-        time: '',
-        reason: '',
-        status: 'agendado'
-    });
-    console.log('Renderizando EnhancedCalendar', appointments);
     const theme = useTheme();
 
     useEffect(() => {
@@ -170,15 +160,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         }
     }, [closeModalSignal]);
 
-    const getStatusConfig = (status: string) => {
-        if (statusConfig[status]) return statusConfig[status];
-        if (OPERATIONAL_STATUS_CONFIG[status]) return OPERATIONAL_STATUS_CONFIG[status];
-        return {
-            backgroundColor: '#CCCCCC',
-            textColor: '#000000',
-            label: status.charAt(0).toUpperCase() + status.slice(1)
-        };
-    };
 
     const getPaymentStatusConfig = (paymentStatus: string) => {
         return PAYMENT_STATUS_CONFIG[paymentStatus as keyof typeof PAYMENT_STATUS_CONFIG] || PAYMENT_STATUS_CONFIG.pending;
