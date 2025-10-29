@@ -1,4 +1,3 @@
-// statusHelper.ts
 import { AppointmentStatus } from '../utils/types/types';
 
 export const STATUS_OPTIONS = [
