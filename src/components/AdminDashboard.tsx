@@ -261,12 +261,15 @@ export default function AdminDashboard() {
 
     const handleCompleteAppointment = async (appointmentId: string) => {
         try {
+            console.log('bateu no paiii')
             await completeAppointment(appointmentId);
             toast.success('Agendamento marcado como concluído!');
             fetchAppointments();
             setCloseModalSignal(prev => prev + 1);
         } catch (error) {
-            toast.error('Erro ao completar agendamento');
+            console.log('Erro ao cancelar agendamento:', error);
+            const errorResponse = error.response.data.message as ErrorResponse;
+            toast.error(errorResponse);
         }
     };
 
