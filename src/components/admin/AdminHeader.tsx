@@ -10,6 +10,7 @@ import {
     MessageCircle,
     Settings,
     Stethoscope,
+    TrendingUp,
     User,
     Users
 } from "lucide-react";
