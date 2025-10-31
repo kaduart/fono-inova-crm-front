@@ -1,5 +1,5 @@
 import { Pencil, Trash2 } from "lucide-react";
-import { Appointment } from "../hooks/useTempAppointments";
+import { Appointment } from "../routes/hooks/useTempAppointments";
 
 type Props = {
   appointments: Appointment[];

@@ -4,7 +4,7 @@ import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import { ptBR } from "date-fns/locale";
 import { useEffect, useState } from 'react';
-import { Appointment } from '../../hooks/useTempAppointments';
+import { Appointment } from '../../routes/hooks/useTempAppointments';
 import API from '../../services/api';
 import { Specialty } from '../../utils/types';
 

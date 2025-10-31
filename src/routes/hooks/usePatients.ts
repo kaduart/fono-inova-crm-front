@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { patientService } from '../services/patientService';
-import { IPatient } from '../utils/types/types';
+import { patientService } from '../../services/patientService';
+import { IPatient } from '../../utils/types/types';
 
 export const usePatients = () => {
     const [patients, setPatients] = useState<IPatient[]>([]);

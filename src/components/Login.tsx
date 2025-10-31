@@ -4,7 +4,7 @@ import { flushSync } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { BASE_URL } from '../constants/constants';
-import { useAuthNavigation } from '../hooks/useAuthNavigation';
+import { useAuthNavigation } from '../routes/hooks/useAuthNavigation';
 import SessionExpiryHandler from './SessionExpiryHandler';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 

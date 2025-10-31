@@ -1,37 +1,77 @@
-import React from "react";
+// src/pages/FollowupDashboard.tsx - VERSÃO OTIMIZADA
+import React from 'react';
+import { useFollowupAnalytics } from '../hooks/useFollowupAnalytics';
+import ErrorBoundary from '../components/common/ErrorBoundary';
+import FollowupStats from '../components/followup/FollowupStats';
+import FollowupTrendChart from '../components/followup/FollowupTrendChart';
+import FollowupConversionChart from '../components/followup/FollowupConversionChart';
+import FollowupPerformanceChart from '../components/followup/FollowupPerformanceChart';
+import { RefreshCw, AlertCircle } from 'lucide-react';
 
-const FollowupStats = ({ stats = {} }) => {
-  const safeStats = {
-    sent: stats.sent || 0,
-    failed: stats.failed || 0,
-    scheduled: stats.scheduled || 0,
-    processing: stats.processing || 0,
-    responded: stats.responded || 0,
-    conversionRate: stats.conversionRate || 0,
-  };
+const FollowupDashboard: React.FC = () => {
+  const { data, loading, error, refetch } = useFollowupAnalytics();
 
-  const cards = [
-    { label: "Enviados", value: safeStats.sent, color: "bg-green-500" },
-    { label: "Agendados", value: safeStats.scheduled, color: "bg-yellow-500" },
-    { label: "Falhados", value: safeStats.failed, color: "bg-red-500" },
-    { label: "Processando", value: safeStats.processing, color: "bg-blue-500" },
-    { label: "Respondidos", value: safeStats.responded, color: "bg-emerald-500" },
-    { label: "Conversão", value: `${safeStats.conversionRate}%`, color: "bg-indigo-500" },
-  ];
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-50 p-6">
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center max-w-2xl mx-auto mt-8">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-red-800 mb-2">Erro ao carregar dashboard</h2>
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={refetch}
+            className="bg-red-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 mx-auto hover:bg-red-700"
+          >
+            <RefreshCw size={16} />
+            Tentar Novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-      {cards.map((item) => (
-        <div
-          key={item.label}
-          className={`${item.color} text-white rounded-lg shadow p-4 flex flex-col items-center justify-center transition-all hover:scale-[1.02]`}
-        >
-          <p className="text-sm opacity-90">{item.label}</p>
-          <p className="text-2xl font-bold">{item.value}</p>
+    <div className="min-h-screen bg-slate-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">Dashboard de Follow-ups</h1>
+            <p className="text-slate-600">Acompanhe o desempenho dos seus follow-ups</p>
+          </div>
+          <button
+            onClick={refetch}
+            disabled={loading}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            Atualizar
+          </button>
         </div>
-      ))}
+
+        {/* Stats */}
+        <ErrorBoundary>
+          <FollowupStats data={data?.stats} loading={loading} />
+        </ErrorBoundary>
+
+        {/* Charts Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <ErrorBoundary>
+            <FollowupTrendChart data={data?.trend} />
+          </ErrorBoundary>
+          
+          <ErrorBoundary>
+            <FollowupConversionChart data={data?.conversion} />
+          </ErrorBoundary>
+        </div>
+
+        {/* Performance Chart */}
+        <ErrorBoundary>
+          <FollowupPerformanceChart data={data?.stats} />
+        </ErrorBoundary>
+      </div>
     </div>
   );
 };
 
-export default FollowupStats;
+export default FollowupDashboard;

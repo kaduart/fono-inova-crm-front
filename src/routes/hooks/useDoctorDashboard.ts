@@ -1,7 +1,7 @@
 // src/hooks/useDoctorDashboard.ts
 import { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
-import API from '../services/api';
+import API from '../../services/api';
 import {
   doctorService,
   fetchFutureAppointments,
@@ -10,9 +10,9 @@ import {
   fetchTherapySessions,
   fetchTodaysAppointments,
   updateClinicalStatus
-} from '../services/doctorService';
-import { Appointment } from '../utils/types';
-import { IPatient } from '../utils/types/types';
+} from '../../services/doctorService';
+import { Appointment } from '../../utils/types';
+import { IPatient } from '../../utils/types/types';
 
 export default function useDoctorDashboard() {
   const [loading, setLoading] = useState(true);

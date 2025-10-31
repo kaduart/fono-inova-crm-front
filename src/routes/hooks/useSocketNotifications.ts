@@ -1,7 +1,7 @@
 // src/hooks/usePixSocket.ts
 import { useEffect, useRef } from "react";
 import { io } from "socket.io-client";
-import { useNotification } from "../contexts/NotificationContext";
+import { useNotification } from "../../contexts/NotificationContext";
 
 interface PixSocketOptions {
   onPaymentRefresh?: () => void;

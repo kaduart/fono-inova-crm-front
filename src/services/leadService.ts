@@ -1,19 +1,91 @@
-import axios from 'axios';
-import { BASE_URL } from '../constants/constants';
+// services/leadService.ts
+import toast from "react-hot-toast";
+import API from "./api";
 
-const API = axios.create({ baseURL: BASE_URL });
+export const leadService = {
+    async getLeads(filters: any = {}) {
+        try {
+            const response = await API.get("/leads", { params: filters });
 
-API.interceptors.request.use(config => {
-    const token = localStorage.getItem('token');
-    if (token && config.headers) {
-        config.headers['Authorization'] = `Bearer ${token}`;
-    }
-    return config;
-});
+            return {
+                success: true,
+                data: response.data,
+            };
+        } catch (error: any) {
+            console.error("Erro ao buscar leads:", error);
 
-export const getLeads = (filters = {}) => API.get('/leads', { params: filters });
-export const getLead = (id: string) => API.get(`/leads/${id}`);
-export const createLead = (data: any) => API.post('/leads', data);
-export const updateLead = (id: string, data: any) => API.put(`/leads/${id}`, data);
-export const deleteLead = (id: string) => API.delete(`/leads/${id}`);
-export const getLeadSummary = () => API.get('/leads/report/summary');
+            toast.error(
+                error?.response?.data?.error || "Erro ao carregar leads."
+            );
+
+            return {
+                success: false,
+                error,
+            };
+        }
+    },
+
+    async createLead(data: {
+        name: string;
+        contact: {
+            email?: string;
+            phone: string;
+        };
+        origin: string;
+        status?: string;
+        appointment?: {
+            seekingFor: string;
+            modality: string;
+            healthPlan: string;
+        };
+        notes?: string;
+    }) {
+        try {
+            const response = await API.post("/leads/from-sheet", data);
+
+            toast.success("Lead criado com sucesso!");
+
+            return {
+                success: true,
+                data: response.data,
+            };
+        } catch (error: any) {
+            console.error("Erro ao criar lead:", error);
+
+            toast.error(
+                error?.response?.data?.error || "Erro ao criar lead."
+            );
+
+            return {
+                success: false,
+                error,
+            };
+        }
+    },
+
+    async updateLeadStatus(id: string, status: string) {
+        try {
+            const response = await API.patch(`/leads/${id}/status`, { status });
+
+            toast.success("Status atualizado!");
+
+            return {
+                success: true,
+                data: response.data,
+            };
+        } catch (error: any) {
+            console.error("Erro ao atualizar status do lead:", error);
+
+            toast.error(
+                error?.response?.data?.error || "Erro ao atualizar status."
+            );
+
+            return {
+                success: false,
+                error,
+            };
+        }
+    },
+
+    // ... outros métodos se necessário
+};

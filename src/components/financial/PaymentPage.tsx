@@ -3,8 +3,8 @@ import { ChevronDown, ChevronUp, DollarSign, Plus, RefreshCw } from 'lucide-reac
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import usePayment from '../../hooks/usePayment';
-import { usePixSocket } from '../../hooks/useSocketNotifications';
+import usePayment from '../../routes/hooks/usePayment';
+import { usePixSocket } from '../../routes/hooks/useSocketNotifications';
 import {
     exportCSV,
     exportPDF,
@@ -297,8 +297,8 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
             <Paper elevation={1} sx={{ borderRadius: 2, overflow: 'hidden' }}>
                 <button
                     className={`flex justify-between items-center w-full p-4 text-left font-semibold transition-colors ${dailyReportOpen
-                            ? 'bg-blue-50 text-blue-800 border-b border-blue-100'
-                            : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                        ? 'bg-blue-50 text-blue-800 border-b border-blue-100'
+                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                         }`}
                     onClick={() => setDailyReportOpen(!dailyReportOpen)}
                 >
@@ -316,8 +316,8 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
             <Paper elevation={1} sx={{ borderRadius: 2, overflow: 'hidden' }}>
                 <button
                     className={`flex justify-between items-center w-full p-4 text-left font-semibold transition-colors ${financialControlOpen
-                            ? 'bg-green-50 text-green-800 border-b border-green-100'
-                            : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                        ? 'bg-green-50 text-green-800 border-b border-green-100'
+                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                         }`}
                     onClick={() => setFinancialControlOpen(!financialControlOpen)}
                 >
@@ -504,12 +504,12 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                                     <td className="px-4 py-3">
                                                         <span
                                                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${payment.status === 'paid'
-                                                                    ? 'bg-green-100 text-green-800'
-                                                                    : payment.status === 'partial'
-                                                                        ? 'bg-orange-100 text-orange-800'
-                                                                        : payment.status === 'pending'
-                                                                            ? 'bg-yellow-100 text-yellow-800'
-                                                                            : 'bg-red-100 text-red-800'
+                                                                ? 'bg-green-100 text-green-800'
+                                                                : payment.status === 'partial'
+                                                                    ? 'bg-orange-100 text-orange-800'
+                                                                    : payment.status === 'pending'
+                                                                        ? 'bg-yellow-100 text-yellow-800'
+                                                                        : 'bg-red-100 text-red-800'
                                                                 }`}
                                                         >
                                                             {payment.status === 'paid'

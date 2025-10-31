@@ -2,9 +2,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Appointment } from '../utils/types';
-import { AdminInfo } from '../utils/types/types';
-import { adminService } from '../services/adminService';
+import { adminService } from '../../services/adminService';
+import { Appointment } from '../../utils/types';
+import { AdminInfo } from '../../utils/types/types';
 
 export const useAdmin = () => {
     const [adminInfo, setAdminInfo] = useState<AdminInfo | null>(null);

@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Toaster, toast } from 'react-hot-toast';
+import React, { useEffect, useState } from 'react';
+import { Toaster } from 'react-hot-toast';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Appointment } from '../../../routes/hooks/useTempAppointments';
 import API from '../../../services/api';
 import DynamicEvolutionForm from '../../evolution/DynamicEvolutionForm';
-import { Appointment } from '../../../hooks/useTempAppointments';
 
 const EvolutionPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -16,7 +16,7 @@ const EvolutionPage: React.FC = () => {
     const fetchAppointment = async () => {
       try {
         if (!id) return;
-        
+
         const response = await API.get<Appointment>(`/appointments/${id}`);
         setAppointment(response.data);
         setLoading(false);
@@ -26,7 +26,7 @@ const EvolutionPage: React.FC = () => {
         setLoading(false);
       }
     };
-    
+
     fetchAppointment();
   }, [id]);
 
@@ -66,14 +66,14 @@ const EvolutionPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-800">
             Evolução do Paciente
           </h1>
-          <button 
+          <button
             onClick={() => navigate(-1)}
             className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition"
           >
             Voltar
           </button>
         </div>
-        
+
         {appointment ? (
           <div>
             <div className="bg-gray-50 p-4 rounded-lg mb-6">
@@ -94,7 +94,7 @@ const EvolutionPage: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             <DynamicEvolutionForm appointment={appointment} />
           </div>
         ) : (

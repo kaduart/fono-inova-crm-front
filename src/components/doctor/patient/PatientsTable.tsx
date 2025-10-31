@@ -18,11 +18,10 @@ import {
     Typography,
     useTheme
 } from '@mui/material';
-import { FileText, School, Search, Stethoscope, UserPlus } from 'lucide-react';
+import { Eye, FileText, School, Search, Stethoscope, UserPlus } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 
-// Interface para o paciente - ajuste conforme sua API real
+// Interface para o paciente
 interface Patient {
     _id: string;
     fullName: string;
@@ -35,31 +34,58 @@ interface Patient {
     reports?: any[];
 }
 
-export default function PatientsTable({ patients }: { patients: any[] }) {
+interface PatientsTableProps {
+    patients: any[];
+    onPatientClick?: (patient: Patient) => void;
+    onViewPatientDetails?: (patient: Patient) => void;
+    onCreateAnamnesis?: (patient: Patient) => void;
+    onCreateSchoolReport?: (patient: Patient) => void;
+    onViewMedicalReports?: (patient: Patient) => void;
+    onAddNewPatient?: () => void;
+}
+
+export default function PatientsTable({
+    patients,
+    onPatientClick,
+    onViewPatientDetails,
+    onCreateAnamnesis,
+    onCreateSchoolReport,
+    onViewMedicalReports,
+    onAddNewPatient
+}: PatientsTableProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const theme = useTheme();
-    const navigate = useNavigate();
-
 
     const filteredPatients = patients?.filter(patient =>
         patient.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (patient.diagnosis && patient.diagnosis.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
-    const handleViewPatient = (patientId: string) => {
-        navigate(`/patients/${patientId}`);
+    // Handler para visualização rápida (modal)
+    const handleQuickView = (patient: Patient, event: React.MouseEvent) => {
+        event.stopPropagation();
+        onPatientClick?.(patient);
     };
 
-    const handleCreateAnamnesis = (patientId: string) => {
-        navigate(`/patients/${patientId}/anamnesis`);
+    // Handler para visualização completa (dentro do dashboard)
+    const handleViewPatientDetails = (patient: Patient) => {
+        onViewPatientDetails?.(patient);
     };
 
-    const handleCreateSchoolReport = (patientId: string) => {
-        navigate(`/patients/${patientId}/school-report`);
+    const handleCreateAnamnesis = (patient: Patient) => {
+        onCreateAnamnesis?.(patient);
     };
 
-    const handleViewMedicalReports = (patientId: string) => {
-        navigate(`/patients/${patientId}/medical-reports`);
+    const handleCreateSchoolReport = (patient: Patient) => {
+        onCreateSchoolReport?.(patient);
+    };
+
+    const handleViewMedicalReports = (patient: Patient) => {
+        onViewMedicalReports?.(patient);
+    };
+
+    const handleAddNewPatientClick = () => {
+        onAddNewPatient?.();
     };
 
     const getReportCounts = (patient: Patient) => {
@@ -69,14 +95,6 @@ export default function PatientsTable({ patients }: { patients: any[] }) {
             medical: patient.reports?.filter((r: any) => r.type === 'medical').length || 0
         };
     };
-
-    /*    if (loading) {
-           return (
-               <Card sx={{ p: 3, textAlign: 'center' }}>
-                   <Typography>Carregando pacientes...</Typography>
-               </Card>
-           );
-       } */
 
     return (
         <Card
@@ -125,6 +143,7 @@ export default function PatientsTable({ patients }: { patients: any[] }) {
                             <Button
                                 variant="contained"
                                 startIcon={<UserPlus size={18} />}
+                                onClick={handleAddNewPatientClick}
                                 sx={{
                                     borderRadius: 2,
                                     fontWeight: 600,
@@ -171,6 +190,7 @@ export default function PatientsTable({ patients }: { patients: any[] }) {
                                                 }
                                             }}
                                         >
+                                            {/* Coluna do Paciente - Clique rápido para modal */}
                                             <TableCell>
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                                     <Box
@@ -184,13 +204,30 @@ export default function PatientsTable({ patients }: { patients: any[] }) {
                                                             justifyContent: 'center',
                                                             color: 'white',
                                                             fontWeight: 'bold',
-                                                            fontSize: '0.875rem'
+                                                            fontSize: '0.875rem',
+                                                            cursor: 'pointer',
+                                                            '&:hover': {
+                                                                backgroundColor: theme.palette.primary.main,
+                                                                transform: 'scale(1.05)'
+                                                            }
                                                         }}
+                                                        onClick={(e) => handleQuickView(patient, e)}
                                                     >
                                                         {patient.fullName.split(' ').map(n => n[0]).join('')}
                                                     </Box>
                                                     <Box>
-                                                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                                        <Typography
+                                                            variant="body1"
+                                                            sx={{
+                                                                fontWeight: 500,
+                                                                cursor: 'pointer',
+                                                                '&:hover': {
+                                                                    color: theme.palette.primary.main,
+                                                                    textDecoration: 'underline'
+                                                                }
+                                                            }}
+                                                            onClick={(e) => handleQuickView(patient, e)}
+                                                        >
                                                             {patient.fullName}
                                                         </Typography>
                                                         <Typography variant="caption" sx={{ color: 'grey.600' }}>
@@ -199,6 +236,7 @@ export default function PatientsTable({ patients }: { patients: any[] }) {
                                                     </Box>
                                                 </Box>
                                             </TableCell>
+
                                             <TableCell>
                                                 <Typography
                                                     variant="body2"
@@ -212,6 +250,7 @@ export default function PatientsTable({ patients }: { patients: any[] }) {
                                                     {patient.diagnosis || 'Não informado'}
                                                 </Typography>
                                             </TableCell>
+
                                             <TableCell>
                                                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                                                     <Chip
@@ -220,8 +259,8 @@ export default function PatientsTable({ patients }: { patients: any[] }) {
                                                         size="small"
                                                         variant={reportCounts.anamnesis > 0 ? "filled" : "outlined"}
                                                         color={reportCounts.anamnesis > 0 ? "primary" : "default"}
-                                                        onClick={() => handleViewMedicalReports(patient._id)}
-                                                        clickable
+                                                        onClick={() => handleViewMedicalReports(patient)}
+                                                        clickable={!!onViewMedicalReports}
                                                     />
                                                     <Chip
                                                         icon={<School size={14} />}
@@ -229,8 +268,8 @@ export default function PatientsTable({ patients }: { patients: any[] }) {
                                                         size="small"
                                                         variant={reportCounts.school > 0 ? "filled" : "outlined"}
                                                         color={reportCounts.school > 0 ? "secondary" : "default"}
-                                                        onClick={() => handleViewMedicalReports(patient._id)}
-                                                        clickable
+                                                        onClick={() => handleViewMedicalReports(patient)}
+                                                        clickable={!!onViewMedicalReports}
                                                     />
                                                     <Chip
                                                         icon={<FileText size={14} />}
@@ -238,11 +277,12 @@ export default function PatientsTable({ patients }: { patients: any[] }) {
                                                         size="small"
                                                         variant={reportCounts.medical > 0 ? "filled" : "outlined"}
                                                         color={reportCounts.medical > 0 ? "success" : "default"}
-                                                        onClick={() => handleViewMedicalReports(patient._id)}
-                                                        clickable
+                                                        onClick={() => handleViewMedicalReports(patient)}
+                                                        clickable={!!onViewMedicalReports}
                                                     />
                                                 </Box>
                                             </TableCell>
+
                                             <TableCell>
                                                 <Typography variant="body2">
                                                     {patient.lastAppointment
@@ -250,6 +290,7 @@ export default function PatientsTable({ patients }: { patients: any[] }) {
                                                         : 'N/A'}
                                                 </Typography>
                                             </TableCell>
+
                                             <TableCell>
                                                 <Chip
                                                     label={patient.status === 'active' ? 'Ativo' : 'Inativo'}
@@ -261,22 +302,25 @@ export default function PatientsTable({ patients }: { patients: any[] }) {
                                                     }}
                                                 />
                                             </TableCell>
+
+                                            {/* Coluna de Ações - Todas as ações via callbacks */}
                                             <TableCell>
                                                 <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column' }}>
                                                     <Button
                                                         variant="outlined"
                                                         size="small"
-                                                        onClick={() => handleViewPatient(patient._id)}
+                                                        startIcon={<Eye size={14} />}
+                                                        onClick={() => handleViewPatientDetails(patient)}
                                                         sx={{ mb: 1 }}
                                                     >
-                                                        Ver Paciente
+                                                        Ver Detalhes
                                                     </Button>
                                                     <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                                                         <Button
                                                             variant="text"
                                                             size="small"
                                                             startIcon={<Stethoscope size={14} />}
-                                                            onClick={() => handleCreateAnamnesis(patient._id)}
+                                                            onClick={() => handleCreateAnamnesis(patient)}
                                                         >
                                                             Anamnese
                                                         </Button>
@@ -284,7 +328,7 @@ export default function PatientsTable({ patients }: { patients: any[] }) {
                                                             variant="text"
                                                             size="small"
                                                             startIcon={<School size={14} />}
-                                                            onClick={() => handleCreateSchoolReport(patient._id)}
+                                                            onClick={() => handleCreateSchoolReport(patient)}
                                                         >
                                                             Escolar
                                                         </Button>

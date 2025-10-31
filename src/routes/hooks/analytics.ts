@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { analyticsService, GAEvent, GAMetrics } from '../services/analytics.js';
+import { analyticsService, GAEvent, GAMetrics } from '../../services/analytics.js';
 
 interface UseAnalyticsProps {
     startDate?: string;

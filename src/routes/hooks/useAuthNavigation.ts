@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { BASE_URL } from '../constants/constants';
-import { useAuth } from '../contexts/AuthContext';
+import { BASE_URL } from '../../constants/constants';
+import { useAuth } from '../../contexts/AuthContext';
 
 export const useAuthNavigation = () => {
   const navigate = useNavigate();
@@ -10,7 +10,7 @@ export const useAuthNavigation = () => {
 
   const login = async (credentials: { email: string; password: string; role: string }) => {
     loading.showLoading();
-      console.log("Login component montou");
+    console.log("Login component montou");
     try {
       const response = await axios.post(`${BASE_URL}/login`, credentials);
       const data = response.data;
