@@ -6,8 +6,8 @@ import appointmentService, {
     CreateAppointmentParams,
     RescheduleParams,
     UpdateAppointmentParams
-} from '../../services/appointmentService';
-import { IAppointment } from '../../utils/types/types';
+} from '../services/appointmentService';
+import { IAppointment } from '../utils/types/types';
 
 export const useAppointments = () => {
     const [appointments, setAppointments] = useState<IAppointment[]>([]);

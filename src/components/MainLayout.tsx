@@ -1,5 +1,5 @@
 import { Outlet } from "react-router-dom";
-import { usePixSocket } from "../routes/hooks/useSocketNotifications";
+import { usePixSocket } from "../hooks/useSocketNotifications";
 
 const MainLayout = () => {
   usePixSocket();

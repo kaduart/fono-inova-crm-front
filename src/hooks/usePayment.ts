@@ -20,9 +20,9 @@ import {
   getPaymentTotals,
   Summary,
   updatePayment
-} from '../../services/paymentService';
-import { DailyClosingData } from '../../utils/types/daily-closing-model';
-import { PaymentTotalsResponse } from '../../utils/types/types';
+} from '../services/paymentService';
+import { DailyClosingData } from '../utils/types/daily-closing-model';
+import { PaymentTotalsResponse } from '../utils/types/types';
 
 type PaymentFilters = Record<string, any>;
 

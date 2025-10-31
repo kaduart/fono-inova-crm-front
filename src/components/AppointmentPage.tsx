@@ -1,6 +1,6 @@
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, TextField } from '@mui/material';
 import React, { useEffect, useState } from 'react';
-import { Appointment } from '../routes/hooks/useTempAppointments';
+import { Appointment } from '../hooks/useTempAppointments';
 
 type ScheduleModalProps = {
     open: boolean;

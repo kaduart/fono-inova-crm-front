@@ -1,6 +1,6 @@
 // src/hooks/useFollowupAnalytics.ts
 import { useCallback, useEffect, useState } from 'react';
-import { followupService } from '../../services/followupService';
+import { followupService } from '../services/followupService';
 
 export const useFollowupAnalytics = () => {
     const [state, setState] = useState({

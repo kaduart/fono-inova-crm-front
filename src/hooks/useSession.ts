@@ -1,8 +1,8 @@
 
 // src/hooks/useSession.ts
 import { useState } from 'react';
-import packageService from '../../services/packageService';
-import { ISession } from '../../utils/types/types';
+import packageService from '../services/packageService';
+import { ISession } from '../utils/types/types';
 
 export const useSession = (packageId: string) => {
     const [loading, setLoading] = useState(false);

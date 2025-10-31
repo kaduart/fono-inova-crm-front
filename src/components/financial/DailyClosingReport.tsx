@@ -23,7 +23,7 @@ import {
     MdOutlineFileDownload
 } from "react-icons/md";
 import { TbCalendarStats } from "react-icons/tb";
-import usePayment from "../../routes/hooks/usePayment";
+import usePayment from "../../hooks/usePayment";
 import { formatDateBrazilian } from "../../utils/dateFormat";
 import { LoadingSpinner } from "../ui/LoadingSpinner";
 import SummaryCard from "./SummaryCard";

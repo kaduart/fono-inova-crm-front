@@ -12,7 +12,7 @@ import {
     XAxis,
     YAxis
 } from 'recharts';
-import { useAnalytics } from '../../routes/hooks/analytics';
+import { useAnalytics } from '../../hooks/analytics';
 import SiteAnalyticsTable from './SiteAnalyticsTable';
 
 // Cores para os gráficos

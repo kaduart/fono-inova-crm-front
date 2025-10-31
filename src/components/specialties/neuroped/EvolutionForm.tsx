@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Appointment } from '../../../routes/hooks/useTempAppointments';
+import { Appointment } from '../../../hooks/useTempAppointments';
 import API from '../../../services/api';
 
 interface NeuropedFormData {

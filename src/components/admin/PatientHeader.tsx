@@ -14,7 +14,7 @@ import {
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-import { useAdmin } from "../../routes/hooks/useAdmin";
+import { useAdmin } from "../../hooks/useAdmin";
 import NavButton from "../ui/NavButton";
 
 interface PatientHeaderProps {

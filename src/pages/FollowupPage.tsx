@@ -25,8 +25,8 @@ import MarketingDashboard from "../components/Dashboard/MarketingDashboard";
 import FollowupTimelineItem from "../components/FollowupTimelineItem";
 
 // Hooks customizados
-import { useFollowupAnalytics } from "../routes/hooks/useFollowupAnalytics";
-import { useLeads } from "../routes/hooks/useLeads";
+import { useFollowupAnalytics } from "../hooks/useFollowupAnalytics";
+import { useLeads } from "../hooks/useLeads";
 
 // UI Components
 import { Button } from "../components/ui/Button";

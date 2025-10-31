@@ -1,6 +1,6 @@
 // contexts/AppointmentsContext.tsx
 import { createContext, useContext } from "react";
-import { useAppointments } from "../routes/hooks/useAppointments";
+import { useAppointments } from "../hooks/useAppointments";
 
 const AppointmentsContext = createContext<ReturnType<typeof useAppointments> | null>(null);
 

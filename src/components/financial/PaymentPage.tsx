@@ -3,8 +3,8 @@ import { ChevronDown, ChevronUp, DollarSign, Plus, RefreshCw } from 'lucide-reac
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import usePayment from '../../routes/hooks/usePayment';
-import { usePixSocket } from '../../routes/hooks/useSocketNotifications';
+import usePayment from '../../hooks/usePayment';
+import { usePixSocket } from '../../hooks/useSocketNotifications';
 import {
     exportCSV,
     exportPDF,

@@ -1,12 +1,12 @@
 // src/pages/FollowupDashboard.tsx - VERSÃO OTIMIZADA
+import { AlertCircle, RefreshCw } from 'lucide-react';
 import React from 'react';
-import { useFollowupAnalytics } from '../hooks/useFollowupAnalytics';
+import { useFollowupAnalytics } from '../../hooks/useFollowupAnalytics';
 import ErrorBoundary from '../components/common/ErrorBoundary';
-import FollowupStats from '../components/followup/FollowupStats';
-import FollowupTrendChart from '../components/followup/FollowupTrendChart';
 import FollowupConversionChart from '../components/followup/FollowupConversionChart';
 import FollowupPerformanceChart from '../components/followup/FollowupPerformanceChart';
-import { RefreshCw, AlertCircle } from 'lucide-react';
+import FollowupStats from '../components/followup/FollowupStats';
+import FollowupTrendChart from '../components/followup/FollowupTrendChart';
 
 const FollowupDashboard: React.FC = () => {
   const { data, loading, error, refetch } = useFollowupAnalytics();
@@ -59,7 +59,7 @@ const FollowupDashboard: React.FC = () => {
           <ErrorBoundary>
             <FollowupTrendChart data={data?.trend} />
           </ErrorBoundary>
-          
+
           <ErrorBoundary>
             <FollowupConversionChart data={data?.conversion} />
           </ErrorBoundary>

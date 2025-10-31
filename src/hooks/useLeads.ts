@@ -1,6 +1,6 @@
 // src/hooks/useLeads.ts
 import { useCallback, useEffect, useState } from 'react';
-import { leadService } from '../../services/leadService';
+import { leadService } from '../services/leadService';
 
 export const useLeads = (filters: any = {}) => {
     const [state, setState] = useState({
