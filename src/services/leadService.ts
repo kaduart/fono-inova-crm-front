@@ -1,91 +1,123 @@
-// services/leadService.ts
+// src/services/leadService.ts
 import toast from "react-hot-toast";
 import API from "./api";
 
-export const leadService = {
-    async getLeads(filters: any = {}) {
-        try {
-            const response = await API.get("/leads", { params: filters });
+export type LeadStatus =
+    | "novo"
+    | "atendimento"
+    | "convertido"
+    | "perdido"
+    | "em_andamento"
+    | "lista_espera"
+    | "pendencia_documentacao"
+    | "sem_cobertura"
+    | "virou_paciente"
+    | "lead_quente"
+    | "lead_frio";
 
-            return {
-                success: true,
-                data: response.data,
-            };
+export interface LeadFilters {
+    search?: string;
+    status?: LeadStatus;
+    origin?: string;
+    from?: string;   // ISO
+    to?: string;     // ISO
+    page?: number;
+    limit?: number;
+}
+
+export interface CreateLeadFromSheetPayload {
+    name: string;
+    phone: string; // o back chama normalizeE164
+    seekingFor?: "Adulto +18 anos" | "Infantil" | "Graduação";
+    modality?: "Online" | "Presencial";
+    healthPlan?: "Graduação" | "Mensalidade" | "Dependente";
+    origin?: "WhatsApp" | "Site" | "Indicação" | "Outro" | "Tráfego pago" | "Google" | "Instagram" | "Meta Ads";
+    scheduledDate?: string; // ISO
+}
+
+export const leadService = {
+    /** GET /leads — lista com filtros/paginação */
+    async getLeads(filters: LeadFilters = {}) {
+        try {
+            const res = await API.get("/leads", { params: filters });
+            // Aceita { data, total } ou array cru
+            const payload = res.data?.data
+                ? res.data
+                : { data: Array.isArray(res.data) ? res.data : [], total: res.data?.total ?? (Array.isArray(res.data) ? res.data.length : 0) };
+
+            return { success: true, data: payload.data, total: payload.total };
         } catch (error: any) {
             console.error("Erro ao buscar leads:", error);
-
-            toast.error(
-                error?.response?.data?.error || "Erro ao carregar leads."
-            );
-
-            return {
-                success: false,
-                error,
-            };
+            toast.error(error?.response?.data?.error || "Erro ao carregar leads.");
+            return { success: false, error, data: [], total: 0 };
         }
     },
 
-    async createLead(data: {
-        name: string;
-        contact: {
-            email?: string;
-            phone: string;
-        };
-        origin: string;
-        status?: string;
-        appointment?: {
-            seekingFor: string;
-            modality: string;
-            healthPlan: string;
-        };
-        notes?: string;
-    }) {
+    /** POST /leads/from-sheet — cria/upserta e dispara manageLeadCircuit('initial') */
+    async createLeadFromSheet(payload: CreateLeadFromSheetPayload) {
         try {
-            const response = await API.post("/leads/from-sheet", data);
-
-            toast.success("Lead criado com sucesso!");
-
-            return {
-                success: true,
-                data: response.data,
-            };
+            const res = await API.post("/leads/from-sheet", payload);
+            const data = res.data?.data ?? res.data;
+            toast.success("Lead criado da planilha!");
+            return { success: true, data };
         } catch (error: any) {
-            console.error("Erro ao criar lead:", error);
-
-            toast.error(
-                error?.response?.data?.error || "Erro ao criar lead."
-            );
-
-            return {
-                success: false,
-                error,
-            };
+            console.error("Erro ao criar lead (from-sheet):", error);
+            toast.error(error?.response?.data?.error || "Erro ao criar lead.");
+            return { success: false, error };
         }
     },
 
-    async updateLeadStatus(id: string, status: string) {
+    /** PATCH /leads/:id/status — atualiza status */
+    async updateLeadStatus(leadId: string, status: LeadStatus) {
         try {
-            const response = await API.patch(`/leads/${id}/status`, { status });
-
+            const res = await API.patch(`/leads/${leadId}/status`, { status });
+            const data = res.data?.data ?? res.data;
             toast.success("Status atualizado!");
-
-            return {
-                success: true,
-                data: response.data,
-            };
+            return { success: true, data };
         } catch (error: any) {
             console.error("Erro ao atualizar status do lead:", error);
-
-            toast.error(
-                error?.response?.data?.error || "Erro ao atualizar status."
-            );
-
-            return {
-                success: false,
-                error,
-            };
+            toast.error(error?.response?.data?.error || "Erro ao atualizar status.");
+            return { success: false, error };
         }
     },
 
-    // ... outros métodos se necessário
+    /** POST /leads/:leadId/convert-to-patient */
+    async convertLeadToPatient(leadId: string) {
+        try {
+            const res = await API.post(`/leads/${leadId}/convert-to-patient`);
+            const data = res.data?.data ?? res.data;
+            toast.success("Lead convertido para paciente!");
+            return { success: true, data };
+        } catch (error: any) {
+            console.error("Erro ao converter lead:", error);
+            toast.error(error?.response?.data?.error || "Erro ao converter lead.");
+            return { success: false, error };
+        }
+    },
+
+    /** GET /leads/sheet-metrics */
+    async getSheetMetrics(params?: { startDate?: string; endDate?: string }) {
+        try {
+            const res = await API.get("/leads/sheet-metrics", { params });
+            const data = res.data?.data ?? res.data;
+            return { success: true, data };
+        } catch (error: any) {
+            console.error("Erro ao buscar métricas (sheet):", error);
+            toast.error(error?.response?.data?.error || "Erro ao carregar métricas.");
+            return { success: false, error };
+        }
+    },
+
+    /** GET /leads/weekly-metrics */
+    async getWeeklyMetrics(params: { year: string | number; month: string | number }) {
+        try {
+            const res = await API.get("/leads/weekly-metrics", { params });
+            const data = res.data?.data ?? res.data;
+            return { success: true, data };
+        } catch (error: any) {
+            console.error("Erro ao buscar métricas semanais:", error);
+            toast.error(error?.response?.data?.error || "Erro ao carregar métricas semanais.");
+            return { success: false, error };
+        }
+    },
 };

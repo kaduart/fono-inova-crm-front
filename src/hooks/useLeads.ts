@@ -1,78 +1,65 @@
 // src/hooks/useLeads.ts
-import { useCallback, useEffect, useState } from 'react';
-import { leadService } from '../services/leadService';
+import { useCallback, useEffect, useState } from "react";
+import { leadService } from "../services/leadService";
 
 export const useLeads = (filters: any = {}) => {
-    const [state, setState] = useState({
+  const [state, setState] = useState({
+    leads: [] as any[],
+    loading: true,
+    error: null as string | null,
+    total: 0,
+  });
+
+  const fetchLeads = useCallback(async () => {
+    try {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+      const res = await leadService.getLeads(filters);
+
+      if (res.success) {
+        setState({
+          leads: res.data,
+          total: res.total ?? res.data?.length ?? 0,
+          loading: false,
+          error: null,
+        });
+      } else {
+        throw new Error(res.error?.message || "Erro ao carregar leads");
+      }
+    } catch (err: any) {
+      setState({
         leads: [],
-        loading: true,
-        error: null as string | null
-    });
+        total: 0,
+        loading: false,
+        error: err.message || "Erro ao carregar leads",
+      });
+    }
+  }, [JSON.stringify(filters)]);
 
-    const fetchLeads = useCallback(async () => {
-        try {
-            setState(prev => ({ ...prev, loading: true, error: null }));
+  const createLeadFromSheet = async (payload: any) => {
+    const res = await leadService.createLeadFromSheet(payload);
+    if (res.success) await fetchLeads();
+    else throw new Error(res.error?.message || "Erro ao criar lead");
+    return res.data;
+  };
 
-            const response = await leadService.getLeads(filters);
+  const updateLeadStatus = async (leadId: string, status: any) => {
+    const res = await leadService.updateLeadStatus(leadId, status);
+    if (res.success) await fetchLeads();
+    else throw new Error(res.error?.message || "Erro ao atualizar status");
+    return res.data;
+  };
 
-            if (response.success) {
-                setState({
-                    leads: response.data.data || [],
-                    loading: false,
-                    error: null
-                });
-            } else {
-                throw new Error(response.error?.message || 'Erro ao carregar leads');
-            }
-        } catch (err: any) {
-            setState({
-                leads: [],
-                loading: false,
-                error: err.message || 'Erro ao carregar leads'
-            });
-        }
-    }, [JSON.stringify(filters)]);
+  useEffect(() => {
+    fetchLeads();
+  }, [fetchLeads]);
 
-    const createLead = async (leadData: any) => {
-        try {
-            const response = await leadService.createLead(leadData);
-
-            if (response.success) {
-                await fetchLeads(); // Recarregar a lista
-                return response.data;
-            } else {
-                throw new Error(response.error?.message || 'Erro ao criar lead');
-            }
-        } catch (err: any) {
-            throw new Error(err.message || 'Erro ao criar lead');
-        }
-    };
-
-    const updateLeadStatus = async (leadId: string, status: string) => {
-        try {
-            const response = await leadService.updateLeadStatus(leadId, status);
-
-            if (response.success) {
-                await fetchLeads();
-                return response.data;
-            } else {
-                throw new Error(response.error?.message || 'Erro ao atualizar status');
-            }
-        } catch (err: any) {
-            throw new Error(err.message || 'Erro ao atualizar status');
-        }
-    };
-
-    useEffect(() => {
-        fetchLeads();
-    }, [fetchLeads]);
-
-    return {
-        leads: state.leads,
-        loading: state.loading,
-        error: state.error,
-        createLead,
-        updateLeadStatus,
-        refetch: fetchLeads,
-    };
+  return {
+    leads: state.leads,
+    total: state.total,
+    loading: state.loading,
+    error: state.error,
+    createLeadFromSheet,
+    updateLeadStatus,
+    refetch: fetchLeads,
+  };
 };

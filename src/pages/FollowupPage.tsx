@@ -1,6 +1,6 @@
-// src/pages/FollowupPage.tsx - VERSÃO COMPLETA
+// src/pages/FollowupPage.tsx
 import { Paper, Typography, useTheme } from "@mui/material";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import {
   BarChart3,
   MessageCircle,
@@ -11,28 +11,228 @@ import {
   Users,
   X
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 
 // Componentes
-import FollowupComposer from "../components/Dashboard/FollowupComposer";
 import FollowupConversionChart from "../components/Dashboard/FollowupConversionChart";
 import { FollowupFilters } from "../components/Dashboard/FollowupFilters";
 import FollowupInsights from "../components/Dashboard/FollowupInsights";
 import FollowupStats from "../components/Dashboard/FollowupStats";
 import FollowupTrendChart from "../components/Dashboard/FollowupTrendChart";
 import MarketingDashboard from "../components/Dashboard/MarketingDashboard";
-import FollowupTimelineItem from "../components/FollowupTimelineItem";
 
 // Hooks customizados
 import { useFollowupAnalytics } from "../hooks/useFollowupAnalytics";
 import { useLeads } from "../hooks/useLeads";
 
 // UI Components
+import TimelineModal from "../components/mkt/leads/TimelineModal";
 import { Button } from "../components/ui/Button";
 import Skeleton from "../components/ui/Skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/Tabs";
 import API from "../services/api";
+
+/** -------- Modal completo de "Novo Lead" -------- */
+type NewLeadPayload = {
+  name: string;
+  phone: string;
+  origin: "WhatsApp" | "Site" | "Indicação" | "Outro" | "Tráfego pago" | "Google" | "Instagram" | "Meta Ads";
+  seekingFor: "Adulto +18 anos" | "Infantil" | "Graduação";
+  modality: "Online" | "Presencial";
+  healthPlan: "Graduação" | "Mensalidade" | "Dependente";
+  scheduledDate?: string; // yyyy-mm-dd
+};
+
+function sanitizePhone(input: string) {
+  // Deixa só dígitos; o back normaliza para E.164
+  return (input || "").replace(/\D/g, "");
+}
+
+function NewLeadModal({
+  open,
+  onClose,
+  onSubmit,
+  defaultOrigin = "Tráfego pago",
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (payload: NewLeadPayload) => Promise<void> | void;
+  defaultOrigin?: NewLeadPayload["origin"];
+}) {
+  const [form, setForm] = useState<NewLeadPayload>({
+    name: "",
+    phone: "",
+    origin: defaultOrigin,
+    seekingFor: "Adulto +18 anos",
+    modality: "Online",
+    healthPlan: "Mensalidade",
+    scheduledDate: "",
+  });
+
+  const [submitting, setSubmitting] = useState(false);
+  const canSubmit = useMemo(() => form.name.trim() && sanitizePhone(form.phone).length >= 10, [form]);
+
+  useEffect(() => {
+    if (!open) {
+      setForm({
+        name: "",
+        phone: "",
+        origin: defaultOrigin,
+        seekingFor: "Adulto +18 anos",
+        modality: "Online",
+        healthPlan: "Mensalidade",
+        scheduledDate: "",
+      });
+      setSubmitting(false);
+    }
+  }, [open, defaultOrigin]);
+
+  const handleChange = (field: keyof NewLeadPayload, value: any) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleConfirm = async () => {
+    try {
+      if (!canSubmit) {
+        toast.error("Preencha nome e telefone válido.");
+        return;
+      }
+      setSubmitting(true);
+      await onSubmit({
+        ...form,
+        phone: sanitizePhone(form.phone),
+        scheduledDate: form.scheduledDate || undefined,
+      });
+      onClose();
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao criar lead");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-md border border-slate-200 shadow-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Criar Novo Lead</h3>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-100">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4">
+          <div>
+            <label className="text-sm text-slate-600">Nome*</label>
+            <input
+              className="w-full mt-1 px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              value={form.name}
+              onChange={(e) => handleChange("name", e.target.value)}
+              placeholder="Ex.: Ana Beatriz"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-600">Telefone* (com DDD)</label>
+            <input
+              className="w-full mt-1 px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              value={form.phone}
+              onChange={(e) => handleChange("phone", e.target.value)}
+              placeholder="6299XXXXXXX"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-slate-600">Origem</label>
+              <select
+                className="w-full mt-1 px-3 py-2 border rounded-xl"
+                value={form.origin}
+                onChange={(e) => handleChange("origin", e.target.value as NewLeadPayload["origin"])}
+              >
+                <option>Tráfego pago</option>
+                <option>WhatsApp</option>
+                <option>Site</option>
+                <option>Indicação</option>
+                <option>Google</option>
+                <option>Instagram</option>
+                <option>Meta Ads</option>
+                <option>Outro</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm text-slate-600">Agendar para</label>
+              <input
+                type="date"
+                className="w-full mt-1 px-3 py-2 border rounded-xl"
+                value={form.scheduledDate}
+                onChange={(e) => handleChange("scheduledDate", e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm text-slate-600">Buscando</label>
+              <select
+                className="w-full mt-1 px-3 py-2 border rounded-xl"
+                value={form.seekingFor}
+                onChange={(e) => handleChange("seekingFor", e.target.value as NewLeadPayload["seekingFor"])}
+              >
+                <option>Adulto +18 anos</option>
+                <option>Infantil</option>
+                <option>Graduação</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm text-slate-600">Modalidade</label>
+              <select
+                className="w-full mt-1 px-3 py-2 border rounded-xl"
+                value={form.modality}
+                onChange={(e) => handleChange("modality", e.target.value as NewLeadPayload["modality"])}
+              >
+                <option>Online</option>
+                <option>Presencial</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm text-slate-600">Plano</label>
+              <select
+                className="w-full mt-1 px-3 py-2 border rounded-xl"
+                value={form.healthPlan}
+                onChange={(e) => handleChange("healthPlan", e.target.value as NewLeadPayload["healthPlan"])}
+              >
+                <option>Mensalidade</option>
+                <option>Graduação</option>
+                <option>Dependente</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <Button onClick={onClose} className="flex-1 bg-slate-200 text-slate-800">
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleConfirm}
+            className="flex-1 bg-emerald-600 text-white disabled:opacity-60"
+            disabled={!canSubmit || submitting}
+          >
+            {submitting ? "Criando..." : "Criar Lead"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+/** -------- Fim do modal -------- */
 
 const FollowupPage = () => {
   const [search, setSearch] = useState("");
@@ -46,12 +246,11 @@ const FollowupPage = () => {
 
   const theme = useTheme();
 
-  // 🎯 Hooks customizados
   const {
     leads,
     loading: leadsLoading,
     error: leadsError,
-    createLead,
+    createLeadFromSheet,                      // ✅ alinhado
     updateLeadStatus,
     refetch: refetchLeads
   } = useLeads({ search });
@@ -63,7 +262,7 @@ const FollowupPage = () => {
     refetch: refetchAnalytics
   } = useFollowupAnalytics();
 
-  // 🎯 Funções de Timeline
+  // Timeline
   const fetchLeadFollowups = useCallback(async (leadId: string) => {
     try {
       setLoadingTimeline(true);
@@ -87,7 +286,6 @@ const FollowupPage = () => {
     }
   };
 
-  // 🎯 Funções principais
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -117,15 +315,16 @@ const FollowupPage = () => {
 
   const handleCreateLead = useCallback(async (leadData: any) => {
     try {
-      await createLead(leadData);
+      await createLeadFromSheet(leadData);   // ✅ em vez de createLead(...)
       setShowCreateModal(false);
       toast.success("Lead criado com sucesso!");
     } catch (error: any) {
       toast.error(error.message || "Erro ao criar lead");
     }
-  }, [createLead]);
+  }, [createLeadFromSheet]);
 
-  const handleStatusUpdate = async (leadId: string, newStatus: string) => {
+
+  const handleStatusUpdate = async (leadId: string, newStatus: any) => {
     try {
       await updateLeadStatus(leadId, newStatus);
       toast.success("Status atualizado!");
@@ -140,21 +339,17 @@ const FollowupPage = () => {
       const uniqueLeads = Array.from(
         new Map(res.data.data.map((f: any) => [f.lead._id, f.lead])).values()
       );
-      // Aqui você precisaria atualizar o estado de leads
-      // Em produção, isso seria integrado com o hook useLeads
       console.log("Leads filtrados:", uniqueLeads);
     } catch (error: any) {
       toast.error("Erro ao filtrar follow-ups");
     }
   };
 
-  // 🎯 Efeitos
   useEffect(() => {
     refetchLeads();
     refetchAnalytics();
   }, [search, refetchLeads, refetchAnalytics]);
 
-  // Realtime para aba ativa
   useEffect(() => {
     if (activeTab === "timeline") {
       const interval = setInterval(() => {
@@ -163,7 +358,7 @@ const FollowupPage = () => {
         if (showTimelineModal && selectedLead?._id) {
           fetchLeadFollowups(selectedLead._id);
         }
-      }, 30000); // 30 segundos
+      }, 30000);
       return () => clearInterval(interval);
     }
   }, [activeTab, refetchLeads, refetchAnalytics, showTimelineModal, selectedLead, fetchLeadFollowups]);
@@ -299,25 +494,15 @@ const FollowupPage = () => {
                 {leadsLoading ? (
                   [...Array(6)].map((_, i) => (
                     <tr key={i} className="border-b border-slate-100 last:border-0">
-                      <td className="p-4">
-                        <Skeleton className="h-4 w-40 rounded" />
-                      </td>
-                      <td className="p-4">
-                        <Skeleton className="h-4 w-24 rounded" />
-                      </td>
-                      <td className="p-4">
-                        <Skeleton className="h-4 w-20 rounded" />
-                      </td>
-                      <td className="p-4">
-                        <Skeleton className="h-4 w-28 rounded" />
-                      </td>
-                      <td className="p-4 text-center">
-                        <Skeleton className="h-8 w-24 rounded mx-auto" />
-                      </td>
+                      <td className="p-4"><Skeleton className="h-4 w-40 rounded" /></td>
+                      <td className="p-4"><Skeleton className="h-4 w-24 rounded" /></td>
+                      <td className="p-4"><Skeleton className="h-4 w-20 rounded" /></td>
+                      <td className="p-4"><Skeleton className="h-4 w-28 rounded" /></td>
+                      <td className="p-4 text-center"><Skeleton className="h-8 w-24 rounded mx-auto" /></td>
                     </tr>
                   ))
                 ) : (
-                  leads.map((lead) => (
+                  leads.map((lead: any) => (
                     <tr
                       key={lead._id}
                       className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors"
@@ -365,9 +550,7 @@ const FollowupPage = () => {
                             : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg hover:shadow-xl"
                             }`}
                         >
-                          {showTimelineModal && selectedLead?._id === lead._id
-                            ? "Aberto"
-                            : "Abrir Timeline"}
+                          {showTimelineModal && selectedLead?._id === lead._id ? "Aberto" : "Abrir Timeline"}
                         </Button>
                       </td>
                     </tr>
@@ -380,9 +563,7 @@ const FollowupPage = () => {
               <div className="text-center py-8">
                 <MessageCircle size={48} className="text-slate-300 mx-auto mb-3" />
                 <p className="text-slate-500 text-sm">Nenhum lead encontrado</p>
-                <p className="text-slate-400 text-xs mt-1">
-                  Tente ajustar os filtros ou criar um novo lead
-                </p>
+                <p className="text-slate-400 text-xs mt-1">Tente ajustar os filtros ou criar um novo lead</p>
               </div>
             )}
           </div>
@@ -405,112 +586,29 @@ const FollowupPage = () => {
         </TabsContent>
       </Tabs>
 
-      {/* MODAL TIMELINE */}
       <AnimatePresence>
         {showTimelineModal && selectedLead && (
-          <motion.div
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col"
-              initial={{ y: 20, opacity: 0, scale: 0.95 }}
-              animate={{ y: 0, opacity: 1, scale: 1 }}
-              exit={{ y: 20, opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-            >
-              {/* CABEÇALHO DO MODAL */}
-              <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 p-6 text-white flex-shrink-0">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold">
-                    Timeline de {selectedLead.name}
-                  </h2>
-                  <button
-                    onClick={closeTimelineModal}
-                    className="p-1 hover:bg-white/20 rounded-lg transition-colors"
-                  >
-                    <X size={20} />
-                  </button>
-                </div>
-                <p className="text-emerald-100 text-sm mt-1">
-                  Histórico completo de interações
-                </p>
-              </div>
-
-              {/* CONTEÚDO DO MODAL */}
-              <div className="flex-1 overflow-y-auto p-6">
-                {loadingTimeline ? (
-                  <div className="space-y-4">
-                    {[...Array(4)].map((_, i) => (
-                      <div key={i} className="pl-4 border-l-2 border-slate-200">
-                        <Skeleton className="h-3 w-24 mb-2 rounded" />
-                        <Skeleton className="h-4 w-64 rounded" />
-                      </div>
-                    ))}
-                  </div>
-                ) : followups.length === 0 ? (
-                  <div className="text-center py-8">
-                    <MessageCircle size={48} className="text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-500 text-sm">
-                      Nenhum follow-up encontrado.
-                    </p>
-                  </div>
-                ) : (
-                  <ol className="relative border-l-2 border-emerald-200 pl-4 space-y-6">
-                    {followups.map((fu) => (
-                      <FollowupTimelineItem
-                        key={fu._id}
-                        fu={fu}
-                        onResend={resendFollowup}
-                      />
-                    ))}
-                  </ol>
-                )}
-
-                {selectedLead?._id && (
-                  <div className="mt-6 pt-6 border-t border-slate-200">
-                    <FollowupComposer
-                      lead={selectedLead}
-                      onCreated={() => {
-                        fetchLeadFollowups(selectedLead._id);
-                        refetchLeads();
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </motion.div>
+          <TimelineModal
+            lead={selectedLead}
+            onClose={closeTimelineModal}
+            onFollowupCreated={() => {
+              if (selectedLead?._id) fetchLeadFollowups(selectedLead._id);
+              refetchLeads();
+            }}
+          />
         )}
       </AnimatePresence>
 
-      {/* MODAL CRIAR LEAD (simplificado - você já tem o componente completo) */}
+
+      {/* MODAL CRIAR LEAD (completo) */}
       <AnimatePresence>
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-              <h3 className="text-lg font-semibold mb-4">Criar Novo Lead</h3>
-              <p className="text-slate-600 mb-4">
-                Modal de criação de lead será implementado aqui
-              </p>
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => setShowCreateModal(false)}
-                  className="flex-1 bg-slate-200 text-slate-800"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={() => setShowCreateModal(false)}
-                  className="flex-1 bg-emerald-600 text-white"
-                >
-                  Criar
-                </Button>
-              </div>
-            </div>
-          </div>
+          <NewLeadModal
+            open={showCreateModal}
+            onClose={() => setShowCreateModal(false)}
+            onSubmit={handleCreateLead}
+            defaultOrigin="Tráfego pago"
+          />
         )}
       </AnimatePresence>
     </div>

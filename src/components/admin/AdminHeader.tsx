@@ -27,6 +27,7 @@ interface AdminHeaderProps {
     onLogout?: () => void;
 }
 
+
 const AdminHeader: React.FC<AdminHeaderProps> = ({
     activeTab,
     openMenu,
@@ -39,6 +40,9 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     const navigate = useNavigate();
     const { logout: authLogout } = useAuth();
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+    // 1) logo após os hooks/props, crie este helper:
+    const isMarketingActive =
+        activeTab === "Leads" || activeTab === "Mensagens" || activeTab === "Analytics";
 
     const handleLogout = async () => {
         await authLogout();
@@ -151,17 +155,19 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
 
                         <div className="relative">
                             <NavButton
-                                active={activeTab === "Leads"}
+                                // fica ativo quando qualquer aba de Marketing estiver selecionada
+                                active={isMarketingActive}
                                 onClick={() => toggleMenu("marketing")}
                                 icon={<Activity className="h-4 w-4 text-cyan-500" />}
                                 hasChevron
-                                className={activeTab === "Leads" ? "bg-blue-100 text-blue-600" : "!text-white"}
+                                className={isMarketingActive ? "bg-blue-100 text-blue-600" : "!text-white"}
                             >
                                 Marketing
                             </NavButton>
 
                             {openMenu === "marketing" && (
                                 <div className="absolute z-10 mt-2 w-56 rounded-lg shadow-xl bg-white border border-emerald-200 py-2">
+                                    {/* Leads */}
                                     <NavDropdownItem
                                         active={activeTab === "Leads"}
                                         onClick={() => handleTabChange("Leads")}
@@ -170,6 +176,30 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         <div className="flex flex-col">
                                             <span className="text-sm font-medium text-gray-800">Leads</span>
                                             <span className="text-xs text-gray-500">Potenciais pacientes</span>
+                                        </div>
+                                    </NavDropdownItem>
+
+                                    {/* Mensagens (WhatsApp/Chat) */}
+                                    <NavDropdownItem
+                                        active={activeTab === "Mensagens"}
+                                        onClick={() => handleTabChange("Mensagens")}
+                                        icon={<MessageCircle className="h-4 w-4 text-emerald-500" />}
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-gray-800">Mensagens</span>
+                                            <span className="text-xs text-gray-500">WhatsApp / Chat</span>
+                                        </div>
+                                    </NavDropdownItem>
+
+                                    {/* Analytics */}
+                                    <NavDropdownItem
+                                        active={activeTab === "Analytics"}
+                                        onClick={() => handleTabChange("Analytics")}
+                                        icon={<Activity className="h-4 w-4 text-indigo-500" />}
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-gray-800">Analytics</span>
+                                            <span className="text-xs text-gray-500">Desempenho de campanhas</span>
                                         </div>
                                     </NavDropdownItem>
                                 </div>

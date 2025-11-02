@@ -44,8 +44,8 @@ export const followupService = {
 
   async getTrend(days: number = 7) {
     try {
-      const response = await API.get("/followups/trend", { 
-        params: { days } 
+      const response = await API.get("/followups/trend", {
+        params: { days }
       });
 
       return {
@@ -86,5 +86,54 @@ export const followupService = {
         error,
       };
     }
-  }
+  },
+
+  // ✅ Listar timeline por lead (usa /followups/filter?lead=)
+  async listByLead(leadId: string) {
+    try {
+      const res = await API.get("/followups/filter", { params: { lead: leadId } });
+      return { success: true, data: res.data.data || res.data || [] };
+    } catch (error: any) {
+      console.error("Erro ao carregar follow-ups:", error);
+      toast.error(error?.response?.data?.error || "Erro ao carregar follow-ups.");
+      return { success: false, error };
+    }
+  },
+
+  // ✅ Filtrar timeline (status, origin, datas…)
+  async filter(params: Record<string, any>) {
+    try {
+      const res = await API.get("/followups/filter", { params });
+      return { success: true, data: res.data.data || [] };
+    } catch (error: any) {
+      console.error("Erro ao filtrar follow-ups:", error);
+      toast.error(error?.response?.data?.error || "Erro ao filtrar follow-ups.");
+      return { success: false, error };
+    }
+  },
+
+  // ✅ Criar follow-up manual (Composer)
+  async create(payload: { lead: string; message: string; stage?: string }) {
+    try {
+      const res = await API.post("/followups", payload);
+      return { success: true, data: res.data.data };
+    } catch (error: any) {
+      console.error("Erro ao criar follow-up:", error);
+      toast.error(error?.response?.data?.error || "Erro ao criar follow-up.");
+      return { success: false, error };
+    }
+  },
+
+  // ✅ Reenviar follow-up
+  async resend(id: string) {
+    try {
+      const res = await API.post(`/followups/resend/${id}`);
+      return { success: true, data: res.data.data };
+    } catch (error: any) {
+      console.error("Erro ao reenviar follow-up:", error);
+      toast.error(error?.response?.data?.error || "Erro ao reenviar follow-up.");
+      return { success: false, error };
+    }
+  },
+
 };

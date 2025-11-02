@@ -14,6 +14,8 @@ import {
 } from 'recharts';
 import { useAnalytics } from '../../hooks/analytics';
 import SiteAnalyticsTable from './SiteAnalyticsTable';
+import { toast } from 'react-toastify';
+import API from '../../services/api';
 
 // Cores para os gráficos
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d'];
@@ -31,7 +33,7 @@ const handleCreateLead = async (event) => {
             notes: `Evento GA4: ${event.name} - Página: ${event.pageTitle}`,
         };
 
-        await api.post('/leads', payload);
+        await API.post('/leads', payload);
         toast.success('Lead criado com sucesso!');
     } catch (err) {
         toast.error('Erro ao criar lead');
