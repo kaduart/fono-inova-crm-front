@@ -131,6 +131,7 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
     };
 
     const isFormValid = !Object.values(formErrors).some(Boolean);
+    const isEditing = !!selectedDoctor?._id;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
@@ -142,18 +143,20 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                 <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-teal-400 via-emerald-500 to-green-400 text-white shadow-sm rounded-t-2xl">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-white/20 rounded-full">
-                            {selectedDoctor ? (
-                                <FaUserEdit className="w-5 h-5" />
-                            ) : (
-                                <UserPlus className="w-5 h-5" />
-                            )}
+                            {isEditing
+                                ? (
+                                    <FaUserEdit className="w-5 h-5" />
+                                ) : (
+                                    <UserPlus className="w-5 h-5" />
+                                )}
                         </div>
                         <div>
                             <h2 className="text-lg font-semibold tracking-wide">
-                                {selectedDoctor ? "Editar Profissional" : "Novo Profissional"}
+                                {isEditing ? "Editar Profissional" : "Novo Profissional"}
                             </h2>
                             <p className="text-sm/5 opacity-90">
-                                {selectedDoctor
+                                {isEditing
+
                                     ? "Atualize os dados do profissional"
                                     : "Adicione um novo profissional à equipe"}
                             </p>
@@ -188,7 +191,6 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                                     id="specialty"
                                     value={form.specialty}
                                     onChange={(e) => setForm({ ...form, specialty: e.target.value as TherapyType })}
-                                    className="mt-1"
                                 >
                                     <option value="">Selecione</option>
                                     {THERAPY_TYPES.map((type) => (
@@ -223,6 +225,7 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                                     id="phoneNumber"
                                     mask="(99) 99999-9999"
                                     type="tel"
+                                    placeholder="(62) 9999-9999"
                                     value={form.phoneNumber}
                                     onChange={e => setForm({ ...form, phoneNumber: e.target.value })}
                                     className="mt-1"
@@ -236,6 +239,7 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                                 <Label htmlFor="licenseNumber">Número de Registro *</Label>
                                 <Input
                                     id="licenseNumber"
+                                    placeholder="123456"
                                     value={form.licenseNumber}
                                     onChange={e => setForm({ ...form, licenseNumber: e.target.value })}
                                     className="mt-1"
@@ -360,12 +364,12 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                             </div>
                         ) : (
                             <div className="flex items-center">
-                                {selectedDoctor ? (
+                                {isEditing ? (
                                     <FaUserEdit className="w-4 h-4 mr-1.5" />
                                 ) : (
                                     <UserPlus className="w-4 h-4 mr-1.5" />
                                 )}
-                                {selectedDoctor ? "Salvar Alterações" : "Cadastrar Profissional"}
+                                {isEditing ? "Salvar Alterações" : "Cadastrar Profissional"}
                             </div>
                         )}
                     </Button>

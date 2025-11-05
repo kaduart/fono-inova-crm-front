@@ -10,7 +10,7 @@ export const Select = React.forwardRef((
 ) => (
     <select
         ref={ref}
-        className="w-full border border-gray-300 rounded-md py-2 px-3 text-sm
+        className="w-full p-3 py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200
         focus:border-blue-500 focus:ring-2 focus:ring-blue-200 
         appearance-none bg-no-repeat pr-10
         bg-[url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzY3Mjg4MCIgZD0iTTcgMTBsNSA1IDUtNXoiLz48L3N2Zz4=)] 

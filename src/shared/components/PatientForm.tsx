@@ -128,11 +128,11 @@ const PatientForm = ({ patient, isLoading, onSuccess }: PatientFormProps) => {
       {/* Endereço */}
       <Section title="Endereço" icon={MapPin}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {renderField('Rua', <Input {...register('address.street')} />, errors.address?.street?.message)}
-          {renderField('Número', <Input {...register('address.number')} />, errors.address?.number?.message)}
-          {renderField('Bairro', <Input {...register('address.district')} />, errors.address?.district?.message)}
-          {renderField('Cidade', <Input {...register('address.city')} />, errors.address?.city?.message)}
-          {renderField('Estado', <Input {...register('address.state')} />, errors.address?.state?.message)}
+          {renderField('Rua', <Input {...register('address.street')} placeholder="Avenida Minas Gerais" />, errors.address?.street?.message)}
+          {renderField('Número', <Input {...register('address.number')} placeholder="325" />, errors.address?.number?.message)}
+          {renderField('Bairro', <Input {...register('address.district')} placeholder="Jundiai" />, errors.address?.district?.message)}
+          {renderField('Cidade', <Input {...register('address.city')} placeholder="Anápolis" />, errors.address?.city?.message)}
+          {renderField('Estado', <Input {...register('address.state')} placeholder="Goias" />, errors.address?.state?.message)}
           {renderField('CEP', <Input {...register('address.zipCode')} placeholder="00.000-000" />, errors.address?.zipCode?.message)}
         </div>
       </Section>

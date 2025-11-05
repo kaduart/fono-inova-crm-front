@@ -207,7 +207,7 @@ export default function AdminDashboard() {
 
             return true; // sucesso
         } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Erro ao salvar paciente.');
+            toast.error(error.response?.data?.error || error.response?.data?.message);
             return false; // falha
         } finally {
             setIsLoading(false);
