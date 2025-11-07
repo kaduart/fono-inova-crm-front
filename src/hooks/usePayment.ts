@@ -18,8 +18,8 @@ import {
   getPayments,
   getPaymentSummary,
   getPaymentTotals,
-  Summary,
-  updatePayment
+  markPaymentAsPaid,
+  Summary
 } from '../services/paymentService';
 import { DailyClosingData } from '../utils/types/daily-closing-model';
 import { PaymentTotalsResponse } from '../utils/types/types';
@@ -118,19 +118,18 @@ const usePayment = () => {
     []
   );
 
-  // Atualizar pagamento
-  const modifyPayment = useCallback(async (id: string, paymentData: any) => {
+  // Atualizar pagamento 
+  // src/hooks/usePayment.ts
+  // ...
+  const markAsPaid = useCallback(async (id: string): Promise<FinancialRecord> => {
     setLoading(true);
     try {
-      const updatedPayment = await updatePayment(id, paymentData);
-      setPayments(prev =>
-        prev.map(p => p._id === id ? updatedPayment : p)
-      );
-      if (payment && payment._id === id) {
-        setPayment(updatedPayment);
-      }
+      const res = await markPaymentAsPaid(id); // service
+      const updated = (res as any)?.data?.data ?? (res as any)?.data ?? res; // normaliza
+      setPayments(prev => prev.map(p => (p._id === id ? updated : p)));
+      if (payment && payment._id === id) setPayment(updated);
       setError(null);
-      return updatedPayment;
+      return updated;
     } catch (err) {
       setError('Erro ao atualizar pagamento');
       console.error(err);
@@ -139,6 +138,7 @@ const usePayment = () => {
       setLoading(false);
     }
   }, [payment]);
+
 
   // Deletar pagamento
   const removePayment = useCallback(async (id: string) => {
@@ -318,7 +318,7 @@ const usePayment = () => {
     fetchPayments,
     fetchPayment,
     addPayment,
-    modifyPayment,
+    markAsPaid,
     removePayment,
     fetchSummary,
     fetchPaymentTotals,

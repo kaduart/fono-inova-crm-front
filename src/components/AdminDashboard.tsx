@@ -8,6 +8,7 @@ import { useAdmin } from '../hooks/useAdmin';
 import { useAppointments } from '../hooks/useAppointments';
 import useDoctorDashboard from '../hooks/useDoctorDashboard';
 import { usePatients } from '../hooks/usePatients';
+import usePayment from '../hooks/usePayment';
 import FollowupPage from '../pages/FollowupPage';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
 import { CreateDoctorParams } from '../services/doctorService';
@@ -129,6 +130,8 @@ export default function AdminDashboard() {
     const { doctors, createDoctor, updateDoctor } = useDoctorDashboard();
     const { adminInfo, editedInfo, setEditedInfo, completedAppointments, loading, fetchAdminProfile, fetchCompletedAppointments, updateAdminProfile, addNewAdmin } = useAdmin();
     const { appointments, fetchAppointments } = useAppointmentsContext();
+
+    const { markAsPaid } = usePayment();
 
     useEffect(() => {
         fetchAppointments();
@@ -339,7 +342,7 @@ export default function AdminDashboard() {
         }
     };
 
-    const handleMarkAsPaid = (payment: FinancialRecord) => {
+    const handleRegisterAppointmentAndPayemntFuture = (payment: FinancialRecord) => {
         if (!payment || typeof payment !== 'object') {
             console.error('Pagamento inválido:', payment);
             return;
@@ -350,6 +353,18 @@ export default function AdminDashboard() {
             payment
         });
         setPaymentModalOpen(true);
+    };
+
+    const handleMarkAsPaid = async (payment: FinancialRecord) => {
+        try {
+            await markAsPaid(payment._id);        // <- não existe response.ok aqui
+            toast.success('Pagamento marcado como pago!');
+            await Promise.all([loadPayments(), fetchAppointments()]);
+        } catch (error: any) {
+            console.error('Erro ao marcar pagamento:', error);
+            console.log('Erro ao marcar pagamentosssssssss:', error);
+            toast.error(error.response.data.message || error.message);
+        }
     };
 
     const loadPayments = async () => {
@@ -457,6 +472,7 @@ export default function AdminDashboard() {
                         initialPayments={allPayments}
                         doctors={doctors}
                         onMarkAsPaid={handleMarkAsPaid}
+                        registerAppointmentAndPayemntFuture={handleRegisterAppointmentAndPayemntFuture}
                         onCancelPayment={handleCancelPayment}
                     />
                 );

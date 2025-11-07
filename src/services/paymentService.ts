@@ -169,6 +169,11 @@ export const updatePayment = (
     return API.patch<FinancialRecord>(`/payments/${id}`, processedData);
 };
 
+export const markPaymentAsPaid = async (paymentId: string) => {
+    const response = await API.patch(`/payments/${paymentId}/mark-as-paid`);
+    return response.data;
+};
+
 export const deletePayment = (id: string) =>
     API.delete<void>(`/payments/${id}`);
 

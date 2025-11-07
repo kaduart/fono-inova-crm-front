@@ -97,6 +97,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     const [isCancelling, setIsCancelling] = useState(false);
     const [isCompleting, setIsCompleting] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [confirmedAbsence, setConfirmedAbsence] = useState(false);
     const [editedAppointment, setEditedAppointment] = useState({
         doctorId: '',
         patientId: '',
@@ -447,7 +448,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 name="notify-patient"
                                 type="checkbox"
                                 className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                                checked={false}
+                                checked={confirmedAbsence}
+                                onChange={(e) => setConfirmedAbsence(e.target.checked)}
                             />
                             <label htmlFor="notify-patient" className="ml-3 block text-sm text-gray-700">
                                 Notificar paciente por WhatsApp

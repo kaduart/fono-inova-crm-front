@@ -26,10 +26,11 @@ interface PaymentPageProps {
     doctors?: IDoctor[];
     initialPayments: any[];
     onMarkAsPaid: (payment: FinancialRecord) => void;
+    registerAppointmentAndPayemntFuture: (payment: FinancialRecord) => void;
     onCancelPayment: (paymentId: string) => void;
 }
 
-const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCancelPayment }: PaymentPageProps) => {
+const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCancelPayment, registerAppointmentAndPayemntFuture }: PaymentPageProps) => {
     const [allPayments, setAllPayments] = useState<FinancialRecord[]>([]);
     const [filteredPayments, setFilteredPayments] = useState<FinancialRecord[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
@@ -524,10 +525,11 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                                     <td className="px-4 py-3 text-sm text-gray-600">
                                                         {payment.paymentMethod}
                                                     </td>
-                                                    <td className="px-4 py-3 text-sm font-medium">
+                                                    <td className="px-4 text-sm font-medium ">
                                                         <PaymentActionIcons
                                                             payment={payment}
                                                             onMarkAsPaid={() => onMarkAsPaid(payment)}
+                                                            registerAppointmentAndPayemntFuture={() => registerAppointmentAndPayemntFuture(payment)}
                                                             onCancelPayment={onCancelPayment}
                                                             onEditAmount={handleEditAmount}
                                                             onAddPaymentToPackage={(pkg) => {
