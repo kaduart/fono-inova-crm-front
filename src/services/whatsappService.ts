@@ -1,4 +1,4 @@
-// src/services/whatsappService.ts
+// src/services/whatsappService.ts - FUNÇÃO FALTANTE ADICIONADA
 import axios from "axios";
 import { normalizeE164BR } from "../utils/phone";
 import API from "./api";
@@ -21,6 +21,12 @@ export interface Contact {
     avatar?: string;
 }
 
+// ✅ ADICIONAR INTERFACE para sendTextMessage
+export interface SendTextPayload {
+    to: string;
+    text: string;
+    lead?: string;
+}
 
 // ========================================================
 // 🟢 CONTATOS
@@ -55,7 +61,7 @@ export async function deleteContact(id: string): Promise<void> {
 }
 
 // ========================================================
-// 💬 MENSAGENS
+// 💬 MENSAGENS - CORRIGIDO
 // ========================================================
 
 // Buscar histórico de mensagens com um número
@@ -65,7 +71,8 @@ export async function getChatMessages(phone: string) {
     return res.data?.data || [];
 }
 
-// Enviar mensagem de texto padrão
+
+// ✅ MANTER: Enviar mensagem de texto (alternativa)
 export async function sendWhatsAppText(phone: string, text: string) {
     const p = normalizeE164BR(phone);
     const res = await API.post("/whatsapp/send-text", { phone: p, text });
@@ -86,12 +93,16 @@ export const whatsappService = {
         const paramsArray = Object.values(parameters).map((value) => ({ type: "text", text: value }));
         const response = await API.post("/whatsapp/send-template", { phone: p, template, params: paramsArray });
 
-
         return {
             success: true,
             data: response.data,
         };
     },
+
+    // ✅ ADICIONAR: sendTextMessage no objeto whatsappService
+    sendTextMessage: async (payload: SendTextPayload) => {
+        return sendTextMessage(payload);
+    }
 };
 
 // Trocar token de curta para longa duração (Meta)
@@ -123,5 +134,6 @@ export async function exchangeLongLivedToken({
         throw new Error("Falha ao obter token de longa duração");
     }
 }
+
 
 export default whatsappService;
