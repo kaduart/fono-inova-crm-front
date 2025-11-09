@@ -1,12 +1,11 @@
-// src/components/leads/TimelineModal.tsx
+// src/components/mkt/leads/TimelineModal.tsx
 import { motion } from "framer-motion";
 import { Calendar, MessageCircle, X } from "lucide-react";
-import React, { useEffect, useState } from "react";
-import { toast } from "react-toastify";
+import React, { useEffect } from "react";
+import { useFollowup } from "../../../hooks/useFollowups";
 import FollowupComposer from "../../Dashboard/FollowupComposer";
 import FollowupTimelineItem from "../../FollowupTimelineItem";
 import Skeleton from "../../ui/Skeleton";
-import API from "../../../services/api";
 
 interface TimelineModalProps {
     lead: any;
@@ -19,37 +18,30 @@ const TimelineModal: React.FC<TimelineModalProps> = ({
     onClose,
     onFollowupCreated,
 }) => {
-    const [followups, setFollowups] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
+    // ✅ USA O HOOK useFollowup (completo)
+    // Ele já gerencia: followups, loading, reenvio
+    const {
+        history: followups,    // renomeado para followups
+        loading,
+        loadHistory,
+        resendFollowup
+    } = useFollowup(lead?._id);
 
-    const fetchLeadFollowups = async (leadId: string) => {
-        try {
-            setLoading(true);
-            const res = await API.get(`/followups`, { params: { lead: leadId } });
-            setFollowups(res.data.data || res.data || []);
-        } catch (error) {
-            toast.error("Erro ao carregar follow-ups");
-            console.error("Erro:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // ✅ REMOVIDO: useState de followups, loading, fetchLeadFollowups
+    // O hook já faz tudo automaticamente!
 
-    const resendFollowup = async (id: string) => {
-        try {
-            await API.post(`/followups/resend/${id}`);
-            toast.success("Follow-up reenviado para fila!");
-            if (lead?._id) fetchLeadFollowups(lead._id);
-        } catch (error) {
-            toast.error("Erro ao reenviar follow-up");
-        }
-    };
-
+    // Recarrega quando o lead muda
     useEffect(() => {
         if (lead?._id) {
-            fetchLeadFollowups(lead._id);
+            loadHistory();
         }
-    }, [lead]);
+    }, [lead?._id, loadHistory]);
+
+    // ✅ HANDLER DE REENVIO - simplificado
+    const handleResend = async (id: string) => {
+        await resendFollowup(id);
+        onFollowupCreated(); // Notifica o pai
+    };
 
     return (
         <motion.div
@@ -98,6 +90,18 @@ const TimelineModal: React.FC<TimelineModalProps> = ({
                                 <span>Origem: {lead.origin}</span>
                             </div>
                         )}
+
+                        {/* 🆕 EXIBIR SCORE E SEGMENTO DO LEAD (se disponível) */}
+                        {lead?.conversionScore !== undefined && (
+                            <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full">
+                                <span>Score: {lead.conversionScore}</span>
+                            </div>
+                        )}
+                        {lead?.segment && (
+                            <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full">
+                                <span>{lead.segment}</span>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -128,7 +132,7 @@ const TimelineModal: React.FC<TimelineModalProps> = ({
                                 <FollowupTimelineItem
                                     key={fu._id}
                                     fu={fu}
-                                    onResend={resendFollowup}
+                                    onResend={handleResend}
                                 />
                             ))}
                         </ol>
@@ -140,7 +144,7 @@ const TimelineModal: React.FC<TimelineModalProps> = ({
                             <FollowupComposer
                                 lead={lead}
                                 onCreated={() => {
-                                    fetchLeadFollowups(lead._id);
+                                    loadHistory(); // Recarrega via hook
                                     onFollowupCreated();
                                 }}
                             />

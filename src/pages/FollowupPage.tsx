@@ -14,6 +14,9 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 
+// ✅ IMPORT DO SERVICE
+import { followupService } from "../services/followupService";
+
 // Componentes
 import FollowupConversionChart from "../components/Dashboard/FollowupConversionChart";
 import { FollowupFilters } from "../components/Dashboard/FollowupFilters";
@@ -27,11 +30,12 @@ import { useFollowupAnalytics } from "../hooks/useFollowupAnalytics";
 import { useLeads } from "../hooks/useLeads";
 
 // UI Components
+import { ScoreBadge } from "../components/mkt/leads/ScoreBadge";
+import { SegmentBadge } from "../components/mkt/leads/ SegmentBadge";
 import TimelineModal from "../components/mkt/leads/TimelineModal";
 import { Button } from "../components/ui/Button";
 import Skeleton from "../components/ui/Skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/Tabs";
-import API from "../services/api";
 
 /** -------- Modal completo de "Novo Lead" -------- */
 type NewLeadPayload = {
@@ -41,11 +45,10 @@ type NewLeadPayload = {
   seekingFor: "Adulto +18 anos" | "Infantil" | "Graduação";
   modality: "Online" | "Presencial";
   healthPlan: "Graduação" | "Mensalidade" | "Dependente";
-  scheduledDate?: string; // yyyy-mm-dd
+  scheduledDate?: string;
 };
 
 function sanitizePhone(input: string) {
-  // Deixa só dígitos; o back normaliza para E.164
   return (input || "").replace(/\D/g, "");
 }
 
@@ -241,8 +244,6 @@ const FollowupPage = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState("timeline");
-  const [followups, setFollowups] = useState<any[]>([]);
-  const [loadingTimeline, setLoadingTimeline] = useState(false);
 
   const theme = useTheme();
 
@@ -250,7 +251,7 @@ const FollowupPage = () => {
     leads,
     loading: leadsLoading,
     error: leadsError,
-    createLeadFromSheet,                      // ✅ alinhado
+    createLeadFromSheet,
     updateLeadStatus,
     refetch: refetchLeads
   } = useLeads({ search });
@@ -262,67 +263,42 @@ const FollowupPage = () => {
     refetch: refetchAnalytics
   } = useFollowupAnalytics();
 
-  // Timeline
-  const fetchLeadFollowups = useCallback(async (leadId: string) => {
-    try {
-      setLoadingTimeline(true);
-      const res = await API.get(`/followups`, { params: { lead: leadId } });
-      setFollowups(res.data.data || res.data || []);
-    } catch (error: any) {
-      toast.error("Erro ao carregar follow-ups");
-      console.error("Erro:", error);
-    } finally {
-      setLoadingTimeline(false);
-    }
-  }, []);
-
-  const resendFollowup = async (id: string) => {
-    try {
-      await API.post(`/followups/resend/${id}`);
-      toast.success("Follow-up reenviado para fila!");
-      if (selectedLead?._id) fetchLeadFollowups(selectedLead._id);
-    } catch (error: any) {
-      toast.error("Erro ao reenviar follow-up");
-    }
-  };
+  // ✅ REMOVIDO: fetchLeadFollowups, resendFollowup, estado de followups
+  // Agora o TimelineModal gerencia tudo via hook useFollowup
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       await Promise.all([refetchLeads(), refetchAnalytics()]);
-      if (showTimelineModal && selectedLead?._id) {
-        await fetchLeadFollowups(selectedLead._id);
-      }
       toast.success("Dados atualizados!");
     } catch (error) {
       toast.error("Erro ao atualizar dados");
     } finally {
       setTimeout(() => setRefreshing(false), 600);
     }
-  }, [refetchLeads, refetchAnalytics, showTimelineModal, selectedLead, fetchLeadFollowups]);
+  }, [refetchLeads, refetchAnalytics]);
 
-  const openLeadTimeline = useCallback(async (lead: any) => {
+  const openLeadTimeline = useCallback((lead: any) => {
     setSelectedLead(lead);
     setShowTimelineModal(true);
-    await fetchLeadFollowups(lead._id);
-  }, [fetchLeadFollowups]);
+    // ✅ REMOVIDO: fetchLeadFollowups - o TimelineModal carrega os dados automaticamente
+  }, []);
 
   const closeTimelineModal = useCallback(() => {
     setShowTimelineModal(false);
     setSelectedLead(null);
-    setFollowups([]);
+    // ✅ REMOVIDO: setFollowups([]) - não é mais necessário
   }, []);
 
   const handleCreateLead = useCallback(async (leadData: any) => {
     try {
-      await createLeadFromSheet(leadData);   // ✅ em vez de createLead(...)
+      await createLeadFromSheet(leadData);
       setShowCreateModal(false);
       toast.success("Lead criado com sucesso!");
     } catch (error: any) {
       toast.error(error.message || "Erro ao criar lead");
     }
   }, [createLeadFromSheet]);
-
 
   const handleStatusUpdate = async (leadId: string, newStatus: any) => {
     try {
@@ -333,13 +309,17 @@ const FollowupPage = () => {
     }
   };
 
+  // ✅ SUBSTITUÍDO: agora usa followupService
   const handleFilter = async (filters: any) => {
     try {
-      const res = await API.get("/followups/filter", { params: filters });
-      const uniqueLeads = Array.from(
-        new Map(res.data.data.map((f: any) => [f.lead._id, f.lead])).values()
-      );
-      console.log("Leads filtrados:", uniqueLeads);
+      const result = await followupService.filter(filters);
+
+      if (result.success) {
+        const uniqueLeads = Array.from(
+          new Map(result.data.map((f: any) => [f.lead._id, f.lead])).values()
+        );
+        console.log("Leads filtrados:", uniqueLeads);
+      }
     } catch (error: any) {
       toast.error("Erro ao filtrar follow-ups");
     }
@@ -355,13 +335,11 @@ const FollowupPage = () => {
       const interval = setInterval(() => {
         refetchLeads();
         refetchAnalytics();
-        if (showTimelineModal && selectedLead?._id) {
-          fetchLeadFollowups(selectedLead._id);
-        }
+        // ✅ REMOVIDO: recarregar followups - o TimelineModal faz isso automaticamente
       }, 30000);
       return () => clearInterval(interval);
     }
-  }, [activeTab, refetchLeads, refetchAnalytics, showTimelineModal, selectedLead, fetchLeadFollowups]);
+  }, [activeTab, refetchLeads, refetchAnalytics]);
 
   return (
     <div className="min-h-screen bg-slate-50/30 p-6">
@@ -485,6 +463,8 @@ const FollowupPage = () => {
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="p-4 font-semibold text-slate-700 text-left">Nome</th>
                   <th className="p-4 font-semibold text-slate-700 text-left">Origem</th>
+                  <th className="p-4 font-semibold text-slate-700 text-center">Score</th>
+                  <th className="p-4 font-semibold text-slate-700 text-center">Segmento</th>
                   <th className="p-4 font-semibold text-slate-700 text-left">Status</th>
                   <th className="p-4 font-semibold text-slate-700 text-left">Contato</th>
                   <th className="p-4 font-semibold text-slate-700 text-center">Timeline</th>
@@ -496,6 +476,8 @@ const FollowupPage = () => {
                     <tr key={i} className="border-b border-slate-100 last:border-0">
                       <td className="p-4"><Skeleton className="h-4 w-40 rounded" /></td>
                       <td className="p-4"><Skeleton className="h-4 w-24 rounded" /></td>
+                      <td className="p-4"><Skeleton className="h-4 w-20 rounded" /></td>
+                      <td className="p-4"><Skeleton className="h-4 w-20 rounded" /></td>
                       <td className="p-4"><Skeleton className="h-4 w-20 rounded" /></td>
                       <td className="p-4"><Skeleton className="h-4 w-28 rounded" /></td>
                       <td className="p-4 text-center"><Skeleton className="h-8 w-24 rounded mx-auto" /></td>
@@ -509,15 +491,17 @@ const FollowupPage = () => {
                     >
                       <td className="p-4 font-medium text-slate-800">{lead.name}</td>
                       <td className="p-4 text-slate-600">{lead.origin}</td>
+                      <td className="p-4 text-center"><ScoreBadge score={lead.conversionScore} /></td>
+                      <td className="p-4 text-center"><SegmentBadge segment={lead.segment} /></td>
                       <td className="p-4">
                         <select
                           value={lead.status}
                           onChange={(e) => handleStatusUpdate(lead._id, e.target.value)}
                           className={`text-xs font-medium px-2 py-1 rounded-full border-0 focus:ring-2 focus:ring-emerald-500 ${lead.status === 'novo' ? 'bg-blue-100 text-blue-800' :
-                            lead.status === 'em_andamento' ? 'bg-yellow-100 text-yellow-800' :
-                              lead.status === 'virou_paciente' ? 'bg-green-100 text-green-800' :
-                                lead.status === 'lead_frio' ? 'bg-gray-100 text-gray-800' :
-                                  'bg-slate-100 text-slate-800'
+                              lead.status === 'em_andamento' ? 'bg-yellow-100 text-yellow-800' :
+                                lead.status === 'virou_paciente' ? 'bg-green-100 text-green-800' :
+                                  lead.status === 'lead_frio' ? 'bg-gray-100 text-gray-800' :
+                                    'bg-slate-100 text-slate-800'
                             }`}
                         >
                           <option value="novo">Novo</option>
@@ -546,8 +530,8 @@ const FollowupPage = () => {
                           onClick={() => openLeadTimeline(lead)}
                           disabled={showTimelineModal && selectedLead?._id === lead._id}
                           className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${showTimelineModal && selectedLead?._id === lead._id
-                            ? "bg-slate-100 text-slate-600 cursor-not-allowed"
-                            : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg hover:shadow-xl"
+                              ? "bg-slate-100 text-slate-600 cursor-not-allowed"
+                              : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg hover:shadow-xl"
                             }`}
                         >
                           {showTimelineModal && selectedLead?._id === lead._id ? "Aberto" : "Abrir Timeline"}
@@ -586,21 +570,22 @@ const FollowupPage = () => {
         </TabsContent>
       </Tabs>
 
+      {/* MODAL TIMELINE */}
       <AnimatePresence>
         {showTimelineModal && selectedLead && (
           <TimelineModal
             lead={selectedLead}
             onClose={closeTimelineModal}
             onFollowupCreated={() => {
-              if (selectedLead?._id) fetchLeadFollowups(selectedLead._id);
+              // ✅ SIMPLIFICADO: só recarrega os leads
+              // O TimelineModal já recarrega seus próprios follow-ups via hook
               refetchLeads();
             }}
           />
         )}
       </AnimatePresence>
 
-
-      {/* MODAL CRIAR LEAD (completo) */}
+      {/* MODAL CRIAR LEAD */}
       <AnimatePresence>
         {showCreateModal && (
           <NewLeadModal

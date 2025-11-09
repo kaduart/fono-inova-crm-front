@@ -58,9 +58,9 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     };
 
     return (
-        <header className="bg-emerald-700 shadow-lg border-b border-emerald-600 text-white">
+        <header className="bg-emerald-700 shadow-lg border-b border-emerald-600 text-white py-3">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between h-16 items-center">
+                <div className="flex justify-between  items-center">
                     {/* Logo e nome da clínica */}
                     <div className="flex items-center gap-3 cursor-pointer">
                         <NavLink

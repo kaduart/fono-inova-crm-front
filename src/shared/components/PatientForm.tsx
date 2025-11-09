@@ -1,18 +1,18 @@
-import { JSX } from 'react';
-import { z } from 'zod';
-import { Controller, useForm } from 'react-hook-form';
-import DatePicker from "react-datepicker";
 import { ptBR } from 'date-fns/locale';
+import { ClipboardList, Heart, MapPin, Phone, ShieldCheck, User } from 'lucide-react';
+import { JSX } from 'react';
+import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { Controller, useForm } from 'react-hook-form';
+import { z } from 'zod';
 import { Button } from '../../components/ui/Button';
+import { Card, CardContent } from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import { Label } from '../../components/ui/Label';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Select } from '../../components/ui/Select';
 import { Textarea } from '../../components/ui/TextArea';
 import { IPatient } from '../../utils/types/types';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { Card, CardContent } from '../../components/ui/Card';
-import { User, ClipboardList, MapPin, Phone, ShieldCheck, Heart } from 'lucide-react';
 
 type PatientFormData = z.infer<typeof any>;
 
@@ -110,8 +110,8 @@ const PatientForm = ({ patient, isLoading, onSuccess }: PatientFormProps) => {
             </Select>,
             errors.maritalStatus?.message
           )}
-          {renderField('Profissão', <Input {...register('profession')} />, errors.profession?.message)}
-          {renderField('Naturalidade', <Input {...register('placeOfBirth')} />, errors.placeOfBirth?.message)}
+          {renderField('Profissão', <Input {...register('profession')} placeholder='Ex: Analista de Sistemas' />, errors.profession?.message)}
+          {renderField('Naturalidade', <Input {...register('placeOfBirth')} placeholder='Brasileira' />, errors.placeOfBirth?.message)}
         </div>
       </Section>
 
@@ -120,6 +120,7 @@ const PatientForm = ({ patient, isLoading, onSuccess }: PatientFormProps) => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {renderField('CPF', <Input {...register('cpf')} placeholder="000.000.000-00" />, errors.cpf?.message)}
           {renderField('RG', <Input {...register('rg')} placeholder="Digite o RG" />, errors.rg?.message)}
+          {renderField('Certidão Nascimento', <Input {...register('birthCertificate')} placeholder="Digite o número da certidão" />, errors.birthCertificate?.message)}
           {renderField('Telefone', <Input {...register('phone')} placeholder="(00) 00000-0000" />, errors.phone?.message)}
           {renderField('E-mail', <Input type="email" {...register('email')} placeholder="exemplo@email.com" />, errors.email?.message)}
         </div>

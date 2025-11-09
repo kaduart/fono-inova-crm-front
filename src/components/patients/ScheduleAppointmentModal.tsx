@@ -167,18 +167,6 @@ const ScheduleAppointmentModal = ({
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    // Adicionado: Função para cancelar sessão avançada
-    const handleCancelAdvancedSession = (sessionId: string) => {
-        if (onCancelAdvancedSession) {
-            onCancelAdvancedSession(sessionId);
-        }
-    };
-
-    const buildLocalDateOnly = (dateString: string) => {
-        const [year, month, day] = dateString.split('-').map(Number);
-        return new Date(year, month - 1, day); // cria com hora 00:00 no fuso local
-    }
-
     useEffect(() => {
         if (erroMessage) {
             toast.error(erroMessage, {
@@ -376,11 +364,15 @@ const ScheduleAppointmentModal = ({
                             onChange={handleTypeChange}
                             className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
+
+
                             <option value="alignment ">Alinhamento</option>
                             <option value="evaluation">Avaliação</option>
+                            <option value="neuropsych_evaluation">Avaliação Neuropsicológica</option>
                             <option value="meet">Reunião</option>
                             <option value="individual_session">Sessão Avulsa</option>
                             <option value="package_session">Sessão de Pacote</option>
+                            <option value="tongue_tie_test">Teste da Linguinha</option>
                         </Select>
                     </div>
                 </div>

@@ -69,25 +69,49 @@ export default function TherapyPackageCard({
   };
 
   const getStatusConfig = (status: string) => {
-    const configs = {
+    const base = {
+      pill: 'px-3 py-1.5 text-xs font-semibold rounded-full border flex items-center gap-1',
+    };
+
+    // todas usam a paleta "brand" (verde esmeralda) — só varia a intensidade
+    const map: Record<string, { color: string; label: string; icon: any }> = {
       active: {
-        color: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+        color: 'bg-[var(--brand-50)] text-[var(--brand-700)] border-[var(--brand-200)]',
         label: 'Ativo',
         icon: CheckCircle2
       },
-      pending: {
-        color: 'bg-amber-100 text-amber-800 border-amber-200',
-        label: 'Pendente',
+      'in-progress': {
+        color: 'bg-[var(--brand-100)] text-[var(--brand-700)] border-[var(--brand-200)]',
+        label: 'Em andamento',
         icon: Clock
       },
       completed: {
-        color: 'bg-green-100 text-green-800 border-green-200',
-        label: 'Completo',
+        color: 'bg-[var(--brand-200)] text-[var(--brand-800)] border-[var(--brand-300)]',
+        label: 'Concluído',
         icon: CheckCircle2
+      },
+      scheduled: {
+        color: 'bg-[var(--brand-50)] text-[var(--brand-700)] border-[var(--brand-200)]',
+        label: 'Agendado',
+        icon: Calendar
+      },
+      pending: {
+        color: 'bg-[var(--brand-50)] text-[var(--brand-700)] border-[var(--brand-200)]',
+        label: 'Pendente',
+        icon: Clock
+      },
+      canceled: {
+        // mantém contraste diferente para erro, mas ainda “puxando” verde no texto
+        color: 'bg-red-50 text-red-700 border-red-200',
+        label: 'Cancelado',
+        icon: Sprout
       }
     };
-    return configs[status as keyof typeof configs] || configs.pending;
+
+    const chosen = map[status] ?? map.pending;
+    return { ...chosen, pill: base.pill + ' ' + chosen.color };
   };
+
 
   const statusConfig = getStatusConfig(pack.status);
   const StatusIcon = statusConfig.icon;
@@ -109,7 +133,7 @@ export default function TherapyPackageCard({
               <p className="text-sm text-gray-500 capitalize">{pack.sessionType?.toLowerCase()}</p>
             </div>
           </div>
-          <div className={`px-3 py-1.5 text-xs font-semibold rounded-full border ${statusConfig.color} flex items-center gap-1`}>
+          <div className={statusConfig.pill}>
             <StatusIcon className="w-3 h-3" />
             {statusConfig.label}
           </div>

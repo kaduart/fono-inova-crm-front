@@ -20,25 +20,18 @@ export interface TrendData {
 }
 
 export const followupService = {
+  // ===== MÉTRICAS E ESTATÍSTICAS =====
   async getMetrics() {
     try {
       const response = await API.get("/followups/stats");
-
       return {
         success: true,
         data: response.data.data,
       };
     } catch (error: any) {
       console.error("Erro ao buscar métricas de followup:", error);
-
-      toast.error(
-        error?.response?.data?.error || "Erro ao carregar métricas."
-      );
-
-      return {
-        success: false,
-        error,
-      };
+      toast.error(error?.response?.data?.error || "Erro ao carregar métricas.");
+      return { success: false, error };
     }
   },
 
@@ -47,48 +40,32 @@ export const followupService = {
       const response = await API.get("/followups/trend", {
         params: { days }
       });
-
       return {
         success: true,
         data: response.data.data,
       };
     } catch (error: any) {
       console.error("Erro ao buscar tendência:", error);
-
-      toast.error(
-        error?.response?.data?.error || "Erro ao carregar tendência."
-      );
-
-      return {
-        success: false,
-        error,
-      };
+      toast.error(error?.response?.data?.error || "Erro ao carregar tendência.");
+      return { success: false, error };
     }
   },
 
   async getConversionByOrigin() {
     try {
       const response = await API.get("/followups/conversion-by-origin");
-
       return {
         success: true,
         data: response.data.data,
       };
     } catch (error: any) {
       console.error("Erro ao buscar conversão por origem:", error);
-
-      toast.error(
-        error?.response?.data?.error || "Erro ao carregar conversão por origem."
-      );
-
-      return {
-        success: false,
-        error,
-      };
+      toast.error(error?.response?.data?.error || "Erro ao carregar conversão por origem.");
+      return { success: false, error };
     }
   },
 
-  // ✅ Listar timeline por lead (usa /followups/filter?lead=)
+  // ===== LISTAGEM E FILTROS =====
   async listByLead(leadId: string) {
     try {
       const res = await API.get("/followups/filter", { params: { lead: leadId } });
@@ -100,7 +77,6 @@ export const followupService = {
     }
   },
 
-  // ✅ Filtrar timeline (status, origin, datas…)
   async filter(params: Record<string, any>) {
     try {
       const res = await API.get("/followups/filter", { params });
@@ -112,10 +88,35 @@ export const followupService = {
     }
   },
 
-  // ✅ Criar follow-up manual (Composer)
+  // ✅ NOVO: Buscar pendentes
+  async getPending() {
+    try {
+      const res = await API.get("/followups/pending");
+      return { success: true, data: res.data.data || [] };
+    } catch (error: any) {
+      console.error("Erro ao buscar pendentes:", error);
+      toast.error(error?.response?.data?.error || "Erro ao buscar pendentes.");
+      return { success: false, error };
+    }
+  },
+
+  // ✅ NOVO: Buscar histórico do lead
+  async getHistory(leadId: string) {
+    try {
+      const res = await API.get(`/followups/history/${leadId}`);
+      return { success: true, data: res.data.data || [] };
+    } catch (error: any) {
+      console.error("Erro ao buscar histórico:", error);
+      toast.error(error?.response?.data?.error || "Erro ao buscar histórico.");
+      return { success: false, error };
+    }
+  },
+
+  // ===== CRIAÇÃO E ENVIO =====
   async create(payload: { lead: string; message: string; stage?: string }) {
     try {
       const res = await API.post("/followups", payload);
+      toast.success("Follow-up criado com sucesso!");
       return { success: true, data: res.data.data };
     } catch (error: any) {
       console.error("Erro ao criar follow-up:", error);
@@ -124,14 +125,50 @@ export const followupService = {
     }
   },
 
-  // ✅ Reenviar follow-up
   async resend(id: string) {
     try {
       const res = await API.post(`/followups/resend/${id}`);
+      toast.success("Follow-up reenviado com sucesso!");
       return { success: true, data: res.data.data };
     } catch (error: any) {
       console.error("Erro ao reenviar follow-up:", error);
       toast.error(error?.response?.data?.error || "Erro ao reenviar follow-up.");
+      return { success: false, error };
+    }
+  },
+
+  // ✅ NOVO: Agendar follow-up
+  async schedule(payload: {
+    leadId: string;
+    message?: string;
+    scheduledAt: string;
+    aiOptimized?: boolean;
+  }) {
+    try {
+      const res = await API.post("/followups/schedule", payload);
+      toast.success("Follow-up agendado com sucesso!");
+      return { success: true, data: res.data.data };
+    } catch (error: any) {
+      console.error("Erro ao agendar follow-up:", error);
+      toast.error(error?.response?.data?.error || "Erro ao agendar follow-up.");
+      return { success: false, error };
+    }
+  },
+
+  // ✅ NOVO: Criar follow-up com IA (Amanda 2.0)
+  async createAIFollowup(payload: {
+    leadId: string;
+    context?: string;
+    tone?: 'casual' | 'formal' | 'friendly';
+    stage?: string;
+  }) {
+    try {
+      const res = await API.post("/followups/ai-generate", payload);
+      toast.success("Follow-up gerado com IA!");
+      return { success: true, data: res.data.data };
+    } catch (error: any) {
+      console.error("Erro ao gerar follow-up com IA:", error);
+      toast.error(error?.response?.data?.error || "Erro ao gerar follow-up com IA.");
       return { success: false, error };
     }
   },

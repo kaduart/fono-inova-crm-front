@@ -120,4 +120,31 @@ export const leadService = {
             return { success: false, error };
         }
     },
+
+    async getLeadById(leadId: string) {
+        try {
+            const res = await API.get(`/leads/${leadId}`);
+            return { success: true, data: res.data.data };
+        } catch (error: any) {
+            toast.error("Erro ao buscar lead");
+            return { success: false, error };
+        }
+    },
+
+    async createLeadFromAd(payload: {
+        name: string;
+        phone: string;
+        origin: string;
+        adData?: any;
+        metadata?: any;
+    }) {
+        try {
+            const res = await API.post("/leads/from-ad", payload);
+            toast.success("Lead de anúncio criado! Amanda 2.0 analisou.");
+            return { success: true, data: res.data.data };
+        } catch (error: any) {
+            toast.error("Erro ao criar lead");
+            return { success: false, error };
+        }
+    }
 };

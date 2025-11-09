@@ -118,13 +118,13 @@ export const VISUAL_FLAG_CONFIG = {
         icon: AlertCircle,
     },
     pending: {
-        label: 'Pendente',
+        label: 'A receber',
         color: '#ef4444',
         textColor: '#991b1b',
         icon: Clock,
     },
     blocked: {
-        label: 'Sem Saldo',
+        label: 'Cancelado',
         color: '#991b1b',
         textColor: '#7f1d1d',
         icon: XCircle,
@@ -226,7 +226,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     // 🔹 MEMOIZAÇÃO AVANÇADA PARA EVENTOS
     const events = useMemo(() => {
         if (!appointments) return [];
-
+        console.log(`statsuuuuuuuuuuuuuuu`, appointments.paymentStatus)
+        console.log(`statsuuuuuuuuuuuuuuu`, appointments.package)
         return appointments
             .filter(a => a?.date && a?.time)
             .map(appt => {
@@ -337,19 +338,38 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
     // 🔹 RENDERIZAÇÃO PREMIUM DE EVENTOS
     const renderEventContent = (arg: any) => {
-        const paymentStatus = arg.event.extendedProps.paymentStatus || 'pending';
         const paymentConfig = arg.event.extendedProps.paymentConfig;
-        const operationalStatus = arg.event.extendedProps.operationalStatus || 'agendado';
         const operationalConfig = arg.event.extendedProps.operationalConfig;
         const patientName = arg.event.extendedProps.patientName || 'Paciente';
         const doctorName = arg.event.extendedProps.doctorName || 'Profissional';
 
-        const PaymentIcon = paymentConfig.icon;
+        // ✅ LÓGICA SIMPLES: Pacote ou Avulso
+        const packageData = arg.event.extendedProps.package;
+        const hasPackage = !!packageData;
+
+        // Se tem pacote, usar financialStatus do pacote
+        // Se não tem, usar paymentStatus normal
+        const financialStatus = hasPackage
+            ? packageData.financialStatus
+            : arg.event.extendedProps.paymentStatus;
+
+        // ✅ CONFIGURAÇÃO ÚNICA PARA BADGES
+        const BADGE_CONFIG = {
+            paid: { label: 'Pago', bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-300' },
+            partial: { label: 'Parcial', bg: 'bg-sky-100', text: 'text-sky-700', border: 'border-sky-300' },
+            pending: { label: 'Pendente', bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-300' },
+            open: { label: 'Em aberto', bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-300' },
+            overdue: { label: 'Vencido', bg: 'bg-rose-100', text: 'text-rose-700', border: 'border-rose-300' },
+            canceled: { label: 'Cancelado', bg: 'bg-gray-200', text: 'text-gray-600', border: 'border-gray-300' },
+        };
+
+        const badgeConfig = BADGE_CONFIG[financialStatus] || BADGE_CONFIG.pending;
+        const badgePrefix = hasPackage ? 'Pacote • ' : '';
+
         const OperationalIcon = operationalConfig.icon;
-        const VisualIcon = arg.event.extendedProps.visualConfig?.icon;
         const formatTime = (time) => {
             if (!time) return '';
-            if (time.length === 5 && time.includes(':')) return time; // já está ok
+            if (time.length === 5 && time.includes(':')) return time;
             return time.toString().padStart(2, '0') + ':00';
         };
 
@@ -357,11 +377,11 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             <Tooltip
                 title={
                     <div className="p-4 min-w-[220px] bg-gradient-to-br from-slate-900 to-slate-800 shadow-2xl border border-slate-700 rounded-xl backdrop-blur-sm">
-                        {/* CABEÇALHO COM GRADIENTE */}
+                        {/* CABEÇALHO */}
                         <div className="font-bold text-sm text-white pb-2 mb-3 border-b border-slate-600">
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                                <span>{patientName || 'Paciente'}</span>
+                                <span>{patientName}</span>
                             </div>
                         </div>
 
@@ -370,10 +390,27 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             <div className="p-1 bg-slate-700 rounded">
                                 <User size={10} className="text-slate-400" />
                             </div>
-                            Dr. {doctorName || 'Profissional'}
+                            Dr. {doctorName}
                         </div>
 
-                        {/* STATUS COM DESIGN MODERNO */}
+                        {/* ✅ INFO DO PACOTE (SE EXISTIR) */}
+                        {hasPackage && (
+                            <div className="mb-3 p-2 bg-slate-700/50 rounded-lg">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-medium text-slate-300">📦 Pacote</span>
+                                    <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${badgeConfig.bg} ${badgeConfig.text}`}>
+                                        {badgeConfig.label}
+                                    </span>
+                                </div>
+                                <div className="text-[10px] text-slate-400 space-y-1">
+                                    <div>💰 Valor/sessão: R$ {packageData.sessionValue?.toFixed(2)}</div>
+                                    <div>📊 Saldo: {packageData.balance} sessões</div>
+                                    <div>✅ Pago: R$ {packageData.totalPaid?.toFixed(2)}</div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* STATUS */}
                         <div className="space-y-3">
                             <div className="flex items-center justify-between bg-slate-700/50 rounded-lg p-2">
                                 <span className="text-xs font-medium text-slate-300">Agendamento</span>
@@ -388,23 +425,20 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             </div>
 
                             <div className="flex items-center justify-between bg-slate-700/50 rounded-lg p-2">
-                                <span className="text-xs font-medium text-slate-300">Pagamento</span>
-                                <span className={`text-xs px-3 py-1 rounded-full font-bold shadow-lg`}
-                                    style={{
-                                        backgroundColor: paymentConfig.color,
-                                        color: 'white',
-                                        boxShadow: `0 4px 6px ${paymentConfig.color}40`
-                                    }}>
-                                    {paymentConfig.label}
+                                <span className="text-xs font-medium text-slate-300">
+                                    {hasPackage ? 'Status Financeiro' : 'Pagamento'}
+                                </span>
+                                <span className={`text-xs px-3 py-1 rounded-full font-bold ${badgeConfig.bg} ${badgeConfig.text}`}>
+                                    {badgePrefix}{badgeConfig.label}
                                 </span>
                             </div>
                         </div>
 
-                        {/* HORÁRIO COM DESTAQUE */}
+                        {/* HORÁRIO */}
                         <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-600">
                             <span className="text-xs font-medium text-slate-400">Horário</span>
                             <span className="text-xs font-bold text-white bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-600">
-                                ⏰{(arg.event?.extendedProps?.time || '').trim()}
+                                ⏰ {(arg.event?.extendedProps?.time || '').trim()}
                             </span>
                         </div>
                     </div>
@@ -421,39 +455,25 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 }}
             >
                 <Paper
-                    elevation={operationalStatus === 'cancelado' ? 0 : 1}
+                    elevation={1}
                     className="flex flex-col p-2 rounded-lg w-full h-full relative transition-all duration-200 hover:shadow-md"
                     style={{
                         backgroundColor: paymentConfig.bgColor,
                         borderLeft: `8px solid ${operationalConfig.color}`,
-                        opacity: ['cancelado', 'nao_compareceu'].includes(operationalStatus) ? 0.6 : 1,
-                        boxShadow:
-                            operationalStatus === 'confirmado'
-                                ? `0 2px 6px ${operationalConfig.color}30`
-                                : operationalStatus === 'em_andamento'
-                                    ? `0 0 10px ${operationalConfig.color}40 inset`
-                                    : 'none',
+                        opacity: ['cancelado', 'nao_compareceu'].includes(arg.event.extendedProps.operationalStatus) ? 0.6 : 1,
                     }}
                 >
-                    {/* 🔹 TOPO - Status financeiro principal */}
-                    <div className="flex justify-between items-center mb-1">
+                    {/* 🔹 TOPO - Horário + Badge Simples */}
+                    <div className="flex justify-between items-start mb-1 gap-1">
                         <span className="text-xs font-semibold text-gray-700">{formatTime(arg.timeText)}</span>
-                        {VisualIcon && (
-                            <div
-                                className="flex items-center gap-1 px-1 py-0.5 rounded text-[9px] font-bold uppercase"
-                                style={{
-                                    backgroundColor: arg.event.extendedProps.visualConfig?.color + '15',
-                                    color: arg.event.extendedProps.visualConfig?.textColor,
-                                    border: `1px solid ${arg.event.extendedProps.visualConfig?.color}50`,
-                                }}
-                            >
-                                <DollarSign size={9} />
-                                {arg.event.extendedProps.visualConfig?.label}
-                            </div>
-                        )}
+
+                        {/* ✅ BADGE ÚNICO (Pacote ou Avulso) */}
+                        <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${badgeConfig.bg} ${badgeConfig.text} border ${badgeConfig.border}`}>
+                            {badgePrefix}{badgeConfig.label}
+                        </div>
                     </div>
 
-                    {/* 🔹 Nome do paciente e profissional */}
+                    {/* Nome do paciente */}
                     <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold truncate leading-tight text-gray-800">
                             {patientName}
@@ -463,9 +483,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         </p>
                     </div>
 
-                    {/* 🔹 Rodapé - Status operacional */}
+                    {/* Rodapé - Status operacional */}
                     <div className="flex items-center gap-1 mt-1">
-                        <operationalConfig.icon size={10} color={operationalConfig.color} />
+                        <OperationalIcon size={10} color={operationalConfig.color} />
                         <span
                             className="text-[0.65rem] font-medium"
                             style={{ color: operationalConfig.color }}
@@ -477,6 +497,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             </Tooltip>
         );
     };
+
 
 
     // 🔹 RENDERIZAÇÃO DE CÉLULAS DE DATA MELHORADA

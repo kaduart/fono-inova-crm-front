@@ -1,14 +1,18 @@
+// src/components/Dashboard/FollowupComposer.tsx
 import { motion } from "framer-motion";
 import { Loader2, Send, Sparkles } from "lucide-react";
 import React, { useState } from "react";
 import { toast } from "react-toastify";
-import API from "../../services/api";
+
+// ✅ IMPORTS DOS SERVICES
+import { amandaService } from "../../services/amandaService";
+import { followupService } from "../../services/followupService";
+
 import { Button } from "../ui/Button";
 
 interface FollowupComposerProps {
   lead: any;
   onCreated?: () => void;
-  // opcionais, caso queira categorizar:
   reason?: string;
   campaign?: string;
   therapist?: string;
@@ -26,34 +30,51 @@ const FollowupComposer: React.FC<FollowupComposerProps> = ({
   const [generating, setGenerating] = useState(false);
   const [scheduledAt, setScheduledAt] = useState("");
 
+  // ✅ ESTADO PARA METADADOS DA AMANDA (estava faltando!)
+  const [amandaMeta, setAmandaMeta] = useState<any>(null);
+
+  // ✅ GERAR MENSAGEM COM AMANDA
   const handleGenerate = async () => {
     if (!lead?._id) {
       toast.error("Selecione um lead válido.");
       return;
     }
+
     setGenerating(true);
     try {
-      // 🔄 usa /api/draft → { success, draft }
-      const { data } = await API.post("/amanda/draft", {
+      // ✅ USA amandaService.generateFollowup
+      const result = await amandaService.generateFollowupMessage({
         leadId: lead._id,
-        reason,   // opcional
-        campaign, // opcional
+        context: reason || lead.notes,
+        tone: 'friendly',
+        stage: lead.stage
       });
 
-      const draft = data?.draft;
-      if (draft) {
-        setMessage(draft);
-        toast.success("Mensagem gerada pela Amanda ✨");
-      } else {
-        toast.error("Não foi possível gerar a mensagem agora.");
+      if (result.success && result.data?.message) {
+        setMessage(result.data.message);
+
+        // Mostrar feedback com metadados (se disponíveis)
+        const confidence = result.data.confidence
+          ? ` (${Math.round(result.data.confidence * 100)}% confiança)`
+          : '';
+        toast.success(`✨ Mensagem gerada com Amanda 2.0${confidence}`);
+
+        // Armazenar metadados
+        setAmandaMeta({
+          confidence: result.data.confidence,
+          suggestions: result.data.suggestions,
+          metadata: result.data.metadata
+        });
       }
     } catch (e) {
-      toast.error("Erro ao gerar mensagem");
+      console.error("Erro ao gerar:", e);
+      // Toast de erro já vem do service
     } finally {
       setGenerating(false);
     }
   };
 
+  // ✅ ENVIAR OU AGENDAR FOLLOW-UP
   const handleSubmit = async () => {
     if (!lead?._id) {
       toast.error("Lead inválido.");
@@ -66,26 +87,40 @@ const FollowupComposer: React.FC<FollowupComposerProps> = ({
 
     setLoading(true);
     try {
-      // ✅ Integra a rota /api/send que já cria o Followup
-      // Observação: seu /send ignora scheduledAt (usa new Date()).
-      // Se quiser agendamento futuro real, ajuste o back para aceitar scheduledAt.
-      await API.post("/amanda/send", {
-        leadId: lead._id,
-        message,
-        reason,     // opcional
-        campaign,   // opcional
-        therapist,  // opcional
-        scheduledAt: scheduledAt
-          ? new Date(scheduledAt).toISOString()
-          : undefined, // enviado para futura compat no back; atualmente é ignorado
-      });
+      if (scheduledAt) {
+        // ✅ AGENDAR para data futura
+        const result = await followupService.schedule({
+          leadId: lead._id,
+          message,
+          scheduledAt: new Date(scheduledAt).toISOString(),
+          aiOptimized: !!amandaMeta // Marca se foi gerado com IA
+        });
 
-      toast.success("Follow-up agendado com sucesso!");
-      onCreated?.();
-      // opcional limpar campos
-      // setMessage(""); setScheduledAt("");
-    } catch {
-      toast.error("Erro ao agendar follow-up");
+        if (result.success) {
+          // Toast já vem do service
+          setMessage("");
+          setScheduledAt("");
+          setAmandaMeta(null);
+          onCreated?.();
+        }
+      } else {
+        // ✅ ENVIAR imediatamente
+        const result = await followupService.create({
+          lead: lead._id,
+          message,
+          stage: lead.stage
+        });
+
+        if (result.success) {
+          // Toast já vem do service
+          setMessage("");
+          setAmandaMeta(null);
+          onCreated?.();
+        }
+      }
+    } catch (e) {
+      console.error("Erro ao enviar:", e);
+      // Toast de erro já vem do service
     } finally {
       setLoading(false);
     }
@@ -101,25 +136,48 @@ const FollowupComposer: React.FC<FollowupComposerProps> = ({
         ✉️ Novo Follow-up para {lead?.name || "—"}
       </h3>
 
+      {/* TEXTAREA PARA MENSAGEM */}
       <textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         placeholder="Digite ou gere uma mensagem..."
         className="w-full border rounded p-2 text-sm mb-3 h-28 focus:ring-2 focus:ring-blue-400"
+        disabled={loading || generating}
       />
 
+      {/* CAMPO DE AGENDAMENTO OPCIONAL */}
       <input
         type="datetime-local"
         value={scheduledAt}
         onChange={(e) => setScheduledAt(e.target.value)}
         className="border rounded p-2 w-full mb-3 text-sm"
+        placeholder="Deixe vazio para enviar agora"
+        disabled={loading || generating}
       />
 
+      {/* MOSTRAR METADADOS DA AMANDA (se houver) */}
+      {amandaMeta && (
+        <div className="mb-3 p-2 bg-purple-50 border border-purple-200 rounded text-xs">
+          <p className="font-medium text-purple-800">✨ Gerado com IA</p>
+          {amandaMeta.confidence && (
+            <p className="text-purple-600">
+              Confiança: {Math.round(amandaMeta.confidence * 100)}%
+            </p>
+          )}
+          {amandaMeta.suggestions && amandaMeta.suggestions.length > 0 && (
+            <p className="text-purple-600">
+              {amandaMeta.suggestions.length} variações disponíveis
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* BOTÕES DE AÇÃO */}
       <div className="flex gap-2 justify-end">
         <Button
           onClick={handleGenerate}
-          disabled={generating}
-          className="bg-purple-500 hover:bg-purple-600 text-white text-sm flex items-center gap-1"
+          disabled={generating || loading}
+          className="bg-purple-500 hover:bg-purple-600 text-white text-sm flex items-center gap-1 disabled:opacity-50"
         >
           {generating ? (
             <Loader2 className="animate-spin w-4 h-4" />
@@ -128,19 +186,27 @@ const FollowupComposer: React.FC<FollowupComposerProps> = ({
           )}
           Gerar com Amanda
         </Button>
+
         <Button
           onClick={handleSubmit}
-          disabled={loading}
-          className="bg-blue-500 hover:bg-blue-600 text-white text-sm flex items-center gap-1"
+          disabled={loading || generating || !message.trim()}
+          className="bg-blue-500 hover:bg-blue-600 text-white text-sm flex items-center gap-1 disabled:opacity-50"
         >
           {loading ? (
             <Loader2 className="animate-spin w-4 h-4" />
           ) : (
             <Send size={16} />
           )}
-          Agendar
+          {scheduledAt ? "Agendar" : "Enviar Agora"}
         </Button>
       </div>
+
+      {/* DICA SOBRE AGENDAMENTO */}
+      {scheduledAt && (
+        <p className="text-xs text-slate-500 mt-2">
+          📅 Será enviado em: {new Date(scheduledAt).toLocaleString('pt-BR')}
+        </p>
+      )}
     </motion.div>
   );
 };

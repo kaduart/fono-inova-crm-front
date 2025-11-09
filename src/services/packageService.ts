@@ -163,6 +163,12 @@ export const packageService = {
     }
     return API.put<ISession>(`/packages/${packageId}/sessions/${data.sessionId}`, data);
   },
+
+  addSession: async (packageId: string, sessionData: any) => {
+    const response = await API.post(`/packages/${packageId}/add-session`, sessionData);
+    return response.data;
+  },
+
   // Operação para "usar" uma sessão e atualizar pagamento
   useSession: async (packageId: string, data: UseSessionParams) => {
     return API.patch<ISession>(`/packages/${packageId}/use-session`, data);

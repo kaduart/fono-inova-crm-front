@@ -1,9 +1,22 @@
 #root {
   max-width: 1515px;
   margin: 0 auto;
-  padding: 2rem;
   text-align: center;
 }
+
+:root{
+  --brand-50:#E6F4F1;
+  --brand-100:#D7EFE9;
+  --brand-200:#B6E4D7;
+  --brand-300:#8FD6C2;
+  --brand-400:#66C7AD;
+  --brand-500:#42B898;
+  --brand-600:#26977B; /* cor principal Fono Inova */
+  --brand-700:#1E7A64;
+  --brand-800:#165D4D;
+  --brand-900:#0F4037;
+}
+
 
 .logo {
   height: 6em;
@@ -193,3 +206,4 @@
 .animate-bounce-gentle {
     animation: bounce-gentle 2s infinite;
 }
+
