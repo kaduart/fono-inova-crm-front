@@ -1,6 +1,7 @@
 import { Calendar, ChevronDown, ChevronUp, Edit, Eye, FileHeart, List, Package, Phone, User } from "lucide-react";
 import React, { useMemo, useState } from 'react';
 import { BsHourglass } from "react-icons/bs";
+import { Link } from "react-router-dom";
 
 // Mock components para demonstração
 const Card = ({ children, className, sx }) => (
@@ -292,13 +293,9 @@ const PatientTable = ({ patients = mockPatients, onEditPatient, onPaymentAdvance
 
                                             <td className="px-6 py-5">
                                                 <div className="flex gap-2 justify-center">
-                                                    <button
-                                                        onClick={(e) => e.stopPropagation()}
-                                                        title="Ver detalhes"
-                                                        className="p-2 bg-orange-50 text-orange-600 hover:bg-orange-100 rounded-lg transition-all hover:scale-110 shadow-sm"
-                                                    >
-                                                        <Eye className="w-5 h-5" />
-                                                    </button>
+                                                    <Link to={`/patient-dashboard/${patient._id}`} title="Ver detalhes">
+                                                        <Eye className="w-5 h-5 text-orange-600 hover:text-orange-800" />
+                                                    </Link>
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
@@ -340,31 +337,33 @@ const PatientTable = ({ patients = mockPatients, onEditPatient, onPaymentAdvance
                                             </td>
                                         </tr>
 
-                                        {expandedRows[patient._id] && (
-                                            <tr className="bg-gradient-to-r from-blue-50 to-indigo-50">
-                                                <td colSpan={6} className="px-6 py-6">
-                                                    <div className="bg-white rounded-xl p-5 shadow-sm border border-blue-100">
-                                                        <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                                                            <div className="w-1 h-5 bg-green-500 rounded-full"></div>
-                                                            Enviar mensagem via WhatsApp:
-                                                        </h4>
-                                                        {patient.phone && (
-                                                            <WhatsAppActionButtons
-                                                                phone={patient.phone.startsWith('+')
-                                                                    ? patient.phone.slice(1)
-                                                                    : patient.phone}
-                                                                nome={patient.fullName}
-                                                                profissional={patient?.nextAppointment?.doctor?.fullName}
-                                                                data={new Date(patient.nextAppointment?.date)}
-                                                                hora={new Date(patient.nextAppointment?.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                                                servico={patient?.lastAppointment?.doctor?.specialty}
-                                                                restantes="2"
-                                                            />
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        )}
+                                        {
+                                            expandedRows[patient._id] && (
+                                                <tr className="bg-gradient-to-r from-blue-50 to-indigo-50">
+                                                    <td colSpan={6} className="px-6 py-6">
+                                                        <div className="bg-white rounded-xl p-5 shadow-sm border border-blue-100">
+                                                            <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                                                                <div className="w-1 h-5 bg-green-500 rounded-full"></div>
+                                                                Enviar mensagem via WhatsApp:
+                                                            </h4>
+                                                            {patient.phone && (
+                                                                <WhatsAppActionButtons
+                                                                    phone={patient.phone.startsWith('+')
+                                                                        ? patient.phone.slice(1)
+                                                                        : patient.phone}
+                                                                    nome={patient.fullName}
+                                                                    profissional={patient?.nextAppointment?.doctor?.fullName}
+                                                                    data={new Date(patient.nextAppointment?.date)}
+                                                                    hora={new Date(patient.nextAppointment?.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                                    servico={patient?.lastAppointment?.doctor?.specialty}
+                                                                    restantes="2"
+                                                                />
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )
+                                        }
                                     </React.Fragment>
                                 ))}
 
@@ -404,8 +403,8 @@ const PatientTable = ({ patients = mockPatients, onEditPatient, onPaymentAdvance
                                                                 key={page}
                                                                 onClick={() => setCurrentPage(page)}
                                                                 className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-all duration-150 ${isActive
-                                                                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md scale-105'
-                                                                        : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-300'
+                                                                    ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md scale-105'
+                                                                    : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-300'
                                                                     }`}
                                                             >
                                                                 {page}
@@ -428,8 +427,9 @@ const PatientTable = ({ patients = mockPatients, onEditPatient, onPaymentAdvance
                         </table>
                     </div>
                 </div>
-            )}
-        </Card>
+            )
+            }
+        </Card >
     );
 };
 
