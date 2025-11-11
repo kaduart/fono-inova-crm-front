@@ -74,9 +74,6 @@ export function AddSessionForm({ onSubmit, onClose, patient, doctors }: AddSessi
             specialty: selectedDoctor.specialty,
             sessionValue: session.value,
             status: 'scheduled',
-            isPaid: false,
-            paymentStatus: 'pending',
-            visualFlag: 'pending'
         };
 
         // Só inclui paymentMethod se foi preenchido

@@ -17,7 +17,7 @@ const SessionExpiryHandler: React.FC = () => {
 
         // Listener para erros de autenticação da API
         const handleAuthError = (event: CustomEvent) => {
-            const { code, message } = event.detail;
+            const { code, message } = event?.detail;
             if (code === 'UNAUTHORIZED' || code === 'TOKEN_EXPIRED') {
                 handleSessionExpired();
             }

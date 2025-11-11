@@ -35,7 +35,7 @@ export default function TherapyPackageDetails({ pack, onClose, onEdit, onAddSess
     };
 
     const statusConfig = getStatusConfig(pack.payments || []);
-    const completedSessions = pack.sessions?.length || 0;
+    const completedSessions = pack.sessionsDone;
     const progressPercentage = Math.round((completedSessions / pack.totalSessions) * 100);
 
     // Se estiver mostrando o formulário, renderiza o AddSessionForm
