@@ -2,6 +2,8 @@ import { LinearProgress } from '@mui/material';
 import { format } from 'date-fns';
 import { Activity, ChevronDown, FileText, Plus, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import API from '../../services/api';
@@ -9,6 +11,7 @@ import { Button } from '../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Label } from '../ui/Label';
 import EvolutionChart from './EvolutionChart';
+import { formatDateForInput, toLocalDate } from '../../utils/dateHelpers';
 
 const EVALUATION_TYPES = [
     { id: 'language', name: 'Linguagem' },
@@ -289,12 +292,22 @@ export default function TherapyEvolution({ patients }) {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-semibold mb-2 text-gray-700">Data</label>
-                                    <input
-                                        type="date"
-                                        value={newEvaluation.date}
-                                        onChange={(e) => setNewEvaluation({ ...newEvaluation, date: e.target.value })}
-                                        className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-200"
+                                    <DatePicker
+                                        selected={newEvaluation.date ? toLocalDate(newEvaluation.date) : null}
+                                        onChange={(date) => {
+                                            if (!date) return;
+                                            setNewEvaluation(prev => ({
+                                                ...prev,
+                                                date: formatDateForInput(date) // usa o helper acima
+                                            }));
+                                        }}
+
+                                        dateFormat="dd/MM/yyyy"
+                                        placeholderText='dd/MM/yyyy'
+                                        className="w-full py-3 px-4 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     />
+
+
                                 </div>
                                 <div>
                                     <label className="block text-sm font-semibold mb-2 text-gray-700">Horário</label>
