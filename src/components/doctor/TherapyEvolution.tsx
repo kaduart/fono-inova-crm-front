@@ -1,17 +1,18 @@
 import { LinearProgress } from '@mui/material';
 import { format } from 'date-fns';
-import { Activity, ChevronDown, FileText, Plus, Users } from 'lucide-react';
+import { Activity, ChevronDown, Plus, Trash2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import API from '../../services/api';
+import { confirmToast } from '../../utils/confirmToast';
+import { formatDateForInput, toLocalDate } from '../../utils/dateHelpers';
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Label } from '../ui/Label';
 import EvolutionChart from './EvolutionChart';
-import { formatDateForInput, toLocalDate } from '../../utils/dateHelpers';
 
 const EVALUATION_TYPES = [
     { id: 'language', name: 'Linguagem' },
@@ -57,6 +58,7 @@ export default function TherapyEvolution({ patients }) {
     const [metrics, setMetrics] = useState([]);
     const [showDetails, setShowDetails] = useState(null);
 
+    const [deletingId, setDeletingId] = useState<string | null>(null);
     const [newEvaluation, setNewEvaluation] = useState({
         date: format(new Date(), 'yyyy-MM-dd'),
         time: '10:00',
@@ -227,6 +229,25 @@ export default function TherapyEvolution({ patients }) {
         }
     };
 
+    const handleDeleteEvaluation = async (evaluationId: string) => {
+        const confirmed = await confirmToast("Tem certeza que deseja excluir esta avaliação? Essa ação não pode ser desfeita.");
+        if (!confirmed) return;
+
+        try {
+            setDeletingId(evaluationId);
+            await API.delete(`/evolutions/${evaluationId}`);
+            // remove da lista local (evita recarregar tudo)
+            setEvaluations(prev => prev.filter((e: any) => e._id !== evaluationId));
+            toast.success("Avaliação excluída com sucesso! 💚");
+        } catch (err: any) {
+            console.error(err);
+            const msg = err?.response?.data?.error || err?.response?.data?.message || "Erro ao excluir avaliação.";
+            toast.error(msg);
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
     const calculateProgress = () => {
         if (!chartData?.metrics) return 0;
 
@@ -274,166 +295,158 @@ export default function TherapyEvolution({ patients }) {
 
     return (
         <>
-            {/* Modal fora do container com overflow-hidden */}
             {isAdding && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col">
-                        {/* Header Fixo */}
-                        <div className="bg-gradient-to-r from-teal-500 to-cyan-600 p-6 text-white shrink-0">
-                            <h3 className="font-bold text-xl">Nova Avaliação</h3>
-                            <p className="text-teal-100 text-sm mt-1">
-                                Preencha os dados da avaliação do paciente
+                <div className="fixed inset-0 bg-gradient-to-br from-black/70 to-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col animate-in fade-in zoom-in duration-300">
+                        <div className="bg-gradient-to-br from-green-600 via-green-500 to-cyan-500 p-8 rounded-t-3xl shrink-0">
+                            <h3 className="font-bold text-3xl text-white drop-shadow-lg">Nova Avaliação</h3>
+                            <p className="text-green-50 text-base mt-2 font-light">
+                                Preencha os dados da avaliação do paciente com atenção
                             </p>
                         </div>
 
-                        {/* Conteúdo com Scroll */}
-                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                        <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-gradient-to-br from-gray-50 to-white">
                             {/* Data e Hora */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-semibold mb-2 text-gray-700">Data</label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="group">
+                                    <label className="block text-sm font-semibold mb-3 text-gray-800 group-hover:text-green-600 transition-colors">
+                                        📅 Data da Avaliação
+                                    </label>
                                     <DatePicker
                                         selected={newEvaluation.date ? toLocalDate(newEvaluation.date) : null}
                                         onChange={(date) => {
                                             if (!date) return;
                                             setNewEvaluation(prev => ({
                                                 ...prev,
-                                                date: formatDateForInput(date) // usa o helper acima
+                                                date: formatDateForInput(date)
                                             }));
                                         }}
-
                                         dateFormat="dd/MM/yyyy"
                                         placeholderText='dd/MM/yyyy'
-                                        className="w-full py-3 px-4 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full py-4 px-5 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-100 focus:border-green-500 transition-all shadow-sm hover:shadow-md"
                                     />
-
-
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-semibold mb-2 text-gray-700">Horário</label>
+                                <div className="group">
+                                    <label className="block text-sm font-semibold mb-3 text-gray-800 group-hover:text-green-600 transition-colors">
+                                        🕐 Horário
+                                    </label>
                                     <input
                                         type="time"
                                         value={newEvaluation.time}
                                         onChange={(e) => setNewEvaluation({ ...newEvaluation, time: e.target.value })}
-                                        className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-200"
+                                        className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-100 focus:border-green-500 transition-all shadow-sm hover:shadow-md"
                                     />
                                 </div>
                             </div>
 
                             {/* Relatório Clínico */}
-                            <div>
-                                <label className="block text-sm font-semibold mb-2 text-gray-700">
-                                    Relatório Clínico
+                            <div className="group">
+                                <label className="block text-sm font-semibold mb-3 text-gray-800 group-hover:text-green-600 transition-colors">
+                                    📝 Relatório Clínico Detalhado
                                 </label>
                                 <textarea
                                     value={newEvaluation.content}
                                     onChange={(e) => setNewEvaluation({ ...newEvaluation, content: e.target.value })}
                                     placeholder="Descreva detalhadamente a evolução do paciente, observações relevantes e próximos passos..."
-                                    className="w-full p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-200 h-32 resize-none"
+                                    className="w-full p-5 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-100 focus:border-green-500 transition-all h-36 resize-none shadow-sm hover:shadow-md font-light"
                                 />
                             </div>
 
-                            {/* Métricas de Fonoaudiologia */}
-                            <div className="border border-gray-200 rounded-xl overflow-hidden">
-                                <div className="bg-teal-50 p-4 border-b border-teal-100">
-                                    <h4 className="font-semibold text-lg text-teal-800">
-                                        Métricas de Avaliação - Fonoaudiologia
-                                    </h4>
-                                    <p className="text-teal-600 text-sm mt-1">
-                                        Avalie as competências específicas do paciente (0-10 pontos)
-                                    </p>
-                                </div>
-                                <div className="p-4 space-y-4">
-                                    {metrics.map(metric => (
-                                        <div key={metric.id} className="bg-white border border-gray-100 rounded-lg p-4 hover:shadow-sm transition-all duration-200">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <label className="block text-sm font-semibold text-gray-700">
-                                                    {metric.name}
-                                                </label>
-                                                <span className="text-lg font-bold text-teal-700 bg-teal-50 px-3 py-1 rounded-full">
-                                                    {newEvaluation.metrics[metric.name] || metric.minValue}
-                                                </span>
-                                            </div>
-                                            <div className="space-y-2">
+                            {/* Métricas */}
+                            <div className="space-y-6">
+                                <div className="border-2 border-gray-200 rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
+                                    <div className="bg-gradient-to-r from-green-50 to-cyan-50 p-6 border-b-2 border-green-100">
+                                        <h4 className="font-bold text-xl text-gray-900 flex items-center gap-3">
+                                            <span className="text-2xl">📊</span>
+                                            Métricas de Avaliação
+                                        </h4>
+                                        <p className="text-sm text-gray-600 mt-1">Avalie cada aspecto de 0 a 10</p>
+                                    </div>
+                                    <div className="p-6 space-y-6 bg-white">
+                                        {metrics.map(metric => (
+                                            <div key={metric.id} className="space-y-4 p-5 bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-200 hover:shadow-md transition-all">
+                                                <div className="flex items-center justify-between">
+                                                    <label className="block text-base font-semibold text-gray-800">
+                                                        {metric.name}
+                                                    </label>
+                                                    <span className="text-2xl font-bold text-green-600 bg-green-100 px-5 py-2 rounded-full shadow-sm min-w-[70px] text-center">
+                                                        {newEvaluation.metrics[metric.name] || metric.minValue}
+                                                    </span>
+                                                </div>
                                                 <input
                                                     type="range"
                                                     min={metric.minValue}
                                                     max={metric.maxValue}
                                                     value={newEvaluation.metrics[metric.name] || metric.minValue}
                                                     onChange={(e) => handleMetricChange(metric.name, e.target.value)}
-                                                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb"
+                                                    className="w-full h-3 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full appearance-none cursor-pointer slider-thumb shadow-inner"
                                                 />
-                                                <div className="flex justify-between text-xs text-gray-500">
-                                                    <span>{metric.minValue} - {metric.description.split('(')[0]}</span>
+                                                <div className="flex justify-between text-xs text-gray-500 font-medium">
+                                                    <span>{metric.minValue} - Baixo</span>
                                                     <span>{metric.maxValue} - Excelente</span>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
 
-                            {/* Áreas de Desenvolvimento */}
-                            <div className="border border-gray-200 rounded-xl overflow-hidden">
-                                <div className="bg-cyan-50 p-4 border-b border-cyan-100">
-                                    <h4 className="font-semibold text-lg text-cyan-800">
-                                        Pontuação por Área de Desenvolvimento
-                                    </h4>
-                                    <p className="text-cyan-600 text-sm mt-1">
-                                        0 = ausente · 10 = excelente
-                                    </p>
-                                </div>
-                                <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {EVALUATION_TYPES.map((type) => {
-                                        const value = newEvaluation.areaScores?.[type.id] ?? 0;
-                                        const min = 0, max = 10;
-                                        return (
-                                            <div key={type.id} className="bg-white border border-gray-100 rounded-lg p-4 hover:shadow-sm transition-all duration-200">
-                                                <div className="flex items-center justify-between mb-3">
-                                                    <label className="block text-sm font-semibold text-gray-700">
-                                                        {type.name}
-                                                    </label>
-                                                    <span className="text-lg font-bold text-cyan-700 bg-cyan-50 px-3 py-1 rounded-full">
-                                                        {value}
-                                                    </span>
-                                                </div>
-                                                <div className="space-y-2">
+                                {/* Áreas de Desenvolvimento */}
+                                <div className="border-2 border-gray-200 rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
+                                    <div className="bg-gradient-to-r from-cyan-50 to-green-50 p-6 border-b-2 border-cyan-100">
+                                        <h4 className="font-bold text-xl text-gray-900 flex items-center gap-3">
+                                            <span className="text-2xl">🎯</span>
+                                            Áreas de Desenvolvimento
+                                        </h4>
+                                        <p className="text-sm text-gray-600 mt-1">Pontue cada área de 0 a 10</p>
+                                    </div>
+                                    <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 bg-white">
+                                        {EVALUATION_TYPES.map((type) => {
+                                            const value = newEvaluation.areaScores?.[type.id] ?? 0;
+                                            return (
+                                                <div key={type.id} className="space-y-4 p-5 bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-200 hover:shadow-md transition-all">
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="block text-base font-semibold text-gray-800">
+                                                            {type.name}
+                                                        </label>
+                                                        <span className="text-2xl font-bold text-cyan-600 bg-cyan-100 px-5 py-2 rounded-full shadow-sm min-w-[70px] text-center">
+                                                            {value}
+                                                        </span>
+                                                    </div>
                                                     <input
                                                         type="range"
-                                                        min={min}
-                                                        max={max}
+                                                        min={0}
+                                                        max={10}
                                                         step={1}
                                                         value={value}
                                                         onChange={(e) => handleAreaScoreChange(type.id, e.target.value)}
-                                                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb"
+                                                        className="w-full h-3 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full appearance-none cursor-pointer slider-thumb shadow-inner"
                                                     />
-                                                    <div className="flex justify-between text-xs text-gray-500">
+                                                    <div className="flex justify-between text-xs text-gray-500 font-medium">
                                                         <span>0 - Ausente</span>
                                                         <span>10 - Excelente</span>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Footer Fixo */}
-                        <div className="shrink-0 border-t border-gray-200 p-6 bg-gray-50">
-                            <div className="flex justify-end gap-3">
+                        <div className="shrink-0 border-t-2 border-gray-200 p-6 bg-gradient-to-r from-gray-50 to-white rounded-b-3xl">
+                            <div className="flex justify-end gap-4">
                                 <Button
                                     variant="outline"
                                     onClick={() => setIsAdding(false)}
-                                    className="px-6 py-3 border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+                                    className="px-8 py-3 border-2 border-gray-300 text-gray-700 hover:bg-gray-100 rounded-xl font-semibold transition-all hover:scale-105"
                                 >
                                     Cancelar
                                 </Button>
                                 <Button
                                     onClick={handleAddEvaluation}
-                                    className="px-6 py-3 bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                                    className="px-8 py-3 bg-gradient-to-r from-green-600 to-cyan-500 hover:from-green-700 hover:to-cyan-600 text-white shadow-lg hover:shadow-xl rounded-xl font-semibold transition-all hover:scale-105"
                                 >
-                                    Salvar Avaliação
+                                    ✓ Salvar Avaliação
                                 </Button>
                             </div>
                         </div>
@@ -441,239 +454,267 @@ export default function TherapyEvolution({ patients }) {
                 </div>
             )}
 
-            {/* Container Principal - Agora sem afetar o modal */}
-            <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                    <Card className="bg-white/50 backdrop-blur-sm border-0">
-                        <CardHeader className="bg-gradient-to-r from-teal-500 to-cyan-600 text-white">
-                            <CardTitle className="flex items-center gap-3 text-white">
-                                <Activity className="h-6 w-6" />
-                                Evolução Terapêutica
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-6">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                                <div className="bg-white/70 backdrop-blur-sm p-6 rounded-xl border border-gray-100 shadow-sm">
-                                    <Label htmlFor="patientId" className="block mb-3 font-semibold text-gray-700 flex items-center gap-2">
-                                        <Users size={20} className="text-teal-600" />
-                                        Paciente
-                                    </Label>
-                                    <select
-                                        value={selectedPatient}
-                                        onChange={(e) => setSelectedPatient(e.target.value)}
-                                        className="w-full p-3 border border-gray-200 rounded-lg bg-white/80 backdrop-blur-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-200"
-                                    >
-                                        <option value="">Selecione um paciente</option>
-                                        {patients?.map(patient => (
-                                            <option key={patient._id} value={patient._id}>
-                                                {patient.fullName}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="bg-white/70 backdrop-blur-sm p-6 rounded-xl border border-gray-100 shadow-sm">
-                                    <label className="block text-sm font-semibold mb-3 text-gray-700">
-                                        Progresso Geral
-                                    </label>
-                                    <div className="flex items-center gap-4">
-                                        <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
-                                            <LinearProgress
-                                                variant="determinate"
-                                                value={calculateProgress()}
-                                                className="h-full rounded-full"
-                                                sx={{
-                                                    backgroundColor: 'transparent',
-                                                    '& .MuiLinearProgress-bar': {
-                                                        backgroundColor: '#0d9488',
-                                                        borderRadius: '9999px'
-                                                    }
-                                                }}
-                                            />
-                                        </div>
-                                        <span className="text-lg font-bold text-teal-700 min-w-12">
-                                            {Math.round(calculateProgress())}%
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {selectedPatient ? (
-                                <div className="space-y-6">
-                                    <div className="flex justify-between items-center">
-                                        <div>
-                                            <h3 className="font-semibold text-lg text-gray-800">
-                                                Histórico de Avaliações
-                                            </h3>
-                                            <p className="text-gray-600 text-sm">
-                                                {selectedPatientData.fullName}
-                                            </p>
-                                        </div>
-                                        <Button
-                                            onClick={() => setIsAdding(true)}
-                                            className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+            <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-cyan-50 py-8 px-4 sm:px-6 lg:px-8">
+                <div className="max-w-7xl mx-auto">
+                    <div className="bg-white rounded-3xl border-2 border-gray-200 shadow-2xl overflow-hidden">
+                        <Card className="border-0">
+                            <CardHeader className="bg-gradient-to-r from-green-600 via-green-500 to-cyan-500 p-8">
+                                <CardTitle className="flex items-center gap-4 text-white text-3xl font-bold drop-shadow-lg">
+                                    <Activity className="h-8 w-8" />
+                                    Evolução Terapêutica
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-8">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+                                    <div className="space-y-4 p-6 bg-gradient-to-br from-green-50 to-white rounded-2xl border-2 border-green-100 shadow-lg hover:shadow-xl transition-all">
+                                        <Label htmlFor="patientId" className="block font-bold text-gray-800 flex items-center gap-3 text-lg">
+                                            <Users size={24} className="text-green-600" />
+                                            Selecione o Paciente
+                                        </Label>
+                                        <select
+                                            value={selectedPatient}
+                                            onChange={(e) => setSelectedPatient(e.target.value)}
+                                            className="w-full p-4 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-green-100 focus:border-green-500 transition-all shadow-sm hover:shadow-md font-medium text-gray-700"
                                         >
-                                            <Plus className="h-4 w-4 mr-2" />
-                                            Nova Avaliação
-                                        </Button>
+                                            <option value="">Escolha um paciente...</option>
+                                            {patients?.map(patient => (
+                                                <option key={patient._id} value={patient._id}>
+                                                    {patient.fullName}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
 
-                                    <div className="bg-white/70 backdrop-blur-sm border border-gray-100 rounded-xl shadow-sm overflow-hidden">
-                                        {evaluations.length > 0 ? (
-                                            evaluations.map((evaluation, index) => (
-                                                <div key={evaluation._id} className="border-b border-gray-100 last:border-b-0">
-                                                    <div
-                                                        className="p-6 cursor-pointer hover:bg-gray-50/50 transition-colors duration-200 flex justify-between items-center"
-                                                        onClick={() => setShowDetails(showDetails === index ? null : index)}
-                                                    >
-                                                        <div className="flex-1">
-                                                            <div className="flex items-center gap-4 mb-2">
-                                                                <div className="font-semibold text-gray-800">
-                                                                    {format(new Date(evaluation.date), 'dd/MM/yyyy')} às {evaluation.time}
-                                                                </div>
-                                                                {evaluation.evaluationTypes?.length > 0 && (
-                                                                    <div className="flex gap-2">
-                                                                        {evaluation.evaluationTypes.map(type => (
-                                                                            <span
-                                                                                key={type}
-                                                                                className="px-3 py-1 text-xs font-medium rounded-full bg-teal-100 text-teal-800 border border-teal-200"
-                                                                            >
-                                                                                {type}
-                                                                            </span>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                            <div className="text-sm text-gray-600 flex items-center gap-2">
-                                                                <Users size={16} />
-                                                                {evaluation.doctor?.fullName} • {evaluation.doctor?.specialty}
-                                                            </div>
-                                                        </div>
-                                                        <ChevronDown
-                                                            className={`h-5 w-5 text-gray-400 transition-transform duration-200 ${showDetails === index ? 'rotate-180' : ''}`}
-                                                        />
-                                                    </div>
+                                    <div className="space-y-4 p-6 bg-gradient-to-br from-cyan-50 to-white rounded-2xl border-2 border-cyan-100 shadow-lg hover:shadow-xl transition-all">
+                                        <label className="block font-bold text-gray-800 text-lg flex items-center gap-3">
+                                            <span className="text-2xl">📈</span>
+                                            Progresso Geral
+                                        </label>
+                                        <div className="flex items-center gap-6">
+                                            <div className="flex-1 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full h-4 overflow-hidden shadow-inner">
+                                                <LinearProgress
+                                                    variant="determinate"
+                                                    value={calculateProgress()}
+                                                    className="h-full rounded-full"
+                                                    sx={{
+                                                        backgroundColor: 'transparent',
+                                                        '& .MuiLinearProgress-bar': {
+                                                            background: 'linear-gradient(90deg, #2563eb 0%, #06b6d4 100%)',
+                                                            borderRadius: '9999px'
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                            <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-cyan-500 min-w-[80px] text-right">
+                                                {Math.round(calculateProgress())}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
 
-                                                    {showDetails === index && (
-                                                        <div className="px-6 pb-6 bg-gray-50/30 border-t border-gray-100">
-                                                            <div className="mb-6 pt-4">
-                                                                <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                                                                    Métricas Registradas
-                                                                </h4>
-                                                                {evaluation.metrics && evaluation.metrics.length > 0 ? (
-                                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                                        {evaluation.metrics.map(metric => (
-                                                                            <div key={metric.name} className="flex justify-between items-center bg-white/80 p-3 rounded-lg border border-gray-200">
-                                                                                <span className="font-medium text-gray-700">{metric.name}</span>
-                                                                                <span className="bg-teal-100 text-teal-800 px-3 py-1 rounded-full text-sm font-semibold">
-                                                                                    {metric.value}
+                                {selectedPatient ? (
+                                    <div className="space-y-8">
+                                        <div className="flex justify-between items-center p-6 bg-gradient-to-r from-gray-50 to-white rounded-2xl border-2 border-gray-200 shadow-md">
+                                            <div>
+                                                <h3 className="font-bold text-2xl text-gray-900 flex items-center gap-3">
+                                                    <span className="text-3xl">📋</span>
+                                                    Histórico de Avaliações
+                                                </h3>
+                                                <p className="text-gray-600 text-base mt-1 font-medium">
+                                                    {selectedPatientData.fullName}
+                                                </p>
+                                            </div>
+                                            <Button
+                                                onClick={() => setIsAdding(true)}
+                                                className="bg-gradient-to-r from-green-600 to-cyan-500 hover:from-green-700 hover:to-cyan-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all hover:scale-105"
+                                            >
+                                                <Plus className="h-5 w-5 mr-2" />
+                                                Nova Avaliação
+                                            </Button>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            {evaluations.length > 0 ? (
+                                                evaluations.map((evaluation, index) => (
+                                                    <div key={evaluation._id} className="bg-white border-2 border-gray-200 rounded-2xl p-8 hover:shadow-2xl transition-all hover:border-green-200 group">
+                                                        <div className="flex justify-between items-start">
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-4 mb-4">
+                                                                    <div className="font-bold text-xl text-gray-900 flex items-center gap-3">
+                                                                        <span className="text-2xl">📅</span>
+                                                                        {format(new Date(evaluation.date), 'dd/MM/yyyy')} às {evaluation.time}
+                                                                    </div>
+                                                                    {evaluation.evaluationTypes?.length > 0 && (
+                                                                        <div className="flex gap-2 flex-wrap">
+                                                                            {evaluation.evaluationTypes.map(type => (
+                                                                                <span
+                                                                                    key={type}
+                                                                                    className="px-4 py-2 text-xs font-bold rounded-full bg-gradient-to-r from-green-100 to-cyan-100 text-green-800 border-2 border-green-200 shadow-sm"
+                                                                                >
+                                                                                    {type}
                                                                                 </span>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-base text-gray-600 flex items-center gap-3 font-medium">
+                                                                    <Users size={18} className="text-green-600" />
+                                                                    {evaluation.doctor?.fullName} • {evaluation.doctor?.specialty}
+                                                                </div>
+
+                                                                {showDetails === index && (
+                                                                    <div className="mt-8 space-y-8 pt-8 border-t-2 border-gray-200">
+                                                                        <div>
+                                                                            <h4 className="font-bold text-lg text-gray-900 mb-4 flex items-center gap-2">
+                                                                                <span className="text-xl">📊</span>
+                                                                                Métricas Registradas
+                                                                            </h4>
+                                                                            {evaluation.metrics && evaluation.metrics.length > 0 ? (
+                                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                                                    {evaluation.metrics.map(metric => (
+                                                                                        <div key={metric.name} className="flex justify-between items-center bg-gradient-to-r from-gray-50 to-white p-4 rounded-xl border-2 border-gray-200 shadow-sm hover:shadow-md transition-all">
+                                                                                            <span className="font-semibold text-gray-800">{metric.name}</span>
+                                                                                            <span className="bg-gradient-to-r from-green-500 to-cyan-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-md">
+                                                                                                {metric.value}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            ) : (
+                                                                                <p className="text-gray-500 text-sm italic">Nenhuma métrica registrada</p>
+                                                                            )}
+                                                                        </div>
+
+                                                                        <div>
+                                                                            <h4 className="font-bold text-lg text-gray-900 mb-4 flex items-center gap-2">
+                                                                                <span className="text-xl">📝</span>
+                                                                                Relatório Clínico
+                                                                            </h4>
+                                                                            <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border-2 border-gray-200 shadow-inner">
+                                                                                <p className="text-gray-700 whitespace-pre-wrap leading-relaxed font-light">
+                                                                                    {evaluation.content || 'Nenhum relatório registrado'}
+                                                                                </p>
                                                                             </div>
-                                                                        ))}
+                                                                        </div>
                                                                     </div>
-                                                                ) : (
-                                                                    <p className="text-gray-500 text-sm">Nenhuma métrica registrada</p>
                                                                 )}
                                                             </div>
 
-                                                            <div className="mb-6">
-                                                                <h4 className="font-semibold text-gray-800 mb-3">Relatório Clínico</h4>
-                                                                <div className="bg-white/80 p-4 rounded-lg border border-gray-200">
-                                                                    <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
-                                                                        {evaluation.content || 'Nenhum relatório registrado'}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="flex justify-end">
+                                                            <div className="flex items-center gap-3 ml-6">
                                                                 <Button
                                                                     variant="outline"
                                                                     size="sm"
-                                                                    className="border-teal-200 text-teal-700 hover:bg-teal-50 transition-colors duration-200"
+                                                                    onClick={() => setShowDetails(showDetails === index ? null : index)}
+                                                                    className="text-gray-600 hover:text-green-600 border-2 border-gray-300 hover:border-green-400 rounded-xl p-3 transition-all hover:scale-110"
                                                                 >
-                                                                    <FileText className="h-4 w-4 mr-2" />
-                                                                    Gerar PDF
+                                                                    <ChevronDown className={`h-5 w-5 transition-transform duration-300 ${showDetails === index ? 'rotate-180' : ''}`} />
+                                                                </Button>
+
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    disabled={deletingId === evaluation._id}
+                                                                    onClick={() => handleDeleteEvaluation(evaluation._id)}
+                                                                    className="text-red-600 border-2 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-400 rounded-xl p-3 transition-all hover:scale-110"
+                                                                    title="Excluir avaliação"
+                                                                >
+                                                                    <Trash2 className="h-5 w-5" />
                                                                 </Button>
                                                             </div>
                                                         </div>
-                                                    )}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-center py-20 bg-gradient-to-br from-gray-50 to-white rounded-2xl border-2 border-dashed border-gray-300">
+                                                    <Activity className="h-20 w-20 mx-auto text-gray-300 mb-6" />
+                                                    <p className="text-gray-600 font-bold text-xl mb-2">
+                                                        Nenhuma avaliação registrada
+                                                    </p>
+                                                    <p className="text-gray-400 text-base">
+                                                        Clique em "Nova Avaliação" para começar
+                                                    </p>
                                                 </div>
-                                            ))
-                                        ) : (
-                                            <div className="p-12 text-center">
-                                                <Activity className="h-16 w-16 mx-auto text-gray-300 mb-4" />
-                                                <p className="text-gray-500 font-medium">
-                                                    Nenhuma avaliação registrada para este paciente
-                                                </p>
-                                                <p className="text-gray-400 text-sm mt-2">
-                                                    Clique em "Nova Avaliação" para começar
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
+                                            )}
+                                        </div>
 
-                                    <div className="mt-8">
-                                        <h3 className="font-semibold text-lg text-gray-800 mb-4">
-                                            Análise Gráfica da Evolução
-                                        </h3>
-                                        {chartData ? (
-                                            <div className="bg-white/70 backdrop-blur-sm border border-gray-100 rounded-xl shadow-sm p-6">
-                                                <EvolutionChart chartData={chartData} />
-                                            </div>
-                                        ) : (
-                                            <div className="text-center py-12 bg-white/50 rounded-xl border border-gray-200">
-                                                <Activity className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-                                                <p className="text-gray-500 font-medium">
-                                                    Nenhum dado disponível para exibir gráficos
-                                                </p>
-                                            </div>
-                                        )}
+                                        <div className="mt-10">
+                                            <h3 className="font-bold text-2xl text-gray-900 mb-6 flex items-center gap-3">
+                                                <span className="text-3xl">📈</span>
+                                                Análise Gráfica da Evolução
+                                            </h3>
+                                            {chartData ? (
+                                                <div className="bg-white border-2 border-gray-200 rounded-2xl shadow-xl p-8 hover:shadow-2xl transition-shadow">
+                                                    <EvolutionChart chartData={chartData} />
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-16 bg-gradient-to-br from-gray-50 to-white rounded-2xl border-2 border-dashed border-gray-300">
+                                                    <Activity className="h-16 w-16 mx-auto text-gray-300 mb-6" />
+                                                    <p className="text-gray-600 font-bold text-lg">
+                                                        Nenhum dado disponível para exibir gráficos
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="text-center py-16">
-                                    <Activity className="h-20 w-20 mx-auto text-gray-300 mb-6" />
-                                    <p className="text-gray-500 font-medium text-lg mb-2">
-                                        Selecione um paciente
-                                    </p>
-                                    <p className="text-gray-400">
-                                        Escolha um paciente para visualizar a evolução terapêutica
-                                    </p>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
+                                ) : (
+                                    <div className="text-center py-24 bg-gradient-to-br from-green-50 to-cyan-50 rounded-2xl border-2 border-dashed border-green-200">
+                                        <Activity className="h-24 w-24 mx-auto text-green-300 mb-8" />
+                                        <p className="text-gray-700 font-bold text-2xl mb-3">
+                                            Selecione um paciente
+                                        </p>
+                                        <p className="text-gray-500 text-lg">
+                                            Escolha um paciente para visualizar a evolução terapêutica
+                                        </p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
             </div>
 
             <style jsx>{`
-                .slider-thumb::-webkit-slider-thumb {
-                    appearance: none;
-                    height: 20px;
-                    width: 20px;
-                    border-radius: 50%;
-                    background: #0d9488;
-                    cursor: pointer;
-                    border: 2px solid white;
-                    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-                    transition: all 0.2s ease;
-                }
-                
-                .slider-thumb::-webkit-slider-thumb:hover {
-                    transform: scale(1.1);
-                    background: #0f766e;
-                }
-                
-                .slider-thumb::-moz-range-thumb {
-                    height: 20px;
-                    width: 20px;
-                    border-radius: 50%;
-                    background: #0d9488;
-                    cursor: pointer;
-                    border: 2px solid white;
-                    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-                }
-            `}</style>
+            .slider-thumb::-webkit-slider-thumb {
+                appearance: none;
+                height: 24px;
+                width: 24px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #2563eb 0%, #06b6d4 100%);
+                cursor: pointer;
+                border: 3px solid white;
+                box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+                transition: all 0.3s ease;
+            }
+            
+            .slider-thumb::-webkit-slider-thumb:hover {
+                transform: scale(1.2);
+                box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6);
+            }
+            
+            .slider-thumb::-moz-range-thumb {
+                height: 24px;
+                width: 24px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #2563eb 0%, #06b6d4 100%);
+                cursor: pointer;
+                border: 3px solid white;
+                box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+            }
+            
+            @keyframes fade-in {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            
+            @keyframes zoom-in {
+                from { transform: scale(0.95); }
+                to { transform: scale(1); }
+            }
+            
+            .animate-in {
+                animation: fade-in 0.3s ease-out, zoom-in 0.3s ease-out;
+            }
+        `}</style>
         </>
     );
 }
