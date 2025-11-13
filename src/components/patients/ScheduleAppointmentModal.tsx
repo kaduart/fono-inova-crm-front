@@ -21,7 +21,7 @@ const defaultForm: ScheduleAppointment = {
     date: '',
     time: '',
     sessionType: 'fonoaudiologia',
-    notes: '',
+    notes: null,
     paymentAmount: 0,
     paymentMethod: 'dinheiro',
     status: 'agendado',
@@ -427,7 +427,7 @@ const ScheduleAppointmentModal = ({
                 )}
 
                 {/* Pagamento (para sessão avulsa) */}
-                {(serviceType === 'individual_session' || serviceType === 'evaluation') && (
+                {(serviceType !== 'package_session') && (
                     <div className="bg-green-50 p-4 rounded-lg border border-green-100">
                         <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                             <span className="bg-green-100 p-2 rounded-full">

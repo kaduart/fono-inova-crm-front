@@ -225,6 +225,7 @@ export default function AdminDashboard() {
             date: appointmentData.date,
             time: appointmentData.time,
             serviceType: appointmentData.serviceType,
+            sessionType: appointmentData.serviceType,
             notes: appointmentData.notes,
             paymentAmount: appointmentData.paymentAmount,
             paymentMethod: appointmentData.paymentMethod,
@@ -234,6 +235,7 @@ export default function AdminDashboard() {
             operationalStatus: 'scheduled',
             packageId: appointmentData.packageId
         };
+            console.log('aaaaaaaaaaaaaaaaa',payload)
 
         try {
             await createAppointment(payload);

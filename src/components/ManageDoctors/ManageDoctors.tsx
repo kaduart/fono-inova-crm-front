@@ -140,6 +140,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
     const handleBookingComplete = async (data: ScheduleAppointment) => {
         setIsLoading(true);
         try {
+            console.log('aaaaaaaaaaaaaaaaa',data)
             // 1. Envia para o pai e AGUARDA resposta
             const result = await onNewAppointment(data);
             // 2. Só atualiza após confirmação
