@@ -218,6 +218,8 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
             'evaluation': 'Avaliação',
             'session': 'Sessão do Pacote',
             'package_session': 'Sessão do Pacote',
+            'tongue_tie_test': 'Teste da Linguinha',
+            'neuropsych_evaluation': 'Aval. Neuropsicóliga',
             'individual_session': 'Sessão Avulsa',
             'package': 'Pacote'
         };
