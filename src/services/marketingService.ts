@@ -1,17 +1,50 @@
+// services/marketingService.js
 import API from './api';
 
 const marketingService = {
     getSiteAnalytics: async () => {
-        const res = await API.get('/analytics/events');
-        return res.data;
+        try {
+            const res = await API.get('/marketing/analytics/events');
+            return res.data;
+        } catch (error) {
+            console.error('Erro ao buscar analytics:', error);
+            return [];
+        }
     },
+    
     getGoogleAdsCampaigns: async () => {
-        const res = await API.get('/google-ads/campaigns');
-        return res.data;
+        try {
+            const res = await API.get('/marketing/google-ads/campaigns');
+            return res.data;
+        } catch (error) {
+            console.error('Erro ao buscar campanhas Google Ads:', error);
+            return [];
+        }
     },
+    
     getPerformanceOverTime: async () => {
-        const res = await API.get('/analytics/performance');
-        return res.data;
+        try {
+            const res = await API.get('/marketing/analytics/performance');
+            return res.data;
+        } catch (error) {
+            console.error('Erro ao buscar performance:', error);
+            return { 
+              byStatus: [], 
+              byOrigin: [],
+              byDate: [],
+              summary: { totalLeads: 0, conversionRate: 0, avgResponseTime: "0h" }
+            };
+        }
+    },
+    
+    getMarketingOverview: async () => {
+        try {
+            const res = await API.get('/marketing/overview');
+            return res.data;
+        } catch (error) {
+            console.error('Erro ao buscar overview:', error);
+            return null;
+        }
     }
 };
 

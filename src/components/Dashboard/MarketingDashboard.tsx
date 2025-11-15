@@ -1,7 +1,7 @@
 // src/pages/MarketingDashboard.tsx
 import MarketingOverviewCard from "@/components/Dashboard/MarketingOverviewCard";
 import { useEffect, useState } from "react";
-import { Megaphone, RefreshCw, AlertCircle, Play, BarChart3, Globe, TrendingUp } from "lucide-react";
+import { Megaphone, RefreshCw, AlertCircle, Play, BarChart3, Globe, TrendingUp, Brain } from "lucide-react";
 import marketingService from "../../services/marketingService";
 import AdsCampaignsChart from "./AdsCampaignsChart";
 import AdsCampaignsTable from "./AdsCampaignsTable";
@@ -9,15 +9,17 @@ import KPICards from "./KPICards";
 import PerformanceOverTimeChart from "./PerformanceOverTimeChart";
 import SiteAnalyticsChart from "./SiteAnalyticsChart";
 import SiteAnalyticsTable from "./SiteAnalyticsTable";
+import AmandaInsights from "../mkt/whatsapp/AmandaInsights";
 
 const MarketingDashboard = () => {
   const [adsCampaigns, setAdsCampaigns] = useState([]);
   const [siteAnalytics, setSiteAnalytics] = useState([]);
-  const [performanceData, setPerformanceData] = useState([]);
+  const [performanceData, setPerformanceData] = useState(null);
   const [overviewData, setOverviewData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [debugInfo, setDebugInfo] = useState({});
+  const [activeTab, setActiveTab] = useState('overview');
 
   console.log("Renderizando MarketingDashboard...");
   
@@ -25,22 +27,13 @@ const MarketingDashboard = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        setError(null);
+        
         const [adsData, analyticsData, performanceData, overviewRes] = await Promise.all([
           marketingService.getGoogleAdsCampaigns(),
           marketingService.getSiteAnalytics(),
           marketingService.getPerformanceOverTime(),
-          fetch(import.meta.env.VITE_API_URL + "/marketing/overview")
-            .then(async (res) => {
-              console.log("📡 Status overview:", res.status);
-              if (!res.ok) throw new Error("Erro HTTP " + res.status);
-              const json = await res.json();
-              console.log("📊 Resposta overview:", json);
-              return json;
-            })
-            .catch((err) => {
-              console.error("❌ Erro ao buscar overview:", err);
-              return null;
-            }),
+          marketingService.getMarketingOverview()
         ]);
 
         console.log("Dados recebidos:", {
@@ -50,23 +43,28 @@ const MarketingDashboard = () => {
           overviewRes,
         });
 
-        setAdsCampaigns(adsData);
-        setSiteAnalytics(analyticsData);
-        setPerformanceData(performanceData);
-        console.log("Visão Geral (GA4 + Followup):", overviewRes);
-        if (overviewRes?.data) setOverviewData(overviewRes.data);
+        setAdsCampaigns(adsData || []);
+        setSiteAnalytics(analyticsData || []);
+        setPerformanceData(performanceData || null);
+        
+        if (overviewRes?.success) {
+          setOverviewData(overviewRes.data);
+        } else if (overviewRes?.data) {
+          // Fallback para estrutura alternativa
+          setOverviewData(overviewRes.data);
+        }
 
         // Coletar informações para debug
         setDebugInfo({
           adsCount: Array.isArray(adsData) ? adsData.length : 0,
           analyticsCount: Array.isArray(analyticsData) ? analyticsData.length : 0,
           performanceType: performanceData ? typeof performanceData : "null",
-          overviewLoaded: overviewRes?.success ? "ok" : "fail",
+          overviewLoaded: overviewRes?.success ? "ok" : overviewRes?.data ? "alternative" : "fail",
           timestamp: new Date().toISOString(),
         });
       } catch (err) {
-        setError("Erro ao carregar dados de marketing.");
         console.error("Erro detalhado:", err);
+        setError("Erro ao carregar dados de marketing.");
       } finally {
         setLoading(false);
       }
@@ -84,12 +82,18 @@ const MarketingDashboard = () => {
           marketingService.getGoogleAdsCampaigns(),
           marketingService.getSiteAnalytics(),
           marketingService.getPerformanceOverTime(),
-          fetch("/api/marketing/overview").then((res) => res.json()).catch(() => null),
+          marketingService.getMarketingOverview()
         ]);
-        setAdsCampaigns(adsData);
-        setSiteAnalytics(analyticsData);
-        setPerformanceData(performanceData);
-        if (overviewRes?.data) setOverviewData(overviewRes.data);
+        
+        setAdsCampaigns(adsData || []);
+        setSiteAnalytics(analyticsData || []);
+        setPerformanceData(performanceData || null);
+        
+        if (overviewRes?.success) {
+          setOverviewData(overviewRes.data);
+        } else if (overviewRes?.data) {
+          setOverviewData(overviewRes.data);
+        }
       } catch (err) {
         setError("Erro ao carregar dados de marketing.");
         console.error(err);
@@ -108,6 +112,7 @@ const MarketingDashboard = () => {
         { name: "Google Ads", call: marketingService.getGoogleAdsCampaigns },
         { name: "Site Analytics", call: marketingService.getSiteAnalytics },
         { name: "Performance", call: marketingService.getPerformanceOverTime },
+        { name: "Overview", call: marketingService.getMarketingOverview }
       ];
 
       for (const endpoint of endpoints) {
@@ -118,10 +123,6 @@ const MarketingDashboard = () => {
           console.error(`Erro em ${endpoint.name}:`, e);
         }
       }
-
-      // ✅ Teste manual do novo endpoint
-      const overviewRes = await fetch("/api/marketing/overview").then((r) => r.json());
-      console.log("Visão Geral (GA4 + Followup):", overviewRes);
     } catch (err) {
       console.error("Erro no teste de endpoints:", err);
     }
@@ -135,7 +136,6 @@ const MarketingDashboard = () => {
     return (
       <div className="min-h-screen bg-slate-50/30 p-6">
         <div className="max-w-7xl mx-auto">
-          {/* Cabeçalho elegante */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20">
@@ -148,7 +148,6 @@ const MarketingDashboard = () => {
             </div>
           </div>
           
-          {/* Loading skeleton */}
           <div className="flex justify-center items-center py-16">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
@@ -164,7 +163,6 @@ const MarketingDashboard = () => {
     return (
       <div className="min-h-screen bg-slate-50/30 p-6">
         <div className="max-w-7xl mx-auto">
-          {/* Cabeçalho elegante */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20">
@@ -177,7 +175,6 @@ const MarketingDashboard = () => {
             </div>
           </div>
 
-          {/* Mensagem de erro elegante */}
           <div className="bg-white rounded-2xl shadow-sm border border-red-200 p-6 text-center">
             <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertCircle size={32} className="text-red-500" />
@@ -210,18 +207,18 @@ const MarketingDashboard = () => {
   // VERIFICAÇÃO DE DADOS
   // ==============================
 
-  const allDataEmpty =
-    (!adsCampaigns || adsCampaigns.length === 0) &&
-    (!siteAnalytics || siteAnalytics.length === 0) &&
-    (!performanceData ||
-      (performanceData.byStatus && performanceData.byStatus.length === 0) &&
-      (performanceData.byOrigin && performanceData.byOrigin.length === 0));
+  const hasAdsData = adsCampaigns && adsCampaigns.length > 0;
+  const hasAnalyticsData = siteAnalytics && siteAnalytics.length > 0;
+  const hasPerformanceData = performanceData && 
+    ((performanceData.byStatus && performanceData.byStatus.length > 0) || 
+     (performanceData.byOrigin && performanceData.byOrigin.length > 0));
+  
+  const allDataEmpty = !hasAdsData && !hasAnalyticsData && !hasPerformanceData;
 
   if (allDataEmpty) {
     return (
       <div className="min-h-screen bg-slate-50/30 p-6">
         <div className="max-w-7xl mx-auto">
-          {/* Cabeçalho elegante */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20">
@@ -234,7 +231,6 @@ const MarketingDashboard = () => {
             </div>
           </div>
 
-          {/* Alerta elegante */}
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-6">
             <div className="flex items-start gap-3">
               <AlertCircle size={20} className="text-amber-600 mt-0.5 flex-shrink-0" />
@@ -252,7 +248,6 @@ const MarketingDashboard = () => {
             </div>
           </div>
 
-          {/* Painéis de debug e ações */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
               <h3 className="text-lg font-semibold text-slate-800 mb-4">Informações de Debug</h3>
@@ -294,13 +289,12 @@ const MarketingDashboard = () => {
   }
 
   // ==============================
-  // RENDER FINAL
+  // RENDER COM ABAS
   // ==============================
 
   return (
     <div className="min-h-screen bg-slate-50/30 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header elegante */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-center gap-4">
@@ -322,113 +316,157 @@ const MarketingDashboard = () => {
               Atualizar
             </button>
           </div>
+
+          {/* Abas */}
+          <div className="mt-6 border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                  activeTab === 'overview'
+                    ? 'border-purple-500 text-purple-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <BarChart3 className="w-4 h-4 inline mr-2" />
+                Visão Geral
+              </button>
+              <button
+                onClick={() => setActiveTab('analytics')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                  activeTab === 'analytics'
+                    ? 'border-purple-500 text-purple-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <TrendingUp className="w-4 h-4 inline mr-2" />
+                Analytics Detalhado
+              </button>
+              <button
+                onClick={() => setActiveTab('insights')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                  activeTab === 'insights'
+                    ? 'border-purple-500 text-purple-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <Brain className="w-4 h-4 inline mr-2" />
+                Insights da Amanda
+              </button>
+            </nav>
+          </div>
         </div>
 
-        {/* ✅ Novo card de visão geral global (GA4 + Followup) */}
-        {overviewData && (
-          <div className="mb-8">
-            <MarketingOverviewCard data={overviewData} />
-          </div>
+        {/* Conteúdo das Abas */}
+        {activeTab === 'overview' && (
+          <>
+            {overviewData && (
+              <div className="mb-8">
+                <MarketingOverviewCard data={overviewData} />
+              </div>
+            )}
+
+            {(hasAdsData || hasAnalyticsData) ? (
+              <KPICards adsData={adsCampaigns} analyticsData={siteAnalytics} />
+            ) : (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-6">
+                <div className="flex items-center gap-3">
+                  <AlertCircle size={18} className="text-amber-600 flex-shrink-0" />
+                  <p className="text-amber-700 text-sm">
+                    Dados insuficientes para mostrar KPIs. Verifique se há campanhas ativas.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              {hasAdsData && (
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-all duration-200">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                      <TrendingUp size={20} className="text-blue-600" />
+                    </div>
+                    <div>
+                      <h2 className="font-semibold text-slate-800 text-lg">Campanhas Google Ads</h2>
+                      <p className="text-sm text-slate-500">Performance das campanhas ativas</p>
+                    </div>
+                  </div>
+                  <AdsCampaignsChart data={adsCampaigns} />
+                </div>
+              )}
+
+              {hasAnalyticsData && (
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-all duration-200">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-green-500/10 rounded-xl border border-green-500/20">
+                      <Globe size={20} className="text-green-600" />
+                    </div>
+                    <div>
+                      <h2 className="font-semibold text-slate-800 text-lg">Analytics do Site</h2>
+                      <p className="text-sm text-slate-500">Métricas de tráfego e engajamento</p>
+                    </div>
+                  </div>
+                  <SiteAnalyticsChart data={siteAnalytics} />
+                </div>
+              )}
+            </div>
+          </>
         )}
 
-        {/* KPI Cards */}
-        {(adsCampaigns?.length || siteAnalytics?.length) ? (
-          <KPICards adsData={adsCampaigns} analyticsData={siteAnalytics} />
-        ) : (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-6">
-            <div className="flex items-center gap-3">
-              <AlertCircle size={18} className="text-amber-600 flex-shrink-0" />
-              <p className="text-amber-700 text-sm">
-                Dados insuficientes para mostrar KPIs. Verifique se há campanhas ativas.
-              </p>
+        {activeTab === 'analytics' && (
+          <>
+            {hasPerformanceData && (
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6 hover:shadow-md transition-all duration-200">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-purple-500/10 rounded-xl border border-purple-500/20">
+                    <BarChart3 size={20} className="text-purple-600" />
+                  </div>
+                  <div>
+                    <h2 className="font-semibold text-slate-800 text-lg">Performance ao Longo do Tempo</h2>
+                    <p className="text-sm text-slate-500">Evolução temporal das métricas</p>
+                  </div>
+                </div>
+                <PerformanceOverTimeChart data={performanceData} />
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-6">
+              {hasAdsData && (
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-all duration-200">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                      <TrendingUp size={20} className="text-blue-600" />
+                    </div>
+                    <div>
+                      <h2 className="font-semibold text-slate-800 text-lg">Detalhes das Campanhas</h2>
+                      <p className="text-sm text-slate-500">Análise detalhada por campanha</p>
+                    </div>
+                  </div>
+                  <AdsCampaignsTable data={adsCampaigns} />
+                </div>
+              )}
+
+              {hasAnalyticsData && (
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-all duration-200">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-green-500/10 rounded-xl border border-green-500/20">
+                      <Globe size={20} className="text-green-600" />
+                    </div>
+                    <div>
+                      <h2 className="font-semibold text-slate-800 text-lg">Detalhes dos Eventos</h2>
+                      <p className="text-sm text-slate-500">Eventos e conversões do site</p>
+                    </div>
+                  </div>
+                  <SiteAnalyticsTable data={siteAnalytics} />
+                </div>
+              )}
             </div>
-          </div>
+          </>
         )}
 
-        {/* Grid de Gráficos */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Google Ads */}
-          {adsCampaigns?.length ? (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-all duration-200">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/20">
-                  <TrendingUp size={20} className="text-blue-600" />
-                </div>
-                <div>
-                  <h2 className="font-semibold text-slate-800 text-lg">Campanhas Google Ads</h2>
-                  <p className="text-sm text-slate-500">Performance das campanhas ativas</p>
-                </div>
-              </div>
-              <AdsCampaignsChart data={adsCampaigns} />
-            </div>
-          ) : null}
-
-          {/* Site Analytics */}
-          {siteAnalytics?.length ? (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-all duration-200">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-green-500/10 rounded-xl border border-green-500/20">
-                  <Globe size={20} className="text-green-600" />
-                </div>
-                <div>
-                  <h2 className="font-semibold text-slate-800 text-lg">Analytics do Site</h2>
-                  <p className="text-sm text-slate-500">Métricas de tráfego e engajamento</p>
-                </div>
-              </div>
-              <SiteAnalyticsChart data={siteAnalytics} />
-            </div>
-          ) : null}
-        </div>
-
-        {/* Performance Over Time */}
-        {performanceData &&
-          ((performanceData.byStatus?.length || performanceData.byOrigin?.length) ? (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6 hover:shadow-md transition-all duration-200">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-purple-500/10 rounded-xl border border-purple-500/20">
-                  <BarChart3 size={20} className="text-purple-600" />
-                </div>
-                <div>
-                  <h2 className="font-semibold text-slate-800 text-lg">Performance ao Longo do Tempo</h2>
-                  <p className="text-sm text-slate-500">Evolução temporal das métricas</p>
-                </div>
-              </div>
-              <PerformanceOverTimeChart data={performanceData} />
-            </div>
-          ) : null)}
-
-        {/* Tabelas Detalhadas */}
-        <div className="grid grid-cols-1 gap-6">
-          {adsCampaigns?.length ? (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-all duration-200">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/20">
-                  <TrendingUp size={20} className="text-blue-600" />
-                </div>
-                <div>
-                  <h2 className="font-semibold text-slate-800 text-lg">Detalhes das Campanhas</h2>
-                  <p className="text-sm text-slate-500">Análise detalhada por campanha</p>
-                </div>
-              </div>
-              <AdsCampaignsTable data={adsCampaigns} />
-            </div>
-          ) : null}
-
-          {siteAnalytics?.length ? (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-all duration-200">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-green-500/10 rounded-xl border border-green-500/20">
-                  <Globe size={20} className="text-green-600" />
-                </div>
-                <div>
-                  <h2 className="font-semibold text-slate-800 text-lg">Detalhes dos Eventos</h2>
-                  <p className="text-sm text-slate-500">Eventos e conversões do site</p>
-                </div>
-              </div>
-              <SiteAnalyticsTable data={siteAnalytics} />
-            </div>
-          ) : null}
-        </div>
+        {activeTab === 'insights' && (
+          <AmandaInsights />
+        )}
       </div>
     </div>
   );

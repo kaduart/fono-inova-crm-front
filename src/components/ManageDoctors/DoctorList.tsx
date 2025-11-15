@@ -12,7 +12,7 @@ const formatPhoneNumber = (phone) => {
 
 const DoctorCard = ({ doctor, onEdit, onViewAgenda }: DoctorCardProps) => {
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all hover:shadow-md">
+        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl shadow-sm border border-gray-200 overflow-hidden transition-all hover:shadow-md">
             {/* Cabeçalho */}
             <div className="p-6 pb-4">
                 <div className="flex items-center gap-4 mb-6">
@@ -33,7 +33,7 @@ const DoctorCard = ({ doctor, onEdit, onViewAgenda }: DoctorCardProps) => {
             {/* Corpo - Informações */}
             <div className="px-6 pb-6 space-y-4">
                 {/* E-mail */}
-                <div className="flex items-start gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div className="flex items-start gap-4 p-3 bg-white/70 backdrop-blur-sm rounded-lg hover:bg-white/90 transition-colors border border-white/50">
                     <div className="p-2 bg-white rounded-lg shadow-xs flex-shrink-0">
                         <Mail className="text-gray-500" size={18} />
                     </div>
@@ -49,7 +49,7 @@ const DoctorCard = ({ doctor, onEdit, onViewAgenda }: DoctorCardProps) => {
                 </div>
 
                 {/* Telefone */}
-                <div className="flex items-start gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div className="flex items-start gap-4 p-3 bg-white/70 backdrop-blur-sm rounded-lg hover:bg-white/90 transition-colors border border-white/50">
                     <div className="p-2 bg-white rounded-lg shadow-xs flex-shrink-0">
                         <Phone className="text-gray-500" size={18} />
                     </div>
@@ -65,7 +65,7 @@ const DoctorCard = ({ doctor, onEdit, onViewAgenda }: DoctorCardProps) => {
                 </div>
 
                 {/* Registro */}
-                <div className="flex items-start gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div className="flex items-start gap-4 p-3 bg-white/70 backdrop-blur-sm rounded-lg hover:bg-white/90 transition-colors border border-white/50">
                     <div className="p-2 bg-white rounded-lg shadow-xs flex-shrink-0">
                         <ClipboardList className="text-gray-500" size={18} />
                     </div>
@@ -83,7 +83,7 @@ const DoctorCard = ({ doctor, onEdit, onViewAgenda }: DoctorCardProps) => {
                 <div className="flex gap-3">
                     <button
                         onClick={() => onEdit(doctor)}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg transition-colors font-medium"
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white/80 hover:bg-white text-gray-700 rounded-lg transition-colors font-medium border border-white/50"
                     >
                         <Pencil size={16} />
                         Editar
@@ -92,7 +92,7 @@ const DoctorCard = ({ doctor, onEdit, onViewAgenda }: DoctorCardProps) => {
                     {onViewAgenda && (
                         <button
                             onClick={() => onViewAgenda(doctor)}
-                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors font-medium"
+                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors font-medium border border-emerald-100"
                         >
                             <Calendar size={16} />
                             Ver Agenda
@@ -125,7 +125,7 @@ const DoctorList = ({ doctors, onEdit, onViewAgenda }: DoctorListProps) => {
 
     if (!doctors.length) {
         return (
-            <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg shadow-sm p-8 text-center border border-gray-200">
                 <User className="mx-auto text-gray-400" size={48} />
                 <h3 className="mt-4 text-lg font-medium text-gray-900">
                     Nenhum profissional cadastrado
