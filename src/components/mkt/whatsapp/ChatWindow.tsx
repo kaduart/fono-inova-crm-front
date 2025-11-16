@@ -33,9 +33,10 @@ interface ChatWindowProps {
     contact: Contact | null;
     sendMessage: (phone: string, text: string) => Promise<void>;
     className?: string;
+    leadId?: string; 
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className, leadId }) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [draft, setDraft] = useState('');
     const [loading, setLoading] = useState(false);
@@ -207,53 +208,71 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
     }, [contact?.phone]);
 
     // 📨 Envio de mensagem aprimorado
-    const handleSend = async () => {
-        if (!draft.trim() || !contact || sending) return;
+   const handleSend = async () => {
+    if (!draft.trim() || !contact || sending) return;
 
-        const tempId = uid("temp");
-        const optimistic: Message = {
-            id: tempId,
-            text: draft,
-            timestamp: new Date(),
-            status: "sent",
-            fromMe: true,
-            type: "text",
-            caption: "",
-        };
-
-        setSending(true);
-        setMessages(prev => {
-            seenIdsRef.current.add(tempId);
-            return [...prev, optimistic];
-        });
-
-        const messageText = draft;
-        setDraft("");
-
-        try {
-            // ⬇️ PRECISA devolver { messageId } do back
-            const resp = await sendWhatsAppText(contact.phone, messageText);
-            const realId = String(resp?.messageId || `out-${Date.now()}`);
-
-            setMessages(prev =>
-                prev.map(m => (m.id === tempId ? { ...m, id: realId, status: "delivered" } : m))
-            );
-
-            seenIdsRef.current.delete(tempId);
-            seenIdsRef.current.add(realId);
-        } catch (err) {
-            console.error("❌ Erro ao enviar mensagem:", err);
-            setError("Erro ao enviar mensagem");
-
-            setMessages(prev =>
-                prev.map(m => (m.id === tempId ? { ...m, status: "sent" } : m))
-            );
-        } finally {
-            setSending(false);
-            inputRef.current?.focus();
-        }
+    const tempId = uid("temp");
+    const optimistic: Message = {
+        id: tempId,
+        text: draft,
+        timestamp: new Date(),
+        status: "sent",
+        fromMe: true,
+        type: "text",
+        caption: "",
     };
 
+    setSending(true);
+    setMessages(prev => {
+        seenIdsRef.current.add(tempId);
+        return [...prev, optimistic];
+    });
+
+    const messageText = draft;
+    setDraft("");
+
+    try {
+        // 🆕 ENVIA VIA ROTA MANUAL (ativa controle e pausa Amanda)
+        const res = await fetch('/api/whatsapp/send-manual', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                leadId: contact.id, // ou leadId se vier como prop
+                text: messageText,
+                userId: localStorage.getItem('userId') || 'admin'
+            })
+        });
+
+        const data = await res.json();
+
+        if (!data.success) {
+            throw new Error(data.message || 'Erro ao enviar');
+        }
+
+        const realId = data.messageId || `out-${Date.now()}`;
+
+        // Atualiza mensagem otimista
+        setMessages(prev =>
+            prev.map(m => (m.id === tempId ? { ...m, id: realId, status: "delivered" } : m))
+        );
+
+        seenIdsRef.current.delete(tempId);
+        seenIdsRef.current.add(realId);
+
+        console.log('✅ Mensagem manual enviada - Amanda pausada');
+
+    } catch (err: any) {
+        console.error("❌ Erro ao enviar:", err);
+        setError(err.message || "Erro ao enviar mensagem");
+
+        setMessages(prev =>
+            prev.map(m => (m.id === tempId ? { ...m, status: "sent" } : m))
+        );
+    } finally {
+        setSending(false);
+        inputRef.current?.focus();
+    }
+};
 
     // 🔄 Auto-scroll para novas mensagens
     useEffect(() => {

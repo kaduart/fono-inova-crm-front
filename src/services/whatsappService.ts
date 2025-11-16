@@ -79,6 +79,41 @@ export async function sendWhatsAppText(phone: string, text: string) {
     return res.data;
 }
 
+export async function sendManualWhatsAppText(
+    phone: string,
+    text: string,
+    leadId?: string
+): Promise<any> {
+    try {
+        const normalizedPhone = normalizeE164BR(phone);
+
+        const response = await fetch('/api/whatsapp/send-manual', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                leadId,
+                text,
+                userId: localStorage.getItem('userId') || 'admin'
+            })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+            throw new Error(data.message || 'Erro ao enviar mensagem');
+        }
+
+        return data;
+
+    } catch (error) {
+        console.error('❌ Erro ao enviar mensagem manual:', error);
+        throw error;
+    }
+}
+
+
 // ========================================================
 // 🧩 TEMPLATES E TOKEN META
 // ========================================================
