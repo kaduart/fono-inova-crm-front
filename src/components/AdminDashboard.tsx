@@ -3,9 +3,7 @@ import { BarChart3 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ErrorResponse, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { useAppointmentsContext } from '../contexts/AppointmentsContext';
 import { useAdmin } from '../hooks/useAdmin';
-import { useAppointments } from '../hooks/useAppointments';
 import useDoctorDashboard from '../hooks/useDoctorDashboard';
 import { usePatients } from '../hooks/usePatients';
 import usePayment from '../hooks/usePayment';
@@ -27,6 +25,7 @@ import DoctorFormModal from './ManageDoctors/DoctorFormModal';
 import ManageDoctors from './ManageDoctors/ManageDoctors';
 import AppChat from './mkt/whatsapp/AppChat';
 import { PatientModal } from './patients/PatientModal';
+import { useAppointmentsContext } from '../contexts/AppointmentsContext';
 
 const initialPatientState: IPatient = {
     fullName: '',
@@ -126,10 +125,20 @@ export default function AdminDashboard() {
     const theme = useTheme();
 
     const { patients, totalPatients, patientOverview, fetchPatients, updatePatient, createPatient } = usePatients();
-    const { createAppointment, updateAppointment, completeAppointment, cancelAppointment, getAvailableSlots } = useAppointments();
     const { doctors, createDoctor, updateDoctor } = useDoctorDashboard();
     const { adminInfo, editedInfo, setEditedInfo, completedAppointments, loading, fetchAdminProfile, fetchCompletedAppointments, updateAdminProfile, addNewAdmin } = useAdmin();
-    const { appointments, fetchAppointments } = useAppointmentsContext();
+
+
+    const {
+        appointments,
+        fetchAppointments,
+        createAppointment,
+        updateAppointment,
+        completeAppointment,
+        cancelAppointment,
+        getAvailableSlots,
+    } = useAppointmentsContext();
+
 
     const { markAsPaid } = usePayment();
 
@@ -235,7 +244,6 @@ export default function AdminDashboard() {
             operationalStatus: 'scheduled',
             packageId: appointmentData.packageId
         };
-            console.log('aaaaaaaaaaaaaaaaa',payload)
 
         try {
             await createAppointment(payload);

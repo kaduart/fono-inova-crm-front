@@ -4,6 +4,7 @@ import { IDoctors, IPatient, THERAPY_TYPES } from '../../utils/types/types';
 import InputCurrency from '../ui/InputCurrency';
 import { Label } from '../ui/Label';
 import { Select } from '../ui/Select';
+import Input from "../ui/Input";
 
 interface AddSessionFormProps {
     patient: IPatient;
@@ -44,17 +45,17 @@ export function AddSessionForm({ onSubmit, onClose, patient, doctors }: AddSessi
 
     const handleSubmit = () => {
         // Validação dos campos obrigatórios (paymentMethod NÃO é mais obrigatório)
-        if (!session.date || !session.time || !session.professional ) {
+        if (!session.date || !session.time || !session.professional) {
             alert('Por favor, preencha todos os campos obrigatórios.');
             return;
         }
 
-  /*       const formattedValue = removeCurrencyMask(session.value);
-
-        if (isNaN(formattedValue)) {
-            alert('O valor da sessão é inválido.');
-            return;
-        } */
+        /*       const formattedValue = removeCurrencyMask(session.value);
+      
+              if (isNaN(formattedValue)) {
+                  alert('O valor da sessão é inválido.');
+                  return;
+              } */
 
         // Encontrar o médico selecionado para pegar a especialidade
         const selectedDoctor = doctors.find(doctor => doctor._id === session.professional);
@@ -120,8 +121,9 @@ export function AddSessionForm({ onSubmit, onClose, patient, doctors }: AddSessi
                         <Clock className="w-4 h-4 inline mr-2" />
                         Horário da Sessão *
                     </Label>
-                    <input
+                    <Input
                         type="time"
+                        id="time"
                         name="time"
                         value={session.time}
                         onChange={handleChange}

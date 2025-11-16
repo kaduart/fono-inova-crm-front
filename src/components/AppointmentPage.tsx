@@ -1,23 +1,34 @@
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, TextField } from '@mui/material';
 import React, { useEffect, useState } from 'react';
-import { Appointment } from '../hooks/useTempAppointments';
+import { Appointment } from '../utils/types';
 
 type ScheduleModalProps = {
     open: boolean;
     mode: 'create' | 'edit';
-    initialData: Appointment;
+    initialData: Appointment | null;
     onSave: (data: Appointment) => void;
     onClose: () => void;
 };
 
+const EMPTY_APPOINTMENT: Appointment = {
+    doctor: '',
+    dataHora: '',
+    sessionType: '',
+    status: 'scheduled',
+    reason: '',
+    anotacoes: ''
+};
+
 const ScheduleModal: React.FC<ScheduleModalProps> = ({ open, mode, initialData, onSave, onClose }) => {
-    const [formState, setFormState] = useState<Appointment>(initialData);
+    const [formState, setFormState] = useState<Appointment>(
+        initialData ?? EMPTY_APPOINTMENT   // 👈 nunca começa como null
+    );
     const [errors, setErrors] = useState<Partial<Record<keyof Appointment, string>>>({});
 
     useEffect(() => {
-        setFormState(initialData);
+        setFormState(initialData ?? EMPTY_APPOINTMENT); // 👈 sempre normaliza
         setErrors({});
-    }, [initialData]);
+    }, [initialData, open]);
 
     const handleChange = (field: keyof Appointment) => (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | { value: unknown }>
@@ -42,7 +53,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({ open, mode, initialData, 
         if (!validate()) return;
         onSave(formState);
     };
-
+    console.log('´ssssssssssssssss´', formState)
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
             <DialogTitle>{mode === 'edit' ? 'Editar Agendamento' : 'Novo Agendamento'}</DialogTitle>
@@ -51,7 +62,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({ open, mode, initialData, 
                     <Box display="flex" flexDirection="column" gap={2} mt={1}>
                         <TextField
                             label="doctor"
-                            value={formState.doctor}
+                            value={formState?.doctor}
                             onChange={handleChange('doctor')}
                             error={!!errors.doctor}
                             helperText={errors.doctor}
