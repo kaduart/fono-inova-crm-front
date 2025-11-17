@@ -36,6 +36,7 @@ import TimelineModal from "../components/mkt/leads/TimelineModal";
 import { Button } from "../components/ui/Button";
 import Skeleton from "../components/ui/Skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/Tabs";
+import { WhatsAppDiagnostic } from '../pages/Settings/WhatsAppDiagnostic'; // ⬅️ ADICIONAR
 
 /** -------- Modal completo de "Novo Lead" -------- */
 type NewLeadPayload = {
@@ -427,6 +428,14 @@ const FollowupPage = () => {
             <TrendingUp size={16} />
             Marketing
           </TabsTrigger>
+
+          <TabsTrigger
+            value="diagnostic"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 data-[state=active]:bg-orange-500 data-[state=active]:text-white"
+          >
+            <RefreshCw size={16} />
+            Diagnóstico
+          </TabsTrigger>
         </TabsList>
 
         {/* ABA TIMELINE */}
@@ -498,10 +507,10 @@ const FollowupPage = () => {
                           value={lead.status}
                           onChange={(e) => handleStatusUpdate(lead._id, e.target.value)}
                           className={`text-xs font-medium px-2 py-1 rounded-full border-0 focus:ring-2 focus:ring-emerald-500 ${lead.status === 'novo' ? 'bg-blue-100 text-blue-800' :
-                              lead.status === 'em_andamento' ? 'bg-yellow-100 text-yellow-800' :
-                                lead.status === 'virou_paciente' ? 'bg-green-100 text-green-800' :
-                                  lead.status === 'lead_frio' ? 'bg-gray-100 text-gray-800' :
-                                    'bg-slate-100 text-slate-800'
+                            lead.status === 'em_andamento' ? 'bg-yellow-100 text-yellow-800' :
+                              lead.status === 'virou_paciente' ? 'bg-green-100 text-green-800' :
+                                lead.status === 'lead_frio' ? 'bg-gray-100 text-gray-800' :
+                                  'bg-slate-100 text-slate-800'
                             }`}
                         >
                           <option value="novo">Novo</option>
@@ -530,8 +539,8 @@ const FollowupPage = () => {
                           onClick={() => openLeadTimeline(lead)}
                           disabled={showTimelineModal && selectedLead?._id === lead._id}
                           className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${showTimelineModal && selectedLead?._id === lead._id
-                              ? "bg-slate-100 text-slate-600 cursor-not-allowed"
-                              : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg hover:shadow-xl"
+                            ? "bg-slate-100 text-slate-600 cursor-not-allowed"
+                            : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg hover:shadow-xl"
                             }`}
                         >
                           {showTimelineModal && selectedLead?._id === lead._id ? "Aberto" : "Abrir Timeline"}
@@ -567,6 +576,10 @@ const FollowupPage = () => {
         {/* ABA MARKETING */}
         <TabsContent value="marketing">
           <MarketingDashboard />
+        </TabsContent>
+
+        <TabsContent value="diagnostic">
+          <WhatsAppDiagnostic />
         </TabsContent>
       </Tabs>
 
