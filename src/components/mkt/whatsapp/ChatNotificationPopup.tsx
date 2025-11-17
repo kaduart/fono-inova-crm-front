@@ -2,12 +2,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import { MessageCircle, X } from "lucide-react";
 import { useEffect } from "react";
 import notifySound from "../../../assets/notify1.wav";
+import { useChatNavigation } from "../../../contexts/ChatNavigationContext";
 import { useNotification } from "../../../contexts/NotificationContext";
 
 export const ChatNotificationPopup = () => {
     const { chatNotification, closeChatNotification } = useNotification();
+    const { setPendingContactPhone, setShouldOpenMessagesTab } = useChatNavigation();
 
-    // ✅ CORREÇÃO: useEffect SEMPRE no top nível, ANTES de qualquer condicional
     useEffect(() => {
         if (chatNotification) {
             const audio = new Audio(notifySound);
@@ -15,8 +16,20 @@ export const ChatNotificationPopup = () => {
         }
     }, [chatNotification]);
 
-    // ✅ Condicional de renderização DEPOIS de todos os Hooks
     if (!chatNotification) return null;
+
+    const handleOpenChat = () => {
+        console.log('🔔 ChatNotificationPopup: Abrindo chat para', chatNotification.from);
+
+        // ✅ Marca o telefone pendente
+        setPendingContactPhone(chatNotification.from);
+
+        // ✅ Sinaliza que deve abrir a aba Mensagens
+        setShouldOpenMessagesTab(true);
+
+        // ✅ Fecha a notificação
+        closeChatNotification();
+    };
 
     return (
         <AnimatePresence>
@@ -38,7 +51,7 @@ export const ChatNotificationPopup = () => {
                                     Nova mensagem no WhatsApp 💚
                                 </h3>
                                 <p className="text-sm text-gray-600 truncate">
-                                    {chatNotification.from}
+                                    {chatNotification.contactName || chatNotification.from}
                                 </p>
                             </div>
                         </div>
@@ -51,17 +64,14 @@ export const ChatNotificationPopup = () => {
                     </div>
 
                     {chatNotification.text && (
-                        <p className="mt-3 text-sm italic text-gray-600">
-                            “{chatNotification.text}”
+                        <p className="mt-3 text-sm italic text-gray-600 line-clamp-2">
+                            "{chatNotification.text}"
                         </p>
                     )}
 
                     <div className="mt-4 flex justify-end">
                         <button
-                            onClick={() => {
-                                // 🔜 aqui você pode abrir o painel de conversa no futuro
-                                closeChatNotification();
-                            }}
+                            onClick={handleOpenChat}
                             className="text-sm text-white bg-emerald-500 hover:bg-emerald-600 py-2 px-4 rounded-lg transition"
                         >
                             Ver conversa

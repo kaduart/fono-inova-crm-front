@@ -2,8 +2,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FiMic, FiPaperclip, FiRefreshCw, FiSend, FiUser } from 'react-icons/fi';
 import { IoCheckmark, IoCheckmarkDone, IoTime } from 'react-icons/io5';
-import { useNotification } from '../../../contexts/NotificationContext';
-import { getChatMessages, sendWhatsAppText } from '../../../services/whatsappService';
+import { getChatMessages } from '../../../services/whatsappService';
 import { normalizeE164BR } from '../../../utils/phone';
 import { uid } from '../../../utils/uid';
 import { LoadingSpinner } from '../../ui/LoadingSpinner';
@@ -36,6 +35,18 @@ interface ChatWindowProps {
     leadId?: string;
 }
 
+// ✅ Mover função helper para FORA do componente
+function pickMsgId(src: any) {
+    const raw =
+        src?.id ||
+        src?._id ||
+        src?.messageId ||
+        `${src?.direction || "in"}-${src?.timestamp || ""}-${src?.from || ""}-${src?.to || ""}-${src?.type || "text"}-${src?.text || src?.content || src?.caption || ""}`.slice(0, 80);
+
+    const base = String(raw && raw.length ? raw : uid("m"));
+    return base.startsWith("m-") ? base : `m-${base}`;
+}
+
 const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className, leadId }) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [draft, setDraft] = useState('');
@@ -46,25 +57,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
     const inputRef = useRef<HTMLInputElement>(null);
     const seenIdsRef = useRef<Set<string>>(new Set());
 
-    const {
-        chatNotification,
-        mediaNotification,
-        closeChatNotification,
-        closeMediaNotification,
-    } = useNotification();
-
-
-    // 🔄 DEBUG: Monitorar todas as notificações
-    useEffect(() => {
-        console.log('🔔 ChatWindow - Notificações recebidas:', {
-            chatNotification,
-            mediaNotification,
-            contactAtual: contact?.name
-        });
-    }, [chatNotification, mediaNotification, contact]);
-
-
-    // 📨 Carrega histórico
+    // 📨 Carrega histórico - Função estável que não muda
     const loadMessages = useCallback(async (phone: string) => {
         if (!phone) return;
 
@@ -89,7 +82,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
 
             console.log(`📨 ${msgs.length} mensagens carregadas`);
 
-            const formatted = msgs.map((m: any, index: number) => {
+            const formatted = msgs.map((m: any) => {
                 let fromMe = false;
                 if (m.direction === 'outbound' || m.fromMe === true || m.type === 'outgoing') {
                     fromMe = true;
@@ -133,6 +126,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                 seenLocal.add(m.id);
                 unique.push(m);
             }
+
             setMessages(unique);
             seenIdsRef.current = new Set(unique.map(m => m.id));
 
@@ -142,24 +136,25 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, []); // ✅ Array vazio - função nunca muda
 
     // 🔄 Efeito principal para troca de contato
     useEffect(() => {
         if (!contact?.phone) {
             setMessages([]);
-            (window as any).activeChatPhone = null; // ⬅️ limpa
+            (window as any).activeChatPhone = null;
             return;
         }
-        (window as any).activeChatPhone = normalizeE164BR(contact.phone); // ⬅️ marca chat aberto
+
+        (window as any).activeChatPhone = normalizeE164BR(contact.phone);
         loadMessages(contact.phone);
 
-        return () => { (window as any).activeChatPhone = null; }; // ⬅️ desmontagem
-    }, [contact?.phone, loadMessages]);
+        return () => {
+            (window as any).activeChatPhone = null;
+        };
+    }, [contact?.phone, loadMessages]); // ✅ Mantém loadMessages aqui
 
-    // ======================================================
     // 📡 Escuta direta de eventos do Socket.IO em tempo real
-    // ======================================================
     useEffect(() => {
         const socket = (window as any).globalSocket;
         if (!socket || !contact?.phone) return;
@@ -207,9 +202,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         return () => { socket.off("message:new", onNew); };
     }, [contact?.phone]);
 
-    // 📨 Envio de mensagem aprimorado
-    // 📨 Envio de mensagem aprimorado
-    const handleSend = async () => {
+    // 📨 Envio de mensagem
+    const handleSend = useCallback(async () => {
         if (!draft.trim() || !contact || sending) return;
 
         const tempId = uid("temp");
@@ -233,23 +227,33 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         setDraft("");
 
         try {
-            // ⚠️ leadId aqui tem que ser SEMPRE ID de Lead, não de Contact
             const effectiveLeadId = leadId || undefined;
 
-            // Monta payload base
+            // ✅ CORREÇÃO: Pegar o userId correto do localStorage
+            const userDataStr = localStorage.getItem("user");
+            let userId = null;
+
+            if (userDataStr) {
+                try {
+                    const userData = JSON.parse(userDataStr);
+                    userId = userData.userId || userData._id || userData.id;
+                } catch (e) {
+                    console.warn("Erro ao parsear userData:", e);
+                }
+            }
+
             const payload: any = {
                 text: messageText,
-                userId: localStorage.getItem("userId") || "admin",
+                // ✅ Só inclui userId se for um ObjectId válido
+                ...(userId && { userId }),
             };
 
-            // Se souber o lead, manda pra rota que PAUSA a Amanda
             let url = "/api/whatsapp/send-text";
 
             if (effectiveLeadId) {
                 url = "/api/whatsapp/send-manual";
                 payload.leadId = effectiveLeadId;
             } else if (contact?.phone) {
-                // fallback: sem leadId, ao menos manda o telefone pro backend
                 payload.phone = normalizeE164BR(contact.phone);
             }
 
@@ -266,11 +270,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             }
 
             const realId =
-                data.messageId || // rota manual retorna isso
-                data.result?.messages?.[0]?.id || // rota send-text padrão
+                data.messageId ||
+                data.result?.messages?.[0]?.id ||
                 `out-${Date.now()}`;
 
-            // Atualiza mensagem otimista
             setMessages(prev =>
                 prev.map(m =>
                     m.id === tempId ? { ...m, id: realId, status: "delivered" } : m
@@ -280,11 +283,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             seenIdsRef.current.delete(tempId);
             seenIdsRef.current.add(realId);
 
-            if (effectiveLeadId) {
-                console.log("✅ Mensagem manual enviada - Amanda pausada");
-            } else {
-                console.log("✅ Mensagem enviada via send-text (sem controle manual)");
-            }
+            console.log("✅ Mensagem enviada com sucesso");
+
         } catch (err: any) {
             console.error("❌ Erro ao enviar:", err);
             setError(err.message || "Erro ao enviar mensagem");
@@ -298,7 +298,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             setSending(false);
             inputRef.current?.focus();
         }
-    };
+    }, [draft, contact, sending, leadId]);
 
     // 🔄 Auto-scroll para novas mensagens
     useEffect(() => {
@@ -306,170 +306,72 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             behavior: 'smooth',
             block: 'end'
         });
-    }, [messages]);
-
-    // 🎨 Componente de Status Indicator
-    const StatusIndicator = ({ status }: { status: Message['status'] }) => {
-        switch (status) {
-            case 'read':
-                return <IoCheckmarkDone className="w-4 h-4 text-green-500" />;
-            case 'delivered':
-                return <IoCheckmarkDone className="w-4 h-4 text-gray-500" />;
-            case 'sent':
-                return <IoCheckmark className="w-4 h-4 text-gray-400" />;
-            default:
-                return <IoTime className="w-4 h-4 text-gray-300" />;
-        }
-    };
-
-    // 🎨 Componente de Contact Header
-    const ContactHeader = () => (
-        <div className="p-4 border-b border-gray-200 bg-white/95 backdrop-blur-sm">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                    <div className="relative">
-                        {contact?.avatar ? (
-                            <img
-                                src={contact.avatar}
-                                alt={contact.name}
-                                className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
-                            />
-                        ) : (
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-sm">
-                                <FiUser className="w-6 h-6 text-white" />
-                            </div>
-                        )}
-                        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <h2 className="font-semibold text-gray-800 text-lg truncate">{contact?.name}</h2>
-                        <p className="text-sm text-green-600 font-medium">Online</p>
-                    </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                    <button
-                        onClick={() => contact && loadMessages(contact.phone)}
-                        className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors"
-                        title="Recarregar histórico"
-                    >
-                        <FiRefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-
-    // 🎨 Componente de Message Input
-    const MessageInput = () => (
-        <div className="p-4 border-t border-gray-200 bg-white/95 backdrop-blur-sm">
-            <div className="flex items-center space-x-3">
-                <button className="p-3 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors">
-                    <FiPaperclip className="w-5 h-5" />
-                </button>
-                <button className="p-3 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors">
-                    <FiMic className="w-5 h-5" />
-                </button>
-                <div className="flex-1 relative">
-                    <input
-                        ref={inputRef}
-                        type="text"
-                        className="w-full py-3 px-4 bg-gray-100 border-0 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-all placeholder:text-gray-500"
-                        placeholder="Digite uma mensagem..."
-                        value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                        disabled={sending}
-                    />
-                </div>
-                <button
-                    className={`p-3 rounded-2xl transition-all duration-200 ${draft.trim() && !sending
-                        ? 'text-white bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-sm'
-                        : 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                        }`}
-                    onClick={handleSend}
-                    disabled={!draft.trim() || sending}
-                >
-                    {sending ? (
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                        <FiSend className="w-5 h-5" />
-                    )}
-                </button>
-            </div>
-
-            {error && (
-                <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                    <div className="flex items-center justify-between">
-                        <span>{error}</span>
-                        <button
-                            onClick={() => setError('')}
-                            className="text-red-500 hover:text-red-700"
-                        >
-                            ×
-                        </button>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-
-    // 🎨 Componente de Empty State
-    const EmptyState = () => (
-        <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-b from-gray-50 to-white">
-            <div className="text-center p-8 max-w-md">
-                <div className="w-24 h-24 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <FiUser className="w-10 h-10 text-green-500" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">Nenhum contato selecionado</h3>
-                <p className="text-gray-500 mb-6">Selecione um contato para começar uma conversa</p>
-                <div className="w-16 h-1 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full mx-auto"></div>
-            </div>
-        </div>
-    );
-
-    // 🎨 Componente de Loading State
-    const LoadingState = () => (
-        <div className="flex-1 flex items-center justify-center bg-gray-50">
-            <div className="text-center">
-                <LoadingSpinner />
-                <p className="text-gray-500 mt-3">Carregando mensagens...</p>
-            </div>
-        </div>
-    );
+    }, [messages.length]); // ✅ Mudança: apenas quando o NÚMERO de mensagens muda
 
     if (!contact) {
-        return <EmptyState />;
-    }
-
-
-    function pickMsgId(src: any) {
-        // prioriza ids vindos do backend
-        const raw =
-            src?.id ||
-            src?._id ||
-            src?.messageId ||
-            // combine atributos estáveis para reduzir colisão
-            `${src?.direction || "in"}-${src?.timestamp || ""}-${src?.from || ""}-${src?.to || ""}-${src?.type || "text"}-${src?.text || src?.content || src?.caption || ""}`.slice(0, 80);
-
-        // se ainda ficou vazio, usa uid()
-        const base = String(raw && raw.length ? raw : uid("m"));
-
-        // prefixa para padronizar no React DevTools e evitar colisão com outros componentes
-        return base.startsWith("m-") ? base : `m-${base}`;
+        return (
+            <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-b from-gray-50 to-white">
+                <div className="text-center p-8 max-w-md">
+                    <div className="w-24 h-24 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <FiUser className="w-10 h-10 text-green-500" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-800 mb-2">Nenhum contato selecionado</h3>
+                    <p className="text-gray-500 mb-6">Selecione um contato para começar uma conversa</p>
+                    <div className="w-16 h-1 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full mx-auto"></div>
+                </div>
+            </div>
+        );
     }
 
     return (
         <div className={`${className} flex flex-col h-full bg-white shadow-lg rounded-2xl overflow-hidden`}>
-            <ContactHeader />
+            {/* Header */}
+            <div className="p-4 border-b border-gray-200 bg-white/95 backdrop-blur-sm">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                        <div className="relative">
+                            {contact?.avatar ? (
+                                <img
+                                    src={contact.avatar}
+                                    alt={contact.name}
+                                    className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
+                                />
+                            ) : (
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-sm">
+                                    <FiUser className="w-6 h-6 text-white" />
+                                </div>
+                            )}
+                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h2 className="font-semibold text-gray-800 text-lg truncate">{contact.name}</h2>
+                            <p className="text-sm text-green-600 font-medium">Online</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <button
+                            onClick={() => loadMessages(contact.phone)}
+                            className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors"
+                            title="Recarregar histórico"
+                        >
+                            <FiRefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                        </button>
+                    </div>
+                </div>
+            </div>
 
-            {/* Área de Mensagens */}
+            {/* Messages Area */}
             <div className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 to-green-50/30 relative">
-                {/* Pattern sutil de fundo */}
                 <div className="absolute inset-0 opacity-[0.03] bg-[radial-gradient(circle_at_1px_1px,#000_1px,transparent_0)] bg-[length:20px_20px]"></div>
 
                 <div className="relative z-10 h-full">
                     {loading ? (
-                        <LoadingState />
+                        <div className="flex-1 flex items-center justify-center bg-gray-50">
+                            <div className="text-center">
+                                <LoadingSpinner />
+                                <p className="text-gray-500 mt-3">Carregando mensagens...</p>
+                            </div>
+                        </div>
                     ) : (
                         <div className="p-4 h-full">
                             {messages.length === 0 ? (
@@ -484,7 +386,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                                 </div>
                             ) : (
                                 <div className="space-y-3 flex flex-col">
-                                    {messages.map((message, index) => (
+                                    {messages.map((message) => (
                                         <div key={message.id} className="flex flex-col">
                                             <MessageBubble
                                                 text={message.text}
@@ -494,8 +396,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                                                 caption={message.caption}
                                             />
                                             {message.fromMe && (
-                                                <div className={`self-end mr-2 mt-1 ${message.fromMe ? 'text-right' : 'text-left'}`}>
-                                                    <StatusIndicator status={message.status} />
+                                                <div className="self-end mr-2 mt-1 text-right">
+                                                    {message.status === 'read' && <IoCheckmarkDone className="w-4 h-4 text-green-500" />}
+                                                    {message.status === 'delivered' && <IoCheckmarkDone className="w-4 h-4 text-gray-500" />}
+                                                    {message.status === 'sent' && <IoCheckmark className="w-4 h-4 text-gray-400" />}
+                                                    {!['read', 'delivered', 'sent'].includes(message.status) && <IoTime className="w-4 h-4 text-gray-300" />}
                                                 </div>
                                             )}
                                         </div>
@@ -508,9 +413,64 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                 </div>
             </div>
 
-            <MessageInput />
+            {/* Input Area */}
+            <div className="p-4 border-t border-gray-200 bg-white/95 backdrop-blur-sm">
+                <div className="flex items-center space-x-3">
+                    <button className="p-3 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors">
+                        <FiPaperclip className="w-5 h-5" />
+                    </button>
+                    <button className="p-3 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors">
+                        <FiMic className="w-5 h-5" />
+                    </button>
+                    <div className="flex-1 relative">
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            className="w-full py-3 px-4 bg-gray-100 border-0 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-all placeholder:text-gray-500"
+                            placeholder="Digite uma mensagem..."
+                            value={draft}
+                            onChange={(e) => setDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleSend();
+                                }
+                            }}
+                            disabled={sending}
+                        />
+                    </div>
+                    <button
+                        className={`p-3 rounded-2xl transition-all duration-200 ${draft.trim() && !sending
+                            ? 'text-white bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-sm'
+                            : 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                            }`}
+                        onClick={handleSend}
+                        disabled={!draft.trim() || sending}
+                    >
+                        {sending ? (
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                            <FiSend className="w-5 h-5" />
+                        )}
+                    </button>
+                </div>
+
+                {error && (
+                    <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                        <div className="flex items-center justify-between">
+                            <span>{error}</span>
+                            <button
+                                onClick={() => setError('')}
+                                className="text-red-500 hover:text-red-700"
+                            >
+                                ×
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
 
-export default ChatWindow;
+export default React.memo(ChatWindow); 

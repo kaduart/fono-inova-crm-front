@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import { useAdmin } from '../hooks/useAdmin';
 import useDoctorDashboard from '../hooks/useDoctorDashboard';
 import { usePatients } from '../hooks/usePatients';
+import { useChatNavigation } from '../contexts/ChatNavigationContext';
 import usePayment from '../hooks/usePayment';
 import FollowupPage from '../pages/FollowupPage';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
@@ -83,6 +84,8 @@ export default function AdminDashboard() {
     const [closeModalSignal, setCloseModalSignal] = useState(0);
     const [openModal, setOpenModal] = useState(false);
     const [openModalAppointment, setOpenModalAppointement] = useState(false);
+        const { shouldOpenMessagesTab, setShouldOpenMessagesTab } = useChatNavigation();
+
     const [appointmentData, setAppointmentData] = useState({
         patient: '',
         doctor: '',
@@ -153,6 +156,14 @@ export default function AdminDashboard() {
     const toggleMenu = (menuName: string) => {
         setOpenMenu(menuName);
     };
+
+    useEffect(() => {
+        if (shouldOpenMessagesTab) {
+            console.log('🎯 AdminDashboard: Abrindo aba Mensagens');
+            setActiveTab('Mensagens');
+            setShouldOpenMessagesTab(false);
+        }
+    }, [shouldOpenMessagesTab, setShouldOpenMessagesTab]);
 
     const handleTabChange = (tab: string) => {
         setActiveTab(tab);

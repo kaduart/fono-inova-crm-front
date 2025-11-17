@@ -16,6 +16,7 @@ import { Button } from "../../ui/Button";
 import AddContactModal from "./AddContactModal";
 import ChatWindow from "./ChatWindow";
 import Sidebar from "./Sidebar";
+import { useChatNavigation } from "../../../contexts/ChatNavigationContext";
 
 const AppChat: React.FC = () => {
     const [contacts, setContacts] = useState<Contact[]>([]);
@@ -24,6 +25,8 @@ const AppChat: React.FC = () => {
     const [error, setError] = useState("");
     const [showAddModal, setShowAddModal] = useState(false);
     const { chatNotification, mediaNotification } = useNotification();
+        const { pendingContactPhone, setPendingContactPhone } = useChatNavigation(); // ✅ NOVO
+
     const theme = useTheme();
 
     // 🟢 Carregar contatos iniciais
@@ -44,6 +47,37 @@ const AppChat: React.FC = () => {
     useEffect(() => {
         loadContacts();
     }, []);
+
+    useEffect(() => {
+        if (!pendingContactPhone || contacts.length === 0) return;
+
+        console.log('🎯 AppChat: Processando telefone pendente', pendingContactPhone);
+
+        const normalizePhone = (phone: string): string => {
+            let cleaned = (phone || "").replace(/\D/g, "");
+            if (cleaned.startsWith("55")) cleaned = cleaned.substring(2);
+            if (cleaned.length === 10) cleaned = cleaned.substring(0, 2) + "9" + cleaned.substring(2);
+            return cleaned;
+        };
+
+        const targetPhone = normalizePhone(pendingContactPhone);
+        
+        // Procura o contato na lista
+        const foundContact = contacts.find(
+            contact => normalizePhone(contact.phone) === targetPhone
+        );
+
+        if (foundContact) {
+            console.log('✅ Contato encontrado, abrindo chat:', foundContact.name);
+            handleSelectContact(foundContact);
+        } else {
+            console.warn('⚠️ Contato não encontrado na lista para:', pendingContactPhone);
+            // Opcional: criar contato automaticamente ou mostrar erro
+        }
+
+        // Limpa o telefone pendente
+        setPendingContactPhone(null);
+    }, [pendingContactPhone, contacts, setPendingContactPhone]);
 
     // 🔔 Efeito para gerenciar notificações na lista de contatos
     useEffect(() => {

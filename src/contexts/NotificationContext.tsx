@@ -25,6 +25,9 @@ interface ChatNotification {
   from: string;
   text: string;
   timestamp: number;
+  contactId?: string;
+  contactName?: string;
+  leadId?: string;
 }
 
 // ======================================================
