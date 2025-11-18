@@ -1,5 +1,6 @@
 // components/whatsapp/MessageBubble.tsx
 import { useState } from 'react';
+import { formatMessageTimestamp } from '../../../utils/dateHelpers';
 
 interface MessageProps {
   text?: string;
@@ -7,6 +8,7 @@ interface MessageProps {
   type?: "text" | "audio" | "image" | "video" | "document";
   mediaUrl?: string;
   caption?: string;
+  timestamp?: Date | string | number;
 }
 
 export default function MessageBubble({
@@ -15,6 +17,7 @@ export default function MessageBubble({
   type = "text",
   mediaUrl,
   caption,
+  timestamp,
 }: MessageProps) {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -286,12 +289,12 @@ export default function MessageBubble({
       {type === "document" && fixedMediaUrl && (
         <div className="space-y-3 relative z-10">
 
-          <a href={fixedMediaUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`flex items-center gap-3 p-4 rounded-xl ${isMine ? 'bg-emerald-400 bg-opacity-20 hover:bg-opacity-30' : 'bg-gray-100 hover:bg-gray-200'
-              } transition-colors`}
-          >
+          href={fixedMediaUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`flex items-center gap-3 p-4 rounded-xl ${isMine ? 'bg-emerald-400 bg-opacity-20 hover:bg-opacity-30' : 'bg-gray-100 hover:bg-gray-200'
+            } transition-colors`}
+          <a>
             <svg className="w-8 h-8 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
               <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
             </svg>
@@ -317,7 +320,7 @@ export default function MessageBubble({
           ? 'text-emerald-200 border-emerald-400'
           : 'text-gray-500 border-gray-200'
         } border-t border-opacity-30 text-right opacity-80`}>
-        {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        {timestamp ? formatMessageTimestamp(timestamp) : 'Agora'}
       </div>
     </div>
   );
