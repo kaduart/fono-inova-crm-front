@@ -3,10 +3,11 @@ import { BarChart3 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ErrorResponse, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { useAppointmentsContext } from '../contexts/AppointmentsContext';
+import { useChatNavigation } from '../contexts/ChatNavigationContext';
 import { useAdmin } from '../hooks/useAdmin';
 import useDoctorDashboard from '../hooks/useDoctorDashboard';
 import { usePatients } from '../hooks/usePatients';
-import { useChatNavigation } from '../contexts/ChatNavigationContext';
 import usePayment from '../hooks/usePayment';
 import FollowupPage from '../pages/FollowupPage';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
@@ -26,7 +27,6 @@ import DoctorFormModal from './ManageDoctors/DoctorFormModal';
 import ManageDoctors from './ManageDoctors/ManageDoctors';
 import AppChat from './mkt/whatsapp/AppChat';
 import { PatientModal } from './patients/PatientModal';
-import { useAppointmentsContext } from '../contexts/AppointmentsContext';
 
 const initialPatientState: IPatient = {
     fullName: '',
@@ -84,7 +84,7 @@ export default function AdminDashboard() {
     const [closeModalSignal, setCloseModalSignal] = useState(0);
     const [openModal, setOpenModal] = useState(false);
     const [openModalAppointment, setOpenModalAppointement] = useState(false);
-        const { shouldOpenMessagesTab, setShouldOpenMessagesTab } = useChatNavigation();
+    const { shouldOpenMessagesTab, setShouldOpenMessagesTab } = useChatNavigation();
 
     const [appointmentData, setAppointmentData] = useState({
         patient: '',
@@ -277,7 +277,6 @@ export default function AdminDashboard() {
             fetchAppointments();
             setCloseModalSignal(prev => prev + 1);
         } catch (error) {
-            console.log('Erro ao cancelar agendamento:', error);
             const errorResponse = error.response.data.error as ErrorResponse;
             toast.error(errorResponse);
         }
@@ -291,7 +290,7 @@ export default function AdminDashboard() {
             fetchAppointments();
             setCloseModalSignal(prev => prev + 1);
         } catch (error) {
-            console.log('Erro ao cancelar agendamento:', error);
+            console.log('Erro ao Completar agendamento:', error);
             const errorResponse = error.response.data.message as ErrorResponse;
             toast.error(errorResponse);
         }
@@ -302,11 +301,37 @@ export default function AdminDashboard() {
             await updateAppointment(appointmentId, updatedData);
             toast.success('Agendamento atualizado!');
             fetchAppointments();
-            setCloseModalSignal(prev => prev + 1);
+            setCloseModalSignal(prev => prev + 1); // ✅ só fecha se sucesso
         } catch (error: any) {
-            console.log('Erro ao cancelar agendamento:', error);
-            const errorResponse = error.response.data.error as ErrorResponse;
-            toast.error(errorResponse);
+            console.error('Erro ao editar agendamento:', error);
+
+            // ✅ CORREÇÃO: pegar error.response?.data
+            const errorData = error.response?.data;
+
+            if (!errorData) {
+                toast.error('Erro de conexão com o servidor');
+                return; // ✅ IMPORTANTE: return aqui para não fechar modal
+            }
+
+            // Conflito (write conflict ou slot taken)
+            if (error.response?.status === 409) {
+                toast.error(errorData.message || 'Conflito ao atualizar');
+                if (errorData.code === 'WRITE_CONFLICT') {
+                    setTimeout(() => window.location.reload(), 2000);
+                }
+                return; // ✅ não fecha modal
+            }
+
+            // Validação de campos
+            if (error.response?.status === 400 && errorData.fields) {
+                toast.error('Verifique os campos destacados');
+                // TODO: se tiver setFieldErrors, chame aqui
+                return; // ✅ não fecha modal
+            }
+
+            // Erro genérico
+            toast.error(errorData.message || 'Erro ao atualizar agendamento');
+            // ❌ REMOVIDO: toast.error(errorResponse) ← isso crashava tudo
         }
     };
 

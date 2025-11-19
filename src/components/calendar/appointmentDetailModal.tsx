@@ -194,7 +194,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 time: editedAppointment.time,
                 reason: editedAppointment.reason,
                 operationalStatus: operationalStatusEN,
-                clinicalStatus: clinicalStatusEN
+                clinicalStatus: clinicalStatusEN === 'scheduled' ? 'pending' : clinicalStatusEN
             };
 
             await onEditAppointment(event.id, appointmentData);
