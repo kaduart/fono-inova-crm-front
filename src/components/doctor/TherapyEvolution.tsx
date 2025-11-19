@@ -8,7 +8,7 @@ import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import API from '../../services/api';
 import { confirmToast } from '../../utils/confirmToast';
-import { formatDateForInput, toLocalDate } from '../../utils/dateHelpers';
+import { formatDateForInput, toLocalDate } from '../../utils/dateHelper';
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Label } from '../ui/Label';

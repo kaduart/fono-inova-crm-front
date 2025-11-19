@@ -314,7 +314,7 @@ const AppChat: React.FC = () => {
                         /*  onClick={handleRefresh} */
                         className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-200"
                     >
-                        <RefreshCw size={18} /* className={refreshing ? "animate-spin" : ""} */ />
+                        <RefreshCw size={18}  />
                         Atualizar
                     </Button>
                 </div>

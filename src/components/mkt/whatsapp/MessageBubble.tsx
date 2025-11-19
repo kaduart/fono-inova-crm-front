@@ -1,6 +1,6 @@
 // components/whatsapp/MessageBubble.tsx
 import { useState } from 'react';
-import { formatMessageTimestamp } from '../../../utils/dateHelpers';
+import { formatMessageTimestamp } from '../../../utils/dateHelper';
 
 interface MessageProps {
   text?: string;
@@ -73,15 +73,15 @@ export default function MessageBubble({
   return (
     <div
       className={`relative max-w-[85%] p-4 my-3 rounded-2xl shadow-sm transition-all duration-200 hover:shadow-md ${isMine
-          ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white self-end rounded-br-none ml-12"
-          : "bg-white text-gray-800 self-start rounded-bl-none mr-12 border border-gray-100"
+        ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white self-end rounded-br-none ml-12"
+        : "bg-white text-gray-800 self-start rounded-bl-none mr-12 border border-gray-100"
         }`}
     >
       {/* Indicador visual sutil */}
       <div
         className={`absolute top-0 w-3 h-3 ${isMine
-            ? '-right-3 bg-gradient-to-r from-emerald-500 to-emerald-600'
-            : '-left-3 bg-white border-l border-t border-gray-100'
+          ? '-right-3 bg-gradient-to-r from-emerald-500 to-emerald-600'
+          : '-left-3 bg-white border-l border-t border-gray-100'
           }`}
         style={{
           clipPath: isMine ? 'polygon(0 0, 100% 0, 0 100%)' : 'polygon(100% 0, 0 0, 100% 100%)'
@@ -141,8 +141,8 @@ export default function MessageBubble({
           {/* MENSAGEM DE ERRO ELEGANTE */}
           {hasError && (
             <div className={`p-3 rounded-lg text-sm ${isMine
-                ? 'bg-yellow-500 bg-opacity-20 text-yellow-100'
-                : 'bg-yellow-100 text-yellow-800'
+              ? 'bg-yellow-500 bg-opacity-20 text-yellow-100'
+              : 'bg-yellow-100 text-yellow-800'
               }`}>
               <div className="flex items-center gap-2">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -317,8 +317,8 @@ export default function MessageBubble({
 
       {/* TIMESTAMP ELEGANTE */}
       <div className={`text-xs mt-3 pt-2 ${isMine
-          ? 'text-emerald-200 border-emerald-400'
-          : 'text-gray-500 border-gray-200'
+        ? 'text-emerald-200 border-emerald-400'
+        : 'text-gray-500 border-gray-200'
         } border-t border-opacity-30 text-right opacity-80`}>
         {timestamp ? formatMessageTimestamp(timestamp) : 'Agora'}
       </div>

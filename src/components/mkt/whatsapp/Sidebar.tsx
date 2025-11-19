@@ -1,6 +1,7 @@
 // components/whatsapp/Sidebar.tsx
 import React, { useState } from 'react';
 import { FiPlus, FiSearch, FiUser } from 'react-icons/fi';
+import { formatMessageTime } from '../../../utils/dateHelper';
 
 interface Contact {
     _id: string;
@@ -11,6 +12,9 @@ interface Contact {
     lastMessageTime?: string;
     unreadCount?: number;
     hasNewMessage?: boolean;
+    createdAt: string; // ✅ ADICIONADO: campo que existe na sua API
+    updatedAt: string; // ✅ ADICIONADO: campo que existe na sua API
+    tags?: string[]; // ✅ ADICIONADO: campo que existe na sua API
 }
 
 interface SidebarProps {
@@ -39,6 +43,12 @@ const Sidebar: React.FC<SidebarProps> = ({
         contact.phone.includes(searchTerm)
     );
 
+    // ✅ FUNÇÃO: Obtém o timestamp mais relevante para exibição
+    const getDisplayTime = (contact: Contact) => {
+        // Prioridade: lastMessageTime -> updatedAt -> createdAt
+        return contact.lastMessageTime || contact.updatedAt || contact.createdAt;
+    };
+
     return (
         <div className={`${className} flex flex-col h-full bg-gradient-to-b from-gray-900 to-gray-800`}>
             {/* Header */}
@@ -54,7 +64,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
 
                 <div className="text-sm text-gray-400 mb-3">
-                    {contacts.length} contatos
+                    {contacts.length} {contacts.length === 1 ? 'contato' : 'contatos'}
                 </div>
 
                 {/* Search */}
@@ -74,6 +84,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <div className="flex-1 overflow-y-auto">
                 {filteredContacts.map((contact) => {
                     const isActive = active?._id === contact._id;
+                    const displayTime = getDisplayTime(contact);
 
                     return (
                         <div
@@ -127,31 +138,55 @@ const Sidebar: React.FC<SidebarProps> = ({
 
                                 {/* Contact Info */}
                                 <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <h3 className={`font-semibold truncate ${isActive ? 'text-emerald-400' : 'text-white'
-                                            }`}>
-                                            {contact.name}
-                                        </h3>
-                                        {contact.lastMessageTime && (
-                                            <span className={`text-xs ${isActive ? 'text-emerald-300' : 'text-gray-500'
+                                    <div className="flex items-start justify-between mb-1">
+                                        <div className="flex-1 min-w-0 mr-2">
+                                            <h3 className={`font-semibold truncate ${isActive ? 'text-emerald-400' : 'text-white'
                                                 }`}>
-                                                {formatMessageTimestamp(contact.lastMessageTime)}
-                                            </span>
-                                        )}
+                                                {contact.name}
+                                            </h3>
+                                        </div>
+                                        {/* ✅ CORREÇÃO: Usando displayTime com fallback */}
+                                        <span className={`text-xs whitespace-nowrap flex-shrink-0 ${isActive ? 'text-emerald-300' : 'text-gray-500'
+                                            }`}>
+                                            {displayTime ? formatMessageTime(displayTime) : ''}
+                                        </span>
                                     </div>
 
                                     <div className="flex items-center justify-between">
-                                        <p className={`text-sm truncate ${isActive
-                                            ? 'text-emerald-200'
-                                            : contact.hasNewMessage
-                                                ? 'text-white font-medium'
-                                                : 'text-gray-400'
-                                            }`}>
-                                            {contact.lastMessage || contact.phone}
-                                        </p>
+                                        <div className="flex-1 min-w-0">
+                                            <p className={`text-sm truncate ${isActive
+                                                    ? 'text-emerald-200'
+                                                    : contact.hasNewMessage
+                                                        ? 'text-white font-medium'
+                                                        : 'text-gray-400'
+                                                }`}>
+                                                {contact.lastMessage || contact.phone}
+                                            </p>
+                                            {/* ✅ MELHORIA: Exibir tags se existirem */}
+                                            {contact.tags && contact.tags.length > 0 && (
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                    {contact.tags.slice(0, 2).map((tag, index) => (
+                                                        <span
+                                                            key={index}
+                                                            className="inline-block px-1.5 py-0.5 text-xs bg-gray-700 text-gray-300 rounded"
+                                                        >
+                                                            {tag}
+                                                        </span>
+                                                    ))}
+                                                    {contact.tags.length > 2 && (
+                                                        <span className="inline-block px-1.5 py-0.5 text-xs bg-gray-700 text-gray-300 rounded">
+                                                            +{contact.tags.length - 2}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
 
+                                        {/* ✅ MELHORIA: Indicador de nova mensagem mais organizado */}
                                         {contact.hasNewMessage && !isActive && (
-                                            <div className="w-2 h-2 bg-red-500 rounded-full ml-2 flex-shrink-0 animate-pulse"></div>
+                                            <div className="flex flex-col items-end space-y-1 ml-2">
+                                                <div className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0 animate-pulse"></div>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -169,6 +204,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <div className="flex flex-col items-center justify-center h-64 text-gray-500">
                         <FiSearch className="w-12 h-12 mb-3" />
                         <p>Nenhum contato encontrado</p>
+                        {searchTerm && (
+                            <p className="text-sm mt-1">Tente buscar com outros termos</p>
+                        )}
                     </div>
                 )}
             </div>

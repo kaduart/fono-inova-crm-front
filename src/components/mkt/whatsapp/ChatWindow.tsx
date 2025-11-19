@@ -56,6 +56,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const seenIdsRef = useRef<Set<string>>(new Set());
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
 
     // 📨 Carrega histórico - Função estável que não muda
     const loadMessages = useCallback(async (phone: string) => {
@@ -300,13 +301,29 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         }
     }, [draft, contact, sending, leadId]);
 
-    // 🔄 Auto-scroll para novas mensagens
+    // 🔄 Auto-scroll para novas mensagens - CORRIGIDO
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({
-            behavior: 'smooth',
-            block: 'end'
-        });
-    }, [messages.length]); // ✅ Mudança: apenas quando o NÚMERO de mensagens muda
+        // Só faz scroll se não estiver no topo e se for uma nova mensagem
+        if (messagesContainerRef.current && messages.length > 0) {
+            const container = messagesContainerRef.current;
+            const isNearBottom =
+                container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+
+            if (isNearBottom) {
+                setTimeout(() => {
+                    messagesEndRef.current?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'nearest'
+                    });
+                }, 50);
+            }
+        }
+    }, [messages]); // Agora depende do conteúdo das mensagens, não apenas do length
+
+    // Foco no input quando o contato mudar
+    useEffect(() => {
+        inputRef.current?.focus();
+    }, [contact]);
 
     if (!contact) {
         return (
@@ -361,7 +378,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 to-green-50/30 relative">
+            <div
+                ref={messagesContainerRef}
+                className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 to-green-50/30 relative"
+            >
                 <div className="absolute inset-0 opacity-[0.03] bg-[radial-gradient(circle_at_1px_1px,#000_1px,transparent_0)] bg-[length:20px_20px]"></div>
 
                 <div className="relative z-10 h-full">
@@ -394,6 +414,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                                                 type={message.type}
                                                 mediaUrl={message.mediaUrl}
                                                 caption={message.caption}
+                                                timestamp={message.timestamp}
                                             />
                                             {message.fromMe && (
                                                 <div className="self-end mr-2 mt-1 text-right">
@@ -437,6 +458,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                                 }
                             }}
                             disabled={sending}
+                            autoFocus
                         />
                     </div>
                     <button
@@ -473,4 +495,4 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
     );
 };
 
-export default React.memo(ChatWindow); 
+export default React.memo(ChatWindow);
