@@ -546,22 +546,39 @@ export default function AdminDashboard() {
             />
 
 
-            <main className="max-w-[95%] lg:max-w-[85rem] mx-auto px-8 py-8">
-                {activeTab === 'Dashboard' && (
+            <main className="max-w-[95%] lg:max-w-[85rem] mx-auto px-8 py-0">
+
+                {/* mantém o conteúdo existente */}
+                <div className="mb-6 flex justify-between items-center">
+                    <h2 className="text-2xl font-bold text-gray-900">
+                        {activeTab === 'Dashboard'}
+                        {activeTab === 'Profile' && 'Meu Perfil'}
+                        {activeTab === 'Add Profissional'}
+                        {activeTab === 'Calendário'}
+                        {activeTab === 'Financeiro'}
+                        {activeTab === 'Leads'}
+                        {activeTab === 'Mensagens'}
+                        {activeTab === 'Add Admin' && 'Adicionar Administrador'}
+                    </h2>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm space-y-6 p-6 overflow-hidden">
+                   {activeTab === 'Dashboard' && (
                     <Paper
                         elevation={2}
                         sx={{
-                            p: 3,
-                            mb: 3,
-                            borderRadius: 2,
+                            p: 4,
+                            mb: 4,
+                            mt: 2,
+                            borderRadius: 3,
                             background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
                         }}
                     >
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                             {/* Ícone e título */}
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-4">
                                 <div
-                                    className="p-2 rounded-lg"
+                                    className="p-3 rounded-2xl"
                                     style={{ backgroundColor: 'rgba(55,171,135,0.15)' }}
                                 >
                                     <BarChart3 size={24} style={{ color: '#00C087' }} />
@@ -579,22 +596,6 @@ export default function AdminDashboard() {
                         </div>
                     </Paper>
                 )}
-
-                {/* mantém o conteúdo existente */}
-                <div className="mb-6 flex justify-between items-center">
-                    <h2 className="text-2xl font-bold text-gray-900">
-                        {activeTab === 'Dashboard'}
-                        {activeTab === 'Profile' && 'Meu Perfil'}
-                        {activeTab === 'Add Profissional'}
-                        {activeTab === 'Calendário'}
-                        {activeTab === 'Financeiro'}
-                        {activeTab === 'Leads'}
-                        {activeTab === 'Mensagens'}
-                        {activeTab === 'Add Admin' && 'Adicionar Administrador'}
-                    </h2>
-                </div>
-
-                <div className="bg-white rounded-lg shadow-sm p-6">
                     {renderContent()}
                 </div>
             </main>

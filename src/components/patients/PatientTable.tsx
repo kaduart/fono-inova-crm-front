@@ -155,7 +155,6 @@ const PatientTable = ({ patients = mockPatients, onEditPatient, onPaymentAdvance
                 background: 'linear-gradient(145deg, #ffffff, #f8f9fa)',
                 border: '1px solid rgba(0,0,0,0.03)',
                 overflow: 'hidden',
-                height: '100%'
             }}
         >
             <CardHeader>
@@ -175,7 +174,7 @@ const PatientTable = ({ patients = mockPatients, onEditPatient, onPaymentAdvance
                     <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
                 </div>
             ) : (
-                <div className="p-6">
+                <div>
                     <div className="mb-6">
                         <div className="relative">
                             <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -189,7 +188,7 @@ const PatientTable = ({ patients = mockPatients, onEditPatient, onPaymentAdvance
                         </div>
                     </div>
 
-                    <div className="overflow-hidden rounded-xl border border-gray-200 shadow-md">
+                    <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-md">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                                 <tr>
@@ -367,63 +366,64 @@ const PatientTable = ({ patients = mockPatients, onEditPatient, onPaymentAdvance
                                     </React.Fragment>
                                 ))}
 
-                                <tr className="bg-gray-50">
-                                    <td colSpan={6} className="px-6 py-4">
-                                        <div className="flex justify-between items-center">
-                                            <div className="flex items-center space-x-3">
-                                                <span className="text-sm font-medium text-gray-600">Exibir:</span>
-                                                <select
-                                                    value={itemsPerPage}
-                                                    onChange={handleItemsPerPageChange}
-                                                    className="border-2 border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                                                >
-                                                    <option value={5}>5</option>
-                                                    <option value={10}>10</option>
-                                                    <option value={20}>20</option>
-                                                </select>
-                                                <span className="text-sm text-gray-500">
-                                                    Mostrando {startIndex + 1} - {Math.min(startIndex + itemsPerPage, filteredPatients.length)} de {filteredPatients.length}
-                                                </span>
-                                            </div>
-
-                                            <div className="flex items-center space-x-2">
-                                                <button
-                                                    onClick={() => handlePageChange('prev')}
-                                                    disabled={currentPage === 1}
-                                                    className="px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 text-sm font-medium hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                                                >
-                                                    Anterior
-                                                </button>
-                                                <div className="flex items-center gap-1">
-                                                    {Array.from({ length: totalPages }, (_, index) => {
-                                                        const page = index + 1;
-                                                        const isActive = currentPage === page;
-                                                        return (
-                                                            <button
-                                                                key={page}
-                                                                onClick={() => setCurrentPage(page)}
-                                                                className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-all duration-150 ${isActive
-                                                                    ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md scale-105'
-                                                                    : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-300'
-                                                                    }`}
-                                                            >
-                                                                {page}
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                                <button
-                                                    onClick={() => handlePageChange('next')}
-                                                    disabled={currentPage === totalPages}
-                                                    className="px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 text-sm font-medium hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                                                >
-                                                    Próxima
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
                             </tbody>
+                            <tr className="bg-gray-50">
+                                <td colSpan={6} className="px-6 py-4">
+                                    <span className="text-sm m-2 text-gray-500">
+                                        Mostrando {startIndex + 1} - {Math.min(startIndex + itemsPerPage, filteredPatients.length)} de {filteredPatients.length}
+                                    </span>
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center space-x-3">
+                                            <span className="text-sm font-medium text-gray-600">Exibir:</span>
+                                            <select
+                                                value={itemsPerPage}
+                                                onChange={handleItemsPerPageChange}
+                                                className="border-2 border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                                            >
+                                                <option value={5}>5</option>
+                                                <option value={10}>10</option>
+                                                <option value={20}>20</option>
+                                            </select>
+
+                                        </div>
+
+                                        <div className="flex items-center space-x-2">
+                                            <button
+                                                onClick={() => handlePageChange('prev')}
+                                                disabled={currentPage === 1}
+                                                className="px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 text-sm font-medium hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                                            >
+                                                Anterior
+                                            </button>
+                                            <div className="flex items-center gap-1">
+                                                {Array.from({ length: totalPages }, (_, index) => {
+                                                    const page = index + 1;
+                                                    const isActive = currentPage === page;
+                                                    return (
+                                                        <button
+                                                            key={page}
+                                                            onClick={() => setCurrentPage(page)}
+                                                            className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-all duration-150 ${isActive
+                                                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md scale-105'
+                                                                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-300'
+                                                                }`}
+                                                        >
+                                                            {page}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                            <button
+                                                onClick={() => handlePageChange('next')}
+                                                disabled={currentPage === totalPages}
+                                                className="px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 text-sm font-medium hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                                            >
+                                                Próxima
+                                            </button>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
                         </table>
                     </div>
                 </div>
