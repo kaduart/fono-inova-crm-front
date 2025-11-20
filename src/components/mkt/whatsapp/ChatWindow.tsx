@@ -164,11 +164,29 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         const chatPhone = normalize(contact.phone);
 
         const onNew = (data: any) => {
+                console.log('🔔 Socket recebeu mensagem:', {  // ✅ ADICIONAR
+        from: data.from,
+        to: data.to,
+        direction: data.direction,
+        content: data.content?.substring(0, 50),
+        timestamp: data.timestamp
+    });
+
             try {
                 const from = normalize(data.from);
                 const to = normalize(data.to);
 
-                if (from !== chatPhone && to !== chatPhone) return;
+                console.log('🔍 Verificando se pertence ao chat:', {  // ✅ ADICIONAR
+            from,
+            to,
+            chatPhone,
+            match: from === chatPhone || to === chatPhone
+        });
+
+                if (from !== chatPhone && to !== chatPhone) {
+            console.log('⏭️ Mensagem ignorada - não pertence a este chat'); // ✅ ADICIONAR
+            return;
+        }
 
                 const isMedia = data.type && data.type !== "text" && data.type !== "template";
                 const body = isMedia
@@ -265,6 +283,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             });
 
             const data = await res.json();
+
+            console.log('📤 Resposta do backend:', data); // ✅ ADICIONAR
+
 
             if (!data.success) {
                 throw new Error(data.message || data.error || "Erro ao enviar");

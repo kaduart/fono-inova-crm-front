@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { OPERATIONAL_STATUS_CONFIG, StatusConfig } from '../../services/appointmentService';
 import { IAppointment, IDoctor, IPatient, SelectedEvent } from '../../utils/types/types';
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 import AppointmentDetailModal from './appointmentDetailModal';
 
 interface EnhancedCalendarProps {
@@ -152,6 +153,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     const [isAppointmentDetailModalOpen, setIsAppointmentDetailModalOpen] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState<SelectedEvent | null>(null);
     const theme = useTheme();
+    const [isCalendarLoading, setIsCalendarLoading] = useState(true);
 
     useEffect(() => {
         if (closeModalSignal && closeModalSignal > 0) {
@@ -160,6 +162,11 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         }
     }, [closeModalSignal]);
 
+    useEffect(() => {
+        if (!appointments) return;
+
+        setIsCalendarLoading(true);
+    }, [appointments]);
 
     const getPaymentStatusConfig = (paymentStatus: string) => {
         return PAYMENT_STATUS_CONFIG[paymentStatus as keyof typeof PAYMENT_STATUS_CONFIG] || PAYMENT_STATUS_CONFIG.pending;
@@ -174,7 +181,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             }
         );
     };
-
 
     const handleEventClick = (info: { event: any }) => {
         const { event } = info;
@@ -216,18 +222,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         setIsAppointmentDetailModalOpen(true);
     };
 
-    useEffect(() => {
-        appointments?.forEach(a => {
-            if (a?.date && a?.time) {
-                console.debug('[CALllllllllllllllllll] appt=', a._id, 'date=', a.date, 'time=', a.time);
-            }
-        });
-    }, [appointments]);
     // 🔹 MEMOIZAÇÃO AVANÇADA PARA EVENTOS
     const events = useMemo(() => {
         if (!appointments) return [];
-        console.log(`statsuuuuuuuuuuuuuuu`, appointments.paymentStatus)
-        console.log(`statsuuuuuuuuuuuuuuu`, appointments.package)
         return appointments
             .filter(a => a?.date && a?.time)
             .map(appt => {
@@ -286,8 +283,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
     }, [appointments]);
 
-
-
     // 🔹 CONFIGURAÇÃO CENTRALIZADA DO CALENDÁRIO
     const calendarOptions = useMemo(() => ({
         plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
@@ -335,6 +330,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         windowResizeDelay: 100,
     }), [events, onDateClick]);
 
+    useEffect(() => {
+        setIsCalendarLoading(false);
+    }, [events]);
 
     // 🔹 RENDERIZAÇÃO PREMIUM DE EVENTOS
     const renderEventContent = (arg: any) => {
@@ -498,8 +496,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         );
     };
 
-
-
     // 🔹 RENDERIZAÇÃO DE CÉLULAS DE DATA MELHORADA
     const renderDayCellContent = (arg: any) => (
         <div className="flex justify-end p-1">
@@ -535,6 +531,14 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         setMode(modeType);
         setOpenSchedule(true);
     };
+
+    if (isCalendarLoading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <LoadingSpinner />
+            </div>
+        );
+    }
 
     return (
         <Box sx={{ p: 3, backgroundColor: 'grey.50', minHeight: '100vh' }}>
