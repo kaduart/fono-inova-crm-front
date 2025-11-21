@@ -7,6 +7,7 @@ interface MessageProps {
   isMine: boolean;
   type?: "text" | "audio" | "image" | "video" | "document";
   mediaUrl?: string;
+  mediaId?: string;
   caption?: string;
   timestamp?: Date | string | number;
 }
@@ -16,6 +17,7 @@ export default function MessageBubble({
   isMine,
   type = "text",
   mediaUrl,
+  mediaId,
   caption,
   timestamp,
 }: MessageProps) {
@@ -29,25 +31,28 @@ export default function MessageBubble({
 
   const safeCaption = sanitizeCaption(caption);
 
-  // 🔧 Cria URL passando pelo proxy do back (/api/proxy-media)
-  const getProxiedUrl = (url?: string): string => {
-    if (!url) return "";
-
-    const isMetaUrl = url.includes("fbsbx.com") || url.includes("facebook.com");
-    if (!isMetaUrl) return url;
+  const getMediaSrc = (opts: { url?: string; mediaId?: string }): string => {
+    const { url, mediaId } = opts;
 
     const backendBase =
       import.meta.env.VITE_BACKEND_URL || "https://fono-inova-crm-back.onrender.com";
-
     const base = backendBase.replace(/^http:\/\//, "https://").replace(/\/+$/, "");
+
+    // 1) Se tiver mediaId, SEMPRE usa o novo fluxo do back
+    if (mediaId && mediaId.trim().length > 0) {
+      return `${base}/api/proxy-media?mediaId=${encodeURIComponent(mediaId.trim())}`;
+    }
+
+    // 2) Legado: se só tiver URL e for do Meta, usa ?url=
+    if (!url) return "";
+    const isMetaUrl = url.includes("fbsbx.com") || url.includes("facebook.com");
+    if (!isMetaUrl) return url;
+
     const encoded = encodeURIComponent(url);
-
-    const proxiedUrl = `${base}/api/proxy-media?url=${encoded}`;
-
-    return proxiedUrl;
+    return `${base}/api/proxy-media?url=${encoded}`;
   };
 
-  const fixedMediaUrl = getProxiedUrl(mediaUrl);
+  const fixedMediaUrl = getMediaSrc({ url: mediaUrl, mediaId });
 
   const handleAudioError = (e: React.SyntheticEvent<HTMLAudioElement, Event>) => {
     if (isDev) {
@@ -288,13 +293,13 @@ export default function MessageBubble({
       {/* DOCUMENT */}
       {type === "document" && fixedMediaUrl && (
         <div className="space-y-3 relative z-10">
-
-          href={fixedMediaUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`flex items-center gap-3 p-4 rounded-xl ${isMine ? 'bg-emerald-400 bg-opacity-20 hover:bg-opacity-30' : 'bg-gray-100 hover:bg-gray-200'
-            } transition-colors`}
-          <a>
+          <a
+            href={fixedMediaUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`flex items-center gap-3 p-4 rounded-xl ${isMine ? 'bg-emerald-400 bg-opacity-20 hover:bg-opacity-30' : 'bg-gray-100 hover:bg-gray-200'
+              } transition-colors`}
+          >
             <svg className="w-8 h-8 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
               <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
             </svg>

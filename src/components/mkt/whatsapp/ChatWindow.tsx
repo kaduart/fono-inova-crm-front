@@ -26,6 +26,7 @@ interface Message {
     fromMe?: boolean;
     type?: 'text' | 'image' | 'audio' | 'video' | 'document';
     mediaUrl?: string;
+    mediaId?: string;
     caption: string;
 }
 
@@ -133,6 +134,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
 
             setMessages(unique);
             seenIdsRef.current = new Set(unique.map(m => m.id));
+
+            requestAnimationFrame(() => {
+                if (messagesEndRef.current) {
+                    messagesEndRef.current.scrollIntoView({
+                        behavior: "auto",
+                        block: "end",
+                    });
+                } else if (messagesContainerRef.current) {
+                    const container = messagesContainerRef.current;
+                    container.scrollTop = container.scrollHeight;
+                }
+            });
 
         } catch (err: any) {
             console.error('❌ Erro ao buscar histórico:', err);
@@ -431,7 +444,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             }
         }
     }, [messages]);
-    console.log('1mensagensss', messages)
     useEffect(() => {
         inputRef.current?.focus();
     }, [contact]);
@@ -545,6 +557,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                                                         isMine={message.fromMe || false}
                                                         type={message.type}
                                                         mediaUrl={message.mediaUrl}
+                                                        mediaId={message.mediaId}
                                                         caption={message.caption}
                                                         timestamp={message.timestamp}
                                                     />
