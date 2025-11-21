@@ -63,7 +63,7 @@ export const EditPaymentModal = ({
         try {
             // Converte dd/MM/yyyy para ISO
             const isoDate = parse(formData.date, 'dd/MM/yyyy', new Date()).toISOString();
-
+console.log('paymentiiiii', payment)
             await onSave({
                 id: payment._id,
                 amount: formData.amount,

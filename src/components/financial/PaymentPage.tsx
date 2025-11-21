@@ -142,7 +142,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
     };
 
     const handleUpdateAmount = async (data: {
-        _id: string;
+        id: string;
         amount: number;
         date: string;
         specialty: string;
@@ -150,18 +150,30 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
         serviceType: string;
     }) => {
         try {
-            await updatePayment(data._id, {
+            const response = await updatePayment(data.id, {
                 amount: data.amount,
                 date: data.date,
                 specialty: data.specialty,
                 serviceType: data.serviceType,
                 paymentMethod: data.paymentMethod
             });
-            loadPayments();
-            toast.success('Pagamento atualizado com sucesso!');
+
+            // ✅ Normaliza a resposta (mesmo padrão do usePayment)
+            const updated = response.data?.data ?? response.data ?? response;
+
+            // ✅ Atualiza os estados locais com o pagamento atualizado
+            setAllPayments(prev => prev.map(p => p._id === data.id ? updated : p));
+            setFilteredPayments(prev => prev.map(p => p._id === data.id ? updated : p));
+
+            // ✅ Fecha modal
+            setIsEditModalOpen(false);
+            setPaymentToEdit(undefined);
+
+            toast.success('💚 Pagamento atualizado!');
+
         } catch (error) {
+            console.error('Erro ao atualizar pagamento:', error);
             toast.error('Erro ao atualizar pagamento');
-            throw error;
         }
     };
 
@@ -454,7 +466,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                 <Button
                                     variant="contained"
                                     startIcon={<RefreshCw size={16} />}
-                                    onClick={loadPayments}
+                                    onClick={fetchPayments}
                                     sx={{ mt: 2 }}
                                 >
                                     Tentar novamente

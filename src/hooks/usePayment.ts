@@ -44,7 +44,7 @@ const usePayment = () => {
   const fetchPayments = useCallback(async (filters: PaymentFilters = {}) => {
     setLoading(true);
     try {
-      const res = await getPayments(filters); // 👈 aqui usa o service
+      const res = await getPayments(filters); 
       const data = res.data?.data || res.data;
       setPayments(data);
       setError(null);
