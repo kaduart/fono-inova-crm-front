@@ -68,8 +68,8 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                             className="flex items-center gap-3"
                             onClick={() => handleTabChange("Dashboard")}
                         >
-                            <div className="h-12 w-12 rounded-lg bg-white flex items-center justify-center shadow-md">
-                                <img className="w-12 h-12" src="images/cabeca-logo.png" alt="" />
+                            <div className="h-12 w-12 rounded-lg bg-white flex items-center justify-center">
+                                <img className="w-12 h-12" src="images/cabeca-logo-verde-clara.png" alt="" />
 
                             </div>
 
