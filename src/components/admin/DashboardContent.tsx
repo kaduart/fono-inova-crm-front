@@ -81,7 +81,6 @@ const DashboardContent: React.FC<DashboardContentProps> = ({
                     onClick={() => setPatientsTableOpen(!patientsTableOpen)}
                 >
                     <div className="flex items-center gap-2">
-                        <Users className="h-5 w-5" />
                         <span className="text-lg font-bold">👥 Lista de Pacientes</span>
                     </div>
                     {patientsTableOpen ? <ChevronUp size={22} /> : <ChevronDown size={22} />}
