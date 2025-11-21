@@ -42,7 +42,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
     // 1) logo após os hooks/props, crie este helper:
     const isMarketingActive =
-        activeTab === "Leads" || activeTab === "Mensagens" || activeTab === "Analytics";
+        activeTab === "Leads" || activeTab === "Analytics";
 
     const handleLogout = async () => {
         await authLogout();
@@ -68,8 +68,9 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                             className="flex items-center gap-3"
                             onClick={() => handleTabChange("Dashboard")}
                         >
-                            <div className="h-10 w-10 rounded-lg bg-white flex items-center justify-center shadow-md">
-                                <BsSoundwave className="w-6 h-6 text-emerald-600" />
+                            <div className="h-12 w-12 rounded-lg bg-white flex items-center justify-center shadow-md">
+                                <img className="w-12 h-12" src="images/cabeca-logo.png" alt="" />
+
                             </div>
 
                             <div className="flex flex-col">
@@ -180,7 +181,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                     </NavDropdownItem>
 
                                     {/* Mensagens (WhatsApp/Chat) */}
-                                    <NavDropdownItem
+                                    {/* <NavDropdownItem
                                         active={activeTab === "Mensagens"}
                                         onClick={() => handleTabChange("Mensagens")}
                                         icon={<MessageCircle className="h-4 w-4 text-emerald-500" />}
@@ -189,7 +190,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                             <span className="text-sm font-medium text-gray-800">Mensagens</span>
                                             <span className="text-xs text-gray-500">WhatsApp / Chat</span>
                                         </div>
-                                    </NavDropdownItem>
+                                    </NavDropdownItem> */}
 
                                     {/* Analytics */}
                                     <NavDropdownItem

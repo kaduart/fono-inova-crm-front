@@ -1,8 +1,9 @@
 // src/components/whatsapp/ChatWindow.tsx
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { FiMic, FiPaperclip, FiRefreshCw, FiSend, FiUser } from 'react-icons/fi';
+import { FiMic, FiPaperclip, FiRefreshCw, FiSend, FiTrash2, FiUser } from 'react-icons/fi';
 import { IoCheckmark, IoCheckmarkDone, IoTime } from 'react-icons/io5';
 import { getChatMessages } from '../../../services/whatsappService';
+import { confirmToast } from '../../../utils/confirmToast';
 import { normalizeE164BR } from '../../../utils/phone';
 import { uid } from '../../../utils/uid';
 import { LoadingSpinner } from '../../ui/LoadingSpinner';
@@ -53,6 +54,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
     const [loading, setLoading] = useState(false);
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
+    const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+    const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const seenIdsRef = useRef<Set<string>>(new Set());
@@ -137,7 +140,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         } finally {
             setLoading(false);
         }
-    }, []); // ✅ Array vazio - função nunca muda
+    }, []);
 
     // 🔄 Efeito principal para troca de contato
     useEffect(() => {
@@ -153,7 +156,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         return () => {
             (window as any).activeChatPhone = null;
         };
-    }, [contact?.phone, loadMessages]); // ✅ Mantém loadMessages aqui
+    }, [contact?.phone, loadMessages]);
 
     // 📡 Escuta direta de eventos do Socket.IO em tempo real
     useEffect(() => {
@@ -164,29 +167,29 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         const chatPhone = normalize(contact.phone);
 
         const onNew = (data: any) => {
-                console.log('🔔 Socket recebeu mensagem:', {  // ✅ ADICIONAR
-        from: data.from,
-        to: data.to,
-        direction: data.direction,
-        content: data.content?.substring(0, 50),
-        timestamp: data.timestamp
-    });
+            console.log('🔔 Socket recebeu mensagem:', {
+                from: data.from,
+                to: data.to,
+                direction: data.direction,
+                content: data.content?.substring(0, 50),
+                timestamp: data.timestamp
+            });
 
             try {
                 const from = normalize(data.from);
                 const to = normalize(data.to);
 
-                console.log('🔍 Verificando se pertence ao chat:', {  // ✅ ADICIONAR
-            from,
-            to,
-            chatPhone,
-            match: from === chatPhone || to === chatPhone
-        });
+                console.log('🔍 Verificando se pertence ao chat:', {
+                    from,
+                    to,
+                    chatPhone,
+                    match: from === chatPhone || to === chatPhone
+                });
 
                 if (from !== chatPhone && to !== chatPhone) {
-            console.log('⏭️ Mensagem ignorada - não pertence a este chat'); // ✅ ADICIONAR
-            return;
-        }
+                    console.log('⏭️ Mensagem ignorada - não pertence a este chat');
+                    return;
+                }
 
                 const isMedia = data.type && data.type !== "text" && data.type !== "template";
                 const body = isMedia
@@ -217,9 +220,87 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             }
         };
 
+        // 🗑️ Escuta evento de mensagem deletada
+        const onDeleted = (data: any) => {
+            console.log('🗑️ Socket recebeu delete:', data);
+
+            try {
+                const from = normalize(data.from);
+                const to = normalize(data.to);
+
+                // Verifica se pertence a este chat
+                if (from !== chatPhone && to !== chatPhone) {
+                    return;
+                }
+
+                // Remove da UI - tenta com e sem prefixo 'm-'
+                const cleanId = data.id;
+                const prefixedId = `m-${data.id}`;
+
+                setMessages(prev => {
+                    const filtered = prev.filter(m => m.id !== cleanId && m.id !== prefixedId);
+                    if (filtered.length < prev.length) {
+                        console.log('✅ Mensagem removida da UI via socket');
+                    }
+                    return filtered;
+                });
+
+                seenIdsRef.current.delete(cleanId);
+                seenIdsRef.current.delete(prefixedId);
+
+            } catch (e) {
+                console.error("❌ [ChatWindow] Falha ao processar message:deleted:", e);
+            }
+        };
+
         socket.on("message:new", onNew);
-        return () => { socket.off("message:new", onNew); };
+        socket.on("message:deleted", onDeleted);
+
+        return () => {
+            socket.off("message:new", onNew);
+            socket.off("message:deleted", onDeleted);
+        };
     }, [contact?.phone]);
+
+    // 🗑️ DELETAR mensagem
+    const handleDeleteMessage = useCallback(async (messageId: string) => {
+        if (deletingMessageId) return; // Evita múltiplos cliques
+
+        const confirmed = await confirmToast('Deseja realmente deletar esta mensagem?');
+        if (!confirmed) return;
+
+        setDeletingMessageId(messageId);
+
+        try {
+            // Remove o prefixo 'm-' se existir para enviar o ObjectId real
+            const cleanId = messageId.startsWith('m-') ? messageId.substring(2) : messageId;
+
+            console.log('🗑️ Deletando mensagem:', { original: messageId, clean: cleanId });
+
+            const response = await fetch(`/api/whatsapp/messages/${cleanId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.error || 'Erro ao deletar mensagem');
+            }
+
+            // Remove da UI
+            setMessages(prev => prev.filter(m => m.id !== messageId));
+            seenIdsRef.current.delete(messageId);
+
+            console.log('✅ Mensagem deletada com sucesso');
+
+        } catch (err: any) {
+            console.error('❌ Erro ao deletar:', err);
+            setError(err.message || 'Erro ao deletar mensagem');
+        } finally {
+            setDeletingMessageId(null);
+        }
+    }, [deletingMessageId]);
 
     // 📨 Envio de mensagem
     const handleSend = useCallback(async () => {
@@ -247,8 +328,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
 
         try {
             const effectiveLeadId = leadId || undefined;
-
-            // ✅ CORREÇÃO: Pegar o userId correto do localStorage
             const userDataStr = localStorage.getItem("user");
             let userId = null;
 
@@ -263,7 +342,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
 
             const payload: any = {
                 text: messageText,
-                // ✅ Só inclui userId se for um ObjectId válido
                 ...(userId && { userId }),
             };
 
@@ -283,28 +361,42 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             });
 
             const data = await res.json();
-
-            console.log('📤 Resposta do backend:', data); // ✅ ADICIONAR
-
+            console.log('📤 Resposta do backend:', data);
 
             if (!data.success) {
                 throw new Error(data.message || data.error || "Erro ao enviar");
             }
 
-            const realId =
-                data.messageId ||
-                data.result?.messages?.[0]?.id ||
-                `out-${Date.now()}`;
+            const mongoId =
+                data.messageId ||            // 👈 vem do backend (saved._id)
+                data.message?._id || null;   // fallback se um dia você mandar assim
 
-            setMessages(prev =>
-                prev.map(m =>
-                    m.id === tempId ? { ...m, id: realId, status: "delivered" } : m
-                )
-            );
+            if (mongoId) {
+                const finalId = `m-${mongoId}`;
 
-            seenIdsRef.current.delete(tempId);
-            seenIdsRef.current.add(realId);
+                setMessages(prev =>
+                    prev.map(m =>
+                        m.id === tempId ? { ...m, id: finalId, status: "delivered" } : m
+                    )
+                );
 
+                seenIdsRef.current.delete(tempId);
+                seenIdsRef.current.add(finalId);
+            } else {
+                // fallback antigo, se der algum BO
+                const realId =
+                    data.result?.messages?.[0]?.id ||
+                    `out-${Date.now()}`;
+
+                setMessages(prev =>
+                    prev.map(m =>
+                        m.id === tempId ? { ...m, id: realId, status: "delivered" } : m
+                    )
+                );
+
+                seenIdsRef.current.delete(tempId);
+                seenIdsRef.current.add(realId);
+            }
             console.log("✅ Mensagem enviada com sucesso");
 
         } catch (err: any) {
@@ -322,9 +414,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         }
     }, [draft, contact, sending, leadId]);
 
-    // 🔄 Auto-scroll para novas mensagens - CORRIGIDO
+    // 🔄 Auto-scroll para novas mensagens
     useEffect(() => {
-        // Só faz scroll se não estiver no topo e se for uma nova mensagem
         if (messagesContainerRef.current && messages.length > 0) {
             const container = messagesContainerRef.current;
             const isNearBottom =
@@ -339,9 +430,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                 }, 50);
             }
         }
-    }, [messages]); // Agora depende do conteúdo das mensagens, não apenas do length
-
-    // Foco no input quando o contato mudar
+    }, [messages]);
+    console.log('1mensagensss', messages)
     useEffect(() => {
         inputRef.current?.focus();
     }, [contact]);
@@ -428,15 +518,38 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                             ) : (
                                 <div className="space-y-3 flex flex-col">
                                     {messages.map((message) => (
-                                        <div key={message.id} className="flex flex-col">
-                                            <MessageBubble
-                                                text={message.text}
-                                                isMine={message.fromMe || false}
-                                                type={message.type}
-                                                mediaUrl={message.mediaUrl}
-                                                caption={message.caption}
-                                                timestamp={message.timestamp}
-                                            />
+                                        <div
+                                            key={message.id}
+                                            className="flex flex-col group"
+                                            onMouseEnter={() => setHoveredMessageId(message.id)}
+                                            onMouseLeave={() => setHoveredMessageId(null)}
+                                        >
+                                            <div className="flex items-start gap-2">
+                                                {message.fromMe && hoveredMessageId === message.id && (
+                                                    <button
+                                                        onClick={() => handleDeleteMessage(message.id)}
+                                                        disabled={deletingMessageId === message.id}
+                                                        className="mt-2 p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                                                        title="Deletar mensagem"
+                                                    >
+                                                        {deletingMessageId === message.id ? (
+                                                            <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                                                        ) : (
+                                                            <FiTrash2 className="w-4 h-4" />
+                                                        )}
+                                                    </button>
+                                                )}
+                                                <div className="flex-1">
+                                                    <MessageBubble
+                                                        text={message.text}
+                                                        isMine={message.fromMe || false}
+                                                        type={message.type}
+                                                        mediaUrl={message.mediaUrl}
+                                                        caption={message.caption}
+                                                        timestamp={message.timestamp}
+                                                    />
+                                                </div>
+                                            </div>
                                             {message.fromMe && (
                                                 <div className="self-end mr-2 mt-1 text-right">
                                                     {message.status === 'read' && <IoCheckmarkDone className="w-4 h-4 text-green-500" />}
