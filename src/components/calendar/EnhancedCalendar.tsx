@@ -293,7 +293,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             right: "dayGridMonth,timeGridWeek,timeGridDay"
         },
         locales: [ptBR],
-        weekends: true,
+        weekends: false,
         locale: 'pt-br',
         allDaySlot: false,
         expandRows: true,
@@ -301,17 +301,14 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         contentHeight: "auto",
         aspectRatio: 1.8,
 
-        // 🔹 Corrige empilhamento de eventos
         slotEventOverlap: false,
         eventOverlap: false,
 
-        // 🔹 Alinha intervalos de horários
         slotMinTime: "07:00:00",
         slotMaxTime: "20:00:00",
         slotLabelInterval: "00:30:00",
         slotDuration: "00:30:00",
 
-        // 🔹 Mantém título e hora consistentes
         eventDisplay: "block",
         eventTimeFormat: {
             hour: "2-digit",
@@ -319,15 +316,30 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             hour12: false,
         } as Intl.DateTimeFormatOptions,
 
-        // 🔹 Visual refinado
         nowIndicator: true,
         dayMaxEventRows: 4,
+        dayMaxEvents: true,
+        eventMaxStack: true,
         stickyHeaderDates: true,
         eventBorderColor: "transparent",
         eventClassNames: "cursor-pointer hover:!opacity-90 transition-all duration-200",
         dayCellClassNames: "hover:bg-gray-50/50 transition-colors duration-200",
 
         windowResizeDelay: 100,
+
+        // ✅ ALTURA DOS EVENTOS
+        eventMinHeight: 120,
+        eventShortHeight: false,
+
+        // ✅ CALLBACK PARA AJUSTAR VIEW SEMANAL
+        viewDidMount: (info: any) => {
+            if (info.view.type === 'timeGridWeek' || info.view.type === 'timeGridDay') {
+                const events = document.querySelectorAll('.fc-timegrid-event');
+                events.forEach((event: any) => {
+                    event.style.minHeight = '70px';
+                });
+            }
+        }
     }), [events, onDateClick]);
 
     useEffect(() => {
@@ -335,34 +347,86 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     }, [events]);
 
     // 🔹 RENDERIZAÇÃO PREMIUM DE EVENTOS
+    // 🎯 SOLUÇÃO: BADGES DUPLOS (Pagamento + Agendamento)
+    // Cole APENAS a função renderEventContent (substitua a existente)
+
     const renderEventContent = (arg: any) => {
         const paymentConfig = arg.event.extendedProps.paymentConfig;
         const operationalConfig = arg.event.extendedProps.operationalConfig;
         const patientName = arg.event.extendedProps.patientName || 'Paciente';
         const doctorName = arg.event.extendedProps.doctorName || 'Profissional';
 
-        // ✅ LÓGICA SIMPLES: Pacote ou Avulso
         const packageData = arg.event.extendedProps.package;
         const hasPackage = !!packageData;
 
-        // Se tem pacote, usar financialStatus do pacote
-        // Se não tem, usar paymentStatus normal
         const financialStatus = hasPackage
             ? packageData.financialStatus
             : arg.event.extendedProps.paymentStatus;
 
-        // ✅ CONFIGURAÇÃO ÚNICA PARA BADGES
-        const BADGE_CONFIG = {
-            paid: { label: 'Pago', bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-300' },
-            partial: { label: 'Parcial', bg: 'bg-sky-100', text: 'text-sky-700', border: 'border-sky-300' },
-            pending: { label: 'Pendente', bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-300' },
-            open: { label: 'Em aberto', bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-300' },
-            overdue: { label: 'Vencido', bg: 'bg-rose-100', text: 'text-rose-700', border: 'border-rose-300' },
-            canceled: { label: 'Cancelado', bg: 'bg-gray-200', text: 'text-gray-600', border: 'border-gray-300' },
+        // ✅ CONFIG PAGAMENTO (💰 Verde/Amarelo/Vermelho)
+        const PAYMENT_BADGE = {
+            paid: {
+                label: 'Pago',
+                icon: '💰',
+                bg: 'bg-green-600',
+                text: 'text-white'
+            },
+            package_paid: {
+                label: 'Pacote',
+                icon: '📦',
+                bg: 'bg-green-600',
+                text: 'text-white'
+            },
+            partial: {
+                label: 'Parcial',
+                icon: '⚠️',
+                bg: 'bg-amber-500',
+                text: 'text-white'
+            },
+            advanced: {
+                label: 'Adiant.',
+                icon: '💵',
+                bg: 'bg-blue-600',
+                text: 'text-white'
+            },
+            open: {
+                label: 'Aberto',
+                icon: '❌',
+                bg: 'bg-red-600',
+                text: 'text-white'
+            },
+            pending: {
+                label: 'Pendente',
+                icon: '⏱️',
+                bg: 'bg-red-600',
+                text: 'text-white'
+            },
+            overdue: {
+                label: 'Vencido',
+                icon: '🔴',
+                bg: 'bg-rose-700',
+                text: 'text-white'
+            },
+            canceled: {
+                label: 'Cancel.',
+                icon: '⛔',
+                bg: 'bg-gray-500',
+                text: 'text-white'
+            },
         };
 
-        const badgeConfig = BADGE_CONFIG[financialStatus] || BADGE_CONFIG.pending;
-        const badgePrefix = hasPackage ? 'Pacote • ' : '';
+        // ✅ CONFIG AGENDAMENTO (📅 Azul/Verde/Cinza)
+        const OPERATIONAL_BADGE = {
+            scheduled: { label: '📅 Agendado', bg: 'bg-blue-500', text: 'text-white' },
+            confirmed: { label: '✔️ Confirm.', bg: 'bg-emerald-600', text: 'text-white' },
+            in_progress: { label: '⏳ Andamento', bg: 'bg-orange-500', text: 'text-white' },
+            completed: { label: '✅ Concluído', bg: 'bg-green-700', text: 'text-white' },
+            canceled: { label: '❌ Cancel.', bg: 'bg-gray-600', text: 'text-white' },
+            absent: { label: '🚫 Faltou', bg: 'bg-red-700', text: 'text-white' },
+        };
+
+        const paymentBadge = PAYMENT_BADGE[financialStatus] || PAYMENT_BADGE.pending;
+        const operationalBadge = OPERATIONAL_BADGE[arg.event.extendedProps.operationalStatus] || OPERATIONAL_BADGE.scheduled;
 
         const OperationalIcon = operationalConfig.icon;
         const formatTime = (time) => {
@@ -375,7 +439,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             <Tooltip
                 title={
                     <div className="p-4 min-w-[220px] bg-gradient-to-br from-slate-900 to-slate-800 shadow-2xl border border-slate-700 rounded-xl backdrop-blur-sm">
-                        {/* CABEÇALHO */}
                         <div className="font-bold text-sm text-white pb-2 mb-3 border-b border-slate-600">
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
@@ -383,7 +446,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             </div>
                         </div>
 
-                        {/* DOUTOR */}
                         <div className="text-xs text-slate-300 mb-4 flex items-center gap-2">
                             <div className="p-1 bg-slate-700 rounded">
                                 <User size={10} className="text-slate-400" />
@@ -391,13 +453,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             Dr. {doctorName}
                         </div>
 
-                        {/* ✅ INFO DO PACOTE (SE EXISTIR) */}
                         {hasPackage && (
                             <div className="mb-3 p-2 bg-slate-700/50 rounded-lg">
                                 <div className="flex items-center justify-between mb-2">
                                     <span className="text-xs font-medium text-slate-300">📦 Pacote</span>
-                                    <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${badgeConfig.bg} ${badgeConfig.text}`}>
-                                        {badgeConfig.label}
+                                    <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${paymentBadge.bg} ${paymentBadge.text}`}>
+                                        {paymentBadge.label}
                                     </span>
                                 </div>
                                 <div className="text-[10px] text-slate-400 space-y-1">
@@ -408,31 +469,22 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             </div>
                         )}
 
-                        {/* STATUS */}
                         <div className="space-y-3">
                             <div className="flex items-center justify-between bg-slate-700/50 rounded-lg p-2">
                                 <span className="text-xs font-medium text-slate-300">Agendamento</span>
-                                <span className={`text-xs px-3 py-1 rounded-full font-bold shadow-lg`}
-                                    style={{
-                                        backgroundColor: operationalConfig.color,
-                                        color: 'white',
-                                        boxShadow: `0 4px 6px ${operationalConfig.color}40`
-                                    }}>
-                                    {operationalConfig.label}
+                                <span className={`text-xs px-3 py-1 rounded-full font-bold ${operationalBadge.bg} ${operationalBadge.text}`}>
+                                    {operationalBadge.label}
                                 </span>
                             </div>
 
                             <div className="flex items-center justify-between bg-slate-700/50 rounded-lg p-2">
-                                <span className="text-xs font-medium text-slate-300">
-                                    {hasPackage ? 'Status Financeiro' : 'Pagamento'}
-                                </span>
-                                <span className={`text-xs px-3 py-1 rounded-full font-bold ${badgeConfig.bg} ${badgeConfig.text}`}>
-                                    {badgePrefix}{badgeConfig.label}
+                                <span className="text-xs font-medium text-slate-300">Pagamento</span>
+                                <span className={`text-xs px-3 py-1 rounded-full font-bold ${paymentBadge.bg} ${paymentBadge.text}`}>
+                                    {paymentBadge.label}
                                 </span>
                             </div>
                         </div>
 
-                        {/* HORÁRIO */}
                         <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-600">
                             <span className="text-xs font-medium text-slate-400">Horário</span>
                             <span className="text-xs font-bold text-white bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-600">
@@ -453,43 +505,51 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 }}
             >
                 <Paper
-                    elevation={1}
-                    className="flex flex-col p-2 rounded-lg w-full h-full relative transition-all duration-200 hover:shadow-md"
+                    elevation={2}
+                    className="flex flex-col p-3 rounded-xl w-full h-full relative transition-all duration-200 hover:shadow-lg"
                     style={{
-                        backgroundColor: paymentConfig.bgColor,
-                        borderLeft: `8px solid ${operationalConfig.color}`,
-                        opacity: ['cancelado', 'nao_compareceu'].includes(arg.event.extendedProps.operationalStatus) ? 0.6 : 1,
+                        background: 'linear-gradient(135deg, #a2ddbfff 0%, #1aac68ff 100%)', // ✅ VERDE CLARO
+                        borderLeft: `6px solid ${operationalConfig.color}`,
+                        opacity: ['canceled', 'absent'].includes(arg.event.extendedProps.operationalStatus) ? 0.7 : 1,
                     }}
                 >
-                    {/* 🔹 TOPO - Horário + Badge Simples */}
-                    <div className="flex justify-between items-start mb-1 gap-1">
-                        <span className="text-xs font-semibold text-gray-700">{formatTime(arg.timeText)}</span>
+                    {/* 🔹 HEADER - Horário + Badge Pagamento */}
+                    <div className="flex justify-between items-start mb-2 gap-2">
+                        <span className="text-sm font-bold text-gray-800 bg-white/80 px-2 py-1 rounded">
+                            {formatTime(arg.timeText)}
+                        </span>
 
-                        {/* ✅ BADGE ÚNICO (Pacote ou Avulso) */}
-                        <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${badgeConfig.bg} ${badgeConfig.text} border ${badgeConfig.border}`}>
-                            {badgePrefix}{badgeConfig.label}
+                        {/* 💰 BADGE PAGAMENTO (Direita) */}
+                        <div className={`${paymentBadge.bg} ${paymentBadge.text} px-2 py-1 rounded-md text-[10px] font-extrabold shadow-md flex items-center gap-1`}>
+                            <span>{paymentBadge.icon}</span>
+                            <span>{paymentBadge.label}</span>
                         </div>
                     </div>
 
-                    {/* Nome do paciente */}
-                    <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate leading-tight text-gray-800">
+                    {/* 🔹 CENTRO - Nome do Paciente */}
+                    <div className="flex-1 min-w-0 mb-2">
+                        <p className="text-sm font-bold truncate leading-tight text-gray-900">
                             {patientName}
                         </p>
-                        <p className="text-xs truncate text-gray-600 leading-tight mt-0.5">
+                        <p className="text-xs truncate text-gray-700 leading-tight mt-0.5">
                             Dr. {doctorName}
                         </p>
                     </div>
 
-                    {/* Rodapé - Status operacional */}
-                    <div className="flex items-center gap-1 mt-1">
-                        <OperationalIcon size={10} color={operationalConfig.color} />
-                        <span
-                            className="text-[0.65rem] font-medium"
-                            style={{ color: operationalConfig.color }}
-                        >
-                            {operationalConfig.label}
-                        </span>
+                    {/* 🔹 FOOTER - Badge Agendamento */}
+                    <div className="flex items-center justify-between gap-2">
+                        {/* 📅 BADGE AGENDAMENTO (Esquerda) */}
+                        <div className={`${operationalBadge.bg} ${operationalBadge.text} px-2 py-1 rounded-md text-[10px] font-extrabold shadow-md flex items-center gap-1`}>
+                            <OperationalIcon size={10} />
+                            {operationalBadge.label}
+                        </div>
+
+                        {/* 📦 Indicador de Pacote (se houver) */}
+                        {hasPackage && (
+                            <div className="bg-purple-600 text-white px-2 py-1 rounded-md text-[9px] font-bold">
+                                📦 Pacote
+                            </div>
+                        )}
                     </div>
                 </Paper>
             </Tooltip>
@@ -561,9 +621,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             <Typography variant="h4" fontWeight="bold" color="grey.800">
                                 Calendário de Agendamentos
                             </Typography>
-                            <Typography variant="body2" color="grey.600">
-                                Sistema visual claro: Cor da borda = Status do agendamento | Cor de fundo = Status do pagamento
-                            </Typography>
+
                         </div>
                     </div>
 
@@ -616,11 +674,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     dayMaxEventRows={4}
                     dayMaxEvents={true}
                     eventDisplay="block"
-                    eventMinHeight={120}        // altura mínima mais confortável
+                    eventMinHeight={140}        // altura mínima mais confortável
                     eventContentHeight={90}    // garante altura do conteúdo também
                     eventShortHeight={false}   // impede compactação automática
-
-
 
                     dayCellContent={(arg) => (
                         <div className="flex justify-end p-1">
@@ -734,6 +790,14 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         })}
                     </Box>
                 </Paper>
+
+<style>{`
+    /* ✅ Ajusta o botão "+X more events" */
+    .fc-timegrid-more-link {
+        top: 75px !important;
+        bottom: -102px !important;
+    }
+`}</style>
             </Box>
 
             {/* MODAIS */}

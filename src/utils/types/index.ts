@@ -57,3 +57,37 @@ export interface SpecialtyCardProps {
         revenue: number;
     };
 }
+
+export interface TherapeuticObjective {
+  area: 'language' | 'motor' | 'cognitive' | 'behavior' | 'social';
+  description: string;
+  targetScore?: number;
+  currentScore?: number;
+  targetDate?: string;
+  achieved?: boolean;
+  progress?: number;
+  notes?: string;
+}
+
+export interface TherapeuticIntervention {
+  description: string;
+  frequency?: string;
+  responsible?: 'therapist' | 'family' | 'school' | 'combined';
+  status?: 'active' | 'completed' | 'paused' | 'cancelled';
+  startDate?: string;
+  endDate?: string;
+  notes?: string;
+}
+
+export interface TherapeuticPlan {
+  protocol?: {
+    code?: string;
+    name?: string;
+    customNotes?: string;
+  };
+  objectives?: TherapeuticObjective[];
+  interventions?: TherapeuticIntervention[];
+  reviewDate?: string;
+  lastReviewDate?: string;
+  planVersion?: number;
+}

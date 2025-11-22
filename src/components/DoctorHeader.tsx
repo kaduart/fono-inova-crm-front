@@ -107,7 +107,8 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
                             onClick={() => handleTabChange("overview")}
                         >
                             <div className="h-10 w-10 rounded-lg bg-white flex items-center justify-center shadow-md">
-                                <BsSoundwave className="w-6 h-6 text-emerald-600" />
+                                <img className="w-12 h-12" src="images/cabeca-logo-verde-clara.png" alt="" />
+
                             </div>
 
                             <div className="flex flex-col">

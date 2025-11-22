@@ -17,6 +17,11 @@ import TherapyEvolution from './doctor/TherapyEvolution';
 import TodayAppointmentsCard from './doctor/TodayAppointmentsCard';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 
+import { Activity, Calendar, CheckCircle, Users } from 'lucide-react';
+import KPICard from '../components/doctor/DoctorKPICard';
+import AlertsPanel from '../components/doctor/AlertsPanel';
+import QuickActions from '../components/doctor/QuickActions';
+
 // Estado inicial do paciente
 const initialPatientState: IPatient = {
   fullName: '',
@@ -82,7 +87,6 @@ export default function DoctorDashboard() {
     calendarEvents,
     handleUpdateStatus
   } = useDoctorDashboard();
-
   // Função para abrir modal do paciente (clique rápido no nome/avatar)
   const handleOpenPatientModal = (patient: IPatient) => {
     setSelectedPatient(patient);
@@ -180,6 +184,110 @@ export default function DoctorDashboard() {
     }
   };
 
+  const calculateKPIs = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const todayAppointments = appointments.filter(
+        apt => apt.date.split('T')[0] === today
+    );
+
+    // Total de pacientes ativos
+    const activePatients = patients.filter(p => 
+        p.appointments && p.appointments.length > 0
+    ).length;
+
+    // Consultas do mês
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    const monthAppointments = appointments.filter(apt => {
+        const aptDate = new Date(apt.date);
+        return aptDate.getMonth() === currentMonth && 
+               aptDate.getFullYear() === currentYear &&
+               apt.status === 'completed';
+    }).length;
+
+    // Taxa de comparecimento
+    const completedAppointments = appointments.filter(
+        apt => apt.status === 'completed'
+    ).length;
+    const totalScheduled = appointments.length;
+    const attendanceRate = totalScheduled > 0 
+        ? Math.round((completedAppointments / totalScheduled) * 100)
+        : 0;
+
+    // Próxima consulta
+    const nextAppointment = futureAppointments[0];
+    const nextAppointmentTime = nextAppointment 
+        ? `${nextAppointment.time}`
+        : 'Nenhuma';
+
+    return {
+        activePatients,
+        monthAppointments,
+        attendanceRate,
+        todayCount: todayAppointments.length,
+        nextAppointmentTime
+    };
+};
+
+const generateAlerts = () => {
+    const alerts: any[] = [];
+
+    // Pacientes sem evolução há 30+ dias
+    const patientsWithoutEvolution = patients.filter(p => {
+        if (!p.lastAppointment) return false;
+        const daysSinceLastAppointment = Math.floor(
+            (Date.now() - new Date(p.lastAppointment).getTime()) / (1000 * 60 * 60 * 24)
+        );
+        return daysSinceLastAppointment >= 30;
+    });
+
+    if (patientsWithoutEvolution.length > 0) {
+        alerts.push({
+            id: 'no-evolution',
+            type: 'warning',
+            title: 'Pacientes sem evolução recente',
+            description: `${patientsWithoutEvolution.length} pacientes sem registro há mais de 30 dias`,
+            count: patientsWithoutEvolution.length,
+            onClick: () => handleTabChange('patients')
+        });
+    }
+
+    // Consultas de hoje
+    const today = new Date().toISOString().split('T')[0];
+    const todayPending = appointments.filter(
+        apt => apt.date.split('T')[0] === today && apt.status === 'scheduled'
+    );
+
+    if (todayPending.length > 0) {
+        alerts.push({
+            id: 'today-pending',
+            type: 'info',
+            title: 'Consultas pendentes hoje',
+            description: `${todayPending.length} consultas agendadas aguardando atendimento`,
+            count: todayPending.length
+        });
+    }
+
+    // Exemplo: Relatórios pendentes (você pode adicionar lógica real aqui)
+    // alerts.push({
+    //     id: 'reports-pending',
+    //     type: 'urgent',
+    //     title: 'Relatórios médicos pendentes',
+    //     description: 'Há relatórios aguardando sua assinatura',
+    //     count: 3,
+    //     onClick: () => handleTabChange('reports')
+    // });
+
+    return alerts;
+};
+
+// ✅ FUNÇÃO PARA IR À EVOLUÇÃO DO PACIENTE
+const handleGoToEvolution = (patient: any) => {
+    setSelectedPatient(patient);
+    setActiveTab('therapy');
+};
+
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-60vh">
@@ -192,21 +300,73 @@ export default function DoctorDashboard() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'overview':
-        return (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
-            <TodayAppointmentsCard
-              appointments={appointments}
-              showAll={showTodayAppointments}
-              onToggleShow={() => setShowTodayAppointments(!showTodayAppointments)}
-              onUpdateStatus={handleUpdateStatus}
-              onPatientClick={handleOpenPatientModal}
-            />
-            <SpecialtyStatsCard
-              doctorData={doctorData}
-              stats={stats}
-            />
-          </div>
-        );
+    const kpis = calculateKPIs();
+    const alerts = generateAlerts();
+
+    return (
+        <div className="space-y-6 p-6">
+            {/* KPI CARDS */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <KPICard
+                    title="Pacientes Ativos"
+                    value={kpis.activePatients}
+                    icon={Users}
+                    color="primary"
+                    onClick={() => handleTabChange('patients')}
+                />
+                <KPICard
+                    title="Consultas este Mês"
+                    value={kpis.monthAppointments}
+                    icon={Calendar}
+                    color="success"
+                />
+                <KPICard
+                    title="Taxa de Comparecimento"
+                    value={`${kpis.attendanceRate}%`}
+                    icon={CheckCircle}
+                    color="info"
+                    trend={{
+                        value: 5,
+                        isPositive: true
+                    }}
+                />
+                <KPICard
+                    title="Próxima Consulta"
+                    value={kpis.nextAppointmentTime}
+                    icon={Activity}
+                    color="warning"
+                />
+            </div>
+
+            {/* ALERTAS E HOJE */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <AlertsPanel alerts={alerts} />
+                
+                <TodayAppointmentsCard
+                    appointments={appointments}
+                    showAll={showTodayAppointments}
+                    onToggleShow={() => setShowTodayAppointments(!showTodayAppointments)}
+                    onUpdateStatus={handleUpdateStatus}
+                    onPatientClick={handleGoToEvolution} // ✅ IR PARA EVOLUÇÃO
+                />
+            </div>
+
+            {/* AÇÕES RÁPIDAS E STATS */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <QuickActions
+                    onNewAppointment={() => handleTabChange('appointments')}
+                    onNewPatient={handleAddNewPatient}
+                    onQuickEvolution={() => handleTabChange('therapy')}
+                    onViewCalendar={() => handleTabChange('appointments')}
+                />
+                
+                <SpecialtyStatsCard
+                    doctorData={doctorData}
+                    stats={stats}
+                />
+            </div>
+        </div>
+    );
 
       case 'patients':
         // Se estiver no modo detail, mostra o PatientDetail completo
@@ -241,10 +401,14 @@ export default function DoctorDashboard() {
           <div className="p-6">
             <TherapyEvolution
               patients={patients}
-              onPatientClick={handleOpenPatientModal}
+              selectedPatient={selectedPatient}
+              onSelectPatient={setSelectedPatient}
+              // opcional: se quiser abrir o prontuário completo a partir da aba Terapia
+              onOpenPatientDetail={handleViewPatientDetails}
             />
           </div>
         );
+
 
       case 'appointments':
         return (

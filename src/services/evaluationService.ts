@@ -52,3 +52,16 @@ export const getEvaluationsByPatient = async (patientId: string) => {
 export const deleteEvaluation = async (id: string) => {
   return API.delete(`/evolutions/${id}`).then((res) => res.data);
 };
+
+export const getPatientProgress = (patientId: string) =>
+  API.get(`/evolutions/patient/${patientId}/progress`);
+
+// protocolService.ts
+export const getProtocols = (params?: { specialty?: string; active?: boolean }) =>
+  API.get('/protocols', { params });
+
+export const getProtocolAnalyticsUsage = (params?: { specialty?: string }) =>
+  API.get('/protocols/analytics/usage', { params });
+
+export const getProtocolEffectiveness = (code: string) =>
+  API.get('/protocols/analytics/effectiveness', { params: { code } });

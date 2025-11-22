@@ -1,7 +1,7 @@
 // components/SessionExpiryHandler.tsx
 import { useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 const SessionExpiryHandler: React.FC = () => {
     const navigate = useNavigate();

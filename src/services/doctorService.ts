@@ -1,5 +1,6 @@
 import { Appointment } from "../utils/types";
 import API from "./api";
+import { toast } from 'react-toastify';
 
 export type DoctorRole = 'doctor';
 
@@ -117,6 +118,8 @@ export const fetchFutureAppointments = async (): Promise<Appointment[]> => {
 export const updateClinicalStatus = async ({ appointmentId, status }: ClinicalStatusUpdate) => {
   try {
     const response = await API.patch(`/appointments/${appointmentId}/clinical-status`, { status });
+    toast.success('Agendamento concluído com sucesso!');
+  
     return response.data;
   } catch (error: any) {
     console.error("Erro ao atualizar status clínico:", error);

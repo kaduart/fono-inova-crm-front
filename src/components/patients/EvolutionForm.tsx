@@ -1,5 +1,6 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
+import { TherapeuticPlan } from '../../utils/types';
 
 export interface EvolutionFormData {
     date: string;
@@ -9,6 +10,9 @@ export interface EvolutionFormData {
     metrics?: { [key: string]: number };
     treatmentStatus?: string;
     observations?: string;
+    plan?: string; // texto livre legado
+    therapeuticPlan?: TherapeuticPlan; // novo
+    activeProtocols?: string[];
 }
 
 interface EvolutionFormProps {

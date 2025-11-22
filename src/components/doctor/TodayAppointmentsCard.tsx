@@ -1,3 +1,4 @@
+// src/components/doctor/TodayAppointmentsCard.tsx
 import {
     Box,
     Button,
@@ -14,12 +15,14 @@ export default function TodayAppointmentsCard({
     appointments,
     showAll,
     onToggleShow,
-    onUpdateStatus
+    onUpdateStatus,
+    onPatientClick // ✅ NOVO
 }: {
     appointments: any[];
     showAll: boolean;
     onToggleShow: () => void;
     onUpdateStatus: (id: string, status: string) => void;
+    onPatientClick?: (patient: any) => void; // ✅ NOVO
 }) {
     const theme = useTheme();
     const displayedAppointments = showAll ? appointments : appointments.slice(0, 3);
@@ -92,6 +95,7 @@ export default function TodayAppointmentsCard({
                     <AppointmentList
                         appointments={displayedAppointments}
                         onUpdateStatus={onUpdateStatus}
+                        onPatientClick={onPatientClick} // ✅ PASSAR CALLBACK
                         compact={!showAll}
                     />
                 )}

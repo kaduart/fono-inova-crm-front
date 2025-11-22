@@ -705,12 +705,12 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full flex flex-col md:flex-row min-h-[600px] max-h-[90vh]">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full flex flex-col md:flex-row min-h-[600px] max-h-[90vh] border-2 border-gray-200">
                 {/* Header Mobile */}
-                <div className="md:hidden bg-gradient-to-r from-green-600 to-emerald-700 p-6 text-white rounded-t-2xl">
+                <div className="md:hidden bg-gradient-to-r from-green-600 via-green-500 to-cyan-500 p-6 text-white rounded-t-3xl">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                            <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
                                 <tabConfig.icon className="w-6 h-6" />
                             </div>
                             <div>
@@ -720,7 +720,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         </div>
                         <button
                             onClick={onClose}
-                            className="p-1 text-white hover:text-green-100 transition-colors"
+                            className="text-white hover:bg-white hover:bg-opacity-20 rounded-xl p-2 transition-all"
                         >
                             <X className="w-6 h-6" />
                         </button>
@@ -728,8 +728,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 </div>
 
                 {/* Abas laterais - Desktop */}
-                <div className="hidden md:flex w-1/4 bg-gradient-to-b from-green-50 to-emerald-50 rounded-l-2xl p-4 flex-col border-r border-green-100">
-                    <div className="space-y-2">
+                <div className="hidden md:flex w-1/4 bg-gradient-to-b from-green-50 via-emerald-50 to-cyan-50 rounded-l-3xl p-6 flex-col border-r-2 border-green-100">
+                    <div className="space-y-3">
                         {(['details', 'confirm', 'edit', 'cancel'] as const).map((tab) => {
                             const config = getTabConfig(tab);
                             const Icon = config.icon;
@@ -737,13 +737,13 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
-                                    className={`w-full text-left p-4 rounded-xl transition-all duration-200 flex items-center gap-3 ${activeTab === tab
-                                        ? `bg-white shadow-lg border border-${config.color}-200 text-${config.color}-700 font-semibold`
-                                        : 'hover:bg-white/50 text-gray-600 hover:text-gray-800'
+                                    className={`w-full text-left p-4 rounded-xl transition-all duration-200 flex items-center gap-3 font-semibold ${activeTab === tab
+                                            ? 'bg-gradient-to-r from-green-600 to-cyan-500 text-white shadow-lg scale-105'
+                                            : 'hover:bg-white/70 text-gray-700 hover:text-gray-900 hover:scale-102'
                                         }`}
                                 >
-                                    <Icon size={20} className={`${activeTab === tab ? `text-${config.color}-600` : 'text-gray-400'}`} />
-                                    <span className="font-medium">{config.title.split(' ')[0]}</span>
+                                    <Icon size={20} />
+                                    <span>{config.title.split(' ')[0]}</span>
                                 </button>
                             );
                         })}
@@ -751,7 +751,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 </div>
 
                 {/* Abas Mobile */}
-                <div className="md:hidden bg-gray-50 p-2 border-b">
+                <div className="md:hidden bg-gradient-to-r from-gray-50 to-green-50 p-3 border-b-2 border-gray-200">
                     <div className="flex overflow-x-auto space-x-2">
                         {(['details', 'confirm', 'edit', 'cancel'] as const).map((tab) => {
                             const config = getTabConfig(tab);
@@ -760,9 +760,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
-                                    className={`flex-shrink-0 px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 ${activeTab === tab
-                                        ? `bg-${config.color}-100 text-${config.color}-700 font-medium`
-                                        : 'text-gray-600 hover:bg-gray-200'
+                                    className={`flex-shrink-0 px-4 py-2 rounded-xl transition-all duration-200 flex items-center gap-2 font-semibold ${activeTab === tab
+                                            ? 'bg-gradient-to-r from-green-600 to-cyan-500 text-white shadow-lg'
+                                            : 'text-gray-600 hover:bg-white border border-gray-200'
                                         }`}
                                 >
                                     <Icon size={16} />
@@ -774,15 +774,15 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 </div>
 
                 {/* Conteúdo principal */}
-                <div className="flex-1 p-6 flex flex-col">
+                <div className="flex-1 p-8 flex flex-col">
                     {/* Header Desktop */}
-                    <div className="hidden md:flex items-center gap-4 mb-6">
-                        <div className={`p-3 bg-${tabConfig.color}-100 rounded-xl`}>
-                            <tabConfig.icon className={`w-6 h-6 text-${tabConfig.color}-600`} />
+                    <div className="hidden md:flex items-center gap-4 mb-6 pb-6 border-b-2 border-gray-200">
+                        <div className="p-3 bg-gradient-to-br from-green-100 to-cyan-100 rounded-2xl shadow-lg">
+                            <tabConfig.icon className="w-7 h-7 text-green-600" />
                         </div>
                         <div>
                             <h2 className="text-2xl font-bold text-gray-900">{tabConfig.title}</h2>
-                            <p className="text-gray-500">{tabConfig.description}</p>
+                            <p className="text-gray-600">{tabConfig.description}</p>
                         </div>
                     </div>
 
@@ -790,11 +790,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         {renderTabContent()}
                     </div>
 
-                    <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
+                    <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6 pt-6 border-t-2 border-gray-200">
                         {renderActionButton()}
                         <button
                             onClick={onClose}
-                            className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-medium"
+                            className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-bold"
                         >
                             Fechar
                         </button>
@@ -803,6 +803,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             </div>
         </div>
     );
+
 };
 
 export default AppointmentDetailModal;
