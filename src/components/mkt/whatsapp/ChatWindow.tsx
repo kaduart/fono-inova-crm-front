@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FiMic, FiPaperclip, FiRefreshCw, FiSend, FiTrash2, FiUser } from 'react-icons/fi';
 import { IoCheckmark, IoCheckmarkDone, IoTime } from 'react-icons/io5';
-import { getChatMessages, sendManualWhatsAppText, sendWhatsAppText } from '../../../services/whatsappService';
+import { getChatMessages, sendManualWhatsAppText } from '../../../services/whatsappService';
 import { confirmToast } from '../../../utils/confirmToast';
 import { normalizeE164BR } from '../../../utils/phone';
 import { uid } from '../../../utils/uid';
@@ -355,29 +355,23 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
 
             let data: any;
 
-if (effectiveLeadId) {
-    // envia vinculando ao lead (rota /whatsapp/send-manual)
-    data = await sendManualWhatsAppText(
-        effectiveLeadId,
-        messageText,
-        userId || 'admin'
-    );
-} else if (contact?.phone) {
-    // envia direto pro número (rota /whatsapp/send-text)
-    data = await sendWhatsAppText(
-        contact.phone,
-        messageText,
-        userId || 'admin'
-    );
-} else {
-    throw new Error("Contato sem telefone válido");
-}
+            if (!contact?.phone) {
+                throw new Error("Contato sem telefone válido");
+            }
 
-console.log('📤 Resposta do backend:', data);
+            data = await sendManualWhatsAppText({
+                leadId: effectiveLeadId || null,
+                phone: contact.phone,
+                text: messageText,
+                userId: userId || 'admin',
+            });
 
-if (!data.success) {
-    throw new Error(data.message || data.error || "Erro ao enviar");
-}
+
+            console.log('📤 Resposta do backend:', data);
+
+            if (!data.success) {
+                throw new Error(data.message || data.error || "Erro ao enviar");
+            }
 
 
             console.log("📤 Resposta do backend (service):", data);

@@ -1,4 +1,4 @@
-// src/services/whatsappService.ts - FUNÇÃO FALTANTE ADICIONADA
+// src/services/whatsappService.ts
 import axios from "axios";
 import { normalizeE164BR } from "../utils/phone";
 import API from "./api";
@@ -21,24 +21,15 @@ export interface Contact {
     avatar?: string;
 }
 
-// ✅ ADICIONAR INTERFACE para sendTextMessage
-export interface SendTextPayload {
-    to: string;
-    text: string;
-    lead?: string;
-}
+// =========================
+// CONTATOS
+// =========================
 
-// ========================================================
-// 🟢 CONTATOS
-// ========================================================
-
-// Buscar todos os contatos
 export async function fetchContacts(): Promise<Contact[]> {
     const response = await API.get("/whatsapp/contacts");
     return response.data;
 }
 
-// Adicionar novo contato
 export async function addContact(
     data: Omit<Contact, "_id">
 ): Promise<Contact> {
@@ -46,7 +37,6 @@ export async function addContact(
     return response.data;
 }
 
-// Editar contato existente
 export async function editContact(
     id: string,
     data: Partial<Omit<Contact, "_id">>
@@ -55,54 +45,48 @@ export async function editContact(
     return response.data;
 }
 
-// Deletar contato
 export async function deleteContact(id: string): Promise<void> {
     await API.delete(`/whatsapp/contacts/${id}`);
 }
 
-// ========================================================
-// 💬 MENSAGENS - CORRIGIDO
-// ========================================================
+// =========================
+// MENSAGENS
+// =========================
 
-// Buscar histórico de mensagens com um número
 export async function getChatMessages(phone: string) {
     const p = normalizeE164BR(phone);
     const res = await API.get(`/whatsapp/chat/${p}`);
     return res.data?.data || [];
 }
 
-
-// Já existe:
-export async function sendWhatsAppText(phone: string, text: string, userId?: string) {
+// envia texto normal (NÃO pausa Amanda)
+export async function sendWhatsAppText(
+    phone: string,
+    text: string,
+    userId?: string
+) {
     const p = normalizeE164BR(phone);
     const res = await API.post("/whatsapp/send-text", {
         phone: p,
         text,
         ...(userId && { userId }),
     });
-    return res.data;
+    return res.data; // { success, result, messageId }
 }
 
-// 🔁 ARRUMAR ESTE:
-export async function sendManualWhatsAppText(
-    leadId: string,
-    text: string,
-    userId: string,
-): Promise<any> {
-    const res = await API.post("/whatsapp/send-manual", {
-        leadId,
-        text,
-        userId,
-    });
-
-    return res.data;
+export async function sendManualWhatsAppText(payload: {
+    leadId?: string | null;
+    phone: string;
+    text: string;
+    userId: string;
+}): Promise<any> {
+    const res = await API.post("/whatsapp/send-manual", payload);
+    return res.data; // { success, message, messageId }
 }
 
-
-
-// ========================================================
-// 🧩 TEMPLATES E TOKEN META
-// ========================================================
+// =========================
+// TEMPLATE / TOKEN META
+// =========================
 
 export const whatsappService = {
     sendTemplateMessage: async ({
@@ -111,22 +95,23 @@ export const whatsappService = {
         parameters,
     }: WhatsAppPayload): Promise<WhatsAppResponse> => {
         const p = normalizeE164BR(phone);
-        const paramsArray = Object.values(parameters).map((value) => ({ type: "text", text: value }));
-        const response = await API.post("/whatsapp/send-template", { phone: p, template, params: paramsArray });
+        const paramsArray = Object.values(parameters).map((value) => ({
+            type: "text",
+            text: value,
+        }));
+        const response = await API.post("/whatsapp/send-template", {
+            phone: p,
+            template,
+            params: paramsArray,
+        });
 
         return {
             success: true,
             data: response.data,
         };
     },
-
-    // ✅ ADICIONAR: sendTextMessage no objeto whatsappService
-    sendTextMessage: async (payload: SendTextPayload) => {
-        return sendTextMessage(payload);
-    }
 };
 
-// Trocar token de curta para longa duração (Meta)
 export async function exchangeLongLivedToken({
     appId,
     appSecret,
@@ -155,6 +140,5 @@ export async function exchangeLongLivedToken({
         throw new Error("Falha ao obter token de longa duração");
     }
 }
-
 
 export default whatsappService;
