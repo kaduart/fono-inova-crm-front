@@ -353,17 +353,32 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                 }
             }
 
-            let data: any = null;
+            let data: any;
 
-            if (effectiveLeadId) {
-                // 👩‍⚕️ modo “lead” → manda pelo endpoint send-manual
-                data = await sendManualWhatsAppText(messageText, effectiveLeadId, userId || undefined);
-            } else if (contact?.phone) {
-                // 📱 chat solto por telefone → send-text normal
-                data = await sendWhatsAppText(contact.phone, messageText, userId || undefined);
-            } else {
-                throw new Error("Contato sem telefone válido");
-            }
+if (effectiveLeadId) {
+    // envia vinculando ao lead (rota /whatsapp/send-manual)
+    data = await sendManualWhatsAppText(
+        effectiveLeadId,
+        messageText,
+        userId || 'admin'
+    );
+} else if (contact?.phone) {
+    // envia direto pro número (rota /whatsapp/send-text)
+    data = await sendWhatsAppText(
+        contact.phone,
+        messageText,
+        userId || 'admin'
+    );
+} else {
+    throw new Error("Contato sem telefone válido");
+}
+
+console.log('📤 Resposta do backend:', data);
+
+if (!data.success) {
+    throw new Error(data.message || data.error || "Erro ao enviar");
+}
+
 
             console.log("📤 Resposta do backend (service):", data);
 

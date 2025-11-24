@@ -72,31 +72,30 @@ export async function getChatMessages(phone: string) {
 }
 
 
-export async function sendWhatsAppText(
-    phone: string,
-    text: string,
-    userId?: string
-) {
+// Já existe:
+export async function sendWhatsAppText(phone: string, text: string, userId?: string) {
     const p = normalizeE164BR(phone);
     const res = await API.post("/whatsapp/send-text", {
         phone: p,
         text,
         ...(userId && { userId }),
     });
-    return res.data; // { success, result, messageId }
+    return res.data;
 }
 
+// 🔁 ARRUMAR ESTE:
 export async function sendManualWhatsAppText(
-    text: string,
     leadId: string,
-    userId?: string
+    text: string,
+    userId: string,
 ): Promise<any> {
     const res = await API.post("/whatsapp/send-manual", {
         leadId,
         text,
-        userId: userId || localStorage.getItem("userId") || "admin",
+        userId,
     });
-    return res.data; // { success, message, messageId }
+
+    return res.data;
 }
 
 
