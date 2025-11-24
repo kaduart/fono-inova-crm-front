@@ -32,7 +32,6 @@ export default function MessageBubble({
     c && !/^\s*\[(?:AUDIO|IMAGE|VIDEO|DOCUMENT|STICKER)\]\s*$/i.test(c) ? c : "";
 
   const safeCaption = sanitizeCaption(caption);
-  console.log('ssssssssssss', safeCaption)
   const getMediaSrc = (opts: { url?: string; mediaId?: string }): string => {
     const { url, mediaId } = opts;
 
