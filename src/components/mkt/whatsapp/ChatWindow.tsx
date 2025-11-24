@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FiMic, FiPaperclip, FiRefreshCw, FiSend, FiTrash2, FiUser } from 'react-icons/fi';
 import { IoCheckmark, IoCheckmarkDone, IoTime } from 'react-icons/io5';
-import { getChatMessages, sendManualWhatsAppText } from '../../../services/whatsappService';
+import { deleteWhatsAppMessage, getChatMessages, sendManualWhatsAppText } from '../../../services/whatsappService';
 import { confirmToast } from '../../../utils/confirmToast';
 import { normalizeE164BR } from '../../../utils/phone';
 import { uid } from '../../../utils/uid';
@@ -24,7 +24,7 @@ interface Message {
     timestamp: Date;
     status: 'sent' | 'delivered' | 'read' | 'received';
     fromMe?: boolean;
-    type?: 'text' | 'image' | 'audio' | 'video' | 'document';
+    type?: 'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker';
     mediaUrl?: string;
     mediaId?: string;
     caption: string;
@@ -112,16 +112,23 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                 }
 
                 const id = pickMsgId(m);
+                const msgType =
+                    m.type === 'sticker'
+                        ? 'sticker'
+                        : (m.type || 'text');
+
                 return {
                     id,
-                    text: text,
-                    type: m.type || 'text',
-                    timestamp: timestamp,
-                    fromMe: fromMe,
+                    text,
+                    type: msgType,
+                    timestamp,
+                    fromMe,
                     status: m.status || (fromMe ? 'sent' : 'received'),
                     mediaUrl: m.mediaUrl || m.url || m.media || m.fileUrl || '',
+                    mediaId: m.mediaId || undefined,     // 👈 IMPORTANTE
                     caption: m.caption || m.text || '',
                 };
+
             });
 
             const unique = [];
@@ -210,30 +217,65 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                     : (data.content ?? data.text ?? "");
 
                 const id = pickMsgId(data);
-                if (seenIdsRef.current.has(id)) return;
+
+                // ✅ AQUI define o tipo, incluindo sticker
+                const msgType =
+                    data.type === 'sticker'
+                        ? 'sticker'
+                        : (data.type || 'text');
 
                 const newMessage: Message = {
                     id,
                     text: body,
-                    type: data.type || "text",
-                    mediaUrl: data.mediaUrl || data.url,
+                    type: msgType,
+                    mediaUrl: data.mediaUrl || data.url || '',
+                    mediaId: data.mediaId || undefined,
                     caption: data.caption || "",
                     timestamp: new Date(data.timestamp || Date.now()),
                     fromMe: data.direction ? data.direction === "outbound" : (from !== chatPhone),
                     status: data.status || "received",
                 };
 
+                console.log('[onNew] tipo=', newMessage.type, 'mediaId=', newMessage.mediaId, 'mediaUrl=', newMessage.mediaUrl);
+
                 setMessages(prev => {
-                    if (prev.some(m => m.id === id)) return prev;
+                    if (prev.some(m => m.id === id)) {
+                        return prev;
+                    }
+
+                    const optimisticIndex = prev.findIndex(m =>
+                        m.fromMe &&
+                        newMessage.fromMe &&
+                        !m.id.startsWith("m-") &&
+                        m.text === newMessage.text
+                    );
+
+                    if (optimisticIndex !== -1) {
+                        const updated = [...prev];
+                        const oldTemp = updated[optimisticIndex];
+
+                        updated[optimisticIndex] = {
+                            ...oldTemp,
+                            id,
+                            status: newMessage.status || "delivered",
+                            timestamp: newMessage.timestamp,
+                        };
+
+                        seenIdsRef.current.delete(oldTemp.id);
+                        seenIdsRef.current.add(id);
+
+                        return updated;
+                    }
+
                     seenIdsRef.current.add(id);
                     return [...prev, newMessage];
                 });
+
             } catch (e) {
                 console.error("❌ [ChatWindow] Falha ao processar message:new:", e);
             }
         };
 
-        // 🗑️ Escuta evento de mensagem deletada
         const onDeleted = (data: any) => {
             console.log('🗑️ Socket recebeu delete:', data);
 
@@ -241,12 +283,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                 const from = normalize(data.from);
                 const to = normalize(data.to);
 
-                // Verifica se pertence a este chat
                 if (from !== chatPhone && to !== chatPhone) {
                     return;
                 }
 
-                // Remove da UI - tenta com e sem prefixo 'm-'
                 const cleanId = data.id;
                 const prefixedId = `m-${data.id}`;
 
@@ -275,9 +315,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         };
     }, [contact?.phone]);
 
+
     // 🗑️ DELETAR mensagem
     const handleDeleteMessage = useCallback(async (messageId: string) => {
-        if (deletingMessageId) return; // Evita múltiplos cliques
+        if (deletingMessageId) return;
 
         const confirmed = await confirmToast('Deseja realmente deletar esta mensagem?');
         if (!confirmed) return;
@@ -285,27 +326,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         setDeletingMessageId(messageId);
 
         try {
-            // Remove o prefixo 'm-' se existir para enviar o ObjectId real
-            const cleanId = messageId.startsWith('m-') ? messageId.substring(2) : messageId;
-
-            console.log('🗑️ Deletando mensagem:', { original: messageId, clean: cleanId });
-
-            const response = await fetch(`/api/whatsapp/messages/${cleanId}`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            const data = await response.json();
+            const data = await deleteWhatsAppMessage(messageId);
 
             if (!data.success) {
                 throw new Error(data.error || 'Erro ao deletar mensagem');
             }
 
-            // Remove da UI
             setMessages(prev => prev.filter(m => m.id !== messageId));
             seenIdsRef.current.delete(messageId);
-
-            console.log('✅ Mensagem deletada com sucesso');
 
         } catch (err: any) {
             console.error('❌ Erro ao deletar:', err);
@@ -314,6 +342,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             setDeletingMessageId(null);
         }
     }, [deletingMessageId]);
+
 
     // 📨 Envio de mensagem
     const handleSend = useCallback(async () => {
@@ -353,64 +382,22 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                 }
             }
 
-            let data: any;
-
             if (!contact?.phone) {
                 throw new Error("Contato sem telefone válido");
             }
 
-            data = await sendManualWhatsAppText({
+            const data = await sendManualWhatsAppText({
                 leadId: effectiveLeadId || null,
                 phone: contact.phone,
                 text: messageText,
-                userId: userId || 'admin',
+                userId: userId || "admin",
             });
-
-
-            console.log('📤 Resposta do backend:', data);
-
-            if (!data.success) {
-                throw new Error(data.message || data.error || "Erro ao enviar");
-            }
-
-
             console.log("📤 Resposta do backend (service):", data);
 
             if (!data?.success) {
                 throw new Error(data?.message || data?.error || "Erro ao enviar");
             }
 
-            const mongoId =
-                data.messageId ||        // send-text e send-manual já mandam isso
-                data.message?._id ||     // fallback
-                null;
-
-            if (mongoId) {
-                const finalId = `m-${mongoId}`;
-
-                setMessages(prev =>
-                    prev.map(m =>
-                        m.id === tempId ? { ...m, id: finalId, status: "delivered" } : m
-                    )
-                );
-
-                seenIdsRef.current.delete(tempId);
-                seenIdsRef.current.add(finalId);
-            } else {
-                // fallback antigo: caso um dia mude o payload
-                const realId =
-                    data.result?.messages?.[0]?.id ||
-                    `out-${Date.now()}`;
-
-                setMessages(prev =>
-                    prev.map(m =>
-                        m.id === tempId ? { ...m, id: realId, status: "delivered" } : m
-                    )
-                );
-
-                seenIdsRef.current.delete(tempId);
-                seenIdsRef.current.add(realId);
-            }
 
             console.log("✅ Mensagem enviada com sucesso");
 
@@ -428,6 +415,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             inputRef.current?.focus();
         }
     }, [draft, contact, sending, leadId]);
+
 
     // 🔄 Auto-scroll para novas mensagens
     useEffect(() => {

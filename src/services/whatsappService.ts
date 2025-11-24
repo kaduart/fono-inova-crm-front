@@ -84,6 +84,14 @@ export async function sendManualWhatsAppText(payload: {
     return res.data; // { success, message, messageId }
 }
 
+export async function deleteWhatsAppMessage(messageId: string): Promise<any> {
+    // se receber "m-<id>", tira o prefixo aqui
+    const cleanId = messageId.startsWith('m-') ? messageId.slice(2) : messageId;
+
+    const res = await API.delete(`/whatsapp/messages/${cleanId}`);
+    return res.data; // { success, message }
+}
+
 // =========================
 // TEMPLATE / TOKEN META
 // =========================

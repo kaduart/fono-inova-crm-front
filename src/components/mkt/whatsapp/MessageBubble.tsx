@@ -5,7 +5,7 @@ import { formatMessageTimestamp } from '../../../utils/dateHelper';
 interface MessageProps {
   text?: string;
   isMine: boolean;
-  type?: "text" | "audio" | "image" | "video" | "document";
+  type?: "text" | "audio" | "image" | "video" | "document" | "sticker";
   mediaUrl?: string;
   mediaId?: string;
   caption?: string;
@@ -25,12 +25,14 @@ export default function MessageBubble({
   const [isLoading, setIsLoading] = useState(false);
   const isDev = import.meta.env.DEV;
 
+  const isSticker = type === "sticker";
+
   // esconder captions de placeholder tipo [AUDIO], [IMAGE], [VIDEO], ...
   const sanitizeCaption = (c?: string) =>
     c && !/^\s*\[(?:AUDIO|IMAGE|VIDEO|DOCUMENT|STICKER)\]\s*$/i.test(c) ? c : "";
 
   const safeCaption = sanitizeCaption(caption);
-
+  console.log('ssssssssssss', safeCaption)
   const getMediaSrc = (opts: { url?: string; mediaId?: string }): string => {
     const { url, mediaId } = opts;
 
@@ -38,12 +40,10 @@ export default function MessageBubble({
       import.meta.env.VITE_BACKEND_URL || "https://fono-inova-crm-back.onrender.com";
     const base = backendBase.replace(/^http:\/\//, "https://").replace(/\/+$/, "");
 
-    // 1) Se tiver mediaId, SEMPRE usa o novo fluxo do back
     if (mediaId && mediaId.trim().length > 0) {
       return `${base}/api/proxy-media?mediaId=${encodeURIComponent(mediaId.trim())}`;
     }
 
-    // 2) Legado: se só tiver URL e for do Meta, usa ?url=
     if (!url) return "";
     const isMetaUrl = url.includes("fbsbx.com") || url.includes("facebook.com");
     if (!isMetaUrl) return url;
@@ -54,24 +54,18 @@ export default function MessageBubble({
 
   const fixedMediaUrl = getMediaSrc({ url: mediaUrl, mediaId });
 
-  const handleAudioError = (e: React.SyntheticEvent<HTMLAudioElement, Event>) => {
-    if (isDev) {
-      console.warn('🎧 Áudio indisponível:', mediaUrl);
-    }
+  const handleAudioError = () => {
+    if (isDev) console.warn('🎧 Áudio indisponível:', mediaUrl);
     setHasError(true);
   };
 
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    if (isDev) {
-      console.warn('🖼️ Imagem indisponível:', mediaUrl);
-    }
+  const handleImageError = () => {
+    if (isDev) console.warn('🖼️ Imagem indisponível:', mediaUrl);
     setHasError(true);
   };
 
   const handleVideoError = () => {
-    if (isDev) {
-      console.warn('🎬 Vídeo indisponível:', mediaUrl);
-    }
+    if (isDev) console.warn('🎬 Vídeo indisponível:', mediaUrl);
     setHasError(true);
   };
 
@@ -82,7 +76,6 @@ export default function MessageBubble({
         : "bg-white text-gray-800 self-start rounded-bl-none mr-12 border border-gray-100"
         }`}
     >
-      {/* Indicador visual sutil */}
       <div
         className={`absolute top-0 w-3 h-3 ${isMine
           ? '-right-3 bg-gradient-to-r from-emerald-500 to-emerald-600'
@@ -93,7 +86,7 @@ export default function MessageBubble({
         }}
       />
 
-      {/* TEXTO SIMPLES */}
+      {/* TEXTO */}
       {type === "text" && (
         <div className="relative z-10">
           <p className="whitespace-pre-wrap break-words leading-relaxed">{text}</p>
@@ -105,7 +98,7 @@ export default function MessageBubble({
         </div>
       )}
 
-      {/* ÁUDIO COM PROXY - DESIGN MELHORADO */}
+      {/* ÁUDIO */}
       {type === "audio" && fixedMediaUrl && (
         <div className="space-y-3 relative z-10">
           <div className="flex items-center gap-2 text-sm opacity-90">
@@ -143,12 +136,13 @@ export default function MessageBubble({
             </div>
           )}
 
-          {/* MENSAGEM DE ERRO ELEGANTE */}
           {hasError && (
-            <div className={`p-3 rounded-lg text-sm ${isMine
-              ? 'bg-yellow-500 bg-opacity-20 text-yellow-100'
-              : 'bg-yellow-100 text-yellow-800'
-              }`}>
+            <div
+              className={`p-3 rounded-lg text-sm ${isMine
+                ? 'bg-yellow-500 bg-opacity-20 text-yellow-100'
+                : 'bg-yellow-100 text-yellow-800'
+                }`}
+            >
               <div className="flex items-center gap-2">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
@@ -166,16 +160,18 @@ export default function MessageBubble({
           )}
 
           {safeCaption && (
-            <p className={`text-sm opacity-80 mt-2 pt-2 ${isMine ? 'border-emerald-400' : 'border-gray-200'
-              } border-t`}>
+            <p
+              className={`text-sm opacity-80 mt-2 pt-2 ${isMine ? 'border-emerald-400' : 'border-gray-200'
+                } border-t`}
+            >
               {safeCaption}
             </p>
           )}
         </div>
       )}
 
-      {/* IMAGEM COM PROXY - DESIGN MELHORADO */}
-      {type === "image" && fixedMediaUrl && (
+      {/* IMAGEM / STICKER */}
+      {(type === "image" || type === "sticker") && fixedMediaUrl && (
         <div className="space-y-3 relative z-10">
           {isLoading && (
             <div className="flex items-center justify-center h-32 rounded-xl bg-black bg-opacity-5">
@@ -187,7 +183,7 @@ export default function MessageBubble({
             <div className={`overflow-hidden rounded-xl shadow-sm ${isLoading ? 'hidden' : 'block'}`}>
               <img
                 src={fixedMediaUrl}
-                alt={safeCaption || "Imagem recebida"}
+                alt={safeCaption || (isSticker ? "Figurinha recebida" : "Imagem recebida")}
                 className="w-full h-auto max-h-80 object-cover transition-transform duration-300 hover:scale-105 cursor-zoom-in"
                 onError={handleImageError}
                 onLoad={() => setIsLoading(false)}
@@ -197,10 +193,11 @@ export default function MessageBubble({
             </div>
           )}
 
-          {/* FALLBACK VISUAL QUANDO A IMAGEM FALHA */}
           {hasError && (
-            <div className={`p-8 rounded-xl text-center ${isMine ? 'bg-emerald-400 bg-opacity-20' : 'bg-gray-100'
-              }`}>
+            <div
+              className={`p-8 rounded-xl text-center ${isMine ? 'bg-emerald-400 bg-opacity-20' : 'bg-gray-100'
+                }`}
+            >
               <svg
                 className={`w-16 h-16 mx-auto mb-3 ${isMine ? 'text-emerald-200' : 'text-gray-400'
                   }`}
@@ -208,10 +205,15 @@ export default function MessageBubble({
                 viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
               </svg>
               <p className={`text-sm mb-2 ${isMine ? 'text-emerald-100' : 'text-gray-600'}`}>
-                Imagem indisponível
+                {isSticker ? 'Figurinha indisponível' : 'Imagem indisponível'}
               </p>
               <button
                 onClick={() => window.open(mediaUrl, '_blank')}
@@ -224,8 +226,10 @@ export default function MessageBubble({
           )}
 
           {safeCaption && (
-            <p className={`text-sm opacity-80 mt-2 pt-2 ${isMine ? 'border-emerald-400' : 'border-gray-200'
-              } border-t`}>
+            <p
+              className={`text-sm opacity-80 mt-2 pt-2 ${isMine ? 'border-emerald-400' : 'border-gray-200'
+                } border-t`}
+            >
               {safeCaption}
             </p>
           )}
@@ -257,8 +261,10 @@ export default function MessageBubble({
           )}
 
           {hasError && (
-            <div className={`p-8 rounded-xl text-center ${isMine ? 'bg-emerald-400 bg-opacity-20' : 'bg-gray-100'
-              }`}>
+            <div
+              className={`p-8 rounded-xl text-center ${isMine ? 'bg-emerald-400 bg-opacity-20' : 'bg-gray-100'
+                }`}
+            >
               <svg
                 className={`w-16 h-16 mx-auto mb-3 ${isMine ? 'text-emerald-200' : 'text-gray-400'
                   }`}
@@ -266,7 +272,12 @@ export default function MessageBubble({
                 viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
               </svg>
               <p className={`text-sm mb-2 ${isMine ? 'text-emerald-100' : 'text-gray-600'}`}>
                 Vídeo indisponível
@@ -282,8 +293,10 @@ export default function MessageBubble({
           )}
 
           {safeCaption && (
-            <p className={`text-sm opacity-80 mt-2 pt-2 ${isMine ? 'border-emerald-400' : 'border-gray-200'
-              } border-t`}>
+            <p
+              className={`text-sm opacity-80 mt-2 pt-2 ${isMine ? 'border-emerald-400' : 'border-gray-200'
+                } border-t`}
+            >
               {safeCaption}
             </p>
           )}
@@ -297,7 +310,9 @@ export default function MessageBubble({
             href={fixedMediaUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className={`flex items-center gap-3 p-4 rounded-xl ${isMine ? 'bg-emerald-400 bg-opacity-20 hover:bg-opacity-30' : 'bg-gray-100 hover:bg-gray-200'
+            className={`flex items-center gap-3 p-4 rounded-xl ${isMine
+              ? 'bg-emerald-400 bg-opacity-20 hover:bg-opacity-30'
+              : 'bg-gray-100 hover:bg-gray-200'
               } transition-colors`}
           >
             <svg className="w-8 h-8 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
@@ -307,24 +322,36 @@ export default function MessageBubble({
               <p className="font-medium text-sm truncate">Documento</p>
               <p className="text-xs opacity-70">Clique para abrir</p>
             </div>
-            <svg className="w-5 h-5 flex-shrink-0 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            <svg
+              className="w-5 h-5 flex-shrink-0 opacity-50"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+              />
             </svg>
           </a>
           {safeCaption && (
-            <p className={`text-sm opacity-80 mt-2 pt-2 ${isMine ? 'border-emerald-400' : 'border-gray-200'
-              } border-t`}>
+            <p
+              className={`text-sm opacity-80 mt-2 pt-2 ${isMine ? 'border-emerald-400' : 'border-gray-200'
+                } border-t`}
+            >
               {safeCaption}
             </p>
           )}
         </div>
       )}
 
-      {/* TIMESTAMP ELEGANTE */}
-      <div className={`text-xs mt-3 pt-2 ${isMine
-        ? 'text-emerald-200 border-emerald-400'
-        : 'text-gray-500 border-gray-200'
-        } border-t border-opacity-30 text-right opacity-80`}>
+      {/* TIMESTAMP */}
+      <div
+        className={`text-xs mt-3 pt-2 ${isMine ? 'text-emerald-200 border-emerald-400' : 'text-gray-500 border-gray-200'
+          } border-t border-opacity-30 text-right opacity-80`}
+      >
         {timestamp ? formatMessageTimestamp(timestamp) : 'Agora'}
       </div>
     </div>
