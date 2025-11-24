@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FiMic, FiPaperclip, FiRefreshCw, FiSend, FiTrash2, FiUser } from 'react-icons/fi';
 import { IoCheckmark, IoCheckmarkDone, IoTime } from 'react-icons/io5';
-import { getChatMessages } from '../../../services/whatsappService';
+import { getChatMessages, sendManualWhatsAppText, sendWhatsAppText } from '../../../services/whatsappService';
 import { confirmToast } from '../../../utils/confirmToast';
 import { normalizeE164BR } from '../../../utils/phone';
 import { uid } from '../../../utils/uid';
@@ -342,7 +342,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         try {
             const effectiveLeadId = leadId || undefined;
             const userDataStr = localStorage.getItem("user");
-            let userId = null;
+            let userId: string | null = null;
 
             if (userDataStr) {
                 try {
@@ -353,56 +353,28 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                 }
             }
 
-            const payload: any = {
-                text: messageText,
-                ...(userId && { userId }),
-            };
-
-            let url = "/api/whatsapp/send-text";
+            let data: any = null;
 
             if (effectiveLeadId) {
-                url = "/api/whatsapp/send-manual";
-                payload.leadId = effectiveLeadId;
+                // 👩‍⚕️ modo “lead” → manda pelo endpoint send-manual
+                data = await sendManualWhatsAppText(messageText, effectiveLeadId, userId || undefined);
             } else if (contact?.phone) {
-                payload.phone = normalizeE164BR(contact.phone);
+                // 📱 chat solto por telefone → send-text normal
+                data = await sendWhatsAppText(contact.phone, messageText, userId || undefined);
+            } else {
+                throw new Error("Contato sem telefone válido");
             }
 
-            const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-});
+            console.log("📤 Resposta do backend (service):", data);
 
-// 🔍 Lê como texto primeiro
-const raw = await res.text();
-let data: any = {};
-
-if (raw) {
-    try {
-        data = JSON.parse(raw);
-    } catch (e) {
-        console.error("❌ Resposta não é JSON válido:", raw);
-        throw new Error("Resposta inválida do servidor (não é JSON)");
-    }
-} else {
-    console.error("⚠️ Servidor respondeu sem corpo (vazio), status:", res.status);
-    throw new Error("Servidor retornou resposta vazia");
-}
-
-console.log('📤 Resposta do backend:', { status: res.status, data });
-
-if (!res.ok) {
-    throw new Error(data?.error || data?.message || `Erro HTTP ${res.status}`);
-}
-
-if (!data.success) {
-    throw new Error(data.message || data.error || "Erro ao enviar");
-}
-
+            if (!data?.success) {
+                throw new Error(data?.message || data?.error || "Erro ao enviar");
+            }
 
             const mongoId =
-                data.messageId ||            // 👈 vem do backend (saved._id)
-                data.message?._id || null;   // fallback se um dia você mandar assim
+                data.messageId ||        // send-text e send-manual já mandam isso
+                data.message?._id ||     // fallback
+                null;
 
             if (mongoId) {
                 const finalId = `m-${mongoId}`;
@@ -416,7 +388,7 @@ if (!data.success) {
                 seenIdsRef.current.delete(tempId);
                 seenIdsRef.current.add(finalId);
             } else {
-                // fallback antigo, se der algum BO
+                // fallback antigo: caso um dia mude o payload
                 const realId =
                     data.result?.messages?.[0]?.id ||
                     `out-${Date.now()}`;
@@ -430,6 +402,7 @@ if (!data.success) {
                 seenIdsRef.current.delete(tempId);
                 seenIdsRef.current.add(realId);
             }
+
             console.log("✅ Mensagem enviada com sucesso");
 
         } catch (err: any) {

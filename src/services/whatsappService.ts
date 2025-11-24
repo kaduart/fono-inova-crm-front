@@ -72,46 +72,33 @@ export async function getChatMessages(phone: string) {
 }
 
 
-// ✅ MANTER: Enviar mensagem de texto (alternativa)
-export async function sendWhatsAppText(phone: string, text: string) {
+export async function sendWhatsAppText(
+    phone: string,
+    text: string,
+    userId?: string
+) {
     const p = normalizeE164BR(phone);
-    const res = await API.post("/whatsapp/send-text", { phone: p, text });
-    return res.data;
+    const res = await API.post("/whatsapp/send-text", {
+        phone: p,
+        text,
+        ...(userId && { userId }),
+    });
+    return res.data; // { success, result, messageId }
 }
 
 export async function sendManualWhatsAppText(
-    phone: string,
     text: string,
-    leadId?: string
+    leadId: string,
+    userId?: string
 ): Promise<any> {
-    try {
-        const normalizedPhone = normalizeE164BR(phone);
-
-        const response = await fetch('/api/whatsapp/send-manual', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                leadId,
-                text,
-                userId: localStorage.getItem('userId') || 'admin'
-            })
-        });
-
-        const data = await response.json();
-
-        if (!data.success) {
-            throw new Error(data.message || 'Erro ao enviar mensagem');
-        }
-
-        return data;
-
-    } catch (error) {
-        console.error('❌ Erro ao enviar mensagem manual:', error);
-        throw error;
-    }
+    const res = await API.post("/whatsapp/send-manual", {
+        leadId,
+        text,
+        userId: userId || localStorage.getItem("userId") || "admin",
+    });
+    return res.data; // { success, message, messageId }
 }
+
 
 
 // ========================================================
