@@ -317,8 +317,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
 
 
     // 🗑️ DELETAR mensagem
+    // 🗑️ DELETAR mensagem
     const handleDeleteMessage = useCallback(async (messageId: string) => {
-        if (deletingMessageId) return;
+        if (deletingMessageId) return; // evita múltiplos cliques
 
         const confirmed = await confirmToast('Deseja realmente deletar esta mensagem?');
         if (!confirmed) return;
@@ -326,15 +327,40 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         setDeletingMessageId(messageId);
 
         try {
-            const data = await deleteWhatsAppMessage(messageId);
+            // 1) Se for mensagem temporária (não existe no banco), só remove da UI
+            if (messageId.startsWith('temp')) {
+                console.log('🗑️ Removendo mensagem temporária só da UI:', messageId);
 
-            if (!data.success) {
-                throw new Error(data.error || 'Erro ao deletar mensagem');
+                setMessages(prev => prev.filter(m => m.id !== messageId));
+                seenIdsRef.current.delete(messageId);
+                return;
             }
 
-            setMessages(prev => prev.filter(m => m.id !== messageId));
-            seenIdsRef.current.delete(messageId);
+            // 2) Mensagem persistida: remove o prefixo "m-" pra mandar o ObjectId real
+            const cleanId = messageId.startsWith('m-') ? messageId.substring(2) : messageId;
 
+            console.log('🗑️ Deletando mensagem no backend:', { original: messageId, cleanId });
+
+            const data = await deleteWhatsAppMessage(cleanId);
+
+            if (!data?.success) {
+                throw new Error(data.error || data.message || 'Erro ao deletar mensagem');
+            }
+
+            // 3) Remove da UI considerando possíveis formas do id
+            setMessages(prev =>
+                prev.filter(m =>
+                    m.id !== messageId &&
+                    m.id !== cleanId &&
+                    m.id !== `m-${cleanId}`
+                )
+            );
+
+            seenIdsRef.current.delete(messageId);
+            seenIdsRef.current.delete(cleanId);
+            seenIdsRef.current.delete(`m-${cleanId}`);
+
+            console.log('✅ Mensagem deletada com sucesso');
         } catch (err: any) {
             console.error('❌ Erro ao deletar:', err);
             setError(err.message || 'Erro ao deletar mensagem');
@@ -342,6 +368,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             setDeletingMessageId(null);
         }
     }, [deletingMessageId]);
+
 
 
     // 📨 Envio de mensagem
