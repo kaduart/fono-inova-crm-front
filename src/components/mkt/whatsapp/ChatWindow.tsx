@@ -368,17 +368,37 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             }
 
             const res = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+});
 
-            const data = await res.json();
-            console.log('📤 Resposta do backend:', data);
+// 🔍 Lê como texto primeiro
+const raw = await res.text();
+let data: any = {};
 
-            if (!data.success) {
-                throw new Error(data.message || data.error || "Erro ao enviar");
-            }
+if (raw) {
+    try {
+        data = JSON.parse(raw);
+    } catch (e) {
+        console.error("❌ Resposta não é JSON válido:", raw);
+        throw new Error("Resposta inválida do servidor (não é JSON)");
+    }
+} else {
+    console.error("⚠️ Servidor respondeu sem corpo (vazio), status:", res.status);
+    throw new Error("Servidor retornou resposta vazia");
+}
+
+console.log('📤 Resposta do backend:', { status: res.status, data });
+
+if (!res.ok) {
+    throw new Error(data?.error || data?.message || `Erro HTTP ${res.status}`);
+}
+
+if (!data.success) {
+    throw new Error(data.message || data.error || "Erro ao enviar");
+}
+
 
             const mongoId =
                 data.messageId ||            // 👈 vem do backend (saved._id)
