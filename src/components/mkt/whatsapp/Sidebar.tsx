@@ -45,8 +45,12 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     // ✅ FUNÇÃO: Obtém o timestamp mais relevante para exibição
     const getDisplayTime = (contact: Contact) => {
-        // Prioridade: lastMessageTime -> updatedAt -> createdAt
-        return contact.lastMessageTime || contact.updatedAt || contact.createdAt;
+        return (
+            contact.lastMessageTime ||
+            contact.lastMessageAt ||
+            contact.updatedAt ||
+            contact.createdAt
+        );
     };
 
     return (
@@ -155,10 +159,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                                     <div className="flex items-center justify-between">
                                         <div className="flex-1 min-w-0">
                                             <p className={`text-sm truncate ${isActive
-                                                    ? 'text-emerald-200'
-                                                    : contact.hasNewMessage
-                                                        ? 'text-white font-medium'
-                                                        : 'text-gray-400'
+                                                ? 'text-emerald-200'
+                                                : contact.hasNewMessage
+                                                    ? 'text-white font-medium'
+                                                    : 'text-gray-400'
                                                 }`}>
                                                 {contact.lastMessage || contact.phone}
                                             </p>

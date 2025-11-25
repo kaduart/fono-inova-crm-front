@@ -3,6 +3,7 @@ import { Paper, Typography, useTheme } from "@mui/material";
 import { MessageCircle, RefreshCw } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { FiAlertCircle, FiMessageCircle, FiUserPlus, FiX } from "react-icons/fi";
+import { useChatNavigation } from "../../../contexts/ChatNavigationContext";
 import { useNotification } from "../../../contexts/NotificationContext";
 import {
     addContact as apiAddContact,
@@ -16,31 +17,35 @@ import { Button } from "../../ui/Button";
 import AddContactModal from "./AddContactModal";
 import ChatWindow from "./ChatWindow";
 import Sidebar from "./Sidebar";
-import { useChatNavigation } from "../../../contexts/ChatNavigationContext";
 
 const AppChat: React.FC = () => {
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [active, setActive] = useState<Contact | null>(null);
-    const [loading, setLoading] = useState(false);
+
+    // 🔹 separa loading de contatos e ações
+    const [loadingContacts, setLoadingContacts] = useState(false);
+    const [loadingAction, setLoadingAction] = useState(false);
+
     const [error, setError] = useState("");
     const [showAddModal, setShowAddModal] = useState(false);
+
     const { chatNotification, mediaNotification } = useNotification();
-        const { pendingContactPhone, setPendingContactPhone } = useChatNavigation(); // ✅ NOVO
+    const { pendingContactPhone, setPendingContactPhone } = useChatNavigation();
 
     const theme = useTheme();
 
-    // 🟢 Carregar contatos iniciais
+    // 🟢 Carregar contatos iniciais – igual o código antigo
     const loadContacts = async () => {
-        setLoading(true);
+        setLoadingContacts(true);
         setError("");
         try {
-            const data = await fetchContacts();
-            setContacts(data);
+            const response = await fetchContacts(); // mantém exatamente como era
+            setContacts(response.data);                  // não mexe na estrutura → data continua vindo pro Sidebar
         } catch (e) {
             console.error("Erro ao buscar contatos:", e);
             setError((e as Error).message);
         } finally {
-            setLoading(false);
+            setLoadingContacts(false);
         }
     };
 
@@ -48,10 +53,11 @@ const AppChat: React.FC = () => {
         loadContacts();
     }, []);
 
+    // 🟢 Selecionar contato a partir do pendingContactPhone (igual o antigo)
     useEffect(() => {
         if (!pendingContactPhone || contacts.length === 0) return;
 
-        console.log('🎯 AppChat: Processando telefone pendente', pendingContactPhone);
+        console.log("🎯 AppChat: Processando telefone pendente", pendingContactPhone);
 
         const normalizePhone = (phone: string): string => {
             let cleaned = (phone || "").replace(/\D/g, "");
@@ -61,40 +67,34 @@ const AppChat: React.FC = () => {
         };
 
         const targetPhone = normalizePhone(pendingContactPhone);
-        
-        // Procura o contato na lista
+
         const foundContact = contacts.find(
-            contact => normalizePhone(contact.phone) === targetPhone
+            (contact) => normalizePhone(contact.phone) === targetPhone
         );
 
         if (foundContact) {
-            console.log('✅ Contato encontrado, abrindo chat:', foundContact.name);
+            console.log("✅ Contato encontrado, abrindo chat:", foundContact.name);
             handleSelectContact(foundContact);
         } else {
-            console.warn('⚠️ Contato não encontrado na lista para:', pendingContactPhone);
-            // Opcional: criar contato automaticamente ou mostrar erro
+            console.warn("⚠️ Contato não encontrado na lista para:", pendingContactPhone);
         }
 
-        // Limpa o telefone pendente
         setPendingContactPhone(null);
     }, [pendingContactPhone, contacts, setPendingContactPhone]);
 
-    // 🔔 Efeito para gerenciar notificações na lista de contatos
+    // 🔔 Notificações – igual ao código antigo, mantendo lastMessageTime
     useEffect(() => {
         if (!chatNotification && !mediaNotification) return;
 
-        // notificação atual (texto OU mídia)
         const notification = chatNotification || mediaNotification;
-        console.log('🔔 AppChat: Processando notificação para lista:', notification);
+        console.log("🔔 AppChat: Processando notificação para lista:", notification);
 
-        // preview cobre: texto → .text; mídia → .content ou .caption
         const preview =
-            (chatNotification?.text) ??
-            ((mediaNotification as any)?.content) ??
-            (mediaNotification?.caption) ??
+            chatNotification?.text ??
+            (mediaNotification as any)?.content ??
+            mediaNotification?.caption ??
             "Nova mídia";
 
-        // mesma função de normalização usada no ChatWindow
         const normalizePhone = (phone: string): string => {
             let cleaned = (phone || "").replace(/\D/g, "");
             if (cleaned.startsWith("55")) cleaned = cleaned.substring(2);
@@ -104,12 +104,11 @@ const AppChat: React.FC = () => {
 
         const notificationPhone = normalizePhone(notification.from);
 
-        setContacts(prevContacts =>
-            prevContacts.map(contact => {
+        setContacts((prevContacts) =>
+            prevContacts.map((contact) => {
                 const contactPhone = normalizePhone(contact.phone);
                 if (contactPhone !== notificationPhone) return contact;
 
-                // 👇 não marcar vermelho se este contato já está ativo no chat
                 const isActive = active?._id === contact._id;
 
                 return {
@@ -117,23 +116,22 @@ const AppChat: React.FC = () => {
                     hasNewMessage: !isActive,
                     lastMessage: preview,
                     lastMessagePreview: preview,
-                    lastMessageTime: new Date().toISOString(),
+                    lastMessageTime: new Date().toISOString(), // 👈 é isso que o Sidebar usa pra data
                     unreadCount: isActive ? 0 : (contact.unreadCount || 0) + 1,
                 };
             })
         );
     }, [chatNotification, mediaNotification, active]);
 
-
-    // 🔄 Efeito para limpar a notificação quando o contato é selecionado
+    // 🔄 Selecionar contato
     const handleSelectContact = (contact: Contact) => {
         console.log(`🎯 handleSelectContact CHAMADO para: ${contact.name}`, {
             tinhaNotificacao: contact.hasNewMessage,
-            mensagensNaoLidas: contact.unreadCount
+            mensagensNaoLidas: contact.unreadCount,
         });
-        // Limpa o indicador de nova mensagem quando o contato é selecionado
-        setContacts(prevContacts =>
-            prevContacts.map(c =>
+
+        setContacts((prevContacts) =>
+            prevContacts.map((c) =>
                 c._id === contact._id
                     ? { ...c, hasNewMessage: false, unreadCount: 0 }
                     : c
@@ -143,9 +141,9 @@ const AppChat: React.FC = () => {
         setActive(contact);
     };
 
-    // ➕ Adicionar novo contato
+    // ➕ Adicionar contato – usa loadingAction
     const addContact = async (data: Omit<Contact, "_id">) => {
-        setLoading(true);
+        setLoadingAction(true);
         setError("");
         try {
             const newContact = await apiAddContact(data);
@@ -155,13 +153,13 @@ const AppChat: React.FC = () => {
         } catch (e) {
             setError((e as Error).message);
         } finally {
-            setLoading(false);
+            setLoadingAction(false);
         }
     };
 
     // ✏️ Editar contato
     const editContact = async (id: string, data: Partial<Omit<Contact, "_id">>) => {
-        setLoading(true);
+        setLoadingAction(true);
         setError("");
         try {
             const updated = await apiEditContact(id, data);
@@ -170,13 +168,13 @@ const AppChat: React.FC = () => {
         } catch (e) {
             setError((e as Error).message);
         } finally {
-            setLoading(false);
+            setLoadingAction(false);
         }
     };
 
     // 🗑️ Deletar contato
     const deleteContact = async (id: string) => {
-        setLoading(true);
+        setLoadingAction(true);
         setError("");
         try {
             await apiDeleteContact(id);
@@ -185,7 +183,7 @@ const AppChat: React.FC = () => {
         } catch (e) {
             setError((e as Error).message);
         } finally {
-            setLoading(false);
+            setLoadingAction(false);
         }
     };
 
@@ -199,7 +197,7 @@ const AppChat: React.FC = () => {
         }
     };
 
-    // 🎨 Empty State Component
+    // 🎨 Empty State Component (igual)
     const EmptyState = () => (
         <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50/30">
             <div className="text-center p-8 max-w-md mx-auto">
@@ -220,7 +218,6 @@ const AppChat: React.FC = () => {
                     <span>Adicionar Primeiro Contato</span>
                 </button>
 
-                {/* Stats ou informações úteis */}
                 <div className="mt-12 grid grid-cols-3 gap-6 text-center">
                     <div className="text-gray-600">
                         <div className="text-2xl font-semibold text-indigo-600">{contacts.length}</div>
@@ -239,7 +236,6 @@ const AppChat: React.FC = () => {
         </div>
     );
 
-    // 🎨 Loading Overlay Component
     const LoadingOverlay = () => (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-300">
             <div className="bg-white/95 p-8 rounded-2xl shadow-2xl border border-white/20 flex flex-col items-center space-y-4 min-w-[200px]">
@@ -255,7 +251,6 @@ const AppChat: React.FC = () => {
         </div>
     );
 
-    // 🎨 Error Notification Component
     const ErrorNotification = () => (
         <div className="fixed bottom-6 right-6 bg-white border border-red-200 rounded-2xl shadow-2xl z-50 max-w-md animate-fade-in-up">
             <div className="p-4 flex items-start space-x-3">
@@ -275,7 +270,6 @@ const AppChat: React.FC = () => {
                 </button>
             </div>
 
-            {/* Progress bar */}
             <div className="w-full bg-gray-100 rounded-b-2xl overflow-hidden">
                 <div className="h-1 bg-red-500 rounded-full animate-progress"></div>
             </div>
@@ -297,7 +291,6 @@ const AppChat: React.FC = () => {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div className="flex items-center gap-4">
                         <div className="p-2 bg-primary/10 rounded-lg">
-
                             <MessageCircle size={28} className="text-emerald-600" />
                         </div>
                         <div>
@@ -311,20 +304,18 @@ const AppChat: React.FC = () => {
                     </div>
 
                     <Button
-                        /*  onClick={handleRefresh} */
+                        onClick={loadContacts}
                         className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-200"
                     >
-                        <RefreshCw size={18}  />
+                        <RefreshCw size={18} />
                         Atualizar
                     </Button>
                 </div>
             </Paper>
 
-
-            <div className="flex  h-[85vh] bg-gray-50 font-sans overflow-hidden">
-                {/* Sidebar */}
+            <div className="flex h-[85vh] bg-gray-50 font-sans overflow-hidden">
                 <Sidebar
-                    contacts={contacts}
+                    contacts={contacts} // volta a passar o array puro pro filho
                     active={active}
                     onSelect={handleSelectContact}
                     onAdd={addContact}
@@ -333,7 +324,6 @@ const AppChat: React.FC = () => {
                     className="w-80 shrink-0 bg-gradient-to-b from-indigo-900 to-purple-800 text-white shadow-xl overflow-y-auto"
                 />
 
-                {/* Área Principal */}
                 <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
                     {active ? (
                         <ChatWindow
@@ -346,7 +336,6 @@ const AppChat: React.FC = () => {
                     )}
                 </div>
 
-                {/* Modal de Adição */}
                 {showAddModal && (
                     <AddContactModal
                         onClose={() => setShowAddModal(false)}
@@ -354,20 +343,16 @@ const AppChat: React.FC = () => {
                     />
                 )}
 
-                {/* Loading Overlay */}
-                {loading && <LoadingOverlay />}
+                {(loadingContacts || loadingAction) && <LoadingOverlay />}
 
-                {/* Error Notification */}
                 {error && <ErrorNotification />}
 
-                {/* Adicione este estilo para a animação de progresso */}
                 <style>{`
                     @keyframes progress { from { width: 100%; } to { width: 0%; } }
-                        .animate-progress { animation: progress 5s linear forwards; }
-                        @keyframes fade-in-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-                        .animate-fade-in-up { animation: fade-in-up 0.3s ease-out; }
-                    `}
-                </style>
+                    .animate-progress { animation: progress 5s linear forwards; }
+                    @keyframes fade-in-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+                    .animate-fade-in-up { animation: fade-in-up 0.3s ease-out; }
+                `}</style>
             </div>
         </div>
     );

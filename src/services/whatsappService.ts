@@ -14,6 +14,33 @@ export interface WhatsAppResponse {
     data: any;
 }
 
+interface FetchContactsOptions {
+    page?: number;
+    limit?: number;
+    search?: string;
+}
+
+
+interface GetMessagesOptions {
+    limit?: number;
+    before?: string; // ISO timestamp
+}
+
+interface MessagesResponse {
+    data: any[];
+    hasMore: boolean;
+}
+
+interface ContactsResponse {
+    data: Contact[];
+    pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        hasMore: boolean;
+    };
+}
+
 export interface Contact {
     _id: string;
     name: string;
@@ -25,8 +52,27 @@ export interface Contact {
 // CONTATOS
 // =========================
 
-export async function fetchContacts(): Promise<Contact[]> {
-    const response = await API.get("/whatsapp/contacts");
+export async function fetchContacts(options: FetchContactsOptions = {}): Promise<ContactsResponse> {
+    const { page = 1, limit = 50, search = '' } = options;
+
+    const params = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+        ...(search && { search })
+    });
+
+    const response = await API.get(`/whatsapp/contacts?${params}`);
+    console.log('ssssssssssssssssssssssssssssssss', response.data.data)
+    // Retrocompatibilidade: se backend antigo retornar array direto
+    if (response.data.data.length) {
+        console.log('ssssssssssssssssssssssssssssssss', response.data.data)
+
+        return {
+            data: response.data.data,
+            pagination: { page: 1, limit: response.data.length, total: response.data.length, hasMore: false }
+        };
+    }
+
     return response.data;
 }
 
@@ -53,10 +99,48 @@ export async function deleteContact(id: string): Promise<void> {
 // MENSAGENS
 // =========================
 
-export async function getChatMessages(phone: string) {
+export async function getChatMessages(
+    phone: string,
+    options: GetMessagesOptions = {}
+): Promise<any[]> {
+    const { limit = 50, before } = options;
     const p = normalizeE164BR(phone);
-    const res = await API.get(`/whatsapp/chat/${p}`);
+
+    const params = new URLSearchParams({
+        limit: String(limit),
+        ...(before && { before })
+    });
+
+    const res = await API.get(`/whatsapp/chat/${p}?${params}`);
     return res.data?.data || [];
+}
+
+
+export async function loadMoreMessages(
+    phone: string,
+    before: string
+): Promise<{ data: any[]; hasMore: boolean }> {
+    const p = normalizeE164BR(phone);
+    const params = new URLSearchParams({
+        limit: '30',
+        before
+    });
+
+    try {
+        const res = await API.get(`/whatsapp/chat/${p}?${params}`);
+
+        // Garante que sempre retorna o formato correto
+        const data = res.data?.data || res.data || [];
+        const hasMore = res.data?.hasMore ?? (Array.isArray(data) && data.length >= 30);
+
+        return {
+            data: Array.isArray(data) ? data : [],
+            hasMore
+        };
+    } catch (err) {
+        console.error('Erro em loadMoreMessages:', err);
+        return { data: [], hasMore: false };
+    }
 }
 
 // envia texto normal (NÃO pausa Amanda)

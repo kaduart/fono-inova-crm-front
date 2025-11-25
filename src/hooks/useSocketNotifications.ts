@@ -128,78 +128,67 @@ export const usePixSocket = ({
 
       // 🚪 Se o chat deste contato estiver aberto, não notificar
       const active = (window as any).activeChatPhone || null;
-      const contactPhone = fromN || toN; // inbound normalmente vem com from=cliente
-      if (active && contactPhone && active === contactPhone) return;
+      const contactPhone = fromN || toN;
+      const isChatOpen = active && contactPhone && active === contactPhone;
 
-      // ✅ Dispara o tipo certo
-      if (!type || type === "text" || type === "template") {
-        notifRef.current.showChatNotification({
-          id,
-          from: from || "Contato desconhecido",
-          text,
-          timestamp,
-        });
-      } else {
-        // ⚠️ IMPORTANTE: Passar 'url' (o ChatWindow lê mediaNotification.url)
-        notifRef.current.showMediaNotification({
-          id,
-          from: from || "Contato desconhecido",
-          type,
-          caption,
-          url: mediaUrl,           // 👈 passa a URL
-          timestamp,
-        });
+      // ✅ Dispara o tipo certo APENAS se o chat não estiver aberto
+      if (!isChatOpen) {
+        if (!type || type === "text" || type === "template") {
+          notifRef.current.showChatNotification({ id, from, text, timestamp });
+        } else {
+          notifRef.current.showMediaNotification({ id, from, type, caption, url: mediaUrl, timestamp });
+        }
       }
     };
 
-    // logs úteis
-    const onConnect = () => console.log("🔌 socket connected:", socket.id);
-    const onConnectError = (e: any) =>
-      console.warn("socket connect_error:", e?.message || e);
-    const onDisconnect = (r: any) =>
-      console.warn("socket disconnect:", r);
-    const onAny = (event: string, payload: any) => {
-      if (
-        event.startsWith("whatsapp") ||
-        event === "message:new" ||
-        event.includes("pix")
-      ) {
-        console.log("📡 [Socket Event]", event, payload);
-      }
-    };
+// logs úteis
+const onConnect = () => console.log("🔌 socket connected:", socket.id);
+const onConnectError = (e: any) =>
+  console.warn("socket connect_error:", e?.message || e);
+const onDisconnect = (r: any) =>
+  console.warn("socket disconnect:", r);
+const onAny = (event: string, payload: any) => {
+  if (
+    event.startsWith("whatsapp") ||
+    event === "message:new" ||
+    event.includes("pix")
+  ) {
+    console.log("📡 [Socket Event]", event, payload);
+  }
+};
 
-    // ====== bind listeners ======
-    socket.on("connect", onConnect);
-    socket.on("connect_error", onConnectError);
-    socket.on("disconnect", onDisconnect);
+// ====== bind listeners ======
+socket.on("connect", onConnect);
+socket.on("connect_error", onConnectError);
+socket.on("disconnect", onDisconnect);
 
-    socket.on("pix-received", onPix);
-    socket.on("paymentUpdate", onPaymentUpdate);
+socket.on("pix-received", onPix);
+socket.on("paymentUpdate", onPaymentUpdate);
 
-    // novo/unificado
-    socket.on("message:new", onAnyMessage);
-    // retrocompat
-    socket.on("whatsapp:new_message", onAnyMessage);
-    socket.on("whatsapp:new_media", onAnyMessage);
+// novo/unificado
+socket.on("message:new", onAnyMessage);
+// retrocompat
+socket.on("whatsapp:new_message", onAnyMessage);
+socket.on("whatsapp:new_media", onAnyMessage);
 
-    socket.onAny(onAny);
+socket.onAny(onAny);
 
-    // cleanup: remove somente listeners (NÃO desconecta o singleton)
-    return () => {
-      socket.off("connect", onConnect);
-      socket.off("connect_error", onConnectError);
-      socket.off("disconnect", onDisconnect);
+// cleanup: remove somente listeners (NÃO desconecta o singleton)
+return () => {
+  socket.off("connect", onConnect);
+  socket.off("connect_error", onConnectError);
+  socket.off("disconnect", onDisconnect);
 
-      socket.off("pix-received", onPix);
-      socket.off("paymentUpdate", onPaymentUpdate);
+  socket.off("pix-received", onPix);
+  socket.off("paymentUpdate", onPaymentUpdate);
 
-      socket.off("message:new", onAnyMessage);
-      socket.off("whatsapp:new_message", onAnyMessage);
-      socket.off("whatsapp:new_media", onAnyMessage);
+  socket.off("message:new", onAnyMessage);
+  socket.off("whatsapp:new_message", onAnyMessage);
+  socket.off("whatsapp:new_media", onAnyMessage);
 
-      socket.offAny(onAny);
-      // ❌ não chame socket.disconnect() aqui
-    };
+  socket.offAny(onAny);
+  // ❌ não chame socket.disconnect() aqui
+};
     // deps vazias: registra uma vez
   }, []);
 };

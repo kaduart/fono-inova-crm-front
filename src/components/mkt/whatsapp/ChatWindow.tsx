@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FiMic, FiPaperclip, FiRefreshCw, FiSend, FiTrash2, FiUser } from 'react-icons/fi';
 import { IoCheckmark, IoCheckmarkDone, IoTime } from 'react-icons/io5';
-import { deleteWhatsAppMessage, getChatMessages, sendManualWhatsAppText } from '../../../services/whatsappService';
+import { deleteWhatsAppMessage, getChatMessages, loadMoreMessages, sendManualWhatsAppText } from '../../../services/whatsappService';
 import { confirmToast } from '../../../utils/confirmToast';
 import { normalizeE164BR } from '../../../utils/phone';
 import { uid } from '../../../utils/uid';
@@ -49,6 +49,48 @@ function pickMsgId(src: any) {
     return base.startsWith("m-") ? base : `m-${base}`;
 }
 
+// ChatWindow.tsx - Adicione ANTES do componente ou no início
+
+function formatMessage(m: any): Message {
+    let fromMe = false;
+    if (m.direction === 'outbound' || m.fromMe === true || m.type === 'outgoing') {
+        fromMe = true;
+    }
+
+    let text = '';
+    if (typeof m === 'string') {
+        text = m;
+    } else {
+        text = m.text || m.content || m.body || m.message || m.caption || '';
+    }
+
+    let timestamp = new Date();
+    if (m.timestamp) {
+        timestamp = new Date(m.timestamp);
+    } else if (m.createdAt) {
+        timestamp = new Date(m.createdAt);
+    } else if (m.date) {
+        timestamp = new Date(m.date);
+    } else if (m.time) {
+        timestamp = new Date(m.time);
+    }
+
+    const id = pickMsgId(m);
+    const msgType = m.type === 'sticker' ? 'sticker' : (m.type || 'text');
+
+    return {
+        id,
+        text,
+        type: msgType,
+        timestamp,
+        fromMe,
+        status: m.status || (fromMe ? 'sent' : 'received'),
+        mediaUrl: m.mediaUrl || m.url || m.media || m.fileUrl || '',
+        mediaId: m.mediaId || undefined,
+        caption: m.caption || m.text || '',
+    };
+}
+
 const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className, leadId }) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [draft, setDraft] = useState('');
@@ -61,6 +103,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
     const inputRef = useRef<HTMLInputElement>(null);
     const seenIdsRef = useRef<Set<string>>(new Set());
     const messagesContainerRef = useRef<HTMLDivElement>(null);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMoreMessages, setHasMoreMessages] = useState(true);
 
     // 📨 Carrega histórico - Função estável que não muda
     const loadMessages = useCallback(async (phone: string) => {
@@ -70,22 +114,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         setError('');
 
         try {
-            console.log('📂 Carregando mensagens para:', phone);
             let msgs = await getChatMessages(phone);
 
             if (!msgs) {
-                console.log('⚠️ Nenhuma mensagem encontrada');
                 setMessages([]);
                 return;
             }
 
             if (!Array.isArray(msgs)) {
-                console.log('🔄 Convertendo resposta para array');
                 const possibleArrays = msgs.data || msgs.messages || msgs.chat || [msgs];
                 msgs = Array.isArray(possibleArrays) ? possibleArrays : [];
             }
-
-            console.log(`📨 ${msgs.length} mensagens carregadas`);
 
             const formatted = msgs.map((m: any) => {
                 let fromMe = false;
@@ -180,143 +219,210 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
 
     // 📡 Escuta direta de eventos do Socket.IO em tempo real
     useEffect(() => {
-        const socket = (window as any).globalSocket;
-        if (!socket || !contact?.phone) return;
+        if (!contact?.phone) return;
 
         const normalize = (v: string) => (v || "").replace(/\D/g, "").replace(/^55/, "");
         const chatPhone = normalize(contact.phone);
 
-        const onNew = (data: any) => {
-            console.log('🔔 Socket recebeu mensagem:', {
-                from: data.from,
-                to: data.to,
-                direction: data.direction,
-                content: data.content?.substring(0, 50),
-                timestamp: data.timestamp
-            });
+        let socket = (window as any).globalSocket;
+        let retryCount = 0;
+        let retryTimeout: NodeJS.Timeout;
 
-            try {
-                const from = normalize(data.from);
-                const to = normalize(data.to);
-
-                console.log('🔍 Verificando se pertence ao chat:', {
-                    from,
-                    to,
-                    chatPhone,
-                    match: from === chatPhone || to === chatPhone
-                });
-
-                if (from !== chatPhone && to !== chatPhone) {
-                    console.log('⏭️ Mensagem ignorada - não pertence a este chat');
+        const setupListeners = () => {
+            if (!socket) {
+                socket = (window as any).globalSocket;
+                if (!socket && retryCount < 10) {
+                    retryCount++;
+                    retryTimeout = setTimeout(setupListeners, 500);
                     return;
                 }
+                if (!socket) {
+                    console.error("❌ Socket não disponível após 10 tentativas");
+                    return;
+                }
+            }
 
-                const isMedia = data.type && data.type !== "text" && data.type !== "template";
-                const body = isMedia
-                    ? (data.caption || `[${String(data.type).toUpperCase()}]`)
-                    : (data.content ?? data.text ?? "");
+            const onNew = (data: any) => {
+                try {
+                    const from = normalize(data.from);
+                    const to = normalize(data.to);
 
-                const id = pickMsgId(data);
+                    console.log('🔍 Verificando se pertence ao chat:', {
+                        from,
+                        to,
+                        chatPhone,
+                        match: from === chatPhone || to === chatPhone
+                    });
 
-                // ✅ AQUI define o tipo, incluindo sticker
-                const msgType =
-                    data.type === 'sticker'
-                        ? 'sticker'
-                        : (data.type || 'text');
-
-                const newMessage: Message = {
-                    id,
-                    text: body,
-                    type: msgType,
-                    mediaUrl: data.mediaUrl || data.url || '',
-                    mediaId: data.mediaId || undefined,
-                    caption: data.caption || "",
-                    timestamp: new Date(data.timestamp || Date.now()),
-                    fromMe: data.direction ? data.direction === "outbound" : (from !== chatPhone),
-                    status: data.status || "received",
-                };
-
-                console.log('[onNew] tipo=', newMessage.type, 'mediaId=', newMessage.mediaId, 'mediaUrl=', newMessage.mediaUrl);
-
-                setMessages(prev => {
-                    if (prev.some(m => m.id === id)) {
-                        return prev;
+                    if (from !== chatPhone && to !== chatPhone) {
+                        console.log('⏭️ Mensagem ignorada - não pertence a este chat');
+                        return;
                     }
 
-                    const optimisticIndex = prev.findIndex(m =>
-                        m.fromMe &&
-                        newMessage.fromMe &&
-                        !m.id.startsWith("m-") &&
-                        m.text === newMessage.text
-                    );
+                    const isMedia = data.type && data.type !== "text" && data.type !== "template";
+                    const body = isMedia
+                        ? (data.caption || `[${String(data.type).toUpperCase()}]`)
+                        : (data.content ?? data.text ?? "");
 
-                    if (optimisticIndex !== -1) {
-                        const updated = [...prev];
-                        const oldTemp = updated[optimisticIndex];
+                    const id = pickMsgId(data);
 
-                        updated[optimisticIndex] = {
-                            ...oldTemp,
-                            id,
-                            status: newMessage.status || "delivered",
-                            timestamp: newMessage.timestamp,
-                        };
+                    const newMessage: Message = {
+                        id,
+                        text: body,
+                        type: data.type || "text",
+                        mediaUrl: data.mediaUrl || data.url,
+                        caption: data.caption || "",
+                        timestamp: new Date(data.timestamp || Date.now()),
+                        fromMe: data.direction ? data.direction === "outbound" : (from !== chatPhone),
+                        status: data.status || "received",
+                    };
 
-                        seenIdsRef.current.delete(oldTemp.id);
+                    setMessages(prev => {
+                        // Verifica duplicata
+                        if (prev.some(m => m.id === id)) {
+                            console.log('⏭️ Mensagem já existe, ignorando duplicata');
+                            return prev;
+                        }
+
+                        console.log('✅ Adicionando nova mensagem ao chat:', id);
                         seenIdsRef.current.add(id);
-
-                        return updated;
-                    }
-
-                    seenIdsRef.current.add(id);
-                    return [...prev, newMessage];
-                });
-
-            } catch (e) {
-                console.error("❌ [ChatWindow] Falha ao processar message:new:", e);
-            }
-        };
-
-        const onDeleted = (data: any) => {
-            console.log('🗑️ Socket recebeu delete:', data);
-
-            try {
-                const from = normalize(data.from);
-                const to = normalize(data.to);
-
-                if (from !== chatPhone && to !== chatPhone) {
-                    return;
+                        return [...prev, newMessage];
+                    });
+                } catch (e) {
+                    console.error("❌ [ChatWindow] Falha ao processar message:new:", e);
                 }
+            };
 
-                const cleanId = data.id;
-                const prefixedId = `m-${data.id}`;
+            // 🗑️ Escuta evento de mensagem deletada
+            const onDeleted = (data: any) => {
+                console.log('🗑️ Socket recebeu delete:', data);
 
-                setMessages(prev => {
-                    const filtered = prev.filter(m => m.id !== cleanId && m.id !== prefixedId);
-                    if (filtered.length < prev.length) {
-                        console.log('✅ Mensagem removida da UI via socket');
+                try {
+                    const from = normalize(data.from);
+                    const to = normalize(data.to);
+
+                    // Verifica se pertence a este chat
+                    if (from !== chatPhone && to !== chatPhone) {
+                        return;
                     }
-                    return filtered;
-                });
 
-                seenIdsRef.current.delete(cleanId);
-                seenIdsRef.current.delete(prefixedId);
+                    // Remove da UI - tenta com e sem prefixo 'm-'
+                    const cleanId = data.id;
+                    const prefixedId = `m-${data.id}`;
 
-            } catch (e) {
-                console.error("❌ [ChatWindow] Falha ao processar message:deleted:", e);
-            }
+                    setMessages(prev => {
+                        const filtered = prev.filter(m => m.id !== cleanId && m.id !== prefixedId);
+                        if (filtered.length < prev.length) {
+                            console.log('✅ Mensagem removida da UI via socket');
+                        }
+                        return filtered;
+                    });
+
+                    seenIdsRef.current.delete(cleanId);
+                    seenIdsRef.current.delete(prefixedId);
+
+                } catch (e) {
+                    console.error("❌ [ChatWindow] Falha ao processar message:deleted:", e);
+                }
+            };
+
+            socket.on("message:new", onNew);
+            socket.on("message:deleted", onDeleted);
+
+            // Cleanup quando trocar de contato
+            return () => {
+                socket?.off("message:new", onNew);
+                socket?.off("message:deleted", onDeleted);
+            };
         };
 
-        socket.on("message:new", onNew);
-        socket.on("message:deleted", onDeleted);
+        const cleanup = setupListeners();
 
         return () => {
-            socket.off("message:new", onNew);
-            socket.off("message:deleted", onDeleted);
+            clearTimeout(retryTimeout);
+            cleanup?.();
         };
     }, [contact?.phone]);
 
+    useEffect(() => {
+        const handleForceReload = (e: CustomEvent) => {
+            const normalize = (v: string) => (v || "").replace(/\D/g, "").replace(/^55/, "");
+            if (contact?.phone && normalize(e.detail.phone) === normalize(contact.phone)) {
+                console.log('🔄 Force reload recebido, recarregando mensagens...');
+                loadMessages(contact.phone);
+            }
+        };
 
-    // 🗑️ DELETAR mensagem
+        window.addEventListener('force-chat-reload', handleForceReload as EventListener);
+        return () => {
+            window.removeEventListener('force-chat-reload', handleForceReload as EventListener);
+        };
+    }, [contact?.phone, loadMessages]);
+
+    // Carregar mensagens mais antigas ao scrollar pro topo
+    // Carregar mensagens mais antigas ao scrollar pro topo
+    const handleScroll = useCallback(async () => {
+        const container = messagesContainerRef.current;
+        if (!container || loadingMore || !hasMoreMessages || !contact?.phone) return;
+
+        // Se scrollou perto do topo, carrega mais
+        if (container.scrollTop < 100) {
+            const oldestMessage = messages[0];
+            if (!oldestMessage?.timestamp) return;
+
+            setLoadingMore(true);
+
+            try {
+                const response = await loadMoreMessages(
+                    contact.phone,
+                    oldestMessage.timestamp instanceof Date
+                        ? oldestMessage.timestamp.toISOString()
+                        : String(oldestMessage.timestamp)
+                );
+
+                // 🔥 FIX: Extrair data do response
+                const olderMsgs = response?.data || response || [];
+
+                if (!Array.isArray(olderMsgs) || olderMsgs.length === 0) {
+                    setHasMoreMessages(false);
+                    return;
+                }
+
+                // Preserva posição do scroll
+                const prevScrollHeight = container.scrollHeight;
+
+                setMessages(prev => {
+                    const formatted = olderMsgs.map(formatMessage);
+                    // Deduplica
+                    const existingIds = new Set(prev.map(m => m.id));
+                    const newMsgs = formatted.filter(m => !existingIds.has(m.id));
+                    return [...newMsgs, ...prev];
+                });
+
+                // Atualiza hasMore
+                setHasMoreMessages(response?.hasMore ?? olderMsgs.length >= 30);
+
+                // Restaura posição do scroll
+                requestAnimationFrame(() => {
+                    container.scrollTop = container.scrollHeight - prevScrollHeight;
+                });
+            } catch (err) {
+                console.error('Erro ao carregar histórico:', err);
+            } finally {
+                setLoadingMore(false);
+            }
+        }
+    }, [messages, loadingMore, hasMoreMessages, contact?.phone]);
+
+    // Adicionar listener de scroll
+    useEffect(() => {
+        const container = messagesContainerRef.current;
+        if (!container) return;
+
+        container.addEventListener('scroll', handleScroll);
+        return () => container.removeEventListener('scroll', handleScroll);
+    }, [handleScroll]);
+
     // 🗑️ DELETAR mensagem
     const handleDeleteMessage = useCallback(async (messageId: string) => {
         if (deletingMessageId) return; // evita múltiplos cliques
@@ -329,7 +435,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
         try {
             // 1) Se for mensagem temporária (não existe no banco), só remove da UI
             if (messageId.startsWith('temp')) {
-                console.log('🗑️ Removendo mensagem temporária só da UI:', messageId);
 
                 setMessages(prev => prev.filter(m => m.id !== messageId));
                 seenIdsRef.current.delete(messageId);
@@ -338,8 +443,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
 
             // 2) Mensagem persistida: remove o prefixo "m-" pra mandar o ObjectId real
             const cleanId = messageId.startsWith('m-') ? messageId.substring(2) : messageId;
-
-            console.log('🗑️ Deletando mensagem no backend:', { original: messageId, cleanId });
 
             const data = await deleteWhatsAppMessage(cleanId);
 
@@ -360,7 +463,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             seenIdsRef.current.delete(cleanId);
             seenIdsRef.current.delete(`m-${cleanId}`);
 
-            console.log('✅ Mensagem deletada com sucesso');
         } catch (err: any) {
             console.error('❌ Erro ao deletar:', err);
             setError(err.message || 'Erro ao deletar mensagem');
@@ -419,14 +521,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                 text: messageText,
                 userId: userId || "admin",
             });
-            console.log("📤 Resposta do backend (service):", data);
 
             if (!data?.success) {
                 throw new Error(data?.message || data?.error || "Erro ao enviar");
             }
-
-
-            console.log("✅ Mensagem enviada com sucesso");
 
         } catch (err: any) {
             console.error("❌ Erro ao enviar:", err);
