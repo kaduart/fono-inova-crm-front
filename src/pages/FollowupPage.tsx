@@ -16,6 +16,8 @@ import { toast } from "react-toastify";
 
 // ✅ IMPORT DO SERVICE
 import { followupService } from "../services/followupService";
+import type { HistoryMetrics } from "../services/leadService";
+import { leadService } from "../services/leadService";
 
 // Componentes
 import FollowupConversionChart from "../components/Dashboard/FollowupConversionChart";
@@ -245,6 +247,9 @@ const FollowupPage = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState("timeline");
+  const [historyMetrics, setHistoryMetrics] = useState<HistoryMetrics | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   const theme = useTheme();
 
@@ -342,6 +347,31 @@ const FollowupPage = () => {
       return () => clearInterval(interval);
     }
   }, [activeTab, refetchLeads, refetchAnalytics]);
+
+  useEffect(() => {
+    const loadHistoryMetrics = async () => {
+      try {
+        setHistoryLoading(true);
+        setHistoryError(null);
+        const res = await leadService.getHistoryMetrics();
+        console.log('ressssss', res)
+        if (res.success) {
+          setHistoryMetrics(res.data);
+        } else {
+          setHistoryError("Erro ao carregar métricas históricas");
+        }
+      } catch (err: any) {
+        setHistoryError(err.message || "Erro ao carregar métricas históricas");
+      } finally {
+        setHistoryLoading(false);
+      }
+    };
+
+    // carrega quando a aba de insights estiver ativa
+    if (activeTab === "analytics") {
+      loadHistoryMetrics();
+    }
+  }, [activeTab]);
 
   // Para navegar entre páginas
   const handlePageChange = (newPage: number) => {
@@ -811,12 +841,68 @@ const FollowupPage = () => {
         <TabsContent value="analytics">
           <div className="space-y-6">
             <FollowupInsights data={analyticsData} />
+
+            {/* 🔥 MÉTRICAS DE HISTÓRICO WHATSAPP */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-base font-semibold text-slate-800">
+                    Histórico de Leads do WhatsApp
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Base importada do WhatsApp — leads antigos classificados por status.
+                  </p>
+                </div>
+              </div>
+
+              {historyLoading && (
+                <div className="text-sm text-slate-500">Carregando métricas históricas...</div>
+              )}
+
+              {historyError && !historyLoading && (
+                <div className="text-sm text-red-500">{historyError}</div>
+              )}
+
+              {historyMetrics && !historyLoading && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div className="text-xs text-slate-500">Leads históricos</div>
+                    <div className="text-2xl font-semibold text-slate-800">
+                      {historyMetrics.totalLeads}
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                    <div className="text-xs text-emerald-700">Virou paciente</div>
+                    <div className="text-2xl font-semibold text-emerald-800">
+                      {historyMetrics.virouPaciente}
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-100">
+                    <div className="text-xs text-amber-700">Engajados</div>
+                    <div className="text-2xl font-semibold text-amber-800">
+                      {historyMetrics.engajado}
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-blue-50 border border-blue-100">
+                    <div className="text-xs text-blue-700">Taxa de conversão</div>
+                    <div className="text-2xl font-semibold text-blue-800">
+                      {historyMetrics.taxaConversao?.toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <FollowupTrendChart data={analyticsData?.trend} />
               <FollowupConversionChart data={analyticsData?.conversion} />
             </div>
           </div>
         </TabsContent>
+
 
         {/* ABA MARKETING */}
         <TabsContent value="marketing">

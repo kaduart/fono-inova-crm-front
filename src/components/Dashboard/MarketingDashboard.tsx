@@ -22,13 +22,13 @@ const MarketingDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
 
   console.log("Renderizando MarketingDashboard...");
-  
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         const [adsData, analyticsData, performanceData, overviewRes] = await Promise.all([
           marketingService.getGoogleAdsCampaigns(),
           marketingService.getSiteAnalytics(),
@@ -36,17 +36,10 @@ const MarketingDashboard = () => {
           marketingService.getMarketingOverview()
         ]);
 
-        console.log("Dados recebidos:", {
-          adsData,
-          analyticsData,
-          performanceData,
-          overviewRes,
-        });
-
         setAdsCampaigns(adsData || []);
         setSiteAnalytics(analyticsData || []);
         setPerformanceData(performanceData || null);
-        
+
         if (overviewRes?.success) {
           setOverviewData(overviewRes.data);
         } else if (overviewRes?.data) {
@@ -84,11 +77,11 @@ const MarketingDashboard = () => {
           marketingService.getPerformanceOverTime(),
           marketingService.getMarketingOverview()
         ]);
-        
+
         setAdsCampaigns(adsData || []);
         setSiteAnalytics(analyticsData || []);
         setPerformanceData(performanceData || null);
-        
+
         if (overviewRes?.success) {
           setOverviewData(overviewRes.data);
         } else if (overviewRes?.data) {
@@ -147,7 +140,7 @@ const MarketingDashboard = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="flex justify-center items-center py-16">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
@@ -209,10 +202,10 @@ const MarketingDashboard = () => {
 
   const hasAdsData = adsCampaigns && adsCampaigns.length > 0;
   const hasAnalyticsData = siteAnalytics && siteAnalytics.length > 0;
-  const hasPerformanceData = performanceData && 
-    ((performanceData.byStatus && performanceData.byStatus.length > 0) || 
-     (performanceData.byOrigin && performanceData.byOrigin.length > 0));
-  
+  const hasPerformanceData = performanceData &&
+    ((performanceData.byStatus && performanceData.byStatus.length > 0) ||
+      (performanceData.byOrigin && performanceData.byOrigin.length > 0));
+
   const allDataEmpty = !hasAdsData && !hasAnalyticsData && !hasPerformanceData;
 
   if (allDataEmpty) {
@@ -322,33 +315,30 @@ const MarketingDashboard = () => {
             <nav className="-mb-px flex space-x-8">
               <button
                 onClick={() => setActiveTab('overview')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                  activeTab === 'overview'
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${activeTab === 'overview'
                     ? 'border-purple-500 text-purple-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 <BarChart3 className="w-4 h-4 inline mr-2" />
                 Visão Geral
               </button>
               <button
                 onClick={() => setActiveTab('analytics')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                  activeTab === 'analytics'
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${activeTab === 'analytics'
                     ? 'border-purple-500 text-purple-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 <TrendingUp className="w-4 h-4 inline mr-2" />
                 Analytics Detalhado
               </button>
               <button
                 onClick={() => setActiveTab('insights')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                  activeTab === 'insights'
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${activeTab === 'insights'
                     ? 'border-purple-500 text-purple-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 <Brain className="w-4 h-4 inline mr-2" />
                 Insights da Amanda

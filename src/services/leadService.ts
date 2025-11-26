@@ -35,6 +35,18 @@ export interface CreateLeadFromSheetPayload {
     scheduledDate?: string; // ISO
 }
 
+export interface HistoryMetrics {
+    totalLeads: number;
+    virouPaciente: number;
+    engajado: number;
+    pesquisandoPreco: number;
+    primeiroContato: number;
+    leadFrio: number;
+    novo: number;
+    taxaConversao: number;
+}
+
+
 export const leadService = {
     /** GET /leads — lista com filtros/paginação */
     async getLeads(filters: LeadFilters = {}) {
@@ -146,5 +158,19 @@ export const leadService = {
             toast.error("Erro ao criar lead");
             return { success: false, error };
         }
-    }
+    },
+    /** GET /leads/history-metrics */
+    async getHistoryMetrics() {
+        try {
+            const res = await API.get("/leads/history-metrics");
+            const data = res.data?.data ?? res.data;
+            return { success: true, data };
+        } catch (error: any) {
+            console.error("Erro ao buscar métricas históricas:", error);
+            toast.error(error?.response?.data?.error || "Erro ao carregar métricas históricas.");
+            return { success: false, error };
+        }
+    },
+
 };
+

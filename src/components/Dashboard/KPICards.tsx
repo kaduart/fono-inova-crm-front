@@ -1,5 +1,6 @@
 const KPICards = ({ adsData, analyticsData }) => {
     // Calcular totais
+    console.log(adsData, `hhhhhhhhhhhhhhhhhhh`)
     const totalClicks = adsData.reduce((sum, item) => sum + item.metrics.clicks, 0);
     const totalImpressions = adsData.reduce((sum, item) => sum + item.metrics.impressions, 0);
     const totalCost = adsData.reduce((sum, item) => sum + (item.metrics.cost_micros / 1000000), 0);
