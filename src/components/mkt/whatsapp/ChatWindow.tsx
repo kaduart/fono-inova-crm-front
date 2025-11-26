@@ -242,7 +242,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                 }
             }
 
-            const onNew = (data: any) => {
+            const onNew = (data: any) => { 
                 try {
                     const from = normalize(data.from);
                     const to = normalize(data.to);

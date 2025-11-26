@@ -3,26 +3,25 @@ import React, { useState } from 'react';
 import { FiPlus, FiSearch, FiUser } from 'react-icons/fi';
 import { formatMessageTime } from '../../../utils/dateHelper';
 
-interface Contact {
-    _id: string;
-    name: string;
-    phone: string;
-    avatar?: string;
+import type { Contact as ApiContact } from '../../../services/whatsappService';
+
+type SidebarContact = ApiContact & {
     lastMessage?: string;
     lastMessageTime?: string;
+    lastMessageAt?: string;   // <-- AQUI ENTRA O QUE VEM DA API
     unreadCount?: number;
     hasNewMessage?: boolean;
-    createdAt: string; // ✅ ADICIONADO: campo que existe na sua API
-    updatedAt: string; // ✅ ADICIONADO: campo que existe na sua API
-    tags?: string[]; // ✅ ADICIONADO: campo que existe na sua API
-}
+    createdAt?: string;
+    updatedAt?: string;
+    tags?: string[];
+};
 
 interface SidebarProps {
-    contacts: Contact[];
-    active: Contact | null;
-    onSelect: (contact: Contact) => void;
-    onAdd: (data: Omit<Contact, "_id">) => void;
-    onEdit: (id: string, data: Partial<Omit<Contact, "_id">>) => void;
+    contacts: SidebarContact[];
+    active: SidebarContact | null;
+    onSelect: (SidebarContact: SidebarContact) => void;
+    onAdd: (data: Omit<SidebarContact, "_id">) => void;
+    onEdit: (id: string, data: Partial<Omit<SidebarContact, "_id">>) => void;
     onDelete: (id: string) => void;
     className?: string;
 }
@@ -44,7 +43,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     );
 
     // ✅ FUNÇÃO: Obtém o timestamp mais relevante para exibição
-    const getDisplayTime = (contact: Contact) => {
+    const getDisplayTime = (contact: SidebarContact) => {
         return (
             contact.lastMessageTime ||
             contact.lastMessageAt ||
