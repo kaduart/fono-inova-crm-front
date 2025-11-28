@@ -1,11 +1,12 @@
 // src/components/whatsapp/ChatWindow.tsx
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { FiMic, FiPaperclip, FiRefreshCw, FiSend, FiTrash2, FiUser } from 'react-icons/fi';
+import { FiMic, FiPaperclip, FiSend, FiUser } from 'react-icons/fi';
 import { IoCheckmark, IoCheckmarkDone, IoTime } from 'react-icons/io5';
 import { deleteWhatsAppMessage, getChatMessages, loadMoreMessages, sendManualWhatsAppText } from '../../../services/whatsappService';
 import { confirmToast } from '../../../utils/confirmToast';
 import { normalizeE164BR } from '../../../utils/phone';
 import { uid } from '../../../utils/uid';
+import { Button } from '../../ui/Button';
 import { LoadingSpinner } from '../../ui/LoadingSpinner';
 import MessageBubble from './MessageBubble';
 
@@ -242,7 +243,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                 }
             }
 
-            const onNew = (data: any) => { 
+            const onNew = (data: any) => {
                 try {
                     const from = normalize(data.from);
                     const to = normalize(data.to);
@@ -562,6 +563,27 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
     useEffect(() => {
         inputRef.current?.focus();
     }, [contact]);
+    const handleAmandaResume = async () => {
+        if (!leadId) return;
+
+        try {
+            setLoading(true);
+            const res = await fetch(`/api/whatsapp/amanda-resume/${leadId}`, {
+                method: 'POST'
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                toast.success(data.message);
+            } else {
+                toast.error(data.error);
+            }
+        } catch (err) {
+            toast.error('Erro ao reativar Amanda');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     if (!contact) {
         return (
@@ -601,9 +623,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                         <div className="flex-1 min-w-0">
                             <h2 className="font-semibold text-gray-800 text-lg truncate">{contact.name}</h2>
                             <p className="text-sm text-green-600 font-medium">Online</p>
+                            <p className="mt-1 text-xs text-amber-700 flex items-center gap-1">
+                                <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
+                                Mensagens não podem ser apagadas após o envio.
+                            </p>
                         </div>
+
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <Button onClick={handleAmandaResume}
+                        className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+                    >
+                        🤖 Reativar Amanda
+                    </Button>
+                    {/*  <div className="flex items-center space-x-2">
                         <button
                             onClick={() => loadMessages(contact.phone)}
                             className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors"
@@ -611,7 +643,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                         >
                             <FiRefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
                         </button>
-                    </div>
+                    </div> */}
                 </div>
             </div>
 
@@ -652,7 +684,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                                             onMouseLeave={() => setHoveredMessageId(null)}
                                         >
                                             <div className="flex items-start gap-2">
-                                                {message.fromMe && hoveredMessageId === message.id && (
+                                                {/* {message.fromMe && hoveredMessageId === message.id && (
                                                     <button
                                                         onClick={() => handleDeleteMessage(message.id)}
                                                         disabled={deletingMessageId === message.id}
@@ -665,7 +697,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                                                             <FiTrash2 className="w-4 h-4" />
                                                         )}
                                                     </button>
-                                                )}
+                                                )} */}
                                                 <div className="flex-1">
                                                     <MessageBubble
                                                         text={message.text}
