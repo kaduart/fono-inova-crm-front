@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FiMic, FiPaperclip, FiSend, FiUser } from 'react-icons/fi';
 import { IoCheckmark, IoCheckmarkDone, IoTime } from 'react-icons/io5';
+import { toast } from 'react-toastify';
 import { deleteWhatsAppMessage, getChatMessages, loadMoreMessages, sendManualWhatsAppText } from '../../../services/whatsappService';
 import { confirmToast } from '../../../utils/confirmToast';
 import { normalizeE164BR } from '../../../utils/phone';
@@ -11,7 +12,7 @@ import { LoadingSpinner } from '../../ui/LoadingSpinner';
 import MessageBubble from './MessageBubble';
 
 interface Contact {
-    id: string;
+    _id: string;
     name: string;
     phone: string;
     avatar?: string;
@@ -106,6 +107,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
+    console.log('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', contact)
 
     // 📨 Carrega histórico - Função estável que não muda
     const loadMessages = useCallback(async (phone: string) => {
@@ -563,7 +565,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
     useEffect(() => {
         inputRef.current?.focus();
     }, [contact]);
+
     const handleAmandaResume = async () => {
+        console.log('chamouuu ativacao amanda', leadId);
         if (!leadId) return;
 
         try {
@@ -630,11 +634,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                         </div>
 
                     </div>
-                    <Button onClick={handleAmandaResume}
-                        className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
-                    >
-                        🤖 Reativar Amanda
-                    </Button>
                     {/*  <div className="flex items-center space-x-2">
                         <button
                             onClick={() => loadMessages(contact.phone)}
@@ -755,7 +754,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                             autoFocus
                         />
                     </div>
-                    <button
+                    <Button
                         className={`p-3 rounded-2xl transition-all duration-200 ${draft.trim() && !sending
                             ? 'text-white bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-sm'
                             : 'text-gray-400 bg-gray-100 cursor-not-allowed'
@@ -768,7 +767,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                         ) : (
                             <FiSend className="w-5 h-5" />
                         )}
-                    </button>
+                    </Button>
+                    <Button onClick={handleAmandaResume}
+                        className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+                    >
+                        🤖 Reativar Amanda
+                    </Button>
                 </div>
 
                 {error && (
