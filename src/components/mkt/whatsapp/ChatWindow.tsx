@@ -107,7 +107,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
-    console.log('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', contact)
 
     // 📨 Carrega histórico - Função estável que não muda
     const loadMessages = useCallback(async (phone: string) => {

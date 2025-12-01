@@ -1,9 +1,9 @@
 import { Checkbox, FormControlLabel } from "@mui/material";
-import { Clock, Eye, EyeOff, UserPlus } from "lucide-react";
+import { Clock, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { FaUserEdit } from "react-icons/fa";
-import { IDoctor, THERAPY_TYPES, TherapyType } from "../../utils/types/types";
+import { EXTRA_SPECIALTIES, IDoctor, THERAPY_TYPES, TherapyType } from "../../utils/types/types";
 import { Button } from "../ui/Button";
 import Input from "../ui/Input";
 import { Label } from "../ui/Label";
@@ -48,11 +48,27 @@ const generateTimeSlots = (startHour: number, endHour: number, intervalMinutes: 
 
 const allTimeSlots = generateTimeSlots(8, 18, 40);
 
+const toggleExtraSpecialty = (value: string) => {
+    setForm(prev => {
+        const current = prev.specialties || [];
+        const exists = current.includes(value);
+
+        return {
+            ...prev,
+            specialties: exists
+                ? current.filter(v => v !== value)
+                : [...current, value],
+        };
+    });
+};
+
+
 const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: DoctorFormProps) => {
     const [form, setForm] = useState<IDoctor>({
         _id: selectedDoctor?._id || "",
         fullName: selectedDoctor?.fullName || "",
         specialty: selectedDoctor?.specialty || "",
+        specialties: selectedDoctor?.specialties || [],
         email: selectedDoctor?.email || "",
         phoneNumber: selectedDoctor?.phoneNumber || "",
         licenseNumber: selectedDoctor?.licenseNumber || "",
@@ -168,9 +184,12 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                 <div className="p-6 space-y-6 bg-gradient-to-b from-white to-gray-50 rounded-b-2xl">
                     {/* Dados do Profissional */}
                     <fieldset className="border border-gray-200 rounded-xl p-4">
-                        <legend className="px-2 text-sm font-semibold text-gray-700">Dados do Profissional</legend>
+                        <legend className="px-2 text-sm font-semibold text-gray-700">
+                            Dados do Profissional
+                        </legend>
 
                         <div className="grid grid-cols-12 gap-4 mt-2">
+                            {/* Nome */}
                             <div className="col-span-12 md:col-span-6">
                                 <Label htmlFor="fullName">Nome *</Label>
                                 <Input
@@ -185,26 +204,8 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                                 )}
                             </div>
 
+                            {/* Email */}
                             <div className="col-span-12 md:col-span-6">
-                                <Label htmlFor="specialty">Especialidade *</Label>
-                                <Select
-                                    id="specialty"
-                                    value={form.specialty}
-                                    onChange={(e) => setForm({ ...form, specialty: e.target.value as TherapyType })}
-                                >
-                                    <option value="">Selecione</option>
-                                    {THERAPY_TYPES.map((type) => (
-                                        <option key={type.value} value={type.value}>
-                                            {type.label}
-                                        </option>
-                                    ))}
-                                </Select>
-                                {formErrors.specialty && (
-                                    <p className="mt-1 text-xs text-red-500">Selecione uma especialidade</p>
-                                )}
-                            </div>
-
-                            <div className="col-span-12 md:col-span-4">
                                 <Label htmlFor="email">Email *</Label>
                                 <Input
                                     id="email"
@@ -219,6 +220,77 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                                 )}
                             </div>
 
+                            {/* Área principal */}
+                            <div className="col-span-12 md:col-span-4">
+                                <Label htmlFor="specialty">Área principal *</Label>
+                                <Select
+                                    id="specialty"
+                                    value={form.specialty}
+                                    onChange={(e) => {
+                                        const value = e.target.value as TherapyType;
+
+                                        setForm(prev => ({
+                                            ...prev,
+                                            specialty: value,
+                                            // se sair de psicologia, limpa especialidades extras
+                                            specialties: value === "psicologia" ? (prev.specialties || []) : [],
+                                        }));
+                                    }}
+                                    className="mt-1"
+                                >
+                                    <option value="">Selecione</option>
+                                    {THERAPY_TYPES.map((type) => (
+                                        <option key={type.value} value={type.value}>
+                                            {type.label}
+                                        </option>
+                                    ))}
+                                </Select>
+                                {formErrors.specialty && (
+                                    <p className="mt-1 text-xs text-red-500">
+                                        Selecione uma área principal
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* 👇 Só aparece se área principal = Psicologia */}
+                            {form.specialty === "psicologia" && (
+                                <div className="col-span-12 md:col-span-8">
+                                    <Label>Especialidades adicionais (opcional)</Label>
+                                    <div className="flex flex-wrap gap-3 mt-1">
+                                        {EXTRA_SPECIALTIES.map(spec => (
+                                            <label
+                                                key={spec.value}
+                                                className="inline-flex items-center gap-2 text-sm text-gray-700"
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    className="rounded border-gray-300"
+                                                    checked={form.specialties?.includes(spec.value)}
+                                                    onChange={() =>
+                                                        setForm(prev => {
+                                                            const current = prev.specialties || [];
+                                                            const exists = current.includes(spec.value);
+
+                                                            return {
+                                                                ...prev,
+                                                                specialties: exists
+                                                                    ? current.filter(v => v !== spec.value)
+                                                                    : [...current, spec.value],
+                                                            };
+                                                        })
+                                                    }
+                                                />
+                                                <span>{spec.label}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                    <p className="mt-1 text-[11px] text-gray-500">
+                                        Ex.: psicóloga com especialidade em psicopedagogia e neuropsicologia.
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Telefone */}
                             <div className="col-span-12 md:col-span-4">
                                 <Label htmlFor="phoneNumber">Telefone *</Label>
                                 <Input
@@ -235,6 +307,7 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                                 )}
                             </div>
 
+                            {/* Número de Registro */}
                             <div className="col-span-12 md:col-span-4">
                                 <Label htmlFor="licenseNumber">Número de Registro *</Label>
                                 <Input
@@ -245,35 +318,13 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                                     className="mt-1"
                                 />
                                 {formErrors.licenseNumber && (
-                                    <p className="mt-1 text-xs text-red-500">Número registro é obrigatório</p>
+                                    <p className="mt-1 text-xs text-red-500">
+                                        Número de registro é obrigatório
+                                    </p>
                                 )}
                             </div>
-
-                            {/* Senha (apenas para novo cadastro) */}
-                            {!selectedDoctor && (
-                                <div className="col-span-12 md:col-span-6 relative">
-                                    <Label htmlFor="password">Senha *</Label>
-                                    <Input
-                                        id="password"
-                                        type={showPassword ? "text" : "password"}
-                                        value={form.password}
-                                        onChange={e => setForm({ ...form, password: e.target.value })}
-                                        className="mt-1 pr-10"
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        className="absolute right-2 top-[34px] text-gray-500 hover:text-gray-700"
-                                        onClick={() => setShowPassword(prev => !prev)}
-                                    >
-                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                    </Button>
-                                    {formErrors.password && (
-                                        <p className="mt-1 text-xs text-red-500">Senha é obrigatória</p>
-                                    )}
-                                </div>
-                            )}
                         </div>
+
                     </fieldset>
 
                     {/* Horários de Atendimento */}

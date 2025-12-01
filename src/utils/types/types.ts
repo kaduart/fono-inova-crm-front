@@ -124,7 +124,6 @@ export const defaultAppointmentData = {
 
 export interface IDoctors {
     fullName: '',
-    specialty: '',
     active: '',
     _id: '',
     email: '',
@@ -133,12 +132,15 @@ export interface IDoctors {
     password: '',
     createdAt: string;
     updatedAt: string;
+    specialty: '',
+    specialties?: string[];
 }
 
 export interface IDoctor {
     _id: string;
     fullName: string;
     specialty: string;
+    specialties?: string[];
     email: string;
     phoneNumber: string;
     licenseNumber: string;
@@ -146,6 +148,13 @@ export interface IDoctor {
     active: boolean;
     weeklyAvailability: any[]
 }
+
+export const EXTRA_SPECIALTIES = [
+  { value: "psicopedagogia", label: "Psicopedagogia" },
+  { value: "neuropsicologia", label: "Neuropsicologia" },
+  { value: "psicologia_libras", label: "Psicologia em Libras" },
+  // adicione outras que fizerem sentido
+];
 
 export const PatientInitialValues = {
     fullName: '',
@@ -386,56 +395,56 @@ export const translateAction = (action: string) => {
 // ===========================================
 
 export interface PaymentTotals {
-  totalReceived: number;   // Soma de valores com status = "paid"
-  totalPending: number;    // Soma de valores com status = "pending"
-  totalPartial: number;    // Soma de valores com status = "partial"
-  countReceived: number;   // Quantidade de pagamentos pagos
-  countPending: number;    // Quantidade de pagamentos pendentes
-  countPartial: number;    // Quantidade de pagamentos parciais
+    totalReceived: number;   // Soma de valores com status = "paid"
+    totalPending: number;    // Soma de valores com status = "pending"
+    totalPartial: number;    // Soma de valores com status = "partial"
+    countReceived: number;   // Quantidade de pagamentos pagos
+    countPending: number;    // Quantidade de pagamentos pendentes
+    countPartial: number;    // Quantidade de pagamentos parciais
 }
 
 export interface GroupedSummary {
-  _id: string;             // Exemplo: "pix", "cartão", "package"
-  total: number;           // Valor total neste grupo
-  count: number;           // Quantidade de registros
+    _id: string;             // Exemplo: "pix", "cartão", "package"
+    total: number;           // Valor total neste grupo
+    count: number;           // Quantidade de registros
 }
 
 export interface BreakdownEntry {
-  _id: {
-    year: number;
-    month: number;
-    day: number;
-  };
-  totalPaid: number;
-  totalPending: number;
-  totalPartial: number;
+    _id: {
+        year: number;
+        month: number;
+        day: number;
+    };
+    totalPaid: number;
+    totalPending: number;
+    totalPartial: number;
 }
 
 // ===========================================
 // 🎛️ Filtros aplicados na query
 // ===========================================
 export interface PaymentTotalsFilters {
-  period: "day" | "week" | "month" | "year" | "custom";
-  doctorId?: string;
-  paymentMethod?: string;
-  serviceType?: string;
-  status?: "paid" | "pending" | "partial";
-  dateRange: {
-    start: string; // ISO string
-    end: string;   // ISO string
-  };
+    period: "day" | "week" | "month" | "year" | "custom";
+    doctorId?: string;
+    paymentMethod?: string;
+    serviceType?: string;
+    status?: "paid" | "pending" | "partial";
+    dateRange: {
+        start: string; // ISO string
+        end: string;   // ISO string
+    };
 }
 
 // ===========================================
 // 📦 Response principal
 // ===========================================
 export interface PaymentTotalsResponse {
-  success: boolean;
-  filters: PaymentTotalsFilters;
-  data: {
-    totals: PaymentTotals;
-    byMethod: GroupedSummary[];
-    byServiceType: GroupedSummary[];
-    breakdown: BreakdownEntry[];
-  };
+    success: boolean;
+    filters: PaymentTotalsFilters;
+    data: {
+        totals: PaymentTotals;
+        byMethod: GroupedSummary[];
+        byServiceType: GroupedSummary[];
+        breakdown: BreakdownEntry[];
+    };
 }
