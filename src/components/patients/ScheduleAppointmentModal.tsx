@@ -463,6 +463,7 @@ const ScheduleAppointmentModal = ({
                                     <option value="pix">PIX</option>
                                     <option value="cartão">Cartão</option>
                                     <option value="transferência">Transferência</option>
+                                    <option value="plano-unimed">Unimed</option>
                                 </Select>
                             </div>
                         </div>
