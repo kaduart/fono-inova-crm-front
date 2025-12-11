@@ -1,5 +1,5 @@
-import { Button, Paper, Typography, useTheme } from '@mui/material';
-import { ChevronDown, ChevronUp, DollarSign, Plus, RefreshCw } from 'lucide-react';
+import { Button, Paper, Typography } from '@mui/material';
+import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -55,7 +55,6 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
-    const theme = useTheme();
 
     const {
         payments,
@@ -78,20 +77,20 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
     }, [fetchPayments, fetchPaymentTotals]);
 
     // 🔹 Carregar role do usuário
-  useEffect(() => {
-    const userString = localStorage.getItem('user') ?? '{}';
+    useEffect(() => {
+        const userString = localStorage.getItem('user') ?? '{}';
 
-    try {
-        const parsedUser = JSON.parse(userString);
+        try {
+            const parsedUser = JSON.parse(userString);
 
-        if (parsedUser) {
-            setUserRole(parsedUser.role?.trim().toLowerCase() ?? null);
-            setUser(parsedUser);
+            if (parsedUser) {
+                setUserRole(parsedUser.role?.trim().toLowerCase() ?? null);
+                setUser(parsedUser);
+            }
+        } catch (e) {
+            console.error('Erro ao ler usuário do localStorage', e);
         }
-    } catch (e) {
-        console.error('Erro ao ler usuário do localStorage', e);
-    }
-}, []);
+    }, []);
 
     // 🔹 Atualizar pagamentos iniciais
     useEffect(() => {
@@ -250,69 +249,6 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
 
     return (
         <div className="space-y-6 p-4">
-            {/* 🔹 HEADER PRINCIPAL */}
-            <Paper
-                elevation={2}
-                sx={{
-                    p: 4,
-                    borderRadius: 3,
-                    background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
-                    border: `1px solid ${theme.palette.divider}`,
-                }}
-            >
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div className="flex items-center gap-4">
-                        <div
-                            className="p-3 rounded-2xl"
-                            style={{
-                                backgroundColor: 'rgba(55, 171, 135, 0.15)',
-                                backdropFilter: 'blur(10px)'
-                            }}
-                        >
-                            <DollarSign size={28} style={{ color: '#00B57A' }} />
-                        </div>
-                        <div>
-                            <Typography
-                                variant="h4"
-                                fontWeight="bold"
-                                color="grey.800"
-                                gutterBottom
-                            >
-                                Painel Financeiro
-                            </Typography>
-                            <Typography
-                                variant="body1"
-                                color="grey.600"
-                                sx={{ opacity: 0.8 }}
-                            >
-                                Controle completo dos pagamentos: recebidos, pendentes e em processamento
-                            </Typography>
-                        </div>
-                    </div>
-
-                    <Button
-                        variant="contained"
-                        startIcon={<Plus size={20} />}
-                        onClick={handleOpenPayment}
-                        sx={{
-                            borderRadius: 3,
-                            px: 4,
-                            py: 1.5,
-                            fontWeight: 'bold',
-                            fontSize: '1rem',
-                            background: `linear-gradient(135deg, rgb(55,171,135), rgb(40,130,100))`,
-                            '&:hover': {
-                                background: `linear-gradient(135deg, rgb(60,180,140), rgb(35,115,90))`,
-                                transform: 'translateY(-2px)',
-                                boxShadow: 6,
-                            },
-                            transition: 'all 0.3s ease-in-out',
-                        }}
-                    >
-                        Novo Registro
-                    </Button>
-                </div>
-            </Paper>
 
             {/* 🔹 SEÇÃO RELATÓRIO DIÁRIO */}
             <Paper elevation={1} sx={{ borderRadius: 2, overflow: 'hidden' }}>

@@ -6,9 +6,9 @@ import dayjs from 'dayjs';
 import { motion } from 'framer-motion';
 import { Calendar, ChevronLeftIcon, ChevronRightIcon, XIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { IPatient } from '../../utils/types/types';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { TimeMultiSelect } from './TimeMultiSelect';
+import { IPatient, SlotBookingPayload } from '../../utils/types/types';
 
 const weekdays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
 
@@ -20,10 +20,7 @@ interface DoctorAgendaCalendarProps {
   onDateChange: (date: dayjs.Dayjs) => void;
   onDaySelect: (date: string) => void;
 
-  onSubmitSlotBooking?: (data: {
-    time: string,
-    isBookingModalOpen: boolean
-  }) => void;
+  onSubmitSlotBooking?: (data: SlotBookingPayload) => void;
 }
 
 
@@ -206,11 +203,7 @@ const DoctorAgendaCalendar = ({
                     [expandedDate]: times,
                   }))
                 }
-                onSubmit={(data) => {
-                  if (onSubmitSlotBooking) {
-                    onSubmitSlotBooking(data);
-                  }
-                }}
+                onSubmit={(data) => onSubmitSlotBooking?.(data)}
               />
             ) : (
               <EmptyAgendaMessage />

@@ -13,7 +13,7 @@ import { Label } from '../ui/Label';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/TextArea';
 
-type ServiceType = 'package_session' | 'session' | 'individual_session' | 'evaluation';
+type ServiceType = ScheduleAppointment['serviceType'];
 
 const defaultForm: ScheduleAppointment = {
     doctorId: '',
@@ -21,7 +21,8 @@ const defaultForm: ScheduleAppointment = {
     date: '',
     time: '',
     sessionType: 'fonoaudiologia',
-    notes: null,
+    specialty: 'fonoaudiologia',
+    notes: '',
     paymentAmount: 0,
     paymentMethod: 'dinheiro',
     status: 'agendado',
@@ -55,6 +56,28 @@ const ScheduleAppointmentModal = ({
     const [serviceType, setServiceType] = useState<ServiceType>('individual_session');
     const [packages, setPackages] = useState<any[]>([]);
     const [selectedPatient, setSelectedPatient] = useState<IPatient | null>(null);
+    // 👇 NOVO: texto digitado no campo de busca de paciente
+    const [patientSearch, setPatientSearch] = useState('');
+
+    // 👇 helper pra ignorar acento no filtro
+    const normalize = (value: string) =>
+        value
+            ?.toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') || '';
+
+    // 👇 NOVO: pacientes filtrados pelo texto digitado
+    const filteredPatients = useMemo(() => {
+        if (!patients || patients.length === 0) return [];
+        if (!patientSearch.trim()) return patients;
+
+        const search = normalize(patientSearch);
+
+        return patients.filter((p) =>
+            normalize(p.fullName).includes(search)
+        );
+    }, [patients, patientSearch]);
+
     registerLocale("pt-BR", ptBR);
 
     useEffect(() => {
@@ -74,6 +97,16 @@ const ScheduleAppointmentModal = ({
             setServiceType('individual_session');
         }
     }, [initialData, isOpen]);
+
+    useEffect(() => {
+        if (!initialData || !initialData.patientId || !patients?.length) return;
+
+        const found = patients.find((p) => p._id === initialData.patientId);
+        if (found) {
+            setPatientSearch(found.fullName);
+            setSelectedPatient(found);
+        }
+    }, [initialData?.patientId, patients]);
 
     useEffect(() => {
 
@@ -108,12 +141,19 @@ const ScheduleAppointmentModal = ({
     const handlePatientChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const id = e.target.value;
         const found = patients?.find((p) => p._id === id);
-        setPackages(found?.packages);
+
+        setSelectedPatient(found || null);
+        setPackages((found as any)?.packages || []); // mantém sua lógica atual
+
         setFormData((prev) => ({
             ...prev,
             patientId: id,
         }));
+
+        // 👇 Atualiza o texto do input com o nome escolhido
+        setPatientSearch(found?.fullName || '');
     };
+
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -171,14 +211,9 @@ const ScheduleAppointmentModal = ({
         if (erroMessage) {
             toast.error(erroMessage, {
                 position: 'top-center',
-                /*   style: {
-                      zIndex: 999999,
-                  }, */
                 duration: 4000,
             });
-
         }
-        erroMessage = null
     }, [erroMessage]);
 
     return (
@@ -211,28 +246,53 @@ const ScheduleAppointmentModal = ({
             <div className="space-y-6">
                 {/* Profissional e Paciente */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                        <Label htmlFor="patientId" className="block mb-2 font-medium text-gray-700 flex items-center gap-2">
-                            <Users size={18} /> Paciente
-                        </Label>
-                        <Select
-                            name="patientId"
-                            value={formData.patientId}
-                            onChange={handlePatientChange}
-                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    <div className="bg-gray-50 p-4 rounded-lg relative">
+                        <Label
+                            htmlFor="patientId"
+                            className="block mb-2 font-medium text-gray-700 flex items-center gap-2"
                         >
-                            <option value="">Selecione um paciente</option>
-                            {patients?.map(patient => (
-                                <option key={patient._id} value={patient._id}>
-                                    {patient.fullName}
-                                </option>
-                            ))}
-                        </Select>
+                            <User size={18} /> Paciente
+                        </Label>
+
+                        {/* Campo de busca */}
+                        <input
+                            type="text"
+                            value={patientSearch}
+                            onChange={(e) => setPatientSearch(e.target.value)}
+                            placeholder="Digite o nome do paciente..."
+                            className="w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        />
+
+                        {/* Dropdown dinâmico */}
+                        {patientSearch.length > 0 && filteredPatients.length > 0 && (
+                            <ul className="absolute z-50 w-full mt-1 max-h-56 overflow-auto bg-white border border-gray-300 rounded-lg shadow-md">
+                                {filteredPatients.map((patient, index) => (
+                                    <li
+                                        key={patient._id || `${patient.fullName}-${index}`}
+                                        onClick={() => {
+                                            setSelectedPatient(patient);
+                                            setPatientSearch(patient.fullName);
+                                            setFormData((prev) => ({ ...prev, patientId: patient._id }));
+                                            setPackages((patient as any)?.packages || []);
+                                        }}
+                                        className="px-3 py-2 cursor-pointer hover:bg-blue-50 text-sm text-gray-700"
+                                    >
+                                        {patient.fullName}
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+
+                        {patientSearch.length > 0 && filteredPatients.length === 0 && (
+                            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-md px-3 py-2 text-sm text-gray-500">
+                                Nenhum paciente encontrado
+                            </div>
+                        )}
                     </div>
 
                     <div className="bg-gray-50 p-4 rounded-lg">
                         <Label htmlFor="doctorId" className="block mb-2 font-medium text-gray-700 flex items-center gap-2">
-                            <User size={18} /> Profissional
+                            <Users size={18} /> Profissional
                         </Label>
                         <Select
                             name="doctorId"
@@ -267,7 +327,7 @@ const ScheduleAppointmentModal = ({
                             <option value="terapia_ocupacional">Terapia Ocupacional</option>
                             <option value="fisioterapia">Fisioterapia</option>
                             <option value="pediatria">Pediatria</option>
-                            <option value="neuroped">Neuropediatria</option>
+                            <option value="neuropediatria">Neuropediatria</option>
                         </Select>
                     </div>
 
@@ -366,7 +426,7 @@ const ScheduleAppointmentModal = ({
                         >
 
 
-                            <option value="alignment ">Alinhamento</option>
+                            <option value="alignment">Alinhamento</option>
                             <option value="evaluation">Avaliação</option>
                             <option value="neuropsych_evaluation">Avaliação Neuropsicológica</option>
                             <option value="meet">Reunião</option>

@@ -1,5 +1,5 @@
 import { Button, Paper, Typography, useTheme } from '@mui/material';
-import { Plus, User, UserPlus, Users } from 'lucide-react';
+import { Plus, Users } from 'lucide-react';
 import React, { useEffect, useState } from "react";
 import { IAppointment, IDoctor, IPatient, ScheduleAppointment } from "../../utils/types/types";
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
@@ -27,7 +27,7 @@ interface ManageDoctorsProps {
     modalShouldClose: boolean;
     closeModalSignal: number;
     setOpenModal: () => Promise<void>;
-    onNewAppointment: (data: any) => Promise<void>;
+    onNewAppointment: (data: ScheduleAppointment) => Promise<void>;
 };
 
 const ManageDoctors: React.FC<ManageDoctorsProps> = ({
@@ -101,28 +101,41 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
         setShowModal(true);
     };
 
-    //aqui chama o agendamento por hora
-    const onOpenCloseModals = async (data: any) => {
+    // abre o modal de agendamento com dados do horário e do médico
+    const onOpenCloseModals = (data: {
+        time: string;
+        date: string;
+        doctorId: string;
+        specialty: string;
+        isBookingModalOpen: boolean;
+    }) => {
+        console.log('➡️ Dados recebidos no onOpenCloseModals:', data);
 
+        // Garante que temos a data no formato correto (YYYY-MM-DD)
+        const baseDate =
+            typeof data.date === 'string'
+                ? data.date
+                : new Date(data.date).toISOString().split('T')[0];
+
+        // Monta o objeto para o modal
         setScheduleAppointmentData({
-            date: selectedDate
-                ? (selectedDate instanceof Date
-                    ? selectedDate.toISOString().split('T')[0]
-                    : selectedDate.toString())
-                : '',
+            date: baseDate,
             time: data.time,
-            doctorId: '',
+            doctorId: data.doctorId || selectedDoctor?._id || '',
             patientId: '',
-            sessionType: 'fonoaudiologia',
+            sessionType: data.specialty || selectedDoctor?.specialty || 'fonoaudiologia',
+            specialty: data.specialty || selectedDoctor?.specialty || 'fonoaudiologia',
             status: 'agendado',
             notes: '',
             paymentAmount: 0,
-            paymentMethod: 'dinheiro'
+            paymentMethod: 'dinheiro',
+            serviceType: 'individual_session', // evita undefined no modal
         });
-        setShowScheduleModal(true);
 
+        setShowScheduleModal(true);
         setSelectedBookingData(data);
-    }
+    };
+
 
     const handleBookingSubmit = async (data: any) => {
 
@@ -140,18 +153,14 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
     const handleBookingComplete = async (data: ScheduleAppointment) => {
         setIsLoading(true);
         try {
-            console.log('aaaaaaaaaaaaaaaaa',data)
-            // 1. Envia para o pai e AGUARDA resposta
-            const result = await onNewAppointment(data);
-            // 2. Só atualiza após confirmação
-            setdataUpdateSlots({
-                ...result,
-                date: data.date,
-                doctorId: data.doctorId,
-                _syncKey: Date.now()
-            });
+            await onNewAppointment(data);
 
-        } catch (error) {
+            // usa o próprio `data` pra atualizar slots locais
+            setdataUpdateSlots({
+                ...data,
+                _syncKey: Date.now(),
+            });
+        } catch (error: any) {
             console.error("Erro no intermediário:", error);
             setErrorMessage(error.message);
         } finally {
@@ -249,20 +258,12 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
                     initialData={scheduleAppointmentData}
                     doctors={doctors}
                     patients={patients}
-                    //loading={false}
-                    // onSubmit={handleCloseScheduleModal}
                     onClose={() => setShowScheduleModal(false)}
-                    onSave={(data) => {
-                        handleBookingComplete(data),
-                            setdataUpdateSlots(data)
-                    }}
-
+                    onSave={(data) => { handleBookingComplete(data) }}
                     isLoading={isLoading}
                     erroMessage={errorMessage}
-
                 />
             )}
-
         </div>
     );
 };

@@ -17,17 +17,28 @@ export function TimeMultiSelect({
   availableTimes,
   selectedDate,
   selectedDoctorId,
+  patients,
   onChange,
   onSubmit,
 }: TimeMultiSelectProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleSelectAvailableTime = (time: string) => {
-    if (!selectedDate) return;
+    if (!selectedDate || !selectedDoctorId) return;
 
-    setIsModalOpen(true);
-    onSubmit({ time, isBookingModalOpen: true });
+    const date = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
+
+    const selectedDoctor = patients.find((d) => d._id === selectedDoctorId);
+
+    onSubmit({
+      time,
+      date,
+      doctorId: selectedDoctorId,
+      specialty: selectedDoctor?.specialty || 'fonoaudiologia',
+      isBookingModalOpen: true,
+    });
   };
+
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
@@ -41,15 +52,15 @@ export function TimeMultiSelect({
               rounded-lg p-3
               border transition-all duration-200
               flex items-center justify-center
-              ${isSelected 
-                ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm' 
+              ${isSelected
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm'
                 : 'border-gray-200 bg-white text-gray-700 hover:border-emerald-300 hover:bg-emerald-50'
               }
             `}
             onClick={() => handleSelectAvailableTime(time)}
           >
             <span className="font-medium">{time}</span>
-            
+
             {isSelected && (
               <div className="absolute top-0 right-0 bg-emerald-500 text-white p-1 rounded-bl-lg">
                 <Check size={12} />

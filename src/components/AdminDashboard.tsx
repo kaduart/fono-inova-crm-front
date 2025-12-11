@@ -14,7 +14,7 @@ import FollowupPage from '../pages/FollowupPage';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
 import { CreateDoctorParams } from '../services/doctorService';
 import { createPayment, FinancialRecord, getPayments, updatePayment } from '../services/paymentService';
-import { IAppointment, IPatient, TAB_TITLES } from '../utils/types/types';
+import { IPatient, ScheduleAppointment, TAB_TITLES } from '../utils/types/types';
 import AddAdminContent from './admin/AddAdminContent';
 import AdminHeader from './admin/AdminHeader';
 import DashboardContent from './admin/DashboardContent';
@@ -75,7 +75,6 @@ export default function AdminDashboard() {
     const [activeTab, setActiveTab] = useState('Dashboard');
     const [openMenu, setOpenMenu] = useState('');
     const [isEditing, setIsEditing] = useState(false);
-    const [showDoctorPassword, setShowDoctorPassword] = useState(false);
     const [showAdminPassword, setShowAdminPassword] = useState(false);
     const [totalDoctors, setTotalDoctors] = useState(0);
     const [doctorOverview, setDoctorOverview] = useState([]);
@@ -242,23 +241,24 @@ export default function AdminDashboard() {
         }
     };
 
+    const handleNewAppointment = async (appointmentData: ScheduleAppointment) => {
+        const specialty = appointmentData.specialty || appointmentData.sessionType;
 
-    const handleNewAppointment = async (appointmentData: IAppointment) => {
         const payload: CreateAppointmentParams = {
-            patientId: appointmentData.patientId || '',
-            doctorId: appointmentData.doctorId || '',
+            patientId: appointmentData.patientId,
+            doctorId: appointmentData.doctorId,
             date: appointmentData.date,
             time: appointmentData.time,
+            specialty,
+            sessionType: specialty,
             serviceType: appointmentData.serviceType,
-            sessionType: appointmentData.serviceType,
             notes: appointmentData.notes,
             paymentAmount: appointmentData.paymentAmount,
             paymentMethod: appointmentData.paymentMethod,
             reason: appointmentData.reason,
-            specialty: appointmentData.sessionType,
             clinicalStatus: 'pending',
             operationalStatus: 'scheduled',
-            packageId: appointmentData.packageId
+            packageId: appointmentData.packageId,
         };
 
         try {
@@ -567,11 +567,11 @@ export default function AdminDashboard() {
 
             <main className="max-w-[95%] lg:max-w-[85rem] mx-auto px-8 py-0">
 
-                <div className="mb-6 flex justify-between items-center">
+                {/* <div className="mb-6 flex justify-between items-center">
                     <h2 className="text-2xl font-bold text-gray-900">
-                        {TAB_TITLES[activeTab] || 'Dashboard'}
+                        {TAB_TITLES[activeTab]}
                     </h2>
-                </div>
+                </div> */}
 
                 <div className="bg-white rounded-lg shadow-sm space-y-6 p-6 overflow-hidden">
                     {activeTab === 'Dashboard' && (

@@ -1,5 +1,11 @@
-// types.ts
-export type TherapyType = 'fonoaudiologia' | 'terapia_ocupacional' | 'psicologia' | 'fisioterapia';
+export type TherapyType =
+    | 'fonoaudiologia'
+    | 'terapia_ocupacional'
+    | 'psicologia'
+    | 'fisioterapia'
+    | 'pediatria'
+    | 'neuropediatria';
+
 export type PaymentType = 'full' | 'per-session' | 'partial';
 export type PackageStatus = 'ativo' | 'finalizado';
 
@@ -206,24 +212,54 @@ export const PatientInitialValues = {
 
 export interface ScheduleAppointment {
     patientId: string;
-    packageId?: string;
     doctorId: string;
-    date: string;
-    time: string;
-    sessionType: 'fonoaudiologia' | 'terapia_ocupacional' | 'psicologia' | 'fisioterapia';
-    specialty: 'fonoaudiologia' | 'terapia_ocupacional' | 'psicologia' | 'fisioterapia';
-    notes?: string;
-    serviceType: 'evaluation' | 'session' | 'package_session' | 'individual_session';
-    paymentAmount?: number;
-    paymentMethod?: 'dinheiro' | 'pix' | 'cartão';
-    status: 'agendado' | 'concluído' | 'cancelado';
+    date: string; // 'YYYY-MM-DD'
+    time: string; // 'HH:mm'
+
+    // Terapia
+    sessionType: TherapyType;
+    specialty?: TherapyType;
+
+    // Tipo de agendamento (todos que o select usa)
+    serviceType:
+    | 'evaluation'
+    | 'session'
+    | 'package_session'
+    | 'individual_session'
+    | 'alignment'
+    | 'alignment '            // <- pra aceitar registros antigos se existirem
+    | 'neuropsych_evaluation'
+    | 'meet'
+    | 'tongue_tie_test';
+
+    status?: 'agendado' | 'confirmado' | 'concluído' | 'cancelado' | 'faltou';
+
+    // Pacote
+    packageId?: string;
     packages?: string[];
+
+    // Financeiro
+    paymentAmount?: number;
+    paymentMethod?:
+    | 'dinheiro'
+    | 'pix'
+    | 'cartão'
+    | 'transferência'
+    | 'plano-unimed';
+
+    // Metadados
+    notes?: string;
     reason?: string;
+
     clinicalStatus?: 'pendente' | 'em_andamento' | 'concluído' | 'faltou';
     operationalStatus?: 'agendado' | 'confirmado' | 'cancelado' | 'pago' | 'faltou';
+
     duration?: number;
-    _syncKey?: Date
+
+    // usado só pra sincronizar slots localmente
+    _syncKey?: number;
 }
+
 
 export const STATUS_OPTIONS = [
     { label: 'Agendado', value: 'agendado' },
@@ -255,14 +291,28 @@ export interface SelectedEvent {
         id: string;
         fullName: string;
     };
-    date: string; // ISO string (ex: "2025-07-02T11:40:00.000Z")
-    startTime: string; // ex: "08:40"
-    status: 'agendado' | 'concluído' | 'cancelado' | string;
-    formattedDate: string; // ex: "02/07/2025, 08:40"
+    date: Date | null;
+    startTime: string;
+
+    status?: 'agendado' | 'concluído' | 'cancelado' | string;
+    operationalStatus?: string;
+    clinicalStatus?: string;
+    reason?: string;
+
+    formattedDate: string;
     backgroundColor: string;
     borderColor: string;
-    start: string; // mesmo valor que formattedDate
+    start: string;
 }
+
+export interface SlotBookingPayload {
+  time: string;
+  date: string;
+  doctorId: string;
+  specialty: string;
+  isBookingModalOpen: boolean;
+}
+
 
 export interface IPatient {
     _id?: string;
@@ -338,11 +388,20 @@ export interface IAppointment {
     paymentAmount: number;
     notes?: string;
     serviceType: string;
-    paymentStatus: string
+    paymentStatus: string;
     createdAt: Date;
     updatedAt: Date;
     canceledAt?: Date;
     canceledReason?: string;
+
+    // 🔹 adiciona esses dois como opcionais
+    patient?: IPatient;
+    doctor?: IDoctor;
+}
+
+export interface IAppointmentResponse extends Omit<IAppointment, 'patient' | 'doctor'> {
+    patient: IPatient;
+    doctor: IDoctor;
 }
 
 export interface IAppointmentResponse extends Omit<IAppointment, 'patient' | 'doctor'> {

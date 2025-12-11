@@ -7,7 +7,7 @@ import { ptBR } from "date-fns/locale";
 import { AlertCircle, Calendar, CheckCircle, Clock, DollarSign, Plus, User, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { OPERATIONAL_STATUS_CONFIG, StatusConfig } from '../../services/appointmentService';
-import { IAppointment, IDoctor, IPatient, SelectedEvent } from '../../utils/types/types';
+import { IAppointment, IDoctor, IPatient, ScheduleAppointment, SelectedEvent } from '../../utils/types/types';
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import AppointmentDetailModal from './appointmentDetailModal';
@@ -17,7 +17,7 @@ interface EnhancedCalendarProps {
     doctors: IDoctor[];
     patients: IPatient[];
     onDateClick: (arg: DateClickArg) => void;
-    onNewAppointment: (data: IAppointment) => Promise<void>;
+    onNewAppointment: (data: ScheduleAppointment) => Promise<void>;
     onCancelAppointment: (id: string, reason: string) => Promise<void>;
     onCompleteAppointment: (id: string) => Promise<void>;
     onEditAppointment: (id: string, data: any) => Promise<void>;
@@ -791,7 +791,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     </Box>
                 </Paper>
 
-<style>{`
+                <style>{`
     /* ✅ Ajusta o botão "+X more events" */
     .fc-timegrid-more-link {
         top: 75px !important;

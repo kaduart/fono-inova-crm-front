@@ -1,11 +1,12 @@
 // src/pages/Financial/FinancialDashboard.tsx (VERSÃO CORRIGIDA)
 
-import { Box, Paper, Tab, Tabs, Typography } from '@mui/material';
-import { Calendar, DollarSign, Target, TrendingDown, TrendingUp } from 'lucide-react';
+import { Box, Button, Paper, Tab, Tabs, Typography, useTheme } from '@mui/material';
+import { Calendar, DollarSign, Plus, Target, TrendingDown, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
+import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
 import CashflowTab from '../Financial/CashflowTab';
-import ExpensesTab from './components/ExpenseModal';
+import ExpensesTab from './tabs/ExpensesTab';
 import GoalsTab from './tabs/GoalsTab';
 import PlanningTab from './tabs/PlanningTab';
 import RevenueTab from './tabs/RevenueTab';
@@ -13,9 +14,9 @@ import RevenueTab from './tabs/RevenueTab';
 interface FinancialDashboardProps {
     patients: IPatient[];
     doctors: IDoctor[];
-    initialPayments: any[];
-    onMarkAsPaid: (payment: any) => void;
-    registerAppointmentAndPayemntFuture: (payment: any) => void;
+    initialPayments: FinancialRecord[];
+    onMarkAsPaid: (payment: FinancialRecord) => void;
+    registerAppointmentAndPaymentFuture: (payment: FinancialRecord) => void;
     onCancelPayment: (paymentId: string) => void;
 }
 
@@ -28,6 +29,11 @@ const FinancialDashboard = ({
     onCancelPayment
 }: FinancialDashboardProps) => {
     const [currentTab, setCurrentTab] = useState(0);
+    const theme = useTheme();
+
+    const handleOpenPayment = () => {
+        // Implementar abertura do modal de pagamento
+    };
 
     const tabs = [
         {
@@ -37,7 +43,7 @@ const FinancialDashboard = ({
                 <RevenueTab
                     patients={patients}
                     doctors={doctors}
-                    initialPayments={initialPayments}
+                    payments={initialPayments}
                     onMarkAsPaid={onMarkAsPaid}
                     registerAppointmentAndPayemntFuture={registerAppointmentAndPayemntFuture}
                     onCancelPayment={onCancelPayment}
@@ -68,14 +74,68 @@ const FinancialDashboard = ({
 
     return (
         <Box>
-            {/* Header */}
-            <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 3 }}>
-                <Typography variant="h4" fontWeight="bold" gutterBottom>
-                    💰 Gestão Financeira
-                </Typography>
-                <Typography variant="body1" color="text.secondary">
-                    Controle completo de receitas, despesas, fluxo de caixa e planejamento
-                </Typography>
+            {/* 🔹 HEADER PRINCIPAL */}
+            <Paper
+                elevation={2}
+                sx={{
+                    p: 4,
+                    borderRadius: 3,
+                    background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
+                    border: `1px solid ${theme.palette.divider}`,
+                }}
+            >
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div className="flex items-center gap-4">
+                        <div
+                            className="p-3 rounded-2xl"
+                            style={{
+                                backgroundColor: 'rgba(55, 171, 135, 0.15)',
+                                backdropFilter: 'blur(10px)'
+                            }}
+                        >
+                            <DollarSign size={28} style={{ color: '#00B57A' }} />
+                        </div>
+                        <div>
+                            <Typography
+                                variant="h4"
+                                fontWeight="bold"
+                                color="grey.800"
+                                gutterBottom
+                            >
+                                Painel Financeiro
+                            </Typography>
+                            <Typography
+                                variant="body1"
+                                color="grey.600"
+                                sx={{ opacity: 0.8 }}
+                            >
+                                Controle completo dos pagamentos: recebidos, pendentes e em processamento
+                            </Typography>
+                        </div>
+                    </div>
+
+                    <Button
+                        variant="contained"
+                        startIcon={<Plus size={20} />}
+                        onClick={handleOpenPayment}
+                        sx={{
+                            borderRadius: 3,
+                            px: 4,
+                            py: 1.5,
+                            fontWeight: 'bold',
+                            fontSize: '1rem',
+                            background: `linear-gradient(135deg, rgb(55,171,135), rgb(40,130,100))`,
+                            '&:hover': {
+                                background: `linear-gradient(135deg, rgb(60,180,140), rgb(35,115,90))`,
+                                transform: 'translateY(-2px)',
+                                boxShadow: 6,
+                            },
+                            transition: 'all 0.3s ease-in-out',
+                        }}
+                    >
+                        Novo Registro
+                    </Button>
+                </div>
             </Paper>
 
             {/* Tabs */}
