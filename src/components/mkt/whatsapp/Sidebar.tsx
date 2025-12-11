@@ -62,7 +62,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => {/* abrir modal de adicionar */ }}
                         className="p-2 bg-emerald-500 hover:bg-emerald-600 rounded-full transition-colors"
                     >
-                        <FiPlus className="w-5 h-5 text-white" />
+                    <FiPlus className="w-5 h-5 text-white" />
                     </button>
                 </div>
 

@@ -736,10 +736,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                         <FiMic className="w-5 h-5" />
                     </button>
                     <div className="flex-1 relative">
-                        <input
+                        <textarea
                             ref={inputRef}
-                            type="text"
-                            className="w-full py-3 px-4 bg-gray-100 border-0 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-all placeholder:text-gray-500"
+                            rows={3}
+                            className="w-full py-3 px-4 bg-gray-100 border-0 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-all placeholder:text-gray-500 resize-none"
                             placeholder="Digite uma mensagem..."
                             value={draft}
                             onChange={(e) => setDraft(e.target.value)}

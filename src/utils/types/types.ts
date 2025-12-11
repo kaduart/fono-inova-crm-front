@@ -150,11 +150,22 @@ export interface IDoctor {
 }
 
 export const EXTRA_SPECIALTIES = [
-  { value: "psicopedagogia", label: "Psicopedagogia" },
-  { value: "neuropsicologia", label: "Neuropsicologia" },
-  { value: "psicologia_libras", label: "Psicologia em Libras" },
-  // adicione outras que fizerem sentido
+    { value: "psicopedagogia", label: "Psicopedagogia" },
+    { value: "neuropsicologia", label: "Neuropsicologia" },
+    { value: "psicologia_libras", label: "Psicologia em Libras" },
+    // adicione outras que fizerem sentido
 ];
+
+export const TAB_TITLES: Record<string, string> = {
+    Dashboard: 'Dashboard',
+    Profile: 'Meu Perfil',
+    'Add Profissional': 'Profissionais',
+    Calendário: 'Calendário',
+    Financeiro: 'Financeiro',
+    Leads: 'Leads / Follow-ups',
+    Mensagens: 'Mensagens',
+    'Add Admin': 'Adicionar Administrador',
+};
 
 export const PatientInitialValues = {
     fullName: '',

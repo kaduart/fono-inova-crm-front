@@ -9,20 +9,20 @@ import { useAdmin } from '../hooks/useAdmin';
 import useDoctorDashboard from '../hooks/useDoctorDashboard';
 import { usePatients } from '../hooks/usePatients';
 import usePayment from '../hooks/usePayment';
+import FinancialDashboard from '../pages/Financial/FinancialDashboard';
 import FollowupPage from '../pages/FollowupPage';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
 import { CreateDoctorParams } from '../services/doctorService';
 import { createPayment, FinancialRecord, getPayments, updatePayment } from '../services/paymentService';
-import { IAppointment, IPatient } from '../utils/types/types';
+import { IAppointment, IPatient, TAB_TITLES } from '../utils/types/types';
 import AddAdminContent from './admin/AddAdminContent';
 import AdminHeader from './admin/AdminHeader';
 import DashboardContent from './admin/DashboardContent';
 import ProfileContent from './admin/ProfileContent';
 import EnhancedCalendar from './calendar/EnhancedCalendar';
-import AnalyticsDashboard from './Dashboard/AnalyticsDashboard';
+import SiteAnalyticsDashboard from './Dashboard/SiteAnalyticsDashboard';
 import { AdvancedPaymentModal } from './financial/AdvancedPaymentModal';
 import { PaymentModal } from './financial/PaymentModal';
-import PaymentPage from './financial/PaymentPage';
 import DoctorFormModal from './ManageDoctors/DoctorFormModal';
 import ManageDoctors from './ManageDoctors/ManageDoctors';
 import AppChat from './mkt/whatsapp/AppChat';
@@ -230,8 +230,13 @@ export default function AdminDashboard() {
 
             return true; // sucesso
         } catch (error: any) {
-            toast.error(error.response?.data?.error || error.response?.data?.message);
-            return false; // falha
+            const msg =
+                error?.response?.data?.error ||
+                error?.response?.data?.message ||
+                'Erro ao salvar paciente';
+            toast.error(msg);
+
+            return false;
         } finally {
             setIsLoading(false);
         }
@@ -388,6 +393,10 @@ export default function AdminDashboard() {
         }
     };
 
+    useEffect(() => {
+        loadPayments();
+    }, []);
+
     const handleRegisterAppointmentAndPayemntFuture = (payment: FinancialRecord) => {
         if (!payment || typeof payment !== 'object') {
             console.error('Pagamento inválido:', payment);
@@ -513,10 +522,10 @@ export default function AdminDashboard() {
                 );
             case 'Financeiro':
                 return (
-                    <PaymentPage
+                    <FinancialDashboard
                         patients={patients}
-                        initialPayments={allPayments}
                         doctors={doctors}
+                        initialPayments={allPayments}
                         onMarkAsPaid={handleMarkAsPaid}
                         registerAppointmentAndPayemntFuture={handleRegisterAppointmentAndPayemntFuture}
                         onCancelPayment={handleCancelPayment}
@@ -525,7 +534,17 @@ export default function AdminDashboard() {
             case 'Leads':
                 return <FollowupPage />;
             case 'Analytics':
-                return <AnalyticsDashboard />;
+                return (
+                    <SiteAnalyticsDashboard
+                        patients={patients}
+                        doctors={doctors}
+                        payments={allPayments}
+                        onMarkAsPaid={handleMarkAsPaid}
+                        registerAppointmentAndPayemntFuture={handleRegisterAppointmentAndPayemntFuture}
+                        onCancelPayment={handleCancelPayment}
+                    />
+                );
+
             case 'Mensagens':
                 return <AppChat />;
             default:
@@ -548,54 +567,46 @@ export default function AdminDashboard() {
 
             <main className="max-w-[95%] lg:max-w-[85rem] mx-auto px-8 py-0">
 
-                {/* mantém o conteúdo existente */}
                 <div className="mb-6 flex justify-between items-center">
                     <h2 className="text-2xl font-bold text-gray-900">
-                        {activeTab === 'Dashboard'}
-                        {activeTab === 'Profile' && 'Meu Perfil'}
-                        {activeTab === 'Add Profissional'}
-                        {activeTab === 'Calendário'}
-                        {activeTab === 'Financeiro'}
-                        {activeTab === 'Leads'}
-                        {activeTab === 'Mensagens'}
-                        {activeTab === 'Add Admin' && 'Adicionar Administrador'}
+                        {TAB_TITLES[activeTab] || 'Dashboard'}
                     </h2>
                 </div>
 
                 <div className="bg-white rounded-lg shadow-sm space-y-6 p-6 overflow-hidden">
-                   {activeTab === 'Dashboard' && (
-                    <Paper
-                        elevation={2}
-                        sx={{
-                            p: 4,
-                            mb: 4,
-                            mt: 2,
-                            borderRadius: 3,
-                            background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
-                        }}
-                    >
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                            {/* Ícone e título */}
-                            <div className="flex items-center gap-4">
-                                <div
-                                    className="p-3 rounded-2xl"
-                                    style={{ backgroundColor: 'rgba(55,171,135,0.15)' }}
-                                >
-                                    <BarChart3 size={24} style={{ color: '#00C087' }} />
-                                </div>
+                    {activeTab === 'Dashboard' && (
+                        <Paper
+                            elevation={2}
+                            sx={{
+                                p: 4,
+                                mb: 4,
+                                mt: 2,
+                                borderRadius: 3,
+                                background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
+                            }}
+                        >
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                {/* Ícone e título */}
+                                <div className="flex items-center gap-4">
+                                    <div
+                                        className="p-3 rounded-2xl"
+                                        style={{ backgroundColor: 'rgba(55,171,135,0.15)' }}
+                                    >
+                                        <BarChart3 size={24} style={{ color: '#00C087' }} />
+                                    </div>
 
-                                <div>
-                                    <Typography variant="h4" fontWeight="bold" color="grey.800">
-                                        Visão Geral da Clínica
-                                    </Typography>
-                                    <Typography variant="body2" color="grey.600">
-                                        Acompanhe métricas, desempenho e indicadores do atendimento em tempo real.
-                                    </Typography>
+                                    <div>
+                                        <Typography variant="h4" fontWeight="bold" color="grey.800">
+                                            Visão Geral da Clínica
+                                        </Typography>
+                                        <Typography variant="body2" color="grey.600">
+                                            Acompanhe métricas, desempenho e indicadores do atendimento em tempo real.
+                                        </Typography>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </Paper>
-                )}
+                        </Paper>
+                    )}
                     {renderContent()}
                 </div>
             </main>

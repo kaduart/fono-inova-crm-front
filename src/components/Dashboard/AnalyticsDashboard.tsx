@@ -1,377 +1,232 @@
-import { useCallback, useMemo, useState } from 'react';
-import {
-    CartesianGrid,
-    Cell,
-    Legend,
-    Line,
-    LineChart,
-    Pie,
-    PieChart,
-    ResponsiveContainer,
-    Tooltip,
-    XAxis,
-    YAxis
-} from 'recharts';
-import { useAnalytics } from '../../hooks/analytics';
-import SiteAnalyticsTable from './SiteAnalyticsTable';
-import { toast } from 'react-toastify';
-import API from '../../services/api';
-import AmandaInsights from '../mkt/whatsapp/AmandaInsights';
+// src/components/Dashboard/AnalyticsDashboard.tsx
+import { Box, Paper, Tab, Tabs, Typography, useTheme } from '@mui/material';
+import { Activity, BarChart3, Globe2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
-// Cores para os gráficos
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d'];
+import MarketingDashboard from '../../pages/MarketingDashboard';
+import { FinancialRecord } from '../../services/paymentService';
+import { IDoctor, IPatient } from '../../utils/types/types';
+import RevenueTab from './RevenueTab';
+import SiteAnalyticsDashboard from './SiteAnalyticsDashboard';
 
-const handleCreateLead = async (event) => {
-    try {
-        const payload = {
-            name: event.userName || 'Visitante do Site',
-            origin: 'Site',
-            status: 'novo',
-            contact: {
-                email: event.userEmail || '',
-                phone: event.userPhone || '',
-            },
-            notes: `Evento GA4: ${event.name} - Página: ${event.pageTitle}`,
-        };
+interface AnalyticsDashboardProps {
+    patients: IPatient[];
+    doctors: IDoctor[];
+    payments: FinancialRecord[];
+    onMarkAsPaid: (payment: FinancialRecord) => void;
+    registerAppointmentAndPayemntFuture: (payment: FinancialRecord) => void;
+    onCancelPayment: (paymentId: string) => void;
+}
 
-        await API.post('/leads', payload);
-        toast.success('Lead criado com sucesso!');
-    } catch (err) {
-        toast.error('Erro ao criar lead');
-        console.error(err);
-    }
-};
+const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
+    patients,
+    doctors,
+    payments,
+    onMarkAsPaid,
+    registerAppointmentAndPayemntFuture,
+    onCancelPayment,
+}) => {
+    const theme = useTheme();
+    const [tab, setTab] = useState<'overview' | 'revenue' | 'site' | 'marketing'>('overview');
 
-const AnalyticsDashboard = () => {
-    const today = new Date();
-    const daysAgo7 = new Date();
-    daysAgo7.setDate(today.getDate() - 7);
+    const overview = useMemo(() => {
+        const totalPatients = patients?.length ?? 0;
+        const totalDoctors = doctors?.length ?? 0;
+        const totalPayments = payments?.length ?? 0;
 
-    const [dateRange, setDateRange] = useState({
-        startDate: daysAgo7.toISOString().split('T')[0], // 7 dias atrás
-        endDate: today.toISOString().split('T')[0],      // hoje
-    });
+        const paid = payments?.filter(p => p.status === 'paid') ?? [];
+        const pending = payments?.filter(
+            p => p.status === 'pending' || p.status === 'partial'
+        ) ?? [];
 
-    const [selectedEventType, setSelectedEventType] = useState('all');
-    const [activeTab, setActiveTab] = useState('analytics'); // 'analytics' ou 'insights'
-
-    const { events, metrics, loading, error } = useAnalytics(dateRange);
-
-    // Função para corrigir dados inconsistentes da API
-    const cleanedEvents = useMemo(() => {
-        if (!events || events.length === 0) return [];
-
-        return events.map(event => {
-            // Corrigir valores quebrados
-            if (typeof event.value === 'string' && event.value.includes(',')) {
-                event.value = parseInt(event.value.split(',')[0]);
-            }
-
-            // Garantir que value é numérico
-            return {
-                ...event,
-                value: Number(event.value) || 0
-            };
-        });
-    }, [events]);
-
-    // Filtrar eventos por tipo selecionado
-    const filteredEvents = useMemo(() => {
-        if (selectedEventType === 'all') return cleanedEvents;
-        return cleanedEvents.filter(event => event.action === selectedEventType);
-    }, [cleanedEvents, selectedEventType]);
-
-    // Dados para o gráfico de linha (evolução diária)
-    const lineChartData = useMemo(() => {
-        const dailyMap = {};
-        cleanedEvents.forEach(e => {
-            const dateKey = new Date(e.timestamp).toISOString().split('T')[0];
-            dailyMap[dateKey] = (dailyMap[dateKey] || 0) + Number(e.value || 1);
-        });
-
-        return Object.keys(dailyMap)
-            .sort()
-            .map(date => ({ date, total: dailyMap[date] }));
-    }, [cleanedEvents]);
-
-    // Dados para o gráfico de pizza (proporção de eventos)
-    const pieChartData = useMemo(() => {
-        const eventCounts = {};
-        cleanedEvents.forEach(e => {
-            eventCounts[e.action] = (eventCounts[e.action] || 0) + 1;
-        });
-
-        return Object.entries(eventCounts)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 6)
-            .map(([name, value]) => ({ name, value }));
-    }, [cleanedEvents]);
-
-    // Tipos de evento únicos para o filtro
-    const eventTypes = useMemo(() => {
-        const types = new Set(cleanedEvents.map(event => event.action));
-        return ['all', ...Array.from(types)].sort();
-    }, [cleanedEvents]);
-
-    // Métricas calculadas
-    const calculatedMetrics = useMemo(() => {
-        if (cleanedEvents.length === 0) return null;
-
-        const totalEvents = cleanedEvents.length;
-        const uniqueEventTypes = new Set(cleanedEvents.map(event => event.action)).size;
-        const totalValue = cleanedEvents.reduce((sum, event) => sum + event.value, 0);
-        const averageValue = totalValue / totalEvents;
+        const totalPaidValue = paid.reduce((sum, p) => sum + (p.amount || 0), 0);
+        const totalPendingValue = pending.reduce((sum, p) => sum + (p.amount || 0), 0);
 
         return {
-            totalEvents,
-            uniqueEventTypes,
-            averageValue: averageValue.toFixed(2),
-            maxValue: Math.max(...cleanedEvents.map(event => event.value))
+            totalPatients,
+            totalDoctors,
+            totalPayments,
+            totalPaidValue,
+            totalPendingValue,
         };
-    }, [cleanedEvents]);
-
-    // Manipulador de mudança de filtro
-    const handleFilterChange = useCallback((filterType, value) => {
-        if (filterType === 'dateRange') {
-            setDateRange(value);
-        } else if (filterType === 'eventType') {
-            setSelectedEventType(value);
-        }
-    }, []);
-
-    if (error) {
-        return (
-            <div className="container mx-auto p-4">
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                    Erro ao carregar dados: {error.message}
-                </div>
-            </div>
-        );
-    }
+    }, [patients, doctors, payments]);
 
     return (
-        <div className="container mx-auto p-4">
-            <h1 className="text-3xl font-bold mb-6">Dashboard de Marketing</h1>
-
-            {/* Abas */}
-            <div className="border-b border-gray-200 mb-6">
-                <nav className="-mb-px flex space-x-8">
-                    <button
-                        onClick={() => setActiveTab('analytics')}
-                        className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                            activeTab === 'analytics'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        }`}
+        <Box className="space-y-4">
+            <Paper
+                elevation={2}
+                sx={{
+                    p: 3,
+                    borderRadius: 3,
+                    background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
+                    mb: 2,
+                }}
+            >
+                <Box display="flex" alignItems="center" gap={2}>
+                    <Box
+                        sx={{
+                            p: 2,
+                            borderRadius: 3,
+                            backgroundColor: 'rgba(55,171,135,0.15)',
+                        }}
                     >
-                        Analytics do Site
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('insights')}
-                        className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                            activeTab === 'insights'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        }`}
-                    >
-                        Insights da Amanda
-                    </button>
-                </nav>
-            </div>
+                        <BarChart3 size={22} />
+                    </Box>
+                    <Box>
+                        <Typography variant="h5" fontWeight="bold" color="grey.800">
+                            Analytics da Clínica
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Atendimentos, faturamento, site e marketing em um só lugar.
+                        </Typography>
+                    </Box>
+                </Box>
+            </Paper>
 
-            {activeTab === 'analytics' ? (
-                <>
-                    {/* Filtros */}
-                    <div className="bg-white p-4 rounded-lg shadow mb-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Data Inicial</label>
-                                <input
-                                    type="date"
-                                    className="w-full p-2 border border-gray-300 rounded"
-                                    value={dateRange.startDate}
-                                    onChange={(e) => handleFilterChange('dateRange', { ...dateRange, startDate: e.target.value })}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Data Final</label>
-                                <input
-                                    type="date"
-                                    className="w-full p-2 border border-gray-300 rounded"
-                                    value={dateRange.endDate}
-                                    onChange={(e) => handleFilterChange('dateRange', { ...dateRange, endDate: e.target.value })}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Evento</label>
-                                <select
-                                    className="w-full p-2 border border-gray-300 rounded"
-                                    value={selectedEventType}
-                                    onChange={(e) => handleFilterChange('eventType', e.target.value)}
-                                >
-                                    {eventTypes.map(type => (
-                                        <option key={type} value={type}>
-                                            {type === 'all' ? 'Todos os Eventos' : type}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+            <Paper elevation={1} sx={{ borderRadius: 3 }}>
+                <Tabs
+                    value={tab}
+                    onChange={(_, value) => setTab(value)}
+                    indicatorColor="primary"
+                    textColor="primary"
+                    variant="scrollable"
+                    scrollButtons="auto"
+                    sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}
+                >
+                    <Tab
+                        label="Visão Geral"
+                        value="overview"
+                        icon={<Activity size={16} />}
+                        iconPosition="start"
+                    />
+                    <Tab
+                        label="Receitas"
+                        value="revenue"
+                        icon={<BarChart3 size={16} />}
+                        iconPosition="start"
+                    />
+                    <Tab
+                        label="Site / GA4"
+                        value="site"
+                        icon={<Globe2 size={16} />}
+                        iconPosition="start"
+                    />
+                    <Tab
+                        label="Marketing"
+                        value="marketing"
+                        icon={<Globe2 size={16} />}
+                        iconPosition="start"
+                    />
+                </Tabs>
 
-                    {loading ? (
-                        // Skeleton loading
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-4">
-                                {[...Array(5)].map((_, i) => (
-                                    <div key={i} className="p-4 shadow rounded bg-white">
-                                        <div className="skeleton h-4 w-1/2 mb-2"></div>
-                                        <div className="skeleton h-8 w-3/4"></div>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <div className="chart-container skeleton h-80"></div>
-                                <div className="chart-container skeleton h-80"></div>
-                            </div>
-                            <div className="bg-white rounded-lg shadow overflow-hidden">
-                                <div className="skeleton h-64"></div>
-                            </div>
-                        </div>
-                    ) : (
-                        <>
-                            {/* Cards de Métricas */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-8">
-                                <div className="p-4 shadow rounded bg-white fade-in">
-                                    <div className="text-gray-500">Usuários Totais</div>
-                                    <div className="text-2xl font-bold">{metrics?.totalUsers ?? '-'}</div>
-                                </div>
-                                <div className="p-4 shadow rounded bg-white fade-in">
-                                    <div className="text-gray-500">Usuários Ativos</div>
-                                    <div className="text-2xl font-bold">{metrics?.activeUsers ?? '-'}</div>
-                                </div>
-                                <div className="p-4 shadow rounded bg-white fade-in">
-                                    <div className="text-gray-500">Sessões</div>
-                                    <div className="text-2xl font-bold">{metrics?.sessions ?? '-'}</div>
-                                </div>
-                                <div className="p-4 shadow rounded bg-white fade-in">
-                                    <div className="text-gray-500">Sessões Engajadas</div>
-                                    <div className="text-2xl font-bold">{metrics?.engagedSessions ?? '-'}</div>
-                                </div>
-                                <div className="p-4 shadow rounded bg-white fade-in">
-                                    <div className="text-gray-500">Duração Média</div>
-                                    <div className="text-2xl font-bold">
-                                        {metrics?.avgSessionDuration ? (metrics.avgSessionDuration / 60).toFixed(2) + ' min' : '-'}
-                                    </div>
-                                </div>
-                            </div>
-                            {/* Cards de Métricas Adicionais */}
-                            {calculatedMetrics && (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                                    <div className="p-4 shadow rounded bg-white fade-in">
-                                        <div className="text-gray-500">Total de Eventos</div>
-                                        <div className="text-2xl font-bold">{calculatedMetrics.totalEvents}</div>
-                                    </div>
-                                    <div className="p-4 shadow rounded bg-white fade-in">
-                                        <div className="text-gray-500">Tipos de Eventos</div>
-                                        <div className="text-2xl font-bold">{calculatedMetrics.uniqueEventTypes}</div>
-                                    </div>
-                                    <div className="p-4 shadow rounded bg-white fade-in">
-                                        <div className="text-gray-500">Valor Médio</div>
-                                        <div className="text-2xl font-bold">{calculatedMetrics.averageValue}</div>
-                                    </div>
-                                    <div className="p-4 shadow rounded bg-white fade-in">
-                                        <div className="text-gray-500">Maior Valor</div>
-                                        <div className="text-2xl font-bold">{calculatedMetrics.maxValue}</div>
-                                    </div>
-                                </div>
-                            )}
+                <Box sx={{ p: 3 }}>
+                    {tab === 'overview' && (
+                        <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <Paper
+                                elevation={0}
+                                sx={{
+                                    p: 2.5,
+                                    borderRadius: 2,
+                                    border: '1px solid',
+                                    borderColor: 'grey.200',
+                                }}
+                            >
+                                <Typography variant="body2" color="text.secondary">
+                                    Pacientes cadastrados
+                                </Typography>
+                                <Typography variant="h5" fontWeight="bold">
+                                    {overview.totalPatients}
+                                </Typography>
+                            </Paper>
 
-                            {/* Gráficos */}
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                                {/* Gráfico de Evolução Temporal */}
-                                <div className="chart-container">
-                                    <h2 className="text-xl font-semibold mb-4">Evolução Temporal de Eventos</h2>
-                                    <ResponsiveContainer width="100%" height={300}>
-                                        <LineChart data={lineChartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                                            <CartesianGrid stroke="#f5f5f5" />
-                                            <XAxis dataKey="date" />
-                                            <YAxis />
-                                            <Tooltip />
-                                            <Line type="monotone" dataKey="total" stroke="#3b82f6" strokeWidth={3} />
-                                        </LineChart>
-                                    </ResponsiveContainer>
-                                </div>
+                            <Paper
+                                elevation={0}
+                                sx={{
+                                    p: 2.5,
+                                    borderRadius: 2,
+                                    border: '1px solid',
+                                    borderColor: 'grey.200',
+                                }}
+                            >
+                                <Typography variant="body2" color="text.secondary">
+                                    Profissionais ativos
+                                </Typography>
+                                <Typography variant="h5" fontWeight="bold">
+                                    {overview.totalDoctors}
+                                </Typography>
+                            </Paper>
 
-                                {/* Gráfico de Distribuição de Eventos */}
-                                <div className="chart-container">
-                                    <h2 className="text-xl font-semibold mb-4">Distribuição de Eventos</h2>
-                                    <ResponsiveContainer width="100%" height={300}>
-                                        <PieChart>
-                                            <Pie
-                                                data={pieChartData}
-                                                cx="50%"
-                                                cy="50%"
-                                                outerRadius={100}
-                                                fill="#8884d8"
-                                                dataKey="value"
-                                                label
-                                            >
-                                                {pieChartData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip />
-                                            <Legend />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
+                            <Paper
+                                elevation={0}
+                                sx={{
+                                    p: 2.5,
+                                    borderRadius: 2,
+                                    border: '1px solid',
+                                    borderColor: 'grey.200',
+                                }}
+                            >
+                                <Typography variant="body2" color="text.secondary">
+                                    Pagamentos registrados
+                                </Typography>
+                                <Typography variant="h5" fontWeight="bold">
+                                    {overview.totalPayments}
+                                </Typography>
+                            </Paper>
 
-                            {/* Tabela de Eventos */}
-                            <div className="bg-white rounded-lg shadow overflow-hidden mb-8">
-                                <div className="px-6 py-4 border-b border-gray-200">
-                                    <h2 className="text-xl font-semibold">Eventos Detalhados</h2>
-                                    <p className="text-sm text-gray-600">
-                                        Exibindo {filteredEvents.length} eventos
-                                        {selectedEventType !== 'all' ? ` do tipo "${selectedEventType}"` : ''}
-                                    </p>
-                                </div>
-                                <SiteAnalyticsTable data={filteredEvents} />
-                            </div>
-                        </>
+                            <Paper
+                                elevation={0}
+                                sx={{
+                                    p: 2.5,
+                                    borderRadius: 2,
+                                    border: '1px solid',
+                                    borderColor: 'grey.200',
+                                }}
+                            >
+                                <Typography variant="body2" color="text.secondary">
+                                    Receita recebida (R$)
+                                </Typography>
+                                <Typography variant="h6" fontWeight="bold">
+                                    {overview.totalPaidValue.toLocaleString('pt-BR', {
+                                        style: 'currency',
+                                        currency: 'BRL',
+                                    })}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    Pendente:{' '}
+                                    {overview.totalPendingValue.toLocaleString('pt-BR', {
+                                        style: 'currency',
+                                        currency: 'BRL',
+                                    })}
+                                </Typography>
+                            </Paper>
+                        </Box>
                     )}
-                </>
-            ) : (
-                <AmandaInsights />
-            )}
 
-            <style>{`
-                .chart-container {
-                    background-color: white;
-                    border-radius: 0.5rem;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-                    padding: 1.25rem;
-                }
-                .skeleton {
-                    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-                    background-size: 200% 100%;
-                    animation: loading 1.5s infinite;
-                    border-radius: 0.25rem;
-                }
-                .fade-in {
-                    animation: fadeIn 0.5s ease-in-out;
-                }
-                @keyframes loading {
-                    0% { background-position: 200% 0; }
-                    100% { background-position: -200% 0; }
-                }
-                @keyframes fadeIn {
-                    from { opacity: 0; }
-                    to { opacity: 1; }
-                }
-            `}</style>
-        </div>
+                    {tab === 'revenue' && (
+                        <RevenueTab
+                            patients={patients}
+                            doctors={doctors}
+                            payments={payments}
+                            onMarkAsPaid={onMarkAsPaid}
+                            registerAppointmentAndPayemntFuture={registerAppointmentAndPayemntFuture}
+                            onCancelPayment={onCancelPayment}
+                        />
+                    )}
+
+                    {tab === 'site' && (
+                        <Box sx={{ mt: 1 }}>
+                            <SiteAnalyticsDashboard />
+                        </Box>
+                    )}
+
+                    {tab === 'marketing' && (
+                        <Box sx={{ mt: 1 }}>
+                            <MarketingDashboard />
+                        </Box>
+                    )}
+                </Box>
+            </Paper>
+        </Box>
     );
 };
 

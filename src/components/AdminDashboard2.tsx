@@ -898,7 +898,7 @@ export default function AdminDashboard2() {
   const renderLeads = () => (
     <div className="mt-4">
       <h2 className="text-xl font-bold mb-4">Leads e Marketing</h2>
-      <AnalyticsDashboard />
+      <SiteAnalyticsDashboard />
     </div>
   );
 

@@ -47,7 +47,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
     const startIndex = (currentPage - 1) * itemsPerPage;
     const currentPayments = filteredPayments.slice(startIndex, startIndex + itemsPerPage);
     const [userRole, setUserRole] = useState<string | null>(null);
-    const [user, setUser] = useState<string | null>(null);
+    const [user, setUser] = useState<any>(null);
 
     const location = useLocation();
     const params = new URLSearchParams(location.search);
@@ -78,14 +78,20 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
     }, [fetchPayments, fetchPaymentTotals]);
 
     // 🔹 Carregar role do usuário
-    useEffect(() => {
-        const userString = localStorage.getItem('user') ?? '{}';
-        const user = JSON.parse(userString);
-        if (user) {
-            setUserRole(user.role.trim().toLowerCase());
-            setUser(user);
+  useEffect(() => {
+    const userString = localStorage.getItem('user') ?? '{}';
+
+    try {
+        const parsedUser = JSON.parse(userString);
+
+        if (parsedUser) {
+            setUserRole(parsedUser.role?.trim().toLowerCase() ?? null);
+            setUser(parsedUser);
         }
-    }, []);
+    } catch (e) {
+        console.error('Erro ao ler usuário do localStorage', e);
+    }
+}, []);
 
     // 🔹 Atualizar pagamentos iniciais
     useEffect(() => {
