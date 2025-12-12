@@ -45,15 +45,14 @@ const DoctorAgenda = ({ doctors = [], updateSlots, patients, onDaySlotsChange, s
 
     }, [updateSlots?._syncKey]);
 
-    useEffect(() => {
-        if (selectedDoctor && selectedDoctor._id) {
-            setSelectedDoctorId(selectedDoctor._id);
-            // Opcional: já busca os horários ao trocar o doutor
-            const today = dayjs().format('YYYY-MM-DD');
-            fetchSlotsForDate(today);
-        }
-    }, [selectedDoctor]);
-
+useEffect(() => {
+    if (selectedDoctor && selectedDoctor._id) {
+        setSelectedDoctorId(selectedDoctor._id);
+        const today = dayjs(); // objeto dayjs, não string
+        setSelectedDate(today); // sincroniza estado do calendário
+        fetchSlotsForDate(today.format('YYYY-MM-DD')); // busca slots
+    }
+}, [selectedDoctor]);
 
     const onDateChange = (date: dayjs.Dayjs) => {
         setSelectedDate(date);
