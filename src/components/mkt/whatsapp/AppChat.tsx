@@ -34,6 +34,8 @@ const AppChat: React.FC = () => {
         [contacts, activeContactId]
     );
 
+    console.log("activeContactId:", activeContactId);
+    console.log("contacts.length:", contacts.length);
     // 🎯 Selecionar contato (single source of truth)
     const handleSelectContact = (contact: Contact) => {
         markAsRead(contact._id);
@@ -109,10 +111,9 @@ const AppChat: React.FC = () => {
             </div>
         </div>
     );
-
+    console.log("ACTIVE CONTACT COMPLETO:", active);
     // ✅ leadId correto: tenta pegar do contato (se existir). Evita usar _id como leadId.
-    const effectiveLeadId = (active as any)?.leadId || (active as any)?.crm?.leadId || null;
-
+    const effectiveLeadId = active?.leadId;
     return (
         <div>
             <Paper

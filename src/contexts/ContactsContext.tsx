@@ -69,6 +69,7 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [loading, setLoading] = useState(false);
     const [activeContactId, setActiveContactId] = useState<string | null>(null);
+console.log("ContactsProvider mount", Math.random());
 
     // Guards
     const isMountedRef = useRef(true);

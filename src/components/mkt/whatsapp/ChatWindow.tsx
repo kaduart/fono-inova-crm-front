@@ -109,6 +109,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
     const { updateContact } = useContacts();
     const [showEditContact, setShowEditContact] = useState(false);
+    const hasGenericName = isGenericName(contact?.name, contact?.phone);
 
     function isGenericName(name?: string, phone?: string) {
         const n = (name || "").trim().toLowerCase();
@@ -471,7 +472,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
     }, [contact]);
 
     const handleAmandaResume = async () => {
-        logger.debug('chamouuu ativacao amanda', leadId);
+        console.log('chamouuu ativacao amanda', leadId);
         if (!leadId) return;
 
         try {
@@ -522,6 +523,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                                 <FiUser className="text-emerald-600" />
                             )}
                         </div>
+
                         <div className="min-w-0">
                             <div className="font-semibold text-gray-900 truncate">
                                 {contact?.name || "Sem nome"}
@@ -531,24 +533,31 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                                 {leadId ? ` • Lead: ${leadId}` : ""}
                             </div>
                         </div>
-                        <div className="flex items-right  gap-2 shrink-0">
-                            {isGenericName(contact?.name, contact?.phone) && (
-                                <Button
-                                    onClick={() => setShowEditContact(true)}
-                                    className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-xl"
-                                >
-                                    Adicionar nome
-                                </Button>
-                            )}
-
-                            <Button onClick={handleAmandaResume}
-                                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
-                            >
-                                🤖 Reativar Amanda
-                            </Button>
-                        </div>
                     </div>
+
+                    {/* Right: botões */}
+                    <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                            onClick={() => setShowEditContact(true)}
+                            className={
+                                hasGenericName
+                                    ? "bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-xl"
+                                    : "bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded-xl"
+                            }
+                        >
+                            {hasGenericName ? "Adicionar nome" : "Editar nome"}
+                        </Button>
+
+                        <Button
+                            onClick={handleAmandaResume}
+                            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+                        >
+                            🤖 Reativar Amanda
+                        </Button>
+                    </div>
+
                 </div>
+
 
                 {/* Aviso separado */}
                 <div className="mt-2 text-xs text-amber-700 flex items-center gap-2">
