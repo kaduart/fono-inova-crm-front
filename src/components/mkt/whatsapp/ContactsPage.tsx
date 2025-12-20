@@ -1,52 +1,104 @@
-import React, { useEffect, useState } from "react";
-import {
-    fetchContacts,
-    addContact,
-    editContact,
-    deleteContact,
-} from "../../../services/whatsappService";
+// pages/ContactsPage.tsx
+import { useState } from "react";
 import { toast } from "react-toastify";
+import { useContacts } from "../../../contexts/ContactsContext";
+import { usePatients } from "../../../hooks/usePatients"; // ✅ importa hook
+import { addContact, deleteContact, editContact } from "../../../services/whatsappService";
 import ContactsList, { Contact } from "./ContactsList";
 
 export default function ContactsPage() {
-    const [contacts, setContacts] = useState<Contact[]>([]);
+    const { listContacts, refreshContacts } = useContacts();
+    const { createPatient, patients } = usePatients(); // ✅ hook de pacientes
     const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
 
-    // 🔹 Carrega contatos
-    useEffect(() => {
-        const load = async () => {
-            try {
-                const data = await fetchContacts();
-                setContacts(data);
-            } catch (err: any) {
-                console.error("Erro ao carregar contatos:", err);
-                toast.error("Erro ao buscar contatos");
+    // ✅ Função auxiliar: cria/busca paciente e vincula ao contato
+    const syncContactWithPatient = async (contact: Contact, newName: string) => {
+        try {
+            // 1️⃣ Verifica se já existe paciente com este telefone
+            const existingPatient = patients.find(p => p.phone === contact.phone);
+
+            let patientId: string;
+
+            if (existingPatient) {
+                // Atualiza nome do paciente existente se necessário
+                patientId = existingPatient._id;
+                console.log('✅ Paciente já existe:', existingPatient.name);
+            } else {
+                // 2️⃣ Cria novo paciente
+                const newPatient = await createPatient({
+                    name: newName,
+                    phone: contact.phone,
+                    cpf: '',
+                    rg: '',
+                    birthDate: '',
+                    email: '',
+                    address: '',
+                    // ... outros campos opcionais
+                } as any);
+
+                patientId = newPatient._id;
+                console.log('✅ Paciente criado:', newPatient);
             }
-        };
-        load();
-    }, []);
+
+            return patientId;
+        } catch (error) {
+            console.error('❌ Erro ao sincronizar paciente:', error);
+            throw error;
+        }
+    };
 
     // 🔹 Adicionar novo contato
     const handleAdd = async (data: Omit<Contact, "_id">) => {
         try {
             const newContact = await addContact(data);
-            setContacts((prev) => [...prev, newContact]);
+
+            // ✅ Se tiver nome válido (não "WhatsApp XXXX"), cria paciente
+            if (data.name && !data.name.startsWith('WhatsApp ')) {
+                const patientId = await syncContactWithPatient(newContact, data.name);
+
+                // Atualiza contato com patientId
+                await editContact(newContact._id, { patientId } as any);
+            }
+
+            await refreshContacts();
             toast.success("Contato adicionado com sucesso 💚");
-        } catch (err) {
-            toast.error("Erro ao adicionar contato");
+        } catch (err: any) {
+            console.error(err);
+            toast.error(err.message || "Erro ao adicionar contato");
         }
     };
 
     // 🔹 Editar contato existente
-    const handleEdit = async (id: string, data: Omit<Contact, "_id">) => {
+    const handleEdit = async (id: string, data: Partial<Contact>) => {
         try {
-            const updated = await editContact(id, data);
-            setContacts((prev) =>
-                prev.map((c) => (c._id === id ? updated : c))
-            );
-            toast.success("Contato atualizado 💚");
-        } catch (err) {
-            toast.error("Erro ao editar contato");
+            const contact = listContacts.find(c => c._id === id);
+            if (!contact) throw new Error('Contato não encontrado');
+
+            // ✅ Detecta se nome foi alterado de "WhatsApp XXXX" para nome real
+            const nameChanged = data.name &&
+                data.name !== contact.name &&
+                !data.name.startsWith('WhatsApp ');
+
+            let updateData = { ...data };
+
+            if (nameChanged) {
+                // Sincroniza com paciente
+                const patientId = await syncContactWithPatient(contact, data.name!);
+                updateData = { ...data, patientId } as any;
+
+                toast.success(`Paciente "${data.name}" criado e vinculado 💚`);
+            }
+
+            // Atualiza contato
+            await editContact(id, updateData);
+            await refreshContacts();
+
+            if (!nameChanged) {
+                toast.success("Contato atualizado 💚");
+            }
+        } catch (err: any) {
+            console.error(err);
+            toast.error(err.message || "Erro ao editar contato");
         }
     };
 
@@ -55,7 +107,7 @@ export default function ContactsPage() {
         if (!window.confirm("Tem certeza que deseja deletar este contato?")) return;
         try {
             await deleteContact(id);
-            setContacts((prev) => prev.filter((c) => c._id !== id));
+            await refreshContacts();
             toast.success("Contato deletado 💚");
         } catch (err) {
             toast.error("Erro ao deletar contato");
@@ -65,7 +117,7 @@ export default function ContactsPage() {
     return (
         <div className="p-6 min-h-screen bg-gray-50">
             <ContactsList
-                contacts={contacts}
+                contacts={listContacts}
                 onAdd={handleAdd}
                 onEdit={handleEdit}
                 onDelete={handleDelete}

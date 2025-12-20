@@ -46,6 +46,14 @@ export interface Contact {
     name: string;
     phone: string;
     avatar?: string;
+    patientId?: string; // ✅ adicionar
+    lastMessage?: string;
+    lastMessageAt?: string;
+    unreadCount?: number;
+    hasNewMessage?: boolean;
+    createdAt?: string;
+    updatedAt?: string;
+    tags?: string[];
 }
 
 // =========================
@@ -81,6 +89,17 @@ export async function addContact(
 ): Promise<Contact> {
     const response = await API.post("/whatsapp/contacts", data);
     return response.data;
+}
+
+export async function updateContactApi(id: string, updates: { name?: string; phone?: string; avatar?: string }) {
+    const res = await fetch(`/api/whatsapp/contacts/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+    });
+
+    if (!res.ok) throw new Error("Falha ao atualizar contato");
+    return res.json(); // backend retorna o contato atualizado
 }
 
 export async function editContact(

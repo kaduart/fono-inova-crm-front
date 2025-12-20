@@ -3,13 +3,17 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FiMic, FiPaperclip, FiSend, FiUser } from 'react-icons/fi';
 import { IoCheckmark, IoCheckmarkDone, IoTime } from 'react-icons/io5';
 import { toast } from 'react-toastify';
-import { deleteWhatsAppMessage, getChatMessages, loadMoreMessages, sendManualWhatsAppText } from '../../../services/whatsappService';
+import { deleteWhatsAppMessage, getChatMessages, loadMoreMessages, sendManualWhatsAppText, updateContactApi } from '../../../services/whatsappService';
 import { confirmToast } from '../../../utils/confirmToast';
+import { socketManager } from '../../../utils/socketManager';
+import { logger } from '../../../utils/logger';
 import { normalizeE164BR } from '../../../utils/phone';
 import { uid } from '../../../utils/uid';
 import { Button } from '../../ui/Button';
 import { LoadingSpinner } from '../../ui/LoadingSpinner';
 import MessageBubble from './MessageBubble';
+import { useContacts } from '../../../contexts/ContactsContext';
+import EditContactModal from './EditContactModal';
 
 interface Contact {
     _id: string;
@@ -34,7 +38,6 @@ interface Message {
 
 interface ChatWindowProps {
     contact: Contact | null;
-    sendMessage: (phone: string, text: string) => Promise<void>;
     className?: string;
     leadId?: string;
 }
@@ -53,32 +56,28 @@ function pickMsgId(src: any) {
 
 // ChatWindow.tsx - Adicione ANTES do componente ou no início
 
-function formatMessage(m: any): Message {
-    let fromMe = false;
-    if (m.direction === 'outbound' || m.fromMe === true || m.type === 'outgoing') {
-        fromMe = true;
-    }
+function formatMessage(m: any, chatPhoneE164?: string): Message {
+    const dir = String(m?.direction || "").toLowerCase();
+    const fromE164 = normalizeE164BR(m?.from || "");
+    const toE164 = normalizeE164BR(m?.to || "");
 
-    let text = '';
-    if (typeof m === 'string') {
-        text = m;
-    } else {
-        text = m.text || m.content || m.body || m.message || m.caption || '';
-    }
+    const fromMe =
+        dir ? dir === "outbound"
+            : chatPhoneE164
+                ? normalizeE164BR(m?.from || "") !== chatPhoneE164
+                : !!m?.fromMe;
 
-    let timestamp = new Date();
-    if (m.timestamp) {
-        timestamp = new Date(m.timestamp);
-    } else if (m.createdAt) {
-        timestamp = new Date(m.createdAt);
-    } else if (m.date) {
-        timestamp = new Date(m.date);
-    } else if (m.time) {
-        timestamp = new Date(m.time);
-    }
+
+    const text =
+        typeof m === "string"
+            ? m
+            : (m.text || m.content || m.body || m.message || m.caption || "");
+
+    const tsRaw = m.timestamp || m.createdAt || m.date || m.time || Date.now();
+    const timestamp = new Date(tsRaw);
 
     const id = pickMsgId(m);
-    const msgType = m.type === 'sticker' ? 'sticker' : (m.type || 'text');
+    const msgType = m.type === "sticker" ? "sticker" : (m.type || "text");
 
     return {
         id,
@@ -86,14 +85,15 @@ function formatMessage(m: any): Message {
         type: msgType,
         timestamp,
         fromMe,
-        status: m.status || (fromMe ? 'sent' : 'received'),
-        mediaUrl: m.mediaUrl || m.url || m.media || m.fileUrl || '',
+        status: m.status || (fromMe ? "sent" : "received"),
+        mediaUrl: m.mediaUrl || m.url || m.media || m.fileUrl || "",
         mediaId: m.mediaId || undefined,
-        caption: m.caption || m.text || '',
+        caption: m.caption || m.text || "",
     };
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className, leadId }) => {
+
+const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [draft, setDraft] = useState('');
     const [loading, setLoading] = useState(false);
@@ -102,12 +102,33 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
     const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
     const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
+    const inputRef = useRef<HTMLTextAreaElement>(null);
     const seenIdsRef = useRef<Set<string>>(new Set());
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
+    const { updateContact } = useContacts();
+    const [showEditContact, setShowEditContact] = useState(false);
 
+    function isGenericName(name?: string, phone?: string) {
+        const n = (name || "").trim().toLowerCase();
+        if (!n) return true;
+        if (n.startsWith("whatsapp")) return true;
+
+        const last4 = String(phone || "").replace(/\D/g, "").slice(-4);
+        if (last4 && n.includes(last4)) return true;
+
+        return false;
+    }
+
+    const handleSaveName = async (newName: string) => {
+        if (!contact?._id) throw new Error("Contato inválido");
+
+        const updated = await updateContactApi(contact._id, { name: newName });
+
+        // atualiza contexto na hora
+        updateContact(contact._id, { name: updated.name });
+    };
     // 📨 Carrega histórico - Função estável que não muda
     const loadMessages = useCallback(async (phone: string) => {
         if (!phone) return;
@@ -128,49 +149,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                 msgs = Array.isArray(possibleArrays) ? possibleArrays : [];
             }
 
-            const formatted = msgs.map((m: any) => {
-                let fromMe = false;
-                if (m.direction === 'outbound' || m.fromMe === true || m.type === 'outgoing') {
-                    fromMe = true;
-                }
+            const chatPhoneE164 = normalizeE164BR(phone);
+            const formatted = msgs.map((m: any) => formatMessage(m, chatPhoneE164));
 
-                let text = '';
-                if (typeof m === 'string') {
-                    text = m;
-                } else {
-                    text = m.text || m.content || m.body || m.message || m.caption || '';
-                }
-
-                let timestamp = new Date();
-                if (m.timestamp) {
-                    timestamp = new Date(m.timestamp);
-                } else if (m.createdAt) {
-                    timestamp = new Date(m.createdAt);
-                } else if (m.date) {
-                    timestamp = new Date(m.date);
-                } else if (m.time) {
-                    timestamp = new Date(m.time);
-                }
-
-                const id = pickMsgId(m);
-                const msgType =
-                    m.type === 'sticker'
-                        ? 'sticker'
-                        : (m.type || 'text');
-
-                return {
-                    id,
-                    text,
-                    type: msgType,
-                    timestamp,
-                    fromMe,
-                    status: m.status || (fromMe ? 'sent' : 'received'),
-                    mediaUrl: m.mediaUrl || m.url || m.media || m.fileUrl || '',
-                    mediaId: m.mediaId || undefined,     // 👈 IMPORTANTE
-                    caption: m.caption || m.text || '',
-                };
-
-            });
 
             const unique = [];
             const seenLocal = new Set<string>();
@@ -196,170 +177,93 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             });
 
         } catch (err: any) {
-            console.error('❌ Erro ao buscar histórico:', err);
+            logger.error('❌ Erro ao buscar histórico:', err);
             setError('Erro ao carregar mensagens: ' + (err.message || 'Erro desconhecido'));
         } finally {
             setLoading(false);
         }
     }, []);
 
-    // 🔄 Efeito principal para troca de contato
     useEffect(() => {
-        if (!contact?.phone) {
+        const phone = contact?.phone;
+        if (!phone) {
             setMessages([]);
-            (window as any).activeChatPhone = null;
+            socketManager.setActiveChatPhone(null);
             return;
         }
 
-        (window as any).activeChatPhone = normalizeE164BR(contact.phone);
-        loadMessages(contact.phone);
+        const chatPhoneE164 = normalizeE164BR(phone);
 
+        // 1️⃣ Define contato ativo
+        socketManager.setActiveChatPhone(chatPhoneE164);
+
+        // 2️⃣ Carrega histórico
+        loadMessages(phone);
+
+        // 3️⃣ Listener de mensagens novas e deletadas
+        const onNew = (data: any) => {
+            try {
+                const fromE164 = normalizeE164BR(data?.from || "");
+                const toE164 = normalizeE164BR(data?.to || "");
+                if (fromE164 !== chatPhoneE164 && toE164 !== chatPhoneE164) return;
+
+                const msg = formatMessage(data, chatPhoneE164);
+
+                setMessages(prev => {
+                    if (prev.some(m => m.id === msg.id)) return prev;
+                    seenIdsRef.current.add(msg.id);
+                    return [...prev, msg];
+                });
+            } catch (e) {
+                logger.error("❌ [ChatWindow] Falha ao processar message:new:", e);
+            }
+        };
+
+
+        const onDeleted = (data: any) => {
+            try {
+                const fromE164 = normalizeE164BR(data?.from || "");
+                const toE164 = normalizeE164BR(data?.to || "");
+                if (fromE164 !== chatPhoneE164 && toE164 !== chatPhoneE164) return;
+
+                const cleanId = data.id;
+                const prefixedId = `m-${data.id}`;
+
+                setMessages(prev => prev.filter(m => m.id !== cleanId && m.id !== prefixedId));
+                seenIdsRef.current.delete(cleanId);
+                seenIdsRef.current.delete(prefixedId);
+            } catch (e) {
+                logger.error("❌ [ChatWindow] Falha ao processar message:deleted:", e);
+            }
+        };
+
+        const unsubNew = socketManager.onMessageNew(onNew);
+        const unsubDel = socketManager.onMessageDeleted(onDeleted);
+
+        // 4️⃣ Cleanup
         return () => {
-            (window as any).activeChatPhone = null;
+            unsubNew();
+            unsubDel();
+            socketManager.setActiveChatPhone(null);
         };
     }, [contact?.phone, loadMessages]);
 
-    // 📡 Escuta direta de eventos do Socket.IO em tempo real
-    useEffect(() => {
-        if (!contact?.phone) return;
 
-        const normalize = (v: string) => (v || "").replace(/\D/g, "").replace(/^55/, "");
-        const chatPhone = normalize(contact.phone);
-
-        let socket = (window as any).globalSocket;
-        let retryCount = 0;
-        let retryTimeout: NodeJS.Timeout;
-
-        const setupListeners = () => {
-            if (!socket) {
-                socket = (window as any).globalSocket;
-                if (!socket && retryCount < 10) {
-                    retryCount++;
-                    retryTimeout = setTimeout(setupListeners, 500);
-                    return;
-                }
-                if (!socket) {
-                    console.error("❌ Socket não disponível após 10 tentativas");
-                    return;
-                }
-            }
-
-            const onNew = (data: any) => {
-                try {
-                    const from = normalize(data.from);
-                    const to = normalize(data.to);
-
-                    console.log('🔍 Verificando se pertence ao chat:', {
-                        from,
-                        to,
-                        chatPhone,
-                        match: from === chatPhone || to === chatPhone
-                    });
-
-                    if (from !== chatPhone && to !== chatPhone) {
-                        console.log('⏭️ Mensagem ignorada - não pertence a este chat');
-                        return;
-                    }
-
-                    const isMedia = data.type && data.type !== "text" && data.type !== "template";
-                    const body = isMedia
-                        ? (data.caption || `[${String(data.type).toUpperCase()}]`)
-                        : (data.content ?? data.text ?? "");
-
-                    const id = pickMsgId(data);
-
-                    const newMessage: Message = {
-                        id,
-                        text: body,
-                        type: data.type || "text",
-                        mediaUrl: data.mediaUrl || data.url,
-                        caption: data.caption || "",
-                        timestamp: new Date(data.timestamp || Date.now()),
-                        fromMe: data.direction ? data.direction === "outbound" : (from !== chatPhone),
-                        status: data.status || "received",
-                    };
-
-                    setMessages(prev => {
-                        // Verifica duplicata
-                        if (prev.some(m => m.id === id)) {
-                            console.log('⏭️ Mensagem já existe, ignorando duplicata');
-                            return prev;
-                        }
-
-                        console.log('✅ Adicionando nova mensagem ao chat:', id);
-                        seenIdsRef.current.add(id);
-                        return [...prev, newMessage];
-                    });
-                } catch (e) {
-                    console.error("❌ [ChatWindow] Falha ao processar message:new:", e);
-                }
-            };
-
-            // 🗑️ Escuta evento de mensagem deletada
-            const onDeleted = (data: any) => {
-                console.log('🗑️ Socket recebeu delete:', data);
-
-                try {
-                    const from = normalize(data.from);
-                    const to = normalize(data.to);
-
-                    // Verifica se pertence a este chat
-                    if (from !== chatPhone && to !== chatPhone) {
-                        return;
-                    }
-
-                    // Remove da UI - tenta com e sem prefixo 'm-'
-                    const cleanId = data.id;
-                    const prefixedId = `m-${data.id}`;
-
-                    setMessages(prev => {
-                        const filtered = prev.filter(m => m.id !== cleanId && m.id !== prefixedId);
-                        if (filtered.length < prev.length) {
-                            console.log('✅ Mensagem removida da UI via socket');
-                        }
-                        return filtered;
-                    });
-
-                    seenIdsRef.current.delete(cleanId);
-                    seenIdsRef.current.delete(prefixedId);
-
-                } catch (e) {
-                    console.error("❌ [ChatWindow] Falha ao processar message:deleted:", e);
-                }
-            };
-
-            socket.on("message:new", onNew);
-            socket.on("message:deleted", onDeleted);
-
-            // Cleanup quando trocar de contato
-            return () => {
-                socket?.off("message:new", onNew);
-                socket?.off("message:deleted", onDeleted);
-            };
-        };
-
-        const cleanup = setupListeners();
-
-        return () => {
-            clearTimeout(retryTimeout);
-            cleanup?.();
-        };
-    }, [contact?.phone]);
 
     useEffect(() => {
         const handleForceReload = (e: CustomEvent) => {
-            const normalize = (v: string) => (v || "").replace(/\D/g, "").replace(/^55/, "");
-            if (contact?.phone && normalize(e.detail.phone) === normalize(contact.phone)) {
-                console.log('🔄 Force reload recebido, recarregando mensagens...');
-                loadMessages(contact.phone);
+            const a = normalizeE164BR(e.detail?.phone || "");
+            const b = normalizeE164BR(contact?.phone || "");
+            if (a && b && a === b) {
+                logger.debug("🔄 Force reload recebido, recarregando mensagens...");
+                loadMessages(contact!.phone);
             }
         };
 
-        window.addEventListener('force-chat-reload', handleForceReload as EventListener);
-        return () => {
-            window.removeEventListener('force-chat-reload', handleForceReload as EventListener);
-        };
+        window.addEventListener("force-chat-reload", handleForceReload as EventListener);
+        return () => window.removeEventListener("force-chat-reload", handleForceReload as EventListener);
     }, [contact?.phone, loadMessages]);
+
 
     // Carregar mensagens mais antigas ao scrollar pro topo
     // Carregar mensagens mais antigas ao scrollar pro topo
@@ -394,8 +298,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                 const prevScrollHeight = container.scrollHeight;
 
                 setMessages(prev => {
-                    const formatted = olderMsgs.map(formatMessage);
-                    // Deduplica
+                    const chatPhoneE164 = normalizeE164BR(contact.phone);
+                    const formatted = olderMsgs.map((x: any) => formatMessage(x, chatPhoneE164));
+
                     const existingIds = new Set(prev.map(m => m.id));
                     const newMsgs = formatted.filter(m => !existingIds.has(m.id));
                     return [...newMsgs, ...prev];
@@ -409,7 +314,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                     container.scrollTop = container.scrollHeight - prevScrollHeight;
                 });
             } catch (err) {
-                console.error('Erro ao carregar histórico:', err);
+                logger.error('Erro ao carregar histórico:', err);
             } finally {
                 setLoadingMore(false);
             }
@@ -466,7 +371,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             seenIdsRef.current.delete(`m-${cleanId}`);
 
         } catch (err: any) {
-            console.error('❌ Erro ao deletar:', err);
+            logger.error('❌ Erro ao deletar:', err);
             setError(err.message || 'Erro ao deletar mensagem');
         } finally {
             setDeletingMessageId(null);
@@ -509,7 +414,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                     const userData = JSON.parse(userDataStr);
                     userId = userData.userId || userData._id || userData.id;
                 } catch (e) {
-                    console.warn("Erro ao parsear userData:", e);
+                    logger.warn("Erro ao parsear userData:", e);
                 }
             }
 
@@ -529,7 +434,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
             }
 
         } catch (err: any) {
-            console.error("❌ Erro ao enviar:", err);
+            logger.error("❌ Erro ao enviar:", err);
             setError(err.message || "Erro ao enviar mensagem");
 
             setMessages(prev =>
@@ -566,7 +471,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
     }, [contact]);
 
     const handleAmandaResume = async () => {
-        console.log('chamouuu ativacao amanda', leadId);
+        logger.debug('chamouuu ativacao amanda', leadId);
         if (!leadId) return;
 
         try {
@@ -605,43 +510,50 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
 
     return (
         <div className={`${className} flex flex-col h-full bg-white shadow-lg rounded-2xl overflow-hidden`}>
-            {/* Header */}
-            <div className="p-4 border-b border-gray-200 bg-white/95 backdrop-blur-sm">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                        <div className="relative">
-                            {contact?.avatar ? (
-                                <img
-                                    src={contact.avatar}
-                                    alt={contact.name}
-                                    className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
-                                />
-                            ) : (
-                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-sm">
-                                    <FiUser className="w-6 h-6 text-white" />
-                                </div>
-                            )}
-                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <h2 className="font-semibold text-gray-800 text-lg truncate">{contact.name}</h2>
-                            <p className="text-sm text-green-600 font-medium">Online</p>
-                            <p className="mt-1 text-xs text-amber-700 flex items-center gap-1">
-                                <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
-                                Mensagens não podem ser apagadas após o envio.
-                            </p>
-                        </div>
 
+            <div className="px-4 py-3 border-b bg-white">
+                <div className="flex items-center justify-between gap-3">
+                    {/* Left: avatar + nome/telefone */}
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center overflow-hidden">
+                            {contact?.avatar ? (
+                                <img src={contact.avatar} alt={contact.name} className="w-full h-full object-cover" />
+                            ) : (
+                                <FiUser className="text-emerald-600" />
+                            )}
+                        </div>
+                        <div className="min-w-0">
+                            <div className="font-semibold text-gray-900 truncate">
+                                {contact?.name || "Sem nome"}
+                            </div>
+                            <div className="text-xs text-gray-500 truncate">
+                                {contact?.phone}
+                                {leadId ? ` • Lead: ${leadId}` : ""}
+                            </div>
+                        </div>
+                        <div className="flex items-right  gap-2 shrink-0">
+                            {isGenericName(contact?.name, contact?.phone) && (
+                                <Button
+                                    onClick={() => setShowEditContact(true)}
+                                    className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-xl"
+                                >
+                                    Adicionar nome
+                                </Button>
+                            )}
+
+                            <Button onClick={handleAmandaResume}
+                                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+                            >
+                                🤖 Reativar Amanda
+                            </Button>
+                        </div>
                     </div>
-                    {/*  <div className="flex items-center space-x-2">
-                        <button
-                            onClick={() => loadMessages(contact.phone)}
-                            className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors"
-                            title="Recarregar histórico"
-                        >
-                            <FiRefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-                        </button>
-                    </div> */}
+                </div>
+
+                {/* Aviso separado */}
+                <div className="mt-2 text-xs text-amber-700 flex items-center gap-2">
+                    <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
+                    Mensagens não podem ser apagadas após o envio.
                 </div>
             </div>
 
@@ -674,6 +586,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                                 </div>
                             ) : (
                                 <div className="space-y-3 flex flex-col">
+                                    {loadingMore && (
+                                        <div className="flex justify-center py-2">
+                                            <div className="text-xs text-gray-500">Carregando mensagens antigas...</div>
+                                        </div>
+                                    )}
+
                                     {messages.map((message) => (
                                         <div
                                             key={message.id}
@@ -701,6 +619,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                                                         text={message.text}
                                                         isMine={message.fromMe || false}
                                                         type={message.type}
+                                                        senderName={!message.fromMe ? (contact?.name || "Paciente") : "Você"}
                                                         mediaUrl={message.mediaUrl}
                                                         mediaId={message.mediaId}
                                                         caption={message.caption}
@@ -767,11 +686,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                             <FiSend className="w-5 h-5" />
                         )}
                     </Button>
-                    <Button onClick={handleAmandaResume}
-                        className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
-                    >
-                        🤖 Reativar Amanda
-                    </Button>
+
                 </div>
 
                 {error && (
@@ -788,6 +703,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, sendMessage, className
                     </div>
                 )}
             </div>
+            <EditContactModal
+                open={showEditContact}
+                initialName={contact?.name}
+                phone={contact?.phone}
+                onClose={() => setShowEditContact(false)}
+                onSave={handleSaveName}
+            />
         </div>
     );
 };

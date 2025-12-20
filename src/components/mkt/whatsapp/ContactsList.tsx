@@ -155,20 +155,7 @@ export default function ContactsList({
 
     // ✅ CORRIGIDO: Agora limpa a notificação ao clicar
     const handleContactClick = (contact: Contact) => {
-        console.log('👆 Contato selecionado:', contact.name);
-
-        // Se o contato tinha notificação, limpa ela
-        if (contact.hasNewMessage || contact.unreadCount) {
-            console.log('🗑️ Limpando notificação do contato:', contact.name);
-            // Chama onSelect com o contato atualizado (sem notificação)
-            onSelect({
-                ...contact,
-                hasNewMessage: false,
-                unreadCount: 0
-            });
-        } else {
-            onSelect(contact);
-        }
+        onSelect(contact);
     };
 
     // 🔍 Filtrar contatos
@@ -211,8 +198,8 @@ export default function ContactsList({
         <div
             onClick={() => handleContactClick(contact)}
             className={`group p-4 rounded-2xl cursor-pointer transition-all duration-200 border relative ${selectedContactId === contact._id
-                    ? "bg-white shadow-lg border-green-200 transform scale-[1.02]"
-                    : "bg-white/80 border-white/20 hover:bg-white hover:shadow-md"
+                ? "bg-white shadow-lg border-green-200 transform scale-[1.02]"
+                : "bg-white/80 border-white/20 hover:bg-white hover:shadow-md"
                 } ${contact.hasNewMessage ? "ring-2 ring-red-100 bg-red-50/80" : ""}`}
         >
             {/* Barra lateral para novas mensagens */}

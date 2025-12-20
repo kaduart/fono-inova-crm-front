@@ -1,14 +1,14 @@
 // components/whatsapp/Sidebar.tsx
-import React, { useState } from 'react';
-import { FiPlus, FiSearch, FiUser } from 'react-icons/fi';
-import { formatMessageTime } from '../../../utils/dateHelper';
-
-import type { Contact as ApiContact } from '../../../services/whatsappService';
+import React, { useMemo, useState } from "react";
+import { FiPlus, FiSearch, FiUser } from "react-icons/fi";
+import type { Contact as ApiContact } from "../../../services/whatsappService";
+import { formatMessageTime } from "../../../utils/dateHelper";
 
 type SidebarContact = ApiContact & {
     lastMessage?: string;
+    lastMessagePreview?: string;
     lastMessageTime?: string;
-    lastMessageAt?: string;   // <-- AQUI ENTRA O QUE VEM DA API
+    lastMessageAt?: string;
     unreadCount?: number;
     hasNewMessage?: boolean;
     createdAt?: string;
@@ -18,38 +18,46 @@ type SidebarContact = ApiContact & {
 
 interface SidebarProps {
     contacts: SidebarContact[];
-    active: SidebarContact | null;
-    onSelect: (SidebarContact: SidebarContact) => void;
-    onAdd: (data: Omit<SidebarContact, "_id">) => void;
-    onEdit: (id: string, data: Partial<Omit<SidebarContact, "_id">>) => void;
-    onDelete: (id: string) => void;
+    activeContactId?: string | null;
+    onSelect: (contact: SidebarContact) => void;
+
+    // ✅ opcionais (não quebra AppChat)
+    onAdd?: (data: Omit<SidebarContact, "_id">) => void;
+    onEdit?: (id: string, data: Partial<Omit<SidebarContact, "_id">>) => void;
+    onDelete?: (id: string) => void;
+
     className?: string;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
     contacts,
-    active,
+    activeContactId,
     onSelect,
     onAdd,
-    onEdit,
-    onDelete,
-    className
+    className,
 }) => {
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchTerm, setSearchTerm] = useState("");
 
-    const filteredContacts = contacts.filter(contact =>
-        contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        contact.phone.includes(searchTerm)
-    );
-
-    // ✅ FUNÇÃO: Obtém o timestamp mais relevante para exibição
-    const getDisplayTime = (contact: SidebarContact) => {
-        return (
-            contact.lastMessageTime ||
-            contact.lastMessageAt ||
-            contact.updatedAt ||
-            contact.createdAt
+    const filteredContacts = useMemo(() => {
+        const q = searchTerm.trim().toLowerCase();
+        if (!q) return contacts;
+        return contacts.filter(
+            (c) => c.name.toLowerCase().includes(q) || String(c.phone || "").includes(q)
         );
+    }, [contacts, searchTerm]);
+
+    const getDisplayTime = (contact: SidebarContact) => {
+        return contact.lastMessageTime || contact.lastMessageAt || contact.updatedAt || contact.createdAt;
+    };
+
+    const getPreview = (contact: SidebarContact) => {
+        return contact.lastMessagePreview || contact.lastMessage || contact.phone || "";
+    };
+
+    const getUnread = (contact: SidebarContact) => {
+        const n = Number(contact.unreadCount || 0);
+        if (n > 0) return n;
+        return contact.hasNewMessage ? 1 : 0;
     };
 
     return (
@@ -58,21 +66,23 @@ const Sidebar: React.FC<SidebarProps> = ({
             <div className="p-4 border-b border-gray-700">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-xl font-bold text-white">Conversas</h2>
+
                     <button
-                        onClick={() => {/* abrir modal de adicionar */ }}
+                        onClick={() => onAdd?.({ name: "", phone: "" } as any)}
                         className="p-2 bg-emerald-500 hover:bg-emerald-600 rounded-full transition-colors"
+                        title="Adicionar contato"
                     >
-                    <FiPlus className="w-5 h-5 text-white" />
+                        <FiPlus className="w-5 h-5 text-white" />
                     </button>
                 </div>
 
                 <div className="text-sm text-gray-400 mb-3">
-                    {contacts.length} {contacts.length === 1 ? 'contato' : 'contatos'}
+                    {contacts.length} {contacts.length === 1 ? "contato" : "contatos"}
                 </div>
 
                 {/* Search */}
                 <div className="relative">
-                    <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
                         type="text"
                         placeholder="Buscar conversas..."
@@ -86,20 +96,18 @@ const Sidebar: React.FC<SidebarProps> = ({
             {/* Contacts List */}
             <div className="flex-1 overflow-y-auto">
                 {filteredContacts.map((contact) => {
-                    const isActive = active?._id === contact._id;
+                    const isActive = activeContactId === contact._id;
                     const displayTime = getDisplayTime(contact);
+                    const unread = getUnread(contact);
 
                     return (
                         <div
                             key={contact._id}
                             onClick={() => onSelect(contact)}
                             className={`
-                                relative p-4 cursor-pointer transition-all duration-200
-                                ${isActive
-                                    ? 'bg-emerald-600/20 border-l-4 border-emerald-500'
-                                    : 'hover:bg-gray-800/50 border-l-4 border-transparent'
-                                }
-                            `}
+                relative p-4 cursor-pointer transition-all duration-200
+                ${isActive ? "bg-emerald-600/20 border-l-4 border-emerald-500" : "hover:bg-gray-800/50 border-l-4 border-transparent"}
+              `}
                         >
                             <div className="flex items-center space-x-3">
                                 {/* Avatar */}
@@ -108,97 +116,70 @@ const Sidebar: React.FC<SidebarProps> = ({
                                         <img
                                             src={contact.avatar}
                                             alt={contact.name}
-                                            className={`w-12 h-12 rounded-full object-cover ${isActive ? 'ring-2 ring-emerald-500' : ''
-                                                }`}
+                                            className={`w-12 h-12 rounded-full object-cover ${isActive ? "ring-2 ring-emerald-500" : ""}`}
                                         />
                                     ) : (
-                                        <div className={`
-                                            w-12 h-12 rounded-full flex items-center justify-center
-                                            ${isActive
-                                                ? 'bg-emerald-500 ring-2 ring-emerald-400'
-                                                : 'bg-gray-700'
-                                            }
-                                        `}>
-                                            <FiUser className={`w-6 h-6 ${isActive ? 'text-white' : 'text-gray-400'
-                                                }`} />
+                                        <div
+                                            className={`
+                        w-12 h-12 rounded-full flex items-center justify-center
+                        ${isActive ? "bg-emerald-500 ring-2 ring-emerald-400" : "bg-gray-700"}
+                      `}
+                                        >
+                                            <FiUser className={`w-6 h-6 ${isActive ? "text-white" : "text-gray-400"}`} />
                                         </div>
                                     )}
 
-                                    {/* Online indicator */}
-                                    {isActive && (
-                                        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-gray-900 rounded-full"></div>
-                                    )}
-
                                     {/* Unread badge */}
-                                    {contact.hasNewMessage && !isActive && (
-                                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 border-2 border-gray-900 rounded-full flex items-center justify-center">
-                                            <span className="text-xs text-white font-bold">
-                                                {contact.unreadCount || 1}
+                                    {unread > 0 && !isActive && (
+                                        <div className="absolute-top-1-right-1 min-w-[20px] h-5 px-1 bg-red-500 border-2 border-gray-900 rounded-full flex items-center justify-center">
+                                            <span className="text-[10px] text-white font-bold">
+                                                {unread > 99 ? "99+" : unread}
                                             </span>
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Contact Info */}
+                                {/* Info */}
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-start justify-between mb-1">
-                                        <div className="flex-1 min-w-0 mr-2">
-                                            <h3 className={`font-semibold truncate ${isActive ? 'text-emerald-400' : 'text-white'
-                                                }`}>
-                                                {contact.name}
-                                            </h3>
-                                        </div>
-                                        {/* ✅ CORREÇÃO: Usando displayTime com fallback */}
-                                        <span className={`text-xs whitespace-nowrap flex-shrink-0 ${isActive ? 'text-emerald-300' : 'text-gray-500'
-                                            }`}>
-                                            {displayTime ? formatMessageTime(displayTime) : ''}
+                                        <h3
+                                            className={`font-semibold truncate mr-2 ${isActive ? "text-emerald-400" : "text-white"}`}
+                                            title={contact.name}
+                                        >
+                                            {contact.name || "Sem nome"}
+                                        </h3>
+
+                                        <span className={`text-xs whitespace-nowrap ${isActive ? "text-emerald-300" : "text-gray-500"}`}>
+                                            {displayTime ? formatMessageTime(displayTime) : ""}
                                         </span>
                                     </div>
 
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex-1 min-w-0">
-                                            <p className={`text-sm truncate ${isActive
-                                                ? 'text-emerald-200'
-                                                : contact.hasNewMessage
-                                                    ? 'text-white font-medium'
-                                                    : 'text-gray-400'
-                                                }`}>
-                                                {contact.lastMessage || contact.phone}
-                                            </p>
-                                            {/* ✅ MELHORIA: Exibir tags se existirem */}
-                                            {contact.tags && contact.tags.length > 0 && (
-                                                <div className="flex flex-wrap gap-1 mt-1">
-                                                    {contact.tags.slice(0, 2).map((tag, index) => (
-                                                        <span
-                                                            key={index}
-                                                            className="inline-block px-1.5 py-0.5 text-xs bg-gray-700 text-gray-300 rounded"
-                                                        >
-                                                            {tag}
-                                                        </span>
-                                                    ))}
-                                                    {contact.tags.length > 2 && (
-                                                        <span className="inline-block px-1.5 py-0.5 text-xs bg-gray-700 text-gray-300 rounded">
-                                                            +{contact.tags.length - 2}
-                                                        </span>
-                                                    )}
-                                                </div>
+                                    <p
+                                        className={`text-sm truncate ${isActive ? "text-emerald-200" : unread > 0 ? "text-white font-medium" : "text-gray-400"
+                                            }`}
+                                        title={getPreview(contact)}
+                                    >
+                                        {getPreview(contact)}
+                                    </p>
+
+                                    {contact.tags?.length ? (
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                            {contact.tags.slice(0, 2).map((tag, idx) => (
+                                                <span key={idx} className="inline-block px-1.5 py-0.5 text-xs bg-gray-700 text-gray-300 rounded">
+                                                    {tag}
+                                                </span>
+                                            ))}
+                                            {contact.tags.length > 2 && (
+                                                <span className="inline-block px-1.5 py-0.5 text-xs bg-gray-700 text-gray-300 rounded">
+                                                    +{contact.tags.length - 2}
+                                                </span>
                                             )}
                                         </div>
-
-                                        {/* ✅ MELHORIA: Indicador de nova mensagem mais organizado */}
-                                        {contact.hasNewMessage && !isActive && (
-                                            <div className="flex flex-col items-end space-y-1 ml-2">
-                                                <div className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0 animate-pulse"></div>
-                                            </div>
-                                        )}
-                                    </div>
+                                    ) : null}
                                 </div>
                             </div>
 
-                            {/* Active indicator bar */}
-                            {isActive && (
-                                <div className="absolute right-0 top-0 bottom-0 w-1 bg-emerald-500"></div>
-                            )}
+                            {isActive && <div className="absolute right-0 top-0 bottom-0 w-1 bg-emerald-500" />}
                         </div>
                     );
                 })}
@@ -207,9 +188,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <div className="flex flex-col items-center justify-center h-64 text-gray-500">
                         <FiSearch className="w-12 h-12 mb-3" />
                         <p>Nenhum contato encontrado</p>
-                        {searchTerm && (
-                            <p className="text-sm mt-1">Tente buscar com outros termos</p>
-                        )}
+                        {searchTerm && <p className="text-sm mt-1">Tente buscar com outros termos</p>}
                     </div>
                 )}
             </div>

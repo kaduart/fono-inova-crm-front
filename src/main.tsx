@@ -1,26 +1,23 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import Modal from 'react-modal'
-import App from './App'
-import { AuthProvider } from './contexts/AuthContext'
-import { NotificationProvider } from './contexts/NotificationContext'
-import './index.css'
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import "./index.css";
+import App from "./App";
 
-Modal.setAppElement('#root');
+import { AuthProvider } from "./contexts/AuthContext";
+import { ContactsProvider } from "./contexts/ContactsContext";
+import { NotificationProvider } from "./contexts/NotificationContext";
 
-
-createRoot(document.getElementById('root')!).render(
-
-  <StrictMode>
-    {/*    <StrictErrorBoundary> */}
-
-    <AuthProvider>
-      <NotificationProvider>
-        <App />
-      </NotificationProvider>
-
-    </AuthProvider>
-
-    {/*  </StrictErrorBoundary> */}
-  </StrictMode>,
-)
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <AuthProvider>
+        <NotificationProvider>
+          <ContactsProvider>
+            <App />
+          </ContactsProvider>
+        </NotificationProvider>
+      </AuthProvider>
+    </BrowserRouter>
+  </React.StrictMode>
+);
