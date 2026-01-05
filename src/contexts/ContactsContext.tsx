@@ -1,32 +1,17 @@
-// src/contexts/ContactsContext.tsx
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { fetchContacts } from "../services/whatsappService";
+import { fetchContacts, type Contact } from "../services/whatsappService";
 import { logger } from "../utils/logger";
 import { normalizeE164BR } from "../utils/phone";
 import { socketManager, type MessageNewPayload } from "../utils/socketManager";
 
-export type Contact = {
-    _id: string;
-    name: string;
-    phone: string;
-    avatar?: string;
-    lastMessage?: string;
-    lastMessagePreview?: string;
-    lastMessageTime?: string;
-    lastMessageAt?: string;
-    unreadCount?: number;
-    hasNewMessage?: boolean;
-    createdAt?: string;
-    updatedAt?: string;
-    tags?: string[];
-    [key: string]: any;
-};
-
 interface ContactsContextType {
     contacts: Contact[];
     loading: boolean;
-    activeContactId: string | null;
+    loadingMore: boolean;
+    hasMore: boolean;
+    loadMoreContacts: () => Promise<void>;
 
+    activeContactId: string | null;
     refreshContacts: () => Promise<void>;
     updateContact: (id: string, updates: Partial<Contact>) => void;
     markAsRead: (id: string) => void;
@@ -34,6 +19,8 @@ interface ContactsContextType {
 }
 
 const ContactsContext = createContext<ContactsContextType | null>(null);
+
+const LIMIT = 50;
 
 function buildPreview(payload: MessageNewPayload): string {
     const type = (payload.type || "text").toLowerCase();
@@ -68,49 +55,76 @@ function getEventTimestamp(payload: MessageNewPayload): string {
 export function ContactsProvider({ children }: { children: React.ReactNode }) {
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [loading, setLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
+    const [page, setPage] = useState(1);
     const [activeContactId, setActiveContactId] = useState<string | null>(null);
-console.log("ContactsProvider mount", Math.random());
 
-    // Guards
     const isMountedRef = useRef(true);
-
-    // Keep active contact in a ref so socket handler doesn't need re-subscribe
     const activeContactIdRef = useRef<string | null>(null);
-
-    // Map phone->contactId for quick matching
     const phoneIndexRef = useRef<Map<string, string>>(new Map());
 
     const rebuildIndex = (list: Contact[]) => {
         const m = new Map<string, string>();
         for (const c of list) {
             const p = normalizeE164BR(c.phone);
-            if (!p) continue;
-            m.set(p, c._id);
+            if (p) m.set(p, c._id);
         }
         phoneIndexRef.current = m;
+    };
+
+    const mergeDedupe = (prev: Contact[], incoming: Contact[]) => {
+        const map = new Map<string, Contact>();
+        for (const c of prev) map.set(c._id, c);
+        for (const c of incoming) {
+            const old = map.get(c._id);
+            map.set(c._id, old ? { ...old, ...c } : c);
+        }
+        return Array.from(map.values());
     };
 
     const refreshContacts = async () => {
         setLoading(true);
         try {
-            const data: any = await fetchContacts();
-            const list: Contact[] = (data?.data || data || []) as Contact[];
-
-            if (!isMountedRef.current) return;
-
+            const res = await fetchContacts({ page: 1, limit: LIMIT });
+            const list = res.data;
             setContacts(list);
             rebuildIndex(list);
-        } catch (e) {
-            logger.error("[ContactsContext] Erro ao buscar contatos:", e);
+            setPage(1);
+            setHasMore(res.pagination?.hasMore ?? list.length === LIMIT);
+        } catch (err) {
+            logger.error("[ContactsContext] Erro ao buscar contatos:", err);
         } finally {
-            if (isMountedRef.current) setLoading(false);
+            setLoading(false);
+        }
+    };
+
+    const loadMoreContacts = async () => {
+        if (loadingMore || loading || !hasMore) return;
+        setLoadingMore(true);
+        try {
+            const nextPage = page + 1;
+            const res = await fetchContacts({ page: nextPage, limit: LIMIT });
+            const list = res.data;
+
+            setContacts((prev) => {
+                const next = mergeDedupe(prev, list);
+                rebuildIndex(next);
+                return next;
+            });
+
+            setPage(nextPage);
+            setHasMore(res.pagination?.hasMore ?? list.length === LIMIT);
+        } catch (err) {
+            logger.error("[ContactsContext] Erro ao carregar mais contatos:", err);
+        } finally {
+            setLoadingMore(false);
         }
     };
 
     const updateContact = (id: string, updates: Partial<Contact>) => {
         setContacts((prev) => {
             const next = prev.map((c) => (c._id === id ? { ...c, ...updates } : c));
-            // keep index in sync if phone changed
             if (updates.phone) rebuildIndex(next);
             return next;
         });
@@ -120,32 +134,27 @@ console.log("ContactsProvider mount", Math.random());
         updateContact(id, { unreadCount: 0, hasNewMessage: false });
     };
 
-    // Keep ref synced (no re-subscribe needed)
     useEffect(() => {
         activeContactIdRef.current = activeContactId;
     }, [activeContactId]);
 
-    // Initial fetch
     useEffect(() => {
         refreshContacts();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Socket-driven reconciliation (subscribe once)
+    // socket listener
     useEffect(() => {
         isMountedRef.current = true;
-
         socketManager.initialize();
 
         const unsub = socketManager.onMessageNew((payload) => {
             try {
                 const from = normalizeE164BR(payload.from || "");
                 const to = normalizeE164BR(payload.to || "");
-                const contactPhone = from || to;
+                const phone = from || to;
+                if (!phone) return;
 
-                if (!contactPhone) return;
-
-                const contactId = phoneIndexRef.current.get(contactPhone);
+                const contactId = phoneIndexRef.current.get(phone);
                 if (!contactId) return;
 
                 const dir = String(payload.direction || "").toLowerCase();
@@ -153,23 +162,22 @@ console.log("ContactsProvider mount", Math.random());
 
                 const preview = buildPreview(payload);
                 const ts = getEventTimestamp(payload);
-
                 const activeId = activeContactIdRef.current;
                 const incUnread = isInbound && activeId !== contactId;
 
                 setContacts((prev) =>
-                    prev.map((c) => {
-                        if (c._id !== contactId) return c;
-
-                        return {
-                            ...c,
-                            lastMessagePreview: preview,
-                            lastMessage: preview,
-                            lastMessageAt: ts,
-                            hasNewMessage: incUnread ? true : c.hasNewMessage,
-                            unreadCount: incUnread ? Number(c.unreadCount || 0) + 1 : c.unreadCount || 0,
-                        };
-                    })
+                    prev.map((c) =>
+                        c._id === contactId
+                            ? {
+                                ...c,
+                                lastMessagePreview: preview,
+                                lastMessage: preview,
+                                lastMessageAt: ts,
+                                hasNewMessage: incUnread ? true : c.hasNewMessage,
+                                unreadCount: incUnread ? (c.unreadCount || 0) + 1 : c.unreadCount || 0,
+                            }
+                            : c
+                    )
                 );
             } catch (e) {
                 logger.error("[ContactsContext] Falha ao aplicar message:new:", e);
@@ -186,13 +194,16 @@ console.log("ContactsProvider mount", Math.random());
         () => ({
             contacts,
             loading,
+            loadingMore,
+            hasMore,
+            loadMoreContacts,
             activeContactId,
             refreshContacts,
             updateContact,
             markAsRead,
             setActiveContactId,
         }),
-        [contacts, loading, activeContactId]
+        [contacts, loading, loadingMore, hasMore, activeContactId]
     );
 
     return <ContactsContext.Provider value={value}>{children}</ContactsContext.Provider>;

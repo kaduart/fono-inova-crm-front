@@ -19,11 +19,15 @@ const AppChat: React.FC = () => {
     const {
         contacts,
         refreshContacts,
+        loadMoreContacts,
+        hasMore,
+        loadingMore,
         markAsRead,
         setActiveContactId,
         activeContactId,
         loading: loadingContacts,
     } = useContacts();
+
 
     const [error, setError] = useState("");
     const [showAddModal, setShowAddModal] = useState(false);
@@ -156,6 +160,9 @@ const AppChat: React.FC = () => {
                     contacts={contacts}
                     activeContactId={activeContactId}
                     onSelect={handleSelectContact}
+                    onLoadMore={loadMoreContacts}
+                    hasMore={hasMore}
+                    isLoadingMore={loadingMore}
                     className="w-80 shrink-0 bg-gradient-to-b from-indigo-900 to-purple-800 text-white shadow-xl overflow-y-auto"
                 />
 

@@ -293,16 +293,59 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                         className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                         value={selectedPeriod}
                                         onChange={(e) => {
-                                            const value = e.target.value as 'day' | 'week' | 'month' | 'year' | 'all';
+                                            const value = e.target.value;
                                             setSelectedPeriod(value);
-                                            fetchPaymentTotals({ period: value });
+
+                                            // 🔹 Se for mês específico (formato YYYY-MM)
+                                            if (/^\d{4}-\d{2}$/.test(value)) {
+                                                const [year, month] = value.split('-').map(Number);
+                                                const startDate = new Date(year, month - 1, 1).toISOString();
+                                                const endDate = new Date(year, month, 0, 23, 59, 59, 999).toISOString();
+
+                                                fetchPaymentTotals({
+                                                    period: 'custom',
+                                                    startDate,
+                                                    endDate
+                                                });
+                                            } else {
+                                                // 🔹 Filtros padrão (day, week, month, year, all)
+                                                fetchPaymentTotals({ period: value as 'day' | 'week' | 'month' | 'year' | 'all' });
+                                            }
                                         }}
                                     >
-                                        <option value="day">Hoje</option>
-                                        <option value="week">Esta Semana</option>
-                                        <option value="month">Este Mês</option>
-                                        <option value="year">Este Ano</option>
-                                        <option value="all">Todo Período</option>
+                                        <optgroup label="Períodos Rápidos">
+                                            <option value="day">Hoje</option>
+                                            <option value="week">Esta Semana</option>
+                                            <option value="month">Este Mês</option>
+                                            <option value="year">Este Ano</option>
+                                            <option value="all">Todo Período</option>
+                                        </optgroup>
+                                        <optgroup label="Últimos 12 Meses">
+                                            {(() => {
+                                                const months = [];
+                                                const now = new Date();
+                                                const monthNames = [
+                                                    'Janeiro', 'Fevereiro', 'Março', 'Abril',
+                                                    'Maio', 'Junho', 'Julho', 'Agosto',
+                                                    'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+                                                ];
+
+                                                for (let i = 0; i < 12; i++) {
+                                                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                                                    const year = d.getFullYear();
+                                                    const month = d.getMonth();
+                                                    const value = `${year}-${String(month + 1).padStart(2, '0')}`;
+                                                    const label = `${monthNames[month]} ${year}`;
+
+                                                    months.push(
+                                                        <option key={value} value={value}>
+                                                            {label}
+                                                        </option>
+                                                    );
+                                                }
+                                                return months;
+                                            })()}
+                                        </optgroup>
                                     </select>
                                 </div>
                                 <FinancialSummaryCard

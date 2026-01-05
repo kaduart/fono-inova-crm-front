@@ -1,5 +1,5 @@
 // components/whatsapp/Sidebar.tsx
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FiPlus, FiSearch, FiUser } from "react-icons/fi";
 import type { Contact as ApiContact } from "../../../services/whatsappService";
 import { formatMessageTime } from "../../../utils/dateHelper";
@@ -21,10 +21,14 @@ interface SidebarProps {
     activeContactId?: string | null;
     onSelect: (contact: SidebarContact) => void;
 
-    // ✅ opcionais (não quebra AppChat)
     onAdd?: (data: Omit<SidebarContact, "_id">) => void;
     onEdit?: (id: string, data: Partial<Omit<SidebarContact, "_id">>) => void;
     onDelete?: (id: string) => void;
+
+    // ✅ NOVO: paginação/infinite scroll
+    onLoadMore?: () => void;
+    hasMore?: boolean;
+    isLoadingMore?: boolean;
 
     className?: string;
 }
@@ -35,6 +39,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     onSelect,
     onAdd,
     className,
+    onLoadMore,
+    hasMore = false,
+    isLoadingMore = false,
 }) => {
     const [searchTerm, setSearchTerm] = useState("");
 
@@ -42,12 +49,19 @@ const Sidebar: React.FC<SidebarProps> = ({
         const q = searchTerm.trim().toLowerCase();
         if (!q) return contacts;
         return contacts.filter(
-            (c) => c.name.toLowerCase().includes(q) || String(c.phone || "").includes(q)
+            (c) =>
+                (c.name || "").toLowerCase().includes(q) ||
+                String(c.phone || "").includes(q)
         );
     }, [contacts, searchTerm]);
 
     const getDisplayTime = (contact: SidebarContact) => {
-        return contact.lastMessageTime || contact.lastMessageAt || contact.updatedAt || contact.createdAt;
+        return (
+            contact.lastMessageTime ||
+            contact.lastMessageAt ||
+            contact.updatedAt ||
+            contact.createdAt
+        );
     };
 
     const getPreview = (contact: SidebarContact) => {
@@ -59,6 +73,35 @@ const Sidebar: React.FC<SidebarProps> = ({
         if (n > 0) return n;
         return contact.hasNewMessage ? 1 : 0;
     };
+
+    // ✅ refs pro infinite scroll
+    const listRef = useRef<HTMLDivElement | null>(null);
+    const bottomRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        if (!onLoadMore || !hasMore) return;
+
+        const rootEl = listRef.current;
+        const targetEl = bottomRef.current;
+        if (!rootEl || !targetEl) return;
+
+        const io = new IntersectionObserver(
+            (entries) => {
+                const first = entries[0];
+                if (first?.isIntersecting && hasMore && !isLoadingMore) {
+                    onLoadMore();
+                }
+            },
+            {
+                root: rootEl,            // importante: o scroll container
+                rootMargin: "250px",     // chama antes de bater no fim
+                threshold: 0,
+            }
+        );
+
+        io.observe(targetEl);
+        return () => io.disconnect();
+    }, [onLoadMore, hasMore, isLoadingMore]);
 
     return (
         <div className={`${className} flex flex-col h-full bg-gradient-to-b from-gray-900 to-gray-800`}>
@@ -94,7 +137,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             {/* Contacts List */}
-            <div className="flex-1 overflow-y-auto">
+            <div ref={listRef} className="flex-1 overflow-y-auto">
                 {filteredContacts.map((contact) => {
                     const isActive = activeContactId === contact._id;
                     const displayTime = getDisplayTime(contact);
@@ -129,9 +172,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                                         </div>
                                     )}
 
-                                    {/* Unread badge */}
+                                    {/* ✅ badge (corrigi a classe aqui) */}
                                     {unread > 0 && !isActive && (
-                                        <div className="absolute-top-1-right-1 min-w-[20px] h-5 px-1 bg-red-500 border-2 border-gray-900 rounded-full flex items-center justify-center">
+                                        <div className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-red-500 border-2 border-gray-900 rounded-full flex items-center justify-center">
                                             <span className="text-[10px] text-white font-bold">
                                                 {unread > 99 ? "99+" : unread}
                                             </span>
@@ -183,6 +226,16 @@ const Sidebar: React.FC<SidebarProps> = ({
                         </div>
                     );
                 })}
+
+                {/* ✅ sentinela do infinite scroll */}
+                <div ref={bottomRef} />
+
+                {/* ✅ feedback de carregamento */}
+                {(isLoadingMore || hasMore) && (
+                    <div className="p-4 text-center text-gray-400 text-sm">
+                        {isLoadingMore ? "Carregando mais..." : "Role para carregar mais"}
+                    </div>
+                )}
 
                 {filteredContacts.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-64 text-gray-500">
