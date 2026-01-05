@@ -227,7 +227,8 @@ export interface ScheduleAppointment {
     | 'package_session'
     | 'individual_session'
     | 'alignment'
-    | 'alignment '            // <- pra aceitar registros antigos se existirem
+    | 'alignment '           
+    | 'return '           
     | 'neuropsych_evaluation'
     | 'meet'
     | 'tongue_tie_test';

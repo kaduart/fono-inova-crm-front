@@ -19,10 +19,12 @@ interface Contact {
     _id: string;
     name: string;
     phone: string;
+    leadId?: string | null;
     avatar?: string;
     status?: string;
     lastSeen?: string;
 }
+
 
 interface Message {
     id: string;
@@ -127,9 +129,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
 
         const updated = await updateContactApi(contact._id, { name: newName });
 
-        // atualiza contexto na hora
-        updateContact(contact._id, { name: updated.name });
+        updateContact(contact._id, { name: updated?.name ?? newName });
     };
+
     // 📨 Carrega histórico - Função estável que não muda
     const loadMessages = useCallback(async (phone: string) => {
         if (!phone) return;
@@ -472,27 +474,28 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
     }, [contact]);
 
     const handleAmandaResume = async () => {
-        console.log('chamouuu ativacao amanda', leadId);
-        if (!leadId) return;
+        const key = contact.leadId;
+        console.log("chamouuu ativacao amanda", key);
+        if (!contact?.leadId) {
+  toast.error("Este contato não possui lead ativo");
+  return;
+}
+        if (!key) return;
 
         try {
             setLoading(true);
-            const res = await fetch(`/api/whatsapp/amanda-resume/${leadId}`, {
-                method: 'POST'
-            });
+            const res = await fetch(`/api/whatsapp/amanda-resume/${key}`, { method: "POST" });
             const data = await res.json();
 
-            if (data.success) {
-                toast.success(data.message);
-            } else {
-                toast.error(data.error);
-            }
+            if (data.success) toast.success(data.message);
+            else toast.error(data.error || "Falha ao reativar");
         } catch (err) {
-            toast.error('Erro ao reativar Amanda');
+            toast.error("Erro ao reativar Amanda");
         } finally {
             setLoading(false);
         }
     };
+
 
     if (!contact) {
         return (

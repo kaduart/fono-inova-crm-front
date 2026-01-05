@@ -60,29 +60,43 @@ export interface Contact {
 // CONTATOS
 // =========================
 
-export async function fetchContacts(options: FetchContactsOptions = {}): Promise<ContactsResponse> {
-    const { page = 1, limit = 50, search = '' } = options;
+export async function fetchContacts(
+    options: FetchContactsOptions = {}
+): Promise<ContactsResponse> {
+    const { page = 1, limit = 50, search = "" } = options;
 
     const params = new URLSearchParams({
         page: String(page),
         limit: String(limit),
-        ...(search && { search })
+        ...(search && { search }),
     });
 
-    const response = await API.get(`/whatsapp/contacts?${params}`);
-    console.log('ssssssssssssssssssssssssssssssss', response.data.data)
-    // Retrocompatibilidade: se backend antigo retornar array direto
-    if (response.data.data.length) {
-        console.log('ssssssssssssssssssssssssssssssss', response.data.data)
+    const res = await API.get(`/whatsapp/contacts?${params}`);
 
+    // ✅ backend novo (correto)
+    if (res.data?.success && Array.isArray(res.data.data)) {
         return {
-            data: response.data.data,
-            pagination: { page: 1, limit: response.data.length, total: response.data.length, hasMore: false }
+            data: res.data.data,
+            pagination: res.data.pagination,
         };
     }
 
-    return response.data;
+    // ⚠️ fallback REAL (backend antigo)
+    if (Array.isArray(res.data)) {
+        return {
+            data: res.data,
+            pagination: {
+                page: 1,
+                limit: res.data.length,
+                total: res.data.length,
+                hasMore: false,
+            },
+        };
+    }
+
+    throw new Error("Formato inesperado ao buscar contatos");
 }
+
 
 export async function addContact(
     data: Omit<Contact, "_id">

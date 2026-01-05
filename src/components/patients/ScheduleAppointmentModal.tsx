@@ -429,6 +429,7 @@ const ScheduleAppointmentModal = ({
                             <option value="alignment">Alinhamento</option>
                             <option value="evaluation">Avaliação</option>
                             <option value="neuropsych_evaluation">Avaliação Neuropsicológica</option>
+                            <option value="return">Retorno</option>
                             <option value="meet">Reunião</option>
                             <option value="individual_session">Sessão Avulsa</option>
                             <option value="package_session">Sessão de Pacote</option>

@@ -19,13 +19,30 @@ import ReactInputMask from 'react-input-mask';
 import { toast } from 'react-toastify';
 import { useAppointmentsContext } from '../../contexts/AppointmentsContext';
 import appointmentService from '../../services/appointmentService';
+import packageService from '../../services/packageService';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
 import { DURATION_OPTIONS, FREQUENCY_OPTIONS, IAppointment, IDoctor, IPatient, ITherapyPackage, PAYMENT_TYPES, THERAPY_TYPES } from '../../utils/types/types';
 import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Select } from '../ui/Select';
-import packageService from '../../services/packageService';
+import { validateObject, required, betweenNumber, minNumber } from "../../utils/validators";
+
+const rules = {
+    doctorId: [required("Profissional")],
+    sessionType: [required("Tipo de sessão")],
+    paymentType: [required("Tipo de pagamento")],
+    date: [required("Data")],
+    time: [required("Hora")],
+    sessionValue: [minNumber("Valor por sessão", 0.01)],
+    sessionsPerWeek: [betweenNumber("Sessões por semana", 1, 5)],
+    durationMonths: [
+        (v: any, all: any) => (all.calculationMode === "duration" ? betweenNumber("Duração", 1, 12)(v) : ""),
+    ],
+    totalSessions: [
+        (v: any, all: any) => (all.calculationMode === "sessions" ? betweenNumber("Número de sessões", 1, 100)(v) : ""),
+    ],
+} as const;
 
 type Props = {
     initialData: ITherapyPackage | null;
@@ -52,9 +69,12 @@ const initialFormState = {
     appointmentId: '',
 };
 
+type FormState = typeof initialFormState;
+type FormErrors = Partial<Record<keyof FormState | "payments" | "slots", string>>;
+
 export default function TherapyPackageFormModal({ initialData, patient, doctors, onClose, onSubmit }: Props) {
+    const [errors, setErrors] = useState<FormErrors>({});
     const [formData, setFormData] = useState(initialFormState);
-    const [errors, setErrors] = useState({});
     const [appointments, setAppointments] = useState<IAppointment[]>([]);
     const [calculationMode, setCalculationMode] = useState('duration');
     const [isLoading, setIsLoading] = useState(false);
@@ -75,6 +95,24 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         return Number(v) || 0;
     };
 
+function validateAll() {
+  const combined = { ...formData, calculationMode };
+
+  const baseErrors = validateObject(combined, rules as any);
+
+  // Pagamentos
+  const hasValidPayments = payments.every(p => Number(p.amount) > 0 && !!p.method && !!p.date);
+  if (!hasValidPayments) baseErrors.payments = "Preencha valor, método e data em todos os pagamentos.";
+
+  // Slots adicionais se sessionsPerWeek > 1
+  if (Number(formData.sessionsPerWeek) > 1) {
+    const ok = selectedSlots.every(s => !!s.day && !!s.time);
+    if (!ok) baseErrors.slots = "Preencha todos os dias/horários adicionais.";
+  }
+
+  setErrors(baseErrors as any);
+  return Object.keys(baseErrors).length === 0;
+}
 
     // Calcular duração estimada baseada no número de sessões e frequência
     const estimatedDuration = calculationMode === 'sessions' && formData.sessionsPerWeek > 0
@@ -93,10 +131,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         }
     }, [formData.durationMonths, formData.sessionsPerWeek, calculationMode]);
 
-
-
     const { fetchAppointments } = useAppointmentsContext();
-    const [selectedSlots, setSelectedSlots] = useState<{ day: ''; time: '' }[]>([]);
+    const [selectedSlots, setSelectedSlots] = useState<Array<{ day: string; time: string }>>([]);
 
     useEffect(() => {
         fetchAppointments();
@@ -126,6 +162,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      
         const { name, value } = e.target;
         const numericFields = ['durationMonths', 'sessionsPerWeek', 'totalSessions', 'sessionValue', 'totalPaid'];
 
@@ -269,9 +306,11 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         );
 
         if (!hasValidSlots && formData.sessionsPerWeek > 1) {
-            toast.error('Preencha todos os dias e horários adicionais para sessões múltiplas');
+            toast.error("Preencha todos os dias e horários adicionais para sessões múltiplas");
+            setIsLoading(false);
             return;
         }
+
         try {
             // ============================================================
             // 🧩 Cálculo do total de sessões
