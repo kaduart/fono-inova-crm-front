@@ -105,15 +105,14 @@ export async function addContact(
     return response.data;
 }
 
-export async function updateContactApi(id: string, updates: { name?: string; phone?: string; avatar?: string }) {
-    const res = await fetch(`/api/whatsapp/contacts/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-    });
+export async function updateContactApi(
+    id: string,
+    updates: { name?: string; phone?: string; avatar?: string }
+) {
+    const res = await API.put(`/whatsapp/contacts/${id}`, updates);
+    console.log('hhhhhhhhhhhhhhhhhh', res)
 
-    if (!res.ok) throw new Error("Falha ao atualizar contato");
-    return res.json(); // backend retorna o contato atualizado
+    return res.data; // aqui é o contato atualizado direto (pelo seu backend)
 }
 
 export async function editContact(
