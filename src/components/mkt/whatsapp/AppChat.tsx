@@ -38,7 +38,6 @@ const AppChat: React.FC = () => {
         [contacts, activeContactId]
     );
 
-    console.log("contactdddddddddddddddddddddds :", contacts);
     // 🎯 Selecionar contato (single source of truth)
     const handleSelectContact = (contact: Contact) => {
         markAsRead(contact._id);

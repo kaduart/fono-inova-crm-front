@@ -73,6 +73,7 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
         phoneIndexRef.current = m;
     };
 
+
     const mergeDedupe = (prev: Contact[], incoming: Contact[]) => {
         const map = new Map<string, Contact>();
         for (const c of prev) map.set(c._id, c);
@@ -83,12 +84,20 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
         return Array.from(map.values());
     };
 
+    const sortByLastMessage = (list: Contact[]): Contact[] => {
+        return [...list].sort((a, b) => {
+            const timeA = a.lastMessageAt || a.updatedAt || a.createdAt || '';
+            const timeB = b.lastMessageAt || b.updatedAt || b.createdAt || '';
+            return new Date(timeB).getTime() - new Date(timeA).getTime();
+        });
+    };
+
     const refreshContacts = async () => {
         setLoading(true);
         try {
             const res = await fetchContacts({ page: 1, limit: LIMIT });
             const list = res.data;
-            setContacts(list);
+            setContacts(sortByLastMessage(list));
             rebuildIndex(list);
             setPage(1);
             setHasMore(res.pagination?.hasMore ?? list.length === LIMIT);
@@ -108,7 +117,7 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
             const list = res.data;
 
             setContacts((prev) => {
-                const next = mergeDedupe(prev, list);
+                const next = sortByLastMessage(mergeDedupe(prev, list));
                 rebuildIndex(next);
                 return next;
             });
@@ -165,8 +174,8 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
                 const activeId = activeContactIdRef.current;
                 const incUnread = isInbound && activeId !== contactId;
 
-                setContacts((prev) =>
-                    prev.map((c) =>
+                setContacts((prev) => {
+                    const updated = prev.map((c) =>
                         c._id === contactId
                             ? {
                                 ...c,
@@ -177,8 +186,11 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
                                 unreadCount: incUnread ? (c.unreadCount || 0) + 1 : c.unreadCount || 0,
                             }
                             : c
-                    )
-                );
+                    );
+                    // ✅ Reordena pra mensagem nova ir pro topop
+                    return sortByLastMessage(updated);
+                });
+
             } catch (e) {
                 logger.error("[ContactsContext] Falha ao aplicar message:new:", e);
             }

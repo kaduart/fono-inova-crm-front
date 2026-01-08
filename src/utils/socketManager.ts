@@ -36,8 +36,8 @@ class SocketManager {
         if (this.socket) return this.socket;
 
         const url =
-            (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_SOCKET_URL) ||
-            (typeof process !== "undefined" && (process as any).env?.VITE_SOCKET_URL);
+            (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_URL) ||
+            (typeof process !== "undefined" && (process as any).env?.VITE_API_URL);
 
         if (!url) {
             logger.warn("⚠️ [socket] VITE_SOCKET_URL não configurado — conectando no origin atual.");

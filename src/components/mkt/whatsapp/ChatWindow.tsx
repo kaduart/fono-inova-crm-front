@@ -197,7 +197,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
             setLoading(false);
         }
     }, []);
-    console.log('LEADDDD INFO', contact)
+
     useEffect(() => {
         const phone = contact?.phone;
         if (!phone) {
