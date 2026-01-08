@@ -14,6 +14,7 @@ import { LoadingSpinner } from '../../ui/LoadingSpinner';
 import MessageBubble from './MessageBubble';
 import { useContacts } from '../../../contexts/ContactsContext';
 import EditContactModal from './EditContactModal';
+import API from '../../../services/api';
 
 interface Contact {
     _id: string;
@@ -23,6 +24,8 @@ interface Contact {
     avatar?: string;
     status?: string;
     lastSeen?: string;
+    manualActive?: boolean;
+    autoReplyEnabled?: boolean;
 }
 
 
@@ -113,6 +116,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
     const [showEditContact, setShowEditContact] = useState(false);
     const hasGenericName = isGenericName(contact?.name, contact?.phone);
 
+    const [manualActive, setManualActive] = useState<boolean>(!!contact?.manualActive);
+
+    useEffect(() => {
+        setManualActive(!!contact?.manualActive);
+    }, [contact?._id, contact?.manualActive]);
+
+    const label = manualActive ? "Reativar AmandaAI" : "Pausar AmandaAI";
+
     function isGenericName(name?: string, phone?: string) {
         const n = (name || "").trim().toLowerCase();
         if (!n) return true;
@@ -186,7 +197,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
             setLoading(false);
         }
     }, []);
-
+    console.log('LEADDDD INFO', contact)
     useEffect(() => {
         const phone = contact?.phone;
         if (!phone) {
@@ -333,6 +344,26 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
         return () => container.removeEventListener('scroll', handleScroll);
     }, [handleScroll]);
 
+    const handleCancelFollowup = async () => {
+        const key = contact?.leadId;
+        if (!key) return toast.error("Este contato não possui lead ativo");
+
+        const confirm = await confirmToast("Deseja realmente cancelar o follow-up e travar automação?");
+        if (!confirm) return;
+
+        try {
+            const { data } = await API.post(`/followups/cancel-followup/${key}`);
+            if (data?.success) {
+                toast.success(data.message);
+                updateContact(contact._id, { stopAutomation: true });
+            } else {
+                toast.error(data?.error || "Erro ao cancelar follow-up");
+            }
+        } catch (err: any) {
+            toast.error(err?.response?.data?.error || err?.message || "Erro inesperado");
+        }
+    };
+
     // 🗑️ DELETAR mensagem
     const handleDeleteMessage = useCallback(async (messageId: string) => {
         if (deletingMessageId) return; // evita múltiplos cliques
@@ -474,23 +505,33 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
     }, [contact]);
 
     const handleAmandaResume = async () => {
-        const key = contact.leadId;
-        console.log("chamouuu ativacao amanda", key);
-        if (!contact?.leadId) {
-  toast.error("Este contato não possui lead ativo");
-  return;
-}
-        if (!key) return;
+        const key = contact?.leadId;
+        if (!key) {
+            toast.error("Este contato não possui lead ativo");
+            return;
+        }
 
         try {
             setLoading(true);
-            const res = await fetch(`/api/whatsapp/amanda-resume/${key}`, { method: "POST" });
-            const data = await res.json();
 
-            if (data.success) toast.success(data.message);
-            else toast.error(data.error || "Falha ao reativar");
-        } catch (err) {
-            toast.error("Erro ao reativar Amanda");
+            // BASE_URL já termina com "/api"
+            // então aqui é só "/whatsapp/..."
+            const { data } = await API.post(`/whatsapp/amanda-resume/${key}`, {});
+
+            if (data?.success) {
+                toast.success(data.message || "Amanda reativada");
+
+                // alterna o valor imediatamente no clique
+                const newValue = !manualActive;
+                setManualActive(newValue);
+                updateContact(contact._id, { manualActive: newValue });
+
+            } else {
+                toast.error(data?.error || "Falha ao reativar");
+            }
+        } catch (err: any) {
+            console.error("Erro amanda-resume:", err?.response?.data || err?.message);
+            toast.error(err?.response?.data?.error || err?.message || "Erro ao reativar Amanda");
         } finally {
             setLoading(false);
         }
@@ -550,12 +591,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                         >
                             {hasGenericName ? "Adicionar nome" : "Editar nome"}
                         </Button>
+                        <Button
+                            onClick={handleCancelFollowup}
+                            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+                        >
+                            ⛔ Cancelar Follow-up
+                        </Button>
 
                         <Button
                             onClick={handleAmandaResume}
                             className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
                         >
-                            🤖 Reativar Amanda
+                            🤖  {label}
                         </Button>
                     </div>
 
