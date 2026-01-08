@@ -285,7 +285,8 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                 {financialControlOpen && (
                     <div className="space-y-6 p-4 bg-white">
                         {/* 🔹 RESUMO FINANCEIRO */}
-                        {user && user.name?.includes('Ricardo Maia') && paymentTotals && (
+                        {/*  somente eu visualizar resumo finaneiro descomentar isso ->  {user && user.name?.includes('Ricardo Maia') && paymentTotals && ( */}
+                        {user && paymentTotals && (
                             <div className="mb-6">
                                 <div className="flex items-center gap-3 mb-4">
                                     <label className="text-sm font-medium text-gray-700">Período:</label>
