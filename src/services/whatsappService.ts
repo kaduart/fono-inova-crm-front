@@ -208,6 +208,14 @@ export async function deleteWhatsAppMessage(messageId: string): Promise<any> {
     return res.data; // { success, message }
 }
 
+// Busca contatos por texto em mensagens (server-side)
+export async function searchContactsByMessage(query: string): Promise<Contact[]> {
+    if (!query || query.length < 2) return [];
+
+    const res = await API.get(`/whatsapp/contacts/search?q=${encodeURIComponent(query)}`);
+    return res.data?.data || res.data || [];
+}
+
 // =========================
 // TEMPLATE / TOKEN META
 // =========================

@@ -6,11 +6,14 @@ import { FiAlertCircle, FiMessageCircle, FiUserPlus, FiX } from "react-icons/fi"
 import { useChatNavigation } from "../../../contexts/ChatNavigationContext";
 import { useContacts } from "../../../contexts/ContactsContext";
 import { Contact, sendWhatsAppText } from "../../../services/whatsappService";
+import API from "../../../services/api";
 import { normalizeE164BR } from "../../../utils/phone";
 import { Button } from "../../ui/Button";
 import AddContactModal from "./AddContactModal";
 import ChatWindow from "./ChatWindow";
 import Sidebar from "./Sidebar";
+import { useDebouncedCallback } from "../../../hooks/useDebounce";
+import { searchContactsByMessage } from "../../../services/whatsappService";
 
 const AppChat: React.FC = () => {
     const theme = useTheme();
@@ -28,9 +31,24 @@ const AppChat: React.FC = () => {
         loading: loadingContacts,
     } = useContacts();
 
-
     const [error, setError] = useState("");
     const [showAddModal, setShowAddModal] = useState(false);
+    const [searchResults, setSearchResults] = useState<Contact[] | null>(null);
+
+    const debouncedSearch = useDebouncedCallback(async (term: string) => {
+        
+        if (term.length < 2) {
+            setSearchResults(null);
+            return;
+        }
+
+        try {
+            const results = await searchContactsByMessage(term);
+            setSearchResults(results);
+        } catch (err) {
+            console.error("🔍 [ERRO]:", err);
+        }
+    }, 300);
 
     // ✅ contato ativo sempre derivado do contexto (single source of truth)
     const active = useMemo(
@@ -113,7 +131,6 @@ const AppChat: React.FC = () => {
             </div>
         </div>
     );
-    console.log("ACTIVE CONTACT COMPLETO:", active);
     // ✅ leadId correto: tenta pegar do contato (se existir). Evita usar _id como leadId.
     const effectiveLeadId = active?.leadId;
     return (
@@ -155,7 +172,9 @@ const AppChat: React.FC = () => {
 
             <div className="flex h-[85vh] bg-gray-50 overflow-hidden">
                 <Sidebar
-                    contacts={contacts}
+                    contacts={searchResults ?? contacts}
+                    onSearch={debouncedSearch}
+                    isServerFiltered={searchResults !== null}
                     activeContactId={activeContactId}
                     onSelect={handleSelectContact}
                     onLoadMore={loadMoreContacts}

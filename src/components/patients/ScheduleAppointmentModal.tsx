@@ -12,6 +12,8 @@ import InputCurrency from '../ui/InputCurrency';
 import { Label } from '../ui/Label';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/TextArea';
+import { Building2 } from 'lucide-react';
+import { INSURANCE_PROVIDERS, getProviderById } from '../../constants/insuranceProviders';
 
 type ServiceType = ScheduleAppointment['serviceType'];
 
@@ -27,7 +29,11 @@ const defaultForm: ScheduleAppointment = {
     paymentMethod: 'dinheiro',
     status: 'agendado',
     serviceType: 'individual_session',
-    packageId: '',
+    packageId: null,
+    billingType: 'particular',
+    insuranceProvider: '',
+    authorizationCode: '',
+    insuranceValue: 0,
 };
 
 type Props = {
@@ -59,6 +65,12 @@ const ScheduleAppointmentModal = ({
     // 👇 NOVO: texto digitado no campo de busca de paciente
     const [patientSearch, setPatientSearch] = useState('');
 
+    // 🏥 CONVÊNIO
+    const [billingType, setBillingType] = useState<'particular' | 'convenio'>('particular');
+    const [insuranceProvider, setInsuranceProvider] = useState('');
+    const [authorizationCode, setAuthorizationCode] = useState('');
+    const [insuranceValue, setInsuranceValue] = useState(0);
+
     // 👇 helper pra ignorar acento no filtro
     const normalize = (value: string) =>
         value
@@ -83,18 +95,32 @@ const ScheduleAppointmentModal = ({
     useEffect(() => {
         if (initialData) {
             const isoDate = new Date(initialData.date);
-            const formattedDate = isoDate.toISOString().split('T')[0]; // "YYYY-MM-DD"
+            const formattedDate = isoDate.toISOString().split('T')[0];
 
             setFormData({
                 ...initialData,
-                //   patientId: initialData.patientId,
                 date: formattedDate,
                 serviceType: initialData.serviceType || 'individual_session'
             });
             setServiceType(initialData.serviceType || 'individual_session');
+
+            // 🔧 ADICIONAR: Sincroniza billingType do initialData
+            setBillingType(initialData.billingType || 'particular');
+            setInsuranceProvider(initialData.insuranceProvider || '');
+            setInsuranceValue(initialData.insuranceValue || 0);
+            setAuthorizationCode(initialData.authorizationCode || '');
         } else {
             setFormData(defaultForm);
             setServiceType('individual_session');
+
+            // 🔧 ADICIONAR: Reset completo ao fechar/reabrir
+            setBillingType('particular');
+            setInsuranceProvider('');
+            setInsuranceValue(0);
+            setAuthorizationCode('');
+            setPatientSearch('');
+            setSelectedPatient(null);
+            setPackages([]);
         }
     }, [initialData, isOpen]);
 
@@ -171,15 +197,33 @@ const ScheduleAppointmentModal = ({
             formData.paymentAmount = 0;
         }
 
-        onSave({
+        // 🏥 Se for convênio, montar objeto insurance completo
+        let insurance = null;
+        if (billingType === 'convenio' && insuranceProvider) {
+            insurance = {
+                provider: insuranceProvider,
+                grossAmount: insuranceValue || 0,
+                authorizationCode: authorizationCode || null,
+                status: 'pending_billing'
+            };
+        }
+
+        const payload = {
             ...formData,
-        });
+            billingType,
+            insuranceProvider,
+            authorizationCode,
+            insuranceValue,
+            insurance,  // 🏥 Objeto completo
+        };
+
+        console.log('🔴 PAYLOAD NO MODAL:', JSON.stringify(payload, null, 2));
+
+        onSave(payload);
     };
 
-    // Verificação completa de campos obrigatórios
     const canSchedule = useMemo(() => {
-
-        // Verifica campos obrigatórios
+        // Verifica campos obrigatórios básicos
         if (!formData.patientId || !formData.doctorId || !formData.date || !formData.time || !formData.sessionType) {
             return false;
         }
@@ -187,21 +231,29 @@ const ScheduleAppointmentModal = ({
         // Se for sessão de pacote
         if (formData.serviceType === 'package_session') {
             const selectedPackage = packages.find(p => p._id === formData.packageId);
-
             if (!selectedPackage) return false;
-
             const remainingSessions = (selectedPackage.totalSessions || 0) - (selectedPackage.sessionsDone || 0);
-
             return remainingSessions > 0;
         }
 
-        // Se for sessão individual
-        if (formData.serviceType === 'individual_session') {
+        // 🏥 Se for convênio, só precisa ter provider selecionado
+        if (billingType === 'convenio') {
+            return !!insuranceProvider;
+        }
+
+        // 🔧 Tipos que NÃO exigem valor (alinhamento, retorno, reunião)
+        const tiposSemValor = ['alignment', 'return', 'meet'];
+        if (tiposSemValor.includes(formData.serviceType)) {
+            return true; // permite sem valor
+        }
+
+        // Se for sessão individual ou avaliação PARTICULAR, precisa de valor > 0
+        if (['individual_session', 'evaluation', 'neuropsych_evaluation', 'tongue_tie_test'].includes(formData.serviceType)) {
             return formData.paymentAmount > 0 && !!formData.paymentMethod;
         }
 
         return true;
-    }, [formData, packages]);
+    }, [formData, packages, billingType, insuranceProvider]);
 
     const handleFieldChange = (field: string, value: string) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -497,37 +549,144 @@ const ScheduleAppointmentModal = ({
                             Pagamento
                         </h3>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <Label className="block mb-2 font-medium text-gray-700">
-                                    Valor
-                                </Label>
-                                <InputCurrency
-                                    name="paymentAmount"
-                                    value={formData.paymentAmount}
-                                    onChange={handleChange}
-                                    className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                />
-                            </div>
-
-                            <div>
-                                <Label htmlFor="paymentMethod" className="block mb-2 font-medium text-gray-700">
-                                    Método de Pagamento
-                                </Label>
-                                <Select
-                                    name="paymentMethod"
-                                    value={formData.paymentMethod}
-                                    onChange={handleChange}
-                                    className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        {/* 🏥 Toggle Particular/Convênio */}
+                        <div className="mb-4">
+                            <Label className="block mb-2 font-medium text-gray-700">
+                                Tipo de Pagamento
+                            </Label>
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setBillingType('particular');
+                                        setFormData(prev => ({ ...prev, billingType: 'particular', paymentMethod: 'dinheiro' }));
+                                    }}
+                                    className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${billingType === 'particular'
+                                        ? 'bg-green-600 text-white'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}
                                 >
-                                    <option value="dinheiro">Dinheiro</option>
-                                    <option value="pix">PIX</option>
-                                    <option value="cartão">Cartão</option>
-                                    <option value="transferência">Transferência</option>
-                                    <option value="plano-unimed">Unimed</option>
-                                </Select>
+                                    💵 Particular
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setBillingType('convenio');
+                                        setFormData(prev => ({ ...prev, billingType: 'convenio', paymentMethod: 'convenio' }));
+                                    }}
+                                    className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${billingType === 'convenio'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}
+                                >
+                                    🏥 Convênio
+                                </button>
                             </div>
                         </div>
+
+                        {/* 💵 Campos Particular */}
+                        {billingType === 'particular' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <Label className="block mb-2 font-medium text-gray-700">
+                                        Valor
+                                    </Label>
+                                    <InputCurrency
+                                        name="paymentAmount"
+                                        value={formData.paymentAmount}
+                                        onChange={handleChange}
+                                        className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="paymentMethod" className="block mb-2 font-medium text-gray-700">
+                                        Método de Pagamento
+                                    </Label>
+                                    <Select
+                                        name="paymentMethod"
+                                        value={formData.paymentMethod}
+                                        onChange={handleChange}
+                                        className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                        <option value="dinheiro">Dinheiro</option>
+                                        <option value="pix">PIX</option>
+                                        <option value="cartão">Cartão</option>
+                                        <option value="transferência">Transferência</option>
+                                    </Select>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 🏥 Campos Convênio */}
+                        {billingType === 'convenio' && (
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <Label className="block mb-2 font-medium text-gray-700">
+                                            <Building2 size={16} className="inline mr-1" />
+                                            Convênio *
+                                        </Label>
+                                        <Select
+                                            value={insuranceProvider}
+                                            onChange={(e) => {
+                                                const provider = getProviderById(e.target.value);
+                                                setInsuranceProvider(e.target.value);
+                                                setInsuranceValue(provider?.defaultValue || 0);
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    insuranceProvider: e.target.value,
+                                                    insuranceValue: provider?.defaultValue || 0,
+                                                }));
+                                            }}
+                                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="">Selecione o convênio</option>
+                                            {INSURANCE_PROVIDERS.map(p => (
+                                                <option key={p.id} value={p.id}>
+                                                    {p.name} {p.city ? `(${p.city})` : ''}
+                                                </option>
+                                            ))}
+                                        </Select>
+                                    </div>
+
+                                    <div>
+                                        <Label className="block mb-2 font-medium text-gray-700">
+                                            Valor Tabela
+                                        </Label>
+                                        <InputCurrency
+                                            value={insuranceValue}
+                                            onChange={(e) => {
+                                                setInsuranceValue(Number(e.target.value));
+                                                setFormData(prev => ({ ...prev, insuranceValue: Number(e.target.value) }));
+                                            }}
+                                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <Label className="block mb-2 font-medium text-gray-700">
+                                        Código da Guia/Autorização (opcional)
+                                    </Label>
+                                    <input
+                                        type="text"
+                                        value={authorizationCode}
+                                        onChange={(e) => {
+                                            setAuthorizationCode(e.target.value);
+                                            setFormData(prev => ({ ...prev, authorizationCode: e.target.value }));
+                                        }}
+                                        placeholder="Ex: 123456789"
+                                        className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+
+                                <div className="bg-blue-100 p-3 rounded-lg text-sm text-blue-800">
+                                    💡 Atendimento será registrado com valor R$ 0,00 no caixa do dia.
+                                    O valor só entrará após confirmação de recebimento do convênio.
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 

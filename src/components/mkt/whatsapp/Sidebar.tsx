@@ -14,13 +14,14 @@ type SidebarContact = ApiContact & {
     createdAt?: string;
     updatedAt?: string;
     tags?: string[];
+    onSearch?: (term: string) => void;
 };
 
 interface SidebarProps {
     contacts: SidebarContact[];
     activeContactId?: string | null;
     onSelect: (contact: SidebarContact) => void;
-
+    isServerFiltered?: boolean;
     onAdd?: (data: Omit<SidebarContact, "_id">) => void;
     onEdit?: (id: string, data: Partial<Omit<SidebarContact, "_id">>) => void;
     onDelete?: (id: string) => void;
@@ -42,18 +43,27 @@ const Sidebar: React.FC<SidebarProps> = ({
     onLoadMore,
     hasMore = false,
     isLoadingMore = false,
+    onSearch,
+    isServerFiltered = false
 }) => {
     const [searchTerm, setSearchTerm] = useState("");
 
     const filteredContacts = useMemo(() => {
+        // Se veio filtrado do servidor, não filtra de novo
+        if (isServerFiltered) return contacts;
+
         const q = searchTerm.trim().toLowerCase();
         if (!q) return contacts;
-        return contacts.filter(
-            (c) =>
-                (c.name || "").toLowerCase().includes(q) ||
-                String(c.phone || "").includes(q)
-        );
-    }, [contacts, searchTerm]);
+
+        return contacts.filter((c) => {
+            const name = (c.name || "").toLowerCase();
+            const phone = String(c.phone || "");
+            const preview = (c.lastMessagePreview || c.lastMessage || "").toLowerCase();
+            const tags = (c.tags || []).join(" ").toLowerCase();
+
+            return name.includes(q) || phone.includes(q) || preview.includes(q) || tags.includes(q);
+        });
+    }, [contacts, searchTerm, isServerFiltered]);
 
     const getDisplayTime = (contact: SidebarContact) => {
         return (
@@ -130,7 +140,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                         type="text"
                         placeholder="Buscar conversas..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            setSearchTerm(val);
+                            onSearch?.(val);  // ← ADICIONA
+                        }}
                         className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                 </div>

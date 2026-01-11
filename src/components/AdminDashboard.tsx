@@ -14,7 +14,7 @@ import FollowupPage from '../pages/FollowupPage';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
 import { CreateDoctorParams } from '../services/doctorService';
 import { createPayment, FinancialRecord, getPayments, updatePayment } from '../services/paymentService';
-import { IPatient, ScheduleAppointment, TAB_TITLES } from '../utils/types/types';
+import { IPatient, ScheduleAppointment } from '../utils/types/types';
 import AddAdminContent from './admin/AddAdminContent';
 import AdminHeader from './admin/AdminHeader';
 import DashboardContent from './admin/DashboardContent';
@@ -259,6 +259,12 @@ export default function AdminDashboard() {
             clinicalStatus: 'pending',
             operationalStatus: 'scheduled',
             packageId: appointmentData.packageId,
+            // 🏥 CONVÊNIO - ADICIONAR ESTAS 4 LINHAS:
+            billingType: appointmentData.billingType,
+            insuranceProvider: appointmentData.insuranceProvider,
+            insuranceValue: appointmentData.insuranceValue,
+            authorizationCode: appointmentData.authorizationCode,
+            insurance: appointmentData.insurance,
         };
 
         try {

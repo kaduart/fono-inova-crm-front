@@ -227,8 +227,8 @@ export interface ScheduleAppointment {
     | 'package_session'
     | 'individual_session'
     | 'alignment'
-    | 'alignment '           
-    | 'return '           
+    | 'alignment '
+    | 'return '
     | 'neuropsych_evaluation'
     | 'meet'
     | 'tongue_tie_test';
@@ -256,6 +256,18 @@ export interface ScheduleAppointment {
     operationalStatus?: 'agendado' | 'confirmado' | 'cancelado' | 'pago' | 'faltou';
 
     duration?: number;
+
+    // 🏥 Convênio
+    billingType?: 'particular' | 'convenio';
+    insuranceProvider?: string;
+    insuranceValue?: number;
+    authorizationCode?: string;
+    insurance?: {
+        provider: string;
+        grossAmount: number;
+        authorizationCode?: string;
+        status?: 'pending_billing' | 'billed' | 'received' | 'partial' | 'glosa';
+    };
 
     // usado só pra sincronizar slots localmente
     _syncKey?: number;
@@ -307,11 +319,11 @@ export interface SelectedEvent {
 }
 
 export interface SlotBookingPayload {
-  time: string;
-  date: string;
-  doctorId: string;
-  specialty: string;
-  isBookingModalOpen: boolean;
+    time: string;
+    date: string;
+    doctorId: string;
+    specialty: string;
+    isBookingModalOpen: boolean;
 }
 
 

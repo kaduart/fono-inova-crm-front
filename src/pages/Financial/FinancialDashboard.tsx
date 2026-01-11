@@ -10,6 +10,8 @@ import ExpensesTab from './tabs/ExpensesTab';
 import GoalsTab from './tabs/GoalsTab';
 import PlanningTab from './tabs/PlanningTab';
 import RevenueTab from './tabs/RevenueTab';
+import { Building2 } from 'lucide-react';
+import InsuranceTab from './tabs/InsuranceTab';
 
 interface FinancialDashboardProps {
     patients: IPatient[];
@@ -59,6 +61,11 @@ const FinancialDashboard = ({
             label: 'Fluxo de Caixa',
             icon: <DollarSign size={18} />,
             component: <CashflowTab />
+        },
+        {
+            label: 'Convênios',
+            icon: <Building2 size={18} />,
+            component: <InsuranceTab />
         },
         {
             label: 'Metas',

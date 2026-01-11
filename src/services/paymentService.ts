@@ -125,6 +125,83 @@ export interface DailyAbsence {
     notes?: string;
 }
 
+// ============================================================
+// 🏥 CONVÊNIOS
+// ============================================================
+
+export interface InsurancePaymentData {
+    patientId: string;
+    doctorId: string;
+    sessionId?: string;
+    packageId?: string;
+    serviceType?: string;
+    insuranceProvider: string;
+    grossAmount: number;
+    authorizationCode?: string;
+    paymentDate?: string;
+    notes?: string;
+}
+
+export interface InsurancePayment {
+    _id: string;
+    patient: { _id: string; fullName: string };
+    doctor: { _id: string; fullName: string };
+    serviceType: string;
+    paymentDate: string;
+    billingType: 'convenio';
+    insurance: {
+        provider: string;
+        grossAmount: number;
+        status: 'pending_billing' | 'billed' | 'received' | 'partial' | 'glosa';
+        authorizationCode?: string;
+        billedAt?: string;
+        receivedAt?: string;
+        expectedReceiptDate?: string;
+        receivedAmount?: number;
+        glosaReason?: string;
+    };
+}
+
+export interface InsuranceReceivableGroup {
+    _id: string; // provider name
+    totalPending: number;
+    count: number;
+    payments: Array<{
+        paymentId: string;
+        patientName: string;
+        grossAmount: number;
+        status: string;
+        paymentDate: string;
+        authorizationCode?: string;
+    }>;
+}
+
+// Registrar atendimento de convênio
+export const createInsurancePayment = (data: InsurancePaymentData) =>
+    API.post<{ success: boolean; data: InsurancePayment }>('/payments/insurance', data);
+
+// Listar contas a receber de convênios
+export const getInsuranceReceivables = (filters?: { provider?: string; status?: string }) =>
+    API.get<{ success: boolean; data: InsuranceReceivableGroup[]; summary: { totalProviders: number; grandTotal: number } }>(
+        '/payments/insurance/receivables',
+        { params: filters }
+    );
+
+// Listar todos os pagamentos de convênio
+export const getInsurancePayments = (filters?: { provider?: string; status?: string }) =>
+    API.get<{ success: boolean; data: InsurancePayment[] }>(
+        '/payments',
+        { params: { ...filters, billingType: 'convenio' } }
+    );
+
+// Marcar como faturado
+export const markInsuranceAsBilled = (id: string) =>
+    API.patch<{ success: boolean; data: InsurancePayment }>(`/payments/insurance/${id}/bill`);
+
+// Registrar recebimento
+export const receiveInsurancePayment = (id: string, data: { receivedAmount?: number; receivedDate?: string; notes?: string }) =>
+    API.patch<{ success: boolean; data: InsurancePayment }>(`/payments/insurance/${id}/receive`, data);
+
 // CRUD básicos
 export const getPayments = (filters: Record<string, any> = {}) =>
     API.get<FinancialRecord[]>('/payments', { params: filters });
