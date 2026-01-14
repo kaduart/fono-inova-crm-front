@@ -136,11 +136,42 @@ export default function TherapyEvolution({
 
     // 🔹 aqui fazemos o POST alinhado com o backend novo
     const EVALUATION_TYPE_LABELS: Record<string, string> = {
+        // Áreas genéricas
         language: 'Linguagem',
         motor: 'Motor',
         cognitive: 'Cognitivo',
         behavior: 'Comportamento',
-        social: 'Social'
+        social: 'Social',
+        // Fonoaudiologia
+        linguagem_expressiva: 'Linguagem Expressiva',
+        linguagem_receptiva: 'Linguagem Receptiva',
+        pragmatica: 'Pragmática',
+        voz: 'Voz',
+        motricidade_orofacial: 'Motricidade Orofacial',
+        // Psicologia
+        emocional: 'Emocional',
+        autonomia: 'Autonomia',
+        // Terapia Ocupacional
+        sensorial: 'Sensorial',
+        avds: 'AVDs',
+        praxia: 'Praxia',
+        grafomotor: 'Grafomotor',
+        // Fisioterapia
+        postural: 'Controle Postural',
+        marcha: 'Marcha',
+        respiratorio: 'Respiratório',
+        neuromotor: 'Neuromotor',
+        // Neuropsicologia
+        atencao: 'Atenção',
+        memoria: 'Memória',
+        linguagem: 'Linguagem',
+        visuoespacial: 'Visuoespacial',
+        executivo: 'Executivo',
+        // Musicoterapia
+        comunicacao: 'Comunicação',
+        expressao_emocional: 'Expressão Emocional',
+        socializacao: 'Socialização',
+        motor_musical: 'Motor (via música)'
     };
 
     const handleSaveEvaluation = async (form: NewEvaluationForm) => {
@@ -150,23 +181,29 @@ export default function TherapyEvolution({
         }
 
         try {
-            // metrics[]
-            const metricsArray = Object.entries(form.metrics).map(([name, value]) => ({
-                name,
-                value: Number(value)
-            }));
+            // ✅ Converter metrics de Record<string, number> para array
+            const metricsArray = Object.entries(form.metrics || {})
+                .filter(([_, value]) => value !== undefined && value !== null)
+                .map(([name, value]) => ({
+                    name: String(name),
+                    value: Number(value)
+                }));
 
-            // evaluationAreas[]
-            const evaluationAreas = Object.entries(form.areaScores).map(([id, score]) => ({
-                id,
-                name: EVALUATION_TYPE_LABELS[id] ?? id,
-                score: Number(score)
-            }));
+            // ✅ Converter areaScores de Record<string, number> para array
+            const evaluationAreas = Object.entries(form.areaScores || {})
+                .filter(([_, score]) => score !== undefined && score !== null)
+                .map(([id, score]) => ({
+                    id: String(id),
+                    name: EVALUATION_TYPE_LABELS[id] || formatAreaName(id),
+                    score: Number(score)
+                }));
 
+            // ✅ Filtrar áreas com score >= 1 para evaluationTypes
             const areasWithScore = evaluationAreas.filter(a => a.score >= 1);
             const evaluationTypes = areasWithScore.map(a => a.id);
 
-            const hasValidMetrics = metricsArray.some(m => m.value !== undefined && m.value !== 0);
+            // ✅ Validação
+            const hasValidMetrics = metricsArray.some(m => m.value > 0);
             const hasValidAreas = areasWithScore.length > 0;
 
             if (!hasValidMetrics && !hasValidAreas) {
@@ -174,27 +211,25 @@ export default function TherapyEvolution({
                 return;
             }
 
-            // 🔹 Definir protocolCode:
-            // 1) se já tem plano, usar código do plano atual
-            // 2) senão, usar o que foi selecionado no modal
-            let protocolCode: string | null =
+            // 🔹 Definir protocolCode
+            const protocolCode: string | null =
                 progressData?.currentPlan?.protocol?.code ||
                 selectedProtocolCode ||
                 null;
 
-            // 🔹 Montar therapeuticPlan:
+            // 🔹 Montar therapeuticPlan
             let therapeuticPlan: any = null;
 
             if (progressData?.currentPlan) {
-                // Reaproveita plano atual do paciente e apenas atualiza currentScore dos objetivos
+                // Reaproveita plano atual do paciente
                 therapeuticPlan = {
                     protocol: progressData.currentPlan.protocol || undefined,
                     objectives: (progressData.objectives || []).map((obj: any) => {
-                        const sliderScore = form.areaScores[obj.area];
+                        const sliderScore = form.areaScores?.[obj.area];
                         return {
                             area: obj.area,
                             description: obj.description,
-                            targetScore: Number(obj.target ?? obj.targetScore ?? 0),
+                            targetScore: Number(obj.target ?? obj.targetScore ?? 10),
                             currentScore: Number(sliderScore ?? obj.current ?? 0),
                             targetDate: obj.targetDate || null,
                             notes: obj.notes || ''
@@ -203,7 +238,7 @@ export default function TherapyEvolution({
                     reviewDate: progressData.currentPlan.reviewDate || null
                 };
             } else if (protocolCode) {
-                // Paciente ainda não tinha plano, mas foi escolhido um protocolo
+                // Paciente ainda não tinha plano
                 const selectedProtocol = protocols.find((p: any) => p.code === protocolCode);
 
                 therapeuticPlan = {
@@ -218,38 +253,36 @@ export default function TherapyEvolution({
                             name: protocolCode,
                             customNotes: ''
                         },
-                    // Não temos certeza do schema interno de objetivos no TherapyProtocol,
-                    // então aqui iniciamos objetivos baseados nas áreas (sliders) como rascunho:
                     objectives: evaluationAreas.map(area => ({
                         area: area.id,
-                        description: `Objetivo em ${EVALUATION_TYPE_LABELS[area.id] ?? area.id}`,
-                        targetScore: 10,                    // meta padrão
-                        currentScore: area.score,           // valor da sessão
+                        description: `Objetivo em ${area.name}`,
+                        targetScore: 10,
+                        currentScore: area.score,
                         targetDate: null,
                         notes: ''
                     })),
-                    reviewDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // +30 dias
+                    reviewDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
                 };
             }
 
+            // ✅ Payload final
             const payload = {
                 patient: selectedPatientId,
                 doctor: (user as any)?._id || (user as any)?.id,
                 specialty: (user as any)?.specialty || 'fonoaudiologia',
                 date: new Date(form.date),
-                time: form.time,
-                content: form.content,
+                time: form.time || '10:00',
+                content: form.content || '',
                 metrics: metricsArray,
                 evaluationAreas,
                 evaluationTypes,
                 plan: '',
                 treatmentStatus: 'in_progress',
-                therapeuticPlan,
-                protocolCode
+                ...(therapeuticPlan && { therapeuticPlan }),
+                ...(protocolCode && { protocolCode })
             };
 
-
-            console.log('Enviando payload de avaliação:', payload);
+            console.log('📤 Enviando payload:', JSON.stringify(payload, null, 2));
 
             const response = await API.post('/evolutions', payload);
 
@@ -261,17 +294,32 @@ export default function TherapyEvolution({
                 toast.success('Avaliação salva com sucesso!');
             }
         } catch (error: any) {
-            console.error('Erro ao salvar avaliação:', error);
+            console.error('❌ Erro ao salvar avaliação:', error);
+
             if (error.response) {
+                console.error('📋 Response data:', error.response.data);
+                console.error('📋 Response status:', error.response.status);
                 toast.error(
-                    `Erro ${error.response.status}: ${error.response.data?.message || JSON.stringify(error.response.data)
-                    }`
+                    `Erro ${error.response.status}: ${error.response.data?.message || error.response.data?.error || JSON.stringify(error.response.data)}`
                 );
+            } else if (error.request) {
+                console.error('📋 Request error (sem resposta do servidor):', error.request);
+                toast.error('Servidor não respondeu. Verifique se o backend está rodando.');
             } else {
                 toast.error('Erro ao salvar avaliação. Tente novamente.');
             }
         }
     };
+
+    // ✅ Helper para formatar nomes de área quando não estiver no mapeamento
+    function formatAreaName(id: string): string {
+        return id
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    }
+
+
     const [activeTab, setActiveTab] = useState<'evolution' | 'analytics'>('evolution');
 
     const handleDeleteEvaluation = async (evaluationId: string) => {
@@ -383,8 +431,8 @@ export default function TherapyEvolution({
                                 <button
                                     onClick={() => setActiveTab('evolution')}
                                     className={`px-6 py-4 text-base font-semibold border-b-4 transition-all ${activeTab === 'evolution'
-                                            ? 'border-green-500 text-green-600'
-                                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                                        ? 'border-green-500 text-green-600'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700'
                                         }`}
                                 >
                                     <Activity className="h-5 w-5 inline mr-2" />
@@ -393,8 +441,8 @@ export default function TherapyEvolution({
                                 <button
                                     onClick={() => setActiveTab('analytics')}
                                     className={`px-6 py-4 text-base font-semibold border-b-4 transition-all ${activeTab === 'analytics'
-                                            ? 'border-blue-500 text-blue-600'
-                                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                                        ? 'border-blue-500 text-blue-600'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700'
                                         }`}
                                 >
                                     <BarChart3 className="h-5 w-5 inline mr-2" />
@@ -606,7 +654,7 @@ export default function TherapyEvolution({
                                                 <div>
                                                     <h3 className="font-bold text-2xl text-gray-900 flex items-center gap-3">
                                                         <span className="text-3xl">📋</span>
-                                                        Histórico de Avaliações
+                                                        Histórico de Evoluções
                                                     </h3>
                                                     <p className="text-gray-600 text-base mt-1 font-medium">
                                                         {selectedPatientData.fullName}
@@ -617,7 +665,7 @@ export default function TherapyEvolution({
                                                     className="bg-gradient-to-r from-green-600 to-cyan-500 hover:from-green-700 hover:to-cyan-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all hover:scale-105"
                                                 >
                                                     <Plus className="h-5 w-5 mr-2" />
-                                                    Nova Avaliação
+                                                    Nova Evolução
                                                 </Button>
                                             </div>
 
