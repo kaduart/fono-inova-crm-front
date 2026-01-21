@@ -268,7 +268,6 @@ export default function TherapyEvolution({
             // ✅ Payload final
             const payload = {
                 patient: selectedPatientId,
-                doctor: (user as any)?._id || (user as any)?.id,
                 specialty: (user as any)?.specialty || 'fonoaudiologia',
                 date: new Date(form.date),
                 time: form.time || '10:00',

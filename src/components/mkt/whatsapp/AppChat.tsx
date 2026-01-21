@@ -14,6 +14,7 @@ import ChatWindow from "./ChatWindow";
 import Sidebar from "./Sidebar";
 import { useDebouncedCallback } from "../../../hooks/useDebounce";
 import { searchContactsByMessage } from "../../../services/whatsappService";
+import AmandaStatusBadge from "./AmandaStatusBadge";
 
 const AppChat: React.FC = () => {
     const theme = useTheme();
@@ -36,7 +37,7 @@ const AppChat: React.FC = () => {
     const [searchResults, setSearchResults] = useState<Contact[] | null>(null);
 
     const debouncedSearch = useDebouncedCallback(async (term: string) => {
-        
+
         if (term.length < 2) {
             setSearchResults(null);
             return;
@@ -160,13 +161,17 @@ const AppChat: React.FC = () => {
                         </div>
                     </div>
 
-                    <Button
-                        onClick={refreshContacts}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl flex items-center gap-2"
-                    >
-                        <RefreshCw size={18} />
-                        Atualizar
-                    </Button>
+                    <div className="flex items-center gap-3">
+                        <AmandaStatusBadge />
+
+                        <Button
+                            onClick={refreshContacts}
+                            className="bg-emerald-600 hover:bg-emerald-700..."
+                        >
+                            <RefreshCw size={18} />
+                            Atualizar
+                        </Button>
+                    </div>
                 </div>
             </Paper>
 
