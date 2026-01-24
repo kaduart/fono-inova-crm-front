@@ -41,9 +41,14 @@ class SocketManager {
             this.cleanup();
         }
 
-        const url =
-            (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_URL) ||
-            (typeof process !== "undefined" && (process as any).env?.VITE_API_URL);
+        const envUrl =
+            (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_BACKEND_URL) ||
+            (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_URL);
+
+        if (!envUrl) logger.warn("⚠️ [socket] URL não definida nas envs; usando fallback Render.");
+
+        const s = io(envUrl || "https://fono-inova-crm-back.onrender.com", { ... });
+
 
         if (!url) {
             logger.warn("⚠️ [socket] VITE_API_URL não configurado — conectando no origin atual.");
