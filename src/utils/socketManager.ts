@@ -47,14 +47,13 @@ class SocketManager {
 
         if (!envUrl) logger.warn("⚠️ [socket] URL não definida nas envs; usando fallback Render.");
 
-        const s = io(envUrl || "https://fono-inova-crm-back.onrender.com", { ... });
 
 
-        if (!url) {
+        if (!envUrl) {
             logger.warn("⚠️ [socket] VITE_API_URL não configurado — conectando no origin atual.");
         }
 
-        const s = io(url || "", {
+        const s = io(envUrl || "", {
             transports: ["websocket"],
             upgrade: false,
             reconnection: true,
