@@ -125,24 +125,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
         setManualActive(!!contact?.manualActive);
     }, [contact?._id, contact?.manualActive]);
     
-    // 🐛 NOVO: Monitorar status do socket e buscar mensagens pendentes
+    // 🐛 NOVO: Monitorar status do socket
     useEffect(() => {
-        let wasDisconnected = false;
-        
         const checkSocketStatus = () => {
             const isConnected = socketManager.isConnected();
-            
-            // Detectou reconexão
-            if (isConnected && wasDisconnected && contact?.phone) {
-                logger.info("[ChatWindow] Socket reconectado, buscando mensagens pendentes...");
-                loadMessages(contact.phone);
-                wasDisconnected = false;
-            }
-            
-            if (!isConnected) {
-                wasDisconnected = true;
-            }
-            
             setSocketConnected(isConnected);
         };
         
@@ -151,7 +137,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
         checkSocketStatus(); // Verificação inicial
         
         return () => clearInterval(interval);
-    }, [contact?.phone, loadMessages]);
+    }, []); // Sem dependências - roda sempre
+    
+    // 🐛 NOVO: Buscar mensagens quando socket reconecta
+    useEffect(() => {
+        if (socketConnected && contact?.phone) {
+            logger.info("[ChatWindow] Socket conectado, verificando mensagens...");
+            loadMessages(contact.phone);
+        }
+    }, [socketConnected, contact?.phone]);
 
     const label = manualActive ? "Reativar AmandaAI" : "Pausar AmandaAI";
 
