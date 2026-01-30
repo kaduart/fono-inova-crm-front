@@ -109,6 +109,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const seenIdsRef = useRef<Set<string>>(new Set());
+    // 🆕 PROTEÇÃO: Timestamp da última vez que cada mensagem foi processada (evita duplicatas do socket)
+    const lastMessageTimeRef = useRef<Map<string, number>>(new Map());
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
@@ -227,13 +229,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
         const phone = contact?.phone;
         if (!phone) {
             setMessages([]);
+            seenIdsRef.current.clear();
+            lastMessageTimeRef.current.clear();
             socketManager.setActiveChatPhone(null);
             return;
         }
 
         const chatPhoneE164 = normalizeE164BR(phone);
 
-        // 1️⃣ Define contato ativo
+        // 1️⃣ Define contato ativo + limpa estado
+        seenIdsRef.current.clear();
+        lastMessageTimeRef.current.clear();
         socketManager.setActiveChatPhone(chatPhoneE164);
 
         // 2️⃣ Carrega histórico
@@ -268,10 +274,20 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                 // 🐛 FIX: Verificação atômica com seenIdsRef
                 const alreadyExists = seenIdsRef.current.has(msg.id);
                 if (alreadyExists) {
-                    logger.debug("[ChatWindow] Mensagem duplicada ignorada:", msg.id);
+                    logger.debug("[ChatWindow] Mensagem duplicada ignorada (seenIds):", msg.id);
                     return;
                 }
                 
+                // 🆕 PROTEÇÃO: Ignora se processou a mesma mensagem nos últimos 2 segundos
+                // (evita duplicatas quando backend emite múltiplos eventos)
+                const now = Date.now();
+                const lastTime = lastMessageTimeRef.current.get(msg.id);
+                if (lastTime && (now - lastTime) < 2000) {
+                    logger.debug("[ChatWindow] Mensagem duplicada ignorada (debounce):", msg.id);
+                    return;
+                }
+                
+                lastMessageTimeRef.current.set(msg.id, now);
                 seenIdsRef.current.add(msg.id);
                 setMessages(prev => [...prev, msg]);
             } catch (e) {
