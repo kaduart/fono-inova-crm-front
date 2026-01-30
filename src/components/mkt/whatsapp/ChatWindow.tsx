@@ -117,10 +117,41 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
     const hasGenericName = isGenericName(contact?.name, contact?.phone);
 
     const [manualActive, setManualActive] = useState<boolean>(!!contact?.manualActive);
+    
+    // 🐛 NOVO: Estado de conexão do socket
+    const [socketConnected, setSocketConnected] = useState<boolean>(true);
 
     useEffect(() => {
         setManualActive(!!contact?.manualActive);
     }, [contact?._id, contact?.manualActive]);
+    
+    // 🐛 NOVO: Monitorar status do socket e buscar mensagens pendentes
+    useEffect(() => {
+        let wasDisconnected = false;
+        
+        const checkSocketStatus = () => {
+            const isConnected = socketManager.isConnected();
+            
+            // Detectou reconexão
+            if (isConnected && wasDisconnected && contact?.phone) {
+                logger.info("[ChatWindow] Socket reconectado, buscando mensagens pendentes...");
+                loadMessages(contact.phone);
+                wasDisconnected = false;
+            }
+            
+            if (!isConnected) {
+                wasDisconnected = true;
+            }
+            
+            setSocketConnected(isConnected);
+        };
+        
+        // Verifica a cada 5 segundos
+        const interval = setInterval(checkSocketStatus, 5000);
+        checkSocketStatus(); // Verificação inicial
+        
+        return () => clearInterval(interval);
+    }, [contact?.phone, loadMessages]);
 
     const label = manualActive ? "Reativar AmandaAI" : "Pausar AmandaAI";
 
@@ -219,15 +250,36 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
             try {
                 const fromE164 = normalizeE164BR(data?.from || "");
                 const toE164 = normalizeE164BR(data?.to || "");
-                if (fromE164 !== chatPhoneE164 && toE164 !== chatPhoneE164) return;
+                
+                // 🐛 DEBUG: Log detalhado para rastrear filtragem
+                if (fromE164 !== chatPhoneE164 && toE164 !== chatPhoneE164) {
+                    logger.debug("[ChatWindow] Mensagem filtrada (não é deste chat)", {
+                        expected: chatPhoneE164,
+                        received_from: fromE164,
+                        received_to: toE164,
+                        raw_from: data?.from,
+                        raw_to: data?.to
+                    });
+                    return;
+                }
+                
+                logger.debug("[ChatWindow] Mensagem recebida via socket", {
+                    from: fromE164,
+                    to: toE164,
+                    text: data?.text?.substring(0, 50)
+                });
 
                 const msg = formatMessage(data, chatPhoneE164);
 
-                setMessages(prev => {
-                    if (prev.some(m => m.id === msg.id)) return prev;
-                    seenIdsRef.current.add(msg.id);
-                    return [...prev, msg];
-                });
+                // 🐛 FIX: Verificação atômica com seenIdsRef
+                const alreadyExists = seenIdsRef.current.has(msg.id);
+                if (alreadyExists) {
+                    logger.debug("[ChatWindow] Mensagem duplicada ignorada:", msg.id);
+                    return;
+                }
+                
+                seenIdsRef.current.add(msg.id);
+                setMessages(prev => [...prev, msg]);
             } catch (e) {
                 logger.error("❌ [ChatWindow] Falha ao processar message:new:", e);
             }
@@ -254,11 +306,26 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
         const unsubNew = socketManager.onMessageNew(onNew);
         const unsubDel = socketManager.onMessageDeleted(onDeleted);
 
-        // 4️⃣ Cleanup
+        // 4️⃣ Reconectar quando aba volta ao foco
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                logger.debug("[ChatWindow] Aba visível, verificando socket...");
+                if (!socketManager.isConnected()) {
+                    logger.info("[ChatWindow] Socket desconectado, reconectando...");
+                    socketManager.reconnect();
+                    // Recarrega mensagens após reconectar
+                    setTimeout(() => loadMessages(phone), 500);
+                }
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        
+        // 5️⃣ Cleanup
         return () => {
             unsubNew();
             unsubDel();
             socketManager.setActiveChatPhone(null);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [contact?.phone, loadMessages]);
 
@@ -569,12 +636,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                         </div>
 
                         <div className="min-w-0">
-                            <div className="font-semibold text-gray-900 truncate">
+                            <div className="font-semibold text-gray-900 truncate flex items-center gap-2">
                                 {contact?.name || "Sem nome"}
+                                {/* 🐛 NOVO: Indicador de status do socket */}
+                                {!socketConnected && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800" title="Conexão instável - recarregue a página se necessário">
+                                        ⚠️ Offline
+                                    </span>
+                                )}
                             </div>
                             <div className="text-xs text-gray-500 truncate">
                                 {contact?.phone}
                                 {leadId ? ` • Lead: ${leadId}` : ""}
+                                {socketConnected && <span className="ml-2 text-green-500">●</span>}
                             </div>
                         </div>
                     </div>
