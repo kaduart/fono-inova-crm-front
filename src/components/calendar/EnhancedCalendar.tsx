@@ -5,7 +5,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import { Box, Button, Paper, Tooltip, Typography, useTheme } from '@mui/material';
 import { ptBR } from "date-fns/locale";
 import { AlertCircle, Calendar, CheckCircle, Clock, DollarSign, Plus, User, XCircle } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { OPERATIONAL_STATUS_CONFIG, StatusConfig } from '../../services/appointmentService';
 import { IAppointment, IDoctor, IPatient, ScheduleAppointment, SelectedEvent } from '../../utils/types/types';
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
@@ -154,11 +154,14 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     const [selectedEvent, setSelectedEvent] = useState<SelectedEvent | null>(null);
     const theme = useTheme();
     const [isCalendarLoading, setIsCalendarLoading] = useState(true);
+    
+    // 🔹 Estado para lazy loading - apenas eventos visíveis
+    const [visibleRange, setVisibleRange] = useState<{ start: Date; end: Date } | null>(null);
 
     useEffect(() => {
         if (closeModalSignal && closeModalSignal > 0) {
             setOpenSchedule(false);
-            setSelectedEvent(null); // Se necessário
+            setSelectedEvent(null);
         }
     }, [closeModalSignal]);
 
@@ -166,13 +169,26 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         if (!appointments) return;
 
         setIsCalendarLoading(true);
+        // 🔹 Simula um delay mínimo para mostrar loading sem travar a UI
+        const timer = setTimeout(() => {
+            setIsCalendarLoading(false);
+        }, 100);
+        return () => clearTimeout(timer);
     }, [appointments]);
 
-    const getPaymentStatusConfig = (paymentStatus: string) => {
-        return PAYMENT_STATUS_CONFIG[paymentStatus as keyof typeof PAYMENT_STATUS_CONFIG] || PAYMENT_STATUS_CONFIG.pending;
-    };
+    // 🔹 Handler para quando a view do calendário muda (lazy loading)
+    const handleDatesSet = useCallback((dateInfo: any) => {
+        setVisibleRange({
+            start: dateInfo.start,
+            end: dateInfo.end
+        });
+    }, []);
 
-    const getOperationalStatusConfig = (operationalStatus: string) => {
+    const getPaymentStatusConfig = useCallback((paymentStatus: string) => {
+        return PAYMENT_STATUS_CONFIG[paymentStatus as keyof typeof PAYMENT_STATUS_CONFIG] || PAYMENT_STATUS_CONFIG.pending;
+    }, []);
+
+    const getOperationalStatusConfig = useCallback((operationalStatus: string) => {
         return (
             OPERATIONAL_STATUS_VISUAL_CONFIG[operationalStatus as keyof typeof OPERATIONAL_STATUS_VISUAL_CONFIG] || {
                 label: "Indefinido",
@@ -180,7 +196,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 icon: Clock,
             }
         );
-    };
+    }, []);
 
     const handleEventClick = (info: { event: any }) => {
         const { event } = info;
@@ -222,66 +238,82 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         setIsAppointmentDetailModalOpen(true);
     };
 
-    // 🔹 MEMOIZAÇÃO AVANÇADA PARA EVENTOS
+    // 🔹 MEMOIZAÇÃO AVANÇADA PARA EVENTOS COM LAZY LOADING
     const events = useMemo(() => {
         if (!appointments) return [];
-        return appointments
-            .filter(a => a?.date && a?.time)
-            .map(appt => {
-                const [hours, minutes] = appt.time.split(':').map(Number);
+        
+        // 🔹 Filtra apenas eventos do range visível + margem de segurança
+        let filteredAppointments = appointments.filter(a => a?.date && a?.time);
+        
+        if (visibleRange) {
+            const rangeStart = new Date(visibleRange.start);
+            const rangeEnd = new Date(visibleRange.end);
+            // Adiciona margem de 7 dias antes e depois
+            rangeStart.setDate(rangeStart.getDate() - 7);
+            rangeEnd.setDate(rangeEnd.getDate() + 7);
+            
+            filteredAppointments = filteredAppointments.filter(appt => {
                 const [year, month, day] = appt.date.split('-').map(Number);
-                const startDate = new Date(year, month - 1, day, hours, minutes);
-                const endDate = new Date(startDate.getTime() + (appt.duration || 60) * 60000);
-
-                const paymentConfig = getPaymentStatusConfig(appt.paymentStatus || 'pending');
-                const operationalConfig = getOperationalStatusConfig(appt.operationalStatus || 'agendado');
-
-                // 🔧 Resolve visualFlag priorizando lógica coerente
-                let visualFlagKey = appt.visualFlag;
-
-                if (!visualFlagKey) {
-                    switch (appt.paymentStatus) {
-                        case 'paid':
-                        case 'package_paid':
-                        case 'advanced':
-                            visualFlagKey = 'ok';
-                            break;
-                        case 'partial':
-                            visualFlagKey = 'partial';
-                            break;
-                        case 'pending':
-                        default:
-                            visualFlagKey = 'pending';
-                            break;
-                    }
-                }
-
-                const visualConfig = VISUAL_FLAG_CONFIG[visualFlagKey];
-
-                return {
-                    id: appt._id || appt.id,
-                    title: `${appt.patient?.fullName || 'Paciente'} - ${appt.doctor?.fullName || 'Profissional'}`,
-                    start: startDate,
-                    end: endDate,
-                    extendedProps: {
-                        ...appt,
-                        paymentConfig,
-                        operationalConfig,
-                        time: (appt.time || '').trim(),
-                        visualConfig,
-                        patientName: appt.patient?.fullName || 'Paciente',
-                        doctorName: appt.doctor?.fullName || 'Profissional'
-                    },
-
-                    // 🎨 Regras de cor finais:
-                    backgroundColor: paymentConfig.bgColor,          // Fundo = pagamento
-                    borderColor: operationalConfig.color,            // Borda = status do agendamento
-                    textColor: paymentConfig.textColor,              // Texto = pagamento
-                    borderWidth: 4
-                };
+                const apptDate = new Date(year, month - 1, day);
+                return apptDate >= rangeStart && apptDate <= rangeEnd;
             });
+        }
+        
+        return filteredAppointments.map(appt => {
+            const [hours, minutes] = appt.time.split(':').map(Number);
+            const [year, month, day] = appt.date.split('-').map(Number);
+            const startDate = new Date(year, month - 1, day, hours, minutes);
+            const endDate = new Date(startDate.getTime() + (appt.duration || 60) * 60000);
 
-    }, [appointments]);
+            const paymentConfig = getPaymentStatusConfig(appt.paymentStatus || 'pending');
+            const operationalConfig = getOperationalStatusConfig(appt.operationalStatus || 'agendado');
+
+            // 🔧 Resolve visualFlag priorizando lógica coerente
+            let visualFlagKey = appt.visualFlag;
+
+            if (!visualFlagKey) {
+                switch (appt.paymentStatus) {
+                    case 'paid':
+                    case 'package_paid':
+                    case 'advanced':
+                        visualFlagKey = 'ok';
+                        break;
+                    case 'partial':
+                        visualFlagKey = 'partial';
+                        break;
+                    case 'pending':
+                    default:
+                        visualFlagKey = 'pending';
+                        break;
+                }
+            }
+
+            const visualConfig = VISUAL_FLAG_CONFIG[visualFlagKey];
+
+            return {
+                id: appt._id || appt.id,
+                title: `${appt.patient?.fullName || 'Paciente'} - ${appt.doctor?.fullName || 'Profissional'}`,
+                start: startDate,
+                end: endDate,
+                extendedProps: {
+                    ...appt,
+                    paymentConfig,
+                    operationalConfig,
+                    time: (appt.time || '').trim(),
+                    visualConfig,
+                    patientName: appt.patient?.fullName || 'Paciente',
+                    doctorName: appt.doctor?.fullName || 'Profissional'
+                },
+
+                // 🎨 Regras de cor finais:
+                backgroundColor: paymentConfig.bgColor,
+                borderColor: operationalConfig.color,
+                textColor: paymentConfig.textColor,
+                borderWidth: 4
+            };
+        });
+
+    }, [appointments, visibleRange, getPaymentStatusConfig, getOperationalStatusConfig]);
 
     // 🔹 CONFIGURAÇÃO CENTRALIZADA DO CALENDÁRIO
     const calendarOptions = useMemo(() => ({
@@ -331,6 +363,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         eventMinHeight: 120,
         eventShortHeight: false,
 
+        // ✅ LAZY LOADING - atualiza range visível
+        datesSet: handleDatesSet,
+
         // ✅ CALLBACK PARA AJUSTAR VIEW SEMANAL
         viewDidMount: (info: any) => {
             if (info.view.type === 'timeGridWeek' || info.view.type === 'timeGridDay') {
@@ -340,17 +375,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 });
             }
         }
-    }), [events, onDateClick]);
+    }), [handleDatesSet]);
 
-    useEffect(() => {
-        setIsCalendarLoading(false);
-    }, [events]);
+    // 🔹 Não precisamos mais disso - loading é controlado no useEffect dos appointments
 
-    // 🔹 RENDERIZAÇÃO PREMIUM DE EVENTOS
-    // 🎯 SOLUÇÃO: BADGES DUPLOS (Pagamento + Agendamento)
-    // Cole APENAS a função renderEventContent (substitua a existente)
-
-    const renderEventContent = (arg: any) => {
+    // 🔹 RENDERIZAÇÃO PREMIUM DE EVENTOS COM MEMOIZAÇÃO
+    const renderEventContent = useCallback((arg: any) => {
         const paymentConfig = arg.event.extendedProps.paymentConfig;
         const operationalConfig = arg.event.extendedProps.operationalConfig;
         const patientName = arg.event.extendedProps.patientName || 'Paciente';
@@ -554,10 +584,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 </Paper>
             </Tooltip>
         );
-    };
+    }, []);
 
-    // 🔹 RENDERIZAÇÃO DE CÉLULAS DE DATA MELHORADA
-    const renderDayCellContent = (arg: any) => (
+    // 🔹 RENDERIZAÇÃO DE CÉLULAS DE DATA MELHORADA (memoizada)
+    const renderDayCellContent = useCallback((arg: any) => (
         <div className="flex justify-end p-1">
             <span className={`text-sm rounded-full w-7 h-7 flex items-center justify-center transition-all ${arg.isToday
                 ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white font-bold shadow-lg transform scale-110'
@@ -566,16 +596,16 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 {arg.dayNumberText}
             </span>
         </div>
-    );
+    ), []);
 
-    // 🔹 RENDERIZAÇÃO DE CABEÇALHO DE DIA
-    const renderDayHeaderContent = (arg: any) => (
+    // 🔹 RENDERIZAÇÃO DE CABEÇALHO DE DIA (memoizada)
+    const renderDayHeaderContent = useCallback((arg: any) => (
         <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
             {arg.text.substring(0, 3)}
         </span>
-    );
+    ), []);
 
-    const getPaymentStatusLabel = (paymentStatus: string) => {
+    const getPaymentStatusLabel = useCallback((paymentStatus: string) => {
         const labels: { [key: string]: string } = {
             'paid': 'Pago',
             'package_paid': 'Pacote',
@@ -584,7 +614,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             'canceled': 'Cancelado'
         };
         return labels[paymentStatus] || 'Pendente';
-    };
+    }, []);
 
     const handleOpenSchedule = (appointment: IAppointment | null = null, modeType: 'create' | 'edit' = 'create') => {
         setAppointmentData(appointment);

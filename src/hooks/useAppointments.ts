@@ -1,5 +1,5 @@
 // hooks/useAppointments.ts
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import appointmentService, {
     AvailableSlotsParams,
     CancelParams,
@@ -9,24 +9,69 @@ import appointmentService, {
 } from '../services/appointmentService';
 import { IAppointment } from '../utils/types/types';
 
+// 🔹 Cache para evitar recarregamentos desnecessários
+const cache = {
+    appointments: null as IAppointment[] | null,
+    timestamp: 0,
+    isLoading: false,
+    promise: null as Promise<void> | null
+};
+
+const CACHE_DURATION = 2 * 60 * 1000; // 2 minutos (dados mais voláteis)
+
 export const useAppointments = () => {
-    const [appointments, setAppointments] = useState<IAppointment[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [appointments, setAppointments] = useState<IAppointment[]>(cache.appointments || []);
+    const [loading, setLoading] = useState(cache.isLoading);
     const [error, setError] = useState<string | null>(null);
     const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+    
+    const isMounted = useRef(true);
 
-    const fetchAppointments = useCallback(async (params = {}) => {
-        setLoading(true);
-        setError(null);
-        try {
-            const response = await appointmentService.list(params);
-            setAppointments(response.data);
-        } catch (err) {
-            setError('Falha ao carregar agendamentos');
-            console.error('Erro ao buscar agendamentos:', err);
-        } finally {
-            setLoading(false);
+    const fetchAppointments = useCallback(async (params = {}, forceRefresh = false) => {
+        const now = Date.now();
+        
+        // Usa cache se válido e não for refresh forçado
+        if (!forceRefresh && cache.appointments && cache.timestamp && (now - cache.timestamp < CACHE_DURATION)) {
+            if (isMounted.current) {
+                setAppointments(cache.appointments!);
+            }
+            return;
         }
+
+        // Se já está carregando, espera
+        if (cache.isLoading && cache.promise) {
+            await cache.promise;
+            if (isMounted.current) {
+                setAppointments(cache.appointments!);
+            }
+            return;
+        }
+
+        cache.isLoading = true;
+        if (isMounted.current) setLoading(true);
+
+        const loadPromise = (async () => {
+            try {
+                const response = await appointmentService.list(params);
+                if (isMounted.current) {
+                    setAppointments(response.data);
+                }
+                cache.appointments = response.data;
+                cache.timestamp = Date.now();
+            } catch (err) {
+                console.error('Erro ao buscar agendamentos:', err);
+                if (isMounted.current) {
+                    setError('Falha ao carregar agendamentos');
+                }
+            } finally {
+                cache.isLoading = false;
+                if (isMounted.current) setLoading(false);
+            }
+        })();
+
+        cache.promise = loadPromise;
+        await loadPromise;
+        cache.promise = null;
     }, []);
 
     const createAppointment = useCallback(async (data: CreateAppointmentParams) => {
@@ -34,6 +79,8 @@ export const useAppointments = () => {
             setLoading(true);
             setError(null);
             const response = await appointmentService.create(data);
+            // 🔹 Invalida cache e atualiza localmente
+            cache.timestamp = 0;
             setAppointments(prev => [...prev, response.data]);
             return response.data;
         } catch (error) {
@@ -45,14 +92,15 @@ export const useAppointments = () => {
     }, []);
 
     const updateAppointment = useCallback(async (id: string, data: UpdateAppointmentParams) => {
-
         try {
             setLoading(true);
             setError(null);
             const response = await appointmentService.update(id, data);
+            // 🔹 Invalida cache e atualiza localmente
+            cache.timestamp = 0;
             setAppointments(prev =>
                 prev
-                    .filter(a => a && a._id) // garante que não tem undefined/null
+                    .filter(a => a && a._id)
                     .map(a =>
                         a._id === id ? { ...a, ...response.data } : a
                     )
@@ -70,6 +118,8 @@ export const useAppointments = () => {
         try {
             setLoading(true);
             await appointmentService.delete(id);
+            // 🔹 Invalida cache e atualiza localmente
+            cache.timestamp = 0;
             setAppointments(prev => prev.filter(a => a._id !== id));
         } catch (error) {
             setError('Falha ao remover agendamento');

@@ -1,5 +1,5 @@
 // src/hooks/usePayment.ts
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   createPayment,
   DailyAbsence,
@@ -26,36 +26,84 @@ import { PaymentTotalsResponse } from '../utils/types/types';
 
 type PaymentFilters = Record<string, any>;
 
+// 🔹 Cache para evitar recarregamentos
+const cache = {
+  payments: null as FinancialRecord[] | null,
+  paymentTotals: null as PaymentTotalsResponse["data"] | null,
+  timestamp: 0,
+  totalsTimestamp: 0,
+  isLoading: false,
+  promise: null as Promise<any> | null
+};
+
+const CACHE_DURATION = 2 * 60 * 1000; // 2 minutos
+
 const usePayment = () => {
-  const [payments, setPayments] = useState<FinancialRecord[]>([]);
+  const [payments, setPayments] = useState<FinancialRecord[]>(cache.payments || []);
   const [payment, setPayment] = useState<FinancialRecord | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [dailyClosing, setDailyClosing] = useState<DailyClosingData | null>(null);
   const [dailySessions, setDailySessions] = useState<DailySession[]>([]);
   const [dailyPayments, setDailyPayments] = useState<DailyPayment[]>([]);
   const [dailyAbsences, setDailyAbsences] = useState<DailyAbsence[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(cache.isLoading);
   const [error, setError] = useState<string | null>(null);
-  const [paymentTotals, setPaymentTotals] = useState<PaymentTotalsResponse["data"] | null>(null);
+  const [paymentTotals, setPaymentTotals] = useState<PaymentTotalsResponse["data"] | null>(cache.paymentTotals);
   const [totalsFilters, setTotalsFilters] = useState<Record<string, any>>({});
+  
+  const isMounted = useRef(true);
 
-  // Buscar lista de pagamentos (com suporte a filtros)
-  // 🔹 Buscar lista de pagamentos via service
-  const fetchPayments = useCallback(async (filters: PaymentFilters = {}) => {
-    setLoading(true);
-    try {
-      const res = await getPayments(filters); 
-      const data = res.data?.data || res.data;
-      setPayments(data);
-      setError(null);
-      return data;
-    } catch (err) {
-      console.error('❌ Erro ao buscar pagamentos:', err);
-      setError('Erro ao buscar pagamentos');
-      throw err;
-    } finally {
-      setLoading(false);
+  // 🔹 Buscar lista de pagamentos via service (com cache)
+  const fetchPayments = useCallback(async (filters: PaymentFilters = {}, forceRefresh = false) => {
+    const now = Date.now();
+    
+    // Usa cache se válido e não for refresh forçado
+    if (!forceRefresh && cache.payments && cache.timestamp && (now - cache.timestamp < CACHE_DURATION)) {
+      if (isMounted.current) {
+        setPayments(cache.payments!);
+      }
+      return cache.payments;
     }
+
+    // Se já está carregando, espera
+    if (cache.isLoading && cache.promise) {
+      const data = await cache.promise;
+      if (isMounted.current) {
+        setPayments(data);
+      }
+      return data;
+    }
+
+    cache.isLoading = true;
+    if (isMounted.current) setLoading(true);
+
+    const loadPromise = (async () => {
+      try {
+        const res = await getPayments(filters); 
+        const data = res.data?.data || res.data;
+        if (isMounted.current) {
+          setPayments(data);
+          setError(null);
+        }
+        cache.payments = data;
+        cache.timestamp = Date.now();
+        return data;
+      } catch (err) {
+        console.error('❌ Erro ao buscar pagamentos:', err);
+        if (isMounted.current) {
+          setError('Erro ao buscar pagamentos');
+        }
+        throw err;
+      } finally {
+        cache.isLoading = false;
+        if (isMounted.current) setLoading(false);
+      }
+    })();
+
+    cache.promise = loadPromise;
+    const result = await loadPromise;
+    cache.promise = null;
+    return result;
   }, []);
 
 
@@ -79,6 +127,9 @@ const usePayment = () => {
     setLoading(true);
     try {
       const newPayment = await createPayment(paymentData);
+      // 🔹 Invalida cache
+      cache.timestamp = 0;
+      cache.totalsTimestamp = 0;
       setPayments(prev => [...prev, newPayment]);
       setError(null);
       return newPayment;
@@ -91,7 +142,7 @@ const usePayment = () => {
     }
   }, []);
 
-  // 📊 Buscar totais financeiros detalhados com filtros dinâmicos
+  // 📊 Buscar totais financeiros detalhados com filtros dinâmicos (com cache)
   const fetchPaymentTotals = useCallback(
     async (filters: {
       period?: 'day' | 'week' | 'month' | 'year' | 'custom' | 'all';
@@ -101,31 +152,57 @@ const usePayment = () => {
       paymentMethod?: string;
       serviceType?: string;
       status?: 'paid' | 'pending' | 'partial';
-    } = {}) => {
-      setLoading(true);
+    } = {}, forceRefresh = false) => {
+      const now = Date.now();
+      const cacheKey = JSON.stringify(filters);
+      
+      // Só usa cache se for o mesmo período padrão (month)
+      if (!forceRefresh && 
+          (!filters.period || filters.period === 'month') && 
+          cache.paymentTotals && 
+          cache.totalsTimestamp && 
+          (now - cache.totalsTimestamp < CACHE_DURATION)) {
+        if (isMounted.current) {
+          setPaymentTotals(cache.paymentTotals);
+        }
+        return;
+      }
+
+      if (isMounted.current) setLoading(true);
       try {
         const res = await getPaymentTotals(filters);
-        setPaymentTotals(res.data.data?.totals || res.data.totals || res.data);
-        setTotalsFilters(res.filters || {});
-        setError(null);
+        const data = res.data.data?.totals || res.data.totals || res.data;
+        if (isMounted.current) {
+          setPaymentTotals(data);
+          setTotalsFilters(res.filters || {});
+          setError(null);
+        }
+        // Só guarda no cache se for período padrão
+        if (!filters.period || filters.period === 'month') {
+          cache.paymentTotals = data;
+          cache.totalsTimestamp = Date.now();
+        }
       } catch (err) {
         console.error("❌ Erro ao buscar totais financeiros:", err);
-        setError("Erro ao buscar totais financeiros");
+        if (isMounted.current) {
+          setError("Erro ao buscar totais financeiros");
+        }
       } finally {
-        setLoading(false);
+        if (isMounted.current) setLoading(false);
       }
     },
     []
   );
 
   // Atualizar pagamento 
-  // src/hooks/usePayment.ts
-  // ...
   const markAsPaid = useCallback(async (id: string): Promise<FinancialRecord> => {
     setLoading(true);
     try {
-      const res = await markPaymentAsPaid(id); // service
-      const updated = (res as any)?.data?.data ?? (res as any)?.data ?? res; // normaliza
+      const res = await markPaymentAsPaid(id);
+      const updated = (res as any)?.data?.data ?? (res as any)?.data ?? res;
+      // 🔹 Invalida cache
+      cache.timestamp = 0;
+      cache.totalsTimestamp = 0;
       setPayments(prev => prev.map(p => (p._id === id ? updated : p)));
       if (payment && payment._id === id) setPayment(updated);
       setError(null);

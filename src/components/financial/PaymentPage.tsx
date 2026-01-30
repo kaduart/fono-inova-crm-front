@@ -63,8 +63,13 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
         fetchPaymentTotals,
     } = usePayment();
 
-    // 🔹 Carregar dados iniciais
+    // 🔹 Carregar dados iniciais - apenas se não tiver initialPayments
     useEffect(() => {
+        // Se já temos initialPayments, não precisamos carregar tudo de novo
+        if (initialPayments && initialPayments.length > 0) {
+            return;
+        }
+        
         const loadData = async () => {
             try {
                 await fetchPayments();
@@ -74,7 +79,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
             }
         };
         loadData();
-    }, [fetchPayments, fetchPaymentTotals]);
+    }, [fetchPayments, fetchPaymentTotals, initialPayments]);
 
     // 🔹 Carregar role do usuário
     useEffect(() => {
@@ -122,8 +127,14 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
         onPaymentRefresh: () => fetchPaymentTotals({ period: 'month' }),
     });
 
-    // 🔹 Carregar todos os pagamentos
+    // 🔹 Carregar todos os pagamentos - apenas se não tiver initialPayments
     useEffect(() => {
+        // Se já temos initialPayments, não precisamos carregar novamente
+        if (initialPayments && initialPayments.length > 0) {
+            setAllPayments(initialPayments);
+            return;
+        }
+        
         const loadAll = async () => {
             setLoading(true);
             try {
@@ -138,7 +149,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
             }
         };
         loadAll();
-    }, [fetchPaymentTotals]);
+    }, [fetchPaymentTotals, initialPayments]);
 
     const handleEditAmount = (paymentId: string) => {
         const payment = allPayments.find(p => p._id === paymentId);
