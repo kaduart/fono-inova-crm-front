@@ -570,7 +570,6 @@ export default function AdminDashboard() {
                 onLogout={handleLogout}
             />
 
-
             <main className="max-w-[95%] lg:max-w-[85rem] mx-auto px-8 py-0">
 
                 {/* <div className="mb-6 flex justify-between items-center">
