@@ -1,11 +1,12 @@
 import { Paper, Typography, useTheme } from '@mui/material';
-import { BarChart3 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { ErrorResponse, useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { BarChart3 } from "lucide-react";
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { IPatient, ScheduleAppointment } from '../../utils/types/types';
 import { useAppointmentsContext } from '../contexts/AppointmentsContext';
-import { useChatNavigation } from '../contexts/ChatNavigationContext';
+import { useChatNavigation } from "../contexts/ChatNavigationContext";
 import { useAdmin } from '../hooks/useAdmin';
+import { useDashboard } from '../hooks/useDashboard';
 import useDoctorDashboard from '../hooks/useDoctorDashboard';
 import { usePatients } from '../hooks/usePatients';
 import usePayment from '../hooks/usePayment';
@@ -14,10 +15,9 @@ import FollowupPage from '../pages/FollowupPage';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
 import { CreateDoctorParams } from '../services/doctorService';
 import { createPayment, FinancialRecord, getPayments, updatePayment } from '../services/paymentService';
-import { IPatient, ScheduleAppointment } from '../utils/types/types';
 import AddAdminContent from './admin/AddAdminContent';
 import AdminHeader from './admin/AdminHeader';
-import DashboardContent from './admin/DashboardContent';
+import DashboardContentOptimized from './admin/DashboardContentOptimized';
 import ProfileContent from './admin/ProfileContent';
 import EnhancedCalendar from './calendar/EnhancedCalendar';
 import SiteAnalyticsDashboard from './Dashboard/SiteAnalyticsDashboard';
@@ -76,9 +76,7 @@ export default function AdminDashboard() {
     const [openMenu, setOpenMenu] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [showAdminPassword, setShowAdminPassword] = useState(false);
-    const [totalDoctors, setTotalDoctors] = useState(0);
-    const [doctorOverview, setDoctorOverview] = useState([]);
-    const [upcomingAppointments, setUpcomingAppointments] = useState([]);
+    // Estado local apenas para capacidade (valor fixo)
     const [hospitalCapacity] = useState(150);
     const [closeModalSignal, setCloseModalSignal] = useState(0);
     const [openModal, setOpenModal] = useState(false);
@@ -123,13 +121,36 @@ export default function AdminDashboard() {
         payment?: FinancialRecord;
     }>({ mode: 'create' });
     const [showAdvancedPayment, setShowAdvancedPayment] = useState(false);
+
+    // 🗓️ Estado para controle do range de datas do calendário
+    const [calendarDateRange, setCalendarDateRange] = useState<{ startDate?: string; endDate?: string }>({});
+
     const navigate = useNavigate();
     const theme = useTheme();
 
-    const { patients, totalPatients, patientOverview, fetchPatients, updatePatient, createPatient } = usePatients();
-    const { doctors, createDoctor, updateDoctor } = useDoctorDashboard();
-    const { adminInfo, editedInfo, setEditedInfo, completedAppointments, loading, fetchAdminProfile, fetchCompletedAppointments, updateAdminProfile, addNewAdmin } = useAdmin();
+    // 🎯 Hook otimizado do dashboard (substitui múltiplas chamadas)
+    const {
+        stats,
+        doctors: doctorsOverview,
+        upcomingAppointments: upcomingAppts,
+        loading: dashboardLoading,
+        refresh: refreshDashboard
+    } = useDashboard();
 
+    const { patients, totalPatients, fetchPatients, updatePatient, createPatient } = usePatients();
+    const { doctors, createDoctor, updateDoctor } = useDoctorDashboard();
+    const { adminInfo, editedInfo, setEditedInfo, loading, fetchAdminProfile, fetchCompletedAppointments, updateAdminProfile, addNewAdmin } = useAdmin();
+
+    // Debug logs - mostrar quando os dados mudam (DEPOIS de declarar patients)
+    useEffect(() => {
+        console.log('🏥 AdminDashboard data changed:', {
+            dashboardLoading,
+            statsTotalPatients: stats?.totalPatients,
+            doctorsCount: doctorsOverview?.length,
+            upcomingApptsCount: upcomingAppts?.length,
+            patientsCount: patients?.length
+        });
+    }, [dashboardLoading, stats, doctorsOverview, upcomingAppts, patients]);
 
     const {
         appointments,
@@ -144,13 +165,28 @@ export default function AdminDashboard() {
 
     const { markAsPaid } = usePayment();
 
+    // 🗓️ Buscar appointments quando o range de datas mudar
     useEffect(() => {
-        fetchAppointments();
-    }, [fetchAppointments]);
+        // Só buscar se tiver datas definidas (evita fetch vazio no primeiro render)
+        if (!calendarDateRange.startDate || !calendarDateRange.endDate) {
+            console.log('🏥 AdminDashboard: Aguardando calendarDateRange ser definido');
+            return;
+        }
+        console.log('🏥 AdminDashboard: Buscando appointments com filtros:', calendarDateRange);
+        fetchAppointments(calendarDateRange);
+    }, [fetchAppointments, calendarDateRange]);
 
     useEffect(() => {
         fetchPatients();
     }, [fetchPatients]);
+
+    // 🔄 Refresh dashboard quando mudar de aba para Dashboard
+    useEffect(() => {
+        if (activeTab === 'Dashboard') {
+            refreshDashboard();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab]); // Removido refreshDashboard das dependências para evitar loop
 
     const toggleMenu = (menuName: string) => {
         setOpenMenu(menuName);
@@ -269,7 +305,7 @@ export default function AdminDashboard() {
 
         try {
             await createAppointment(payload);
-            await fetchAppointments();
+            await fetchAppointments(calendarDateRange);
             setCloseModalSignal(prev => prev + 1);
             toast.success('Agendamento criado com sucesso!');
         } catch (error: any) {
@@ -285,7 +321,7 @@ export default function AdminDashboard() {
             };
             await cancelAppointment(appointmentId, cancelParams);
             toast.success('Agendamento cancelado!');
-            fetchAppointments();
+            fetchAppointments(calendarDateRange);
             setCloseModalSignal(prev => prev + 1);
         } catch (error) {
             const errorResponse = error.response.data.error as ErrorResponse;
@@ -298,7 +334,7 @@ export default function AdminDashboard() {
             console.log('bateu no paiii')
             await completeAppointment(appointmentId);
             toast.success('Agendamento marcado como concluído!');
-            fetchAppointments();
+            fetchAppointments(calendarDateRange);
             setCloseModalSignal(prev => prev + 1);
         } catch (error) {
             console.log('Erro ao Completar agendamento:', error);
@@ -311,7 +347,7 @@ export default function AdminDashboard() {
         try {
             await updateAppointment(appointmentId, updatedData);
             toast.success('Agendamento atualizado!');
-            fetchAppointments();
+            fetchAppointments(calendarDateRange);
             setCloseModalSignal(prev => prev + 1); // ✅ só fecha se sucesso
         } catch (error: any) {
             console.error('Erro ao editar agendamento:', error);
@@ -385,7 +421,7 @@ export default function AdminDashboard() {
         try {
             if (paymentContext.payment?._id) {
                 await updatePayment(paymentContext.payment._id, data);
-                fetchAppointments();
+                fetchAppointments(calendarDateRange);
                 toast.success('Pagamento atualizado com sucesso!');
 
                 setTimeout(() => {
@@ -420,7 +456,7 @@ export default function AdminDashboard() {
         try {
             await markAsPaid(payment._id);        // <- não existe response.ok aqui
             toast.success('Pagamento marcado como pago!');
-            await Promise.all([loadPayments(), fetchAppointments()]);
+            await Promise.all([loadPayments(), fetchAppointments(calendarDateRange)]);
         } catch (error: any) {
             console.error('Erro ao marcar pagamento:', error);
             console.log('Erro ao marcar pagamentosssssssss:', error);
@@ -462,17 +498,42 @@ export default function AdminDashboard() {
         });
     };
 
+    // 🗓️ Handler para quando o usuário muda de mês no calendário
+    const handleMonthChange = useCallback((startDate: Date, endDate: Date) => {
+        const formatDateForAPI = (date: Date): string => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+        const startDateStr = formatDateForAPI(startDate);
+        const endDateStr = formatDateForAPI(endDate);
+
+        // ✅ FIX: Apenas atualiza o estado - o useEffect cuidará do fetch
+        setCalendarDateRange(prev => {
+            if (prev.startDate === startDateStr && prev.endDate === endDateStr) {
+                console.log('🏥 AdminDashboard: Range igual, ignorando');
+                return prev;
+            }
+            console.log('🏥 AdminDashboard: Atualizando calendarDateRange', {
+                startDate: startDateStr,
+                endDate: endDateStr
+            });
+            return { startDate: startDateStr, endDate: endDateStr };
+        });
+    }, []);  // ✅ Removido fetchAppointments das dependências
+
     const renderContent = () => {
         switch (activeTab) {
             case 'Dashboard':
                 return (
-                    <DashboardContent
+                    <DashboardContentOptimized
+                        stats={stats}
+                        doctors={doctorsOverview}
+                        upcomingAppointments={upcomingAppts}
                         patients={patients}
-                        totalPatients={totalPatients}
-                        totalDoctors={doctors.length}
-                        hospitalCapacity={hospitalCapacity}
-                        doctorOverview={doctorOverview}
-                        upcomingAppointments={upcomingAppointments}
+                        loading={dashboardLoading}
+                        onRefresh={refreshDashboard}
                         handleAddProfessional={handleAddProfessional}
                         handleAddPatient={handleAddPatient}
                         setPatientToEdit={setPatientToEdit}
@@ -522,6 +583,7 @@ export default function AdminDashboard() {
                         onCompleteAppointment={handleCompleteAppointment}
                         onEditAppointment={handleEditAppointment}
                         onFetchAvailableSlots={handleFetchAvailableSlots}
+                        onMonthChange={handleMonthChange}
                         openModalAppointment={openModalAppointment}
                         closeModalSignal={closeModalSignal}
                     />

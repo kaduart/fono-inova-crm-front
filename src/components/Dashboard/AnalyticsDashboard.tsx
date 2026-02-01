@@ -3,10 +3,10 @@ import { Box, Paper, Tab, Tabs, Typography, useTheme } from '@mui/material';
 import { Activity, BarChart3, Globe2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import MarketingDashboard from '../../pages/MarketingDashboard';
+// import MarketingDashboard from '../../pages/MarketingDashboard';
 import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
-import RevenueTab from './RevenueTab';
+// import RevenueTab from './RevenueTab';
 import SiteAnalyticsDashboard from './SiteAnalyticsDashboard';
 
 interface AnalyticsDashboardProps {
@@ -203,14 +203,9 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     )}
 
                     {tab === 'revenue' && (
-                        <RevenueTab
-                            patients={patients}
-                            doctors={doctors}
-                            payments={payments}
-                            onMarkAsPaid={onMarkAsPaid}
-                            registerAppointmentAndPayemntFuture={registerAppointmentAndPayemntFuture}
-                            onCancelPayment={onCancelPayment}
-                        />
+                        <Box sx={{ mt: 2, p: 3 }}>
+                            <Typography variant="h6">Aba de Receitas em desenvolvimento</Typography>
+                        </Box>
                     )}
 
                     {tab === 'site' && (
@@ -220,8 +215,8 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     )}
 
                     {tab === 'marketing' && (
-                        <Box sx={{ mt: 1 }}>
-                            <MarketingDashboard />
+                        <Box sx={{ mt: 2, p: 3 }}>
+                            <Typography variant="h6">Marketing Dashboard em desenvolvimento</Typography>
                         </Box>
                     )}
                 </Box>

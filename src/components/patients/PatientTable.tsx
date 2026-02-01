@@ -68,19 +68,21 @@ const mockPatients = [
     }
 ];
 
-const PatientTable = ({ patients = mockPatients, onEditPatient, onPaymentAdvancedSuccess, onRegisterPayment }) => {
+const PatientTable = ({ patients = [], onEditPatient, onPaymentAdvancedSuccess, onRegisterPayment }) => {
+    // ✅ TODOS os hooks devem ser declarados ANTES de qualquer early return
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(5);
     const [expandedRows, setExpandedRows] = useState({});
     const [loading, setLoading] = useState(false);
-
     const [sortConfig, setSortConfig] = useState({
         key: "nextAppointment",
         direction: "ascending",
     });
-
+    
+    // ✅ useMemo também deve vir antes do early return
     const sortedPatients = useMemo(() => {
+        if (!patients || patients.length === 0) return [];
         const sortablePatients = [...patients];
 
         sortablePatients.sort((a, b) => {
@@ -101,6 +103,22 @@ const PatientTable = ({ patients = mockPatients, onEditPatient, onPaymentAdvance
 
         return sortablePatients;
     }, [patients, sortConfig]);
+    
+    // Debug log
+    console.log('👥 PatientTable recebeu:', { patientsCount: patients?.length || 0 });
+
+    // Se não houver pacientes, mostra mensagem (DEPOIS de todos os hooks)
+    if (!patients || patients.length === 0) {
+        return (
+            <Card className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                <div className="text-gray-400 mb-4">
+                    <User className="w-16 h-16 mx-auto" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-600 mb-2">Nenhum paciente encontrado</h3>
+                <p className="text-gray-500">Os dados dos pacientes estão sendo carregados...</p>
+            </Card>
+        );
+    }
 
     const filteredPatients = sortedPatients.filter((patient) => {
         const term = searchTerm.toLowerCase();
@@ -233,8 +251,9 @@ const PatientTable = ({ patients = mockPatients, onEditPatient, onPaymentAdvance
 
                             <tbody className="bg-white divide-y divide-gray-100">
                                 {paginatedPatients.map((patient) => (
-                                    <React.Fragment key={patient._id}>
+                                    <>
                                         <tr
+                                            key={`row-${patient._id}`}
                                             className="hover:bg-blue-50 transition-all duration-150 cursor-pointer group"
                                             onClick={() => toggleRow(patient._id)}
                                         >
@@ -256,7 +275,7 @@ const PatientTable = ({ patients = mockPatients, onEditPatient, onPaymentAdvance
                                             </td>
 
                                             <td className="px-6 py-5">
-                                                {patient.dateOfBirth ? (
+                                                {patient.healthPlan?.name ? (
                                                     <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-orange-100 to-orange-50 text-orange-700 px-3 py-1.5 rounded-lg text-sm font-medium shadow-sm">
                                                         <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
                                                         {patient.healthPlan.name}
@@ -338,7 +357,7 @@ const PatientTable = ({ patients = mockPatients, onEditPatient, onPaymentAdvance
 
                                         {
                                             expandedRows[patient._id] && (
-                                                <tr className="bg-gradient-to-r from-blue-50 to-indigo-50">
+                                                <tr key={`expanded-${patient._id}`} className="bg-gradient-to-r from-blue-50 to-indigo-50">
                                                     <td colSpan={6} className="px-6 py-6">
                                                         <div className="bg-white rounded-xl p-5 shadow-sm border border-blue-100">
                                                             <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
@@ -363,12 +382,13 @@ const PatientTable = ({ patients = mockPatients, onEditPatient, onPaymentAdvance
                                                 </tr>
                                             )
                                         }
-                                    </React.Fragment>
+                                    </>
                                 ))}
 
                             </tbody>
-                            <tr className="bg-gray-50">
-                                <td colSpan={6} className="px-6 py-4">
+                            <tfoot>
+                                <tr className="bg-gray-50">
+                                    <td colSpan={6} className="px-6 py-4">
                                     <span className="text-sm m-2 text-gray-500">
                                         Mostrando {startIndex + 1} - {Math.min(startIndex + itemsPerPage, filteredPatients.length)} de {filteredPatients.length}
                                     </span>
@@ -423,7 +443,8 @@ const PatientTable = ({ patients = mockPatients, onEditPatient, onPaymentAdvance
                                         </div>
                                     </div>
                                 </td>
-                            </tr>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>

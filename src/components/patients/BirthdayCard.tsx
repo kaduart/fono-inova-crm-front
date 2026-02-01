@@ -23,12 +23,25 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 
-const BirthdayCard = ({ patients }) => {
+const BirthdayCard = ({ patients = [] }) => {
     const [anchorEl, setAnchorEl] = useState(null);
     const [selectedPatient, setSelectedPatient] = useState(null);
     const [viewMode, setViewMode] = useState('month'); // 'month' or 'upcoming'
 
     const today = new Date();
+    
+    // Debug log
+    console.log('🎂 BirthdayCard recebeu:', { patientsCount: patients?.length || 0 });
+
+    // Se não houver pacientes, retorna mensagem
+    if (!patients || patients.length === 0) {
+        return (
+            <Box sx={{ textAlign: 'center', p: 4, color: 'text.secondary' }}>
+                <Cake size={48} style={{ opacity: 0.3, marginBottom: 16 }} />
+                <Typography variant="body1">Carregando aniversariantes...</Typography>
+            </Box>
+        );
+    }
 
     // 🎂 Função para formatar a data de nascimento
     const formatBirthday = (dateString) => {

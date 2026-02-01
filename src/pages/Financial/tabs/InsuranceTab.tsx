@@ -73,7 +73,8 @@ const InsuranceTab = () => {
         grossAmount: 0,
         authorizationCode: '',
         serviceType: 'session',
-        notes: ''
+        notes: '',
+        paymentDate: new Date().toISOString().split('T')[0] // ✅ Data padrão: hoje
     });
 
     // Modal de recebimento
@@ -120,7 +121,7 @@ const InsuranceTab = () => {
 
     // Criar novo atendimento convênio
     const handleCreateInsurance = async () => {
-        if (!formData.patientId || !formData.doctorId || !formData.insuranceProvider || !formData.grossAmount) {
+        if (!formData.patientId || !formData.doctorId || !formData.insuranceProvider || !formData.grossAmount || !formData.paymentDate) {
             toast.warn('Preencha todos os campos obrigatórios');
             return;
         }
@@ -137,7 +138,8 @@ const InsuranceTab = () => {
                 grossAmount: 0,
                 authorizationCode: '',
                 serviceType: 'session',
-                notes: ''
+                notes: '',
+                paymentDate: new Date().toISOString().split('T')[0]
             });
             loadReceivables();
         } catch (error: any) {
@@ -374,6 +376,16 @@ const InsuranceTab = () => {
                 </DialogTitle>
                 <DialogContent>
                     <div className="space-y-4 pt-2">
+                        <TextField
+                            fullWidth
+                            type="date"
+                            label="Data do Atendimento *"
+                            value={formData.paymentDate}
+                            onChange={(e) => setFormData({ ...formData, paymentDate: e.target.value })}
+                            InputLabelProps={{ shrink: true }}
+                            required
+                        />
+
                         <FormControl fullWidth>
                             <InputLabel>Paciente *</InputLabel>
                             <Select

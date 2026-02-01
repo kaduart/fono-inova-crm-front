@@ -364,32 +364,35 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                     )}
                                 </div>
                                 
+                                {/* Mostrar dados quando carregados */}
                                 {paymentTotals && (
-                                    <FinancialSummaryCard
-                                        data={{
-                                            totalReceived: paymentTotals.totalReceived || 0,
-                                            totalPending: paymentTotals.totalPending || 0,
-                                            countReceived: paymentTotals.countReceived || 0,
-                                            countPending: paymentTotals.countPending || 0,
-                                            // 🏥 Produção de Convênios
-                                            totalInsuranceProduction: paymentTotals.totalInsuranceProduction || 0,
-                                            totalInsuranceReceived: paymentTotals.totalInsuranceReceived || 0,
-                                            totalInsurancePending: paymentTotals.totalInsurancePending || 0,
-                                            countInsuranceTotal: paymentTotals.countInsuranceTotal || 0,
-                                            countInsuranceReceived: paymentTotals.countInsuranceReceived || 0,
-                                            countInsurancePending: paymentTotals.countInsurancePending || 0,
-                                            totalCombined: paymentTotals.totalCombined || 0,
-                                        }}
-                                    />
-                                )}
-                                
-                                {!paymentTotals && !loading && (
-                                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-                                        <p className="text-yellow-700 text-sm">
-                                            Selecione um período acima para visualizar o resumo financeiro.
-                                        </p>
-                                    </div>
-                                )}
+                                <FinancialSummaryCard
+                                    data={{
+                                        totalReceived: paymentTotals.totalReceived || 0,
+                                        totalPending: paymentTotals.totalPending || 0,
+                                        countReceived: paymentTotals.countReceived || 0,
+                                        countPending: paymentTotals.countPending || 0,
+                                        // 🏥 Produção de Convênios
+                                        totalInsuranceProduction: paymentTotals.totalInsuranceProduction || 0,
+                                        totalInsuranceReceived: paymentTotals.totalInsuranceReceived || 0,
+                                        totalInsurancePending: paymentTotals.totalInsurancePending || 0,
+                                        countInsuranceTotal: paymentTotals.countInsuranceTotal || 0,
+                                        countInsuranceReceived: paymentTotals.countInsuranceReceived || 0,
+                                        countInsurancePending: paymentTotals.countInsurancePending || 0,
+                                        totalCombined: paymentTotals.totalCombined || 0,
+                                    }}
+                                />
+                            </div>
+                        )}
+                        
+                        {/* Mensagem quando não há dados */}
+                        {!paymentTotals && !loading && (
+                            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+                                <p className="text-yellow-700 text-sm">
+                                    Selecione um período acima para visualizar o resumo financeiro.
+                                </p>
+                            </div>
+                        )}
                             </div>
                         )}
 

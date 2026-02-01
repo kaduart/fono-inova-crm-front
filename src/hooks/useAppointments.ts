@@ -4,6 +4,7 @@ import appointmentService, {
     AvailableSlotsParams,
     CancelParams,
     CreateAppointmentParams,
+    PaginationParams,
     RescheduleParams,
     UpdateAppointmentParams
 } from '../services/appointmentService';
@@ -24,54 +25,31 @@ export const useAppointments = () => {
     const [loading, setLoading] = useState(cache.isLoading);
     const [error, setError] = useState<string | null>(null);
     const [availableSlots, setAvailableSlots] = useState<string[]>([]);
-    
+
     const isMounted = useRef(true);
 
-    const fetchAppointments = useCallback(async (params = {}, forceRefresh = false) => {
-        const now = Date.now();
-        
-        // Usa cache se válido e não for refresh forçado
-        if (!forceRefresh && cache.appointments && cache.timestamp && (now - cache.timestamp < CACHE_DURATION)) {
-            if (isMounted.current) {
-                setAppointments(cache.appointments!);
-            }
-            return;
+    // ✅ FIX: fetchAppointments usando appointmentService.list() corretamente
+    const fetchAppointments = useCallback(async (filters?: { startDate?: string; endDate?: string }) => {
+        try {
+            console.log('📋 AppointmentsContext: Buscando appointments com filtros:', filters);
+
+            // Converter strings para Date objects (como o service espera)
+            const params: PaginationParams = {
+                limit: 500,
+                ...(filters?.startDate && { startDate: new Date(filters.startDate) }),
+                ...(filters?.endDate && { endDate: new Date(filters.endDate) }),
+            };
+
+            console.log('📋 AppointmentsContext: Params para API:', params);
+
+            const response = await appointmentService.list(params);
+
+            console.log('📋 AppointmentsContext: Response:', response.data);
+            setAppointments(response.data.data || response.data || []);
+        } catch (error) {
+            console.error('❌ Erro ao buscar appointments:', error);
+            // Fallback silencioso ou usar notificação global se disponível
         }
-
-        // Se já está carregando, espera
-        if (cache.isLoading && cache.promise) {
-            await cache.promise;
-            if (isMounted.current) {
-                setAppointments(cache.appointments!);
-            }
-            return;
-        }
-
-        cache.isLoading = true;
-        if (isMounted.current) setLoading(true);
-
-        const loadPromise = (async () => {
-            try {
-                const response = await appointmentService.list(params);
-                if (isMounted.current) {
-                    setAppointments(response.data);
-                }
-                cache.appointments = response.data;
-                cache.timestamp = Date.now();
-            } catch (err) {
-                console.error('Erro ao buscar agendamentos:', err);
-                if (isMounted.current) {
-                    setError('Falha ao carregar agendamentos');
-                }
-            } finally {
-                cache.isLoading = false;
-                if (isMounted.current) setLoading(false);
-            }
-        })();
-
-        cache.promise = loadPromise;
-        await loadPromise;
-        cache.promise = null;
     }, []);
 
     const createAppointment = useCallback(async (data: CreateAppointmentParams) => {

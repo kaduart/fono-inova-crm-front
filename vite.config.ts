@@ -27,12 +27,52 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks: {
-            mui: ['@mui/material', '@mui/icons-material'],
-            react: ['react', 'react-dom', 'react-router-dom']
+            // Vendor chunks - bibliotecas grandes que mudam pouco
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-mui': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
+            'vendor-charts': ['recharts', 'chart.js', 'react-chartjs-2'],
+            'vendor-calendar': ['@fullcalendar/core', '@fullcalendar/react', '@fullcalendar/daygrid', '@fullcalendar/timegrid', '@fullcalendar/interaction'],
+            'vendor-forms': ['react-hook-form', 'zod'],
+            'vendor-utils': ['axios', 'date-fns', 'dayjs', 'moment', 'moment-timezone'],
+            'vendor-ui': ['framer-motion', 'lucide-react', '@radix-ui/react-tabs', '@radix-ui/react-tooltip'],
+
+            // Dynamic imports para features pesadas
+            'feature-analytics': ['./src/components/Dashboard/SiteAnalyticsDashboard.tsx', './src/components/Dashboard/AnalyticsDashboard.tsx'],
+            'feature-calendar': ['./src/components/calendar/EnhancedCalendar.tsx'],
+            'feature-chat': ['./src/components/mkt/whatsapp/AppChat.tsx', './src/components/mkt/whatsapp/ContactsPage.tsx'],
+            'feature-financial': ['./src/pages/Financial/FinancialDashboard.tsx', './src/components/financial/PaymentPage.tsx'],
+            'feature-doctors': ['./src/components/ManageDoctors/ManageDoctors.tsx', './src/components/ManageDoctors/DoctorAgenda.tsx']
           },
-          chunkFileNames: 'assets/[name]-[hash].js'
+          chunkFileNames: (chunkInfo) => {
+            // Nomear chunks de forma previsível para debugging
+            const name = chunkInfo.name || 'chunk';
+            if (name.startsWith('vendor-')) {
+              return `assets/vendor/[name]-[hash].js`;
+            }
+            if (name.startsWith('feature-')) {
+              return `assets/features/[name]-[hash].js`;
+            }
+            return `assets/[name]-[hash].js`;
+          },
+          assetFileNames: (assetInfo) => {
+            const info = assetInfo.name || '';
+            if (info.endsWith('.css')) {
+              return 'assets/styles/[name]-[hash][extname]';
+            }
+            if (/\.(png|jpe?g|gif|svg|webp|ico)$/.test(info)) {
+              return 'assets/images/[name]-[hash][extname]';
+            }
+            if (/\.(woff2?|ttf|otf|eot)$/.test(info)) {
+              return 'assets/fonts/[name]-[hash][extname]';
+            }
+            return 'assets/[name]-[hash][extname]';
+          }
         }
-      }
+      },
+      // Otimizações de build
+      minify: 'esbuild',
+      sourcemap: false, // Desabilitar em produção para builds menores
+      reportCompressedSize: false // Desabilitar relatório para builds mais rápidos
     },
     server: {
       port: 5173,
@@ -40,8 +80,8 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': {
           target: baseUrl,
-    changeOrigin: true,
-    rewrite: (path) => path, 
+          changeOrigin: true,
+          rewrite: (path) => path,
         }
       }
     },

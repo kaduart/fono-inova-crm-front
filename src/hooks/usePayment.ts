@@ -22,14 +22,14 @@ import {
   Summary
 } from '../services/paymentService';
 import { DailyClosingData } from '../utils/types/daily-closing-model';
-import { PaymentTotalsResponse } from '../utils/types/types';
+import { PaymentTotals, PaymentTotalsResponse } from '../utils/types/types';
 
 type PaymentFilters = Record<string, any>;
 
 // 🔹 Cache para evitar recarregamentos
 const cache = {
   payments: null as FinancialRecord[] | null,
-  paymentTotals: null as PaymentTotalsResponse["data"] | null,
+  paymentTotals: null as PaymentTotals | null,
   timestamp: 0,
   totalsTimestamp: 0,
   isLoading: false,
@@ -48,7 +48,7 @@ const usePayment = () => {
   const [dailyAbsences, setDailyAbsences] = useState<DailyAbsence[]>([]);
   const [loading, setLoading] = useState(cache.isLoading);
   const [error, setError] = useState<string | null>(null);
-  const [paymentTotals, setPaymentTotals] = useState<PaymentTotalsResponse["data"] | null>(cache.paymentTotals);
+  const [paymentTotals, setPaymentTotals] = useState<PaymentTotals | null>(cache.paymentTotals);
   const [totalsFilters, setTotalsFilters] = useState<Record<string, any>>({});
   
   const isMounted = useRef(true);
@@ -171,7 +171,9 @@ const usePayment = () => {
       if (isMounted.current) setLoading(true);
       try {
         const res = await getPaymentTotals(filters);
+        console.log("📊 Resposta do /totals:", res.data);
         const data = res.data.data?.totals || res.data.totals || res.data;
+        console.log("📊 Dados extraídos:", data);
         if (isMounted.current) {
           setPaymentTotals(data);
           setTotalsFilters(res.filters || {});

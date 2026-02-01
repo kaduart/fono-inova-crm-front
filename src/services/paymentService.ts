@@ -138,7 +138,7 @@ export interface InsurancePaymentData {
     insuranceProvider: string;
     grossAmount: number;
     authorizationCode?: string;
-    paymentDate?: string;
+    paymentDate?: string;  // Data do atendimento
     notes?: string;
 }
 

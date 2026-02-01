@@ -64,6 +64,11 @@ export const usePatients = () => {
                     setPatients(patientsData);
                     setTotalPatients(totalData.totalPatients);
                     setPatientOverview(overviewData);
+                    
+                    console.log('✅ usePatients: Dados carregados:', {
+                        patientsCount: patientsData?.length || 0,
+                        totalPatients: totalData?.totalPatients
+                    });
                 }
 
                 // Atualiza o cache

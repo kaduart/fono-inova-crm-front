@@ -159,8 +159,8 @@ export const appointmentService = {
                 doctorId: params.doctorId,
                 patientId: params.patientId,
                 sessionType: params.sessionType,
-                startDate: params.startDate?.toISOString(),
-                endDate: params.endDate?.toISOString()
+                startDate: params.startDate,
+                endDate: params.endDate
             }
         });
     },
@@ -208,8 +208,8 @@ export const appointmentService = {
                 page: params.page || 1,
                 limit: params.limit || 10,
                 status: params.status,
-                startDate: params.startDate?.toISOString(),
-                endDate: params.endDate?.toISOString()
+                startDate: params.startDate,
+                endDate: params.endDate
             }
         });
     },
