@@ -2,6 +2,7 @@ import { Paper, Typography, useTheme } from '@mui/material';
 import { BarChart3 } from "lucide-react";
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { IPatient, ScheduleAppointment } from '../../utils/types/types';
 import { useAppointmentsContext } from '../contexts/AppointmentsContext';
 import { useChatNavigation } from "../contexts/ChatNavigationContext";
