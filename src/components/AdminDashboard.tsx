@@ -324,8 +324,9 @@ export default function AdminDashboard() {
             fetchAppointments(calendarDateRange);
             setCloseModalSignal(prev => prev + 1);
         } catch (error) {
-            const errorResponse = error.response.data.error as ErrorResponse;
+            const errorResponse = error.response?.data?.error || 'Erro ao cancelar agendamento';
             toast.error(errorResponse);
+            throw error;
         }
     };
 
@@ -338,8 +339,9 @@ export default function AdminDashboard() {
             setCloseModalSignal(prev => prev + 1);
         } catch (error) {
             console.log('Erro ao Completar agendamento:', error);
-            const errorResponse = error.response.data.message as ErrorResponse;
+            const errorResponse = error.response?.data?.message || 'Erro ao completar agendamento';
             toast.error(errorResponse);
+            throw error;
         }
     };
 
@@ -357,7 +359,7 @@ export default function AdminDashboard() {
 
             if (!errorData) {
                 toast.error('Erro de conexão com o servidor');
-                return; // ✅ IMPORTANTE: return aqui para não fechar modal
+                throw error; // ✅ Propaga erro para não fechar modal
             }
 
             // Conflito (write conflict ou slot taken)
@@ -366,19 +368,19 @@ export default function AdminDashboard() {
                 if (errorData.code === 'WRITE_CONFLICT') {
                     setTimeout(() => window.location.reload(), 2000);
                 }
-                return; // ✅ não fecha modal
+                throw error; // ✅ Propaga erro para não fechar modal
             }
 
             // Validação de campos
             if (error.response?.status === 400 && errorData.fields) {
                 toast.error('Verifique os campos destacados');
                 // TODO: se tiver setFieldErrors, chame aqui
-                return; // ✅ não fecha modal
+                throw error; // ✅ Propaga erro para não fechar modal
             }
 
             // Erro genérico
             toast.error(errorData.message || 'Erro ao atualizar agendamento');
-            // ❌ REMOVIDO: toast.error(errorResponse) ← isso crashava tudo
+            throw error; // ✅ Propaga erro para não fechar modal
         }
     };
 
