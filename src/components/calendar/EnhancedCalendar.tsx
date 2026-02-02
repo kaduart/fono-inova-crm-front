@@ -165,10 +165,11 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         currentViewDate
     });
 
-    // ✅ CORREÇÃO: Apenas um effect para fechar modal - SEM loading!
+    // ✅ CORREÇÃO: Fecha ambos os modais quando closeModalSignal muda
     useEffect(() => {
         if (closeModalSignal && closeModalSignal > 0) {
             setOpenSchedule(false);
+            setIsAppointmentDetailModalOpen(false);
             setSelectedEvent(null);
         }
     }, [closeModalSignal]);
