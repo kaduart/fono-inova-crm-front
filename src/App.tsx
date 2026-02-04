@@ -1,6 +1,7 @@
 import React, { Suspense, useEffect, useRef } from "react";
 import { socketManager } from "./utils/socketManager";
 import { ToastContainer } from "react-toastify";
+import { Toaster } from "react-hot-toast";
 import "./App.css";
 import AppRoutes from "./AppRoutes";
 import PixNotificationPopup from "./components/financial/PixNotificationPopup";
@@ -56,6 +57,7 @@ const App: React.FC = () => {
           theme="colored"
           style={{ zIndex: 100000 }}
         />
+        <Toaster position="top-center" />
       </Suspense>
 
       <PixNotificationPopup />

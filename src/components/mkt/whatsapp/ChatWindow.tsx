@@ -544,13 +544,38 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                 throw new Error(data?.message || data?.error || "Erro ao enviar");
             }
 
+            // ✅ Atualiza a mensagem temporária com o ID real do servidor
+            if (data?.messageId) {
+                const realId = `m-${data.messageId}`;
+                
+                // Verifica se o socket já não adicionou essa mensagem (evita duplicata)
+                if (seenIdsRef.current.has(realId)) {
+                    // Socket chegou primeiro, remove a mensagem temporária
+                    setMessages(prev => prev.filter(m => m.id !== tempId));
+                    seenIdsRef.current.delete(tempId);
+                } else {
+                    // Atualiza o ID da mensagem temporária para o real
+                    setMessages(prev =>
+                        prev.map(m =>
+                            m.id === tempId
+                                ? { ...m, id: realId, status: "sent" }
+                                : m
+                        )
+                    );
+                    seenIdsRef.current.add(realId);
+                    lastMessageTimeRef.current.set(realId, Date.now());
+                }
+                seenIdsRef.current.delete(tempId);
+            }
+
         } catch (err: any) {
             logger.error("❌ Erro ao enviar:", err);
             setError(err.message || "Erro ao enviar mensagem");
 
+            // Em caso de erro, marca a mensagem como falha
             setMessages(prev =>
                 prev.map(m =>
-                    m.id === tempId ? { ...m, status: "sent" } : m
+                    m.id === tempId ? { ...m, status: "error" } : m
                 )
             );
         } finally {

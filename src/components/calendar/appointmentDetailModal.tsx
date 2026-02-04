@@ -165,10 +165,6 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         setIsCancelling(true);
         try {
             await onCancelAppointment(event.id, cancelReason);
-            onClose();
-        } catch (error) {
-            // Erro propagado para o pai mostrar toast - não fecha modal
-            throw error;
         } finally {
             setIsCancelling(false);
         }
@@ -178,10 +174,6 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         setIsCompleting(true);
         try {
             await onCompleteAppointment(event.id);
-            onClose();
-        } catch (error) {
-            // Erro propagado para o pai mostrar toast - não fecha modal
-            throw error;
         } finally {
             setIsCompleting(false);
         }
@@ -215,10 +207,6 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             };
 
             await onEditAppointment(event.id, appointmentData);
-            onClose();
-        } catch (error) {
-            // Erro propagado para o pai mostrar toast - não fecha modal
-            throw error;
         } finally {
             setIsEditing(false);
         }

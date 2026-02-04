@@ -393,7 +393,6 @@ function validateAll() {
 
             await packageService.createPackage(packageData);
             toast.success(`Pacote criado com sucesso! 💚`);
-            await fetchAppointments();
             onSubmit();
             onClose();
         } catch (err: any) {

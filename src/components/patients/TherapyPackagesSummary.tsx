@@ -1,6 +1,7 @@
 import { Info, Package, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+import { useAppointmentsContext } from '../../contexts/AppointmentsContext';
 import packagesService, { packageService, UseSessionParams, validatePayment } from '../../services/packageService';
 import { IDoctors, IPatient, ITherapyPackage } from '../../utils/types/types';
 import TherapyPackageCard from './TherapyPackageCard';
@@ -14,6 +15,7 @@ type TherapyPackagesSummaryProps = {
 };
 
 export default function TherapyPackagesSummary({ patient, doctors }: TherapyPackagesSummaryProps) {
+    const { fetchAppointments } = useAppointmentsContext();
     const [packages, setPackages] = useState<ITherapyPackage[]>([]);
     const [showManager, setShowManager] = useState(false);
     const [selectedPackage, setSelectedPackage] = useState<ITherapyPackage | null>(null);
@@ -289,6 +291,10 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                     }}
                     packages={packages}
                     onRefresh={fetchBasicPackages}
+                    onPackageCreated={() => {
+                        // Atualiza a lista de agendamentos no contexto global
+                        fetchAppointments();
+                    }}
                     doctors={doctors}
                     patient={patient}
                 />
