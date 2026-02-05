@@ -28,6 +28,7 @@ import DoctorFormModal from './ManageDoctors/DoctorFormModal';
 import ManageDoctors from './ManageDoctors/ManageDoctors';
 import AppChat from './mkt/whatsapp/AppChat';
 import { PatientModal } from './patients/PatientModal';
+import PreAgendamentosPage from '../pages/Secretaria/PreAgendamentosPage';
 
 const initialPatientState: IPatient = {
     fullName: '',
@@ -618,6 +619,8 @@ export default function AdminDashboard() {
 
             case 'Mensagens':
                 return <AppChat />;
+            case 'Pré-Agendamentos':
+                return <PreAgendamentosPage />;
             default:
                 return <div>Conteúdo não encontrado</div>;
         }

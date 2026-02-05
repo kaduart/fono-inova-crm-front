@@ -99,7 +99,7 @@ const ImportarModal = ({ open, onClose, pre, onImport, doctors }: any) => {
             disabled
             fullWidth
           />
-          
+
           <FormControl fullWidth>
             <InputLabel>Profissional</InputLabel>
             <Select
@@ -154,8 +154,8 @@ const ImportarModal = ({ open, onClose, pre, onImport, doctors }: any) => {
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancelar</Button>
-        <Button 
-          variant="contained" 
+        <Button
+          variant="contained"
           onClick={handleSubmit}
           disabled={!form.doctorId || !form.date || !form.sessionValue}
         >
@@ -184,7 +184,7 @@ const PreAgendamentosPage = () => {
     atribuir
   } = usePreAgendamentos();
 
-  const { doctors, fetchDoctors } = useDoctors();
+  const { doctors, refetch: fetchDoctors } = useDoctors();
 
   const [activeTab, setActiveTab] = useState('todos');
   const [selectedPre, setSelectedPre] = useState<PreAgendamento | null>(null);
@@ -198,6 +198,7 @@ const PreAgendamentosPage = () => {
     fetchPreAgendamentos({ status: activeTab === 'todos' ? undefined : activeTab });
     fetchStats();
     fetchDoctors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   const handleImport = async (formData: any) => {
@@ -327,11 +328,12 @@ const PreAgendamentosPage = () => {
           variant="scrollable"
           scrollButtons="auto"
         >
-          <Tab value="todos" label="Todos" />
+          <Tab value="todos" label="Pendentes" />
           <Tab value="novo" label={`Novos (${stats?.porStatus?.novo || 0})`} />
           <Tab value="em_analise" label="Em Análise" />
           <Tab value="contatado" label="Contatados" />
           <Tab value="confirmado" label="Confirmados" />
+          <Tab value="importado" label="Importados" />
         </Tabs>
       </Paper>
 
@@ -371,7 +373,7 @@ const PreAgendamentosPage = () => {
                     key={pre._id}
                     sx={{
                       bgcolor: pre.urgency === 'critica' ? 'error.50' :
-                               pre.urgency === 'alta' ? 'warning.50' : 'inherit'
+                        pre.urgency === 'alta' ? 'warning.50' : 'inherit'
                     }}
                   >
                     <TableCell>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { doctorService, Doctor } from '../services/doctorService';
 
 export const useDoctors = () => {
@@ -6,7 +6,7 @@ export const useDoctors = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDoctors = async () => {
+  const fetchDoctors = useCallback(async () => {
     try {
       setLoading(true);
       const response = await doctorService.getAllDoctors();
@@ -18,17 +18,18 @@ export const useDoctors = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchDoctors();
-  }, []);
+  }, [fetchDoctors]);
 
   return {
     doctors,
     loading,
     error,
-    refetch: fetchDoctors
+    refetch: fetchDoctors,
+    fetchDoctors
   };
 };
 

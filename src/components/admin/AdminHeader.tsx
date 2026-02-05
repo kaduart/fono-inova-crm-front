@@ -1,5 +1,6 @@
 import {
     Activity,
+    CalendarPlus,
     ChevronDown,
     Clock,
     DollarSign,
@@ -214,6 +215,15 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                             className={activeTab === "Mensagens" ? "bg-blue-100 text-blue-600" : "!text-white"}
                         >
                             WhatsApp
+                        </NavButton>
+
+                        <NavButton
+                            active={activeTab === "Pré-Agendamentos"}
+                            onClick={() => handleTabChange("Pré-Agendamentos")}
+                            icon={<CalendarPlus className="h-4 w-4 text-pink-500" />}
+                            className={activeTab === "Pré-Agendamentos" ? "bg-blue-100 text-blue-600" : "!text-white"}
+                        >
+                            Pré-Agendamentos
                         </NavButton>
                     </nav>
 
