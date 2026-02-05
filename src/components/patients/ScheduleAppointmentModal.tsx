@@ -380,6 +380,9 @@ const ScheduleAppointmentModal = ({
                             <option value="fisioterapia">Fisioterapia</option>
                             <option value="pediatria">Pediatria</option>
                             <option value="neuropediatria">Neuropediatria</option>
+                            <option value="psicomotricidade">Psicomotricidade</option>
+                            <option value="musicoterapia">Musicoterapia</option>
+                            <option value="psicopedagogia">Psicopedagogia</option>
                         </Select>
                     </div>
 

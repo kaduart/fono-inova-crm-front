@@ -6,7 +6,8 @@ export type TherapyType =
     | 'pediatria'
     | 'neuropediatria'
     | 'psicomotricidade'
-    | 'musicoterapia';
+    | 'musicoterapia'
+    | 'psicopedagogia';
 
 export type PaymentType = 'full' | 'per-session' | 'partial';
 export type PackageStatus = 'ativo' | 'finalizado';
@@ -20,6 +21,7 @@ export const THERAPY_TYPES = [
     { value: 'neuropediatria', label: 'Neuropediatria' },
     { value: 'musicoterapia', label: 'Musicoterapia' },
     { value: 'psicomotricidade', label: 'Psicomotricidade' },
+    { value: 'psicopedagogia', label: 'Psicopedagogia' },
 ];
 
 export interface AdminInfo {
@@ -390,6 +392,7 @@ export const EspecialidadesDisponiveis = [
     { value: 'fisioterapia', label: 'Fisioterapia' },
     { value: 'musicoterapia', label: 'Musicoterapia' },
     { value: 'psicomotricidade', label: 'Psicomotricidade' },
+    { value: 'psicopedagogia', label: 'Psicopedagogia' },
 ];
 
 export interface IAppointment {

@@ -505,6 +505,8 @@ export function NewEvaluationModal({
                                 <option value="fisioterapia">🏃 Fisioterapia</option>
                                 <option value="neuropsicologia">🔬 Neuropsicologia</option>
                                 <option value="musicoterapia">🎵 Musicoterapia</option>
+                                <option value="psicomotricidade">🤸 Psicomotricidade</option>
+                                <option value="psicopedagogia">📚 Psicopedagogia</option>
                             </select>
                             {selectedSpecialty && (
                                 <p className="text-xs text-green-700 bg-green-100 rounded-lg p-2">

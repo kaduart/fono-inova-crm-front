@@ -146,6 +146,10 @@ export default function TherapyPackageManager({ packages, patient, doctors, tota
                                 <option value="fonoaudiologia">Fonoaudiologia</option>
                                 <option value="psicologia">Psicologia</option>
                                 <option value="terapia_ocupacional">Terapia Ocupacional</option>
+                                <option value="fisioterapia">Fisioterapia</option>
+                                <option value="psicomotricidade">Psicomotricidade</option>
+                                <option value="musicoterapia">Musicoterapia</option>
+                                <option value="psicopedagogia">Psicopedagogia</option>
                             </select>
 
                             <button

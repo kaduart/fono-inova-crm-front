@@ -22,6 +22,7 @@ const SchedulePage = lazy(() => import('./pages/schedule'));
 
 // Novas páginas de paciente e relatórios
 const PatientsTable = lazy(() => import('./components/doctor/patient/PatientsTable'));
+const PreAgendamentosPage = lazy(() => import('./pages/Secretaria/PreAgendamentosPage'));
 const PatientDetail = lazy(() => import('./components/doctor/patient/PatientDetail'));
 //const AnamnesisReport = lazy(() => import('./components/doctor/patient/report/AnamnesisReport'));
 //const SchoolReport = lazy(() => import('./components/doctor/patient/reports/SchoolReport'));
@@ -73,6 +74,9 @@ const AppRoutes = () => {
                  {/*    <Route path="patients/:id/anamnesis" element={<AnamnesisReport />} />
                     <Route path="patients/:id/school-report" element={<SchoolReport />} /> */}
                     <Route path="patients/:id/medical-reports" element={<MedicalReportsSection />} />
+
+                    {/* ROTA PARA SECRETÁRIA - PRÉ-AGENDAMENTOS */}
+                    <Route path="pre-agendamentos" element={<PreAgendamentosPage />} />
 
                 </Route>
 
