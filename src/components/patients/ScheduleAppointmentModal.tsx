@@ -3,17 +3,17 @@ import { useEffect, useMemo, useState } from 'react';
 import DatePicker, { registerLocale } from 'react-datepicker';
 
 import { ptBR } from "date-fns/locale";
+import { Building2 } from 'lucide-react';
 import ReactInputMask from 'react-input-mask';
 import Modal from 'react-modal';
 import { toast } from 'react-toastify';
+import { INSURANCE_PROVIDERS, getProviderById } from '../../constants/insuranceProviders';
 import { IDoctor, IPatient, ScheduleAppointment } from '../../utils/types/types';
 import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
 import { Label } from '../ui/Label';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/TextArea';
-import { Building2 } from 'lucide-react';
-import { INSURANCE_PROVIDERS, getProviderById } from '../../constants/insuranceProviders';
 
 type ServiceType = ScheduleAppointment['serviceType'];
 
@@ -149,8 +149,6 @@ const ScheduleAppointmentModal = ({
                     const closest = upcomingSessions[0];
                     const date = closest.date.split('T')[0];
                     const time = closest.date.split('T')[1].slice(0, 5);
-
-
 
                     setFormData((prev) => ({
                         ...prev,
