@@ -1,17 +1,17 @@
 // src/pages/Financial/FinancialDashboard.tsx (VERSÃO CORRIGIDA)
 
 import { Box, Button, Paper, Tab, Tabs, Typography, useTheme } from '@mui/material';
-import { Calendar, DollarSign, Plus, Target, TrendingDown, TrendingUp } from 'lucide-react';
+import { Building2, Calendar, DollarSign, PieChart, Plus, Target, TrendingDown, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
 import CashflowTab from '../Financial/CashflowTab';
 import ExpensesTab from './tabs/ExpensesTab';
 import GoalsTab from './tabs/GoalsTab';
-import PlanningTab from './tabs/PlanningTab';
-import RevenueTab from './tabs/RevenueTab';
-import { Building2 } from 'lucide-react';
 import InsuranceTab from './tabs/InsuranceTab';
+import PlanningTab from './tabs/PlanningTab';
+import ProvisionamentoTab from './tabs/ProvisionamentoTab';
+import RevenueTab from './tabs/RevenueTab';
 
 interface FinancialDashboardProps {
     patients: IPatient[];
@@ -76,6 +76,11 @@ const FinancialDashboard = ({
             label: 'Planejamento',
             icon: <Calendar size={18} />,
             component: <PlanningTab />
+        },
+        {
+            label: 'Provisionamento',
+            icon: <PieChart size={18} />,
+            component: <ProvisionamentoTab />
         },
     ];
 

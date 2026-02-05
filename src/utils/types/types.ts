@@ -4,7 +4,9 @@ export type TherapyType =
     | 'psicologia'
     | 'fisioterapia'
     | 'pediatria'
-    | 'neuropediatria';
+    | 'neuropediatria'
+    | 'psicomotricidade'
+    | 'musicoterapia';
 
 export type PaymentType = 'full' | 'per-session' | 'partial';
 export type PackageStatus = 'ativo' | 'finalizado';
@@ -15,7 +17,9 @@ export const THERAPY_TYPES = [
     { value: 'psicologia', label: 'Psicologia' },
     { value: 'fisioterapia', label: 'Fisioterapia' },
     { value: 'pediatria', label: 'Pediatria' },
-    { value: 'neuropediatria', label: 'Neuropediatria' }
+    { value: 'neuropediatria', label: 'Neuropediatria' },
+    { value: 'musicoterapia', label: 'Musicoterapia' },
+    { value: 'psicomotricidade', label: 'Psicomotricidade' },
 ];
 
 export interface AdminInfo {
@@ -384,6 +388,8 @@ export const EspecialidadesDisponiveis = [
     { value: 'psicologia', label: 'Psicologia' },
     { value: 'terapia_ocupacional', label: 'Terapia Ocupacional' },
     { value: 'fisioterapia', label: 'Fisioterapia' },
+    { value: 'musicoterapia', label: 'Musicoterapia' },
+    { value: 'psicomotricidade', label: 'Psicomotricidade' },
 ];
 
 export interface IAppointment {
@@ -484,7 +490,7 @@ export interface PaymentTotals {
     countReceived: number;   // Quantidade de pagamentos pagos
     countPending: number;    // Quantidade de pagamentos pendentes
     countPartial: number;    // Quantidade de pagamentos parciais
-    
+
     // 🏥 Produção de Convênios
     totalInsuranceProduction?: number;  // Valor total de convênios realizados (independente de pagamento)
     totalInsuranceReceived?: number;    // Valor de convênios já recebidos
@@ -492,7 +498,7 @@ export interface PaymentTotals {
     countInsuranceTotal?: number;       // Quantidade total de atendimentos de convênio
     countInsuranceReceived?: number;    // Quantidade de convênios recebidos
     countInsurancePending?: number;     // Quantidade de convênios pendentes
-    
+
     // 💰 Total combinado (caixa + produção de convênios)
     totalCombined?: number;
 }
