@@ -190,16 +190,6 @@ export async function sendWhatsAppText(
     return res.data; // { success, result, messageId }
 }
 
-export async function sendManualWhatsAppText(payload: {
-    leadId?: string | null;
-    phone: string;
-    text: string;
-    userId: string;
-}): Promise<any> {
-    const res = await API.post("/whatsapp/send-manual", payload);
-    return res.data; // { success, message, messageId }
-}
-
 export async function deleteWhatsAppMessage(messageId: string): Promise<any> {
     // se receber "m-<id>", tira o prefixo aqui
     const cleanId = messageId.startsWith('m-') ? messageId.slice(2) : messageId;
