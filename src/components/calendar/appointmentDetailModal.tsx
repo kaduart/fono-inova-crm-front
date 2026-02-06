@@ -1,10 +1,13 @@
 import { ptBR } from 'date-fns/locale';
-import { Calendar, CheckCircle, ClipboardCheck, Clock, DollarSign, PencilIcon, Stethoscope, User, X, XCircle } from 'lucide-react';
+import { Building2, Calendar, CheckCircle, ClipboardCheck, Clock, DollarSign, PencilIcon, Stethoscope, User, X, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import ReactInputMask from 'react-input-mask';
+import { INSURANCE_PROVIDERS, getProviderById } from '../../constants/insuranceProviders';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
 import { IDoctor, SelectedEvent } from '../../utils/types/types';
+import InputCurrency from '../ui/InputCurrency';
+import { Label } from '../ui/Label';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Select } from '../ui/Select';
 
@@ -105,8 +108,19 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         time: '',
         reason: '',
         operationalStatus: '',
-        clinicalStatus: ''
+        clinicalStatus: '',
+        serviceType: 'individual_session',
+        sessionType: 'fonoaudiologia'
     });
+
+    // 🆕 NOVO: Campos de pagamento e serviço
+    const [serviceType, setServiceType] = useState('individual_session');
+    const [billingType, setBillingType] = useState<'particular' | 'convenio'>('particular');
+    const [paymentAmount, setPaymentAmount] = useState(0);
+    const [paymentMethod, setPaymentMethod] = useState('dinheiro');
+    const [insuranceProvider, setInsuranceProvider] = useState('');
+    const [insuranceValue, setInsuranceValue] = useState(0);
+    const [authorizationCode, setAuthorizationCode] = useState('');
 
     registerLocale("pt-BR", ptBR);
 
@@ -126,8 +140,19 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 time: eventTime,
                 reason: event.reason || '',
                 operationalStatus: translatedOperationalStatus,
-                clinicalStatus: translatedClinicalStatus
+                clinicalStatus: translatedClinicalStatus,
+                serviceType: event.serviceType || 'individual_session',
+                sessionType: event.specialty || 'fonoaudiologia'
             });
+
+            // 🆕 NOVO: Carregar dados de pagamento do evento
+            setServiceType(event.serviceType || 'individual_session');
+            setBillingType(event.billingType || 'particular');
+            setPaymentAmount(event.sessionValue || event.paymentAmount || 0);
+            setPaymentMethod(event.paymentMethod || 'dinheiro');
+            setInsuranceProvider(event.insuranceProvider || '');
+            setInsuranceValue(event.insuranceValue || 0);
+            setAuthorizationCode(event.authorizationCode || '');
         }
     }, [event]);
 
@@ -203,7 +228,24 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 time: editedAppointment.time,
                 reason: editedAppointment.reason,
                 operationalStatus: operationalStatusEN,
-                clinicalStatus: clinicalStatusEN === 'scheduled' ? 'pending' : clinicalStatusEN
+                clinicalStatus: clinicalStatusEN === 'scheduled' ? 'pending' : clinicalStatusEN,
+                // 🆕 NOVO: Dados de serviço e pagamento
+                serviceType,
+                sessionType: editedAppointment.sessionType,
+                specialty: editedAppointment.sessionType,
+                billingType,
+                paymentAmount: billingType === 'particular' ? paymentAmount : 0,
+                sessionValue: billingType === 'particular' ? paymentAmount : 0,
+                paymentMethod: billingType === 'particular' ? paymentMethod : 'convenio',
+                insuranceProvider: billingType === 'convenio' ? insuranceProvider : '',
+                insuranceValue: billingType === 'convenio' ? insuranceValue : 0,
+                authorizationCode: billingType === 'convenio' ? authorizationCode : '',
+                insurance: billingType === 'convenio' && insuranceProvider ? {
+                    provider: insuranceProvider,
+                    grossAmount: insuranceValue || 0,
+                    authorizationCode: authorizationCode || null,
+                    status: 'pending_billing'
+                } : null
             };
 
             await onEditAppointment(event.id, appointmentData);
@@ -573,6 +615,50 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             </div>
                         </div>
 
+                        {/* 🆕 NOVO: Tipo de Serviço e Especialidade */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Tipo de Serviço
+                                </label>
+                                <Select
+                                    value={serviceType}
+                                    onChange={(e) => setServiceType(e.target.value)}
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
+                                >
+                                    <option value="alignment">Alinhamento</option>
+                                    <option value="evaluation">Avaliação</option>
+                                    <option value="neuropsych_evaluation">Avaliação Neuropsicológica</option>
+                                    <option value="return">Retorno</option>
+                                    <option value="meet">Reunião</option>
+                                    <option value="individual_session">Sessão Avulsa</option>
+                                    <option value="package_session">Sessão de Pacote</option>
+                                    <option value="tongue_tie_test">Teste da Linguinha</option>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Especialidade
+                                </label>
+                                <Select
+                                    value={editedAppointment.sessionType}
+                                    onChange={(e) => handleFieldChange('sessionType', e.target.value)}
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
+                                >
+                                    <option value="fonoaudiologia">Fonoaudiologia</option>
+                                    <option value="psicologia">Psicologia</option>
+                                    <option value="terapia_ocupacional">Terapia Ocupacional</option>
+                                    <option value="fisioterapia">Fisioterapia</option>
+                                    <option value="pediatria">Pediatria</option>
+                                    <option value="neuroped">Neuropediatria</option>
+                                    <option value="psicomotricidade">Psicomotricidade</option>
+                                    <option value="musicoterapia">Musicoterapia</option>
+                                    <option value="psicopedagogia">Psicopedagogia</option>
+                                </Select>
+                            </div>
+                        </div>
+
                         <div className="space-y-2">
                             <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                                 <ClipboardCheck className="w-4 h-4 text-green-600" />
@@ -622,6 +708,136 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 </select>
                             </div>
                         </div>
+
+                        {/* 🆕 NOVO: Seção de Pagamento */}
+                        {serviceType !== 'package_session' && (
+                            <div className="bg-green-50 p-4 rounded-lg border border-green-100 mt-6">
+                                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                    <span className="bg-green-100 p-2 rounded-full">
+                                        <DollarSign size={18} className="text-green-600" />
+                                    </span>
+                                    Pagamento
+                                </h3>
+
+                                {/* Toggle Particular/Convênio */}
+                                <div className="mb-4">
+                                    <Label className="block mb-2 font-medium text-gray-700">
+                                        Tipo de Pagamento
+                                    </Label>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setBillingType('particular')}
+                                            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                                                billingType === 'particular'
+                                                    ? 'bg-green-600 text-white'
+                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            💵 Particular
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setBillingType('convenio')}
+                                            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                                                billingType === 'convenio'
+                                                    ? 'bg-blue-600 text-white'
+                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            🏥 Convênio
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Campos Particular */}
+                                {billingType === 'particular' && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <Label className="block mb-2 font-medium text-gray-700">
+                                                Valor
+                                            </Label>
+                                            <InputCurrency
+                                                value={paymentAmount}
+                                                onChange={(e) => setPaymentAmount(Number(e.target.value))}
+                                                className="w-full p-3 bg-white border border-gray-300 rounded-lg"
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label className="block mb-2 font-medium text-gray-700">
+                                                Método de Pagamento
+                                            </Label>
+                                            <Select
+                                                value={paymentMethod}
+                                                onChange={(e) => setPaymentMethod(e.target.value)}
+                                                className="w-full p-3 bg-white border border-gray-300 rounded-lg"
+                                            >
+                                                <option value="dinheiro">Dinheiro</option>
+                                                <option value="pix">PIX</option>
+                                                <option value="cartão">Cartão</option>
+                                                <option value="transferência">Transferência</option>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Campos Convênio */}
+                                {billingType === 'convenio' && (
+                                    <div className="space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <Label className="block mb-2 font-medium text-gray-700">
+                                                    <Building2 size={16} className="inline mr-1" />
+                                                    Convênio *
+                                                </Label>
+                                                <Select
+                                                    value={insuranceProvider}
+                                                    onChange={(e) => {
+                                                        const provider = getProviderById(e.target.value);
+                                                        setInsuranceProvider(e.target.value);
+                                                        setInsuranceValue(provider?.defaultValue || 0);
+                                                    }}
+                                                    className="w-full p-3 bg-white border border-gray-300 rounded-lg"
+                                                >
+                                                    <option value="">Selecione o convênio</option>
+                                                    {INSURANCE_PROVIDERS.map(p => (
+                                                        <option key={p.id} value={p.id}>
+                                                            {p.name} {p.city ? `(${p.city})` : ''}
+                                                        </option>
+                                                    ))}
+                                                </Select>
+                                            </div>
+                                            <div>
+                                                <Label className="block mb-2 font-medium text-gray-700">
+                                                    Valor Tabela
+                                                </Label>
+                                                <InputCurrency
+                                                    value={insuranceValue}
+                                                    onChange={(e) => setInsuranceValue(Number(e.target.value))}
+                                                    className="w-full p-3 bg-white border border-gray-300 rounded-lg"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <Label className="block mb-2 font-medium text-gray-700">
+                                                Código da Guia/Autorização (opcional)
+                                            </Label>
+                                            <input
+                                                type="text"
+                                                value={authorizationCode}
+                                                onChange={(e) => setAuthorizationCode(e.target.value)}
+                                                placeholder="Ex: 123456789"
+                                                className="w-full p-3 bg-white border border-gray-300 rounded-lg"
+                                            />
+                                        </div>
+                                        <div className="bg-blue-100 p-3 rounded-lg text-sm text-blue-800">
+                                            💡 Atendimento será registrado com valor R$ 0,00 no caixa do dia.
+                                            O valor só entrará após confirmação de recebimento do convênio.
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 );
 
