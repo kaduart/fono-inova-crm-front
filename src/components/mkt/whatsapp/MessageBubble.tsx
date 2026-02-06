@@ -1,6 +1,7 @@
 // components/whatsapp/MessageBubble.tsx
 import { useState } from 'react';
 import { formatMessageTimestamp } from '../../../utils/dateHelper';
+import { FiAlertCircle, FiExternalLink } from 'react-icons/fi';
 
 interface MessageProps {
   text?: string;
@@ -10,6 +11,8 @@ interface MessageProps {
   mediaId?: string;
   caption?: string;
   timestamp?: Date | string | number;
+  senderName?: string;
+  status?: 'sending' | 'sent' | 'delivered' | 'read' | 'error' | 'received';
 }
 
 export default function MessageBubble({
@@ -20,9 +23,12 @@ export default function MessageBubble({
   mediaId,
   caption,
   timestamp,
+  senderName,
+  status
 }: MessageProps) {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [imageExpanded, setImageExpanded] = useState(false);
   const isDev = import.meta.env.DEV;
 
   const isSticker = type === "sticker";
@@ -32,6 +38,7 @@ export default function MessageBubble({
     c && !/^\s*\[(?:AUDIO|IMAGE|VIDEO|DOCUMENT|STICKER)\]\s*$/i.test(c) ? c : "";
 
   const safeCaption = sanitizeCaption(caption);
+  
   const getMediaSrc = (opts: { url?: string; mediaId?: string }): string => {
     const { url, mediaId } = opts;
 
@@ -53,76 +60,67 @@ export default function MessageBubble({
 
   const fixedMediaUrl = getMediaSrc({ url: mediaUrl, mediaId });
 
-  const handleAudioError = () => {
-    if (isDev) console.warn('🎧 Áudio indisponível:', mediaUrl);
+  const handleMediaError = (mediaType: string) => {
+    if (isDev) console.warn(`❌ ${mediaType} indisponível:`, mediaUrl);
     setHasError(true);
   };
 
-  const handleImageError = () => {
-    if (isDev) console.warn('🖼️ Imagem indisponível:', mediaUrl);
-    setHasError(true);
-  };
-
-  const handleVideoError = () => {
-    if (isDev) console.warn('🎬 Vídeo indisponível:', mediaUrl);
-    setHasError(true);
-  };
+  // Cores mais suaves para as bolhas
+  const bubbleClasses = isMine
+    ? "bg-emerald-500 text-white rounded-br-sm"
+    : "bg-white text-gray-800 border border-gray-200 rounded-bl-sm";
 
   return (
-    <div
-      className={`relative max-w-[85%] p-4 my-3 rounded-2xl shadow-sm transition-all duration-200 hover:shadow-md ${isMine
-        ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white self-end rounded-br-none ml-12"
-        : "bg-white text-gray-800 self-start rounded-bl-none mr-12 border border-gray-100"
-        }`}
-    >
+    <div className={`flex ${isMine ? 'justify-end' : 'justify-start'} mb-2`}>
       <div
-        className={`absolute top-0 w-3 h-3 ${isMine
-          ? '-right-3 bg-gradient-to-r from-emerald-500 to-emerald-600'
-          : '-left-3 bg-white border-l border-t border-gray-100'
-          }`}
-        style={{
-          clipPath: isMine ? 'polygon(0 0, 100% 0, 0 100%)' : 'polygon(100% 0, 0 0, 100% 100%)'
-        }}
-      />
-
-      {/* TEXTO */}
-      {type === "text" && (
-        <div className="relative z-10">
-          <p className="whitespace-pre-wrap break-words leading-relaxed">{text}</p>
-          {safeCaption && safeCaption.trim() !== (text || "").trim() && (
-            <p className="text-sm opacity-80 mt-2 pt-2 border-t border-opacity-20 border-current">
-              {safeCaption}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* ÁUDIO */}
-      {type === "audio" && fixedMediaUrl && (
-        <div className="space-y-3 relative z-10">
-          <div className="flex items-center gap-2 text-sm opacity-90">
-            <div className="w-6 h-6 bg-current rounded-full flex items-center justify-center opacity-80">
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-              </svg>
-            </div>
-            Áudio de voz
+        className={`relative max-w-[85%] sm:max-w-[75%] px-4 py-2.5 rounded-2xl shadow-sm ${bubbleClasses}`}
+      >
+        {/* Nome do remetente (para mensagens recebidas em grupo) */}
+        {!isMine && senderName && type === "text" && (
+          <div className="text-xs font-medium text-emerald-600 mb-1">
+            {senderName}
           </div>
+        )}
 
-          {isLoading && (
-            <div className="flex items-center gap-3 text-sm opacity-80 bg-black bg-opacity-10 rounded-lg p-3">
-              <div className="animate-spin rounded-full h-5 w-5 border-2 border-current border-t-transparent"></div>
-              Carregando áudio...
+        {/* TEXTO */}
+        {type === "text" && (
+          <div>
+            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+              {text}
+            </p>
+            {safeCaption && safeCaption.trim() !== (text || "").trim() && (
+              <p className={`text-xs mt-1.5 pt-1.5 border-t ${isMine ? 'border-emerald-400/50 text-emerald-100' : 'border-gray-200 text-gray-500'}`}>
+                {safeCaption}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* ÁUDIO */}
+        {type === "audio" && fixedMediaUrl && (
+          <div className="space-y-2 min-w-[200px]">
+            <div className={`flex items-center gap-2 text-xs ${isMine ? 'text-emerald-100' : 'text-gray-500'}`}>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center ${isMine ? 'bg-emerald-400/30' : 'bg-gray-200'}`}>
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                </svg>
+              </div>
+              <span>Áudio</span>
             </div>
-          )}
 
-          {!hasError && (
-            <div className={`p-2 rounded-xl ${isMine ? 'bg-emerald-400 bg-opacity-30' : 'bg-gray-100'}`}>
+            {isLoading && (
+              <div className={`flex items-center gap-2 text-xs ${isMine ? 'text-emerald-100' : 'text-gray-500'}`}>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent" />
+                Carregando...
+              </div>
+            )}
+
+            {!hasError ? (
               <audio
                 controls
                 preload="metadata"
-                className="w-full max-w-xs h-8 [&::-webkit-media-controls-panel]:bg-transparent"
-                onError={handleAudioError}
+                className={`w-full h-8 ${isMine ? '[&::-webkit-media-controls-panel]:bg-transparent' : ''}`}
+                onError={() => handleMediaError('Áudio')}
                 onLoadStart={() => setIsLoading(true)}
                 onLoadedData={() => setIsLoading(false)}
                 onCanPlay={() => setIsLoading(false)}
@@ -132,227 +130,175 @@ export default function MessageBubble({
                 <source src={fixedMediaUrl} type="audio/webm" />
                 Seu navegador não suporta áudio.
               </audio>
-            </div>
-          )}
-
-          {hasError && (
-            <div
-              className={`p-3 rounded-lg text-sm ${isMine
-                ? 'bg-yellow-500 bg-opacity-20 text-yellow-100'
-                : 'bg-yellow-100 text-yellow-800'
-                }`}
-            >
-              <div className="flex items-center gap-2">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
-                </svg>
-                Áudio temporariamente indisponível
+            ) : (
+              <div className={`p-2 rounded-lg text-xs flex items-center gap-2 ${isMine ? 'bg-emerald-400/20' : 'bg-gray-100'}`}>
+                <FiAlertCircle className="w-4 h-4" />
+                <span>Áudio indisponível</span>
+                <a 
+                  href={mediaUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="ml-auto hover:underline flex items-center gap-1"
+                >
+                  <FiExternalLink className="w-3 h-3" />
+                  Abrir
+                </a>
               </div>
-              <button
-                onClick={() => window.open(mediaUrl, '_blank')}
-                className={`mt-2 text-xs underline opacity-80 hover:opacity-100 transition-opacity ${isMine ? 'text-yellow-200' : 'text-yellow-600'
-                  }`}
-              >
-                Tentar abrir em nova aba
-              </button>
-            </div>
-          )}
+            )}
+          </div>
+        )}
 
-          {safeCaption && (
-            <p
-              className={`text-sm opacity-80 mt-2 pt-2 ${isMine ? 'border-emerald-400' : 'border-gray-200'
-                } border-t`}
-            >
-              {safeCaption}
-            </p>
-          )}
-        </div>
-      )}
+        {/* IMAGEM / STICKER */}
+        {(type === "image" || type === "sticker") && fixedMediaUrl && (
+          <div className="space-y-2">
+            {isLoading && (
+              <div className="flex items-center justify-center h-32 rounded-lg bg-gray-100">
+                <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-400 border-t-transparent" />
+              </div>
+            )}
 
-      {/* IMAGEM / STICKER */}
-      {(type === "image" || type === "sticker") && fixedMediaUrl && (
-        <div className="space-y-3 relative z-10">
-          {isLoading && (
-            <div className="flex items-center justify-center h-32 rounded-xl bg-black bg-opacity-5">
-              <div className="animate-spin rounded-full h-8 w-8 border-2 border-current border-t-transparent opacity-50"></div>
-            </div>
-          )}
-
-          {!hasError && (
-            <div className={`overflow-hidden rounded-xl shadow-sm ${isLoading ? 'hidden' : 'block'}`}>
-              <img
-                src={fixedMediaUrl}
-                alt={safeCaption || (isSticker ? "Figurinha recebida" : "Imagem recebida")}
-                className="w-full h-auto max-h-80 object-cover transition-transform duration-300 hover:scale-105 cursor-zoom-in"
-                onError={handleImageError}
-                onLoad={() => setIsLoading(false)}
-                onLoadStart={() => setIsLoading(true)}
-                onClick={() => window.open(fixedMediaUrl, '_blank')}
-              />
-            </div>
-          )}
-
-          {hasError && (
-            <div
-              className={`p-8 rounded-xl text-center ${isMine ? 'bg-emerald-400 bg-opacity-20' : 'bg-gray-100'
-                }`}
-            >
-              <svg
-                className={`w-16 h-16 mx-auto mb-3 ${isMine ? 'text-emerald-200' : 'text-gray-400'
-                  }`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+            {!hasError ? (
+              <div className={`overflow-hidden rounded-lg ${isLoading ? 'hidden' : 'block'}`}>
+                <img
+                  src={fixedMediaUrl}
+                  alt={safeCaption || (isSticker ? "Figurinha" : "Imagem")}
+                  className="max-w-full h-auto max-h-64 object-cover cursor-pointer hover:opacity-95 transition-opacity"
+                  onError={() => handleMediaError('Imagem')}
+                  onLoad={() => setIsLoading(false)}
+                  onLoadStart={() => setIsLoading(true)}
+                  onClick={() => setImageExpanded(true)}
                 />
-              </svg>
-              <p className={`text-sm mb-2 ${isMine ? 'text-emerald-100' : 'text-gray-600'}`}>
-                {isSticker ? 'Figurinha indisponível' : 'Imagem indisponível'}
+              </div>
+            ) : (
+              <div className={`p-4 rounded-lg text-center ${isMine ? 'bg-emerald-400/20' : 'bg-gray-100'}`}>
+                <FiAlertCircle className={`w-8 h-8 mx-auto mb-2 ${isMine ? 'text-emerald-200' : 'text-gray-400'}`} />
+                <p className="text-sm">{isSticker ? 'Figurinha indisponível' : 'Imagem indisponível'}</p>
+                <a 
+                  href={mediaUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-xs hover:underline mt-1 inline-flex items-center gap-1"
+                >
+                  <FiExternalLink className="w-3 h-3" />
+                  Tentar abrir
+                </a>
+              </div>
+            )}
+
+            {safeCaption && (
+              <p className={`text-sm ${isMine ? 'text-emerald-100' : 'text-gray-600'}`}>
+                {safeCaption}
               </p>
-              <button
-                onClick={() => window.open(mediaUrl, '_blank')}
-                className={`text-xs underline opacity-80 hover:opacity-100 transition-opacity ${isMine ? 'text-emerald-200' : 'text-gray-500'
-                  }`}
-              >
-                Tentar abrir em nova aba
-              </button>
-            </div>
-          )}
+            )}
+          </div>
+        )}
 
-          {safeCaption && (
-            <p
-              className={`text-sm opacity-80 mt-2 pt-2 ${isMine ? 'border-emerald-400' : 'border-gray-200'
-                } border-t`}
-            >
-              {safeCaption}
-            </p>
-          )}
-        </div>
-      )}
+        {/* VIDEO */}
+        {type === "video" && fixedMediaUrl && (
+          <div className="space-y-2">
+            {isLoading && (
+              <div className="flex items-center justify-center h-32 rounded-lg bg-gray-100">
+                <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-400 border-t-transparent" />
+              </div>
+            )}
 
-      {/* VIDEO */}
-      {type === "video" && fixedMediaUrl && (
-        <div className="space-y-3 relative z-10">
-          {isLoading && (
-            <div className="flex items-center justify-center h-48 rounded-xl bg-black bg-opacity-5">
-              <div className="animate-spin rounded-full h-8 w-8 border-2 border-current border-t-transparent opacity-50"></div>
-            </div>
-          )}
+            {!hasError ? (
+              <div className={`overflow-hidden rounded-lg ${isLoading ? 'hidden' : 'block'}`}>
+                <video
+                  controls
+                  className="max-w-full max-h-64 rounded-lg"
+                  onError={() => handleMediaError('Vídeo')}
+                  onLoadStart={() => setIsLoading(true)}
+                  onLoadedData={() => setIsLoading(false)}
+                >
+                  <source src={fixedMediaUrl} type="video/mp4" />
+                  Seu navegador não suporta vídeo.
+                </video>
+              </div>
+            ) : (
+              <div className={`p-4 rounded-lg text-center ${isMine ? 'bg-emerald-400/20' : 'bg-gray-100'}`}>
+                <FiAlertCircle className={`w-8 h-8 mx-auto mb-2 ${isMine ? 'text-emerald-200' : 'text-gray-400'}`} />
+                <p className="text-sm">Vídeo indisponível</p>
+                <a 
+                  href={mediaUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-xs hover:underline mt-1 inline-flex items-center gap-1"
+                >
+                  <FiExternalLink className="w-3 h-3" />
+                  Tentar abrir
+                </a>
+              </div>
+            )}
 
-          {!hasError && (
-            <div className={`overflow-hidden rounded-xl shadow-sm ${isLoading ? 'hidden' : 'block'}`}>
-              <video
-                controls
-                className="w-full rounded-xl max-h-80"
-                onError={handleVideoError}
-                onLoadStart={() => setIsLoading(true)}
-                onLoadedData={() => setIsLoading(false)}
-              >
-                <source src={fixedMediaUrl} type="video/mp4" />
-                Seu navegador não suporta vídeo.
-              </video>
-            </div>
-          )}
-
-          {hasError && (
-            <div
-              className={`p-8 rounded-xl text-center ${isMine ? 'bg-emerald-400 bg-opacity-20' : 'bg-gray-100'
-                }`}
-            >
-              <svg
-                className={`w-16 h-16 mx-auto mb-3 ${isMine ? 'text-emerald-200' : 'text-gray-400'
-                  }`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                />
-              </svg>
-              <p className={`text-sm mb-2 ${isMine ? 'text-emerald-100' : 'text-gray-600'}`}>
-                Vídeo indisponível
+            {safeCaption && (
+              <p className={`text-sm ${isMine ? 'text-emerald-100' : 'text-gray-600'}`}>
+                {safeCaption}
               </p>
-              <button
-                onClick={() => window.open(mediaUrl, '_blank')}
-                className={`text-xs underline opacity-80 hover:opacity-100 transition-opacity ${isMine ? 'text-emerald-200' : 'text-gray-500'
-                  }`}
-              >
-                Tentar abrir em nova aba
-              </button>
-            </div>
-          )}
+            )}
+          </div>
+        )}
 
-          {safeCaption && (
-            <p
-              className={`text-sm opacity-80 mt-2 pt-2 ${isMine ? 'border-emerald-400' : 'border-gray-200'
-                } border-t`}
+        {/* DOCUMENT */}
+        {type === "document" && fixedMediaUrl && (
+          <div className="space-y-2">
+            <a
+              href={fixedMediaUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                isMine 
+                  ? 'bg-emerald-400/20 hover:bg-emerald-400/30 text-white' 
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+              }`}
             >
-              {safeCaption}
-            </p>
-          )}
-        </div>
-      )}
+              <svg className="w-8 h-8 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+              </svg>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm truncate">{caption || 'Documento'}</p>
+                <p className={`text-xs ${isMine ? 'text-emerald-200' : 'text-gray-500'}`}>Clique para abrir</p>
+              </div>
+              <FiExternalLink className="w-4 h-4 flex-shrink-0 opacity-50" />
+            </a>
+          </div>
+        )}
 
-      {/* DOCUMENT */}
-      {type === "document" && fixedMediaUrl && (
-        <div className="space-y-3 relative z-10">
-          <a
-            href={fixedMediaUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`flex items-center gap-3 p-4 rounded-xl ${isMine
-              ? 'bg-emerald-400 bg-opacity-20 hover:bg-opacity-30'
-              : 'bg-gray-100 hover:bg-gray-200'
-              } transition-colors`}
-          >
-            <svg className="w-8 h-8 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
-            </svg>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm truncate">Documento</p>
-              <p className="text-xs opacity-70">Clique para abrir</p>
-            </div>
-            <svg
-              className="w-5 h-5 flex-shrink-0 opacity-50"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-              />
-            </svg>
-          </a>
-          {safeCaption && (
-            <p
-              className={`text-sm opacity-80 mt-2 pt-2 ${isMine ? 'border-emerald-400' : 'border-gray-200'
-                } border-t`}
-            >
-              {safeCaption}
-            </p>
+        {/* TIMESTAMP e STATUS */}
+        <div className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${isMine ? 'text-emerald-200' : 'text-gray-400'}`}>
+          <span>{timestamp ? formatMessageTimestamp(timestamp) : 'Agora'}</span>
+          {isMine && status && (
+            <span className="ml-0.5">
+              {status === 'sending' && '◌'}
+              {status === 'sent' && '✓'}
+              {status === 'delivered' && '✓✓'}
+              {status === 'read' && <span className="text-blue-300">✓✓</span>}
+              {status === 'error' && <span className="text-red-300">!</span>}
+            </span>
           )}
         </div>
-      )}
-
-      {/* TIMESTAMP */}
-      <div
-        className={`text-xs mt-3 pt-2 ${isMine ? 'text-emerald-200 border-emerald-400' : 'text-gray-500 border-gray-200'
-          } border-t border-opacity-30 text-right opacity-80`}
-      >
-        {timestamp ? formatMessageTimestamp(timestamp) : 'Agora'}
       </div>
+
+      {/* Modal de imagem expandida */}
+      {imageExpanded && fixedMediaUrl && (
+        <div 
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+          onClick={() => setImageExpanded(false)}
+        >
+          <img 
+            src={fixedMediaUrl} 
+            alt="Imagem ampliada"
+            className="max-w-full max-h-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button 
+            className="absolute top-4 right-4 text-white/80 hover:text-white text-2xl"
+            onClick={() => setImageExpanded(false)}
+          >
+            ×
+          </button>
+        </div>
+      )}
     </div>
   );
 }

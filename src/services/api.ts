@@ -36,7 +36,13 @@ API.interceptors.request.use(config => {
   // Garante que headers é um objeto AxiosHeaders
   const headers = new AxiosHeaders(config.headers);
   headers.set('Authorization', `Bearer ${token}`);
-  headers.set('Content-Type', 'application/json');
+  
+  // ✅ FIX: Não sobrescrever Content-Type quando for FormData (upload de arquivos)
+  // O navegador define automaticamente o Content-Type com boundary para FormData
+  const isFormData = config.data instanceof FormData;
+  if (!isFormData) {
+    headers.set('Content-Type', 'application/json');
+  }
 
   config.headers = headers;
   return config;

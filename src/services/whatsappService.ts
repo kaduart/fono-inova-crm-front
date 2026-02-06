@@ -208,6 +208,56 @@ export async function deleteWhatsAppMessage(messageId: string): Promise<any> {
     return res.data; // { success, message }
 }
 
+// =========================
+// MÍDIA
+// =========================
+
+export type MediaType = 'image' | 'audio' | 'video' | 'document';
+
+export interface MediaUploadResponse {
+    success: boolean;
+    mediaId: string;
+    mediaUrl?: string;
+    error?: string;
+}
+
+export async function uploadMedia(file: File): Promise<MediaUploadResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await API.post('/whatsapp/upload-media', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return res.data;
+}
+
+export async function sendWhatsAppMedia(
+    phone: string,
+    file: File,
+    type: MediaType,
+    caption?: string,
+    leadId?: string,
+    onProgress?: (progress: number) => void
+): Promise<{ success: boolean; messageId?: string; mediaId?: string; error?: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('phone', phone);
+    formData.append('type', type);
+    if (caption) formData.append('caption', caption);
+    if (leadId) formData.append('leadId', leadId);
+
+    const res = await API.post('/whatsapp/send-media', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (progressEvent) => {
+            if (onProgress && progressEvent.total) {
+                const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                onProgress(progress);
+            }
+        }
+    });
+    return res.data;
+}
+
 // Busca contatos por texto em mensagens (server-side)
 export async function searchContactsByMessage(query: string): Promise<Contact[]> {
     if (!query || query.length < 2) return [];

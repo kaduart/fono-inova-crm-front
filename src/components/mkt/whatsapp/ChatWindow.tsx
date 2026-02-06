@@ -1,9 +1,9 @@
 // src/components/whatsapp/ChatWindow.tsx
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { FiMic, FiPaperclip, FiSend, FiUser } from 'react-icons/fi';
+import { FiSend, FiUser, FiMoreVertical, FiPause, FiPlay, FiStopCircle } from 'react-icons/fi';
 import { IoCheckmark, IoCheckmarkDone, IoTime } from 'react-icons/io5';
 import { toast } from 'react-toastify';
-import { deleteWhatsAppMessage, getChatMessages, loadMoreMessages, sendManualWhatsAppText, updateContactApi } from '../../../services/whatsappService';
+import { deleteWhatsAppMessage, getChatMessages, loadMoreMessages, sendManualWhatsAppText, updateContactApi, sendWhatsAppMedia, MediaType } from '../../../services/whatsappService';
 import { confirmToast } from '../../../utils/confirmToast';
 import { socketManager } from '../../../utils/socketManager';
 import { logger } from '../../../utils/logger';
@@ -15,6 +15,8 @@ import MessageBubble from './MessageBubble';
 import { useContacts } from '../../../contexts/ContactsContext';
 import EditContactModal from './EditContactModal';
 import API from '../../../services/api';
+import { MediaUpload } from './MediaUpload';
+import { AudioRecorder } from './AudioRecorder';
 
 interface Contact {
     _id: string;
@@ -119,6 +121,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
     const hasGenericName = isGenericName(contact?.name, contact?.phone);
 
     const [manualActive, setManualActive] = useState<boolean>(!!contact?.manualActive);
+    const [showActionsDropdown, setShowActionsDropdown] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
     
     // 🐛 NOVO: Estado de conexão do socket
     const [socketConnected, setSocketConnected] = useState<boolean>(true);
@@ -148,6 +152,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
             loadMessages(contact.phone);
         }
     }, [socketConnected, contact?.phone]);
+
+    // 🐛 NOVO: Fechar dropdown quando clicar fora
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setShowActionsDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const label = manualActive ? "Reativar AmandaAI" : "Pausar AmandaAI";
 
@@ -584,6 +599,66 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
         }
     }, [draft, contact, sending, leadId]);
 
+    // 🎬 Enviar mídia
+    const handleSendMedia = useCallback(async (file: File, type: MediaType, caption?: string) => {
+        if (!contact?.phone) {
+            throw new Error('Contato sem telefone válido');
+        }
+
+        const tempId = uid("temp-media");
+        const previewUrl = URL.createObjectURL(file);
+        
+        // Mensagem otimista
+        const optimisticMessage: Message = {
+            id: tempId,
+            text: caption || `[${type.toUpperCase()}]`,
+            timestamp: new Date(),
+            status: 'sent' as const,
+            fromMe: true,
+            type,
+            caption,
+            mediaUrl: previewUrl,
+        };
+
+        setMessages(prev => [...prev, optimisticMessage]);
+
+        try {
+            const result = await sendWhatsAppMedia(
+                contact.phone,
+                file,
+                type,
+                caption,
+                leadId,
+                (progress) => {
+                    // Opcional: mostrar progresso na UI
+                    console.log(`Upload progress: ${progress}%`);
+                }
+            );
+
+            if (result.success && result.messageId) {
+                // Atualizar com ID real
+                setMessages(prev =>
+                    prev.map(m =>
+                        m.id === tempId
+                            ? { ...m, id: `m-${result.messageId}`, status: 'sent' as const }
+                            : m
+                    )
+                );
+            } else {
+                throw new Error(result.error || 'Falha ao enviar');
+            }
+        } catch (error) {
+            // Marcar como erro
+            setMessages(prev =>
+                prev.map(m =>
+                    m.id === tempId
+                        ? { ...m, status: 'error' as const }
+                        : m
+                )
+            );
+            throw error;
+        }
+    }, [contact, leadId]);
 
     // 🔄 Auto-scroll para novas mensagens
     useEffect(() => {
@@ -658,70 +733,105 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
     return (
         <div className={`${className} flex flex-col h-full bg-white shadow-lg rounded-2xl overflow-hidden`}>
 
-            <div className="px-4 py-3 border-b bg-white">
-                <div className="flex items-center justify-between gap-3">
-                    {/* Left: avatar + nome/telefone */}
-                    <div className="flex items-center gap-3 min-w-0">
+            {/* Header - NOVO DESIGN */}
+            <div className="px-4 py-3 border-b bg-white flex items-center justify-between gap-4">
+                {/* Left: avatar + nome/telefone */}
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="relative">
                         <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center overflow-hidden">
                             {contact?.avatar ? (
                                 <img src={contact.avatar} alt={contact.name} className="w-full h-full object-cover" />
                             ) : (
-                                <FiUser className="text-emerald-600" />
+                                <FiUser className="w-5 h-5 text-emerald-600" />
                             )}
                         </div>
+                        {/* Status online indicator */}
+                        {socketConnected && (
+                            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full" />
+                        )}
+                    </div>
 
-                        <div className="min-w-0">
-                            <div className="font-semibold text-gray-900 truncate flex items-center gap-2">
-                                {contact?.name || "Sem nome"}
-                                {/* 🐛 NOVO: Indicador de status do socket */}
-                                {!socketConnected && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800" title="Conexão instável - recarregue a página se necessário">
-                                        ⚠️ Offline
-                                    </span>
-                                )}
-                            </div>
-                            <div className="text-xs text-gray-500 truncate">
-                                {contact?.phone}
-                                {leadId ? ` • Lead: ${leadId}` : ""}
-                                {socketConnected && <span className="ml-2 text-green-500">●</span>}
-                            </div>
+                    <div className="min-w-0">
+                        <div className="font-semibold text-gray-900 truncate flex items-center gap-2">
+                            {contact?.name || "Sem nome"}
+                            {!socketConnected && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700">
+                                    Offline
+                                </span>
+                            )}
+                        </div>
+                        <div className="text-xs text-gray-500 truncate">
+                            {contact?.phone}
                         </div>
                     </div>
-
-                    {/* Right: botões */}
-                    <div className="flex items-center gap-2 shrink-0">
-                        <Button
-                            onClick={() => setShowEditContact(true)}
-                            className={
-                                hasGenericName
-                                    ? "bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-xl"
-                                    : "bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded-xl"
-                            }
-                        >
-                            {hasGenericName ? "Adicionar nome" : "Editar nome"}
-                        </Button>
-                        <Button
-                            onClick={handleCancelFollowup}
-                            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
-                        >
-                            ⛔ Cancelar Follow-up
-                        </Button>
-
-                        <Button
-                            onClick={handleAmandaResume}
-                            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
-                        >
-                            🤖  {label}
-                        </Button>
-                    </div>
-
                 </div>
 
+                {/* Right: botões de ação */}
+                <div className="flex items-center gap-2 shrink-0">
+                    {/* Editar contato */}
+                    <button
+                        onClick={() => setShowEditContact(true)}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                            hasGenericName
+                                ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                    >
+                        {hasGenericName ? "Adicionar nome" : "Editar"}
+                    </button>
 
-                {/* Aviso separado */}
-                <div className="mt-2 text-xs text-amber-700 flex items-center gap-2">
-                    <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
-                    Mensagens não podem ser apagadas após o envio.
+                    {/* Dropdown de ações */}
+                    <div className="relative" ref={dropdownRef}>
+                        <button 
+                            onClick={() => setShowActionsDropdown(!showActionsDropdown)}
+                            className={`p-2 rounded-lg transition-colors ${
+                                showActionsDropdown 
+                                    ? 'text-gray-700 bg-gray-100' 
+                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                            }`}
+                        >
+                            <FiMoreVertical className="w-5 h-5" />
+                        </button>
+                        
+                        {/* Dropdown menu */}
+                        <div className={`absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-1 transition-all z-50 ${
+                            showActionsDropdown ? 'opacity-100 visible' : 'opacity-0 invisible'
+                        }`}>
+                            <button
+                                onClick={() => {
+                                    setShowActionsDropdown(false);
+                                    handleAmandaResume();
+                                }}
+                                className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-3 transition-colors"
+                            >
+                                <span className="text-lg">{manualActive ? "▶️" : "⏸️"}</span>
+                                <div>
+                                    <div className="font-medium text-gray-900">
+                                        {manualActive ? "Reativar Amanda" : "Pausar Amanda"}
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                        {manualActive ? "Retomar respostas automáticas" : "Assumir conversa manualmente"}
+                                    </div>
+                                </div>
+                            </button>
+                            
+                            <div className="h-px bg-gray-200 my-1" />
+                            
+                            <button
+                                onClick={() => {
+                                    setShowActionsDropdown(false);
+                                    handleCancelFollowup();
+                                }}
+                                className="w-full px-4 py-2.5 text-left text-sm hover:bg-red-50 text-red-600 flex items-center gap-3 transition-colors"
+                            >
+                                <span className="text-lg">⛔</span>
+                                <div>
+                                    <div className="font-medium">Cancelar Follow-up</div>
+                                    <div className="text-xs text-red-500">Parar automação deste lead</div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -813,23 +923,40 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                 </div>
             </div>
 
-            {/* Input Area */}
-            <div className="p-4 border-t border-gray-200 bg-white/95 backdrop-blur-sm">
-                <div className="flex items-center space-x-3">
-                    <button className="p-3 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors">
-                        <FiPaperclip className="w-5 h-5" />
-                    </button>
-                    <button className="p-3 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors">
-                        <FiMic className="w-5 h-5" />
-                    </button>
+            {/* Input Area - NOVO DESIGN */}
+            <div className="p-3 border-t border-gray-200 bg-white">
+                <div className="flex items-end gap-2">
+                    <MediaUpload 
+                        phone={contact?.phone || ''}
+                        leadId={leadId}
+                        onSend={handleSendMedia}
+                        disabled={sending}
+                    />
+                    
+                    <AudioRecorder
+                        onSend={async (blob, duration) => {
+                            // ✅ FIX: Usar audio/webm;codecs=opus para garantir o tipo correto
+                            const file = new File([blob], `audio_${Date.now()}.webm`, { 
+                                type: 'audio/webm;codecs=opus' 
+                            });
+                            await handleSendMedia(file, 'audio');
+                        }}
+                        disabled={sending}
+                    />
+                    
                     <div className="flex-1 relative">
                         <textarea
                             ref={inputRef}
-                            rows={3}
-                            className="w-full py-3 px-4 bg-gray-100 border-0 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-all placeholder:text-gray-500 resize-none"
+                            rows={1}
+                            className="w-full py-3 px-4 bg-gray-100 border-0 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all placeholder:text-gray-500 resize-none min-h-[48px] max-h-[120px]"
                             placeholder="Digite uma mensagem..."
                             value={draft}
-                            onChange={(e) => setDraft(e.target.value)}
+                            onChange={(e) => {
+                                setDraft(e.target.value);
+                                // Auto-resize
+                                e.target.style.height = 'auto';
+                                e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                            }}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' && !e.shiftKey) {
                                     e.preventDefault();
@@ -840,9 +967,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                             autoFocus
                         />
                     </div>
+                    
                     <Button
-                        className={`p-3 rounded-2xl transition-all duration-200 ${draft.trim() && !sending
-                            ? 'text-white bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-sm'
+                        className={`p-3 rounded-full transition-all duration-200 ${draft.trim() && !sending
+                            ? 'text-white bg-emerald-500 hover:bg-emerald-600 shadow-sm'
                             : 'text-gray-400 bg-gray-100 cursor-not-allowed'
                             }`}
                         onClick={handleSend}
