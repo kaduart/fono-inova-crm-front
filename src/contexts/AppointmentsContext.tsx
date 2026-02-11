@@ -20,23 +20,16 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     // ✅ FIX: usando appointmentService.list() corretamente
     const fetchAppointments = useCallback(async (filters?: { startDate?: string; endDate?: string }) => {
         try {
-            console.log('📋 AppointmentsContext: Buscando appointments com filtros:', filters);
-
             const params: PaginationParams = {
                 limit: 500,
                 ...(filters?.startDate && { startDate: filters.startDate }),
                 ...(filters?.endDate && { endDate: filters.endDate }),
             };
 
-            console.log('📋 AppointmentsContext: Params para API:', params);
-
             const response = await appointmentService.list(params);
-            
-            console.log('📋 RAW RESPONSE:', response);
-            console.log('📋 response.data:', response.data);
+
             const appointmentsData = Array.isArray(response.data) ? response.data : (response.data?.data || response.data || []);
-            console.log('📋 AppointmentsContext: Appointments recebidos:', appointmentsData.length);
-            
+
             setAppointments(appointmentsData);
         } catch (error) {
             console.error('❌ Erro ao buscar appointments:', error);
@@ -69,8 +62,8 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }, []);
 
     return (
-        <AppointmentsContext.Provider value={{ 
-            appointments, 
+        <AppointmentsContext.Provider value={{
+            appointments,
             fetchAppointments,
             createAppointment,
             updateAppointment,

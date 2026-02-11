@@ -84,8 +84,8 @@ export const fetchDashboardOverview = async (
     if (!forceRefresh && cache.overview && (now - cache.timestamp < CACHE_TTL)) {
         // ✅ Verificar se o cache tem dados completos
         const hasCompleteData = cache.overview.upcomingAppointments !== undefined &&
-                               cache.overview.doctorsOverview !== undefined &&
-                               cache.overview.stats !== undefined;
+            cache.overview.doctorsOverview !== undefined &&
+            cache.overview.stats !== undefined;
         if (hasCompleteData) {
             console.log('📦 Usando cache do dashboardService:', {
                 statsTotalPatients: cache.overview?.stats?.totalPatients,
@@ -106,25 +106,13 @@ export const fetchDashboardOverview = async (
     cache.promise = (async () => {
         try {
             const response = await API.get<DashboardOverview>('/dashboard/overview');
-            
-            console.log('📊 fetchDashboardOverview raw response:', response.data);
-            
+
             // ✅ CORREÇÃO: Extrair dados do formato { success, data }
             const dashboardData = response.data?.data || response.data;
-            
-            console.log('📊 fetchDashboardOverview extracted:', {
-                hasStats: !!dashboardData?.stats,
-                statsTotalPatients: dashboardData?.stats?.totalPatients,
-                hasCharts: !!dashboardData?.charts,
-                hasUpcomingAppointments: !!dashboardData?.upcomingAppointments,
-                upcomingAppointmentsCount: dashboardData?.upcomingAppointments?.length || 0,
-                hasDoctorsOverview: !!dashboardData?.doctorsOverview,
-                doctorsCount: dashboardData?.doctorsOverview?.length || 0
-            });
-            
+
             cache.overview = dashboardData;
             cache.timestamp = now;
-            
+
             return dashboardData;
         } finally {
             cache.promise = null;
@@ -175,7 +163,7 @@ export const fetchUpcomingAppointments = async (
  */
 export const invalidateDashboardCache = async (): Promise<void> => {
     await API.post('/dashboard/invalidate-cache');
-    
+
     // Limpar cache local também
     cache.overview = null;
     cache.timestamp = 0;

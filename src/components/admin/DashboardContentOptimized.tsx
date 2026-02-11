@@ -31,7 +31,7 @@ interface DashboardContentOptimizedProps {
     patients: any[];
     loading: boolean;
     onRefresh: () => Promise<void>;
-    
+
     // Handlers
     handleAddProfessional: () => void;
     handleAddPatient: () => void;
@@ -184,15 +184,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     const safeDoctors = doctors || [];
     const safeAppointments = upcomingAppointments || [];
     const safePatients = patients || [];
-    
-    // Debug logs
-    console.log('📊 DashboardContentOptimized props:', {
-        loading,
-        patientsCount: safePatients.length,
-        appointmentsCount: safeAppointments.length,
-        doctorsCount: safeDoctors.length,
-        hasStats: !!stats
-    });
+
 
     const displayedDoctors = useMemo(() => {
         return showAllDoctors ? safeDoctors : safeDoctors.slice(0, 3);

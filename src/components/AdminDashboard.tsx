@@ -1,8 +1,8 @@
 import { Paper, Typography, useTheme } from '@mui/material';
 import { BarChart3 } from "lucide-react";
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import { IPatient, ScheduleAppointment } from '../../utils/types/types';
 import { useAppointmentsContext } from '../contexts/AppointmentsContext';
 import { useChatNavigation } from "../contexts/ChatNavigationContext";
@@ -13,6 +13,7 @@ import { usePatients } from '../hooks/usePatients';
 import usePayment from '../hooks/usePayment';
 import FinancialDashboard from '../pages/Financial/FinancialDashboard';
 import FollowupPage from '../pages/FollowupPage';
+import PreAgendamentosPage from '../pages/Secretaria/PreAgendamentosPage';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
 import { CreateDoctorParams } from '../services/doctorService';
 import { createPayment, FinancialRecord, getPayments, updatePayment } from '../services/paymentService';
@@ -28,7 +29,6 @@ import DoctorFormModal from './ManageDoctors/DoctorFormModal';
 import ManageDoctors from './ManageDoctors/ManageDoctors';
 import AppChat from './mkt/whatsapp/AppChat';
 import { PatientModal } from './patients/PatientModal';
-import PreAgendamentosPage from '../pages/Secretaria/PreAgendamentosPage';
 
 const initialPatientState: IPatient = {
     fullName: '',
@@ -143,17 +143,6 @@ export default function AdminDashboard() {
     const { doctors, createDoctor, updateDoctor } = useDoctorDashboard();
     const { adminInfo, editedInfo, setEditedInfo, loading, fetchAdminProfile, fetchCompletedAppointments, updateAdminProfile, addNewAdmin } = useAdmin();
 
-    // Debug logs - mostrar quando os dados mudam (DEPOIS de declarar patients)
-    useEffect(() => {
-        console.log('🏥 AdminDashboard data changed:', {
-            dashboardLoading,
-            statsTotalPatients: stats?.totalPatients,
-            doctorsCount: doctorsOverview?.length,
-            upcomingApptsCount: upcomingAppts?.length,
-            patientsCount: patients?.length
-        });
-    }, [dashboardLoading, stats, doctorsOverview, upcomingAppts, patients]);
-
     const {
         appointments,
         fetchAppointments,
@@ -170,11 +159,7 @@ export default function AdminDashboard() {
     // 🗓️ Buscar appointments quando o range de datas mudar
     useEffect(() => {
         // Só buscar se tiver datas definidas (evita fetch vazio no primeiro render)
-        if (!calendarDateRange.startDate || !calendarDateRange.endDate) {
-            console.log('🏥 AdminDashboard: Aguardando calendarDateRange ser definido');
-            return;
-        }
-        console.log('🏥 AdminDashboard: Buscando appointments com filtros:', calendarDateRange);
+
         fetchAppointments(calendarDateRange);
     }, [fetchAppointments, calendarDateRange]);
 

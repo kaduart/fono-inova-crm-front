@@ -3,20 +3,100 @@ import React, { useMemo, useState } from 'react';
 import { BsHourglass } from "react-icons/bs";
 import { Link } from "react-router-dom";
 
-// Mock components para demonstração
-const Card = ({ children, className, sx }) => (
+// ============================================================================
+// Tipos e interfaces
+// ============================================================================
+
+interface Patient {
+    _id: string;
+    fullName?: string;
+    phone?: string;
+    cpf?: string;
+    healthPlan?: {
+        name?: string;
+    };
+    nextAppointment?: {
+        date?: string;
+        doctor?: {
+            fullName?: string;
+            specialty?: string;
+        };
+    };
+    lastAppointment?: {
+        doctor?: {
+            specialty?: string;
+        };
+    };
+    packages?: Array<{
+        sessionType: string;
+        totalSessions: number;
+        sessionsDone: number;
+    }>;
+}
+
+interface PatientTableProps {
+    patients?: Patient[];
+    onEditPatient?: (patient: Patient) => void;
+    onPaymentAdvancedSuccess?: (patient: Patient) => void;
+    onRegisterPayment?: (patient: Patient) => void;
+}
+
+interface CardProps {
+    children: React.ReactNode;
+    className?: string;
+    sx?: React.CSSProperties;
+}
+
+interface CardHeaderProps {
+    children: React.ReactNode;
+}
+
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+    className?: string;
+}
+
+interface WhatsAppActionButtonsProps {
+    phone: string;
+    nome?: string;
+    profissional?: string;
+    data?: Date;
+    hora?: string;
+    servico?: string;
+    restantes?: string;
+}
+
+interface PackageAccordionProps {
+    packages: Patient['packages'];
+}
+
+// ============================================================================
+// Componentes auxiliares (tipados)
+// ============================================================================
+
+const Card: React.FC<CardProps> = ({ children, className, sx }) => (
     <div className={className} style={sx}>{children}</div>
 );
 
-const CardHeader = ({ children }) => (
+const CardHeader: React.FC<CardHeaderProps> = ({ children }) => (
     <div className="px-6 py-5 border-b border-gray-100">{children}</div>
 );
 
-const Input = ({ className, ...props }) => (
-    <input className={`${className} focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`} {...props} />
+const Input: React.FC<InputProps> = ({ className, ...props }) => (
+    <input
+        className={`${className} focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
+        {...props}
+    />
 );
 
-const WhatsAppActionButtons = (props) => (
+const WhatsAppActionButtons: React.FC<WhatsAppActionButtonsProps> = ({
+    phone,
+    nome,
+    profissional,
+    data,
+    hora,
+    servico,
+    restantes,
+}) => (
     <div className="flex gap-2">
         <button className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600 transition-colors">
             📱 Lembrete
@@ -27,62 +107,65 @@ const WhatsAppActionButtons = (props) => (
     </div>
 );
 
-const PackageAccordion = ({ packages }) => (
+const PackageAccordion: React.FC<PackageAccordionProps> = ({ packages }) => (
     <div className="flex flex-col gap-1">
-        {packages.slice(0, 2).map((pkg, idx) => (
-            <span key={idx} className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full text-xs font-medium">
+        {packages?.slice(0, 2).map((pkg, idx) => (
+            <span
+                key={idx}
+                className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full text-xs font-medium"
+            >
                 <Package className="w-3 h-3" />
                 {pkg.sessionType} ({pkg.sessionsDone}/{pkg.totalSessions})
             </span>
         ))}
-        {packages.length > 2 && (
-            <span className="text-xs text-gray-500 mt-0.5">+{packages.length - 2} mais</span>
+        {packages && packages.length > 2 && (
+            <span className="text-xs text-gray-500 mt-0.5">
+                +{packages.length - 2} mais
+            </span>
         )}
     </div>
 );
 
-const formatDateBrazilian = (date) => {
+// ============================================================================
+// Utilitários
+// ============================================================================
+
+const formatDateBrazilian = (date: string | Date): string => {
     return new Date(date).toLocaleDateString('pt-BR');
 };
 
-// Mock data
-const mockPatients = [
-    {
-        _id: "1",
-        fullName: "José Miguel Xavier Ribeiro",
-        phone: "(62) 98600-8879",
-        dateOfBirth: "2023-07-18",
-        healthPlan: { name: "Particular" },
-        nextAppointment: {
-            date: "2025-11-21",
-            doctor: { fullName: "Lorrany Siqueira Marques" }
-        },
-        packages: [
-            {
-                sessionType: "fonoaudiologia",
-                sessionsDone: 1,
-                totalSessions: 4,
-                status: "active"
-            }
-        ]
-    }
-];
+// ============================================================================
+// Componente principal
+// ============================================================================
 
-const PatientTable = ({ patients = [], onEditPatient, onPaymentAdvancedSuccess, onRegisterPayment }) => {
-    // ✅ TODOS os hooks devem ser declarados ANTES de qualquer early return
+const PatientTable: React.FC<PatientTableProps> = ({
+    patients = [],
+    onEditPatient,
+    onPaymentAdvancedSuccess,
+    onRegisterPayment,
+}) => {
+    // ------------------------------------------------------------
+    // Hooks (sempre no topo)
+    // ------------------------------------------------------------
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(5);
-    const [expandedRows, setExpandedRows] = useState({});
+    const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
     const [loading, setLoading] = useState(false);
-    const [sortConfig, setSortConfig] = useState({
-        key: "nextAppointment",
-        direction: "ascending",
+    const [sortConfig, setSortConfig] = useState<{
+        key: string;
+        direction: 'ascending' | 'descending';
+    }>({
+        key: 'nextAppointment',
+        direction: 'ascending',
     });
-    
-    // ✅ useMemo também deve vir antes do early return
+
+    // ------------------------------------------------------------
+    // Memo
+    // ------------------------------------------------------------
     const sortedPatients = useMemo(() => {
         if (!patients || patients.length === 0) return [];
+
         const sortablePatients = [...patients];
 
         sortablePatients.sort((a, b) => {
@@ -94,7 +177,7 @@ const PatientTable = ({ patients = [], onEditPatient, onPaymentAdvancedSuccess, 
                 ? new Date(b.nextAppointment.date).getTime()
                 : Number.MAX_SAFE_INTEGER;
 
-            if (sortConfig.direction === "ascending") {
+            if (sortConfig.direction === 'ascending') {
                 return dateA - dateB;
             } else {
                 return dateB - dateA;
@@ -103,37 +186,46 @@ const PatientTable = ({ patients = [], onEditPatient, onPaymentAdvancedSuccess, 
 
         return sortablePatients;
     }, [patients, sortConfig]);
-    
-    // Debug log
-    console.log('👥 PatientTable recebeu:', { patientsCount: patients?.length || 0 });
 
-    // Se não houver pacientes, mostra mensagem (DEPOIS de todos os hooks)
+    // ------------------------------------------------------------
+    // Early return (somente após todos os hooks)
+    // ------------------------------------------------------------
     if (!patients || patients.length === 0) {
         return (
             <Card className="bg-white border border-gray-200 rounded-lg p-8 text-center">
                 <div className="text-gray-400 mb-4">
                     <User className="w-16 h-16 mx-auto" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-600 mb-2">Nenhum paciente encontrado</h3>
-                <p className="text-gray-500">Os dados dos pacientes estão sendo carregados...</p>
+                <h3 className="text-lg font-semibold text-gray-600 mb-2">
+                    Nenhum paciente encontrado
+                </h3>
+                <p className="text-gray-500">
+                    Os dados dos pacientes estão sendo carregados...
+                </p>
             </Card>
         );
     }
 
+    // ------------------------------------------------------------
+    // Lógica de filtro, paginação, ordenação
+    // ------------------------------------------------------------
     const filteredPatients = sortedPatients.filter((patient) => {
         const term = searchTerm.toLowerCase();
         return (
-            (patient.fullName && patient.fullName.toLowerCase().includes(term)) ||
-            (patient.phone && patient.phone.toLowerCase().includes(term)) ||
-            (patient.cpf && patient.cpf.toLowerCase().includes(term))
+            (patient.fullName?.toLowerCase() || '').includes(term) ||
+            (patient.phone?.toLowerCase() || '').includes(term) ||
+            (patient.cpf?.toLowerCase() || '').includes(term)
         );
     });
 
     const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
-    const paginatedPatients = filteredPatients.slice(startIndex, startIndex + itemsPerPage);
+    const paginatedPatients = filteredPatients.slice(
+        startIndex,
+        startIndex + itemsPerPage
+    );
 
-    const handlePageChange = (direction) => {
+    const handlePageChange = (direction: 'prev' | 'next') => {
         if (direction === 'prev' && currentPage > 1) {
             setCurrentPage((prev) => prev - 1);
         }
@@ -142,46 +234,48 @@ const PatientTable = ({ patients = [], onEditPatient, onPaymentAdvancedSuccess, 
         }
     };
 
-    const sortData = (key) => {
-        let direction = "ascending";
-        if (sortConfig.key === key && sortConfig.direction === "ascending") {
-            direction = "descending";
+    const sortData = (key: string) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
         }
         setSortConfig({ key, direction });
     };
 
-    const handleItemsPerPageChange = (e) => {
+    const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         setItemsPerPage(Number(e.target.value));
         setCurrentPage(1);
     };
 
-    const toggleRow = (patientId) => {
-        setExpandedRows(prev => ({
+    const toggleRow = (patientId: string) => {
+        setExpandedRows((prev) => ({
             ...prev,
-            [patientId]: !prev[patientId]
+            [patientId]: !prev[patientId],
         }));
     };
 
+    // ------------------------------------------------------------
+    // Renderização
+    // ------------------------------------------------------------
     return (
         <Card
-            className="bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
+            className="bg-white border border-gray-200 rounded-xl hover:shadow-md transition-shadow"
             sx={{
                 display: 'flex',
                 flexDirection: 'column',
-                borderRadius: '16px',
-                boxShadow: '0 10px 20px rgba(0,0,0,0.08), 0 6px 6px rgba(0,0,0,0.05)',
-                background: 'linear-gradient(145deg, #ffffff, #f8f9fa)',
-                border: '1px solid rgba(0,0,0,0.03)',
+                borderRadius: '12px',       // ajustado para minimalismo
+                border: '1px solid #f0f0f0',
                 overflow: 'hidden',
+                boxShadow: 'none',         // removido gradiente e sombra pesada
             }}
         >
             <CardHeader>
-                <h3 className="flex items-center gap-3 text-2xl font-bold text-gray-800">
-                    <div className="p-2 bg-blue-50 rounded-lg">
-                        <List className="w-6 h-6 text-blue-600" />
+                <h3 className="flex items-center gap-3 text-xl font-semibold text-gray-800">
+                    <div className="p-1.5 bg-gray-100 rounded-lg">
+                        <List className="w-5 h-5 text-gray-600" />
                     </div>
-                    Pacientes Cadastrados
-                    <span className="ml-auto text-sm font-normal text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                    Pacientes
+                    <span className="ml-auto text-xs font-normal text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full">
                         {filteredPatients.length} paciente{filteredPatients.length !== 1 ? 's' : ''}
                     </span>
                 </h3>
@@ -189,268 +283,300 @@ const PatientTable = ({ patients = [], onEditPatient, onPaymentAdvancedSuccess, 
 
             {loading ? (
                 <div className="flex justify-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-gray-300 border-t-gray-600"></div>
                 </div>
             ) : (
                 <div>
-                    <div className="mb-6">
+                    {/* Busca */}
+                    <div className="mb-6 px-6 pt-2">
                         <div className="relative">
-                            <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                            <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <Input
                                 type="text"
                                 placeholder="Buscar por nome, telefone ou CPF..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-xl text-gray-700 placeholder-gray-400 focus:outline-none shadow-sm"
+                                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 text-sm"
                             />
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-md">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                    {/* Tabela */}
+                    <div className="overflow-x-auto border-t border-gray-100">
+                        <table className="min-w-full divide-y divide-gray-100">
+                            <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
-                                        <div className="flex items-center gap-2">
-                                            <User className="w-4 h-4" />
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <div className="flex items-center gap-1.5">
+                                            <User className="w-3.5 h-3.5" />
                                             Paciente
                                         </div>
                                     </th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
-                                        <div className="flex items-center gap-2">
-                                            <Package className="w-4 h-4" />
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <div className="flex items-center gap-1.5">
+                                            <Package className="w-3.5 h-3.5" />
                                             Atendimento
                                         </div>
                                     </th>
                                     <th
-                                        className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
-                                        onClick={() => sortData("nextAppointment")}
+                                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                                        onClick={() => sortData('nextAppointment')}
                                     >
-                                        <div className="flex items-center gap-2">
-                                            <Calendar className="w-4 h-4" />
-                                            Próxima Consulta
-                                            {sortConfig.key === "nextAppointment" && (
-                                                <span className="text-blue-600 font-bold">
-                                                    {sortConfig.direction === "ascending" ? "↑" : "↓"}
+                                        <div className="flex items-center gap-1.5">
+                                            <Calendar className="w-3.5 h-3.5" />
+                                            Próxima consulta
+                                            {sortConfig.key === 'nextAppointment' && (
+                                                <span className="text-gray-700 font-medium">
+                                                    {sortConfig.direction === 'ascending' ? '↑' : '↓'}
                                                 </span>
                                             )}
                                         </div>
                                     </th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
-                                        <div className="flex items-center gap-2">
-                                            <Package className="w-4 h-4" />
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <div className="flex items-center gap-1.5">
+                                            <Package className="w-3.5 h-3.5" />
                                             Pacotes
                                         </div>
                                     </th>
-                                    <th className="px-6 py-4 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">
+                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Ações
                                     </th>
-                                    <th className="px-6 py-4"></th>
+                                    <th className="px-6 py-3"></th>
                                 </tr>
                             </thead>
 
-                            <tbody className="bg-white divide-y divide-gray-100">
-                                {paginatedPatients.map((patient) => (
-                                    <>
-                                        <tr
-                                            key={`row-${patient._id}`}
-                                            className="hover:bg-blue-50 transition-all duration-150 cursor-pointer group"
-                                            onClick={() => toggleRow(patient._id)}
-                                        >
-                                            <td className="px-6 py-5">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-bold shadow-md">
-                                                        {patient.fullName?.charAt(0).toUpperCase()}
-                                                    </div>
-                                                    <div>
-                                                        <div className="font-semibold text-gray-800 text-base">
-                                                            {patient.fullName || '-'}
+                            <tbody className="bg-white divide-y divide-gray-50">
+                                {paginatedPatients.map((patient) => {
+                                    const isExpanded = expandedRows[patient._id];
+                                    return (
+                                        <React.Fragment key={patient._id}>
+                                            <tr
+                                                className="hover:bg-gray-50 transition-colors cursor-pointer"
+                                                onClick={() => toggleRow(patient._id)}
+                                            >
+                                                {/* Paciente */}
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-700 font-medium text-sm">
+                                                            {patient.fullName?.charAt(0).toUpperCase()}
                                                         </div>
-                                                        <div className="text-sm text-gray-500 flex items-center gap-1.5 mt-0.5">
-                                                            <Phone className="w-3.5 h-3.5 text-gray-400" />
-                                                            {patient.phone || '-'}
+                                                        <div>
+                                                            <div className="font-medium text-gray-800 text-sm">
+                                                                {patient.fullName || '-'}
+                                                            </div>
+                                                            <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                                                                <Phone className="w-3 h-3" />
+                                                                {patient.phone || '-'}
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            </td>
+                                                </td>
 
-                                            <td className="px-6 py-5">
-                                                {patient.healthPlan?.name ? (
-                                                    <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-orange-100 to-orange-50 text-orange-700 px-3 py-1.5 rounded-lg text-sm font-medium shadow-sm">
-                                                        <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
-                                                        {patient.healthPlan.name}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-gray-400 text-sm">-</span>
-                                                )}
-                                            </td>
-
-                                            <td className="px-6 py-5">
-                                                {patient.nextAppointment?.date ? (
-                                                    <div className="space-y-1">
-                                                        <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-green-100 to-green-50 text-green-700 px-3 py-1.5 rounded-lg text-sm font-semibold shadow-sm">
-                                                            <Calendar className="w-3.5 h-3.5" />
-                                                            {formatDateBrazilian(patient.nextAppointment.date)}
+                                                {/* Atendimento (plano) */}
+                                                <td className="px-6 py-4">
+                                                    {patient.healthPlan?.name ? (
+                                                        <span className="inline-flex items-center gap-1.5 bg-orange-50 text-orange-700 px-2.5 py-1 rounded-md text-xs font-medium">
+                                                            <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>
+                                                            {patient.healthPlan.name}
                                                         </span>
-                                                        <div className="text-xs text-gray-600 font-medium">
-                                                            {patient.nextAppointment?.doctor?.fullName || '-'}
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-gray-400 text-sm">Sem agendamento</span>
-                                                )}
-                                            </td>
-
-                                            <td className="px-6 py-5">
-                                                {patient.packages && patient.packages.length > 0 ? (
-                                                    <PackageAccordion packages={patient.packages} />
-                                                ) : (
-                                                    <span className="text-gray-400 text-sm">Nenhum pacote</span>
-                                                )}
-                                            </td>
-
-                                            <td className="px-6 py-5">
-                                                <div className="flex gap-2 justify-center">
-                                                    <Link to={`/patient-dashboard/${patient._id}`} title="Ver detalhes">
-                                                        <Eye className="w-5 h-5 text-orange-600 hover:text-orange-800" />
-                                                    </Link>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            onPaymentAdvancedSuccess?.(patient);
-                                                        }}
-                                                        title="Registrar Pagamento"
-                                                        className="p-2 bg-yellow-50 text-yellow-600 hover:bg-yellow-100 rounded-lg transition-all hover:scale-110 shadow-sm"
-                                                    >
-                                                        <BsHourglass className="w-5 h-5" />
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            onEditPatient?.(patient);
-                                                        }}
-                                                        title="Editar"
-                                                        className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-all hover:scale-110 shadow-sm"
-                                                    >
-                                                        <Edit className="w-5 h-5" />
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => e.stopPropagation()}
-                                                        title="Ver evoluções"
-                                                        className="p-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg transition-all hover:scale-110 shadow-sm"
-                                                    >
-                                                        <FileHeart className="w-5 h-5" />
-                                                    </button>
-                                                </div>
-                                            </td>
-
-                                            <td className="px-6 py-5 text-right">
-                                                <div className="p-2 bg-gray-50 rounded-lg group-hover:bg-blue-100 transition-colors">
-                                                    {expandedRows[patient._id] ? (
-                                                        <ChevronUp className="w-5 h-5 text-gray-600 group-hover:text-blue-600" />
                                                     ) : (
-                                                        <ChevronDown className="w-5 h-5 text-gray-600 group-hover:text-blue-600" />
+                                                        <span className="text-gray-400 text-xs">-</span>
                                                     )}
-                                                </div>
-                                            </td>
-                                        </tr>
+                                                </td>
 
-                                        {
-                                            expandedRows[patient._id] && (
-                                                <tr key={`expanded-${patient._id}`} className="bg-gradient-to-r from-blue-50 to-indigo-50">
-                                                    <td colSpan={6} className="px-6 py-6">
-                                                        <div className="bg-white rounded-xl p-5 shadow-sm border border-blue-100">
-                                                            <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                                                                <div className="w-1 h-5 bg-green-500 rounded-full"></div>
-                                                                Enviar mensagem via WhatsApp:
+                                                {/* Próxima consulta */}
+                                                <td className="px-6 py-4">
+                                                    {patient.nextAppointment?.date ? (
+                                                        <div className="space-y-0.5">
+                                                            <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 px-2.5 py-1 rounded-md text-xs font-medium">
+                                                                <Calendar className="w-3 h-3" />
+                                                                {formatDateBrazilian(patient.nextAppointment.date)}
+                                                            </span>
+                                                            <div className="text-xs text-gray-600">
+                                                                {patient.nextAppointment.doctor?.fullName || '-'}
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-gray-400 text-xs">Sem agendamento</span>
+                                                    )}
+                                                </td>
+
+                                                {/* Pacotes */}
+                                                <td className="px-6 py-4">
+                                                    {patient.packages && patient.packages.length > 0 ? (
+                                                        <PackageAccordion packages={patient.packages} />
+                                                    ) : (
+                                                        <span className="text-gray-400 text-xs">Nenhum pacote</span>
+                                                    )}
+                                                </td>
+
+                                                {/* Ações */}
+                                                <td className="px-6 py-4">
+                                                    <div className="flex gap-2 justify-center">
+                                                        <Link
+                                                            to={`/patient-dashboard/${patient._id}`}
+                                                            title="Ver detalhes"
+                                                            className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                        </Link>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onPaymentAdvancedSuccess?.(patient);
+                                                            }}
+                                                            title="Registrar Pagamento"
+                                                            className="p-1.5 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 rounded-md transition-colors"
+                                                        >
+                                                            <BsHourglass className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onEditPatient?.(patient);
+                                                            }}
+                                                            title="Editar"
+                                                            className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
+                                                        >
+                                                            <Edit className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            title="Ver evoluções"
+                                                            className="p-1.5 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-md transition-colors"
+                                                        >
+                                                            <FileHeart className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+
+                                                {/* Expandir/recolher */}
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="p-1 hover:bg-gray-100 rounded-md transition-colors">
+                                                        {isExpanded ? (
+                                                            <ChevronUp className="w-4 h-4 text-gray-500" />
+                                                        ) : (
+                                                            <ChevronDown className="w-4 h-4 text-gray-500" />
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+
+                                            {/* Linha expandida (WhatsApp) */}
+                                            {isExpanded && (
+                                                <tr className="bg-gray-50">
+                                                    <td colSpan={6} className="px-6 py-4">
+                                                        <div className="bg-white rounded-lg p-4 border border-gray-100">
+                                                            <h4 className="text-xs font-medium text-gray-700 mb-2 flex items-center gap-1.5">
+                                                                <div className="w-1 h-4 bg-green-500 rounded-full"></div>
+                                                                Enviar mensagem via WhatsApp
                                                             </h4>
                                                             {patient.phone && (
                                                                 <WhatsAppActionButtons
-                                                                    phone={patient.phone.startsWith('+')
-                                                                        ? patient.phone.slice(1)
-                                                                        : patient.phone}
+                                                                    phone={
+                                                                        patient.phone.startsWith('+')
+                                                                            ? patient.phone.slice(1)
+                                                                            : patient.phone
+                                                                    }
                                                                     nome={patient.fullName}
-                                                                    profissional={patient?.nextAppointment?.doctor?.fullName}
-                                                                    data={new Date(patient.nextAppointment?.date)}
-                                                                    hora={new Date(patient.nextAppointment?.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                                                    servico={patient?.lastAppointment?.doctor?.specialty}
+                                                                    profissional={patient.nextAppointment?.doctor?.fullName}
+                                                                    data={
+                                                                        patient.nextAppointment?.date
+                                                                            ? new Date(patient.nextAppointment.date)
+                                                                            : undefined
+                                                                    }
+                                                                    hora={
+                                                                        patient.nextAppointment?.date
+                                                                            ? new Date(
+                                                                                patient.nextAppointment.date
+                                                                            ).toLocaleTimeString('pt-BR', {
+                                                                                hour: '2-digit',
+                                                                                minute: '2-digit',
+                                                                            })
+                                                                            : undefined
+                                                                    }
+                                                                    servico={patient.lastAppointment?.doctor?.specialty}
                                                                     restantes="2"
                                                                 />
                                                             )}
                                                         </div>
                                                     </td>
                                                 </tr>
-                                            )
-                                        }
-                                    </>
-                                ))}
-
+                                            )}
+                                        </React.Fragment>
+                                    );
+                                })}
                             </tbody>
-                            <tfoot>
-                                <tr className="bg-gray-50">
+
+                            {/* Rodapé com paginação */}
+                            <tfoot className="bg-white border-t border-gray-100">
+                                <tr>
                                     <td colSpan={6} className="px-6 py-4">
-                                    <span className="text-sm m-2 text-gray-500">
-                                        Mostrando {startIndex + 1} - {Math.min(startIndex + itemsPerPage, filteredPatients.length)} de {filteredPatients.length}
-                                    </span>
-                                    <div className="flex justify-between items-center">
-                                        <div className="flex items-center space-x-3">
-                                            <span className="text-sm font-medium text-gray-600">Exibir:</span>
-                                            <select
-                                                value={itemsPerPage}
-                                                onChange={handleItemsPerPageChange}
-                                                className="border-2 border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                                            >
-                                                <option value={5}>5</option>
-                                                <option value={10}>10</option>
-                                                <option value={20}>20</option>
-                                            </select>
-
-                                        </div>
-
-                                        <div className="flex items-center space-x-2">
-                                            <button
-                                                onClick={() => handlePageChange('prev')}
-                                                disabled={currentPage === 1}
-                                                className="px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 text-sm font-medium hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                                            >
-                                                Anterior
-                                            </button>
-                                            <div className="flex items-center gap-1">
-                                                {Array.from({ length: totalPages }, (_, index) => {
-                                                    const page = index + 1;
-                                                    const isActive = currentPage === page;
-                                                    return (
-                                                        <button
-                                                            key={page}
-                                                            onClick={() => setCurrentPage(page)}
-                                                            className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-all duration-150 ${isActive
-                                                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md scale-105'
-                                                                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-300'
-                                                                }`}
-                                                        >
-                                                            {page}
-                                                        </button>
-                                                    );
-                                                })}
+                                        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                                            <div className="flex items-center gap-3 text-xs text-gray-500">
+                                                <span>
+                                                    Mostrando {startIndex + 1} -{' '}
+                                                    {Math.min(startIndex + itemsPerPage, filteredPatients.length)} de{' '}
+                                                    {filteredPatients.length}
+                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-gray-600">Exibir:</span>
+                                                    <select
+                                                        value={itemsPerPage}
+                                                        onChange={handleItemsPerPageChange}
+                                                        className="border border-gray-200 rounded-md px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                                                    >
+                                                        <option value={5}>5</option>
+                                                        <option value={10}>10</option>
+                                                        <option value={20}>20</option>
+                                                    </select>
+                                                </div>
                                             </div>
-                                            <button
-                                                onClick={() => handlePageChange('next')}
-                                                disabled={currentPage === totalPages}
-                                                className="px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 text-sm font-medium hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                                            >
-                                                Próxima
-                                            </button>
+
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => handlePageChange('prev')}
+                                                    disabled={currentPage === 1}
+                                                    className="px-3 py-1.5 border border-gray-200 rounded-md text-gray-600 text-xs font-medium hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                                >
+                                                    Anterior
+                                                </button>
+                                                <div className="flex items-center gap-1">
+                                                    {Array.from({ length: totalPages }, (_, index) => {
+                                                        const page = index + 1;
+                                                        const isActive = currentPage === page;
+                                                        return (
+                                                            <button
+                                                                key={page}
+                                                                onClick={() => setCurrentPage(page)}
+                                                                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${isActive
+                                                                        ? 'bg-gray-800 text-white'
+                                                                        : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
+                                                                    }`}
+                                                            >
+                                                                {page}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                                <button
+                                                    onClick={() => handlePageChange('next')}
+                                                    disabled={currentPage === totalPages}
+                                                    className="px-3 py-1.5 border border-gray-200 rounded-md text-gray-600 text-xs font-medium hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                                >
+                                                    Próxima
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
-                                </td>
+                                    </td>
                                 </tr>
                             </tfoot>
                         </table>
                     </div>
                 </div>
-            )
-            }
-        </Card >
+            )}
+        </Card>
     );
 };
 

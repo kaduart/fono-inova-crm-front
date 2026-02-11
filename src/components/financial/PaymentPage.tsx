@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import usePayment from '../../hooks/usePayment';
-import { usePixSocket } from '../../hooks/useSocketNotifications';
+import { usePixSocket } from '../../hooks/usePixSocket';
 import {
     exportCSV,
     exportPDF,
@@ -69,7 +69,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
         if (initialPayments && initialPayments.length > 0) {
             return;
         }
-        
+
         const loadData = async () => {
             try {
                 await fetchPayments();
@@ -134,7 +134,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
             setAllPayments(initialPayments);
             return;
         }
-        
+
         const loadAll = async () => {
             setLoading(true);
             try {
@@ -358,12 +358,12 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                             })()}
                                         </optgroup>
                                     </select>
-                                    
+
                                     {loading && (
                                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>
                                     )}
                                 </div>
-                                
+
                                 {paymentTotals && (
                                     <FinancialSummaryCard
                                         data={{
@@ -382,7 +382,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                         }}
                                     />
                                 )}
-                                
+
                                 {!paymentTotals && !loading && (
                                     <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
                                         <p className="text-yellow-700 text-sm">

@@ -1,32 +1,46 @@
-// src/hooks/usePixSocket.ts
+// usePixSocket.ts - VERSÃO CORRIGIDA E FUNCIONAL
 import { useEffect, useRef } from "react";
+import { toast } from "react-toastify";
 import { useNotification } from "../contexts/NotificationContext";
 import { logger } from "../utils/logger";
-import { normalizeE164BR } from "../utils/phone";
 import { socketManager } from "../utils/socketManager";
 
 interface PixSocketOptions {
     onPaymentRefresh?: () => void;
     onCalendarRefresh?: () => void;
+    onPreAgendamentoRefresh?: () => void;
 }
+
+const normalizePhone = (v: string) => (v || "").replace(/\D/g, "").replace(/^55/, "");
 
 export const usePixSocket = ({
     onPaymentRefresh,
     onCalendarRefresh,
+    onPreAgendamentoRefresh,
 }: PixSocketOptions = {}) => {
     const {
         showPaymentNotification,
         showChatNotification,
         showMediaNotification,
+        showPreAgendamentoNotification
     } = useNotification();
 
     const lastEventTime = useRef<number>(0);
+    const throttled = () => {
+        const now = Date.now();
+        if (now - lastEventTime.current < 1500) return true;
+        lastEventTime.current = now;
+        return false;
+    };
+
     const notifRef = useRef({
         showPaymentNotification,
         showChatNotification,
         showMediaNotification,
+        showPreAgendamentoNotification,
         onPaymentRefresh,
         onCalendarRefresh,
+        onPreAgendamentoRefresh,
     });
 
     useEffect(() => {
@@ -34,26 +48,36 @@ export const usePixSocket = ({
             showPaymentNotification,
             showChatNotification,
             showMediaNotification,
+            showPreAgendamentoNotification,
             onPaymentRefresh,
             onCalendarRefresh,
+            onPreAgendamentoRefresh,
         };
-    }, [showPaymentNotification, showChatNotification, showMediaNotification, onPaymentRefresh, onCalendarRefresh]);
+    }, [showPaymentNotification, showChatNotification, showMediaNotification, showPreAgendamentoNotification, onPaymentRefresh, onCalendarRefresh, onPreAgendamentoRefresh]);
 
+    // ✅ TUDO NO MESMO useEffect AGORA
     useEffect(() => {
+        console.log("🔌 [SOCKET] Inicializando...");
+
+        (window as any).sm = socketManager;
+        (window as any).checkSocket = () => {
+            console.log("Conectado:", socketManager.isConnected?.());
+            console.log("Status:", socketManager.getStatus?.());
+        };
+
         socketManager.initialize();
 
-        const throttled = () => {
-            const now = Date.now();
-            if (now - lastEventTime.current < 1500) return true; // 1.5s
-            lastEventTime.current = now;
-            return false;
-        };
+        // Keep-alive
+        const pingInterval = setInterval(() => {
+            if (socketManager.isConnected?.()) {
+                socketManager.emit?.("ping", Date.now());
+            }
+        }, 20000);
 
-        // =========================
-        // 💰 PIX RECEBIDO
-        // =========================
+        // 💰 PIX
         const onPix = (pix: any) => {
             if (throttled()) return;
+            logger.info("💰 PIX recebido:", pix);
             notifRef.current.showPaymentNotification({
                 appointmentId: pix?.appointmentId || "",
                 amount: pix?.amount || 0,
@@ -75,13 +99,52 @@ export const usePixSocket = ({
             notifRef.current.onPaymentRefresh?.();
         };
 
-        // =========================
-        // 💬 / 📎 MENSAGENS (handler único)
-        // =========================
+        // 📅 PRÉ-AGENDAMENTOS - TODOS DEFINIDOS AQUI
+        const onPreAgendamentoNew = (data: any) => {
+            console.log("📅 [SOCKET] preagendamento:new", data);
+            new Audio("/notification.mp3").play().catch(() => { });
+            notifRef.current.showPreAgendamentoNotification({
+                id: `pre-${data.id || Date.now()}`,
+                patientName: data.patientName || data.patientInfo?.fullName || "Paciente",
+                specialty: data.specialty || "Não especificado",
+                phone: data.phone || data.patientInfo?.phone || "",
+                preferredDate: data.preferredDate || data.date || "Data não informada",
+            });
+            notifRef.current.onPreAgendamentoRefresh?.();
+        };
+
+        const onPreAgendamentoImported = (data: any) => {
+            console.log("✅ [SOCKET] preagendamento:imported", data);
+            notifRef.current.onPreAgendamentoRefresh?.();
+        };
+
+        const onPreAgendamentoCanceled = (data: any) => {
+            console.log("🚫 [SOCKET] preagendamento:canceled", data);
+            if (data?.patientName) {
+                toast.warning(`${data.patientName} - CANCELADO`);
+            }
+            notifRef.current.onPreAgendamentoRefresh?.();
+        };
+
+        const onPreAgendamentoUpdated = (data: any) => {
+            console.log("✏️ [SOCKET] preagendamento:updated", data);
+            if (data?.patientName) {
+                toast.info(`${data.patientName} - Dados atualizados`);
+            }
+            notifRef.current.onPreAgendamentoRefresh?.();
+        };
+
+        const onPreAgendamentoDeleted = (data: any) => {
+            console.log("🗑️ [SOCKET] preagendamento:deleted", data);
+            if (data?.patientName) {
+                toast.error(`${data.patientName} - EXCLUÍDO`);
+            }
+            notifRef.current.onPreAgendamentoRefresh?.();
+        };
+
+        // 💬 WHATSAPP
         const onAnyMessage = (data: any) => {
             if (throttled()) return;
-
-            // dados brutos
             const type = data?.type || "text";
             const text = data?.content ?? data?.text ?? "";
             const from = data?.from || "";
@@ -92,19 +155,14 @@ export const usePixSocket = ({
             const timestamp = typeof rawTs === "number" ? rawTs : new Date(rawTs).getTime();
             const id = data?.id || data?.wamid || `${type}-${timestamp}`;
 
-            // direção (se o back mandar, usamos; senão inferimos)
-            const dir = (data?.direction || "").toLowerCase(); // "inbound" | "outbound" | ""
-            const fromN = normalizeE164BR(from);
-            const toN = normalizeE164BR(to);
-
-            // fallback seguro: inbound se veio 'from' e não veio 'to'
+            const dir = (data?.direction || "").toLowerCase();
+            const fromN = normalizePhone(from);
+            const toN = normalizePhone(to);
             const isInbound = dir ? dir === "inbound" : (!!fromN && !toN);
 
-            // 🚫 Não notificar mensagens outbound
             if (!isInbound) return;
 
-            // 🚪 Se o chat deste contato estiver aberto, não notificar
-            const active = socketManager.getActiveChatPhone();
+            const active = (window as any).activeChatPhone || socketManager.getActiveChatPhone() || null;
             const contactPhone = fromN || toN;
             const isChatOpen = active && contactPhone && active === contactPhone;
 
@@ -117,20 +175,26 @@ export const usePixSocket = ({
             }
         };
 
-        // ====== bind listeners ======
-        const offConnect = socketManager.on("connect", () => logger.info("🔌 socket connected"));
-        const offConnectErr = socketManager.on("connect_error", (e: any) => logger.warn("socket connect_error:", e?.message || e));
-        const offDisconnect = socketManager.on("disconnect", (r: any) => logger.warn("socket disconnect:", r));
+        // ✅ FUNÇÃO PARA REGISTRAR TUDO (agora sim funciona porque as funções existem no escopo)
+        const registraTudo = () => {
+            console.log("🔄 Registrando listeners...");
+            socketManager.on("pix-received", onPix);
+            socketManager.on("paymentUpdate", onPaymentUpdate);
+            socketManager.onMessageNew(onAnyMessage);
+            socketManager.on("preagendamento:new", onPreAgendamentoNew);
+            socketManager.on("preagendamento:imported", onPreAgendamentoImported);
+            socketManager.on("preagendamento:updated", onPreAgendamentoUpdated);
+            socketManager.on("preagendamento:canceled", onPreAgendamentoCanceled);
+            socketManager.on("preagendamento:deleted", onPreAgendamentoDeleted);
+        };
 
-        const offPix = socketManager.on("pix-received", onPix);
-        const offPayment = socketManager.on("paymentUpdate", onPaymentUpdate);
-
-        const offMsg = socketManager.onMessageNew(onAnyMessage);
+        // Registra inicialmente
+        registraTudo();
 
         return () => {
-            offConnect(); offConnectErr(); offDisconnect();
-            offPix(); offPayment();
-            offMsg();
+            clearInterval(pingInterval);
         };
-    }, []);
+    }, []); // ✅ SÓ UM useEffect COM TUDO DENTRO
+
+    return null; // ou o que precisar retornar
 };

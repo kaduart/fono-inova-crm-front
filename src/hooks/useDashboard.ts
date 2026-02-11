@@ -26,12 +26,12 @@ interface UseDashboardReturn {
     charts: DashboardCharts | null;
     doctors: DoctorOverview[];
     upcomingAppointments: UpcomingAppointment[];
-    
+
     // Estados
     loading: boolean;
     error: string | null;
     lastUpdated: Date | null;
-    
+
     // Ações
     refresh: () => Promise<void>;
     invalidateCache: () => Promise<void>;
@@ -74,7 +74,7 @@ export const useDashboard = (): UseDashboardReturn => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-    
+
     // Refs para controle de mount e race conditions
     const isMounted = useRef(true);
     const isInitialLoad = useRef(true);
@@ -89,8 +89,8 @@ export const useDashboard = (): UseDashboardReturn => {
         if (!forceRefresh && globalCache.overview && (now - globalCache.timestamp < CACHE_DURATION)) {
             // ✅ CORREÇÃO: Verificar se o cache tem todos os dados necessários
             const hasCompleteData = globalCache.overview.upcomingAppointments !== undefined &&
-                                   globalCache.overview.doctorsOverview !== undefined &&
-                                   globalCache.overview.stats !== undefined;
+                globalCache.overview.doctorsOverview !== undefined &&
+                globalCache.overview.stats !== undefined;
             if (hasCompleteData) {
                 console.log('📦 useDashboard: Usando cache global:', {
                     statsTotalPatients: globalCache.overview?.stats?.totalPatients,
@@ -133,13 +133,7 @@ export const useDashboard = (): UseDashboardReturn => {
             try {
                 // 🎯 Uma única chamada para obter tudo!
                 const data = await fetchDashboardOverview(forceRefresh);
-                console.log('📊 Dashboard data received:', {
-                    hasStats: !!data?.stats,
-                    hasCharts: !!data?.charts,
-                    doctorsCount: data?.doctorsOverview?.length || 0,
-                    upcomingAppointmentsCount: data?.upcomingAppointments?.length || 0
-                });
-                
+
                 if (isMounted.current) {
                     setOverview(data);
                     setStats(data.stats);
@@ -147,8 +141,6 @@ export const useDashboard = (): UseDashboardReturn => {
                     setDoctors(data.doctorsOverview || []);
                     setUpcomingAppointments(data.upcomingAppointments || []);
                     setLastUpdated(new Date());
-                    
-                    console.log('✅ Estados atualizados no useDashboard');
                 }
 
                 // Atualizar cache global

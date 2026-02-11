@@ -54,7 +54,7 @@ class SocketManager {
         }
 
         const s = io(envUrl || "", {
-            transports: ["websocket"],
+            transports: ["websocket", "polling"],
             upgrade: false,
             reconnection: true,
             reconnectionAttempts: Infinity,  // ✅ NUNCA para de reconectar
@@ -103,7 +103,7 @@ class SocketManager {
     private startHeartbeat() {
         this.stopHeartbeat();
 
-       /*  this.heartbeatInterval = setInterval(() => {
+        this.heartbeatInterval = setInterval(() => {
             if (!this.socket?.connected) {
                 logger.warn("💔 [socket] Heartbeat detectou desconexão");
                 this.reconnect();
@@ -120,7 +120,7 @@ class SocketManager {
 
             // Envia ping
             this.socket.emit("ping");
-        }, 10000); */ // A cada 10 segundos
+        }, 10000); // A cada 10 segundos
     }
 
     private stopHeartbeat() {
@@ -168,8 +168,9 @@ class SocketManager {
 
     // Adicione este método na classe/socketManager:
     public onPreAgendamento(callback: (data: any) => void) {
-        this.socket?.on("preagendamento:new", callback);
-        return () => this.socket?.off("preagendamento:new", callback);
+        const s = this.ensureSocket();   // 🔥 ESSENCIAL
+        s.on("preagendamento:new", callback);
+        return () => s.off("preagendamento:new", callback);
     }
 
     public onPreAgendamentoUpdate(callback: (data: any) => void) {
@@ -179,6 +180,25 @@ class SocketManager {
             this.socket?.off("preagendamento:imported", callback);
             this.socket?.off("preagendamento:updated", callback);
         };
+    }
+
+    // ✅ ADICIONAR ESTES 3 QUE FALTAM:
+    public onPreAgendamentoCanceled(callback: (data: any) => void) {
+        const s = this.ensureSocket();
+        s.on("preagendamento:canceled", callback);
+        return () => s.off("preagendamento:canceled", callback);
+    }
+
+    public onPreAgendamentoUpdated(callback: (data: any) => void) {
+        const s = this.ensureSocket();
+        s.on("preagendamento:updated", callback);
+        return () => s.off("preagendamento:updated", callback);
+    }
+
+    public onPreAgendamentoDeleted(callback: (data: any) => void) {
+        const s = this.ensureSocket();
+        s.on("preagendamento:deleted", callback);
+        return () => s.off("preagendamento:deleted", callback);
     }
 
     // ✅ NOVO: Verifica se está conectado

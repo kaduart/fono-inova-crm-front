@@ -31,7 +31,6 @@ export const useAppointments = () => {
     // ✅ FIX: fetchAppointments usando appointmentService.list() corretamente
     const fetchAppointments = useCallback(async (filters?: { startDate?: string; endDate?: string }) => {
         try {
-            console.log('📋 AppointmentsContext: Buscando appointments com filtros:', filters);
 
             // Converter strings para Date objects (como o service espera)
             const params: PaginationParams = {
@@ -40,11 +39,8 @@ export const useAppointments = () => {
                 ...(filters?.endDate && { endDate: new Date(filters.endDate) }),
             };
 
-            console.log('📋 AppointmentsContext: Params para API:', params);
-
             const response = await appointmentService.list(params);
 
-            console.log('📋 AppointmentsContext: Response:', response.data);
             setAppointments(response.data.data || response.data || []);
         } catch (error) {
             console.error('❌ Erro ao buscar appointments:', error);
