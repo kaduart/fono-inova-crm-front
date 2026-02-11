@@ -42,7 +42,7 @@ export default function TherapyPackageTable({ packages, currentPage, totalPages,
                                                     : <span className="italic text-gray-400">Nenhuma</span>
                                                 }
                                             </td>
-                                            <td className="p-4">{pkg.payments.length}</td>
+                                            <td className="p-4">{pkg.payments?.length}</td>
                                             <td className="p-4 flex items-center gap-3">
                                                 <button
                                                     onClick={() => onEdit(pkg)}

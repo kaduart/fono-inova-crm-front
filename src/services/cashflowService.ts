@@ -12,6 +12,38 @@ export interface CashflowSummaryData {
     };
     balance: number;
     balanceStatus: 'positive' | 'negative';
+
+    // NOVO: Atividade do período
+    atividade?: {
+        agendamentosCriados: {
+            count: number;
+            valorPotencial: number;
+            itens: Array<{
+                id: string;
+                paciente: string;
+                profissional: string;
+                especialidade: string;
+                dataAgendada: string;
+                hora: string;
+                valor: number;
+                criadoEm: string;
+            }>;
+        };
+        pacotesCriados: {
+            count: number;
+            valorPotencial: number;
+            itens: Array<{
+                id: string;
+                paciente: string;
+                profissional: string;
+                especialidade: string;
+                sessoes: number;
+                valor: number;
+                criadoEm: string;
+            }>;
+        };
+        movimentacaoTotal: number;
+    };
 }
 
 export interface CashflowSummary {

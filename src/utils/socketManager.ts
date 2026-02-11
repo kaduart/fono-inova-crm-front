@@ -103,7 +103,7 @@ class SocketManager {
     private startHeartbeat() {
         this.stopHeartbeat();
 
-        this.heartbeatInterval = setInterval(() => {
+       /*  this.heartbeatInterval = setInterval(() => {
             if (!this.socket?.connected) {
                 logger.warn("💔 [socket] Heartbeat detectou desconexão");
                 this.reconnect();
@@ -120,7 +120,7 @@ class SocketManager {
 
             // Envia ping
             this.socket.emit("ping");
-        }, 10000); // A cada 10 segundos
+        }, 10000); */ // A cada 10 segundos
     }
 
     private stopHeartbeat() {
@@ -164,6 +164,21 @@ class SocketManager {
             this.socket.disconnect();
             this.socket = null;
         }
+    }
+
+    // Adicione este método na classe/socketManager:
+    public onPreAgendamento(callback: (data: any) => void) {
+        this.socket?.on("preagendamento:new", callback);
+        return () => this.socket?.off("preagendamento:new", callback);
+    }
+
+    public onPreAgendamentoUpdate(callback: (data: any) => void) {
+        this.socket?.on("preagendamento:imported", callback);
+        this.socket?.on("preagendamento:updated", callback);
+        return () => {
+            this.socket?.off("preagendamento:imported", callback);
+            this.socket?.off("preagendamento:updated", callback);
+        };
     }
 
     // ✅ NOVO: Verifica se está conectado

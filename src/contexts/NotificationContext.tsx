@@ -30,6 +30,15 @@ interface ChatNotification {
   leadId?: string;
 }
 
+// ✅ ADICIONAR: Interface do Pré-Agendamento
+interface PreAgendamentoNotification {
+  id: string;
+  patientName: string;
+  specialty: string;
+  phone: string;
+  preferredDate: string;
+}
+
 // ======================================================
 // 🔹 Interface do contexto global
 // ======================================================
@@ -48,6 +57,11 @@ interface NotificationContextType {
   chatNotification: ChatNotification | null;
   showChatNotification: (notification: Omit<ChatNotification, 'id'>) => void;
   closeChatNotification: () => void;
+
+  // ✅ ADICIONAR: Pré-Agendamento
+  preAgendamentoNotification: PreAgendamentoNotification | null;
+  showPreAgendamentoNotification: (notification: PreAgendamentoNotification) => void;
+  closePreAgendamentoNotification: () => void;
 }
 
 // ======================================================
@@ -59,6 +73,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [paymentNotification, setPaymentNotification] = useState<PaymentNotification | null>(null);
   const [mediaNotification, setMediaNotification] = useState<MediaNotification | null>(null);
   const [chatNotification, setChatNotification] = useState<ChatNotification | null>(null);
+  const [preAgendamentoNotification, setPreAgendamentoNotification] = useState<PreAgendamentoNotification | null>(null);
 
   // 💰 PIX
   const showPaymentNotification = useCallback((notification: Omit<PaymentNotification, 'id'>) => {
@@ -84,6 +99,21 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   }, []);
   const closeChatNotification = useCallback(() => setChatNotification(null), []);
 
+  // 📋 PRÉ-AGENDAMENTO (corrigido com useCallback)
+  const showPreAgendamentoNotification = useCallback((notification: PreAgendamentoNotification) => {
+    setPreAgendamentoNotification(notification);
+    // Auto-close após 15 segundos se não clicar
+    setTimeout(() => {
+      setPreAgendamentoNotification((prev) => 
+        prev?.id === notification.id ? null : prev
+      );
+    }, 15000);
+  }, []);
+
+  const closePreAgendamentoNotification = useCallback(() => {
+    setPreAgendamentoNotification(null);
+  }, []);
+
   return (
     <NotificationContext.Provider
       value={{
@@ -101,6 +131,11 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         chatNotification,
         showChatNotification,
         closeChatNotification,
+
+        // ✅ ADICIONAR AQUI: Pré-Agendamento
+        preAgendamentoNotification,
+        showPreAgendamentoNotification,
+        closePreAgendamentoNotification,
       }}
     >
       {children}

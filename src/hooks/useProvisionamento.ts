@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import api from '../services/api';
 
 interface CamadaProvisionamento {
@@ -70,6 +70,54 @@ export const useProvisionamento = () => {
   const [loading, setLoading] = useState(false);
   const [loadingPendentes, setLoadingPendentes] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [analiticoData, setAnaliticoData] = useState<any>(null);
+  const [pacotesAndamento, setPacotesAndamento] = useState<any[]>([]);
+  const [fechamentoData, setFechamentoData] = useState<any>(null);
+  const [atividadeHoje, setAtividadeHoje] = useState<any>(null);
+  const [loadingAtividade, setLoadingAtividade] = useState(false);
+  const [projecaoMes, setProjecaoMes] = useState<any>(null);
+  const [metricasMes, setMetricasMes] = useState<any>(null);
+  const [loadingMetricas, setLoadingMetricas] = useState(false);
+
+  const fetchMetricasMes = useCallback(async (mes: number, ano: number) => {
+    setLoadingMetricas(true);
+    try {
+      const response = await api.get(`/provisionamento/metricas-mes?month=${mes}&year=${ano}`);
+      setMetricasMes(response.data);
+      return response.data;
+    } catch (err) {
+      console.error('Erro ao carregar métricas:', err);
+      return null;
+    } finally {
+      setLoadingMetricas(false);
+    }
+  }, []);
+
+  const fetchProjecaoMes = useCallback(async (mes: number, ano: number) => {
+    try {
+      const response = await api.get(`/provisionamento/projecao-mes?month=${mes}&year=${ano}`);
+      setProjecaoMes(response.data);
+      return response.data;
+    } catch (err) {
+      console.error('Erro projeção:', err);
+      return null;
+    }
+  }, []);
+
+  // Adicione a função:
+  const fetchAtividadeHoje = useCallback(async () => {
+    setLoadingAtividade(true);
+    try {
+      const response = await api.get('/provisionamento/atividade-hoje');
+      setAtividadeHoje(response.data.data);
+      return response.data.data;
+    } catch (err: any) {
+      console.error('Erro ao carregar atividade de hoje:', err);
+      return null;
+    } finally {
+      setLoadingAtividade(false);
+    }
+  }, []);
 
   const calcular = useCallback(async (mes?: number, ano?: number) => {
     setLoading(true);
@@ -85,11 +133,12 @@ export const useProvisionamento = () => {
     }
   }, []);
 
-  const carregarPendentes = useCallback(async () => {
+  const carregarPendentes = useCallback(async (mes?: number, ano?: number) => {
     setLoadingPendentes(true);
     try {
-      const response = await api.get('/provisionamento/agenda-temporaria');
-      setPendingAppointments(response.data.data);
+      const params = mes && ano ? `?month=${mes}&year=${ano}` : '';
+      const response = await api.get(`/provisionamento/agenda-temporaria${params}`);
+      setPendingAppointments(response.data.data || []);
       return response.data;
     } catch (err: any) {
       console.error('Erro ao carregar pendentes:', err);
@@ -109,6 +158,29 @@ export const useProvisionamento = () => {
     return response.data;
   }, []);
 
+  // Busca dados analíticos completos (planilha detalhada)
+  const fetchAnalitico = useCallback(async (mes: number, ano: number) => {
+    const response = await api.get(`/provisionamento/analitico?month=${mes}&year=${ano}`);
+    setAnaliticoData(response.data);
+    return response.data;
+  }, []);
+
+  // Busca pacotes em andamento (com % concluído)
+  const fetchPacotesAndamento = useCallback(async () => {
+    const response = await api.get('/provisionamento/pacotes-andamento');
+    setPacotesAndamento(response.data.data);
+    return response.data.data;
+  }, []);
+
+  // Busca DRE (fechamento mensal)
+  const fetchFechamento = useCallback(async (mes: number, ano: number) => {
+    const response = await api.get(`/provisionamento/fechamento-mensal?month=${mes}&year=${ano}`);
+    setFechamentoData(response.data);
+    return response.data;
+  }, []);
+
+
+
   return {
     data,
     pendingAppointments,
@@ -118,7 +190,31 @@ export const useProvisionamento = () => {
     calcular,
     carregarPendentes,
     confirmarAgendamentos,
-    liberarVagas
+    liberarVagas,
+
+    analiticoData,
+    pacotesAndamento,
+    fechamentoData,
+    fetchAnalitico,
+    fetchPacotesAndamento,
+    fetchFechamento,
+    atividadeHoje,
+    loadingAtividade,
+    fetchAtividadeHoje,
+    projecaoMes,
+    fetchProjecaoMes,
+    metricasMes,
+    loadingMetricas,
+    fetchMetricasMes,
+
+    refreshAll: async (mes: number, ano: number) => {
+      await Promise.all([
+        calcular(mes, ano),
+        carregarPendentes(),
+        fetchAtividadeHoje()
+      ]);
+    }
+
   };
 };
 

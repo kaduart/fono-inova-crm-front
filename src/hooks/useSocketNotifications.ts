@@ -141,54 +141,90 @@ export const usePixSocket = ({
       }
     };
 
-// logs úteis
-const onConnect = () => console.log("🔌 socket connected:", socket.id);
-const onConnectError = (e: any) =>
-  console.warn("socket connect_error:", e?.message || e);
-const onDisconnect = (r: any) =>
-  console.warn("socket disconnect:", r);
-const onAny = (event: string, payload: any) => {
-  if (
-    event.startsWith("whatsapp") ||
-    event === "message:new" ||
-    event.includes("pix")
-  ) {
-    console.log("📡 [Socket Event]", event, payload);
-  }
-};
+    // logs úteis
+    const onConnect = () => console.log("🔌 socket connected:", socket.id);
+    const onConnectError = (e: any) =>
+      console.warn("socket connect_error:", e?.message || e);
+    const onDisconnect = (r: any) =>
+      console.warn("socket disconnect:", r);
+    const onAny = (event: string, payload: any) => {
+      if (
+        event.startsWith("whatsapp") ||
+        event === "message:new" ||
+        event.includes("pix")
+      ) {
+        console.log("📡 [Socket Event]", event, payload);
+      }
+    };
 
-// ====== bind listeners ======
-socket.on("connect", onConnect);
-socket.on("connect_error", onConnectError);
-socket.on("disconnect", onDisconnect);
+    // ====== bind listeners ======
+    socket.on("connect", onConnect);
+    socket.on("connect_error", onConnectError);
+    socket.on("disconnect", onDisconnect);
 
-socket.on("pix-received", onPix);
-socket.on("paymentUpdate", onPaymentUpdate);
+    socket.on("pix-received", onPix);
+    socket.on("paymentUpdate", onPaymentUpdate);
 
-// novo/unificado
-socket.on("message:new", onAnyMessage);
-// retrocompat
-socket.on("whatsapp:new_message", onAnyMessage);
-socket.on("whatsapp:new_media", onAnyMessage);
+    // novo/unificado
+    socket.on("message:new", onAnyMessage);
+    // retrocompat
+    socket.on("whatsapp:new_message", onAnyMessage);
+    socket.on("whatsapp:new_media", onAnyMessage);
 
-socket.onAny(onAny);
+    socket.onAny(onAny);
 
-// cleanup: remove somente listeners (NÃO desconecta o singleton)
-return () => {
-  socket.off("connect", onConnect);
-  socket.off("connect_error", onConnectError);
-  socket.off("disconnect", onDisconnect);
+    // Adicione no final dos listeners, antes do cleanup:
 
-  socket.off("pix-received", onPix);
-  socket.off("paymentUpdate", onPaymentUpdate);
+    // =========================
+    // 📅 PRÉ-AGENDAMENTOS
+    // =========================
+    const onPreAgendamentoNew = (data: any) => {
+      console.log("📅 Novo pré-agendamento:", data);
+      // Toca som de notificação (opcional)
+      new Audio("/notification.mp3").play().catch(() => { });
 
-  socket.off("message:new", onAnyMessage);
-  socket.off("whatsapp:new_message", onAnyMessage);
-  socket.off("whatsapp:new_media", onAnyMessage);
+      // Mostra notificação visual
+      notifRef.current.showChatNotification({
+        id: `pre-${data.id}`,
+        from: "Sistema",
+        text: `Novo pré-agendamento: ${data.patientName} - ${data.specialty}`,
+        timestamp: Date.now(),
+      });
 
-  socket.offAny(onAny);
-  // ❌ não chame socket.disconnect() aqui
-};
+      // Dispara callback para atualizar lista
+      notifRef.current.onPreAgendamentoRefresh?.();
+    };
+
+    const onPreAgendamentoImported = (data: any) => {
+      console.log("✅ Pré-agendamento importado:", data);
+      notifRef.current.onPreAgendamentoRefresh?.();
+    };
+
+    // Registra os listeners
+    socket.on("preagendamento:new", onPreAgendamentoNew);
+    socket.on("preagendamento:imported", onPreAgendamentoImported);
+    socket.on("preagendamento:updated", onPreAgendamentoImported);
+
+    // cleanup: remove somente listeners (NÃO desconecta o singleton)
+    return () => {
+      socket.off("connect", onConnect);
+      socket.off("connect_error", onConnectError);
+      socket.off("disconnect", onDisconnect);
+
+      socket.off("pix-received", onPix);
+      socket.off("paymentUpdate", onPaymentUpdate);
+
+      socket.off("message:new", onAnyMessage);
+      socket.off("whatsapp:new_message", onAnyMessage);
+      socket.off("whatsapp:new_media", onAnyMessage);
+
+      socket.off("preagendamento:new", onPreAgendamentoNew);
+      socket.off("preagendamento:imported", onPreAgendamentoImported);
+      socket.off("preagendamento:updated", onPreAgendamentoImported);
+
+      socket.offAny(onAny);
+      // ❌ não chame socket.disconnect() aqui
+    };
     // deps vazias: registra uma vez
   }, []);
 };

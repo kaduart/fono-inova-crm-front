@@ -21,8 +21,31 @@ export const usePlanning = () => {
 
     const createPlanning = useCallback(async (data: Partial<Planning>) => {
         try {
-            const response = await planningService.create(data);
-            toast.success(response.message);
+            // Calcular datas automaticamente baseado no tipo
+            const startDate = new Date(data.year!, data.month! - 1, 1);
+            const endDate = new Date(data.year!, data.month!, 0);
+
+            const planningData = {
+                ...data,
+                period: {
+                    start: startDate.toISOString().split('T')[0],
+                    end: endDate.toISOString().split('T')[0]
+                },
+                actual: {
+                    completedSessions: 0,
+                    actualRevenue: 0,
+                    workedHours: 0
+                },
+                progress: {
+                    sessionsPercentage: 0,
+                    revenuePercentage: 0,
+                    overallStatus: 'on_track',
+                    gapRevenue: data.targets?.expectedRevenue
+                }
+            };
+
+            const response = await planningService.create(planningData);
+            toast.success('Planejamento criado com sucesso!');
             return response.data;
         } catch (error: any) {
             toast.error('Erro ao criar planejamento');

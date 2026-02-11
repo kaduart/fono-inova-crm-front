@@ -13,6 +13,11 @@ import PlanningTab from './tabs/PlanningTab';
 import ProvisionamentoTab from './tabs/ProvisionamentoTab';
 import RevenueTab from './tabs/RevenueTab';
 
+import ProjecaoMensalTab from './tabs/ProjecaoMensalTab';
+
+
+
+
 interface FinancialDashboardProps {
     patients: IPatient[];
     doctors: IDoctor[];
@@ -32,6 +37,12 @@ const FinancialDashboard = ({
 }: FinancialDashboardProps) => {
     const [currentTab, setCurrentTab] = useState(0);
     const theme = useTheme();
+    const [activeTab, setActiveTab] = useState(0);
+
+    const handleChange = (event: React.SyntheticEvent, newValue: number) => {
+        setActiveTab(newValue);
+    };
+
 
     const handleOpenPayment = () => {
         // Implementar abertura do modal de pagamento
@@ -81,6 +92,11 @@ const FinancialDashboard = ({
             label: 'Provisionamento',
             icon: <PieChart size={18} />,
             component: <ProvisionamentoTab />
+        },
+        {
+            label: 'Projeção do Mês', // NOVA ABA NO PAI
+            icon: <TrendingUp size={18} />,
+            component: <ProjecaoMensalTab /> // Componente novo que vou te dar abaixo
         },
     ];
 

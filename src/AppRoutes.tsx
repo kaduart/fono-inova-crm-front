@@ -1,11 +1,14 @@
 // src/AppRoutes.tsx
 import { lazy, Suspense } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import MainLayout from './components/MainLayout';
 import ContactsPage from './components/mkt/whatsapp/ContactsPage';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { useAuth } from './contexts/AuthContext';
 import { PrivateRoute } from './utils/PrivateRoute';
+import SalesList from './pages/Financial/SalesList';
+import SaleForm from './pages/Financial/SaleForm';
+import ProvisionamentoTab from './pages/Financial/tabs/ProvisionamentoTab';
 
 // Páginas públicas
 const Home = lazy(() => import('./components/Home'));
@@ -31,6 +34,7 @@ const MedicalReportsSection = lazy(() => import('./components/doctor/patient/rep
 const AppRoutes = () => {
     const { isLoading } = useAuth();
     const location = useLocation();
+    const navigate = useNavigate();
 
     if (isLoading) return <LoadingSpinner fullscreen />;
 
@@ -68,10 +72,14 @@ const AppRoutes = () => {
                     <Route path="create-appointment" element={<CreateAppointmentPage />} />
                     <Route path="schedule" element={<SchedulePage />} />
 
+                    <Route path="/vendas" element={<SalesList onNewSale={() => navigate('/vendas/nova')} onViewSale={(id) => navigate(`/vendas/${id}`)} />} />
+                    <Route path="/vendas/nova" element={<SaleForm onCancel={() => navigate('/vendas')} onSuccess={() => navigate('/vendas')} />} />
+                    <Route path="/provisionamento" element={<ProvisionamentoTab />} />
+
                     {/* NOVAS ROTAS PARA GESTÃO DE PACIENTES - CORRIGIDAS */}
                     <Route path="patients" element={<PatientsTable />} />
                     <Route path="patients/:id" element={<PatientDetail />} />
-                 {/*    <Route path="patients/:id/anamnesis" element={<AnamnesisReport />} />
+                    {/*    <Route path="patients/:id/anamnesis" element={<AnamnesisReport />} />
                     <Route path="patients/:id/school-report" element={<SchoolReport />} /> */}
                     <Route path="patients/:id/medical-reports" element={<MedicalReportsSection />} />
 

@@ -33,6 +33,65 @@ export function useChatMessages(contact: Contact | null, leadId?: string) {
         };
     }, []);
 
+    // 🔧 FIX: Escutar mensagens novas em tempo real (Socket.io)
+    useEffect(() => {
+        if (!contact?.phone) return;
+
+        logger.info(`[useChatMessages] Registrando listener Socket.io para ${contact.phone}`);
+
+        const unsubscribeNew = socketManager.onMessageNew((payload) => {
+            // Verifica se a mensagem é deste contato
+            const messagePhone = payload.from || payload.to;
+            if (!messagePhone || !messagePhone.includes(contact.phone.replace(/\D/g, ''))) {
+                return;
+            }
+
+            // Evita duplicatas
+            const msgId = payload.id || payload.wamid || uid('msg');
+            if (seenIdsRef.current.has(msgId)) {
+                logger.debug(`[useChatMessages] Mensagem ${msgId} já existe, ignorando`);
+                return;
+            }
+
+            logger.info(`[useChatMessages] ✅ Nova mensagem recebida via Socket: ${msgId}`);
+            seenIdsRef.current.add(msgId);
+
+            // Formata a mensagem
+            const newMessage: Message = {
+                id: msgId,
+                text: payload.text || payload.content || payload.caption || '',
+                timestamp: payload.timestamp ? new Date(payload.timestamp) : new Date(),
+                status: payload.status || 'sent',
+                fromMe: payload.direction === 'outbound' || payload.from === contact.phone,
+                type: (payload.type as any) || 'text',
+                caption: payload.caption,
+                mediaUrl: payload.mediaUrl || payload.url,
+            };
+
+            // Adiciona à lista de mensagens
+            setMessages(prev => {
+                // Evita adicionar duplicata se já existir
+                if (prev.some(m => m.id === msgId)) {
+                    return prev;
+                }
+                return [...prev, newMessage];
+            });
+        });
+
+        const unsubscribeDeleted = socketManager.onMessageDeleted((payload) => {
+            if (payload.id) {
+                logger.info(`[useChatMessages] ❌ Mensagem deletada: ${payload.id}`);
+                setMessages(prev => prev.filter(m => m.id !== payload.id));
+            }
+        });
+
+        return () => {
+            logger.info(`[useChatMessages] Removendo listeners Socket.io para ${contact.phone}`);
+            unsubscribeNew();
+            unsubscribeDeleted();
+        };
+    }, [contact?.phone]);
+
     // Carregar mensagens
     const loadMessages = useCallback(async (phone: string) => {
         if (!phone) return;
