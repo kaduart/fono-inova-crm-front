@@ -20,6 +20,7 @@ import { EditPaymentModal } from './EditPaymentModal';
 import { PaymentActionIcons } from './PaymentAction';
 import { PaymentsFilters } from './PaymentsFilters';
 import FinancialSummaryCard from './PaymentsSummary';
+import { Patient360Modal } from '../../pages/Financial/components/Patient360Modal';
 
 interface PaymentPageProps {
     patients?: IPatient[];
@@ -55,6 +56,8 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
+    const [selectedPatient360Id, setSelectedPatient360Id] = useState<string | null>(null);
+    const [is360ModalOpen, setIs360ModalOpen] = useState(false);
 
     const {
         payments,
@@ -254,8 +257,9 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
         return types[type] || type;
     };
 
-    const handleOpenPayment = () => {
-        // Implementar abertura do modal de pagamento
+    const handleOpen360 = (patientId: string) => {
+        setSelectedPatient360Id(patientId);
+        setIs360ModalOpen(true);
     };
 
     return (
@@ -516,7 +520,12 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                             {currentPayments.map(payment => (
                                                 <tr key={payment._id} className="hover:bg-gray-50 transition-colors">
                                                     <td className="px-4 py-3 text-sm text-gray-900 max-w-[150px] truncate" title={payment.patient?.fullName}>
-                                                        {payment.patient?.fullName}
+                                                        <span
+                                                            className="cursor-pointer hover:text-blue-600 hover:underline font-medium"
+                                                            onClick={() => payment.patient?._id && handleOpen360(payment.patient._id)}
+                                                        >
+                                                            {payment.patient?.fullName}
+                                                        </span>
                                                     </td>
                                                     <td className="px-4 py-3 text-sm text-gray-600 max-w-[150px] truncate" title={payment.doctor?.fullName}>
                                                         {payment.doctor?.fullName}
@@ -689,6 +698,14 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                     packageData={selectedPackage}
                     onClose={() => setIsAddModalOpen(false)}
                     onSuccess={addPayment}
+                />
+            )}
+
+            {selectedPatient360Id && (
+                <Patient360Modal
+                    patientId={selectedPatient360Id}
+                    open={is360ModalOpen}
+                    onClose={() => setIs360ModalOpen(false)}
                 />
             )}
         </div>

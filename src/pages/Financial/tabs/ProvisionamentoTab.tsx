@@ -14,7 +14,6 @@ import {
   Chip,
   CircularProgress,
   FormControl,
-  Grid,
   InputLabel,
   LinearProgress,
   MenuItem,
@@ -24,13 +23,15 @@ import {
   Tab,
   Table, TableBody, TableCell, TableHead, TableRow,
   Tabs,
-  Typography
+  Typography,
+  Grid
 } from '@mui/material';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useProvisionamento } from '../../../hooks/useProvisionamento';
+import { Patient360Modal } from '../components/Patient360Modal';
 
 const formatCurrency = (val: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
@@ -61,7 +62,17 @@ const ProvisionamentoTab = () => {
     fetchMetricasMes,
     fetchFechamento,
     metricasMes,
+    pacotesConcluidos,
+    fetchPacotesConcluidos
   } = useProvisionamento();
+
+  const [selectedPatient360Id, setSelectedPatient360Id] = useState<string | null>(null);
+  const [is360ModalOpen, setIs360ModalOpen] = useState(false);
+
+  const handleOpen360 = (patientId: string) => {
+    setSelectedPatient360Id(patientId);
+    setIs360ModalOpen(true);
+  };
 
   useEffect(() => {
     calcular(mes, ano);
@@ -70,7 +81,7 @@ const ProvisionamentoTab = () => {
     carregarPendentes(mes, ano);
   }, [mes, ano]);
 
-  const handleTabChange = async (e: any, newValue: number) => {
+  const handleTabChange = async (_: any, newValue: number) => {
     setActiveTab(newValue);
 
     // Carrega dados conforme a aba selecionada
@@ -81,7 +92,7 @@ const ProvisionamentoTab = () => {
     }
     if (newValue === 2 && pacotesAndamento.length === 0) {
       setLoadingPacotes(true);
-      await fetchPacotesAndamento();
+      await Promise.all([fetchPacotesAndamento(), fetchPacotesConcluidos()]);
       setLoadingPacotes(false);
     }
     if (newValue === 3 && !fechamentoData) {
@@ -94,25 +105,6 @@ const ProvisionamentoTab = () => {
   const handleExport = () => {
     window.open(`/api/provisionamento/export/excel?month=${mes}&year=${ano}`, '_blank');
   };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'realizado': return 'success';
-      case 'confirmado': return 'info';
-      case 'agendado': return 'warning';
-      case 'cancelado': return 'error';
-      default: return 'default';
-    }
-  };
-
-  if (!data && loading) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Skeleton variant="rectangular" height={200} sx={{ mb: 2 }} />
-        <Skeleton variant="rectangular" height={400} />
-      </Box>
-    );
-  }
 
   return (
     <Box>
@@ -189,7 +181,7 @@ const ProvisionamentoTab = () => {
       {/* Cards Indicadores */}
       {data && (
         <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Card sx={{ borderLeft: 4, borderColor: 'success.main' }}>
               <CardContent>
                 <Typography color="success.main" fontWeight="bold" gutterBottom>
@@ -205,7 +197,7 @@ const ProvisionamentoTab = () => {
             </Card>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Card sx={{ borderLeft: 4, borderColor: 'warning.main' }}>
               <CardContent>
                 <Typography color="warning.main" fontWeight="bold" gutterBottom>
@@ -221,7 +213,7 @@ const ProvisionamentoTab = () => {
             </Card>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Card sx={{ borderLeft: 4, borderColor: 'error.main' }}>
               <CardContent>
                 <Typography color="error.main" fontWeight="bold" gutterBottom>
@@ -242,7 +234,7 @@ const ProvisionamentoTab = () => {
             </Card>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Card sx={{
               bgcolor: 'primary.main',
               color: 'primary.contrastText',
@@ -305,12 +297,13 @@ const ProvisionamentoTab = () => {
           />
           <Tab
             icon={loadingPacotes ? <CircularProgress size={16} /> : <Calendar />}
-            label={`Pacotes (${pacotesAndamento.length || 0})`}
+            label={`Pacotes (${pacotesAndamento.length + pacotesConcluidos.length})`}
           />
           <Tab
             icon={loadingFechamento ? <CircularProgress size={16} /> : <PieChart />}
             label="Fechamento (DRE)"
           />
+          <Tab icon={<Assessment />} label="Pacientes" />
         </Tabs>
 
         <Box sx={{ p: 3 }}>
@@ -327,7 +320,7 @@ const ProvisionamentoTab = () => {
 
                   {/* Cards Principais */}
                   <Grid container spacing={3} sx={{ mb: 3 }}>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <Card>
                         <CardContent>
                           <Typography color="text.secondary" variant="body2" gutterBottom>
@@ -347,7 +340,7 @@ const ProvisionamentoTab = () => {
                       </Card>
                     </Grid>
 
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <Card>
                         <CardContent>
                           <Typography color="text.secondary" variant="body2" gutterBottom>
@@ -363,7 +356,7 @@ const ProvisionamentoTab = () => {
                       </Card>
                     </Grid>
 
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <Card>
                         <CardContent>
                           <Typography color="text.secondary" variant="body2" gutterBottom>
@@ -383,7 +376,7 @@ const ProvisionamentoTab = () => {
                       </Card>
                     </Grid>
 
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <Card sx={{ bgcolor: 'primary.50' }}>
                         <CardContent>
                           <Typography color="primary.main" variant="body2" fontWeight="bold" gutterBottom>
@@ -403,7 +396,7 @@ const ProvisionamentoTab = () => {
 
                   {/* Taxas e Comparativos */}
                   <Grid container spacing={3} sx={{ mb: 3 }}>
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Paper sx={{ p: 2 }}>
                         <Typography variant="subtitle2" gutterBottom>
                           Taxa de Comparecimento
@@ -424,7 +417,7 @@ const ProvisionamentoTab = () => {
                       </Paper>
                     </Grid>
 
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Paper sx={{ p: 2 }}>
                         <Typography variant="subtitle2" gutterBottom>
                           Ticket Médio
@@ -509,7 +502,14 @@ const ProvisionamentoTab = () => {
                             apt.risco === 'medio' ? 'warning.50' : 'inherit'
                         }}
                       >
-                        <TableCell>{apt.patient?.fullName || 'N/A'}</TableCell>
+                        <TableCell>
+                          <span
+                            className="cursor-pointer hover:text-blue-600 hover:underline font-medium"
+                            onClick={() => apt.patient?._id && handleOpen360(apt.patient._id)}
+                          >
+                            {apt.patient?.fullName || 'N/A'}
+                          </span>
+                        </TableCell>
                         <TableCell>{apt.date} {apt.time}</TableCell>
                         <TableCell>{apt.specialty}</TableCell>
                         <TableCell>{formatCurrency(apt.sessionValue || 0)}</TableCell>
@@ -531,7 +531,7 @@ const ProvisionamentoTab = () => {
               {/* Métricas */}
               {data && (
                 <Grid container spacing={2} sx={{ mt: 4 }}>
-                  <Grid item xs={6} md={3}>
+                  <Grid size={{ xs: 6, md: 3 }}>
                     <Paper sx={{ p: 2, textAlign: 'center' }}>
                       <Typography variant="body2" color="text.secondary">
                         Confirmação 24h
@@ -541,7 +541,7 @@ const ProvisionamentoTab = () => {
                       </Typography>
                     </Paper>
                   </Grid>
-                  <Grid item xs={6} md={3}>
+                  <Grid size={{ xs: 6, md: 3 }}>
                     <Paper sx={{ p: 2, textAlign: 'center' }}>
                       <Typography variant="body2" color="text.secondary">
                         Taxa Presença
@@ -551,7 +551,7 @@ const ProvisionamentoTab = () => {
                       </Typography>
                     </Paper>
                   </Grid>
-                  <Grid item xs={6} md={3}>
+                  <Grid size={{ xs: 6, md: 3 }}>
                     <Paper sx={{ p: 2, textAlign: 'center' }}>
                       <Typography variant="body2" color="text.secondary">
                         Pipeline
@@ -561,7 +561,7 @@ const ProvisionamentoTab = () => {
                       </Typography>
                     </Paper>
                   </Grid>
-                  <Grid item xs={6} md={3}>
+                  <Grid size={{ xs: 6, md: 3 }}>
                     <Paper sx={{ p: 2, textAlign: 'center' }}>
                       <Typography variant="body2" color="text.secondary">
                         Status
@@ -614,7 +614,14 @@ const ProvisionamentoTab = () => {
                       <TableRow key={idx} hover>
                         <TableCell>{row.ID_Venda}</TableCell>
                         <TableCell>{row.Data_Venda}</TableCell>
-                        <TableCell>{row.Cliente}</TableCell>
+                        <TableCell>
+                          <span
+                            className="cursor-pointer hover:text-blue-600 hover:underline font-medium"
+                            onClick={() => row.PatientID && handleOpen360(row.PatientID)}
+                          >
+                            {row.Cliente}
+                          </span>
+                        </TableCell>
                         <TableCell>
                           <Chip
                             size="small"
@@ -623,7 +630,7 @@ const ProvisionamentoTab = () => {
                           />
                         </TableCell>
                         <TableCell>{row.Categoria}</TableCell>
-                        <TableCell align="right" fontWeight="medium">
+                        <TableCell align="right" sx={{ fontWeight: 'medium' }}>
                           {formatCurrency(row.Valor_Liquido)}
                         </TableCell>
                         <TableCell align="right" sx={{ color: 'error.main' }}>
@@ -692,85 +699,111 @@ const ProvisionamentoTab = () => {
               <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
                 <CircularProgress />
               </Box>
-            ) : pacotesAndamento.length === 0 ? (
-              <Alert severity="info">Nenhum pacote em andamento</Alert>
             ) : (
-              <Grid container spacing={3}>
-                {pacotesAndamento.map((pacote: any, idx: number) => (
-                  <Grid item xs={12} md={6} lg={4} key={idx}>
-                    <Card variant="outlined" sx={{ height: '100%' }}>
-                      <CardContent>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            #{pacote.ID} • {format(new Date(pacote['Data Venda']), 'dd/MM/yyyy')}
-                          </Typography>
-                          <Chip size="small" label={pacote.Categoria} variant="outlined" />
-                        </Box>
-
-                        <Typography variant="h6" fontWeight="bold" gutterBottom>
-                          {pacote.Cliente}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                          {pacote.Pacote}
-                        </Typography>
-
-                        <Box sx={{ mt: 2, mb: 1 }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography variant="body2">
-                              {pacote.Realizadas} de {pacote['Total Sessões']} sessões
-                            </Typography>
-                            <Typography variant="body2" fontWeight="bold">
-                              {Math.round(pacote['% Concluído'])}%
-                            </Typography>
-                          </Box>
-                          <LinearProgress
-                            variant="determinate"
-                            value={pacote['% Concluído']}
-                            sx={{ height: 8, borderRadius: 4 }}
-                          />
-                        </Box>
-
-                        <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                          <Grid container spacing={2}>
-                            <Grid item xs={6}>
-                              <Typography variant="caption" color="text.secondary" display="block">
-                                Valor Total
-                              </Typography>
-                              <Typography variant="body1" fontWeight="bold">
-                                {formatCurrency(pacote['Valor Total'])}
-                              </Typography>
-                            </Grid>
-                            <Grid item xs={6} textAlign="right">
-                              <Typography variant="caption" color="success.main" display="block">
-                                Provisionado
-                              </Typography>
-                              <Typography variant="body1" fontWeight="bold" color="success.main">
-                                {formatCurrency(pacote['Valor Provisionado'])}
-                              </Typography>
-                            </Grid>
-                          </Grid>
-                          <Box sx={{
-                            mt: 2,
-                            pt: 1,
-                            borderTop: '1px dashed',
-                            borderColor: 'divider',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center'
-                          }}>
+              <Box>
+                <Typography variant="h6" fontWeight="bold" gutterBottom>
+                  📦 Pacotes em Andamento ({pacotesAndamento.length})
+                </Typography>
+                <Grid container spacing={3} sx={{ mb: 6 }}>
+                  {pacotesAndamento.map((pacote: any, idx: number) => (
+                    <Grid size={{ xs: 12, md: 6, lg: 4 }} key={idx}>
+                      <Card variant="outlined" sx={{ height: '100%', borderLeft: 4, borderColor: 'primary.main' }}>
+                        <CardContent>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                             <Typography variant="caption" color="text.secondary">
-                              A provisionar:
+                              #{pacote.ID} • {format(new Date(pacote['Data Venda']), 'dd/MM/yyyy')}
                             </Typography>
-                            <Typography variant="body1" fontWeight="bold" color="warning.main">
-                              {formatCurrency(pacote['A Provisionar'])}
-                            </Typography>
+                            <Chip size="small" label={pacote.Categoria} variant="outlined" color="primary" />
                           </Box>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
+
+                          <Typography variant="h6" fontWeight="bold" gutterBottom>
+                            <span
+                              className="cursor-pointer hover:text-blue-600 hover:underline"
+                              onClick={() => pacote.PatientID && handleOpen360(pacote.PatientID)}
+                            >
+                              {pacote.Cliente}
+                            </span>
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            {pacote.Pacote}
+                          </Typography>
+
+                          <Box sx={{ mt: 2, mb: 1 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                              <Typography variant="body2">
+                                {pacote.Realizadas} de {pacote['Total Sessões']} sessões
+                              </Typography>
+                              <Typography variant="body2" fontWeight="bold">
+                                {Math.round(pacote['% Concluído'])}%
+                              </Typography>
+                            </Box>
+                            <LinearProgress
+                              variant="determinate"
+                              value={pacote['% Concluído']}
+                              sx={{ height: 8, borderRadius: 4 }}
+                            />
+                          </Box>
+
+                          <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+                            <Grid container spacing={2}>
+                              <Grid size={{ xs: 6 }}>
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                  Valor Total
+                                </Typography>
+                                <Typography variant="body1" fontWeight="bold">
+                                  {formatCurrency(pacote['Valor Total'])}
+                                </Typography>
+                              </Grid>
+                              <Grid size={{ xs: 6 }} textAlign="right">
+                                <Typography variant="caption" color="success.main" display="block">
+                                  Provisionado
+                                </Typography>
+                                <Typography variant="body1" fontWeight="bold" color="success.main">
+                                  {formatCurrency(pacote['Valor Provisionado'])}
+                                </Typography>
+                              </Grid>
+                            </Grid>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+
+                {pacotesConcluidos.length > 0 && (
+                  <>
+                    <Typography variant="h6" fontWeight="bold" gutterBottom sx={{ mt: 4 }}>
+                      ✅ Pacotes Concluídos ({pacotesConcluidos.length})
+                    </Typography>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: 'grey.50' }}>
+                          <TableCell>Paciente</TableCell>
+                          <TableCell>Profissional</TableCell>
+                          <TableCell>Tipo</TableCell>
+                          <TableCell align="center">Sessões</TableCell>
+                          <TableCell align="right">Valor Total</TableCell>
+                          <TableCell align="center">Status</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {pacotesConcluidos.map((p, idx) => (
+                          <TableRow key={idx} hover>
+                            <TableCell sx={{ fontWeight: 'medium' }}>{p.patient?.fullName}</TableCell>
+                            <TableCell>{p.doctor?.fullName}</TableCell>
+                            <TableCell>{p.sessionType}</TableCell>
+                            <TableCell align="center">{p.sessionsDone}/{p.totalSessions}</TableCell>
+                            <TableCell align="right">{formatCurrency(p.totalValue)}</TableCell>
+                            <TableCell align="center">
+                              <Chip label="Concluído" size="small" color="success" variant="outlined" />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </>
+                )}
+              </Box>
             )
           )}
 
@@ -791,7 +824,7 @@ const ProvisionamentoTab = () => {
 
                 <Grid container spacing={3} sx={{ mt: 1 }}>
                   {/* Receitas */}
-                  <Grid item xs={12}>
+                  <Grid size={{ xs: 12 }}>
                     <Paper sx={{
                       p: 3,
                       bgcolor: 'primary.main',
@@ -825,25 +858,25 @@ const ProvisionamentoTab = () => {
                   </Grid>
 
                   {/* Custos */}
-                  <Grid item xs={12}>
+                  <Grid size={{ xs: 12 }}>
                     <Paper sx={{ p: 3, borderRadius: 2 }}>
                       <Typography variant="subtitle1" fontWeight="bold" color="error.main" gutterBottom>
                         CUSTOS VARIÁVEIS
                       </Typography>
                       <Grid container spacing={3}>
-                        <Grid item xs={6} md={3}>
+                        <Grid size={{ xs: 6, md: 3 }}>
                           <Typography variant="body2" color="text.secondary">CMV</Typography>
                           <Typography variant="h6">{formatCurrency(fechamentoData.dre.cmv)}</Typography>
                         </Grid>
-                        <Grid item xs={6} md={3}>
+                        <Grid size={{ xs: 6, md: 3 }}>
                           <Typography variant="body2" color="text.secondary">Impostos</Typography>
                           <Typography variant="h6">{formatCurrency(fechamentoData.dre.impostos)}</Typography>
                         </Grid>
-                        <Grid item xs={6} md={3}>
+                        <Grid size={{ xs: 6, md: 3 }}>
                           <Typography variant="body2" color="text.secondary">Comissões</Typography>
                           <Typography variant="h6">{formatCurrency(fechamentoData.dre.comissoes)}</Typography>
                         </Grid>
-                        <Grid item xs={6} md={3}>
+                        <Grid size={{ xs: 6, md: 3 }}>
                           <Typography variant="body2" color="text.secondary">Taxas Cartão</Typography>
                           <Typography variant="h6">{formatCurrency(fechamentoData.dre.taxasCartao)}</Typography>
                         </Grid>
@@ -867,7 +900,7 @@ const ProvisionamentoTab = () => {
                   </Grid>
 
                   {/* Margem */}
-                  <Grid item xs={12}>
+                  <Grid size={{ xs: 12 }}>
                     <Paper sx={{
                       p: 3,
                       bgcolor: 'success.light',
@@ -893,8 +926,71 @@ const ProvisionamentoTab = () => {
               </Box>
             ) : <Alert severity="info">Selecione a aba para carregar DRE</Alert>
           )}
+          {/* ABA 4: Pacientes */}
+          {activeTab === 4 && (
+            <Box>
+              <Typography variant="h6" fontWeight="bold" gutterBottom>
+                🏥 Saúde Financeira por Paciente
+              </Typography>
+              <Alert severity="info" sx={{ mb: 3 }}>
+                Selecione um paciente na listagem de dados analíticos para ver o resumo detalhado aqui.
+              </Alert>
+
+              {analiticoData?.porPaciente && (
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: 'grey.50' }}>
+                      <TableCell>Paciente</TableCell>
+                      <TableCell align="right">Total Gasto</TableCell>
+                      <TableCell align="center">Nº Vendas</TableCell>
+                      <TableCell>Categorias</TableCell>
+                      <TableCell>Última Venda</TableCell>
+                      <TableCell align="center">Ações</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {analiticoData.porPaciente.map((p: any, idx: number) => (
+                      <TableRow key={idx} hover>
+                        <TableCell sx={{ fontWeight: 'bold' }}>
+                          <span
+                            className="cursor-pointer hover:text-blue-600 hover:underline"
+                            onClick={() => p.PatientID && handleOpen360(p.PatientID)}
+                          >
+                            {p.paciente}
+                          </span>
+                        </TableCell>
+                        <TableCell align="right" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
+                          {formatCurrency(p.totalGasto)}
+                        </TableCell>
+                        <TableCell align="center">{p.qtdVendas}</TableCell>
+                        <TableCell>{p.categorias}</TableCell>
+                        <TableCell>{p.ultimaVenda}</TableCell>
+                        <TableCell align="center">
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => p.PatientID && handleOpen360(p.PatientID)}
+                          >
+                            Ver Detalhes
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </Box>
+          )}
         </Box>
       </Paper>
+
+      {selectedPatient360Id && (
+        <Patient360Modal
+          patientId={selectedPatient360Id}
+          open={is360ModalOpen}
+          onClose={() => setIs360ModalOpen(false)}
+        />
+      )}
     </Box>
   );
 };

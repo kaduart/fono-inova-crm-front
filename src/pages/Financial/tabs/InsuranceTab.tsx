@@ -18,6 +18,7 @@ import {
     TextField,
     Typography
 } from '@mui/material';
+import { Patient360Modal } from '../components/Patient360Modal';
 import {
     Building2,
     Calendar,
@@ -85,6 +86,14 @@ const InsuranceTab = () => {
         receivedDate: new Date().toISOString().split('T')[0],
         notes: ''
     });
+
+    const [selectedPatient360Id, setSelectedPatient360Id] = useState<string | null>(null);
+    const [is360ModalOpen, setIs360ModalOpen] = useState(false);
+
+    const handleOpen360 = (patientId: string) => {
+        setSelectedPatient360Id(patientId);
+        setIs360ModalOpen(true);
+    };
 
     // Carregar dados
     useEffect(() => {
@@ -304,7 +313,13 @@ const InsuranceTab = () => {
                                                 <div key={payment.paymentId} className="px-4 py-3 flex justify-between items-center hover:bg-gray-50">
                                                     <div className="flex items-center gap-4">
                                                         <div>
-                                                            <Typography fontWeight="medium">{payment.patientName}</Typography>
+                                                            <Typography
+                                                                fontWeight="medium"
+                                                                className="cursor-pointer hover:text-blue-600 hover:underline"
+                                                                onClick={() => payment.patientId && handleOpen360(payment.patientId)}
+                                                            >
+                                                                {payment.patientName}
+                                                            </Typography>
                                                             <div className="flex items-center gap-2 text-sm text-gray-500">
                                                                 <Calendar className="w-3 h-3" />
                                                                 {payment.paymentDate}
@@ -526,6 +541,14 @@ const InsuranceTab = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            {selectedPatient360Id && (
+                <Patient360Modal
+                    patientId={selectedPatient360Id}
+                    open={is360ModalOpen}
+                    onClose={() => setIs360ModalOpen(false)}
+                />
+            )}
         </Box>
     );
 };

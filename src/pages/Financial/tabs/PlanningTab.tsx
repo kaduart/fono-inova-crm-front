@@ -67,6 +67,22 @@ const PlanningTab = () => {
   });
 
   const [newSpecialty, setNewSpecialty] = useState({ specialty: '', sessions: 0, revenue: 0 });
+  // Adicione este estado
+  const [selectedPlanning, setSelectedPlanning] = useState<any>(null);
+  const [openDetailsModal, setOpenDetailsModal] = useState(false);
+
+  // Função para abrir detalhes
+  const handleViewDetails = async (planning: any) => {
+    // Se não tiver os detalhes carregados, busca do backend
+    if (!planning.details) {
+      // Chamar endpoint para buscar detalhes atualizados
+      const response = await planningService.getDetails(planning._id);
+      setSelectedPlanning(response.data);
+    } else {
+      setSelectedPlanning(planning);
+    }
+    setOpenDetailsModal(true);
+  };
 
   useEffect(() => {
     fetchPlannings({});
@@ -539,6 +555,183 @@ const PlanningTab = () => {
             startIcon={<CheckCircle />}
           >
             Criar Meta
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* MODAL DE DETALHES POR PACIENTE */}
+      <Dialog
+        open={openDetailsModal}
+        onClose={() => setOpenDetailsModal(false)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6">
+              Detalhes do Período: {selectedPlanning?.period?.start} a {selectedPlanning?.period?.end}
+            </Typography>
+            <Chip
+              label={`${selectedPlanning?.details?.totalPacientes || 0} pacientes atendidos`}
+              color="primary"
+            />
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={3}>
+            {/* Resumo */}
+            <Grid item xs={12} md={4}>
+              <Card sx={{ bgcolor: 'success.light', color: 'success.contrastText' }}>
+                <CardContent>
+                  <Typography variant="h4" fontWeight="bold">
+                    {formatCurrency(selectedPlanning?.actual?.actualRevenue || 0)}
+                  </Typography>
+                  <Typography variant="body2">
+                    Arrecadado no período
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Card sx={{ bgcolor: 'info.light', color: 'info.contrastText' }}>
+                <CardContent>
+                  <Typography variant="h4" fontWeight="bold">
+                    {selectedPlanning?.details?.totalPacientes || 0}
+                  </Typography>
+                  <Typography variant="body2">
+                    Pacientes atendidos
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Card sx={{ bgcolor: 'warning.light', color: 'warning.contrastText' }}>
+                <CardContent>
+                  <Typography variant="h4" fontWeight="bold">
+                    {selectedPlanning?.details?.totalPacotes || 0}
+                  </Typography>
+                  <Typography variant="body2">
+                    Pacotes fechados
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Lista de Pacientes */}
+            <Grid item xs={12} md={6}>
+              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                💰 Receita por Paciente
+              </Typography>
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: 'grey.50' }}>
+                      <TableCell>Paciente</TableCell>
+                      <TableCell align="right">Total Pago</TableCell>
+                      <TableCell align="center">Pagamentos</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {selectedPlanning?.details?.porPaciente?.map((item: any, idx: number) => (
+                      <TableRow key={idx} hover>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="medium">
+                            {item.paciente}
+                          </Typography>
+                          {item.telefone && (
+                            <Typography variant="caption" color="text.secondary">
+                              {item.telefone}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                          {formatCurrency(item.totalPago)}
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip size="small" label={item.pagamentos.length} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {selectedPlanning?.details?.porPaciente?.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={3} align="center">
+                          <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                            Nenhum pagamento registrado neste período
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Grid>
+
+            {/* Lista de Pacotes */}
+            <Grid item xs={12} md={6}>
+              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                📦 Pacotes Fechados
+              </Typography>
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: 'grey.50' }}>
+                      <TableCell>Paciente</TableCell>
+                      <TableCell>Sessões</TableCell>
+                      <TableCell align="right">Valor</TableCell>
+                      <TableCell>Status</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {selectedPlanning?.details?.pacotesFechados?.map((pkg: any, idx: number) => (
+                      <TableRow key={idx} hover>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="medium">
+                            {pkg.paciente}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {pkg.profissional} • {pkg.especialidade}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>{pkg.sessoes}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                          {formatCurrency(pkg.valorTotal)}
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={pkg.status === 'paid' ? 'Pago' : pkg.status === 'partially_paid' ? 'Parcial' : 'Pendente'}
+                            color={pkg.status === 'paid' ? 'success' : pkg.status === 'partially_paid' ? 'warning' : 'default'}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {selectedPlanning?.details?.pacotesFechados?.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} align="center">
+                          <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                            Nenhum pacote fechado neste período
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDetailsModal(false)}>Fechar</Button>
+          <Button
+            variant="contained"
+            startIcon={<Refresh />}
+            onClick={() => {
+              // Recalcular/atualizar dados
+              updateProgress(selectedPlanning._id);
+              setOpenDetailsModal(false);
+            }}
+          >
+            Atualizar Dados
           </Button>
         </DialogActions>
       </Dialog>

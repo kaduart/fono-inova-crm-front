@@ -7,13 +7,13 @@ import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
 import CashflowTab from '../Financial/CashflowTab';
 import ExpensesTab from './tabs/ExpensesTab';
+import RevenueTab from './tabs/RevenueTab';
 import GoalsTab from './tabs/GoalsTab';
 import InsuranceTab from './tabs/InsuranceTab';
 import PlanningTab from './tabs/PlanningTab';
-import ProvisionamentoTab from './tabs/ProvisionamentoTab';
-import RevenueTab from './tabs/RevenueTab';
-
-import ProjecaoMensalTab from './tabs/ProjecaoMensalTab';
+import { AnalyticsTab } from './tabs/AnalyticsTab';
+import InteligenciaFinanceiraTab from './tabs/InteligenciaFinanceiraTab';
+import { BarChart3 } from 'lucide-react';
 
 
 
@@ -32,7 +32,7 @@ const FinancialDashboard = ({
     doctors,
     initialPayments,
     onMarkAsPaid,
-    registerAppointmentAndPayemntFuture,
+    registerAppointmentAndPaymentFuture,
     onCancelPayment
 }: FinancialDashboardProps) => {
     const [currentTab, setCurrentTab] = useState(0);
@@ -58,15 +58,15 @@ const FinancialDashboard = ({
                     doctors={doctors}
                     payments={initialPayments}
                     onMarkAsPaid={onMarkAsPaid}
-                    registerAppointmentAndPayemntFuture={registerAppointmentAndPayemntFuture}
+                    registerAppointmentAndPayemntFuture={registerAppointmentAndPaymentFuture}
                     onCancelPayment={onCancelPayment}
                 />
             )
         },
         {
-            label: 'Despesas',
-            icon: <TrendingDown size={18} />,
-            component: <ExpensesTab /> // ✅ ExpensesTab gerencia seu próprio modal
+            label: 'IA Financeira',
+            icon: <PieChart size={18} />,
+            component: <InteligenciaFinanceiraTab />
         },
         {
             label: 'Fluxo de Caixa',
@@ -89,14 +89,9 @@ const FinancialDashboard = ({
             component: <PlanningTab />
         },
         {
-            label: 'Provisionamento',
-            icon: <PieChart size={18} />,
-            component: <ProvisionamentoTab />
-        },
-        {
-            label: 'Projeção do Mês', // NOVA ABA NO PAI
-            icon: <TrendingUp size={18} />,
-            component: <ProjecaoMensalTab /> // Componente novo que vou te dar abaixo
+            label: 'Analytics',
+            icon: <BarChart3 size={18} />,
+            component: <AnalyticsTab />
         },
     ];
 

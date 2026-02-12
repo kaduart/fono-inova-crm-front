@@ -99,10 +99,10 @@ const CashflowTab = () => {
                                         Receitas
                                     </Typography>
                                     <Typography variant="h5" fontWeight="bold" color="success.main">
-                                        {formatCurrency(summary.data.revenue.total)}
+                                        {formatCurrency(summary.data?.revenue.total)}
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">
-                                        {summary.data.revenue.count} pagamentos
+                                        {summary.data?.revenue.count} pagamentos
                                     </Typography>
                                 </CardContent>
                             </Card>
@@ -115,10 +115,10 @@ const CashflowTab = () => {
                                         Despesas
                                     </Typography>
                                     <Typography variant="h5" fontWeight="bold" color="error.main">
-                                        {formatCurrency(summary.data.expenses.total)}
+                                        {formatCurrency(summary.data?.expenses.total)}
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">
-                                        {summary.data.expenses.count} despesas
+                                        {summary.data?.expenses.count} despesas
                                     </Typography>
                                 </CardContent>
                             </Card>

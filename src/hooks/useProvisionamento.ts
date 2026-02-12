@@ -78,6 +78,9 @@ export const useProvisionamento = () => {
   const [projecaoMes, setProjecaoMes] = useState<any>(null);
   const [metricasMes, setMetricasMes] = useState<any>(null);
   const [loadingMetricas, setLoadingMetricas] = useState(false);
+  const [pacotesConcluidos, setPacotesConcluidos] = useState<any[]>([]);
+  const [resumoPaciente, setResumoPaciente] = useState<any>(null);
+  const [loadingResumo, setLoadingResumo] = useState(false);
 
   const fetchMetricasMes = useCallback(async (mes: number, ano: number) => {
     setLoadingMetricas(true);
@@ -179,6 +182,23 @@ export const useProvisionamento = () => {
     return response.data;
   }, []);
 
+  const fetchPacotesConcluidos = useCallback(async () => {
+    const response = await api.get('/provisionamento/pacotes-concluidos');
+    setPacotesConcluidos(response.data.data);
+    return response.data.data;
+  }, []);
+
+  const fetchResumoPaciente = useCallback(async (patientId: string) => {
+    setLoadingResumo(true);
+    try {
+      const response = await api.get(`/provisionamento/paciente/${patientId}/resumo`);
+      setResumoPaciente(response.data.data);
+      return response.data.data;
+    } finally {
+      setLoadingResumo(false);
+    }
+  }, []);
+
 
 
   return {
@@ -206,6 +226,11 @@ export const useProvisionamento = () => {
     metricasMes,
     loadingMetricas,
     fetchMetricasMes,
+    pacotesConcluidos,
+    fetchPacotesConcluidos,
+    resumoPaciente,
+    fetchResumoPaciente,
+    loadingResumo,
 
     refreshAll: async (mes: number, ano: number) => {
       await Promise.all([
