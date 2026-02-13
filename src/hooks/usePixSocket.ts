@@ -43,6 +43,7 @@ export const usePixSocket = ({
         onPreAgendamentoRefresh,
     });
 
+    // Atualiza a ref quando as props mudam
     useEffect(() => {
         notifRef.current = {
             showPaymentNotification,
@@ -55,24 +56,11 @@ export const usePixSocket = ({
         };
     }, [showPaymentNotification, showChatNotification, showMediaNotification, showPreAgendamentoNotification, onPaymentRefresh, onCalendarRefresh, onPreAgendamentoRefresh]);
 
-    // ✅ TUDO NO MESMO useEffect AGORA
+    // ✅ UM ÚNICO useEffect COM TUDO
     useEffect(() => {
-        console.log("🔌 [SOCKET] Inicializando...");
+        console.log("🔌 [usePixSocket] INICIANDO");
 
-        (window as any).sm = socketManager;
-        (window as any).checkSocket = () => {
-            console.log("Conectado:", socketManager.isConnected?.());
-            console.log("Status:", socketManager.getStatus?.());
-        };
-
-        socketManager.initialize();
-
-        // Keep-alive
-        const pingInterval = setInterval(() => {
-            if (socketManager.isConnected?.()) {
-                socketManager.emit?.("ping", Date.now());
-            }
-        }, 20000);
+        // 1. Define TODAS as funções de handler PRIMEIRO (antes de registrar)
 
         // 💰 PIX
         const onPix = (pix: any) => {
@@ -99,7 +87,7 @@ export const usePixSocket = ({
             notifRef.current.onPaymentRefresh?.();
         };
 
-        // 📅 PRÉ-AGENDAMENTOS - TODOS DEFINIDOS AQUI
+        // 📅 PRÉ-AGENDAMENTOS
         const onPreAgendamentoNew = (data: any) => {
             console.log("📅 [SOCKET] preagendamento:new", data);
             new Audio("/notification.mp3").play().catch(() => { });
@@ -175,26 +163,53 @@ export const usePixSocket = ({
             }
         };
 
-        // ✅ FUNÇÃO PARA REGISTRAR TUDO (agora sim funciona porque as funções existem no escopo)
+        // 2. Inicializa socket
+        socketManager.initialize();
+        console.log("🔌 [usePixSocket] Socket inicializado");
+
+        // 3. Registra listeners DEPOIS das funções existirem
         const registraTudo = () => {
-            console.log("🔄 Registrando listeners...");
+            console.log("🔄 [usePixSocket] Registrando listeners...");
+
+            // PIX
             socketManager.on("pix-received", onPix);
             socketManager.on("paymentUpdate", onPaymentUpdate);
+
+            // WhatsApp
             socketManager.onMessageNew(onAnyMessage);
+
+            // Pré-agendamentos
             socketManager.on("preagendamento:new", onPreAgendamentoNew);
             socketManager.on("preagendamento:imported", onPreAgendamentoImported);
             socketManager.on("preagendamento:updated", onPreAgendamentoUpdated);
             socketManager.on("preagendamento:canceled", onPreAgendamentoCanceled);
             socketManager.on("preagendamento:deleted", onPreAgendamentoDeleted);
+
+            console.log("✅ [usePixSocket] Todos os listeners registrados");
         };
 
-        // Registra inicialmente
         registraTudo();
 
+        // Keep-alive
+        const pingInterval = setInterval(() => {
+            if (socketManager.isConnected?.()) {
+                socketManager.emit?.("ping", Date.now());
+            }
+        }, 20000);
+
+        // Debug global
+        (window as any).sm = socketManager;
+        (window as any).checkSocket = () => {
+            console.log("Conectado:", socketManager.isConnected?.());
+            console.log("Status:", socketManager.getStatus?.());
+        };
+
+        // Cleanup
         return () => {
             clearInterval(pingInterval);
+            console.log("🧹 [usePixSocket] Limpando...");
         };
-    }, []); // ✅ SÓ UM useEffect COM TUDO DENTRO
+    }, []); // ✅ Array vazio - roda só uma vez
 
-    return null; // ou o que precisar retornar
+    return null;
 };
