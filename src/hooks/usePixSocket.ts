@@ -170,16 +170,26 @@ export const usePixSocket = ({
         // 3. Registra listeners DEPOIS das funções existirem
         const registraTudo = () => {
             console.log("🔄 [usePixSocket] Registrando listeners...");
+            console.log("🔌 Socket conectado?", socketManager.isConnected());
+            console.log("🔌 Socket ID:", socketManager.getStatus().socketId);
 
             // PIX
+            console.log("💰 Registrando pix-received...");
             socketManager.on("pix-received", onPix);
-            socketManager.on("paymentUpdate", onPaymentUpdate);
 
             // WhatsApp
+            console.log("💬 Registrando onMessageNew...");
             socketManager.onMessageNew(onAnyMessage);
 
-            // Pré-agendamentos
-            socketManager.on("preagendamento:new", onPreAgendamentoNew);
+            // Pré-agendamentos - LOG ESPECÍFICO AQUI
+            console.log("📅 Registrando preagendamento:new...");
+            try {
+                socketManager.on("preagendamento:new", onPreAgendamentoNew);
+                console.log("✅ preagendamento:new registrado com sucesso");
+            } catch (e) {
+                console.error("❌ Erro ao registrar preagendamento:new:", e);
+            }
+
             socketManager.on("preagendamento:imported", onPreAgendamentoImported);
             socketManager.on("preagendamento:updated", onPreAgendamentoUpdated);
             socketManager.on("preagendamento:canceled", onPreAgendamentoCanceled);
