@@ -36,31 +36,45 @@ class SocketManager {
     private ensureSocket() {
         if (this.socket?.connected) return this.socket;
 
-        // Se existe mas desconectado, limpa
         if (this.socket && !this.socket.connected) {
             this.cleanup();
         }
 
-        const envUrl =
-            (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_BACKEND_URL) ||
-            (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_URL);
+        // ✅ DETECÇÃO ROBUSTA DA URL
+        const getSocketUrl = () => {
+            // 1. Tenta variáveis de ambiente Vite
+            const viteUrl = (import.meta as any).env?.VITE_BACKEND_URL ||
+                (import.meta as any).env?.VITE_API_URL;
 
-        if (!envUrl) logger.warn("⚠️ [socket] URL não definida nas envs; usando fallback Render.");
+            if (viteUrl) {
+                logger.info("🔌 [socket] Usando VITE_URL:", viteUrl);
+                return viteUrl;
+            }
 
+            // 2. Produção (Render) - mesma origem
+            if (window.location.hostname.includes('onrender.com') ||
+                window.location.hostname === 'app.clinicafonoinova.com.br') {
+                const origin = window.location.origin;
+                logger.info("🔌 [socket] Usando origin (PRD):", origin);
+                return origin;
+            }
 
+            // 3. Fallback local
+            logger.warn("⚠️ [socket] Fallback para localhost:5000");
+            return "http://localhost:5000";
+        };
 
-        if (!envUrl) {
-            logger.warn("⚠️ [socket] VITE_API_URL não configurado — conectando no origin atual.");
-        }
+        const url = getSocketUrl();
+        logger.info("🔌 [socket] Conectando em:", url); // Log para debug
 
-        const s = io(envUrl || "", {
+        const s = io(url, {
             transports: ["websocket", "polling"],
-            upgrade: false,
+            // upgrade: false,  // ❌ REMOVA ISSO - impede upgrade para WebSocket!
             reconnection: true,
-            reconnectionAttempts: Infinity,  // ✅ NUNCA para de reconectar
-            reconnectionDelay: 1000,         // ✅ Começa com 1s
-            reconnectionDelayMax: 10000,     // ✅ Máximo 10s entre tentativas
-            timeout: 20000,                  // ✅ Timeout de conexão
+            reconnectionAttempts: Infinity,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 10000,
+            timeout: 20000,
             withCredentials: true,
         });
 
