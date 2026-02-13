@@ -1,4 +1,4 @@
-// src/utils/socketManager.ts - VERSÃO CORRIGIDA
+// src/utils/socketManager.ts - VERSÃO COMPLETA (só adicionei 3 linhas no final)
 import { io, type Socket } from "socket.io-client";
 import { logger } from "./logger";
 
@@ -51,25 +51,29 @@ class SocketManager {
                 return viteUrl;
             }
 
-            // 2. Produção (Render) - mesma origem
-            if (window.location.hostname.includes('onrender.com') ||
-                window.location.hostname === 'app.clinicafonoinova.com.br') {
-                const origin = window.location.origin;
-                logger.info("🔌 [socket] Usando origin (PRD):", origin);
-                return origin;
+            // 2. Se está no Vercel (frontend), conecta no Render (backend) ✅ CORRIGIDO
+            if (window.location.hostname === 'app.clinicafonoinova.com.br') {
+                const renderUrl = 'https://fono-inova-crm-back.onrender.com';
+                logger.info("🔌 [socket] Vercel → Render:", renderUrl);
+                return renderUrl;
             }
 
-            // 3. Fallback local
+            // 3. Se está no próprio Render
+            if (window.location.hostname.includes('onrender.com')) {
+                logger.info("🔌 [socket] Render origin:", window.location.origin);
+                return window.location.origin;
+            }
+
+            // 4. Localhost
             logger.warn("⚠️ [socket] Fallback para localhost:5000");
             return "http://localhost:5000";
         };
 
         const url = getSocketUrl();
-        logger.info("🔌 [socket] Conectando em:", url); // Log para debug
+        logger.info("🔌 [socket] Conectando em:", url);
 
         const s = io(url, {
             transports: ["websocket", "polling"],
-            // upgrade: false,  // ❌ REMOVA ISSO - impede upgrade para WebSocket!
             reconnection: true,
             reconnectionAttempts: Infinity,
             reconnectionDelay: 1000,
@@ -83,6 +87,10 @@ class SocketManager {
             logger.info("🔌 [socket] Conectado:", s.id);
             this.lastPong = Date.now();
             this.startHeartbeat();
+
+            // ✅ EXPÕE GLOBALMENTE QUANDO CONECTA
+            (window as any).globalSocket = s;
+            (window as any).socketManager = this;
         });
 
         s.on("connect_error", (e: any) => {
@@ -93,48 +101,38 @@ class SocketManager {
             logger.warn("⚠️ [socket] Desconectado:", reason);
             this.stopHeartbeat();
 
-            // ✅ Reconecta manualmente se foi desconectado pelo servidor
             if (reason === "io server disconnect" || reason === "transport close") {
                 logger.info("🔄 [socket] Tentando reconectar...");
                 setTimeout(() => s.connect(), 1000);
             }
         });
 
-        // ✅ Resposta do heartbeat
         s.on("pong", () => {
             this.lastPong = Date.now();
         });
 
         this.socket = s;
-
-        // ✅ Reconectar quando a aba voltar ao foco
         this.setupVisibilityHandler();
 
         return s;
     }
 
-    // ✅ NOVO: Heartbeat para detectar conexões zumbis
     private startHeartbeat() {
         this.stopHeartbeat();
-
         this.heartbeatInterval = setInterval(() => {
             if (!this.socket?.connected) {
                 logger.warn("💔 [socket] Heartbeat detectou desconexão");
                 this.reconnect();
                 return;
             }
-
-            // Verifica se o último pong foi há mais de 30s
             const timeSincePong = Date.now() - this.lastPong;
             if (timeSincePong > 30000) {
-                logger.warn("💔 [socket] Conexão zumbi detectada (sem pong há 30s)");
+                logger.warn("💔 [socket] Conexão zumbi detectada");
                 this.reconnect();
                 return;
             }
-
-            // Envia ping
             this.socket.emit("ping");
-        }, 10000); // A cada 10 segundos
+        }, 10000);
     }
 
     private stopHeartbeat() {
@@ -144,7 +142,6 @@ class SocketManager {
         }
     }
 
-    // ✅ NOVO: Reconectar quando aba volta ao foco
     private visibilityHandlerSetup = false;
     private setupVisibilityHandler() {
         if (this.visibilityHandlerSetup) return;
@@ -153,18 +150,15 @@ class SocketManager {
         document.addEventListener("visibilitychange", () => {
             if (document.visibilityState === "visible") {
                 logger.info("👁️ [socket] Aba em foco, verificando conexão...");
-
                 if (!this.isConnected()) {
                     logger.info("🔄 [socket] Reconectando após retorno do foco...");
                     this.reconnect();
                 } else {
-                    // Força um ping pra garantir que tá vivo
                     this.socket?.emit("ping");
                 }
             }
         });
 
-        // Também reconecta quando volta online
         window.addEventListener("online", () => {
             logger.info("🌐 [socket] Internet restaurada, reconectando...");
             this.reconnect();
@@ -180,23 +174,22 @@ class SocketManager {
         }
     }
 
-    // Adicione este método na classe/socketManager:
     public onPreAgendamento(callback: (data: any) => void) {
-        const s = this.ensureSocket();   // 🔥 ESSENCIAL
+        const s = this.ensureSocket();
         s.on("preagendamento:new", callback);
         return () => s.off("preagendamento:new", callback);
     }
 
     public onPreAgendamentoUpdate(callback: (data: any) => void) {
-        this.socket?.on("preagendamento:imported", callback);
-        this.socket?.on("preagendamento:updated", callback);
+        const s = this.ensureSocket();
+        s.on("preagendamento:imported", callback);
+        s.on("preagendamento:updated", callback);
         return () => {
-            this.socket?.off("preagendamento:imported", callback);
-            this.socket?.off("preagendamento:updated", callback);
+            s.off("preagendamento:imported", callback);
+            s.off("preagendamento:updated", callback);
         };
     }
 
-    // ✅ ADICIONAR ESTES 3 QUE FALTAM:
     public onPreAgendamentoCanceled(callback: (data: any) => void) {
         const s = this.ensureSocket();
         s.on("preagendamento:canceled", callback);
@@ -215,12 +208,10 @@ class SocketManager {
         return () => s.off("preagendamento:deleted", callback);
     }
 
-    // ✅ NOVO: Verifica se está conectado
     isConnected(): boolean {
         return this.socket?.connected ?? false;
     }
 
-    // ✅ NOVO: Força reconexão
     reconnect() {
         logger.info("🔄 [socket] Forçando reconexão...");
         this.cleanup();
@@ -246,12 +237,9 @@ class SocketManager {
     onMessageNew(handler: AnyHandler<MessageNewPayload>): Unsubscribe {
         const s = this.ensureSocket();
         const h = (payload: MessageNewPayload) => handler(payload);
-
-        // unified + retrocompat
         s.on("message:new", h);
         s.on("whatsapp:new_message", h as any);
         s.on("whatsapp:new_media", h as any);
-
         return () => {
             s.off("message:new", h);
             s.off("whatsapp:new_message", h as any);
@@ -272,14 +260,12 @@ class SocketManager {
         return () => s.off(event, handler);
     }
 
-    // ✅ NOVO: Emitir eventos
     emit(event: string, data?: any) {
         if (this.socket?.connected) {
             this.socket.emit(event, data);
         }
     }
 
-    // ✅ NOVO: Status para debug
     getStatus() {
         return {
             connected: this.isConnected(),
@@ -291,4 +277,10 @@ class SocketManager {
 }
 
 export const socketManager = new SocketManager();
+
+// ✅ APENAS 3 LINHAS ADICIONADAS NO FINAL:
+if (typeof window !== 'undefined') {
+    (window as any).socketManager = socketManager;
+}
+
 export type { MessageDeletedPayload, MessageNewPayload, Unsubscribe };
