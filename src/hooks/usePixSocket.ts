@@ -87,24 +87,27 @@ export const usePixSocket = ({
             notifRef.current.onPaymentRefresh?.();
         };
 
-        // 📅 PRÉ-AGENDAMENTOS
         const onPreAgendamentoNew = (data: any) => {
             console.log("📅 [SOCKET] preagendamento:new", data);
-            new Audio("/notification.mp3").play().catch(() => { });
-            notifRef.current.showPreAgendamentoNotification({
-                id: `pre-${data.id || Date.now()}`,
-                patientName: data.patientName || data.patientInfo?.fullName || "Paciente",
-                specialty: data.specialty || "Não especificado",
-                phone: data.phone || data.patientInfo?.phone || "",
-                preferredDate: data.preferredDate || data.date || "Data não informada",
-            });
+            // Só toast, sem popup, sem som
+            toast.info(`Novo pré-agendamento: ${data.patientName || "Paciente"}`);
             notifRef.current.onPreAgendamentoRefresh?.();
         };
 
         const onPreAgendamentoImported = (data: any) => {
             console.log("✅ [SOCKET] preagendamento:imported", data);
+            // 🎉 POPUP + SOM quando confirma!
+            new Audio("/notification.mp3").play().catch(() => { });
+            notifRef.current.showPreAgendamentoNotification({
+                id: `confirmed-${data.preAgendamentoId || Date.now()}`,
+                patientName: data.patientName || "Paciente confirmado",
+                specialty: "Agendamento Confirmado!",
+                phone: "",
+                preferredDate: new Date().toLocaleDateString(),
+            });
             notifRef.current.onPreAgendamentoRefresh?.();
         };
+
 
         const onPreAgendamentoCanceled = (data: any) => {
             console.log("🚫 [SOCKET] preagendamento:canceled", data);
