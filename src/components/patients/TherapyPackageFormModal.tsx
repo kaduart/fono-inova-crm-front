@@ -1,4 +1,5 @@
 import {
+    Building2,
     Calculator,
     Calendar,
     Clock,
@@ -19,6 +20,7 @@ import ReactInputMask from 'react-input-mask';
 import { toast } from 'react-toastify';
 import { useAppointmentsContext } from '../../contexts/AppointmentsContext';
 import appointmentService from '../../services/appointmentService';
+import { getGuides, InsuranceGuide } from '../../services/insuranceGuideApi';
 import packageService from '../../services/packageService';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
 import { DURATION_OPTIONS, FREQUENCY_OPTIONS, IAppointment, IDoctor, IPatient, ITherapyPackage, PAYMENT_TYPES, THERAPY_TYPES } from '../../utils/types/types';
@@ -70,7 +72,7 @@ const initialFormState = {
 };
 
 type FormState = typeof initialFormState;
-type FormErrors = Partial<Record<keyof FormState | "payments" | "slots", string>>;
+type FormErrors = Partial<Record<keyof FormState | "payments" | "slots" | "selectedGuide", string>>;
 
 export default function TherapyPackageFormModal({ initialData, patient, doctors, onClose, onSubmit }: Props) {
     const [errors, setErrors] = useState<FormErrors>({});
@@ -78,6 +80,12 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     const [appointments, setAppointments] = useState<IAppointment[]>([]);
     const [calculationMode, setCalculationMode] = useState('duration');
     const [isLoading, setIsLoading] = useState(false);
+
+    // 🏥 Estados para pacotes de convênio
+    const [packageType, setPackageType] = useState<'therapy' | 'convenio'>('therapy');
+    const [availableGuides, setAvailableGuides] = useState<InsuranceGuide[]>([]);
+    const [selectedGuide, setSelectedGuide] = useState<string>('');
+    const [loadingGuides, setLoadingGuides] = useState(false);
 
     // Calculados dinamicamente (compatível com string ou número)
     const toNumber = (v: any) => {
@@ -97,20 +105,60 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
 function validateAll() {
   const combined = { ...formData, calculationMode };
+  const baseErrors: any = {};
 
-  const baseErrors = validateObject(combined, rules as any);
+  // Regras comuns (ambos os tipos)
+  if (!formData.doctorId) baseErrors.doctorId = "Profissional é obrigatório";
+  if (!formData.sessionType) baseErrors.sessionType = "Tipo de sessão é obrigatório";
+  if (!formData.date) baseErrors.date = "Data é obrigatória";
+  if (!formData.time) baseErrors.time = "Hora é obrigatória";
 
-  // Pagamentos
-  const hasValidPayments = payments.every(p => Number(p.amount) > 0 && !!p.method && !!p.date);
-  if (!hasValidPayments) baseErrors.payments = "Preencha valor, método e data em todos os pagamentos.";
+  // Regras específicas para THERAPY
+  if (packageType === 'therapy') {
+    if (!formData.paymentType) baseErrors.paymentType = "Tipo de pagamento é obrigatório";
+
+    const sessionValue = Number(formData.sessionValue);
+    if (!sessionValue || sessionValue < 0.01) {
+      baseErrors.sessionValue = "Valor por sessão deve ser maior que zero";
+    }
+
+    const hasValidPayments = payments.every(p => Number(p.amount) > 0 && !!p.method && !!p.date);
+    if (!hasValidPayments) baseErrors.payments = "Preencha valor, método e data em todos os pagamentos.";
+  }
+
+  // Regras específicas para CONVENIO
+  if (packageType === 'convenio') {
+    if (!selectedGuide) {
+      baseErrors.selectedGuide = "Selecione uma guia de convênio.";
+    }
+  }
+
+  // Validação de sessões por semana
+  const sessionsPerWeek = Number(formData.sessionsPerWeek);
+  if (!sessionsPerWeek || sessionsPerWeek < 1 || sessionsPerWeek > 5) {
+    baseErrors.sessionsPerWeek = "Sessões por semana deve estar entre 1 e 5";
+  }
+
+  // Validação de duração/sessões baseado no modo
+  if (calculationMode === 'duration') {
+    const duration = Number(formData.durationMonths);
+    if (!duration || duration < 1 || duration > 12) {
+      baseErrors.durationMonths = "Duração deve estar entre 1 e 12 meses";
+    }
+  } else {
+    const total = Number(formData.totalSessions);
+    if (!total || total < 1 || total > 100) {
+      baseErrors.totalSessions = "Total de sessões deve estar entre 1 e 100";
+    }
+  }
 
   // Slots adicionais se sessionsPerWeek > 1
-  if (Number(formData.sessionsPerWeek) > 1) {
+  if (sessionsPerWeek > 1) {
     const ok = selectedSlots.every(s => !!s.day && !!s.time);
     if (!ok) baseErrors.slots = "Preencha todos os dias/horários adicionais.";
   }
 
-  setErrors(baseErrors as any);
+  setErrors(baseErrors);
   return Object.keys(baseErrors).length === 0;
 }
 
@@ -148,6 +196,12 @@ function validateAll() {
         }
     }, [patient]);
 
+    // 🏥 Buscar guias ativas quando tipo = convenio
+    useEffect(() => {
+        if (packageType === 'convenio' && patient?._id) {
+            fetchInsuranceGuides(patient._id);
+        }
+    }, [packageType, patient?._id]);
 
     const fetchAppointmentsByPatient = async (patientId: string) => {
         setIsLoading(true);
@@ -158,6 +212,30 @@ function validateAll() {
             toast.error('Erro ao carregar agendamentos');
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    // 🏥 Buscar guias de convênio ativas
+    const fetchInsuranceGuides = async (patientId: string) => {
+        setLoadingGuides(true);
+        try {
+            const guides = await getGuides(patientId, { status: 'active' });
+            setAvailableGuides(guides);
+
+            // Se só tem uma guia, seleciona automaticamente
+            if (guides.length === 1) {
+                setSelectedGuide(guides[0]._id);
+                // Preenche specialty automaticamente
+                setFormData(prev => ({
+                    ...prev,
+                    sessionType: guides[0].specialty
+                }));
+            }
+        } catch (error) {
+            toast.error('Erro ao carregar guias de convênio');
+            console.error(error);
+        } finally {
+            setLoadingGuides(false);
         }
     };
 
@@ -389,10 +467,46 @@ function validateAll() {
                 })),
             };
 
+            // Validar patientId
+            if (!patient._id) {
+                toast.error('Paciente não identificado');
+                setIsLoading(false);
+                return;
+            }
+
             console.log("📤 Enviando pacote:", packageData);
 
-            await packageService.createPackage(packageData);
-            toast.success(`Pacote criado com sucesso! 💚`);
+            // 🏥 Lógica condicional: Therapy vs Convenio
+            if (packageType === 'convenio') {
+                // Validar guia selecionada
+                if (!selectedGuide) {
+                    toast.error('Selecione uma guia de convênio');
+                    setIsLoading(false);
+                    return;
+                }
+
+                // Payload simplificado para convenio
+                const convenioData = {
+                    patientId: patient._id,
+                    doctorId: formData.doctorId,
+                    insuranceGuideId: selectedGuide,
+                    selectedSlots: unique
+                };
+
+                console.log("📤 Enviando pacote de convênio:", convenioData);
+                await packageService.createConvenioPackage(convenioData);
+                toast.success(`Pacote de convênio criado com sucesso! 💚`);
+            } else {
+                // Fluxo normal (therapy)
+                const therapyData = {
+                    ...packageData,
+                    patientId: patient._id,
+                    sessionType: formData.sessionType as any // Type assertion para compatibilidade
+                };
+                await packageService.createPackage(therapyData);
+                toast.success(`Pacote criado com sucesso! 💚`);
+            }
+
             onSubmit();
             onClose();
         } catch (err: any) {
@@ -500,19 +614,34 @@ function validateAll() {
     };
 
 
-    const isFormValid = !!(
-        formData.patientId &&
-        formData.doctorId &&
-        formData.sessionType &&
-        formData.paymentType &&
-        formData.sessionValue > 0 &&
-        hasValidPayments && // ✅ usa a nova regra
-        formData.date &&
-        formData.time &&
-        (calculationMode === 'sessions'
-            ? formData.totalSessions > 0
-            : (formData.durationMonths > 0 && formData.sessionsPerWeek > 0))
-    );
+    // 🏥 Validação condicional por tipo de pacote
+    const isFormValid = packageType === 'convenio'
+        ? !!(
+            // Campos obrigatórios para CONVENIO
+            formData.patientId &&
+            formData.doctorId &&
+            formData.sessionType &&
+            selectedGuide && // ← Guia obrigatória
+            formData.date &&
+            formData.time &&
+            (calculationMode === 'sessions'
+                ? formData.totalSessions > 0
+                : (formData.durationMonths > 0 && formData.sessionsPerWeek > 0))
+        )
+        : !!(
+            // Campos obrigatórios para THERAPY
+            formData.patientId &&
+            formData.doctorId &&
+            formData.sessionType &&
+            formData.paymentType &&
+            formData.sessionValue > 0 &&
+            hasValidPayments &&
+            formData.date &&
+            formData.time &&
+            (calculationMode === 'sessions'
+                ? formData.totalSessions > 0
+                : (formData.durationMonths > 0 && formData.sessionsPerWeek > 0))
+        );
 
     const { totalSessions, totalValuePackage, remainingBalance } = useMemo(() => {
         const sessions =
@@ -569,8 +698,93 @@ function validateAll() {
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                         {/* Coluna 1 - Configuração do Pacote */}
                         <div className="xl:col-span-2 space-y-6">
+                            {/* 🏥 Toggle Tipo de Pacote */}
+                            <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
+                                <button
+                                    type="button"
+                                    onClick={() => setPackageType('therapy')}
+                                    className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+                                        packageType === 'therapy'
+                                            ? 'bg-white shadow-md text-emerald-700'
+                                            : 'text-gray-600 hover:text-gray-800'
+                                    }`}
+                                >
+                                    <DollarSign className="w-4 h-4" />
+                                    Particular
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setPackageType('convenio')}
+                                    className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+                                        packageType === 'convenio'
+                                            ? 'bg-white shadow-md text-blue-700'
+                                            : 'text-gray-600 hover:text-gray-800'
+                                    }`}
+                                >
+                                    <Building2 className="w-4 h-4" />
+                                    Convênio
+                                </button>
+                            </div>
+
+                            {/* 🏥 Select de Guia (só se convenio) */}
+                            {packageType === 'convenio' && (
+                                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-100">
+                                    <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                        <Building2 className="w-5 h-5 text-blue-600" />
+                                        Guia de Convênio
+                                    </h3>
+
+                                    {loadingGuides ? (
+                                        <div className="flex items-center justify-center py-4">
+                                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                                            <span className="ml-2 text-gray-600">Carregando guias...</span>
+                                        </div>
+                                    ) : availableGuides.length === 0 ? (
+                                        <div className="text-center py-4 text-amber-600 bg-amber-50 rounded-lg">
+                                            <p className="font-medium">Nenhuma guia ativa encontrada</p>
+                                            <p className="text-sm mt-1">Cadastre uma guia na aba "Guias de Convênio" antes de criar o pacote</p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <Select
+                                                name="selectedGuide"
+                                                value={selectedGuide}
+                                                onChange={(e) => {
+                                                    setSelectedGuide(e.target.value);
+                                                    const guide = availableGuides.find(g => g._id === e.target.value);
+                                                    if (guide) {
+                                                        setFormData(prev => ({
+                                                            ...prev,
+                                                            sessionType: guide.specialty
+                                                        }));
+                                                    }
+                                                }}
+                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                            >
+                                                <option value="">Selecione uma guia ativa *</option>
+                                                {availableGuides.map((guide) => (
+                                                    <option key={guide._id} value={guide._id}>
+                                                        {guide.insurance} - Guia #{guide.number} ({guide.remaining || 0} sessões disponíveis) - {guide.specialty}
+                                                    </option>
+                                                ))}
+                                            </Select>
+                                            {errors.selectedGuide && (
+                                                <span className="text-red-500 text-sm mt-1 block">{errors.selectedGuide}</span>
+                                            )}
+                                            {selectedGuide && (
+                                                <div className="mt-3 p-3 bg-blue-100 rounded-lg text-sm text-blue-900">
+                                                    <p className="font-medium">ℹ️ Informação:</p>
+                                                    <p>O paciente não pagará nada. O convênio realizará o pagamento conforme tabela.</p>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
                             {/* Agendamento Existente */}
-                            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-100">
+                            {packageType === 'therapy' && (
+                                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-100">
                                 <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
                                     <Calendar className="w-5 h-5 text-blue-600" />
                                     Agendamento Existente (Opcional)
@@ -594,7 +808,8 @@ function validateAll() {
                                         </option>
                                     ))}
                                 </Select>
-                            </div>
+                                </div>
+                            )}
 
                             {/* Configuração do Pacote */}
                             <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-5 rounded-xl border border-emerald-100">
@@ -891,26 +1106,36 @@ function validateAll() {
                                         </Select>
                                     </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Pagamento *</label>
-                                        <Select
-                                            name="paymentType"
-                                            value={formData.paymentType}
-                                            onChange={handleChange}
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
-                                        >
-                                            {PAYMENT_TYPES.map((option) => (
-                                                <option key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </option>
-                                            ))}
-                                        </Select>
-                                    </div>
+                                    {packageType === 'therapy' && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Pagamento *</label>
+                                            <Select
+                                                name="paymentType"
+                                                value={formData.paymentType}
+                                                onChange={handleChange}
+                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                                            >
+                                                {PAYMENT_TYPES.map((option) => (
+                                                    <option key={option.value} value={option.value}>
+                                                        {option.label}
+                                                    </option>
+                                                ))}
+                                            </Select>
+                                        </div>
+                                    )}
+
+                                    {packageType === 'convenio' && (
+                                        <div className="p-3 bg-blue-100 rounded-lg text-sm text-blue-900">
+                                            <p className="font-medium">💳 Pagamento via Convênio</p>
+                                            <p className="text-xs mt-1">O paciente não realiza pagamento. O valor será faturado ao convênio.</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
-                            {/* Informações Financeiras */}
-                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl border border-green-100">
+                            {/* Informações Financeiras - Apenas para Therapy */}
+                            {packageType === 'therapy' && (
+                                <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl border border-green-100">
                                 <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
                                     <DollarSign className="w-5 h-5 text-green-600" />
                                     Informações Financeiras
@@ -1031,7 +1256,8 @@ function validateAll() {
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                                </div>
+                            )}
 
                             {/* Resumo do Pacote */}
                             <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-100">

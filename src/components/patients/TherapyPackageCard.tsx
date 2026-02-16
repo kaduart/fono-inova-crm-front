@@ -1,4 +1,4 @@
-import { Calendar, CheckCircle2, ChevronDown, Clock, DollarSign, Sprout, TrendingUp } from 'lucide-react';
+import { Building2, Calendar, CheckCircle2, ChevronDown, Clock, DollarSign, Sprout, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { IDoctors, IPatient, ISession, ITherapyPackage } from '../../utils/types/types';
@@ -23,6 +23,14 @@ export default function TherapyPackageCard({
   onCardClick = () => { },
 }: Props) {
   if (!pack) return null;
+
+  // 🐛 Debug: Log para verificar sessionsDone
+  console.log(`📦 Package ${pack._id?.substring(0, 8)}:`, {
+    type: pack.type || 'therapy',
+    sessionsDone: pack.sessionsDone,
+    totalSessions: pack.totalSessions,
+    status: pack.status
+  });
 
   const [modalAction, setModalAction] = useState<ModalAction>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -121,16 +129,38 @@ export default function TherapyPackageCard({
       className="bg-white rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer"
       onClick={() => onCardClick && onCardClick(pack)}
     >
-      {/* Header com gradiente verde */}
-      <div className="bg-gradient-to-r from-emerald-50 to-green-50 p-6 border-b border-emerald-100">
+      {/* Header com gradiente - verde para therapy, azul para convenio */}
+      <div className={`p-6 border-b ${
+        pack.type === 'convenio'
+          ? 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-100'
+          : 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-100'
+      }`}>
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-emerald-100 rounded-lg">
-              <Sprout className="h-5 w-5 text-emerald-600" />
+            <div className={`p-2 rounded-lg ${
+              pack.type === 'convenio' ? 'bg-blue-100' : 'bg-emerald-100'
+            }`}>
+              {pack.type === 'convenio' ? (
+                <Building2 className="h-5 w-5 text-blue-600" />
+              ) : (
+                <Sprout className="h-5 w-5 text-emerald-600" />
+              )}
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">{patient.fullName}</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-gray-900">{patient.fullName}</h3>
+                {pack.type === 'convenio' && (
+                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                    CONVÊNIO
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-gray-500 capitalize">{pack.sessionType?.toLowerCase()}</p>
+              {pack.type === 'convenio' && pack.insuranceProvider && (
+                <p className="text-xs text-blue-600 font-medium mt-1">
+                  {pack.insuranceProvider.replace(/-/g, ' ').toUpperCase()}
+                </p>
+              )}
             </div>
           </div>
           <div className={statusConfig.pill}>
@@ -143,14 +173,20 @@ export default function TherapyPackageCard({
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium text-gray-700">Progresso do Pacote</span>
-            <span className="text-sm font-bold text-gray-900">
-              {pack.sessionsDone}/{pack.totalSessions}
+            <span className={`text-base font-bold ${
+              pack.type === 'convenio' ? 'text-blue-600' : 'text-emerald-600'
+            }`}>
+              {pack.sessionsDone || 0}/{pack.totalSessions}
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
             <div
-              className="bg-gradient-to-r from-emerald-500 to-green-600 h-2.5 rounded-full transition-all duration-1000 ease-out relative overflow-hidden"
-              style={{ width: `${(pack.sessionsDone / pack.totalSessions) * 100}%` }}
+              className={`h-2.5 rounded-full transition-all duration-1000 ease-out relative overflow-hidden ${
+                pack.type === 'convenio'
+                  ? 'bg-gradient-to-r from-blue-500 to-cyan-600'
+                  : 'bg-gradient-to-r from-emerald-500 to-green-600'
+              }`}
+              style={{ width: `${((pack.sessionsDone || 0) / pack.totalSessions) * 100}%` }}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-pulse-slow"></div>
             </div>
@@ -160,40 +196,107 @@ export default function TherapyPackageCard({
 
       {/* Conteúdo principal */}
       <div className="p-6 space-y-4">
+        {/* Badge de Status de Faturamento (só para convênio) */}
+        {pack.type === 'convenio' && pack.insuranceBillingStatus && (
+          <div className={`p-3 rounded-lg border flex items-center gap-2 ${
+            pack.insuranceBillingStatus === 'received'
+              ? 'bg-green-50 border-green-200'
+              : pack.insuranceBillingStatus === 'billed'
+              ? 'bg-blue-50 border-blue-200'
+              : 'bg-amber-50 border-amber-200'
+          }`}>
+            <div className={`w-2 h-2 rounded-full ${
+              pack.insuranceBillingStatus === 'received'
+                ? 'bg-green-500'
+                : pack.insuranceBillingStatus === 'billed'
+                ? 'bg-blue-500'
+                : 'bg-amber-500'
+            }`}></div>
+            <span className={`text-sm font-medium ${
+              pack.insuranceBillingStatus === 'received'
+                ? 'text-green-700'
+                : pack.insuranceBillingStatus === 'billed'
+                ? 'text-blue-700'
+                : 'text-amber-700'
+            }`}>
+              {pack.insuranceBillingStatus === 'pending_batch' && 'Aguardando Faturamento'}
+              {pack.insuranceBillingStatus === 'in_batch' && 'Em Lote de Faturamento'}
+              {pack.insuranceBillingStatus === 'billed' && 'Faturado ao Convênio'}
+              {pack.insuranceBillingStatus === 'received' && 'Recebido do Convênio'}
+            </span>
+          </div>
+        )}
+
         {/* Métricas Financeiras */}
         <div className="grid grid-cols-2 gap-4">
-          {/* Valor Total */}
-          <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-4 rounded-xl border border-emerald-100">
-            <div className="flex items-center gap-2 mb-2">
-              <DollarSign className="h-4 w-4 text-emerald-600" />
-              <span className="text-sm font-medium text-gray-700">Valor Total</span>
+          {/* Valor Total - Condicional para convênio */}
+          {pack.type === 'convenio' ? (
+            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
+              <div className="flex items-center gap-2 mb-2">
+                <Building2 className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-medium text-gray-700">Valor Convênio</span>
+              </div>
+              <div className="text-lg font-bold text-gray-900">
+                {new Intl.NumberFormat('pt-BR', {
+                  style: 'currency',
+                  currency: 'BRL'
+                }).format((pack.insuranceGrossAmount || 0) * pack.totalSessions)}
+              </div>
+              <div className="text-xs text-blue-600 mt-1">
+                {new Intl.NumberFormat('pt-BR', {
+                  style: 'currency',
+                  currency: 'BRL'
+                }).format(pack.insuranceGrossAmount || 0)}/sessão
+              </div>
             </div>
-            <div className="text-lg font-bold text-gray-900">
-              {new Intl.NumberFormat('pt-BR', {
-                style: 'currency',
-                currency: 'BRL'
-              }).format(pack.totalPaid)}
+          ) : (
+            <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-4 rounded-xl border border-emerald-100">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="h-4 w-4 text-emerald-600" />
+                <span className="text-sm font-medium text-gray-700">Valor Total</span>
+              </div>
+              <div className="text-lg font-bold text-gray-900">
+                {new Intl.NumberFormat('pt-BR', {
+                  style: 'currency',
+                  currency: 'BRL'
+                }).format(pack.totalPaid)}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Saldo Restante */}
-          <div className={`p-4 rounded-xl border ${pack.balance > 0
-            ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100'
-            : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-100'
-            }`}>
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className={`h-4 w-4 ${pack.balance > 0 ? 'text-amber-600' : 'text-green-600'
-                }`} />
-              <span className="text-sm font-medium text-gray-700">Saldo</span>
-            </div>
-            <div className={`text-lg font-bold ${pack.balance > 0 ? 'text-amber-600' : 'text-green-600'
+          {/* Saldo Restante - Esconder para convênio */}
+          {pack.type !== 'convenio' ? (
+            <div className={`p-4 rounded-xl border ${pack.balance > 0
+              ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100'
+              : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-100'
               }`}>
-              {new Intl.NumberFormat('pt-BR', {
-                style: 'currency',
-                currency: 'BRL'
-              }).format(pack.balance)}
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className={`h-4 w-4 ${pack.balance > 0 ? 'text-amber-600' : 'text-green-600'
+                  }`} />
+                <span className="text-sm font-medium text-gray-700">Saldo</span>
+              </div>
+              <div className={`text-lg font-bold ${pack.balance > 0 ? 'text-amber-600' : 'text-green-600'
+                }`}>
+                {new Intl.NumberFormat('pt-BR', {
+                  style: 'currency',
+                  currency: 'BRL'
+                }).format(pack.balance)}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
+              <div className="flex items-center gap-2 mb-2">
+                <Clock className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-medium text-gray-700">Sessões Pendentes</span>
+              </div>
+              <div className="text-lg font-bold text-blue-600">
+                {pack.totalSessions - pack.sessionsDone}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                de {pack.totalSessions} total
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Detalhes Financeiros */}

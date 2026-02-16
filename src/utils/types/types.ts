@@ -114,6 +114,13 @@ export interface ITherapyPackage {
     __v?: number;
     createdAt?: string;
     updatedAt?: string;
+
+    // 🏥 Campos de convênio
+    type?: 'therapy' | 'convenio';
+    insuranceGuide?: string;
+    insuranceProvider?: string;
+    insuranceGrossAmount?: number;
+    insuranceBillingStatus?: 'pending_batch' | 'in_batch' | 'billed' | 'received' | null;
 }
 
 // export Interface da resposta paginada

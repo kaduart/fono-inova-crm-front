@@ -353,7 +353,7 @@ const ScheduleAppointmentModal = ({
                             <option value="">Selecione um profissional</option>
                             {doctors?.map(doctor => (
                                 <option key={doctor._id} value={doctor._id}>
-                                    Dr. {doctor.fullName} - {doctor.specialty}
+                                    {doctor.fullName} - {doctor.specialty}
                                 </option>
                             ))}
                         </Select>

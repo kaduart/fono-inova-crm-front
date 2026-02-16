@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import { mergeDateAndTime } from '../../utils/dateFormat';
 import { IAppointment, STATUS_OPTIONS, TherapyType } from '../../utils/types/types';
 import SpecialtySelector from '../common/SpecialtySelector';
+import InsuranceSelector from '../appointments/InsuranceSelector';
 import Input from '../ui/Input';
 import { Label } from '../ui/Label';
 import { Select } from '../ui/Select';
@@ -31,6 +32,7 @@ const initialDataValues: IAppointment = {
     notes: '',
     paymentAmount: 0,
     paymentMethod: 'cartao',
+    insuranceGuideId: undefined, // ID da guia selecionada (opcional)
 };
 const ScheduleModal: React.FC<ScheduleModalProps> = ({
     open,
@@ -82,6 +84,8 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
             paymentAmount: 200,
             paymentMethod: 'cartao',
             sessionType: 'fonoaudiologia' as TherapyType,
+            // Se insuranceGuideId está presente, incluir no payload
+            ...(formState.insuranceGuideId && { insuranceGuideId: formState.insuranceGuideId }),
         };
 
         onSave(updatedFormState);
@@ -134,6 +138,25 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
                                 value={formState.specialty}
                                 onChange={(value) => handleChange({ ...formState, specialty: value })}
                             />
+
+                            {/* Seletor de guia de convênio (se paciente e especialidade selecionados) */}
+                            {formState.patientId && formState.specialty && (
+                                <div className="border border-blue-200 bg-blue-50 rounded-lg p-3">
+                                    <InsuranceSelector
+                                        patientId={formState.patientId}
+                                        specialty={formState.specialty}
+                                        selectedGuideId={formState.insuranceGuideId}
+                                        onGuideSelect={(guideId) => {
+                                            setFormState((prev) => ({
+                                                ...prev,
+                                                insuranceGuideId: guideId || undefined,
+                                            }));
+                                        }}
+                                        appointmentDate={formState.date}
+                                    />
+                                </div>
+                            )}
+
                             <div>
                                 <Label>
                                     Profissional

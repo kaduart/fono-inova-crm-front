@@ -207,7 +207,7 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
                                         </TableCell>
                                         <TableCell sx={{ py: 2 }}>
                                             <Typography variant="body2">
-                                                Dr. {appt?.doctor?.fullName}
+                                                {appt?.doctor?.fullName}
                                             </Typography>
                                         </TableCell>
                                         <TableCell sx={{ py: 2 }}>

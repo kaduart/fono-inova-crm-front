@@ -19,6 +19,7 @@ import { PatientAvailablesCard } from './PatientAvailablesCard';
 import PatientEvolution from './PatientEvolution';
 import { PatientMiniCalendar } from './PatientMiniCalendar';
 import TherapyPackagesSummary from './TherapyPackagesSummary';
+import PatientInsuranceTab from '../patient/tabs/PatientInsuranceTab';
 
 const initialPatientState: IPatient = {
   fullName: '',
@@ -859,7 +860,7 @@ export default function PatientDashboard() {
             </div>
           </div>
 
-          <button
+          {/*  <button
             onClick={() => handleOpenSchedule(null, 'create')}
             className="flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-all duration-200"
             style={{
@@ -877,7 +878,7 @@ export default function PatientDashboard() {
           >
             <Plus size={18} />
             Novo Agendamento
-          </button>
+          </button> */}
         </div>
 
 
@@ -895,6 +896,7 @@ export default function PatientDashboard() {
           {activeTab === 'Dashboard' && renderDashboard()}
           {activeTab === 'Appointment Booking' && renderAppointmentBooking()}
           {activeTab === 'Management Packages' && renderManagePackages()}
+          {activeTab === 'Insurance Guides' && patientId && <PatientInsuranceTab patientId={patientId} />}
           {activeTab === 'Evolution' && renderEvolution()}
         </div>
       </main>

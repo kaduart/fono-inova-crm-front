@@ -159,12 +159,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     // O loading automático estava causando re-renders infinitos
     const [currentViewDate, setCurrentViewDate] = useState<string>('');
 
-    // 🔍 LOG INICIAL (mantido para debug)
-    console.log('🔥 EnhancedCalendar render:', {
-        appointmentsCount: appointments?.length || 0,
-        currentViewDate
-    });
-
     // ✅ CORREÇÃO: Fecha ambos os modais quando closeModalSignal muda
     useEffect(() => {
         if (closeModalSignal && closeModalSignal > 0) {
@@ -419,7 +413,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             <div className="p-1 bg-slate-700 rounded">
                                 <User size={10} className="text-slate-400" />
                             </div>
-                            Dr. {doctorName}
+                            {doctorName}
                         </div>
 
                         {hasPackage && (

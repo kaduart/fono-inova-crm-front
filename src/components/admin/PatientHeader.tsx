@@ -8,6 +8,7 @@ import {
     LogOut,
     MessageCircle,
     Package,
+    Shield,
     User,
     UserCircle
 } from "lucide-react";
@@ -115,6 +116,15 @@ const PatientHeader: React.FC<PatientHeaderProps> = ({
                         </NavButton>
 
                         <NavButton
+                            active={activeTab === "Insurance Guides"}
+                            onClick={() => handleTabChange("Insurance Guides")}
+                            icon={<Shield size={16} className="text-blue-400" />}
+                            className={activeTab === "Insurance Guides" ? "bg-white text-emerald-700" : "!text-white hover:bg-emerald-600"}
+                        >
+                            Guias Convênio
+                        </NavButton>
+
+                        <NavButton
                             active={activeTab === "Evolution"}
                             onClick={() => handleTabChange("Evolution")}
                             icon={<LineChart size={16} className="text-cyan-400" />}
@@ -212,6 +222,17 @@ const PatientHeader: React.FC<PatientHeaderProps> = ({
                                         >
                                             <Package className="h-4 w-4 mr-3 text-green-500" />
                                             <span>Meus Pacotes</span>
+                                        </button>
+
+                                        <button
+                                            onClick={() => {
+                                                handleTabChange("Insurance Guides");
+                                                setIsProfileDropdownOpen(false);
+                                            }}
+                                            className="flex items-center w-full px-3 py-3 text-sm text-gray-700 hover:bg-emerald-50 rounded-lg transition-colors duration-150"
+                                        >
+                                            <Shield className="h-4 w-4 mr-3 text-blue-500" />
+                                            <span>Guias de Convênio</span>
                                         </button>
 
                                         <div className="border-t border-gray-200 my-1"></div>

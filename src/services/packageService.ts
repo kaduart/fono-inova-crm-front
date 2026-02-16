@@ -35,6 +35,16 @@ export type CreatePackageParams = {
   }[];
 };
 
+export type CreateConvenioPackageParams = {
+  patientId: string;
+  doctorId: string;
+  insuranceGuideId: string;
+  selectedSlots: {
+    date: string;
+    time: string;
+  }[];
+};
+
 
 export type UpdatePackageParams = Partial<{
   totalSessions: number;
@@ -94,7 +104,17 @@ export const packageService = {
       console.error('Erro na requisição:', error.config?.data);
       throw new Error(error.response?.data?.message || 'Erro ao criar pacote');
     }
+  },
 
+  // Criar pacote de convênio
+  createConvenioPackage: async (data: CreateConvenioPackageParams) => {
+    try {
+      const response = await API.post<any>('/convenio-packages', data);
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao criar pacote de convênio:', error.config?.data);
+      throw new Error(error.response?.data?.message || 'Erro ao criar pacote de convênio');
+    }
   },
 
   getPackage: async (id: string) => {
