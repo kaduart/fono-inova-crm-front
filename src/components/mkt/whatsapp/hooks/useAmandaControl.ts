@@ -14,8 +14,8 @@ export function useAmandaControl(contact: Contact | null) {
         setManualActive(value);
     }, []);
 
-    // Pausar/Reativar Amanda
-    const handleToggleAmanda = useCallback(async () => {
+    // Reativar Amanda
+    const handleResumeAmanda = useCallback(async () => {
         const key = contact?.leadId;
         if (!key) {
             toast.error("Este contato não possui lead ativo");
@@ -27,18 +27,44 @@ export function useAmandaControl(contact: Contact | null) {
             const { data } = await API.post(`/whatsapp/amanda-resume/${key}`, {});
 
             if (data?.success) {
-                toast.success(data.message || "Status atualizado");
-                setManualActive(!manualActive);
+                toast.success(data.message || "Amanda reativada");
+                setManualActive(false);
             } else {
-                throw new Error(data?.message || "Erro ao atualizar");
+                throw new Error(data?.message || "Erro ao reativar");
             }
         } catch (err: any) {
-            logger.error("Erro ao toggle Amanda:", err);
-            toast.error(err.message || "Erro ao atualizar status");
+            logger.error("Erro ao reativar Amanda:", err);
+            toast.error(err.message || "Erro ao reativar Amanda");
         } finally {
             setLoading(false);
         }
-    }, [contact?.leadId, manualActive]);
+    }, [contact?.leadId]);
+
+    // Pausar Amanda manualmente
+    const handlePauseAmanda = useCallback(async () => {
+        const key = contact?.leadId;
+        if (!key) {
+            toast.error("Este contato não possui lead ativo");
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const { data } = await API.post(`/whatsapp/amanda-pause/${key}`, {});
+
+            if (data?.success) {
+                toast.success(data.message || "Amanda pausada");
+                setManualActive(true);
+            } else {
+                throw new Error(data?.message || "Erro ao pausar");
+            }
+        } catch (err: any) {
+            logger.error("Erro ao pausar Amanda:", err);
+            toast.error(err.message || "Erro ao pausar Amanda");
+        } finally {
+            setLoading(false);
+        }
+    }, [contact?.leadId]);
 
     // Cancelar follow-up
     const handleCancelFollowup = useCallback(async () => {
@@ -73,7 +99,8 @@ export function useAmandaControl(contact: Contact | null) {
         manualActive,
         loading,
         syncWithContact,
-        handleToggleAmanda,
+        handleResumeAmanda,
+        handlePauseAmanda,
         handleCancelFollowup,
     };
 }

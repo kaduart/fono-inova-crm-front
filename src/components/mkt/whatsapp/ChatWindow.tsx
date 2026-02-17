@@ -39,7 +39,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
         manualActive,
         loading: amandaLoading,
         syncWithContact,
-        handleToggleAmanda,
+        handleResumeAmanda,
+        handlePauseAmanda,
         handleCancelFollowup,
     } = useAmandaControl(contact);
 
@@ -132,10 +133,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
         
         try {
             await handleSendText(text);
+            // 🔴 Atualiza estado local: Amanda foi pausada automaticamente
+            syncWithContact(true);
         } catch {
             setDraft(text); // Restaura texto em caso de erro
         }
-    }, [draft, handleSendText]);
+    }, [draft, handleSendText, syncWithContact]);
 
     const handleSaveName = async (newName: string) => {
         if (!contact?._id) throw new Error("Contato inválido");
@@ -221,20 +224,34 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                                 className="absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50"
                                 role="menu"
                             >
-                                <button
-                                    onClick={() => { setShowActionsDropdown(false); handleToggleAmanda(); }}
-                                    disabled={amandaLoading}
-                                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-3 disabled:opacity-50"
-                                    role="menuitem"
-                                >
-                                    <span>{manualActive ? "▶️" : "⏸️"}</span>
-                                    <div>
-                                        <div className="font-medium">{manualActive ? "Reativar Amanda" : "Pausar Amanda"}</div>
-                                        <div className="text-xs text-gray-500">
-                                            {manualActive ? "Retomar automação" : "Modo manual"}
+                                {/* Botão Pausar/Reativar Amanda */}
+                                {manualActive ? (
+                                    <button
+                                        onClick={() => { setShowActionsDropdown(false); handleResumeAmanda(); }}
+                                        disabled={amandaLoading}
+                                        className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-3 disabled:opacity-50"
+                                        role="menuitem"
+                                    >
+                                        <span>▶️</span>
+                                        <div>
+                                            <div className="font-medium">Reativar Amanda</div>
+                                            <div className="text-xs text-gray-500">Retomar automação</div>
                                         </div>
-                                    </div>
-                                </button>
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => { setShowActionsDropdown(false); handlePauseAmanda(); }}
+                                        disabled={amandaLoading}
+                                        className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-3 disabled:opacity-50"
+                                        role="menuitem"
+                                    >
+                                        <span>⏸️</span>
+                                        <div>
+                                            <div className="font-medium">Pausar Amanda</div>
+                                            <div className="text-xs text-gray-500">Modo manual</div>
+                                        </div>
+                                    </button>
+                                )}
                                 
                                 <div className="h-px bg-gray-200 my-1" />
                                 
@@ -274,7 +291,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                     <MediaUpload 
                         phone={contact?.phone || ''}
                         leadId={leadId}
-                        onSend={handleSendMedia}
+                        onSend={async (file, type) => {
+                            await handleSendMedia(file, type);
+                            syncWithContact(true); // 🔴 Amanda pausada após envio
+                        }}
                         disabled={sending}
                     />
                     
@@ -284,6 +304,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                                 type: 'audio/webm;codecs=opus' 
                             });
                             await handleSendMedia(file, 'audio');
+                            syncWithContact(true); // 🔴 Amanda pausada após envio
                         }}
                         disabled={sending}
                     />
@@ -324,8 +345,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
             {/* Modals */}
             {showEditContact && contact && (
                 <EditContactModal
-                    contact={contact}
-                    isOpen={showEditContact}
+                    open={showEditContact}
+                    initialName={contact.name}
+                    phone={contact.phone}
                     onClose={() => setShowEditContact(false)}
                     onSave={handleSaveName}
                 />
