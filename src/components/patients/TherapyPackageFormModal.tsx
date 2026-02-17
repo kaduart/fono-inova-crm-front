@@ -72,7 +72,7 @@ const initialFormState = {
 };
 
 type FormState = typeof initialFormState;
-type FormErrors = Partial<Record<keyof FormState | "payments" | "slots" | "selectedGuide", string>>;
+type FormErrors = Partial<Record<keyof FormState | "payments" | "slots" | "selectedGuide" | "dailySessionTimes", string>>;
 
 export default function TherapyPackageFormModal({ initialData, patient, doctors, onClose, onSubmit }: Props) {
     const [errors, setErrors] = useState<FormErrors>({});
@@ -86,6 +86,10 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     const [availableGuides, setAvailableGuides] = useState<InsuranceGuide[]>([]);
     const [selectedGuide, setSelectedGuide] = useState<string>('');
     const [loadingGuides, setLoadingGuides] = useState(false);
+
+    // 🆕 Estados para Sessões no Mesmo Dia
+    const [sameDaySessions, setSameDaySessions] = useState(false);
+    const [dailySessionTimes, setDailySessionTimes] = useState<string[]>(['16:00', '16:40']);
 
     // Calculados dinamicamente (compatível com string ou número)
     const toNumber = (v: any) => {
@@ -103,64 +107,71 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         return Number(v) || 0;
     };
 
-function validateAll() {
-  const combined = { ...formData, calculationMode };
-  const baseErrors: any = {};
+    function validateAll() {
+        const combined = { ...formData, calculationMode };
+        const baseErrors: any = {};
 
-  // Regras comuns (ambos os tipos)
-  if (!formData.doctorId) baseErrors.doctorId = "Profissional é obrigatório";
-  if (!formData.sessionType) baseErrors.sessionType = "Tipo de sessão é obrigatório";
-  if (!formData.date) baseErrors.date = "Data é obrigatória";
-  if (!formData.time) baseErrors.time = "Hora é obrigatória";
+        // Regras comuns (ambos os tipos)
+        if (!formData.doctorId) baseErrors.doctorId = "Profissional é obrigatório";
+        if (!formData.sessionType) baseErrors.sessionType = "Tipo de sessão é obrigatório";
+        if (!formData.date) baseErrors.date = "Data é obrigatória";
+        if (!formData.time) baseErrors.time = "Hora é obrigatória";
 
-  // Regras específicas para THERAPY
-  if (packageType === 'therapy') {
-    if (!formData.paymentType) baseErrors.paymentType = "Tipo de pagamento é obrigatório";
+        // Regras específicas para THERAPY
+        if (packageType === 'therapy') {
+            if (!formData.paymentType) baseErrors.paymentType = "Tipo de pagamento é obrigatório";
 
-    const sessionValue = Number(formData.sessionValue);
-    if (!sessionValue || sessionValue < 0.01) {
-      baseErrors.sessionValue = "Valor por sessão deve ser maior que zero";
+            const sessionValue = Number(formData.sessionValue);
+            if (!sessionValue || sessionValue < 0.01) {
+                baseErrors.sessionValue = "Valor por sessão deve ser maior que zero";
+            }
+
+            const hasValidPayments = payments.every(p => Number(p.amount) > 0 && !!p.method && !!p.date);
+            if (!hasValidPayments) baseErrors.payments = "Preencha valor, método e data em todos os pagamentos.";
+        }
+
+        // Regras específicas para CONVENIO
+        if (packageType === 'convenio') {
+            if (!selectedGuide) {
+                baseErrors.selectedGuide = "Selecione uma guia de convênio.";
+            }
+        }
+
+        // Validação de sessões por semana
+        const sessionsPerWeek = Number(formData.sessionsPerWeek);
+
+        if (sameDaySessions) {
+            if (dailySessionTimes.length < 2) {
+                baseErrors.dailySessionTimes = "Adicione pelo menos 2 horários para sessões no mesmo dia";
+            }
+        } else {
+            if (!sessionsPerWeek || sessionsPerWeek < 1 || sessionsPerWeek > 5) {
+                baseErrors.sessionsPerWeek = "Sessões por semana deve estar entre 1 e 5";
+            }
+        }
+
+        // Validação de duração/sessões baseado no modo
+        if (calculationMode === 'duration') {
+            const duration = Number(formData.durationMonths);
+            if (!duration || duration < 1 || duration > 12) {
+                baseErrors.durationMonths = "Duração deve estar entre 1 e 12 meses";
+            }
+        } else {
+            const total = Number(formData.totalSessions);
+            if (!total || total < 1 || total > 100) {
+                baseErrors.totalSessions = "Total de sessões deve estar entre 1 e 100";
+            }
+        }
+
+        // Slots adicionais se sessionsPerWeek > 1
+        if (sessionsPerWeek > 1) {
+            const ok = selectedSlots.every(s => !!s.day && !!s.time);
+            if (!ok) baseErrors.slots = "Preencha todos os dias/horários adicionais.";
+        }
+
+        setErrors(baseErrors);
+        return Object.keys(baseErrors).length === 0;
     }
-
-    const hasValidPayments = payments.every(p => Number(p.amount) > 0 && !!p.method && !!p.date);
-    if (!hasValidPayments) baseErrors.payments = "Preencha valor, método e data em todos os pagamentos.";
-  }
-
-  // Regras específicas para CONVENIO
-  if (packageType === 'convenio') {
-    if (!selectedGuide) {
-      baseErrors.selectedGuide = "Selecione uma guia de convênio.";
-    }
-  }
-
-  // Validação de sessões por semana
-  const sessionsPerWeek = Number(formData.sessionsPerWeek);
-  if (!sessionsPerWeek || sessionsPerWeek < 1 || sessionsPerWeek > 5) {
-    baseErrors.sessionsPerWeek = "Sessões por semana deve estar entre 1 e 5";
-  }
-
-  // Validação de duração/sessões baseado no modo
-  if (calculationMode === 'duration') {
-    const duration = Number(formData.durationMonths);
-    if (!duration || duration < 1 || duration > 12) {
-      baseErrors.durationMonths = "Duração deve estar entre 1 e 12 meses";
-    }
-  } else {
-    const total = Number(formData.totalSessions);
-    if (!total || total < 1 || total > 100) {
-      baseErrors.totalSessions = "Total de sessões deve estar entre 1 e 100";
-    }
-  }
-
-  // Slots adicionais se sessionsPerWeek > 1
-  if (sessionsPerWeek > 1) {
-    const ok = selectedSlots.every(s => !!s.day && !!s.time);
-    if (!ok) baseErrors.slots = "Preencha todos os dias/horários adicionais.";
-  }
-
-  setErrors(baseErrors);
-  return Object.keys(baseErrors).length === 0;
-}
 
     // Calcular duração estimada baseada no número de sessões e frequência
     const estimatedDuration = calculationMode === 'sessions' && formData.sessionsPerWeek > 0
@@ -240,7 +251,7 @@ function validateAll() {
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-      
+
         const { name, value } = e.target;
         const numericFields = ['durationMonths', 'sessionsPerWeek', 'totalSessions', 'sessionValue', 'totalPaid'];
 
@@ -257,16 +268,19 @@ function validateAll() {
             if (name === 'sessionsPerWeek') {
                 const num = Number(value);
 
-                if (num > 1) {
-                    // Mantém o primeiro slot sempre preenchido com sexta-feira como padrão
-                    const defaultSlots = Array.from({ length: num - 1 }, (_, index) =>
-                        index === 0
-                            ? { day: 'friday', time: formData.time || '17:00' }
-                            : { day: '', time: '' }
-                    );
-                    setSelectedSlots(defaultSlots);
-                } else {
-                    setSelectedSlots([]);
+                // Se sameDaySessions estiver ativo, ignoramos a lógica de slots adicionais
+                if (!sameDaySessions) {
+                    if (num > 1) {
+                        // Mantém o primeiro slot sempre preenchido com sexta-feira como padrão
+                        const defaultSlots = Array.from({ length: num - 1 }, (_, index) =>
+                            index === 0
+                                ? { day: 'friday', time: formData.time || '17:00' }
+                                : { day: '', time: '' }
+                        );
+                        setSelectedSlots(defaultSlots);
+                    } else {
+                        setSelectedSlots([]);
+                    }
                 }
             }
 
@@ -288,21 +302,64 @@ function validateAll() {
         }
     };
 
+    // 🆕 Effect para sincronizar sessionsPerWeek com dailySessionTimes
+    useEffect(() => {
+        if (sameDaySessions) {
+            setFormData(prev => ({
+                ...prev,
+                sessionsPerWeek: dailySessionTimes.length
+            }));
+        }
+    }, [sameDaySessions, dailySessionTimes]);
+
     function generateSessionDates({
         startDate,
         startTime,
         totalSessions,
         sessionsPerWeek,
         selectedSlots = [],
+        sameDaySessions = false,
+        dailySessionTimes = []
     }: {
         startDate: string;
         startTime: string;
         totalSessions: number;
         sessionsPerWeek: number;
         selectedSlots?: { day: string; time: string }[];
+        sameDaySessions?: boolean;
+        dailySessionTimes?: string[];
     }) {
         const start = moment(startDate, "YYYY-MM-DD");
         const results: { date: string; time: string }[] = [];
+
+        // 🆕 Lógica para Sessões no Mesmo Dia
+        if (sameDaySessions && dailySessionTimes.length > 0) {
+            let sessionsCreated = 0;
+            let currentWeek = start.clone().startOf('isoWeek');
+            const dayOfWeek = start.isoWeekday(); // Dia da semana da data de início
+
+            // Ordena horários para garantir ordem cronológica
+            const sortedTimes = [...dailySessionTimes].sort();
+
+            while (sessionsCreated < totalSessions) {
+                const sessionDate = currentWeek.clone().isoWeekday(dayOfWeek);
+
+                // Só processa se a data for válida (>= start date e não fim de semana se desejado)
+                if (sessionDate.isSameOrAfter(start, 'day') && sessionDate.isoWeekday() <= 5) {
+                    for (const time of sortedTimes) {
+                        if (sessionsCreated >= totalSessions) break;
+                        results.push({
+                            date: sessionDate.format('YYYY-MM-DD'),
+                            time: time
+                        });
+                        sessionsCreated++;
+                    }
+                }
+
+                currentWeek.add(1, 'week');
+            }
+            return results;
+        }
 
         // 🔹 Mapeamento de dias da semana
         const dayToNumber: Record<string, number> = {
@@ -411,6 +468,8 @@ function validateAll() {
                     totalSessions,
                     sessionsPerWeek: formData.sessionsPerWeek,
                     selectedSlots,
+                    sameDaySessions,
+                    dailySessionTimes
                 });
             } else {
                 // 🔹 Modo 2: Por duração — usa mesma lógica do modo "sessions"
@@ -422,6 +481,8 @@ function validateAll() {
                     totalSessions,
                     sessionsPerWeek: formData.sessionsPerWeek,
                     selectedSlots,
+                    sameDaySessions,
+                    dailySessionTimes
                 });
 
             }
@@ -703,11 +764,10 @@ function validateAll() {
                                 <button
                                     type="button"
                                     onClick={() => setPackageType('therapy')}
-                                    className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-                                        packageType === 'therapy'
-                                            ? 'bg-white shadow-md text-emerald-700'
-                                            : 'text-gray-600 hover:text-gray-800'
-                                    }`}
+                                    className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${packageType === 'therapy'
+                                        ? 'bg-white shadow-md text-emerald-700'
+                                        : 'text-gray-600 hover:text-gray-800'
+                                        }`}
                                 >
                                     <DollarSign className="w-4 h-4" />
                                     Particular
@@ -715,11 +775,10 @@ function validateAll() {
                                 <button
                                     type="button"
                                     onClick={() => setPackageType('convenio')}
-                                    className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-                                        packageType === 'convenio'
-                                            ? 'bg-white shadow-md text-blue-700'
-                                            : 'text-gray-600 hover:text-gray-800'
-                                    }`}
+                                    className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${packageType === 'convenio'
+                                        ? 'bg-white shadow-md text-blue-700'
+                                        : 'text-gray-600 hover:text-gray-800'
+                                        }`}
                                 >
                                     <Building2 className="w-4 h-4" />
                                     Convênio
@@ -785,29 +844,29 @@ function validateAll() {
                             {/* Agendamento Existente */}
                             {packageType === 'therapy' && (
                                 <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-100">
-                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                    <Calendar className="w-5 h-5 text-blue-600" />
-                                    Agendamento Existente (Opcional)
-                                </h3>
-                                <Select
-                                    name="appointmentId"
-                                    value={formData.appointmentId}
-                                    onChange={handleChange}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                                >
-                                    <option value="">Selecione um agendamento</option>
-                                    {appointments.map((appt) => (
-                                        <option
-                                            key={appt._id}
-                                            value={appt._id}
-                                            className="text-sm"
-                                        >
-                                            {formatAppointmentDate(appt.date)} - {appt.time || 'Horário não definido'} •
-                                            Dr. {appt.doctor?.fullName || 'Profissional não especificado'} •
-                                            {appt.specialty || 'Tipo não especificado'}
-                                        </option>
-                                    ))}
-                                </Select>
+                                    <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                        <Calendar className="w-5 h-5 text-blue-600" />
+                                        Agendamento Existente (Opcional)
+                                    </h3>
+                                    <Select
+                                        name="appointmentId"
+                                        value={formData.appointmentId}
+                                        onChange={handleChange}
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                    >
+                                        <option value="">Selecione um agendamento</option>
+                                        {appointments.map((appt) => (
+                                            <option
+                                                key={appt._id}
+                                                value={appt._id}
+                                                className="text-sm"
+                                            >
+                                                {formatAppointmentDate(appt.date)} - {appt.time || 'Horário não definido'} •
+                                                Dr. {appt.doctor?.fullName || 'Profissional não especificado'} •
+                                                {appt.specialty || 'Tipo não especificado'}
+                                            </option>
+                                        ))}
+                                    </Select>
                                 </div>
                             )}
 
@@ -978,7 +1037,91 @@ function validateAll() {
                                         />
                                     </div>
                                 </div>
-                                {formData.sessionsPerWeek > 1 && (
+                                {/* Checkbox Sessões no Mesmo Dia */}
+                                <div className="mt-4 p-4 bg-orange-50 rounded-lg border border-orange-100">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={sameDaySessions}
+                                            onChange={(e) => setSameDaySessions(e.target.checked)}
+                                            className="w-5 h-5 text-orange-600 rounded focus:ring-orange-500"
+                                        />
+                                        <span className="font-medium text-gray-700">Sessões seguidas no mesmo dia</span>
+                                    </label>
+                                    {sameDaySessions && (
+                                        <p className="text-sm text-gray-500 mt-1 ml-7">
+                                            Permite agendar múltiplos horários no mesmo dia da semana.
+                                        </p>
+                                    )}
+                                </div>
+
+                                {sameDaySessions && (
+                                    <div className="bg-gradient-to-br from-orange-50 to-amber-50 p-5 rounded-xl border border-orange-100 mt-4">
+                                        <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                            <Clock className="w-5 h-5 text-orange-600" />
+                                            Horários do Dia
+                                        </h3>
+
+                                        <div className="space-y-3">
+                                            {dailySessionTimes.map((time, index) => (
+                                                <div key={index} className="flex items-center gap-3">
+                                                    <span className="font-medium text-gray-500 w-8">#{index + 1}</span>
+                                                    <div className="flex-1">
+                                                        <DatePicker
+                                                            selected={time ? new Date(`1970-01-01T${time}`) : null}
+                                                            onChange={(date: Date | null) => {
+                                                                if (!date) return;
+                                                                const formattedTime = date.toTimeString().slice(0, 5);
+                                                                const newTimes = [...dailySessionTimes];
+                                                                newTimes[index] = formattedTime;
+                                                                setDailySessionTimes(newTimes);
+                                                            }}
+                                                            showTimeSelect
+                                                            showTimeSelectOnly
+                                                            timeIntervals={15}
+                                                            timeFormat="HH:mm"
+                                                            dateFormat="HH:mm"
+                                                            placeholderText="HH:MM"
+                                                            customInput={
+                                                                <ReactInputMask
+                                                                    mask="99:99"
+                                                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white"
+                                                                />
+                                                            }
+                                                        />
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const newTimes = dailySessionTimes.filter((_, i) => i !== index);
+                                                            setDailySessionTimes(newTimes);
+                                                        }}
+                                                        className="p-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                        title="Remover horário"
+                                                    >
+                                                        <Trash2 className="w-5 h-5" />
+                                                    </button>
+                                                </div>
+                                            ))}
+
+                                            {dailySessionTimes.length < 5 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDailySessionTimes([...dailySessionTimes, ''])}
+                                                    className="w-full py-3 border-2 border-dashed border-orange-300 rounded-lg text-orange-600 hover:bg-orange-50 transition-colors flex items-center justify-center gap-2 font-medium"
+                                                >
+                                                    <Plus className="w-5 h-5" />
+                                                    Adicionar Horário
+                                                </button>
+                                            )}
+                                        </div>
+                                        {errors.dailySessionTimes && (
+                                            <p className="text-red-500 text-sm mt-2">{errors.dailySessionTimes}</p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {!sameDaySessions && formData.sessionsPerWeek > 1 && (
                                     <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-5 rounded-xl border border-emerald-100 mt-4">
                                         <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
                                             <Calendar className="w-5 h-5 text-emerald-600" />
@@ -1136,126 +1279,126 @@ function validateAll() {
                             {/* Informações Financeiras - Apenas para Therapy */}
                             {packageType === 'therapy' && (
                                 <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl border border-green-100">
-                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                    <DollarSign className="w-5 h-5 text-green-600" />
-                                    Informações Financeiras
-                                </h3>
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Valor por Sessão (R$) *</label>
-                                        <InputCurrency
-                                            name="sessionValue"
-                                            value={formData.sessionValue || 0}
-                                            onChange={handleChange}
-                                            min="0"
-                                            step="0.01"
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
-                                        />
-                                    </div>
-
-                                    {/* Múltiplos Pagamentos */}
+                                    <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                        <DollarSign className="w-5 h-5 text-green-600" />
+                                        Informações Financeiras
+                                    </h3>
                                     <div className="space-y-4">
-                                        <div className="flex justify-between items-center">
-                                            <label className="block text-sm font-medium text-gray-700">
-                                                Formas de Pagamento
-                                            </label>
-                                            <button
-                                                type="button"
-                                                onClick={addPayment}
-                                                className="flex items-center gap-2 px-3 py-1 text-sm text-green-600 hover:bg-green-50 rounded-lg border border-green-200"
-                                            >
-                                                <Plus className="w-4 h-4" />
-                                                Adicionar Pagamento
-                                            </button>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Valor por Sessão (R$) *</label>
+                                            <InputCurrency
+                                                name="sessionValue"
+                                                value={formData.sessionValue || 0}
+                                                onChange={handleChange}
+                                                min="0"
+                                                step="0.01"
+                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
+                                            />
                                         </div>
 
-                                        {payments.map((payment, index) => (
-                                            <div key={payment.id} className="bg-white p-4 rounded-lg border border-gray-200">
-                                                <div className="flex justify-between items-center mb-3">
-                                                    <span className="text-sm font-medium text-gray-700">
-                                                        Pagamento {index + 1}
-                                                    </span>
-                                                    {payments.length > 1 && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removePayment(payment.id)}
-                                                            className="p-1 text-red-500 hover:bg-red-50 rounded"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
-                                                    )}
-                                                </div>
-
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                    {/* Valor */}
-                                                    <div>
-                                                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                                                            Valor (R$)*
-                                                        </label>
-                                                        <InputCurrency
-                                                            value={payment.amount}
-                                                            onChange={(e) => updatePayment(payment.id, 'amount', e.target.value)}
-                                                            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
-                                                        />
-                                                    </div>
-
-                                                    {/* Data */}
-                                                    <div>
-                                                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                                                            Data *
-                                                        </label>
-                                                        <DatePicker
-                                                            selected={payment.date ? buildLocalDateOnly(payment.date) : null}
-                                                            onChange={(date: Date | null) => {
-                                                                if (!date) return;
-                                                                const formattedDate = date.toISOString().split('T')[0];
-                                                                updatePayment(payment.id, 'date', formattedDate);
-                                                            }}
-                                                            customInput={
-                                                                <ReactInputMask
-                                                                    mask="99/99/9999"
-                                                                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
-                                                                />
-                                                            }
-                                                            placeholderText="dd/MM/yyyy"
-                                                            dateFormat="dd/MM/yyyy"
-                                                        />
-                                                    </div>
-
-                                                    {/* Método de Pagamento */}
-                                                    <div className="md:col-span-2">
-                                                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                                                            Método de Pagamento *
-                                                        </label>
-                                                        <select
-                                                            value={payment.method}
-                                                            onChange={(e) => updatePayment(payment.id, 'method', e.target.value)}
-                                                            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
-                                                        >
-                                                            <option value="">Escolha um método</option>
-                                                            <option value="dinheiro">Dinheiro</option>
-                                                            <option value="pix">PIX</option>
-                                                            <option value="cartao_credito">Cartão de Crédito</option>
-                                                            <option value="cartao_debito">Cartão de Débito</option>
-                                                            <option value="transferencia">Transferência</option>
-                                                            <option value="boleto">Boleto</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
+                                        {/* Múltiplos Pagamentos */}
+                                        <div className="space-y-4">
+                                            <div className="flex justify-between items-center">
+                                                <label className="block text-sm font-medium text-gray-700">
+                                                    Formas de Pagamento
+                                                </label>
+                                                <button
+                                                    type="button"
+                                                    onClick={addPayment}
+                                                    className="flex items-center gap-2 px-3 py-1 text-sm text-green-600 hover:bg-green-50 rounded-lg border border-green-200"
+                                                >
+                                                    <Plus className="w-4 h-4" />
+                                                    Adicionar Pagamento
+                                                </button>
                                             </div>
-                                        ))}
-                                    </div>
 
-                                    {/* Total Pago */}
-                                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm font-medium text-blue-800">Total Pago:</span>
-                                            <span className="text-lg font-bold text-blue-800">
-                                                R$ {getTotalPaid().toFixed(2)}
-                                            </span>
+                                            {payments.map((payment, index) => (
+                                                <div key={payment.id} className="bg-white p-4 rounded-lg border border-gray-200">
+                                                    <div className="flex justify-between items-center mb-3">
+                                                        <span className="text-sm font-medium text-gray-700">
+                                                            Pagamento {index + 1}
+                                                        </span>
+                                                        {payments.length > 1 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removePayment(payment.id)}
+                                                                className="p-1 text-red-500 hover:bg-red-50 rounded"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                        {/* Valor */}
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                                                                Valor (R$)*
+                                                            </label>
+                                                            <InputCurrency
+                                                                value={payment.amount}
+                                                                onChange={(e) => updatePayment(payment.id, 'amount', e.target.value)}
+                                                                className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
+                                                            />
+                                                        </div>
+
+                                                        {/* Data */}
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                                                                Data *
+                                                            </label>
+                                                            <DatePicker
+                                                                selected={payment.date ? buildLocalDateOnly(payment.date) : null}
+                                                                onChange={(date: Date | null) => {
+                                                                    if (!date) return;
+                                                                    const formattedDate = date.toISOString().split('T')[0];
+                                                                    updatePayment(payment.id, 'date', formattedDate);
+                                                                }}
+                                                                customInput={
+                                                                    <ReactInputMask
+                                                                        mask="99/99/9999"
+                                                                        className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
+                                                                    />
+                                                                }
+                                                                placeholderText="dd/MM/yyyy"
+                                                                dateFormat="dd/MM/yyyy"
+                                                            />
+                                                        </div>
+
+                                                        {/* Método de Pagamento */}
+                                                        <div className="md:col-span-2">
+                                                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                                                                Método de Pagamento *
+                                                            </label>
+                                                            <select
+                                                                value={payment.method}
+                                                                onChange={(e) => updatePayment(payment.id, 'method', e.target.value)}
+                                                                className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
+                                                            >
+                                                                <option value="">Escolha um método</option>
+                                                                <option value="dinheiro">Dinheiro</option>
+                                                                <option value="pix">PIX</option>
+                                                                <option value="cartao_credito">Cartão de Crédito</option>
+                                                                <option value="cartao_debito">Cartão de Débito</option>
+                                                                <option value="transferencia">Transferência</option>
+                                                                <option value="boleto">Boleto</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Total Pago */}
+                                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm font-medium text-blue-800">Total Pago:</span>
+                                                <span className="text-lg font-bold text-blue-800">
+                                                    R$ {getTotalPaid().toFixed(2)}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
                                 </div>
                             )}
 

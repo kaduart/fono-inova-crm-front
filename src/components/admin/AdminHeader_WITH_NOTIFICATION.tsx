@@ -12,12 +12,11 @@ import {
     Users
 } from "lucide-react";
 import React, { useState } from "react";
-import { BsSoundwave } from "react-icons/bs";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import NavButton from "../ui/NavButton";
 import NavDropdownItem from "../ui/NavDropdownItem";
-import { NotificationBellFixed } from "../notifications/NotificationBellFixed";
+import { NotificationBell } from "../notifications/NotificationBell"; // 🔔 IMPORTAR AQUI
 
 interface AdminHeaderProps {
     activeTab: string;
@@ -42,7 +41,6 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     const navigate = useNavigate();
     const { logout: authLogout } = useAuth();
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-    // 1) logo após os hooks/props, crie este helper:
     const isMarketingActive =
         activeTab === "Leads" || activeTab === "Analytics";
 
@@ -86,7 +84,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         </NavLink>
                     </div>
 
-                    {/* Navegação - CORRIGIDO: texto em cinza para não selecionados */}
+                    {/* Navegação */}
                     <nav className="hidden md:flex items-center space-x-1">
                         <NavButton
                             active={activeTab === "Dashboard"}
@@ -158,7 +156,6 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
 
                         <div className="relative">
                             <NavButton
-                                // fica ativo quando qualquer aba de Marketing estiver selecionada
                                 active={isMarketingActive}
                                 onClick={() => toggleMenu("marketing")}
                                 icon={<Activity className="h-4 w-4 text-cyan-500" />}
@@ -170,7 +167,6 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
 
                             {openMenu === "marketing" && (
                                 <div className="absolute z-10 mt-2 w-56 rounded-lg shadow-xl bg-white border border-emerald-200 py-2">
-                                    {/* Leads */}
                                     <NavDropdownItem
                                         active={activeTab === "Leads"}
                                         onClick={() => handleTabChange("Leads")}
@@ -182,19 +178,6 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         </div>
                                     </NavDropdownItem>
 
-                                    {/* Mensagens (WhatsApp/Chat) */}
-                                    {/* <NavDropdownItem
-                                        active={activeTab === "Mensagens"}
-                                        onClick={() => handleTabChange("Mensagens")}
-                                        icon={<MessageCircle className="h-4 w-4 text-emerald-500" />}
-                                    >
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-gray-800">Mensagens</span>
-                                            <span className="text-xs text-gray-500">WhatsApp / Chat</span>
-                                        </div>
-                                    </NavDropdownItem> */}
-
-                                    {/* Analytics */}
                                     <NavDropdownItem
                                         active={activeTab === "Analytics"}
                                         onClick={() => handleTabChange("Analytics")}
@@ -228,11 +211,12 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         </NavButton>
                     </nav>
 
-                    {/* 🔔 Notificações + Perfil */}
+                    {/* 🔔 ÁREA DE NOTIFICAÇÃO + PERFIL */}
                     <div className="flex items-center gap-3">
-                        <NotificationBellFixed />
+                        {/* 🔔 SINO DE NOTIFICAÇÕES - ADICIONAR AQUI */}
+                        <NotificationBell />
 
-                        {/* Perfil - VERSÃO ELEGANTE MELHORADA */}
+                        {/* Perfil */}
                         <div className="relative">
                             <button
                                 onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
@@ -256,7 +240,6 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
 
                             {isProfileDropdownOpen && (
                                 <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl py-3 z-50 border border-emerald-200">
-                                    {/* Header do perfil elegante */}
                                     <div className="px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-t-xl">
                                         <p className="text-sm font-semibold">
                                             {adminInfo?.fullName || "Administrador"}
@@ -294,6 +277,6 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
             </div>
         </header>
     );
-}
+};
 
 export default AdminHeader;
