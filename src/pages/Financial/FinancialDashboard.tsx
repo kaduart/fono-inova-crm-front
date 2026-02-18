@@ -1,12 +1,13 @@
 // src/pages/Financial/FinancialDashboard.tsx (VERSÃO CORRIGIDA)
 
 import { Box, Button, Paper, Tab, Tabs, Typography, useTheme } from '@mui/material';
-import { Building2, Calendar, DollarSign, PieChart, Plus, Target, TrendingDown, TrendingUp } from 'lucide-react';
+import { Building2, Calendar, DollarSign, PieChart, Plus, Target, TrendingDown, TrendingUp, Receipt, ArrowLeftRight } from 'lucide-react';
 import { useState } from 'react';
 import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
 import CashflowTab from '../Financial/CashflowTab';
 import ExpensesTab from './tabs/ExpensesTab';
+import EntradasSaidasTab from './tabs/EntradasSaidasTab';
 import RevenueTab from './tabs/RevenueTab';
 import GoalsTab from './tabs/GoalsTab';
 import InsuranceTab from './tabs/InsuranceTab';
@@ -62,6 +63,16 @@ const FinancialDashboard = ({
                     onCancelPayment={onCancelPayment}
                 />
             )
+        },
+        {
+            label: 'Despesas',
+            icon: <Receipt size={18} />,
+            component: <ExpensesTab />
+        },
+        {
+            label: 'Entradas e Saídas',
+            icon: <ArrowLeftRight size={18} />,
+            component: <EntradasSaidasTab />
         },
         {
             label: 'IA Financeira',

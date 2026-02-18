@@ -6,7 +6,8 @@ interface DoctorCardProps {
     onViewAgenda?: (doctor: any) => void;
 }
 
-const formatPhoneNumber = (phone) => {
+const formatPhoneNumber = (phone?: string) => {
+    if (!phone) return '-';
     return phone.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
 };
 

@@ -6,6 +6,7 @@ import { CashflowSummary, cashflowService } from '../../services/cashflowService
 
 const CashflowTab = () => {
     const [summary, setSummary] = useState<CashflowSummary | null>(null);
+    const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({
         period: 'day', // 'day' ou 'month'
         date: new Date().toISOString().split('T')[0], // Hoje como padrão
@@ -18,12 +19,20 @@ const CashflowTab = () => {
     }, [filters]);
 
     const loadData = async () => {
-        const params = filters.period === 'day'
-            ? { period: 'day', date: filters.date }
-            : { period: 'month', month: filters.month, year: filters.year };
+        setLoading(true);
+        try {
+            const params = filters.period === 'day'
+                ? { period: 'day', date: filters.date }
+                : { period: 'month', month: filters.month, year: filters.year };
 
-        const res = await cashflowService.getSummary(params);
-        setSummary(res.data);
+            const res = await cashflowService.getSummary(params);
+            setSummary(res.data);
+        } catch (error) {
+            console.error('Erro ao carregar dados:', error);
+            setSummary(null);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const formatCurrency = (value: number) =>
@@ -99,10 +108,10 @@ const CashflowTab = () => {
                                         Receitas
                                     </Typography>
                                     <Typography variant="h5" fontWeight="bold" color="success.main">
-                                        {formatCurrency(summary.data?.revenue.total)}
+                                        {formatCurrency(summary?.data?.revenue?.total || 0)}
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">
-                                        {summary.data?.revenue.count} pagamentos
+                                        {summary?.data?.revenue?.count || 0} pagamentos
                                     </Typography>
                                 </CardContent>
                             </Card>
@@ -115,17 +124,17 @@ const CashflowTab = () => {
                                         Despesas
                                     </Typography>
                                     <Typography variant="h5" fontWeight="bold" color="error.main">
-                                        {formatCurrency(summary.data?.expenses.total)}
+                                        {formatCurrency(summary?.data?.expenses?.total || 0)}
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">
-                                        {summary.data?.expenses.count} despesas
+                                        {summary?.data?.expenses?.count || 0} despesas
                                     </Typography>
                                 </CardContent>
                             </Card>
                         </Grid>
 
                         <Grid item xs={12} md={3}>
-                            <Card sx={{ bgcolor: summary.data.balanceStatus === 'positive' ? 'success.50' : 'error.50' }}>
+                            <Card sx={{ bgcolor: summary?.data?.balanceStatus === 'positive' ? 'success.50' : 'error.50' }}>
                                 <CardContent>
                                     <Typography variant="body2" color="text.secondary">
                                         Saldo do Período
@@ -133,14 +142,14 @@ const CashflowTab = () => {
                                     <Typography
                                         variant="h5"
                                         fontWeight="bold"
-                                        color={summary.data.balanceStatus === 'positive' ? 'success.main' : 'error.main'}
+                                        color={summary?.data?.balanceStatus === 'positive' ? 'success.main' : 'error.main'}
                                     >
-                                        {formatCurrency(summary.data.balance)}
+                                        {formatCurrency(summary?.data?.balance || 0)}
                                     </Typography>
                                     <Chip
                                         size="small"
-                                        label={summary.data.balanceStatus === 'positive' ? 'Positivo' : 'Negativo'}
-                                        color={summary.data.balanceStatus === 'positive' ? 'success' : 'error'}
+                                        label={summary?.data?.balanceStatus === 'positive' ? 'Positivo' : 'Negativo'}
+                                        color={summary?.data?.balanceStatus === 'positive' ? 'success' : 'error'}
                                     />
                                 </CardContent>
                             </Card>
@@ -153,7 +162,7 @@ const CashflowTab = () => {
                                         Movimentação Total
                                     </Typography>
                                     <Typography variant="h5" fontWeight="bold" color="primary.main">
-                                        {formatCurrency(summary.data.atividade?.movimentacaoTotal || 0)}
+                                        {formatCurrency(summary?.data?.atividade?.movimentacaoTotal || 0)}
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">
                                         Receitas + Potencial novo
@@ -164,7 +173,7 @@ const CashflowTab = () => {
                     </Grid>
 
                     {/* NOVA SEÇÃO: Atividade do Período */}
-                    {summary.data.atividade && (
+                    {summary?.data?.atividade && (
                         <Grid container spacing={3}>
                             {/* Agendamentos Criados */}
                             <Grid item xs={12} md={6}>
@@ -174,16 +183,16 @@ const CashflowTab = () => {
                                             📅 Agendamentos Criados
                                         </Typography>
                                         <Chip
-                                            label={`${summary.data.atividade.agendamentosCriados.count} novos`}
+                                            label={`${summary?.data?.atividade?.agendamentosCriados?.count || 0} novos`}
                                             color="primary"
                                         />
                                     </Box>
 
                                     <Typography variant="body2" color="text.secondary" gutterBottom>
-                                        Valor potencial: {formatCurrency(summary.data.atividade.agendamentosCriados.valorPotencial)}
+                                        Valor potencial: {formatCurrency(summary?.data?.atividade?.agendamentosCriados?.valorPotencial || 0)}
                                     </Typography>
 
-                                    {summary.data.atividade.agendamentosCriados.itens.length > 0 ? (
+                                    {summary?.data?.atividade?.agendamentosCriados?.itens?.length > 0 ? (
                                         <Table size="small">
                                             <TableHead>
                                                 <TableRow>
@@ -193,7 +202,7 @@ const CashflowTab = () => {
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
-                                                {summary.data.atividade.agendamentosCriados.itens.map((item) => (
+                                                {summary?.data?.atividade?.agendamentosCriados?.itens?.map((item) => (
                                                     <TableRow key={item.id}>
                                                         <TableCell>
                                                             <Typography variant="body2" fontWeight="medium">
@@ -227,16 +236,16 @@ const CashflowTab = () => {
                                             📦 Pacotes Criados
                                         </Typography>
                                         <Chip
-                                            label={`${summary.data.atividade.pacotesCriados.count} novos`}
+                                            label={`${summary?.data?.atividade?.pacotesCriados?.count || 0} novos`}
                                             color="success"
                                         />
                                     </Box>
 
                                     <Typography variant="body2" color="text.secondary" gutterBottom>
-                                        Valor total: {formatCurrency(summary.data.atividade.pacotesCriados.valorPotencial)}
+                                        Valor total: {formatCurrency(summary?.data?.atividade?.pacotesCriados?.valorPotencial || 0)}
                                     </Typography>
 
-                                    {summary.data.atividade.pacotesCriados.itens.length > 0 ? (
+                                    {summary?.data?.atividade?.pacotesCriados?.itens?.length > 0 ? (
                                         <Table size="small">
                                             <TableHead>
                                                 <TableRow>
@@ -246,7 +255,7 @@ const CashflowTab = () => {
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
-                                                {summary.data.atividade.pacotesCriados.itens.map((item) => (
+                                                {summary?.data?.atividade?.pacotesCriados?.itens?.map((item) => (
                                                     <TableRow key={item.id}>
                                                         <TableCell>
                                                             <Typography variant="body2" fontWeight="medium">

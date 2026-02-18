@@ -32,15 +32,25 @@ interface DashboardContentOptimizedProps {
     loading: boolean;
     onRefresh: () => Promise<void>;
 
+    // 🎉 NOVOS: Aniversariantes e faturamento do dia
+    aniversariantes?: Array<{
+        _id: string;
+        fullName: string;
+        dateOfBirth: string;
+        phone?: string;
+        daysUntil: number;
+    }>;
+    todayRevenue?: number;
+
     // Handlers
     handleAddProfessional: () => void;
     handleAddPatient: () => void;
     setPatientToEdit: (patient: any) => void;
     setIsModalOpen: (isOpen: boolean) => void;
-    setShowAdvancedPayment: (show: boolean) => void;
-    setSelectedPatient: (patient: any) => void;
-    setPaymentContext: (context: any) => void;
-    setPaymentModalOpen: (isOpen: boolean) => void;
+    setShowAdvancedPayment?: (show: boolean) => void;
+    setSelectedPatient?: (patient: any) => void;
+    setPaymentContext?: (context: any) => void;
+    setPaymentModalOpen?: (isOpen: boolean) => void;
 }
 
 // Componente de skeleton para métricas
@@ -158,6 +168,8 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     patients,
     loading,
     onRefresh,
+    aniversariantes = [],
+    todayRevenue = 0,
     handleAddProfessional,
     handleAddPatient,
     setPatientToEdit,
