@@ -248,23 +248,9 @@ const PatientTable: React.FC<PatientTableProps> = ({
     }, [patients, sortConfig]);
 
     // ------------------------------------------------------------
-    // Early return (somente após todos os hooks)
+    // Flag para estado vazio (mas sem early return para manter a busca visível)
     // ------------------------------------------------------------
-    if (!patients || patients.length === 0) {
-        return (
-            <Card className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-                <div className="text-gray-400 mb-4">
-                    <User className="w-16 h-16 mx-auto" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-600 mb-2">
-                    Nenhum paciente encontrado
-                </h3>
-                <p className="text-gray-500">
-                    Os dados dos pacientes estão sendo carregados...
-                </p>
-            </Card>
-        );
-    }
+    const isEmpty = !patients || patients.length === 0;
 
     // ------------------------------------------------------------
     // Paginação (sem filtro local - dados já vêm filtrados da API)
@@ -366,6 +352,21 @@ const PatientTable: React.FC<PatientTableProps> = ({
                         </div>
                     </div>
 
+                    {/* Mensagem quando não há pacientes */}
+                    {isEmpty ? (
+                        <div className="py-12 text-center">
+                            <div className="text-gray-400 mb-4">
+                                <User className="w-16 h-16 mx-auto" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-600 mb-2">
+                                Nenhum paciente encontrado
+                            </h3>
+                            <p className="text-gray-500">
+                                {searchTerm ? 'Tente buscar com outros termos' : 'Os dados dos pacientes estão sendo carregados...'}
+                            </p>
+                        </div>
+                    ) : (
+                    <>
                     {/* Tabela */}
                     <div className="overflow-x-auto border-t border-gray-100">
                         <table className="min-w-full divide-y divide-gray-100">
@@ -639,6 +640,8 @@ const PatientTable: React.FC<PatientTableProps> = ({
                             </tfoot>
                         </table>
                     </div>
+                    </>
+                    )}
                 </div>
             )}
         </Card>
