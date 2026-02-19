@@ -26,6 +26,7 @@ interface EnhancedCalendarProps {
     statusConfig?: StatusConfig;
     openModalAppointment?: boolean;
     closeModalSignal?: number;
+    onConvertPreAgendamento?: (id: string) => Promise<void>;
 }
 
 export const PAYMENT_STATUS_CONFIG = {
@@ -146,7 +147,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     closeModalSignal,
     onFetchAvailableSlots,
     onMonthChange,
-    statusConfig = OPERATIONAL_STATUS_CONFIG
+    statusConfig = OPERATIONAL_STATUS_CONFIG,
+    onConvertPreAgendamento
 }) => {
     const calendarRef = useRef<FullCalendar | null>(null);
     const [openSchedule, setOpenSchedule] = useState(false);
@@ -203,15 +205,20 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         
         console.log('👤 [Calendar] Patient from extendedProps:', extendedProps.patient);
         console.log('👨‍⚕️ [Calendar] Doctor from extendedProps:', extendedProps.doctor);
+        console.log('🆔 [Calendar] patientId:', extendedProps.patientId, 'doctorId:', extendedProps.doctorId);
 
+        // 🔧 CORREÇÃO: Usa patientId/doctorId como fallback quando objeto não tem ID
+        const patientId = extendedProps.patient?._id || extendedProps.patient?.id || extendedProps.patientId || '';
+        const doctorId = extendedProps.doctor?._id || extendedProps.doctor?.id || extendedProps.doctorId || '';
+        
         const selectedEventData = {
             id: event.id,
             patient: {
-                id: extendedProps.patient?._id || extendedProps.patient?.id || '',
+                id: patientId,
                 fullName: extendedProps.patient?.fullName || "Paciente não informado"
             },
             doctor: {
-                id: extendedProps.doctor?._id || extendedProps.doctor?.id || '',
+                id: doctorId,
                 fullName: extendedProps.doctor?.fullName || "Profissional não informado"
             },
             date: event.start ? new Date(event.start) : null,
@@ -231,7 +238,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             paymentAmount: extendedProps.paymentAmount || extendedProps.sessionValue || 0,
             sessionValue: extendedProps.sessionValue || extendedProps.paymentAmount || 0,
             paymentMethod: extendedProps.paymentMethod || 'dinheiro',
-            specialty: extendedProps.specialty || extendedProps.sessionType || ''
+            specialty: extendedProps.specialty || extendedProps.sessionType || '',
+            __isPreAgendamento: extendedProps.__isPreAgendamento || false
         };
         
         console.log('📤 [Calendar] selectedEventData:', selectedEventData);
@@ -251,7 +259,11 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             const hasDate = !!appt.date;
             const hasTime = !!appt.time;
             const hasId = !!(appt.id || appt._id);
-            return hasDate && hasTime && hasId;
+            // 🔧 NÃO MOSTRAR pré-agendamentos (interesses) na lista de agendamentos
+            const isPreAgendamento = appt.__isPreAgendamento === true || 
+                                     appt.title?.startsWith('[INTERESSE]') ||
+                                     appt.extendedProps?.__isPreAgendamento === true;
+            return hasDate && hasTime && hasId && !isPreAgendamento;
         });
 
         return validAppointments.map((appt) => {
@@ -844,6 +856,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 onCancelAppointment={onCancelAppointment}
                 onCompleteAppointment={onCompleteAppointment}
                 onEditAppointment={onEditAppointment}
+                onConvertPreAgendamento={onConvertPreAgendamento}
                 event={selectedEvent}
                 doctors={doctors}
                 patients={patients}

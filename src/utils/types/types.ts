@@ -342,6 +342,9 @@ export interface SelectedEvent {
     sessionValue?: number;
     paymentMethod?: string;
     specialty?: string;
+    
+    // 🆕 INDICADOR DE PRÉ-AGENDAMENTO
+    __isPreAgendamento?: boolean;
 }
 
 export interface SlotBookingPayload {

@@ -21,6 +21,7 @@ interface AppointmentDetailModalProps {
     onEditAppointment: (id: string, data: any) => Promise<void>;
     patients?: any[];
     onCancelAdvancedSession?: (sessionId: string) => void;
+    onConvertPreAgendamento?: (id: string) => Promise<void>;
 }
 
 // 🔧 SISTEMA DE TRADUÇÃO DE STATUS
@@ -93,13 +94,15 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     onCompleteAppointment,
     onEditAppointment,
     patients = [],
-    onCancelAdvancedSession
+    onCancelAdvancedSession,
+    onConvertPreAgendamento
 }) => {
     const [activeTab, setActiveTab] = useState<'details' | 'confirm' | 'cancel' | 'edit'>('details');
     const [cancelReason, setCancelReason] = useState('');
     const [isCancelling, setIsCancelling] = useState(false);
     const [isCompleting, setIsCompleting] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [isConverting, setIsConverting] = useState(false);
     const [confirmedAbsence, setConfirmedAbsence] = useState(false);
     const [editedAppointment, setEditedAppointment] = useState({
         doctorId: '',
@@ -194,6 +197,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             return;
         }
 
+        console.log('❌ [Modal] Cancelando agendamento ID:', event?.id);
         setIsCancelling(true);
         try {
             await onCancelAppointment(event.id, cancelReason);
@@ -203,11 +207,25 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     };
 
     const handleComplete = async () => {
+        console.log('✅ [Modal] Completando agendamento ID:', event?.id);
         setIsCompleting(true);
         try {
             await onCompleteAppointment(event.id);
         } finally {
             setIsCompleting(false);
+        }
+    };
+
+    const handleConvert = async () => {
+        if (!onConvertPreAgendamento) {
+            alert('Funcionalidade de conversão não disponível');
+            return;
+        }
+        setIsConverting(true);
+        try {
+            await onConvertPreAgendamento(event.id);
+        } finally {
+            setIsConverting(false);
         }
     };
 
@@ -285,6 +303,19 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             case 'details':
                 return (
                     <div className="space-y-6">
+                        {/* 🔔 AVISO DE PRÉ-AGENDAMENTO */}
+                        {event?.__isPreAgendamento && (
+                            <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border-2 border-orange-200">
+                                <div className="p-2 bg-orange-100 rounded-lg">
+                                    <ClipboardCheck className="w-5 h-5 text-orange-600" />
+                                </div>
+                                <div>
+                                    <p className="font-semibold text-orange-800">Pré-Agendamento (Interesse)</p>
+                                    <p className="text-sm text-orange-600">Este é um interesse ainda não convertido em agendamento real. Converta-o primeiro para poder confirmar/cancelar.</p>
+                                </div>
+                            </div>
+                        )}
+                        
                         {event?.extendedProps?.paymentStatus && (
                             <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-100">
                                 <DollarSign className="w-4 h-4 text-green-600" />
@@ -862,6 +893,28 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     const renderActionButton = () => {
         switch (activeTab) {
             case 'confirm':
+                // 🔔 Se for pré-agendamento, mostra botão de converter
+                if (event?.__isPreAgendamento) {
+                    return (
+                        <button
+                            onClick={handleConvert}
+                            disabled={isConverting}
+                            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 flex items-center gap-2 disabled:from-gray-400 disabled:to-gray-500 shadow-lg hover:shadow-xl"
+                        >
+                            {isConverting ? (
+                                <>
+                                    <LoadingSpinner size="small" color="border-white" />
+                                    <span>Convertendo...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle size={18} />
+                                    <span>Converter em Agendamento</span>
+                                </>
+                            )}
+                        </button>
+                    );
+                }
                 return (
                     <button
                         onClick={handleComplete}
