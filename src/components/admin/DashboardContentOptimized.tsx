@@ -272,7 +272,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                     : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                 }
             >
-                <BirthdayCard patients={safePatients} />
+                <BirthdayCard patients={aniversariantes} />
             </AccordionSection>
 
             {/* 🔹 SEÇÃO LISTA DE PACIENTES */}
