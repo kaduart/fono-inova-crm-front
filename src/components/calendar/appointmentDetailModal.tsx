@@ -126,12 +126,19 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
     useEffect(() => {
         if (event) {
+            console.log('📋 [Modal] Evento recebido:', event);
+            console.log('👤 [Modal] Paciente:', event.patient);
+            console.log('👨‍⚕️ [Modal] Médico:', event.doctor);
+            
             const eventDate = event.date ? new Date(event.date).toLocaleDateString('sv-SE') : '';
             const eventTime = event.startTime || '';
 
             // 🔧 TRADUZ OS STATUS AO RECEBER O EVENTO
             const translatedOperationalStatus = translateStatus(event.operationalStatus || 'scheduled', 'operational');
             const translatedClinicalStatus = translateStatus(event.clinicalStatus || 'pending', 'clinical');
+
+            console.log('📝 [Modal] Setando doctorId:', event.doctor?.id);
+            console.log('📝 [Modal] Setando patientId:', event.patient?.id);
 
             setEditedAppointment({
                 doctorId: event.doctor?.id || '',

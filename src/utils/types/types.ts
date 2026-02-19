@@ -335,6 +335,13 @@ export interface SelectedEvent {
     insuranceProvider?: string;
     insuranceValue?: number;
     authorizationCode?: string;
+    
+    // 🆕 DADOS DE SERVIÇO E PAGAMENTO
+    serviceType?: string;
+    paymentAmount?: number;
+    sessionValue?: number;
+    paymentMethod?: string;
+    specialty?: string;
 }
 
 export interface SlotBookingPayload {

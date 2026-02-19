@@ -185,6 +185,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
     const handleEventClick = (info: { event: any }) => {
         const { event } = info;
+        console.log('🗓️ [Calendar] Evento clicado:', event);
+        console.log('📦 [Calendar] ExtendedProps:', event.extendedProps);
+        
         const formattedDate = event.start
             ? new Intl.DateTimeFormat("pt-BR", {
                 day: "2-digit",
@@ -197,8 +200,11 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
         const time = `${String(event.start.getHours()).padStart(2, '0')}:${String(event.start.getMinutes()).padStart(2, '0')}`;
         const extendedProps = event.extendedProps;
+        
+        console.log('👤 [Calendar] Patient from extendedProps:', extendedProps.patient);
+        console.log('👨‍⚕️ [Calendar] Doctor from extendedProps:', extendedProps.doctor);
 
-        setSelectedEvent({
+        const selectedEventData = {
             id: event.id,
             patient: {
                 id: extendedProps.patient?._id || extendedProps.patient?.id || '',
@@ -217,13 +223,19 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             borderColor: event.borderColor,
             start: formattedDate,
             reason: extendedProps.reason || "",
-            // 🆕 DADOS DE CONVÊNIO/PLANO
             billingType: extendedProps.billingType || 'particular',
             insuranceProvider: extendedProps.insuranceProvider || '',
             insuranceValue: extendedProps.insuranceValue || 0,
-            authorizationCode: extendedProps.authorizationCode || ''
-        });
-
+            authorizationCode: extendedProps.authorizationCode || '',
+            serviceType: extendedProps.serviceType || 'individual_session',
+            paymentAmount: extendedProps.paymentAmount || extendedProps.sessionValue || 0,
+            sessionValue: extendedProps.sessionValue || extendedProps.paymentAmount || 0,
+            paymentMethod: extendedProps.paymentMethod || 'dinheiro',
+            specialty: extendedProps.specialty || extendedProps.sessionType || ''
+        };
+        
+        console.log('📤 [Calendar] selectedEventData:', selectedEventData);
+        setSelectedEvent(selectedEventData);
         setIsAppointmentDetailModalOpen(true);
     };
 
