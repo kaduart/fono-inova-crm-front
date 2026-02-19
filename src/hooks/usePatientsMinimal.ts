@@ -87,10 +87,33 @@ export const usePatientsMinimal = (): UsePatientsMinimalReturn => {
 
     useEffect(() => {
         isMounted.current = true;
-        fetchPatients();
+        
+        // Só busca se tiver token
+        const token = localStorage.getItem('token');
+        if (token) {
+            fetchPatients();
+        } else {
+            // Aguarda um pouco e tenta novamente (token pode estar sendo setado)
+            const timer = setTimeout(() => {
+                const retryToken = localStorage.getItem('token');
+                if (retryToken && isMounted.current) {
+                    fetchPatients();
+                }
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+
+        // 🔄 Listener para quando o token for setado em outro lugar
+        const handleStorageChange = (e: StorageEvent) => {
+            if (e.key === 'token' && e.newValue && isMounted.current) {
+                fetchPatients();
+            }
+        };
+        window.addEventListener('storage', handleStorageChange);
         
         return () => {
             isMounted.current = false;
+            window.removeEventListener('storage', handleStorageChange);
         };
     }, [fetchPatients]);
 

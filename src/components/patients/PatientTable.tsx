@@ -154,6 +154,13 @@ const PatientTable: React.FC<PatientTableProps> = ({
     // Hooks (sempre no topo)
     // ------------------------------------------------------------
     const [patients, setPatients] = useState<Patient[]>(initialPatients);
+    
+    // Atualiza quando props mudam
+    useEffect(() => {
+        if (initialPatients && initialPatients.length > 0) {
+            setPatients(initialPatients);
+        }
+    }, [initialPatients]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isSearching, setIsSearching] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
@@ -169,7 +176,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
     });
 
     // ------------------------------------------------------------
-    // Busca na API
+    // Busca na API quando digita no filtro
     // ------------------------------------------------------------
     useEffect(() => {
         const fetchPatients = async () => {
@@ -196,7 +203,6 @@ const PatientTable: React.FC<PatientTableProps> = ({
                 if (response.ok) {
                     const data = await response.json();
                     console.log('✅ Recebido:', data.length, 'pacientes');
-                    console.log('📋 Nomes:', data.slice(0, 5).map((p: Patient) => p.fullName));
                     setPatients(data);
                     setCurrentPage(1);
                 } else {
