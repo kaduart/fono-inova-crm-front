@@ -10,7 +10,8 @@ export const usePlanning = () => {
     const fetchPlannings = useCallback(async (filters?: any) => {
         setLoading(true);
         try {
-            const response = await planningService.getAll(filters);
+            // Usar refresh=true para recalcular automaticamente
+            const response = await planningService.getAllWithRefresh(filters);
             setPlannings(response.data);
         } catch (error: any) {
             toast.error('Erro ao carregar planejamentos');
@@ -18,6 +19,22 @@ export const usePlanning = () => {
             setLoading(false);
         }
     }, []);
+
+    const refreshAllPlannings = useCallback(async () => {
+        setLoading(true);
+        try {
+            const response = await planningService.refreshAll();
+            toast.success(`${response.data.updated} planejamentos atualizados!`);
+            // Recarregar após atualizar
+            await fetchPlannings({});
+            return response.data;
+        } catch (error: any) {
+            toast.error('Erro ao atualizar planejamentos');
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    }, [fetchPlannings]);
 
     const createPlanning = useCallback(async (data: Partial<Planning>) => {
         try {
@@ -49,6 +66,29 @@ export const usePlanning = () => {
             return response.data;
         } catch (error: any) {
             toast.error('Erro ao criar planejamento');
+            throw error;
+        }
+    }, []);
+
+    const updatePlanning = useCallback(async (id: string, data: Partial<Planning>) => {
+        try {
+            const response = await planningService.update(id, data);
+            toast.success('Planejamento atualizado com sucesso!');
+            return response.data;
+        } catch (error: any) {
+            toast.error('Erro ao atualizar planejamento');
+            throw error;
+        }
+    }, []);
+
+    const deletePlanning = useCallback(async (id: string) => {
+        try {
+            await planningService.delete(id);
+            toast.success('Planejamento excluído com sucesso!');
+            // Atualizar lista após exclusão
+            setPlannings(prev => prev.filter(p => p._id !== id));
+        } catch (error: any) {
+            toast.error('Erro ao excluir planejamento');
             throw error;
         }
     }, []);
@@ -93,8 +133,11 @@ export const usePlanning = () => {
         loading,
         fetchPlannings,
         createPlanning,
+        updatePlanning,
+        deletePlanning,
         updateProgress,
         createWeekly,
-        createMonthly
+        createMonthly,
+        refreshAllPlannings
     };
 };

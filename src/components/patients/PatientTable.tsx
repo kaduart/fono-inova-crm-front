@@ -1,5 +1,5 @@
-import { Calendar, ChevronDown, ChevronUp, Edit, Eye, FileHeart, List, Package, Phone, User } from "lucide-react";
-import React, { useMemo, useState } from 'react';
+import { Calendar, ChevronDown, ChevronUp, Edit, Eye, FileHeart, List, Package, Phone, Search, User, X } from "lucide-react";
+import React, { useEffect, useMemo, useState } from 'react';
 import { BsHourglass } from "react-icons/bs";
 import { Link } from "react-router-dom";
 
@@ -134,12 +134,18 @@ const formatDateBrazilian = (date: string | Date): string => {
     return new Date(date).toLocaleDateString('pt-BR');
 };
 
+/** Normaliza string removendo acentos para busca */
+const normalizeString = (str?: string | null): string => {
+    if (!str) return '';
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+};
+
 // ============================================================================
 // Componente principal
 // ============================================================================
 
 const PatientTable: React.FC<PatientTableProps> = ({
-    patients = [],
+    patients: initialPatients = [],
     onEditPatient,
     onPaymentAdvancedSuccess,
     onRegisterPayment,
@@ -147,7 +153,9 @@ const PatientTable: React.FC<PatientTableProps> = ({
     // ------------------------------------------------------------
     // Hooks (sempre no topo)
     // ------------------------------------------------------------
+    const [patients, setPatients] = useState<Patient[]>(initialPatients);
     const [searchTerm, setSearchTerm] = useState('');
+    const [isSearching, setIsSearching] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(5);
     const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
@@ -159,6 +167,52 @@ const PatientTable: React.FC<PatientTableProps> = ({
         key: 'nextAppointment',
         direction: 'ascending',
     });
+
+    // ------------------------------------------------------------
+    // Busca na API
+    // ------------------------------------------------------------
+    useEffect(() => {
+        const fetchPatients = async () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.log('❌ Sem token');
+                return;
+            }
+
+            setIsSearching(true);
+            try {
+                const url = searchTerm.trim()
+                    ? `/api/patients?search=${encodeURIComponent(searchTerm.trim())}&limit=100`
+                    : '/api/patients?limit=50';
+
+                console.log('🔍 Buscando:', url);
+
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                console.log('📡 Status:', response.status);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ Recebido:', data.length, 'pacientes');
+                    console.log('📋 Nomes:', data.slice(0, 5).map((p: Patient) => p.fullName));
+                    setPatients(data);
+                    setCurrentPage(1);
+                } else {
+                    console.error('❌ Erro na resposta:', await response.text());
+                }
+            } catch (error) {
+                console.error('❌ Erro ao buscar pacientes:', error);
+            } finally {
+                setIsSearching(false);
+            }
+        };
+
+        // Debounce: espera 500ms após parar de digitar
+        const timer = setTimeout(fetchPatients, 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
     // ------------------------------------------------------------
     // Memo
@@ -207,16 +261,9 @@ const PatientTable: React.FC<PatientTableProps> = ({
     }
 
     // ------------------------------------------------------------
-    // Lógica de filtro, paginação, ordenação
+    // Paginação (sem filtro local - dados já vêm filtrados da API)
     // ------------------------------------------------------------
-    const filteredPatients = sortedPatients.filter((patient) => {
-        const term = searchTerm.toLowerCase();
-        return (
-            (patient.fullName?.toLowerCase() || '').includes(term) ||
-            (patient.phone?.toLowerCase() || '').includes(term) ||
-            (patient.cpf?.toLowerCase() || '').includes(term)
-        );
-    });
+    const filteredPatients = sortedPatients;
 
     const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -276,7 +323,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                     </div>
                     Pacientes
                     <span className="ml-auto text-xs font-normal text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full">
-                        {filteredPatients.length} paciente{filteredPatients.length !== 1 ? 's' : ''}
+                        {isSearching ? '...' : filteredPatients.length} paciente{filteredPatients.length !== 1 ? 's' : ''}
                     </span>
                 </h3>
             </CardHeader>
@@ -290,14 +337,26 @@ const PatientTable: React.FC<PatientTableProps> = ({
                     {/* Busca */}
                     <div className="mb-6 px-6 pt-2">
                         <div className="relative">
-                            <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <Input
                                 type="text"
                                 placeholder="Buscar por nome, telefone ou CPF..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 text-sm"
+                                className="w-full pl-10 pr-10 py-2 border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 text-sm"
                             />
+                            {isSearching ? (
+                                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-gray-600" />
+                                </div>
+                            ) : searchTerm && (
+                                <button
+                                    onClick={() => setSearchTerm('')}
+                                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            )}
                         </div>
                     </div>
 

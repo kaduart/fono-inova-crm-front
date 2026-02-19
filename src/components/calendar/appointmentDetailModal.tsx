@@ -543,6 +543,12 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                             {patient.fullName}
                                         </option>
                                     ))}
+                                    {/* 🔧 ADICIONADO: Garante que o paciente do agendamento atual apareça, mesmo se não estiver na lista */}
+                                    {editedAppointment.patientId && !patients.find(p => p._id === editedAppointment.patientId) && event?.patient && (
+                                        <option key={editedAppointment.patientId} value={editedAppointment.patientId}>
+                                            {event.patient.fullName}
+                                        </option>
+                                    )}
                                 </select>
                             </div>
 

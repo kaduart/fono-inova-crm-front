@@ -132,12 +132,17 @@ export const CalendarTab = ({
         await onNewAppointment(data);
         setCloseModalSignal(prev => prev + 1);
         
-        // Recarrega appointments
-        const res = await appointmentService.list({
-            startDate: dateRange.startDate,
-            endDate: dateRange.endDate
-        });
-        setAppointments(res.data || []);
+        // 🔧 RECARREGA PACIENTES TAMBÉM (novo paciente pode ter sido criado)
+        const [patientsRes, appointmentsRes] = await Promise.all([
+            patientService.fetchAll(false),
+            appointmentService.list({
+                startDate: dateRange.startDate,
+                endDate: dateRange.endDate
+            })
+        ]);
+        
+        setPatients(Array.isArray(patientsRes) ? patientsRes : []);
+        setAppointments(appointmentsRes.data || []);
     };
 
     const handleCancelAppointment = async (id: string, reason: string) => {

@@ -53,6 +53,18 @@ export const planningService = {
         return response.data;
     },
 
+    // Atualizar planejamento
+    update: async (id: string, data: Partial<Planning>) => {
+        const response = await api.put(`/planning/${id}`, data);
+        return response.data;
+    },
+
+    // Excluir planejamento
+    delete: async (id: string) => {
+        const response = await api.delete(`/planning/${id}`);
+        return response.data;
+    },
+
     // Atualizar progresso
     updateProgress: async (id: string) => {
         const response = await api.patch(`/planning/${id}/update-progress`);
@@ -68,6 +80,24 @@ export const planningService = {
     // Criar mensal rápido
     createMonthly: async (month: number, year: number) => {
         const response = await api.post('/planning/quick/monthly', { month, year });
+        return response.data;
+    },
+
+    // Atualizar TODOS os planejamentos (admin)
+    refreshAll: async () => {
+        const response = await api.post('/planning/refresh-all');
+        return response.data;
+    },
+
+    // Buscar com atualização automática
+    getAllWithRefresh: async (filters?: { type?: string; status?: string; startDate?: string; endDate?: string }) => {
+        const response = await api.get('/planning', { params: { ...filters, refresh: true } });
+        return response.data;
+    },
+
+    // Buscar detalhes completos de um planejamento
+    getDetails: async (id: string) => {
+        const response = await api.get(`/planning/${id}/details`);
         return response.data;
     }
 };

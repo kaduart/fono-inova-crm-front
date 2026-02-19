@@ -165,8 +165,37 @@ const EntradasSaidasTab = () => {
     const [modalOpen, setModalOpen] = useState(false);
     const [editingExpense, setEditingExpense] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [meta, setMeta] = useState<any>(null);
+    const [loadingMeta, setLoadingMeta] = useState(false);
 
     const { expenses, loading: loadingExpenses, fetchExpenses, cancelExpense } = useExpenses();
+
+    // Buscar meta do planejamento
+    useEffect(() => {
+        const fetchMeta = async () => {
+            setLoadingMeta(true);
+            try {
+                const res = await api.get('/planning', { 
+                    params: { 
+                        type: 'monthly', 
+                        month: filters.month,
+                        year: filters.year 
+                    } 
+                });
+                if (res.data?.data && res.data.data.length > 0) {
+                    setMeta(res.data.data[0]);
+                } else {
+                    setMeta(null);
+                }
+            } catch (error) {
+                console.error('Erro ao buscar meta:', error);
+                setMeta(null);
+            } finally {
+                setLoadingMeta(false);
+            }
+        };
+        fetchMeta();
+    }, [filters]);
 
     // Buscar dados
     const fetchData = async () => {
@@ -487,6 +516,146 @@ const EntradasSaidasTab = () => {
                     </Card>
                 </Grid>
             </Grid>
+
+            {/* PROJEÇÃO vs META */}
+            {meta && (
+                <Card sx={{ mb: 4, borderRadius: 3, boxShadow: 2, overflow: 'visible' }}>
+                    <CardContent sx={{ p: 3 }}>
+                        <Typography variant="h6" fontWeight="bold" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            📊 PROJEÇÃO vs META
+                        </Typography>
+                        
+                        {(() => {
+                            const hoje = new Date();
+                            const diasPassados = hoje.getDate();
+                            const diasTotais = new Date(filters.year, filters.month, 0).getDate();
+                            const diasRestantes = diasTotais - diasPassados;
+                            const mediaDiaria = summary.receitas.caixa.total / (diasPassados || 1);
+                            const projecaoFinal = mediaDiaria * diasTotais;
+                            const metaEsperada = meta.targets?.expectedRevenue || 0;
+                            const percentualMeta = metaEsperada > 0 ? (projecaoFinal / metaEsperada) * 100 : 0;
+                            const valorRestante = metaEsperada - summary.receitas.caixa.total;
+                            const valorDiarioNecessario = diasRestantes > 0 ? valorRestante / diasRestantes : 0;
+                            
+                            // Definir cor do status
+                            let statusColor = '#EF4444'; // Vermelho
+                            let statusBg = '#FEE2E2';
+                            let statusIcon = '⚠️';
+                            let statusText = 'Abaixo da meta';
+                            
+                            if (percentualMeta >= 100) {
+                                statusColor = '#10B981'; // Verde
+                                statusBg = '#D1FAE5';
+                                statusIcon = '✅';
+                                statusText = 'Meta atingida!';
+                            } else if (percentualMeta >= 80) {
+                                statusColor = '#F59E0B'; // Amarelo
+                                statusBg = '#FEF3C7';
+                                statusIcon = '⚡';
+                                statusText = 'Próximo da meta';
+                            }
+                            
+                            const diferenca = percentualMeta - 100;
+                            
+                            return (
+                                <Grid container spacing={3} alignItems="center">
+                                    <Grid item xs={12} md={6}>
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Typography variant="body2" color="text.secondary">
+                                                    Meta do Mês:
+                                                </Typography>
+                                                <Typography variant="h6" fontWeight="600">
+                                                    {formatCurrency(metaEsperada)}
+                                                </Typography>
+                                            </Box>
+                                            
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Typography variant="body2" color="text.secondary">
+                                                    Projeção Atual:
+                                                </Typography>
+                                                <Typography variant="h6" fontWeight="600" color={statusColor}>
+                                                    {formatCurrency(projecaoFinal)}
+                                                </Typography>
+                                            </Box>
+                                            
+                                            <Box sx={{ 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                gap: 1,
+                                                p: 1.5,
+                                                borderRadius: 2,
+                                                bgcolor: statusBg,
+                                                width: 'fit-content'
+                                            }}>
+                                                <Typography variant="body1" fontWeight="600" sx={{ color: statusColor }}>
+                                                    {statusIcon} Status: {statusText} ({diferenca > 0 ? '+' : ''}{diferenca.toFixed(1)}%)
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                    </Grid>
+                                    
+                                    <Grid item xs={12} md={6}>
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                            {/* Barra de progresso */}
+                                            <Box>
+                                                <LinearProgress 
+                                                    variant="determinate" 
+                                                    value={Math.min(percentualMeta, 100)}
+                                                    sx={{ 
+                                                        height: 12, 
+                                                        borderRadius: 6, 
+                                                        bgcolor: '#E5E7EB',
+                                                        '& .MuiLinearProgress-bar': {
+                                                            bgcolor: statusColor,
+                                                            borderRadius: 6,
+                                                        }
+                                                    }}
+                                                />
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        0%
+                                                    </Typography>
+                                                    <Typography variant="caption" fontWeight="600" sx={{ color: statusColor }}>
+                                                        {percentualMeta.toFixed(1)}%
+                                                    </Typography>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        100%
+                                                    </Typography>
+                                                </Box>
+                                            </Box>
+                                            
+                                            {/* Dicas */}
+                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+                                                <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                    💡 Com este ritmo, você atingirá <strong>{formatCurrency(projecaoFinal)}</strong>
+                                                </Typography>
+                                                
+                                                {diasRestantes > 0 && percentualMeta < 100 && (
+                                                    <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        📈 Faltam <strong>{diasRestantes} dias</strong>. 
+                                                        Precisa faturar <strong>{formatCurrency(valorDiarioNecessario)}/dia</strong> para bater a meta
+                                                    </Typography>
+                                                )}
+                                                
+                                                {diasRestantes > 0 && percentualMeta >= 100 && (
+                                                    <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#10B981' }}>
+                                                        🎉 Parabéns! No ritmo atual, você superará a meta em <strong>{formatCurrency(projecaoFinal - metaEsperada)}</strong>
+                                                    </Typography>
+                                                )}
+                                                
+                                                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                                                    📅 Dia {diasPassados} de {diasTotais} ({((diasPassados/diasTotais)*100).toFixed(0)}% do mês)
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                    </Grid>
+                                </Grid>
+                            );
+                        })()}
+                    </CardContent>
+                </Card>
+            )}
 
             {/* GRÁFICO DE FLUXO */}
             <Paper sx={{ p: 3, mb: 4, borderRadius: 3, boxShadow: 2 }}>

@@ -1,4 +1,4 @@
-// src/pages/Financial/tabs/ExpensesTab.tsx (ARQUIVO COMPLETO CORRIGIDO)
+// src/pages/Financial/tabs/ExpensesTab.tsx
 
 import { useEffect, useState } from 'react';
 import {
@@ -18,18 +18,61 @@ import {
   Typography,
   Grid,
   Card,
-  CardContent
+  CardContent,
+  Avatar,
+  Divider,
+  Tooltip,
+  Alert,
+  LinearProgress
 } from '@mui/material';
-import { Plus, Edit2, Trash2, DollarSign, Calendar, TrendingDown } from 'lucide-react';
+import { 
+  Plus, 
+  Edit2, 
+  Trash2, 
+  DollarSign, 
+  Calendar, 
+  TrendingDown,
+  User,
+  CreditCard,
+  Clock,
+  CheckCircle,
+  XCircle,
+  FileText,
+  Download,
+  Filter,
+  RefreshCw,
+  BarChart3,
+  ChevronUp,
+  ChevronDown
+} from 'lucide-react';
 import { useExpenses } from '../../../hooks/useExpenses';
 import ExpenseModal from '../components/ExpenseModal';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+// Configuração de categorias com cores e ícones
+const CATEGORY_CONFIG: Record<string, { color: string; bgColor: string; label: string; icon: any }> = {
+  payroll: { color: '#6366F1', bgColor: '#6366F110', label: 'Folha', icon: DollarSign },
+  commission: { color: '#F59E0B', bgColor: '#F59E0B10', label: 'Comissão', icon: TrendingDown },
+  benefit: { color: '#10B981', bgColor: '#10B98110', label: 'Benefício', icon: User },
+  operational: { color: '#8B5CF6', bgColor: '#8B5CF610', label: 'Operacional', icon: FileText },
+  equipment: { color: '#EC4899', bgColor: '#EC489910', label: 'Equipamento', icon: CreditCard },
+  marketing: { color: '#06B6D4', bgColor: '#06B6D410', label: 'Marketing', icon: BarChart3 },
+  other: { color: '#6B7280', bgColor: '#6B728010', label: 'Outro', icon: FileText }
+};
+
+const STATUS_CONFIG = {
+  paid: { color: '#10B981', bgColor: '#10B98110', label: 'Pago', icon: CheckCircle },
+  pending: { color: '#F59E0B', bgColor: '#F59E0B10', label: 'Pendente', icon: Clock },
+  scheduled: { color: '#3B82F6', bgColor: '#3B82F610', label: 'Agendado', icon: Calendar },
+  canceled: { color: '#EF4444', bgColor: '#EF444410', label: 'Cancelado', icon: XCircle }
+};
+
 const ExpensesTab = () => {
   const { expenses, loading, totals, fetchExpenses, cancelExpense, generateCommissions } = useExpenses();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<any>(null);
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   
   const [filters, setFilters] = useState({
     month: new Date().getMonth() + 1,
@@ -43,17 +86,19 @@ const ExpensesTab = () => {
     fetchExpenses(filters);
   }, [filters, fetchExpenses]);
 
-  const getCategoryLabel = (cat: string) => {
-    const labels: Record<string, string> = {
-      payroll: 'Folha',
-      commission: 'Comissão',
-      benefit: 'Benefício',
-      operational: 'Operacional',
-      equipment: 'Equipamento',
-      marketing: 'Marketing',
-      other: 'Outro'
-    };
-    return labels[cat] || cat;
+  const toggleRow = (expenseId: string) => {
+    setExpandedRows(prev => ({
+      ...prev,
+      [expenseId]: !prev[expenseId]
+    }));
+  };
+
+  const getCategoryConfig = (category: string) => {
+    return CATEGORY_CONFIG[category] || CATEGORY_CONFIG.other;
+  };
+
+  const getStatusConfig = (status: string) => {
+    return STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending;
   };
 
   const getStatusColor = (status: string): "success" | "warning" | "info" | "error" | "default" => {
@@ -66,33 +111,78 @@ const ExpensesTab = () => {
     return colors[status] || 'default';
   };
 
+  // Parse das notas para mostrar detalhes das sessões
+  const parseExpenseNotes = (notes: string) => {
+    try {
+      return JSON.parse(notes);
+    } catch {
+      return null;
+    }
+  };
+
   return (
     <Box>
-      {/* Cards de Resumo */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-3">
+          <Avatar sx={{ bgcolor: '#EF4444', width: 48, height: 48 }}>
+            <TrendingDown className="w-6 h-6 text-white" />
+          </Avatar>
+          <div>
+            <Typography variant="h5" fontWeight="bold">
+              Despesas
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Controle de gastos, comissões e contas a pagar
+            </Typography>
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <Button
+            variant="outlined"
+            startIcon={<RefreshCw size={18} />}
+            onClick={() => generateCommissions()}
+            sx={{ borderRadius: 2 }}
+          >
+            Gerar Comissões
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<Plus size={18} />}
+            onClick={() => {
+              setEditingExpense(null);
+              setModalOpen(true);
+            }}
+            sx={{
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #EF4444, #DC2626)',
+              '&:hover': { background: 'linear-gradient(135deg, #DC2626, #B91C1C)' }
+            }}
+          >
+            Nova Despesa
+          </Button>
+        </div>
+      </div>
+
+      {/* Cards de Resumo com dados reais da API */}
+      <Grid container spacing={2.5} sx={{ mb: 4 }}>
         <Grid item xs={12} md={4}>
-          <Card>
+          <Card elevation={0} sx={{ border: '1px solid', borderColor: '#10B98120', borderRadius: 2 }}>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Box
-                  sx={{
-                    p: 2,
-                    borderRadius: 2,
-                    bgcolor: 'error.light',
-                    color: 'error.dark'
-                  }}
-                >
-                  <TrendingDown size={28} />
-                </Box>
-                <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Avatar sx={{ bgcolor: '#10B981', width: 40, height: 40 }}>
+                  <CheckCircle className="w-5 h-5 text-white" />
+                </Avatar>
+                <Box sx={{ flex: 1 }}>
                   <Typography variant="body2" color="text.secondary">
                     Total Pago
                   </Typography>
-                  <Typography variant="h5" fontWeight="bold">
+                  <Typography variant="h5" fontWeight="bold" color="#10B981">
                     R$ {totals.totalPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {totals.countPaid} despesas
+                    {totals.countPaid} despesas pagas
                   </Typography>
                 </Box>
               </Box>
@@ -101,28 +191,21 @@ const ExpensesTab = () => {
         </Grid>
 
         <Grid item xs={12} md={4}>
-          <Card>
+          <Card elevation={0} sx={{ border: '1px solid', borderColor: '#F59E0B20', borderRadius: 2 }}>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Box
-                  sx={{
-                    p: 2,
-                    borderRadius: 2,
-                    bgcolor: 'warning.light',
-                    color: 'warning.dark'
-                  }}
-                >
-                  <Calendar size={28} />
-                </Box>
-                <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Avatar sx={{ bgcolor: '#F59E0B', width: 40, height: 40 }}>
+                  <Clock className="w-5 h-5 text-white" />
+                </Avatar>
+                <Box sx={{ flex: 1 }}>
                   <Typography variant="body2" color="text.secondary">
                     Total Pendente
                   </Typography>
-                  <Typography variant="h5" fontWeight="bold">
+                  <Typography variant="h5" fontWeight="bold" color="#F59E0B">
                     R$ {totals.totalPending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {totals.countPending} despesas
+                    {totals.countPending} despesas pendentes
                   </Typography>
                 </Box>
               </Box>
@@ -131,28 +214,21 @@ const ExpensesTab = () => {
         </Grid>
 
         <Grid item xs={12} md={4}>
-          <Card>
+          <Card elevation={0} sx={{ border: '1px solid', borderColor: '#6366F120', borderRadius: 2 }}>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Box
-                  sx={{
-                    p: 2,
-                    borderRadius: 2,
-                    bgcolor: 'info.light',
-                    color: 'info.dark'
-                  }}
-                >
-                  <DollarSign size={28} />
-                </Box>
-                <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Avatar sx={{ bgcolor: '#6366F1', width: 40, height: 40 }}>
+                  <DollarSign className="w-5 h-5 text-white" />
+                </Avatar>
+                <Box sx={{ flex: 1 }}>
                   <Typography variant="body2" color="text.secondary">
                     Total Geral
                   </Typography>
-                  <Typography variant="h5" fontWeight="bold">
+                  <Typography variant="h5" fontWeight="bold" color="#6366F1">
                     R$ {(totals.totalPaid + totals.totalPending).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {totals.countPaid + totals.countPending} despesas
+                    {totals.countPaid + totals.countPending} despesas no total
                   </Typography>
                 </Box>
               </Box>
@@ -162,7 +238,7 @@ const ExpensesTab = () => {
       </Grid>
 
       {/* Filtros e Ações */}
-      <Paper sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+      <Paper elevation={0} sx={{ p: 2.5, mb: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={2}>
             <TextField
@@ -233,108 +309,301 @@ const ExpensesTab = () => {
             </TextField>
           </Grid>
 
-          <Grid item xs={12} md={4} sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-            <Button
+          <Grid item xs={12} md={4} sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+            <Chip 
+              icon={<Filter size={14} />}
+              label={`${expenses.length} despesas encontradas`}
               variant="outlined"
-              onClick={() => generateCommissions()}
-              sx={{ borderRadius: 2 }}
               size="small"
-            >
-              Gerar Comissões
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<Plus size={20} />}
-              onClick={() => {
-                setEditingExpense(null);
-                setModalOpen(true);
-              }}
-              sx={{ borderRadius: 2 }}
-              size="small"
-            >
-              Nova Despesa
-            </Button>
+            />
           </Grid>
         </Grid>
       </Paper>
 
-      {/* Tabela */}
-      <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+      {/* Tabela de Despesas */}
+      <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
         <Table size="small">
           <TableHead>
-            <TableRow sx={{ bgcolor: 'grey.50' }}>
-              <TableCell><strong>Data</strong></TableCell>
-              <TableCell><strong>Descrição</strong></TableCell>
-              <TableCell><strong>Categoria</strong></TableCell>
-              <TableCell><strong>Profissional</strong></TableCell>
-              <TableCell><strong>Valor</strong></TableCell>
-              <TableCell><strong>Método</strong></TableCell>
-              <TableCell><strong>Status</strong></TableCell>
-              <TableCell align="center"><strong>Ações</strong></TableCell>
+            <TableRow sx={{ bgcolor: '#F9FAFB' }}>
+              <TableCell width={40} />
+              <TableCell><Typography variant="body2" fontWeight="600">Data</Typography></TableCell>
+              <TableCell><Typography variant="body2" fontWeight="600">Descrição</Typography></TableCell>
+              <TableCell><Typography variant="body2" fontWeight="600">Categoria</Typography></TableCell>
+              <TableCell><Typography variant="body2" fontWeight="600">Profissional</Typography></TableCell>
+              <TableCell align="right"><Typography variant="body2" fontWeight="600">Valor</Typography></TableCell>
+              <TableCell><Typography variant="body2" fontWeight="600">Método</Typography></TableCell>
+              <TableCell><Typography variant="body2" fontWeight="600">Status</Typography></TableCell>
+              <TableCell align="center"><Typography variant="body2" fontWeight="600">Ações</Typography></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} align="center">Carregando...</TableCell>
+                <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                  <div className="flex justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500" />
+                  </div>
+                </TableCell>
               </TableRow>
             ) : expenses.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center">Nenhuma despesa encontrada</TableCell>
+                <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                  <div className="text-center">
+                    <DollarSign className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                    <Typography variant="body1" color="text.secondary" gutterBottom>
+                      Nenhuma despesa encontrada
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Tente ajustar os filtros ou crie uma nova despesa
+                    </Typography>
+                  </div>
+                </TableCell>
               </TableRow>
             ) : (
-              expenses.map((expense: any) => (
-                <TableRow key={expense._id} hover>
-                  <TableCell>
-                    {format(new Date(expense.date), 'dd/MM/yyyy', { locale: ptBR })}
-                  </TableCell>
-                  <TableCell>{expense.description}</TableCell>
-                  <TableCell>{getCategoryLabel(expense.category)}</TableCell>
-                  <TableCell>{expense.relatedDoctor?.fullName || '—'}</TableCell>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight="600" color="error.main">
-                      R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{expense.paymentMethod}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={expense.status === 'paid' ? 'Pago' : expense.status === 'pending' ? 'Pendente' : 'Agendado'}
-                      color={getStatusColor(expense.status)}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell align="center">
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        setEditingExpense(expense);
-                        setModalOpen(true);
+              expenses.map((expense: any) => {
+                const categoryConfig = getCategoryConfig(expense.category);
+                const CategoryIcon = categoryConfig.icon;
+                const statusConfig = getStatusConfig(expense.status);
+                const StatusIcon = statusConfig.icon;
+                const isExpanded = expandedRows[expense._id];
+                const notes = parseExpenseNotes(expense.notes);
+                
+                return (
+                  <>
+                    <TableRow 
+                      key={expense._id} 
+                      hover
+                      sx={{ 
+                        cursor: 'pointer',
+                        bgcolor: isExpanded ? '#F9FAFB' : 'inherit'
                       }}
                     >
-                      <Edit2 size={16} />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => {
-                        if (confirm('Cancelar esta despesa?')) {
-                          cancelExpense(expense._id);
-                        }
-                      }}
-                    >
-                      <Trash2 size={16} />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))
+                      <TableCell>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => toggleRow(expense._id)}
+                        >
+                          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </IconButton>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {format(new Date(expense.date), 'dd/MM/yyyy')}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="500">
+                          {expense.description}
+                        </Typography>
+                        {expense.workPeriod && (
+                          <Typography variant="caption" color="text.secondary">
+                            Período: {format(new Date(expense.workPeriod.start), 'dd/MM')} - {format(new Date(expense.workPeriod.end), 'dd/MM/yyyy')}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          icon={<CategoryIcon size={14} />}
+                          label={categoryConfig.label}
+                          sx={{ 
+                            bgcolor: categoryConfig.bgColor,
+                            color: categoryConfig.color,
+                            borderColor: categoryConfig.color,
+                            fontWeight: 500
+                          }}
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {expense.relatedDoctor ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Avatar sx={{ width: 24, height: 24, bgcolor: '#E5E7EB' }}>
+                              <User size={12} />
+                            </Avatar>
+                            <Typography variant="body2">
+                              {expense.relatedDoctor.fullName}
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">—</Typography>
+                        )}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" fontWeight="600" color="#EF4444">
+                          R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {expense.paymentMethod === 'transferencia_bancaria' ? 'Transferência' : expense.paymentMethod}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          icon={<StatusIcon size={14} />}
+                          label={statusConfig.label}
+                          sx={{ 
+                            bgcolor: statusConfig.bgColor,
+                            color: statusConfig.color,
+                            borderColor: statusConfig.color,
+                            fontWeight: 500
+                          }}
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Tooltip title="Editar">
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setEditingExpense(expense);
+                              setModalOpen(true);
+                            }}
+                          >
+                            <Edit2 size={16} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Cancelar">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => {
+                              if (confirm('Cancelar esta despesa?')) {
+                                cancelExpense(expense._id);
+                              }
+                            }}
+                          >
+                            <Trash2 size={16} />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Linha expandida com detalhes */}
+                    {isExpanded && (
+                      <TableRow>
+                        <TableCell colSpan={9} sx={{ p: 2, bgcolor: '#F9FAFB' }}>
+                          <Grid container spacing={2}>
+                            {/* Detalhes da comissão */}
+                            {expense.category === 'commission' && notes && (
+                              <>
+                                <Grid item xs={12} md={6}>
+                                  <Paper variant="outlined" sx={{ p: 2, bgcolor: 'white' }}>
+                                    <Typography variant="subtitle2" gutterBottom fontWeight="600">
+                                      Detalhamento da Comissão
+                                    </Typography>
+                                    <Divider sx={{ my: 1 }} />
+                                    
+                                    {notes.standardSessions && notes.standardSessions.count > 0 && (
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                        <Typography variant="body2">Sessões padrão</Typography>
+                                        <Typography variant="body2" fontWeight="500">
+                                          {notes.standardSessions.count} x R$ {notes.standardSessions.value}
+                                        </Typography>
+                                      </Box>
+                                    )}
+                                    
+                                    {notes.evaluations && notes.evaluations.count > 0 && (
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                        <Typography variant="body2">Avaliações</Typography>
+                                        <Typography variant="body2" fontWeight="500">
+                                          {notes.evaluations.count} x R$ {notes.evaluations.value}
+                                        </Typography>
+                                      </Box>
+                                    )}
+                                    
+                                    {notes.neuropsychEvaluations && notes.neuropsychEvaluations.count > 0 && (
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                        <Typography variant="body2">Avaliações Neuropsic</Typography>
+                                        <Typography variant="body2" fontWeight="500">
+                                          {notes.neuropsychEvaluations.count} x R$ {notes.neuropsychEvaluations.value}
+                                        </Typography>
+                                      </Box>
+                                    )}
+                                    
+                                    <Divider sx={{ my: 1 }} />
+                                    
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                      <Typography variant="body2" fontWeight="600">Total</Typography>
+                                      <Typography variant="body2" fontWeight="600" color="#EF4444">
+                                        R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                      </Typography>
+                                    </Box>
+                                  </Paper>
+                                </Grid>
+
+                                <Grid item xs={12} md={6}>
+                                  <Paper variant="outlined" sx={{ p: 2, bgcolor: 'white' }}>
+                                    <Typography variant="subtitle2" gutterBottom fontWeight="600">
+                                      Período de Trabalho
+                                    </Typography>
+                                    <Divider sx={{ my: 1 }} />
+                                    
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                      <Typography variant="body2">Data início</Typography>
+                                      <Typography variant="body2" fontWeight="500">
+                                        {format(new Date(expense.workPeriod.start), 'dd/MM/yyyy')}
+                                      </Typography>
+                                    </Box>
+                                    
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                      <Typography variant="body2">Data fim</Typography>
+                                      <Typography variant="body2" fontWeight="500">
+                                        {format(new Date(expense.workPeriod.end), 'dd/MM/yyyy')}
+                                      </Typography>
+                                    </Box>
+                                    
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                      <Typography variant="body2">Total de sessões</Typography>
+                                      <Typography variant="body2" fontWeight="500">
+                                        {expense.workPeriod.sessionsCount}
+                                      </Typography>
+                                    </Box>
+                                    
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                      <Typography variant="body2">Receita gerada</Typography>
+                                      <Typography variant="body2" fontWeight="500">
+                                        R$ {expense.workPeriod.revenueGenerated.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                      </Typography>
+                                    </Box>
+                                  </Paper>
+                                </Grid>
+                              </>
+                            )}
+
+                            {/* Informações gerais */}
+                            <Grid item xs={12}>
+                              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                                <Chip
+                                  size="small"
+                                  label={`Criado em: ${format(new Date(expense.createdAt), 'dd/MM/yyyy HH:mm')}`}
+                                  variant="outlined"
+                                />
+                                {expense.isRecurring && (
+                                  <Chip
+                                    size="small"
+                                    label="Despesa recorrente"
+                                    color="info"
+                                  />
+                                )}
+                              </Box>
+                            </Grid>
+                          </Grid>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
+                );
+              })
             )}
           </TableBody>
         </Table>
       </TableContainer>
 
       {/* Modal */}
-         <ExpenseModal
+      <ExpenseModal
         open={modalOpen}
         onClose={() => {
           setModalOpen(false);
