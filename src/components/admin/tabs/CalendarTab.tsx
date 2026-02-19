@@ -150,7 +150,7 @@ export const CalendarTab = ({
         setCloseModalSignal(prev => prev + 1);
         
         // Recarrega appointments
-        const res = await appointmentService.getAppointments(dateRange);
+        const res = await appointmentService.list(dateRange);
         setAppointments(res.data || []);
     };
 
@@ -159,7 +159,7 @@ export const CalendarTab = ({
         setCloseModalSignal(prev => prev + 1);
         
         // Recarrega appointments
-        const res = await appointmentService.getAppointments(dateRange);
+        const res = await appointmentService.list(dateRange);
         setAppointments(res.data || []);
     };
 
@@ -168,7 +168,7 @@ export const CalendarTab = ({
         setCloseModalSignal(prev => prev + 1);
         
         // Recarrega appointments
-        const res = await appointmentService.getAppointments(dateRange);
+        const res = await appointmentService.list(dateRange);
         setAppointments(res.data || []);
     };
 

@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import { IPatient, ScheduleAppointment } from '../../utils/types/types';
 import { useChatNavigation } from "../contexts/ChatNavigationContext";
 import { useAdmin } from '../hooks/useAdmin';
+import { useAppointments } from '../hooks/useAppointments';
 import { useDashboardMinimal } from '../hooks/useDashboardMinimal';
 import { usePatientsMinimal } from '../hooks/usePatientsMinimal';
 import { FinancialRecord } from '../services/paymentService';
@@ -27,7 +28,7 @@ import DashboardContentOptimized from './admin/DashboardContentOptimized';
 import ProfileContent from './admin/ProfileContent';
 import FollowupPage from '../pages/FollowupPage';
 import PreAgendamentosPage from '../pages/Secretaria/PreAgendamentosPage';
-import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
+import { AvailableSlotsParams, UpdateAppointmentParams } from '../services/appointmentService';
 import { CreateDoctorParams } from '../services/doctorService';
 import DoctorFormModal from './ManageDoctors/DoctorFormModal';
 import ManageDoctors from './ManageDoctors/ManageDoctors';
@@ -211,54 +212,66 @@ export default function AdminDashboard() {
         // Implementar
     };
 
+    // 🎯 Hook de agendamentos com todas as operações
+    const {
+        createAppointment,
+        cancelAppointment,
+        completeAppointment,
+        updateAppointment,
+        getAvailableSlots
+    } = useAppointments();
+
     // Handlers de agendamento para CalendarTab
     const handleNewAppointment = async (data: ScheduleAppointment) => {
         try {
-            // Implementar chamada à API
+            await createAppointment(data);
             toast.success('Agendamento criado!');
             setCloseModalSignal(prev => prev + 1);
         } catch (error: any) {
             toast.error(error?.response?.data?.message || 'Erro ao criar agendamento');
+            throw error;
         }
     };
 
     const handleCancelAppointment = async (appointmentId: string, reason: string) => {
         try {
-            // Implementar
+            await cancelAppointment(appointmentId, { reason });
             toast.success('Agendamento cancelado!');
             setCloseModalSignal(prev => prev + 1);
-        } catch (error) {
-            toast.error('Erro ao cancelar agendamento');
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'Erro ao cancelar agendamento');
+            throw error;
         }
     };
 
     const handleCompleteAppointment = async (appointmentId: string) => {
         try {
-            // Implementar
+            await completeAppointment(appointmentId);
             toast.success('Agendamento concluído!');
             setCloseModalSignal(prev => prev + 1);
-        } catch (error) {
-            toast.error('Erro ao completar agendamento');
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'Erro ao completar agendamento');
+            throw error;
         }
     };
 
     const handleEditAppointment = async (appointmentId: string, updatedData: UpdateAppointmentParams) => {
         try {
-            // Implementar
+            await updateAppointment(appointmentId, updatedData);
             toast.success('Agendamento atualizado!');
             setCloseModalSignal(prev => prev + 1);
         } catch (error: any) {
-            toast.error('Erro ao atualizar agendamento');
+            toast.error(error?.response?.data?.message || 'Erro ao atualizar agendamento');
             throw error;
         }
     };
 
     const handleFetchAvailableSlots = async (payload: AvailableSlotsParams): Promise<string[]> => {
         try {
-            // Implementar
-            return [];
-        } catch (error) {
-            toast.error('Erro ao buscar horários');
+            const slots = await getAvailableSlots(payload);
+            return slots;
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'Erro ao buscar horários');
             return [];
         }
     };

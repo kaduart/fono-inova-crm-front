@@ -21,14 +21,18 @@ const VALID_SPECIALTIES = [
   'fonoaudiologia',
   'psicologia',
   'fisioterapia',
-  'terapia-ocupacional',
+  'terapia_ocupacional',
   'psicopedagogia',
+  'psicomotricidade',
+  'musicoterapia',
   'neuropsicologia'
 ];
+
 
 const VALID_INSURANCES = [
   'unimed-anapolis',
   'unimed-goiania',
+  'unimed-campinas',
   'hapvida',
   'amil',
   'bradesco-saude',
