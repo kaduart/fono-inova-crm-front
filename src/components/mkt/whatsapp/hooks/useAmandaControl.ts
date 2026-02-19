@@ -80,7 +80,7 @@ export function useAmandaControl(contact: Contact | null) {
 
         try {
             setLoading(true);
-            const { data } = await API.post(`/whatsapp/cancel-followup/${key}`, {});
+            const { data } = await API.post(`/followups/cancel-followup/${key}`, {});
 
             if (data?.success) {
                 toast.success(data.message || "Follow-up cancelado");

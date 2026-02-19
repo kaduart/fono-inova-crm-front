@@ -6,6 +6,7 @@ import { Box, Button, Paper, Tooltip, Typography, useTheme } from '@mui/material
 import { ptBR } from "date-fns/locale";
 import { AlertCircle, Calendar, CheckCircle, Clock, DollarSign, Plus, User, XCircle } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { INSURANCE_PROVIDERS } from '../../constants/insuranceProviders';
 import { OPERATIONAL_STATUS_CONFIG, StatusConfig } from '../../services/appointmentService';
 import { IAppointment, IDoctor, IPatient, ScheduleAppointment, SelectedEvent } from '../../utils/types/types';
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
@@ -215,7 +216,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             backgroundColor: event.backgroundColor,
             borderColor: event.borderColor,
             start: formattedDate,
-            reason: extendedProps.reason || ""
+            reason: extendedProps.reason || "",
+            // 🆕 DADOS DE CONVÊNIO/PLANO
+            billingType: extendedProps.billingType || 'particular',
+            insuranceProvider: extendedProps.insuranceProvider || '',
+            insuranceValue: extendedProps.insuranceValue || 0,
+            authorizationCode: extendedProps.authorizationCode || ''
         });
 
         setIsAppointmentDetailModalOpen(true);
@@ -320,7 +326,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         slotMinTime: "07:00:00",
         slotMaxTime: "20:00:00",
         slotLabelInterval: "00:30:00",
-        slotDuration: "00:30:00",
+        slotDuration: "00:40:00",
+        slotLabelInterval: "00:40:00",
         eventDisplay: "block",
         eventTimeFormat: {
             hour: "2-digit",
@@ -330,14 +337,15 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         nowIndicator: true,
         dayMaxEventRows: 4,
         dayMaxEvents: true,
-        eventMaxStack: true,
+        eventMaxStack: false,
         stickyHeaderDates: true,
         eventBorderColor: "transparent",
         eventClassNames: "cursor-pointer hover:!opacity-90 transition-all duration-200",
         dayCellClassNames: "hover:bg-gray-50/50 transition-colors duration-200",
         windowResizeDelay: 100,
-        eventMinHeight: 120,
+        eventMinHeight: 240,
         eventShortHeight: false,
+        slotMinHeight: 140,
         datesSet: handleDatesSet,
         viewDidMount: (info: any) => {
             if (info.view.type === 'timeGridWeek' || info.view.type === 'timeGridDay') {
@@ -362,6 +370,34 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
         const packageData = arg.event.extendedProps.package;
         const hasPackage = !!packageData;
+        
+        // 🆕 NOVAS INFORMAÇÕES NO CARD
+        const serviceType = arg.event.extendedProps.serviceType || arg.event.extendedProps.sessionType || 'Sessão';
+        const specialty = arg.event.extendedProps.specialty || '';
+        const sessionValue = arg.event.extendedProps.sessionValue || arg.event.extendedProps.paymentAmount || 0;
+        const reason = arg.event.extendedProps.reason || arg.event.extendedProps.notes || '';
+        
+        // Mapear tipo de serviço para label amigável
+        const SERVICE_TYPE_LABELS: Record<string, string> = {
+            'individual_session': 'Sessão',
+            'package_session': 'Pacote',
+            'evaluation': 'Avaliação',
+            'neuropsych_evaluation': 'Neuropsico',
+            'return': 'Retorno',
+            'alignment': 'Alinhamento',
+            'meet': 'Reunião',
+            'tongue_tie_test': 'Teste Lingua'
+        };
+        const serviceLabel = SERVICE_TYPE_LABELS[serviceType] || serviceType;
+        
+        // 🆕 DADOS DE CONVÊNIO
+        const billingType = arg.event.extendedProps.billingType;
+        const insuranceProvider = arg.event.extendedProps.insuranceProvider;
+        // ✅ Mostra convênio se tiver insuranceProvider (mesmo se billingType estiver como particular)
+        const isConvenio = insuranceProvider && insuranceProvider !== '';
+        const insuranceProviderName = isConvenio 
+            ? INSURANCE_PROVIDERS.find(p => p.id === insuranceProvider)?.name || insuranceProvider
+            : '';
 
         const financialStatus = hasPackage
             ? packageData.financialStatus
@@ -409,11 +445,36 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             </div>
                         </div>
 
-                        <div className="text-xs text-slate-300 mb-4 flex items-center gap-2">
+                        <div className="text-xs text-slate-300 mb-2 flex items-center gap-2">
                             <div className="p-1 bg-slate-700 rounded">
                                 <User size={10} className="text-slate-400" />
                             </div>
                             {doctorName}
+                        </div>
+                        
+                        {/* 🆕 INFO NA TOOLTIP */}
+                        <div className="mb-3 text-xs space-y-1">
+                            <div className="flex items-center gap-2">
+                                <span className="text-slate-400">Serviço:</span>
+                                <span className="text-white font-medium">{serviceLabel}</span>
+                            </div>
+                            {specialty && (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-slate-400">Especialidade:</span>
+                                    <span className="text-white font-medium capitalize">{specialty.replace('_', ' ')}</span>
+                                </div>
+                            )}
+                            {!hasPackage && !isConvenio && sessionValue > 0 && (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-slate-400">Valor:</span>
+                                    <span className="text-green-400 font-medium">R$ {sessionValue.toFixed(2)}</span>
+                                </div>
+                            )}
+                            {reason && (
+                                <div className="mt-1 p-1.5 bg-slate-700/50 rounded text-slate-300">
+                                    📝 {reason}
+                                </div>
+                            )}
                         </div>
 
                         {hasPackage && (
@@ -428,6 +489,19 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                     <div>💰 Valor/sessão: R$ {packageData.sessionValue?.toFixed(2)}</div>
                                     <div>📊 Saldo: {packageData.balance} sessões</div>
                                     <div>✅ Pago: R$ {packageData.totalPaid?.toFixed(2)}</div>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* 🆕 INFO DE CONVÊNIO NA TOOLTIP */}
+                        {isConvenio && (
+                            <div className="mb-3 p-2 bg-blue-700/30 rounded-lg border border-blue-500/30">
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="text-xs font-medium text-blue-300">🏥 Convênio</span>
+                                </div>
+                                <div className="text-[10px] text-slate-300">
+                                    <div className="font-semibold text-white">{insuranceProviderName}</div>
+                                    <div>💳 Valor tabela: R$ {arg.event.extendedProps.insuranceValue?.toFixed(2) || '0,00'}</div>
                                 </div>
                             </div>
                         )}
@@ -469,40 +543,79 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             >
                 <Paper
                     elevation={2}
-                    className="flex flex-col p-3 rounded-xl w-full h-full relative transition-all duration-200 hover:shadow-lg"
+                    className="flex flex-col p-4 rounded-xl w-full h-full relative transition-all duration-200 hover:shadow-lg"
                     style={{
                         background: 'linear-gradient(135deg, #a2ddbfff 0%, #1aac68ff 100%)',
-                        borderLeft: `6px solid ${operationalConfig.color}`,
+                        borderLeft: `8px solid ${operationalConfig.color}`,
                         opacity: ['canceled', 'absent'].includes(arg.event.extendedProps.operationalStatus) ? 0.7 : 1,
+                        minHeight: '140px',
                     }}
                 >
-                    <div className="flex justify-between items-start mb-2 gap-2">
-                        <span className="text-sm font-bold text-gray-800 bg-white/80 px-2 py-1 rounded">
+                    <div className="flex justify-between items-start mb-3 gap-2">
+                        <span className="text-base font-bold bg-white/90 text-gray-800 px-3 py-1.5 rounded-lg">
                             {formatTime(arg.timeText)}
                         </span>
-                        <div className={`${paymentBadge.bg} ${paymentBadge.text} px-2 py-1 rounded-md text-[10px] font-extrabold shadow-md flex items-center gap-1`}>
+                        <div className={`${paymentBadge.bg} ${paymentBadge.text} px-3 py-1.5 rounded-lg text-[11px] font-extrabold shadow-md flex items-center gap-1`}>
                             <span>{paymentBadge.icon}</span>
                             <span>{paymentBadge.label}</span>
                         </div>
                     </div>
 
-                    <div className="flex-1 min-w-0 mb-2">
-                        <p className="text-sm font-bold truncate leading-tight text-gray-900">
+                    <div className="flex-1 min-w-0 py-1">
+                        {/* Nome paciente */}
+                        <p className="text-[14px] font-bold truncate leading-tight text-gray-900">
                             {patientName}
                         </p>
-                        <p className="text-xs truncate text-gray-700 leading-tight mt-0.5">
-                            Dr. {doctorName}
+                        {/* Profissional */}
+                        <p className="text-[11px] truncate text-gray-700 leading-tight mt-1">
+                            {doctorName}
                         </p>
+                        {/* 🆕 SERVIÇO + ESPECIALIDADE */}
+                        <div className="flex flex-wrap gap-1 mt-2">
+                            <span className="text-[10px] bg-white/80 px-2 py-0.5 rounded text-gray-800 font-medium">
+                                {serviceLabel}
+                            </span>
+                            {specialty && (
+                                <span className="text-[10px] bg-white/80 px-2 py-0.5 rounded text-gray-800 font-medium capitalize">
+                                    {specialty.replace('_', ' ')}
+                                </span>
+                            )}
+                        </div>
+                        {/* Valor ou Motivo */}
+                        <div className="flex items-center justify-between mt-2">
+                            {!hasPackage && !isConvenio && sessionValue > 0 ? (
+                                <span className="text-[11px] text-gray-800 font-semibold">
+                                    💰 R$ {sessionValue.toFixed(2)}
+                                </span>
+                            ) : reason ? (
+                                <span className="text-[10px] text-gray-700 truncate italic max-w-[120px]" title={reason}>
+                                    📝 {reason.length > 20 ? reason.substring(0, 20) + '...' : reason}
+                                </span>
+                            ) : (
+                                <span></span>
+                            )}
+                        </div>
                     </div>
 
-                    <div className="flex items-center justify-between gap-2">
-                        <div className={`${operationalBadge.bg} ${operationalBadge.text} px-2 py-1 rounded-md text-[10px] font-extrabold shadow-md flex items-center gap-1`}>
+                    <div className="flex flex-wrap items-center gap-1 mt-2">
+                        <div className={`${operationalBadge.bg} ${operationalBadge.text} px-2 py-1 rounded text-[10px] font-bold shadow-sm flex items-center gap-1 flex-shrink-0`}>
                             <OperationalIcon size={10} />
                             {operationalBadge.label}
                         </div>
-                        {hasPackage && (
-                            <div className="bg-purple-600 text-white px-2 py-1 rounded-md text-[9px] font-bold">
-                                📦 Pacote
+                        {/* 🆕 PACOTE + CONVÊNIO BADGES */}
+                        {hasPackage && !isConvenio && (
+                            <div className="bg-purple-600 text-white px-2 py-1 rounded text-[8px] font-bold flex-shrink-0">
+                                📦 Pac. Particular
+                            </div>
+                        )}
+                        {hasPackage && isConvenio && (
+                            <div className="bg-blue-600 text-white px-2 py-1 rounded text-[8px] font-bold flex-shrink-0">
+                                📦 Pac. Convênio
+                            </div>
+                        )}
+                        {!hasPackage && isConvenio && (
+                            <div className="bg-blue-600 text-white px-2 py-1 rounded text-[8px] font-bold flex-shrink-0">
+                                🏥 Convênio
                             </div>
                         )}
                     </div>

@@ -329,6 +329,12 @@ export interface SelectedEvent {
     backgroundColor: string;
     borderColor: string;
     start: string;
+    
+    // 🆕 DADOS DE CONVÊNIO/PLANO
+    billingType?: 'particular' | 'convenio';
+    insuranceProvider?: string;
+    insuranceValue?: number;
+    authorizationCode?: string;
 }
 
 export interface SlotBookingPayload {
