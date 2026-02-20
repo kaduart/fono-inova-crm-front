@@ -349,7 +349,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         eventOverlap: false,
         slotMinTime: "07:00:00",
         slotMaxTime: "20:00:00",
-        slotLabelInterval: "00:30:00",
         slotDuration: "00:40:00",
         slotLabelInterval: "00:40:00",
         eventDisplay: "block",
