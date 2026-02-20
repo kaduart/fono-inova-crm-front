@@ -76,7 +76,7 @@ export function useChatMessages(contact: Contact | null, leadId?: string) {
                 text: payload.text || payload.content || payload.caption || '',
                 timestamp: payload.timestamp ? new Date(payload.timestamp) : new Date(),
                 status: payload.status || 'sent',
-                fromMe: payload.direction === 'outbound' || payload.from === contact.phone,
+                fromMe: payload.direction === 'outbound',
                 type: (payload.type as any) || 'text',
                 caption: payload.caption,
                 mediaUrl: payload.mediaUrl || payload.url,
