@@ -41,10 +41,24 @@ export function useChatMessages(contact: Contact | null, leadId?: string) {
 
         const unsubscribeNew = socketManager.onMessageNew((payload) => {
             // Verifica se a mensagem é deste contato
-            const messagePhone = payload.from || payload.to;
-            if (!messagePhone || !messagePhone.includes(contact.phone.replace(/\D/g, ''))) {
+            const messagePhone = (payload.from || payload.to || '').replace(/\D/g, '');
+            const contactPhone = (contact.phone || '').replace(/\D/g, '');
+            
+            // Comparação mais robusta: verifica se um contém o outro
+            const isMatch = messagePhone && contactPhone && (
+                messagePhone.includes(contactPhone) || 
+                contactPhone.includes(messagePhone) ||
+                // Remove prefixo de país (55) e compara
+                messagePhone.replace(/^55/, '').includes(contactPhone.replace(/^55/, '')) ||
+                contactPhone.replace(/^55/, '').includes(messagePhone.replace(/^55/, ''))
+            );
+            
+            if (!isMatch) {
+                logger.debug(`[useChatMessages] Mensagem ignorada - telefone não corresponde: message=${messagePhone}, contact=${contactPhone}`);
                 return;
             }
+            
+            logger.info(`[useChatMessages] ✅ Mensagem corresponde ao contato: ${contactPhone}`);
 
             // Evita duplicatas
             const msgId = payload.id || payload.wamid || uid('msg');
