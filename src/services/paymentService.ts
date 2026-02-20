@@ -321,8 +321,10 @@ export const addManualPayment = (data: {
 // 💰 SALDO DEVEDOR / CONTA CORRENTE
 // ============================================================
 
-export const getPatientBalance = (patientId: string) => {
-    return API.get(`/payments/balance/${patientId}`);
+export const getPatientBalance = async (patientId: string) => {
+    // Adiciona timestamp para evitar cache
+    const response = await API.get(`/payments/balance/${patientId}?_t=${Date.now()}`);
+    return response.data?.data || response.data;
 };
 
 export const addBalanceDebit = (patientId: string, data: {

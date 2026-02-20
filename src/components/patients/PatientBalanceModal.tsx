@@ -100,10 +100,12 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
     const loadBalance = async () => {
         setLoading(true);
         try {
+            console.log('🔄 Carregando saldo do paciente:', patientId);
             const data = await getPatientBalance(patientId);
+            console.log('✅ Saldo carregado:', data);
             setBalance(data);
         } catch (error) {
-            console.error('Erro ao carregar saldo:', error);
+            console.error('❌ Erro ao carregar saldo:', error);
         } finally {
             setLoading(false);
         }
