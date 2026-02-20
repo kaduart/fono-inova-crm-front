@@ -19,7 +19,7 @@ interface EnhancedCalendarProps {
     onDateClick: (arg: DateClickArg) => void;
     onNewAppointment: (data: ScheduleAppointment) => Promise<void>;
     onCancelAppointment: (id: string, reason: string) => Promise<void>;
-    onCompleteAppointment: (id: string) => Promise<void>;
+    onCompleteAppointment: (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => Promise<void>;
     onEditAppointment: (id: string, data: any) => Promise<void>;
     onFetchAvailableSlots: (params: { doctorId: string; date: string }) => Promise<string[]>;
     onMonthChange?: (startDate: Date, endDate: Date) => void;
@@ -395,6 +395,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         const packageData = arg.event.extendedProps.package;
         const hasPackage = !!packageData;
         
+        // 💰 SALDO DEVEDOR DO PACIENTE
+        const patientBalance = arg.event.extendedProps.patientBalance || 0;
+        const patientHasDebt = arg.event.extendedProps.patientHasDebt || false;
+        
         // 🆕 NOVAS INFORMAÇÕES NO CARD
         const serviceType = arg.event.extendedProps.serviceType || arg.event.extendedProps.sessionType || 'Sessão';
         const specialty = arg.event.extendedProps.specialty || '';
@@ -529,6 +533,19 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 </div>
                             </div>
                         )}
+                        
+                        {/* 💰 ALERTA DE SALDO DEVEDOR NA TOOLTIP */}
+                        {patientHasDebt && (
+                            <div className="mb-3 p-2 bg-red-700/50 rounded-lg border border-red-500/50 animate-pulse">
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="text-xs font-medium text-red-300">⚠️ SALDO DEVEDOR</span>
+                                </div>
+                                <div className="text-[10px] text-slate-200">
+                                    <div className="font-bold text-red-400 text-lg">R$ {patientBalance.toFixed(2)}</div>
+                                    <div className="text-red-300">Paciente deve este valor</div>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="space-y-3">
                             <div className="flex items-center justify-between bg-slate-700/50 rounded-lg p-2">
@@ -626,6 +643,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             <OperationalIcon size={10} />
                             {operationalBadge.label}
                         </div>
+                        {/* 💰 ALERTA DE DÉBITO - BADGE VERMELHO PISCANTE */}
+                        {patientHasDebt && (
+                            <div className="bg-red-600 text-white px-2 py-1 rounded text-[8px] font-bold flex-shrink-0 animate-pulse cursor-pointer shadow-lg border border-red-400" title={`Paciente deve R$ ${patientBalance.toFixed(2)}`}>
+                                ⚠️ DEVENDO R$ {patientBalance.toFixed(0)}
+                            </div>
+                        )}
                         {/* 🆕 PACOTE + CONVÊNIO BADGES */}
                         {hasPackage && !isConvenio && (
                             <div className="bg-purple-600 text-white px-2 py-1 rounded text-[8px] font-bold flex-shrink-0">

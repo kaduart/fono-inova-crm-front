@@ -170,8 +170,8 @@ export const appointmentService = {
         return API.patch(`/appointments/${id}/confirm`, data);
     },
 
-    complete: async (id: string) => {
-        return API.patch<IAppointmentResponse>(`/appointments/${id}/complete`);
+    complete: async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
+        return API.patch<IAppointmentResponse>(`/appointments/${id}/complete`, data);
     },
 
     cancel: async (id: string, data: CancelParams) => {

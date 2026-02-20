@@ -244,9 +244,9 @@ export default function AdminDashboard() {
         }
     };
 
-    const handleCompleteAppointment = async (appointmentId: string) => {
+    const handleCompleteAppointment = async (appointmentId: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
         try {
-            await completeAppointment(appointmentId);
+            await completeAppointment(appointmentId, data);
             toast.success('Agendamento concluído!');
             setCloseModalSignal(prev => prev + 1);
         } catch (error: any) {

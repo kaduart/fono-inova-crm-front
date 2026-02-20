@@ -29,7 +29,7 @@ interface Patient {
 interface CalendarTabProps {
     onNewAppointment: (data: any) => Promise<void>;
     onCancelAppointment: (id: string, reason: string) => Promise<void>;
-    onCompleteAppointment: (id: string) => Promise<void>;
+    onCompleteAppointment: (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => Promise<void>;
     onEditAppointment: (id: string, data: any) => Promise<void>;
     onFetchAvailableSlots: (payload: any) => Promise<string[]>;
 }
@@ -154,8 +154,8 @@ export const CalendarTab = ({
         setAppointments(res.data || []);
     };
 
-    const handleCompleteAppointment = async (id: string) => {
-        await onCompleteAppointment(id);
+    const handleCompleteAppointment = async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
+        await onCompleteAppointment(id, data);
         setCloseModalSignal(prev => prev + 1);
         
         // Recarrega appointments

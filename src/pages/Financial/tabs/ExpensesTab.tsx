@@ -388,14 +388,14 @@ const ExpensesTab = () => {
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">
-                          {format(new Date(expense.date), 'dd/MM/yyyy')}
+                          {expense.date ? format(new Date(expense.date), 'dd/MM/yyyy') : '-'}
                         </Typography>
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" fontWeight="500">
                           {expense.description}
                         </Typography>
-                        {expense.workPeriod && (
+                        {expense.workPeriod?.start && expense.workPeriod?.end && (
                           <Typography variant="caption" color="text.secondary">
                             Período: {format(new Date(expense.workPeriod.start), 'dd/MM')} - {format(new Date(expense.workPeriod.end), 'dd/MM/yyyy')}
                           </Typography>
@@ -544,14 +544,14 @@ const ExpensesTab = () => {
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                                       <Typography variant="body2">Data início</Typography>
                                       <Typography variant="body2" fontWeight="500">
-                                        {format(new Date(expense.workPeriod.start), 'dd/MM/yyyy')}
+                                        {expense.workPeriod?.start ? format(new Date(expense.workPeriod.start), 'dd/MM/yyyy') : '-'}
                                       </Typography>
                                     </Box>
                                     
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                                       <Typography variant="body2">Data fim</Typography>
                                       <Typography variant="body2" fontWeight="500">
-                                        {format(new Date(expense.workPeriod.end), 'dd/MM/yyyy')}
+                                        {expense.workPeriod?.end ? format(new Date(expense.workPeriod.end), 'dd/MM/yyyy') : '-'}
                                       </Typography>
                                     </Box>
                                     
@@ -578,7 +578,7 @@ const ExpensesTab = () => {
                               <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
                                 <Chip
                                   size="small"
-                                  label={`Criado em: ${format(new Date(expense.createdAt), 'dd/MM/yyyy HH:mm')}`}
+                                  label={`Criado em: ${expense.createdAt ? format(new Date(expense.createdAt), 'dd/MM/yyyy HH:mm') : '-'}`}
                                   variant="outlined"
                                 />
                                 {expense.isRecurring && (

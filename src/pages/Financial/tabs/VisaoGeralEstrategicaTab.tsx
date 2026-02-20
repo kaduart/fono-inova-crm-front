@@ -1,5 +1,5 @@
 // pages/Financial/tabs/VisaoGeralEstrategicaTab.tsx
-// Visão Geral Estratégica - Painel Executivo da Clínica
+// Visão Geral Estratégica - Painel Executivo da Clínica (CONSOLIDADO)
 
 import { useEffect, useState } from 'react';
 import {
@@ -26,7 +26,6 @@ import {
 import {
     TrendingUp,
     TrendingDown,
-    AccountBalance,
     AttachMoney,
     Receipt,
     Warning,
@@ -38,9 +37,10 @@ import {
     CalendarToday,
     CompareArrows,
     Assessment,
-    MoneyOff,
     Savings,
-    Timeline
+    Timeline,
+    AccountBalanceWallet,
+    LocalHospital
 } from '@mui/icons-material';
 import { useFinancialOverview } from '../../../hooks/useFinancialOverview';
 import { ptBR } from 'date-fns/locale';
@@ -97,6 +97,25 @@ const VisaoGeralEstrategicaTab = () => {
     // Dados reais da API para fevereiro/2026
     const periodoAtual = "Fevereiro 2026";
     const periodoComparacao = "Janeiro 2026";
+
+    // Cálculos do Caixa Real + Convênios (inline)
+    const receitaParticular = data?.metrics?.particularRecebido || data?.metrics?.receita || 0;
+    const conveniosRecebidos = data?.metrics?.convenioRecebido || 0;
+    const convenioData = data?.metrics?.convenio;
+    
+    const conveniosAtendidos = convenioData?.receitaRealizada || 0;
+    const provisaoTotal = convenioData?.provisaoTotal || 0;
+    const provisaoAgendadas = convenioData?.provisaoAgendadas || 0;
+    const caixaReal = receitaParticular + conveniosRecebidos;
+    const totalComProvisao = caixaReal + provisaoTotal + provisaoAgendadas;
+    const provisaoMaiorQueCaixa = provisaoTotal > caixaReal;
+    const percentualProvisao = caixaReal > 0 ? ((provisaoTotal / caixaReal) * 100).toFixed(1) : '0';
+    
+    // NOVO: Crédito em Pacotes
+    const creditoPacotes = data?.metrics?.creditoPacotes;
+    const totalCreditoPacotes = creditoPacotes?.total || 0;
+    const pacientesCredito = creditoPacotes?.pacientes || [];
+    const top3Pacientes = pacientesCredito.slice(0, 3);
 
     if (error) {
         return (
@@ -169,7 +188,7 @@ const VisaoGeralEstrategicaTab = () => {
 
                         <Tooltip title="Atualizar dados">
                             <IconButton size="small" color="primary">
-                                <CompareArrows size={18} />
+                                <CompareArrows fontSize="small" />
                             </IconButton>
                         </Tooltip>
                     </Box>
@@ -180,8 +199,8 @@ const VisaoGeralEstrategicaTab = () => {
                 <Box sx={{ mt: 2 }}>
                     <LinearProgress sx={{ mb: 3, borderRadius: 1 }} />
                     <Grid container spacing={2.5}>
-                        {[1, 2, 3, 4].map(i => (
-                            <Grid item xs={12} sm={6} md={3} key={i}>
+                        {[1, 2, 3, 4, 5, 6].map(i => (
+                            <Grid item xs={12} sm={6} md={4} lg={2} key={i}>
                                 <Skeleton variant="rectangular" height={140} sx={{ borderRadius: 2 }} />
                             </Grid>
                         ))}
@@ -189,30 +208,28 @@ const VisaoGeralEstrategicaTab = () => {
                 </Box>
             ) : data ? (
                 <>
-                    {/* Cards Principais - Dados reais de Fevereiro/2026 */}
+                    {/* Cards Principais */}
                     <Grid container spacing={2.5} sx={{ mb: 3 }}>
-                        {/* Receita - R$ 11.670,12 */}
                         <Grid item xs={12} sm={6} md={3}>
                             <MetricCard
                                 title="Receita"
-                                value={formatCurrency(data.metrics.receita)}
-                                variation={data.variation.receita}
+                                value={formatCurrency(data.metrics?.receita)}
+                                variation={data.variation?.receita}
                                 icon={<AttachMoney />}
                                 color="#10B981"
                                 bgColor="#10B98110"
                                 formatPercent={formatPercent}
                                 getVariationColor={getVariationColor}
                                 getVariationIcon={getVariationIcon}
-                                subtitle={`${data.metrics.receita.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                subtitle={`${data.metrics?.receita.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                             />
                         </Grid>
 
-                        {/* Despesas - R$ 0 */}
                         <Grid item xs={12} sm={6} md={3}>
                             <MetricCard
                                 title="Despesas"
-                                value={formatCurrency(data.metrics.despesas)}
-                                variation={data.variation.despesas}
+                                value={formatCurrency(data.metrics?.despesas)}
+                                variation={data.variation?.despesas}
                                 icon={<Receipt />}
                                 color="#EF4444"
                                 bgColor="#EF444410"
@@ -224,28 +241,26 @@ const VisaoGeralEstrategicaTab = () => {
                             />
                         </Grid>
 
-                        {/* Lucro - R$ 11.670,12 */}
                         <Grid item xs={12} sm={6} md={3}>
                             <MetricCard
                                 title="Lucro"
-                                value={formatCurrency(data.metrics.lucro)}
-                                variation={data.variation.lucro}
+                                value={formatCurrency(data.metrics?.lucro)}
+                                variation={data.variation?.lucro}
                                 icon={<Savings />}
                                 color="#8B5CF6"
                                 bgColor="#8B5CF610"
                                 formatPercent={formatPercent}
                                 getVariationColor={getVariationColor}
                                 getVariationIcon={getVariationIcon}
-                                subtitle={`Margem: ${(data.metrics.margem * 100).toFixed(1)}%`}
+                                subtitle={`Margem: ${(data.metrics?.margem * 100).toFixed(1)}%`}
                             />
                         </Grid>
 
-                        {/* Margem - 100% */}
                         <Grid item xs={12} sm={6} md={3}>
                             <MetricCard
                                 title="Margem"
-                                value={`${(data.metrics.margem * 100).toFixed(1)}%`}
-                                variation={data.variation.margem}
+                                value={`${(data.metrics?.margem * 100).toFixed(1)}%`}
+                                variation={data.variation?.margem}
                                 icon={<Timeline />}
                                 color="#0EA5E9"
                                 bgColor="#0EA5E910"
@@ -257,9 +272,8 @@ const VisaoGeralEstrategicaTab = () => {
                         </Grid>
                     </Grid>
 
-                    {/* Segunda Linha de Cards - Caixa vs A Receber */}
+                    {/* Segunda Linha - Caixa, A Receber, Meta, Projeção */}
                     <Grid container spacing={2.5} sx={{ mb: 4 }}>
-                        {/* Caixa - R$ 11.670,12 */}
                         <Grid item xs={12} sm={6} md={3}>
                             <Card elevation={0} sx={{ border: '1px solid', borderColor: '#05966930', borderRadius: 2, height: '100%' }}>
                                 <CardContent>
@@ -272,23 +286,16 @@ const VisaoGeralEstrategicaTab = () => {
                                         </Typography>
                                     </Box>
                                     <Typography variant="h4" fontWeight="bold" color="#059669" sx={{ mb: 1 }}>
-                                        {formatCurrency(data.metrics.caixa)}
+                                        {formatCurrency(data.metrics?.caixa)}
                                     </Typography>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <Typography variant="caption" color="text.secondary">
-                                            Disponível
-                                        </Typography>
-                                        <Chip 
-                                            size="small" 
-                                            label="100% realizado"
-                                            sx={{ bgcolor: '#05966910', color: '#059669', fontWeight: 500 }}
-                                        />
+                                        <Typography variant="caption" color="text.secondary">Disponível</Typography>
+                                        <Chip size="small" label="100% realizado" sx={{ bgcolor: '#05966910', color: '#059669', fontWeight: 500 }} />
                                     </Box>
                                 </CardContent>
                             </Card>
                         </Grid>
 
-                        {/* A Receber - R$ 2.621,02 */}
                         <Grid item xs={12} sm={6} md={3}>
                             <Card elevation={0} sx={{ border: '1px solid', borderColor: '#0284C730', borderRadius: 2, height: '100%' }}>
                                 <CardContent>
@@ -296,28 +303,19 @@ const VisaoGeralEstrategicaTab = () => {
                                         <Avatar sx={{ bgcolor: '#0284C7', width: 40, height: 40 }}>
                                             <Receipt sx={{ fontSize: 20 }} />
                                         </Avatar>
-                                        <Typography variant="body2" color="text.secondary">
-                                            🧾 A Receber
-                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">🧾 A Receber</Typography>
                                     </Box>
                                     <Typography variant="h4" fontWeight="bold" color="#0284C7" sx={{ mb: 1 }}>
-                                        {formatCurrency(data.metrics.aReceber)}
+                                        {formatCurrency(data.metrics?.aReceber)}
                                     </Typography>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <Typography variant="caption" color="text.secondary">
-                                            Convênios pendentes
-                                        </Typography>
-                                        <Chip 
-                                            size="small" 
-                                            label="18% do total"
-                                            sx={{ bgcolor: '#0284C710', color: '#0284C7', fontWeight: 500 }}
-                                        />
+                                        <Typography variant="caption" color="text.secondary">Convênios pendentes</Typography>
+                                        <Chip size="small" label="18% do total" sx={{ bgcolor: '#0284C710', color: '#0284C7', fontWeight: 500 }} />
                                     </Box>
                                 </CardContent>
                             </Card>
                         </Grid>
 
-                        {/* Meta - R$ 0 */}
                         <Grid item xs={12} sm={6} md={3}>
                             <Card elevation={0} sx={{ border: '1px solid', borderColor: '#8B5CF630', borderRadius: 2, height: '100%' }}>
                                 <CardContent>
@@ -325,28 +323,22 @@ const VisaoGeralEstrategicaTab = () => {
                                         <Avatar sx={{ bgcolor: '#8B5CF6', width: 40, height: 40 }}>
                                             <Assessment sx={{ fontSize: 20 }} />
                                         </Avatar>
-                                        <Typography variant="body2" color="text.secondary">
-                                            🎯 Meta do Mês
-                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">🎯 Meta do Mês</Typography>
                                     </Box>
                                     <Typography variant="h4" fontWeight="bold" color="#8B5CF6" sx={{ mb: 1 }}>
-                                        {formatCurrency(data.metrics.meta)}
+                                        {formatCurrency(data.metrics?.meta)}
                                     </Typography>
                                     <Box sx={{ mt: 2 }}>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                                             <Typography variant="caption" color="text.secondary">Progresso</Typography>
-                                            <Typography variant="caption" fontWeight="600">{data.metrics.metaPercent.toFixed(1)}%</Typography>
+                                            <Typography variant="caption" fontWeight="600">{data.metrics?.metaPercent.toFixed(1)}%</Typography>
                                         </Box>
                                         <LinearProgress 
                                             variant="determinate" 
-                                            value={Math.min(data.metrics.metaPercent, 100)} 
+                                            value={Math.min(data.metrics?.metaPercent, 100)} 
                                             sx={{ 
-                                                height: 8, 
-                                                borderRadius: 4,
-                                                bgcolor: '#E5E7EB',
-                                                '& .MuiLinearProgress-bar': {
-                                                    bgcolor: data.metrics.metaPercent >= 100 ? '#10B981' : '#F59E0B'
-                                                }
+                                                height: 8, borderRadius: 4, bgcolor: '#E5E7EB',
+                                                '& .MuiLinearProgress-bar': { bgcolor: data.metrics?.metaPercent >= 100 ? '#10B981' : '#F59E0B' }
                                             }}
                                         />
                                     </Box>
@@ -354,7 +346,6 @@ const VisaoGeralEstrategicaTab = () => {
                             </Card>
                         </Grid>
 
-                        {/* Projeção - R$ 18.154 */}
                         <Grid item xs={12} sm={6} md={3}>
                             <Card elevation={0} sx={{ border: '1px solid', borderColor: '#F59E0B30', borderRadius: 2, height: '100%' }}>
                                 <CardContent>
@@ -362,17 +353,15 @@ const VisaoGeralEstrategicaTab = () => {
                                         <Avatar sx={{ bgcolor: '#F59E0B', width: 40, height: 40 }}>
                                             <TrendingUp sx={{ fontSize: 20 }} />
                                         </Avatar>
-                                        <Typography variant="body2" color="text.secondary">
-                                            📈 Projeção Final
-                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">📈 Projeção Final</Typography>
                                     </Box>
                                     <Typography variant="h4" fontWeight="bold" color="#F59E0B" sx={{ mb: 1 }}>
-                                        {formatCurrency(data.metrics.projecao)}
+                                        {formatCurrency(data.metrics?.projecao)}
                                     </Typography>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <Typography variant="caption" color="text.secondary">
-                                            {data.metrics.valorDiarioNecessario > 0 
-                                                ? `R$ ${data.metrics.valorDiarioNecessario.toLocaleString('pt-BR')}/dia necessário`
+                                            {data.metrics?.valorDiarioNecessario > 0 
+                                                ? `R$ ${data.metrics?.valorDiarioNecessario.toLocaleString('pt-BR')}/dia`
                                                 : 'Acima da meta'}
                                         </Typography>
                                         <ArrowUpward sx={{ fontSize: 16, color: '#10B981' }} />
@@ -382,16 +371,254 @@ const VisaoGeralEstrategicaTab = () => {
                         </Grid>
                     </Grid>
 
-                    {/* Insights Estratégicos - Baseado nos dados reais */}
+                    {/* Caixa Real + Convênios - CONSOLIDADO INLINE */}
+                    <Paper elevation={0} sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                            <Avatar sx={{ bgcolor: '#059669', width: 32, height: 32 }}>
+                                <AccountBalanceWallet sx={{ fontSize: 18, color: 'white' }} />
+                            </Avatar>
+                            <Typography variant="h6" fontWeight="600">Caixa Real + Convênios</Typography>
+                            <Tooltip title="Visão completa: particular + convênios recebidos + provisões">
+                                <Info sx={{ fontSize: 18, color: 'text.secondary', cursor: 'help' }} />
+                            </Tooltip>
+                        </Box>
+
+                        {/* Alerta de provisão */}
+                        {provisaoMaiorQueCaixa && (
+                            <Alert severity="warning" sx={{ mb: 3, borderRadius: 2 }}>
+                                <Typography variant="body2" fontWeight="600">
+                                    ⚠️ Atenção: Provisão ({formatCurrency(provisaoTotal)}) é {percentualProvisao}% do Caixa Real
+                                </Typography>
+                            </Alert>
+                        )}
+
+                        {/* 6 Cards de Caixa */}
+                        <Grid container spacing={2.5}>
+                            {/* Particular */}
+                            <Grid item xs={12} sm={6} md={4} lg={2}>
+                                <Tooltip title="Pagamentos particulares (PIX, dinheiro, cartão)" arrow>
+                                    <Card elevation={0} sx={{ border: '1px solid', borderColor: '#10B98130', borderRadius: 2, height: '100%', bgcolor: '#10B98110' }}>
+                                        <CardContent>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                                <Box>
+                                                    <Typography variant="body2" color="text.secondary" gutterBottom fontSize="0.8rem">Particular</Typography>
+                                                    <Typography variant="h6" fontWeight="bold" sx={{ color: '#10B981' }}>
+                                                        {formatCurrency(receitaParticular)}
+                                                    </Typography>
+                                                </Box>
+                                                <Avatar sx={{ bgcolor: '#10B98120', width: 40, height: 40 }}>
+                                                    <AttachMoney sx={{ color: '#10B981', fontSize: 20 }} />
+                                                </Avatar>
+                                            </Box>
+                                            <Typography variant="caption" color="text.secondary">Dinheiro recebido</Typography>
+                                        </CardContent>
+                                    </Card>
+                                </Tooltip>
+                            </Grid>
+
+                            {/* Convênios Recebidos */}
+                            <Grid item xs={12} sm={6} md={4} lg={2}>
+                                <Tooltip title="Convênios que efetivamente pagaram neste mês" arrow>
+                                    <Card elevation={0} sx={{ border: '1px solid', borderColor: '#3B82F630', borderRadius: 2, height: '100%', bgcolor: '#3B82F610' }}>
+                                        <CardContent>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                                <Box>
+                                                    <Typography variant="body2" color="text.secondary" gutterBottom fontSize="0.8rem">Convênios Pagos</Typography>
+                                                    <Typography variant="h6" fontWeight="bold" sx={{ color: '#3B82F6' }}>
+                                                        {formatCurrency(conveniosRecebidos)}
+                                                    </Typography>
+                                                </Box>
+                                                <Avatar sx={{ bgcolor: '#3B82F620', width: 40, height: 40 }}>
+                                                    <Receipt sx={{ color: '#3B82F6', fontSize: 20 }} />
+                                                </Avatar>
+                                            </Box>
+                                            <Typography variant="caption" color="text.secondary">Pagos este mês</Typography>
+                                        </CardContent>
+                                    </Card>
+                                </Tooltip>
+                            </Grid>
+
+                            {/* Convênios Atendidos */}
+                            <Grid item xs={12} sm={6} md={4} lg={2}>
+                                <Tooltip title="Sessões de convênio realizadas neste mês (produção)" arrow>
+                                    <Card elevation={0} sx={{ border: '1px solid', borderColor: '#8B5CF630', borderRadius: 2, height: '100%', bgcolor: '#8B5CF610' }}>
+                                        <CardContent>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                                <Box>
+                                                    <Typography variant="body2" color="text.secondary" gutterBottom fontSize="0.8rem">Convênios Atendidos</Typography>
+                                                    <Typography variant="h6" fontWeight="bold" sx={{ color: '#8B5CF6' }}>
+                                                        {formatCurrency(conveniosAtendidos)}
+                                                    </Typography>
+                                                </Box>
+                                                <Avatar sx={{ bgcolor: '#8B5CF620', width: 40, height: 40 }}>
+                                                    <LocalHospital sx={{ color: '#8B5CF6', fontSize: 20 }} />
+                                                </Avatar>
+                                            </Box>
+                                            <Typography variant="caption" color="text.secondary">Produção do mês</Typography>
+                                        </CardContent>
+                                    </Card>
+                                </Tooltip>
+                            </Grid>
+
+                            {/* Provisão Acumulada */}
+                            <Grid item xs={12} sm={6} md={4} lg={2}>
+                                <Tooltip title="Total acumulado de convênios a receber até o mês" arrow>
+                                    <Card elevation={0} sx={{ border: '1px solid', borderColor: '#F59E0B30', borderRadius: 2, height: '100%', bgcolor: '#F59E0B10' }}>
+                                        <CardContent>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                                <Box>
+                                                    <Typography variant="body2" color="text.secondary" gutterBottom fontSize="0.8rem">Provisão Acumulada</Typography>
+                                                    <Typography variant="h6" fontWeight="bold" sx={{ color: '#F59E0B' }}>
+                                                        {formatCurrency(provisaoTotal)}
+                                                    </Typography>
+                                                </Box>
+                                                <Avatar sx={{ bgcolor: '#F59E0B20', width: 40, height: 40 }}>
+                                                    <TrendingUp sx={{ color: '#F59E0B', fontSize: 20 }} />
+                                                </Avatar>
+                                            </Box>
+                                            <Typography variant="caption" color="text.secondary">A receber até mês</Typography>
+                                        </CardContent>
+                                    </Card>
+                                </Tooltip>
+                            </Grid>
+
+                            {/* Provisão Agendadas */}
+                            <Grid item xs={12} sm={6} md={4} lg={2}>
+                                <Tooltip title="Valor projetado de sessões agendadas para futuro" arrow>
+                                    <Card elevation={0} sx={{ border: '1px solid', borderColor: '#EC489930', borderRadius: 2, height: '100%', bgcolor: '#EC489910' }}>
+                                        <CardContent>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                                <Box>
+                                                    <Typography variant="body2" color="text.secondary" gutterBottom fontSize="0.8rem">Provisão Agendadas</Typography>
+                                                    <Typography variant="h6" fontWeight="bold" sx={{ color: '#EC4899' }}>
+                                                        {formatCurrency(provisaoAgendadas)}
+                                                    </Typography>
+                                                </Box>
+                                                <Avatar sx={{ bgcolor: '#EC489920', width: 40, height: 40 }}>
+                                                    <CalendarToday sx={{ color: '#EC4899', fontSize: 20 }} />
+                                                </Avatar>
+                                            </Box>
+                                            <Typography variant="caption" color="text.secondary">Futuras</Typography>
+                                        </CardContent>
+                                    </Card>
+                                </Tooltip>
+                            </Grid>
+
+                            {/* Total Caixa */}
+                            <Grid item xs={12} sm={6} md={4} lg={2}>
+                                <Tooltip title="Caixa real + provisões (visão completa)" arrow>
+                                    <Card elevation={2} sx={{ border: '2px solid', borderColor: '#059669', borderRadius: 2, height: '100%', bgcolor: '#05966915' }}>
+                                        <CardContent>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                                <Box>
+                                                    <Typography variant="body2" color="text.secondary" gutterBottom fontSize="0.8rem" fontWeight="600">TOTAL CAIXA</Typography>
+                                                    <Typography variant="h5" fontWeight="bold" sx={{ color: '#059669', fontSize: '1.2rem' }}>
+                                                        {formatCurrency(totalComProvisao)}
+                                                    </Typography>
+                                                </Box>
+                                                <Avatar sx={{ bgcolor: '#05966930', width: 48, height: 48 }}>
+                                                    <AccountBalanceWallet sx={{ color: '#059669', fontSize: 24 }} />
+                                                </Avatar>
+                                            </Box>
+                                            <Divider sx={{ my: 1, borderColor: '#05966930' }} />
+                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <Typography variant="caption" color="text.secondary">Real:</Typography>
+                                                    <Chip size="small" label={formatCurrency(caixaReal)} sx={{ bgcolor: '#10B98120', color: '#10B981', fontSize: '0.6rem', height: 18 }} />
+                                                </Box>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <Typography variant="caption" color="text.secondary">Provisão:</Typography>
+                                                    <Chip size="small" label={formatCurrency(provisaoTotal)} sx={{ bgcolor: '#F59E0B20', color: '#F59E0B', fontSize: '0.6rem', height: 18 }} />
+                                                </Box>
+                                            </Box>
+                                        </CardContent>
+                                    </Card>
+                                </Tooltip>
+                            </Grid>
+
+                            {/* NOVO: Crédito em Pacotes */}
+                            <Grid item xs={12} sm={6} md={4} lg={2}>
+                                <Tooltip 
+                                    title={
+                                        <Box>
+                                            <Typography variant="caption" fontWeight="bold">Top Créditos:</Typography>
+                                            {top3Pacientes.map((p, i) => (
+                                                <Typography key={i} variant="caption" display="block">
+                                                    {i + 1}. {p.paciente}: {p.sessoesRemanescentes}s = {formatCurrency(p.valorTotal)}
+                                                </Typography>
+                                            ))}
+                                            {pacientesCredito.length > 3 && (
+                                                <Typography variant="caption" display="block" sx={{ mt: 0.5, fontStyle: 'italic' }}>
+                                                    ...e mais {pacientesCredito.length - 3} pacientes
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                    } 
+                                    arrow
+                                >
+                                    <Card elevation={0} sx={{ border: '2px solid', borderColor: '#EA580C30', borderRadius: 2, height: '100%', bgcolor: '#FFF7ED' }}>
+                                        <CardContent>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                                                <Box>
+                                                    <Typography variant="body2" color="text.secondary" gutterBottom fontSize="0.75rem" fontWeight="600">CRÉDITO PACOTES</Typography>
+                                                    <Typography variant="h5" fontWeight="bold" sx={{ color: '#EA580C', fontSize: '1.1rem' }}>
+                                                        {formatCurrency(totalCreditoPacotes)}
+                                                    </Typography>
+                                                </Box>
+                                                <Avatar sx={{ bgcolor: '#EA580C20', width: 40, height: 40 }}>
+                                                    <AccountBalanceWallet sx={{ color: '#EA580C', fontSize: 20 }} />
+                                                </Avatar>
+                                            </Box>
+                                            <Divider sx={{ my: 1, borderColor: '#EA580C20' }} />
+                                            <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.65rem' }}>
+                                                {pacientesCredito.length} pacientes com sessões pagas
+                                            </Typography>
+                                            {top3Pacientes.length > 0 && (
+                                                <Box sx={{ mt: 0.5 }}>
+                                                    {top3Pacientes.slice(0, 2).map((p, i) => (
+                                                        <Typography key={i} variant="caption" display="block" sx={{ fontSize: '0.6rem', color: '#666' }} noWrap>
+                                                            • {p.paciente?.split(' ')[0]}: {p.sessoesRemanescentes}s
+                                                        </Typography>
+                                                    ))}
+                                                </Box>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                </Tooltip>
+                            </Grid>
+                        </Grid>
+
+                        {/* Legenda */}
+                        <Box sx={{ mt: 2, p: 2, bgcolor: '#F0FDF4', borderRadius: 2, border: '1px solid', borderColor: '#10B98130' }}>
+                            <Typography variant="subtitle2" color="#059669" gutterBottom fontWeight="600">💡 Como ler o caixa:</Typography>
+                            <Grid container spacing={2}>
+                                <Grid item xs={12} md={4}>
+                                    <Typography variant="caption" color="text.secondary">
+                                        <strong style={{ color: '#10B981' }}>🟢 Caixa Real:</strong> Particular + Convênios Recebidos
+                                    </Typography>
+                                </Grid>
+                                <Grid item xs={12} md={4}>
+                                    <Typography variant="caption" color="text.secondary">
+                                        <strong style={{ color: '#8B5CF6' }}>🟣 Produção:</strong> Sessões realizadas no mês
+                                    </Typography>
+                                </Grid>
+                                <Grid item xs={12} md={4}>
+                                    <Typography variant="caption" color="text.secondary">
+                                        <strong style={{ color: '#F59E0B' }}>🟡 Provisão:</strong> A receber (realizadas + agendadas)
+                                    </Typography>
+                                </Grid>
+                            </Grid>
+                        </Box>
+                    </Paper>
+
+                    {/* Insights Estratégicos */}
                     {data.insights.length > 0 && (
                         <Paper elevation={0} sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
                                 <Avatar sx={{ bgcolor: '#8B5CF6', width: 32, height: 32 }}>
                                     <Info sx={{ fontSize: 18, color: 'white' }} />
                                 </Avatar>
-                                <Typography variant="h6" fontWeight="600">
-                                    🔔 Insights Estratégicos
-                                </Typography>
+                                <Typography variant="h6" fontWeight="600">🔔 Insights Estratégicos</Typography>
                             </Box>
                             
                             <Grid container spacing={2}>
@@ -400,10 +627,7 @@ const VisaoGeralEstrategicaTab = () => {
                                         <Alert 
                                             severity={getInsightColor(insight.severity)}
                                             icon={getInsightIcon(insight.type)}
-                                            sx={{ 
-                                                borderRadius: 2,
-                                                '& .MuiAlert-message': { width: '100%' }
-                                            }}
+                                            sx={{ borderRadius: 2, '& .MuiAlert-message': { width: '100%' } }}
                                         >
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                                                 <Box>
@@ -423,30 +647,14 @@ const VisaoGeralEstrategicaTab = () => {
                         </Paper>
                     )}
 
-                    {/* Rodapé com período de comparação */}
+                    {/* Rodapé */}
                     <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1 }}>
-                        <Chip
-                            size="small"
-                            icon={<CalendarToday />}
-                            label={`Período atual: ${periodoAtual}`}
-                            variant="outlined"
-                        />
-                        <Chip
-                            size="small"
-                            icon={<CompareArrows />}
-                            label={`Comparando com: ${periodoComparacao}`}
-                            variant="outlined"
-                            sx={{ ml: 1 }}
-                        />
-                        <Chip
-                            size="small"
-                            label={`Variação: ${(data.variation.receita * 100).toFixed(1)}%`}
-                            sx={{ 
-                                bgcolor: data.variation.receita > 0 ? '#10B98110' : '#EF444410',
-                                color: data.variation.receita > 0 ? '#10B981' : '#EF4444',
-                                fontWeight: 500
-                            }}
-                        />
+                        <Chip size="small" icon={<CalendarToday />} label={`Período: ${periodoAtual}`} variant="outlined" />
+                        <Chip size="small" icon={<CompareArrows />} label={`Comparando: ${periodoComparacao}`} variant="outlined" sx={{ ml: 1 }} />
+                        <Chip size="small" label={`Variação: ${(data.variation?.receita * 100).toFixed(1)}%`} sx={{ 
+                            bgcolor: data.variation?.receita > 0 ? '#10B98110' : '#EF444410',
+                            color: data.variation?.receita > 0 ? '#10B981' : '#EF4444', fontWeight: 500 
+                        }} />
                     </Box>
                 </>
             ) : null}
@@ -454,7 +662,7 @@ const VisaoGeralEstrategicaTab = () => {
     );
 };
 
-// Componente auxiliar para cards de métricas - Aprimorado
+// Componente auxiliar para cards de métricas
 interface MetricCardProps {
     title: string;
     value: string;
@@ -470,48 +678,23 @@ interface MetricCardProps {
 }
 
 const MetricCard = ({ 
-    title, 
-    value, 
-    variation, 
-    icon, 
-    color,
-    bgColor = 'white',
-    formatPercent,
-    getVariationColor,
-    getVariationIcon,
-    isInverted = false,
-    subtitle
+    title, value, variation, icon, color, bgColor = 'white',
+    formatPercent, getVariationColor, getVariationIcon, isInverted = false, subtitle
 }: MetricCardProps) => (
     <Card elevation={0} sx={{ 
-        border: '1px solid', 
-        borderColor: `${color}30`, 
-        borderRadius: 2, 
-        height: '100%',
-        bgcolor: bgColor,
-        transition: 'all 0.2s',
-        '&:hover': {
-            boxShadow: `0 4px 12px ${color}20`,
-            borderColor: color
-        }
+        border: '1px solid', borderColor: `${color}30`, borderRadius: 2, height: '100%', bgcolor: bgColor,
+        transition: 'all 0.2s', '&:hover': { boxShadow: `0 4px 12px ${color}20`, borderColor: color }
     }}>
         <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                 <Box>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                        {title}
-                    </Typography>
-                    <Typography variant="h4" fontWeight="bold" sx={{ color, lineHeight: 1.2 }}>
-                        {value}
-                    </Typography>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>{title}</Typography>
+                    <Typography variant="h4" fontWeight="bold" sx={{ color, lineHeight: 1.2 }}>{value}</Typography>
                     {subtitle && (
-                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                            {subtitle}
-                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>{subtitle}</Typography>
                     )}
                 </Box>
-                <Avatar sx={{ bgcolor: `${color}15`, width: 48, height: 48 }}>
-                    {icon}
-                </Avatar>
+                <Avatar sx={{ bgcolor: `${color}15`, width: 48, height: 48 }}>{icon}</Avatar>
             </Box>
             
             {variation !== 0 && (
@@ -522,14 +705,10 @@ const MetricCard = ({
                         label={`${(Math.abs(variation) * 100).toFixed(1)}%`}
                         sx={{
                             bgcolor: variation > 0 ? (isInverted ? '#EF444410' : '#10B98110') : (isInverted ? '#10B98110' : '#EF444410'),
-                            color: getVariationColor(variation, isInverted),
-                            fontWeight: 600,
-                            fontSize: '0.75rem'
+                            color: getVariationColor(variation, isInverted), fontWeight: 600, fontSize: '0.75rem'
                         }}
                     />
-                    <Typography variant="caption" color="text.secondary">
-                        vs período anterior
-                    </Typography>
+                    <Typography variant="caption" color="text.secondary">vs período anterior</Typography>
                 </Box>
             )}
         </CardContent>

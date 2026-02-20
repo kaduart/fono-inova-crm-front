@@ -6,7 +6,8 @@ import ReactInputMask from 'react-input-mask';
 import { INSURANCE_PROVIDERS, getProviderById } from '../../constants/insuranceProviders';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
 import { IDoctor, SelectedEvent } from '../../utils/types/types';
-import InputCurrency from '../ui/InputCurrency';
+import { InputCurrency } from '../ui/InputCurrency';
+import PatientBalanceModal from '../patients/PatientBalanceModal';
 import { Label } from '../ui/Label';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Select } from '../ui/Select';
@@ -17,7 +18,7 @@ interface AppointmentDetailModalProps {
     doctors: IDoctor[];
     event?: SelectedEvent;
     onCancelAppointment: (id: string, reason: string) => Promise<void>;
-    onCompleteAppointment: (id: string) => Promise<void>;
+    onCompleteAppointment: (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => Promise<void>;
     onEditAppointment: (id: string, data: any) => Promise<void>;
     patients?: any[];
     onCancelAdvancedSession?: (sessionId: string) => void;
@@ -124,6 +125,15 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     const [insuranceProvider, setInsuranceProvider] = useState('');
     const [insuranceValue, setInsuranceValue] = useState(0);
     const [authorizationCode, setAuthorizationCode] = useState('');
+    
+    // 💰 NOVO: Controle de saldo devedor ao confirmar
+    const [addToBalance, setAddToBalance] = useState(false);
+    const [debitAmount, setDebitAmount] = useState(0);
+    const [debitDescription, setDebitDescription] = useState('');
+    const [isAddingDebit, setIsAddingDebit] = useState(false);
+    
+    // 💰 NOVO: Modal de conta corrente
+    const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
 
     registerLocale("pt-BR", ptBR);
 
@@ -163,6 +173,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             setInsuranceProvider(event.insuranceProvider || '');
             setInsuranceValue(event.insuranceValue || 0);
             setAuthorizationCode(event.authorizationCode || '');
+            
+            // 💰 NOVO: Inicializar campos de débito
+            setAddToBalance(false);
+            setDebitAmount(event.sessionValue || event.paymentAmount || 0);
+            setDebitDescription(`Sessão ${event.date ? new Date(event.date).toLocaleDateString('pt-BR') : ''} - ${event.startTime || ''}`);
         }
     }, [event]);
 
@@ -210,7 +225,20 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         console.log('✅ [Modal] Completando agendamento ID:', event?.id);
         setIsCompleting(true);
         try {
-            await onCompleteAppointment(event.id);
+            // Chama o complete com parâmetros extras se for adicionar ao saldo
+            if (addToBalance) {
+                console.log('💰 [Modal] Completando com saldo devedor:', debitAmount);
+                // Precisamos chamar uma função diferente ou modificar onCompleteAppointment
+                // Por enquanto, vamos assumir que onCompleteAppointment aceita um objeto
+                await onCompleteAppointment(event.id, {
+                    addToBalance: true,
+                    balanceAmount: debitAmount,
+                    balanceDescription: debitDescription
+                });
+            } else {
+                // Completa normalmente
+                await onCompleteAppointment(event.id);
+            }
         } finally {
             setIsCompleting(false);
         }
@@ -328,6 +356,39 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     }`}>
                                     {translateStatus(event.extendedProps.paymentStatus, 'payment')}
                                 </span>
+                            </div>
+                        )}
+                        
+                        {/* 💰 ALERTA DE SALDO DEVEDOR DO PACIENTE */}
+                        {event?.extendedProps?.patientHasDebt && (
+                            <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-red-50 to-rose-50 rounded-xl border-2 border-red-200 animate-pulse">
+                                <div className="p-2 bg-red-100 rounded-lg">
+                                    <DollarSign className="w-5 h-5 text-red-600" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="font-semibold text-red-800">⚠️ Paciente com Saldo Devedor</p>
+                                    <p className="text-sm text-red-600">
+                                        Este paciente deve <span className="font-bold text-red-700 text-lg">R$ {event.extendedProps.patientBalance?.toFixed(2)}</span> em sessões anteriores
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-2xl font-bold text-red-600">
+                                        R$ {event.extendedProps.patientBalance?.toFixed(2)}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* 💰 BOTÃO PARA ACESSAR CONTA CORRENTE */}
+                        {event?.patient?.id && (
+                            <div className="flex justify-end">
+                                <button
+                                    onClick={() => setIsBalanceModalOpen(true)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all shadow-md"
+                                >
+                                    <DollarSign size={18} />
+                                    <span>Ver Conta Corrente</span>
+                                </button>
                             </div>
                         )}
 
@@ -495,6 +556,68 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 </h3>
                                 <p className="text-gray-800">{translatedEvent.reason || 'Não informado'}</p>
                             </div>
+                        </div>
+                        
+                        {/* 💰 SEÇÃO DE SALDO DEVEDOR */}
+                        <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-4 rounded-xl border-2 border-amber-200">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-2 bg-amber-100 rounded-lg">
+                                    <DollarSign className="w-5 h-5 text-amber-600" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-medium text-gray-800">Conta Corrente do Paciente</h3>
+                                    <p className="text-xs text-gray-600">Registre se o paciente usará a sessão mas pagará depois</p>
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-center p-3 bg-white rounded-lg border border-amber-200 mb-4">
+                                <input
+                                    id="add-to-balance"
+                                    type="checkbox"
+                                    className="h-5 w-5 text-amber-600 focus:ring-amber-500 border-gray-300 rounded cursor-pointer"
+                                    checked={addToBalance}
+                                    onChange={(e) => setAddToBalance(e.target.checked)}
+                                />
+                                <label htmlFor="add-to-balance" className="ml-3 block text-sm font-medium text-gray-700 cursor-pointer">
+                                    <span className="font-semibold text-amber-700">Adicionar ao Saldo Devedor</span>
+                                    <span className="block text-xs text-gray-500">Paciente usará a sessão agora e pagará posteriormente</span>
+                                </label>
+                            </div>
+                            
+                            {addToBalance && (
+                                <div className="space-y-4 animate-fadeIn">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Valor a Registrar (R$)
+                                            </label>
+                                            <InputCurrency
+                                                name="debitAmount"
+                                                value={debitAmount}
+                                                onChange={(e) => setDebitAmount(Number(e.target.value))}
+                                                className="w-full p-3 bg-white border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Descrição
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={debitDescription}
+                                                onChange={(e) => setDebitDescription(e.target.value)}
+                                                className="w-full p-3 bg-white border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500"
+                                                placeholder="Ex: Sessão 19/02/2026"
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="p-3 bg-amber-100 rounded-lg text-sm text-amber-800">
+                                        <p className="font-semibold">⚠️ Atenção</p>
+                                        <p>Ao confirmar, o agendamento será marcado como concluído e <strong>R$ {debitAmount.toFixed(2)}</strong> será adicionado ao saldo devedor do paciente.</p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 );
@@ -802,6 +925,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                                 Valor
                                             </Label>
                                             <InputCurrency
+                                                name="paymentAmount"
                                                 value={paymentAmount}
                                                 onChange={(e) => setPaymentAmount(Number(e.target.value))}
                                                 className="w-full p-3 bg-white border border-gray-300 rounded-lg"
@@ -856,6 +980,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                                     Valor Tabela
                                                 </Label>
                                                 <InputCurrency
+                                                    name="insuranceValue"
                                                     value={insuranceValue}
                                                     onChange={(e) => setInsuranceValue(Number(e.target.value))}
                                                     className="w-full p-3 bg-white border border-gray-300 rounded-lg"
@@ -918,18 +1043,29 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 return (
                     <button
                         onClick={handleComplete}
-                        disabled={isCompleting}
-                        className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center gap-2 disabled:from-gray-400 disabled:to-gray-500 shadow-lg hover:shadow-xl"
+                        disabled={isCompleting || isAddingDebit}
+                        className={`px-6 py-3 rounded-xl transition-all duration-200 flex items-center gap-2 disabled:from-gray-400 disabled:to-gray-500 shadow-lg hover:shadow-xl ${
+                            addToBalance 
+                                ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white' 
+                                : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white'
+                        }`}
                     >
-                        {isCompleting ? (
+                        {isCompleting || isAddingDebit ? (
                             <>
                                 <LoadingSpinner size="small" color="border-white" />
-                                <span>Registrando...</span>
+                                <span>
+                                    {isAddingDebit ? 'Registrando débito...' : 'Registrando...'}
+                                </span>
                             </>
                         ) : (
                             <>
                                 <CheckCircle size={18} />
-                                <span>Concluir Agendamento</span>
+                                <span>
+                                    {addToBalance 
+                                        ? `Concluir e Adicionar R$ ${debitAmount.toFixed(0)} ao Saldo` 
+                                        : 'Concluir Agendamento'
+                                    }
+                                </span>
                             </>
                         )}
                     </button>
@@ -1092,6 +1228,14 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                     </div>
                 </div>
             </div>
+            
+            {/* 💰 MODAL DE CONTA CORRENTE */}
+            <PatientBalanceModal
+                isOpen={isBalanceModalOpen}
+                onClose={() => setIsBalanceModalOpen(false)}
+                patientId={event?.patient?.id || ''}
+                patientName={event?.patient?.fullName || 'Paciente'}
+            />
         </div>
     );
 

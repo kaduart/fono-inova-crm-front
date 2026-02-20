@@ -1,22 +1,60 @@
 import { useState, useCallback } from 'react';
 import api from '../services/api';
 
-export interface FinancialOverviewData {
+export interface ConvenioMetrics {
+  receitaRealizada: number;
+  aReceber: number;
+  provisaoTotal: number;
+  provisaoAgendadas: number;
+  pipeline: number;
+  ativos: {
+    pacotesConvenio: number;
+    guiasAtivas: number;
+    totalSessoesDisponiveis: number;
+    valorTotalDisponivel: number;
+  };
+}
+
+export interface CreditoPacoteItem {
+  pacoteId: string;
+  paciente: string;
+  sessoesRemanescentes: number;
+  valorPorSessao: number;
+  valorTotal: number;
+}
+
+export interface CreditoPacotes {
+  total: number;
+  pacientes: CreditoPacoteItem[];
+}
+
+export interface MetricsData {
   receita: number;
-  despesa: number;
+  despesas: number;
   lucro: number;
   margem: number;
   ticketMedio: number;
   totalTransacoes: number;
   meta: number;
-  percentualMeta: number;
+  metaPercent: number;
   projecao: number;
   valorDiarioNecessario: number;
   caixa: number;
   aReceber: number;
+  // NOVO: Separar receitas por tipo
+  particularRecebido?: number;
+  convenioRecebido?: number;
+  // NOVO: Métricas de convênio
+  convenio?: ConvenioMetrics;
+  // NOVO: Crédito em pacotes
+  creditoPacotes?: CreditoPacotes;
+}
+
+export interface FinancialOverviewData {
+  metrics: MetricsData;
   variacao: {
     receita: number;
-    despesa: number;
+    despesas: number;
     lucro: number;
     margem: number;
   };
@@ -82,21 +120,30 @@ export function useFinancialOverview(): UseFinancialOverviewReturn {
         
         // Mapear dados do backend para o formato do hook
         setData({
-          receita: metrics.receita,
-          despesa: metrics.despesas,
-          lucro: metrics.lucro,
-          margem: metrics.margem,
-          ticketMedio: metrics.receita / (metrics.metaPercent > 0 ? metrics.metaPercent * 10 : 1), // Estimativa
-          totalTransacoes: Math.round(metrics.caixa / 150), // Estimativa baseada em ticket médio
-          meta: metrics.meta,
-          percentualMeta: metrics.metaPercent,
-          projecao: metrics.projecao,
-          valorDiarioNecessario: metrics.valorDiarioNecessario,
-          caixa: metrics.caixa,
-          aReceber: metrics.aReceber,
+          metrics: {
+            receita: metrics.receita,
+            despesas: metrics.despesas,
+            lucro: metrics.lucro,
+            margem: metrics.margem,
+            ticketMedio: metrics.receita / (metrics.metaPercent > 0 ? metrics.metaPercent * 10 : 1), // Estimativa
+            totalTransacoes: Math.round(metrics.caixa / 150), // Estimativa baseada em ticket médio
+            meta: metrics.meta,
+            metaPercent: metrics.metaPercent,
+            projecao: metrics.projecao,
+            valorDiarioNecessario: metrics.valorDiarioNecessario,
+            caixa: metrics.caixa,
+            aReceber: metrics.aReceber,
+            // NOVO: Separar receitas por tipo
+            particularRecebido: metrics.particularRecebido,
+            convenioRecebido: metrics.convenioRecebido,
+            // NOVO: Métricas de convênio
+            convenio: metrics.convenio,
+            // NOVO: Crédito em pacotes
+            creditoPacotes: metrics.creditoPacotes,
+          },
           variacao: {
             receita: variation.receita,
-            despesa: variation.despesas,
+            despesas: variation.despesas,
             lucro: variation.lucro,
             margem: variation.margem
           },

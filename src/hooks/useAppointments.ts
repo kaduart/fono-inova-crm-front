@@ -152,11 +152,11 @@ export const useAppointments = () => {
         }
     }, []);
 
-    const completeAppointment = useCallback(async (id: string) => {
+    const completeAppointment = useCallback(async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
         try {
             setLoading(true);
             setError(null);
-            const response = await appointmentService.complete(id);
+            const response = await appointmentService.complete(id, data);
             setAppointments(prev =>
                 prev
                     .filter(a => a && a._id) // garante que não tem undefined/null

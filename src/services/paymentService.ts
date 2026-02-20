@@ -316,3 +316,34 @@ export const addManualPayment = (data: {
     paymentDate?: string;
     note?: string;
 }) => API.post('/payments/add', data);
+
+// ============================================================
+// 💰 SALDO DEVEDOR / CONTA CORRENTE
+// ============================================================
+
+export const getPatientBalance = (patientId: string) => {
+    return API.get(`/payments/balance/${patientId}`);
+};
+
+export const addBalanceDebit = (patientId: string, data: {
+    amount: number;
+    description?: string;
+    sessionId?: string;
+    appointmentId?: string;
+}) => {
+    return API.post(`/payments/balance/${patientId}/debit`, data);
+};
+
+export const addBalancePayment = (patientId: string, data: {
+    amount: number;
+    paymentMethod: string;
+    description?: string;
+    sessionId?: string;
+    appointmentId?: string;
+}) => {
+    return API.post(`/payments/balance/${patientId}/payment`, data);
+};
+
+export const getBalanceDebtors = () => {
+    return API.get('/payments/balance/debtors');
+};
