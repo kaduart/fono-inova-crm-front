@@ -8,7 +8,7 @@ interface AppointmentsContextData {
     fetchAppointments: (filters?: { startDate?: string; endDate?: string }) => Promise<void>;
     createAppointment: (data: any) => Promise<any>;
     updateAppointment: (id: string, data: any) => Promise<any>;
-    completeAppointment: (id: string) => Promise<any>;
+    completeAppointment: (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => Promise<any>;
     cancelAppointment: (id: string, params: any) => Promise<any>;
     getAvailableSlots: (params: any) => Promise<string[]>;
     refreshAppointments: () => Promise<void>;
@@ -109,8 +109,8 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         return result;
     }, []);
 
-    const completeAppointment = useCallback(async (id: string) => {
-        const result = await appointmentService.complete(id);
+    const completeAppointment = useCallback(async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
+        const result = await appointmentService.complete(id, data);
         socketManager.emit('appointmentUpdated', { appointmentId: id });
         return result;
     }, []);

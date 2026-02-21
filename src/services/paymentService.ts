@@ -166,13 +166,18 @@ export interface InsuranceReceivableGroup {
     _id: string; // provider name
     totalPending: number;
     count: number;
-    payments: Array<{
-        paymentId: string;
+    patients: Array<{
+        patientId: string;
         patientName: string;
-        grossAmount: number;
-        status: string;
-        paymentDate: string;
-        authorizationCode?: string;
+        total: number;
+        count: number;
+        payments: Array<{
+            paymentId: string;
+            grossAmount: number;
+            status: string;
+            paymentDate: string;
+            authorizationCode?: string;
+        }>;
     }>;
 }
 

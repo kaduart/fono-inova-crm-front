@@ -336,10 +336,10 @@ export default function AdminDashboard() {
         }
     }, [cancelAppointment, fetchAppointments, calendarDateRange]);
 
-    const handleCompleteAppointment = useCallback(async (appointmentId: string) => {
+    const handleCompleteAppointment = useCallback(async (appointmentId: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
         try {
-            console.log('bateu no paiii')
-            await completeAppointment(appointmentId);
+            console.log('bateu no paiii', data)
+            await completeAppointment(appointmentId, data);
             toast.success('Agendamento marcado como concluído!');
             fetchAppointments(calendarDateRange);
             setCloseModalSignal(prev => prev + 1);

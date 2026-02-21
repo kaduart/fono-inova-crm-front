@@ -40,21 +40,26 @@ export function useChatMessages(contact: Contact | null, leadId?: string) {
         logger.info(`[useChatMessages] Registrando listener Socket.io para ${contact.phone}`);
 
         const unsubscribeNew = socketManager.onMessageNew((payload) => {
-            // Verifica se a mensagem é deste contato
+            // 🎯 Verifica se a mensagem é deste contato (prioriza contactId)
+            const payloadContactId = payload.contactId || payload.contact?._id;
+            const isSameContactById = payloadContactId && contact._id === payloadContactId;
+            
+            // Fallback: comparação por telefone
             const messagePhone = (payload.from || payload.to || '').replace(/\D/g, '');
             const contactPhone = (contact.phone || '').replace(/\D/g, '');
-            
-            // Comparação mais robusta: verifica se um contém o outro
-            const isMatch = messagePhone && contactPhone && (
+            const isMatchByPhone = messagePhone && contactPhone && (
                 messagePhone.includes(contactPhone) || 
                 contactPhone.includes(messagePhone) ||
-                // Remove prefixo de país (55) e compara
                 messagePhone.replace(/^55/, '').includes(contactPhone.replace(/^55/, '')) ||
                 contactPhone.replace(/^55/, '').includes(messagePhone.replace(/^55/, ''))
             );
             
+            const isMatch = isSameContactById || isMatchByPhone;
+            
             if (!isMatch) {
-                logger.debug(`[useChatMessages] Mensagem ignorada - telefone não corresponde: message=${messagePhone}, contact=${contactPhone}`);
+                logger.debug(`[useChatMessages] Mensagem ignorada - não corresponde ao contato. ` +
+                    `contactId: ${contact._id}, payloadContactId: ${payloadContactId}, ` +
+                    `messagePhone: ${messagePhone}, contactPhone: ${contactPhone}`);
                 return;
             }
             

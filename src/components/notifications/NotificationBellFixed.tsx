@@ -163,7 +163,7 @@ export const NotificationBellFixed: React.FC = () => {
   return (
     <div style={{ position: 'relative' }}>
       {/* Debug - remover depois */}
-      <div style={{
+      {/* <div style={{
         position: 'fixed',
         bottom: '10px',
         right: '10px',
@@ -179,7 +179,7 @@ export const NotificationBellFixed: React.FC = () => {
         <button onClick={clearSeen} style={{ marginLeft: '8px', fontSize: '10px' }}>
           Limpar
         </button>
-      </div>
+      </div> */}
 
       {/* Botão */}
       <button

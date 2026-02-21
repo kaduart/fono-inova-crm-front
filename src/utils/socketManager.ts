@@ -19,6 +19,9 @@ type MessageNewPayload = {
     timestamp?: number | string;
     direction?: "inbound" | "outbound" | string;
     status?: string;
+    contactId?: string;
+    contact?: { _id?: string; phone?: string; name?: string };
+    leadId?: string;
 };
 
 type MessageDeletedPayload = {

@@ -18,13 +18,9 @@ import {
     TextField,
     Typography,
     Avatar,
-    Divider,
     Card,
     CardContent,
     Grid,
-    IconButton,
-    Tooltip,
-    Alert,
     Collapse
 } from '@mui/material';
 import { Patient360Modal } from '../components/Patient360Modal';
@@ -37,20 +33,15 @@ import {
     DollarSign,
     FileText,
     Plus,
-    Receipt,
     Send,
     User,
-    Filter,
-    TrendingUp,
-    AlertCircle,
-    Download,
     ChevronDown,
-    ChevronUp,
-    XCircle
+    ChevronUp
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import InputCurrency from '../../../components/ui/InputCurrency';
+import { PatientAccordionSection } from './PatientAccordionSection';
 import { doctorService } from '../../../services/doctorService';
 import { patientService } from '../../../services/patientService';
 import {
@@ -61,7 +52,6 @@ import {
     receiveInsurancePayment
 } from '../../../services/paymentService';
 
-// Providers de convênio conhecidos
 const INSURANCE_PROVIDERS = [
     'Unimed',
     'Bradesco Saúde',
@@ -72,43 +62,12 @@ const INSURANCE_PROVIDERS = [
     'Outro'
 ];
 
-// Configuração de status com cores e ícones
-const STATUS_CONFIG = {
-    pending_billing: { 
-        color: '#F59E0B', 
-        bgColor: '#F59E0B10', 
-        label: 'Aguardando Faturamento',
-        icon: Clock,
-        nextAction: 'Faturar'
-    },
-    billed: { 
-        color: '#3B82F6', 
-        bgColor: '#3B82F610', 
-        label: 'Faturado',
-        icon: Send,
-        nextAction: 'Receber'
-    },
-    received: { 
-        color: '#10B981', 
-        bgColor: '#10B98110', 
-        label: 'Recebido',
-        icon: CheckCircle,
-        nextAction: null
-    },
-    partial: { 
-        color: '#F59E0B', 
-        bgColor: '#F59E0B10', 
-        label: 'Recebido Parcial',
-        icon: AlertCircle,
-        nextAction: 'Receber'
-    },
-    glosa: { 
-        color: '#EF4444', 
-        bgColor: '#EF444410', 
-        label: 'Glosado',
-        icon: XCircle,
-        nextAction: null
-    }
+const STATUS_CONFIG: Record<string, { color: string; bgColor: string; label: string }> = {
+    pending_billing: { color: '#F59E0B', bgColor: '#F59E0B10', label: 'Aguardando Faturamento' },
+    billed: { color: '#3B82F6', bgColor: '#3B82F610', label: 'Faturado' },
+    received: { color: '#10B981', bgColor: '#10B98110', label: 'Recebido' },
+    partial: { color: '#F59E0B', bgColor: '#F59E0B10', label: 'Recebido Parcial' },
+    glosa: { color: '#EF4444', bgColor: '#EF444410', label: 'Glosado' }
 };
 
 const InsuranceTab = () => {
@@ -117,13 +76,11 @@ const InsuranceTab = () => {
     const [loading, setLoading] = useState(false);
     const [summary, setSummary] = useState({ totalProviders: 0, grandTotal: 0, pendingCount: 0 });
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
-
-    // Modal de novo atendimento
+    const [expandedPatients, setExpandedPatients] = useState<Record<string, boolean>>({});
+    const [patientSpecialtyTabs, setPatientSpecialtyTabs] = useState<Record<string, string>>({});
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
     const [patients, setPatients] = useState<any[]>([]);
     const [doctors, setDoctors] = useState<any[]>([]);
-
-    // Form state
     const [formData, setFormData] = useState({
         patientId: '',
         doctorId: '',
@@ -134,8 +91,6 @@ const InsuranceTab = () => {
         notes: '',
         paymentDate: new Date().toISOString().split('T')[0]
     });
-
-    // Modal de recebimento
     const [receiveModalOpen, setReceiveModalOpen] = useState(false);
     const [selectedPayment, setSelectedPayment] = useState<any>(null);
     const [receiveData, setReceiveData] = useState({
@@ -143,7 +98,6 @@ const InsuranceTab = () => {
         receivedDate: new Date().toISOString().split('T')[0],
         notes: ''
     });
-
     const [selectedPatient360Id, setSelectedPatient360Id] = useState<string | null>(null);
     const [is360ModalOpen, setIs360ModalOpen] = useState(false);
 
@@ -152,7 +106,38 @@ const InsuranceTab = () => {
         setIs360ModalOpen(true);
     };
 
-    // Carregar dados
+    const togglePatient = (patientId: string) => {
+        setExpandedPatients(prev => ({ ...prev, [patientId]: !prev[patientId] }));
+    };
+
+    const setPatientTab = (patientId: string, specialty: string) => {
+        setPatientSpecialtyTabs(prev => ({ ...prev, [patientId]: specialty }));
+    };
+
+    const groupPaymentsBySpecialty = (payments: any[]) => {
+        const grouped: Record<string, any[]> = {};
+        payments.forEach(payment => {
+            const specialty = payment.specialty || 'Outros';
+            if (!grouped[specialty]) grouped[specialty] = [];
+            grouped[specialty].push(payment);
+        });
+        return grouped;
+    };
+
+    const getSpecialtyLabel = (specialty: string) => {
+        const labels: Record<string, string> = {
+            fonoaudiologia: 'Fonoaudiologia',
+            psicologia: 'Psicologia',
+            terapia_ocupacional: 'Terapia Ocupacional',
+            fisioterapia: 'Fisioterapia',
+            psicomotricidade: 'Psicomotricidade',
+            musicoterapia: 'Musicoterapia',
+            psicopedagogia: 'Psicopedagogia',
+            neuropsicologia: 'Neuropsicologia'
+        };
+        return labels[specialty] || specialty;
+    };
+
     useEffect(() => {
         loadReceivables();
         loadPatientsAndDoctors();
@@ -164,25 +149,28 @@ const InsuranceTab = () => {
             const response = await getInsuranceReceivables();
             const data = response.data.data || [];
             
-            // Filtrar payments com grossAmount > 0 para não poluir a lista
             const filteredData = data.map((group: any) => ({
                 ...group,
-                payments: group.payments.filter((p: any) => p.grossAmount > 0 || p.status === 'billed')
-            })).filter((group: any) => group.payments.length > 0);
+                patients: (group.patients || []).map((p: any) => ({
+                    ...p,
+                    payments: (p.payments || []).filter((pay: any) => pay.grossAmount > 0 || pay.status === 'billed')
+                })).filter((p: any) => p.payments.length > 0)
+            })).filter((group: any) => group.patients.length > 0);
             
             setReceivables(filteredData);
             
             const totalPending = filteredData.reduce((acc: number, g: any) => 
-                acc + g.payments.filter((p: any) => p.status !== 'received').length, 0
+                acc + (g.patients || []).reduce((pAcc: number, p: any) => 
+                    pAcc + (p.payments || []).filter((pay: any) => pay.status !== 'received').length, 0
+                ), 0
             );
             
             setSummary({ 
                 totalProviders: filteredData.length,
-                grandTotal: filteredData.reduce((acc: number, g: any) => acc + g.totalPending, 0),
+                grandTotal: filteredData.reduce((acc: number, g: any) => acc + (g.totalPending || 0), 0),
                 pendingCount: totalPending 
             });
 
-            // Inicializar todos os grupos como expandidos
             const expanded: Record<string, boolean> = {};
             filteredData.forEach((g: any) => { expanded[g._id] = true; });
             setExpandedGroups(expanded);
@@ -207,7 +195,6 @@ const InsuranceTab = () => {
         }
     };
 
-    // Criar novo atendimento convênio
     const handleCreateInsurance = async () => {
         if (!formData.patientId || !formData.doctorId || !formData.insuranceProvider || !formData.grossAmount || !formData.paymentDate) {
             toast.warn('Preencha todos os campos obrigatórios');
@@ -237,7 +224,6 @@ const InsuranceTab = () => {
         }
     };
 
-    // Marcar como faturado
     const handleMarkAsBilled = async (paymentId: string) => {
         try {
             await markInsuranceAsBilled(paymentId);
@@ -248,7 +234,6 @@ const InsuranceTab = () => {
         }
     };
 
-    // Registrar recebimento
     const handleReceive = async () => {
         if (!selectedPayment) return;
 
@@ -264,31 +249,31 @@ const InsuranceTab = () => {
     };
 
     const getStatusChip = (status: string) => {
-        const config = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending_billing;
-        const Icon = config.icon;
-        
+        const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending_billing;
         return (
             <Chip 
                 size="small" 
-                icon={<Icon size={14} />}
                 label={config.label}
                 sx={{ 
                     bgcolor: config.bgColor,
                     color: config.color,
                     borderColor: config.color,
-                    fontWeight: 500,
-                    '& .MuiChip-icon': { color: config.color }
+                    fontWeight: 500
                 }}
                 variant="outlined"
             />
         );
     };
 
-    // Filtrar payments baseado na subtab atual
-    const filteredPayments = (payments: any[]) => {
-        if (subTab === 0) return payments.filter(p => p.status === 'pending_billing');
-        if (subTab === 1) return payments.filter(p => p.status === 'billed');
-        return payments.filter(p => ['received', 'partial', 'glosa'].includes(p.status));
+    const filteredPatients = (patients: any[]) => {
+        return patients.map(patient => ({
+            ...patient,
+            payments: (patient.payments || []).filter((p: any) => {
+                if (subTab === 0) return p.status === 'pending_billing';
+                if (subTab === 1) return p.status === 'billed';
+                return ['received', 'partial', 'glosa'].includes(p.status);
+            })
+        })).filter((patient: any) => patient.payments.length > 0);
     };
 
     const toggleGroup = (groupId: string) => {
@@ -298,10 +283,19 @@ const InsuranceTab = () => {
         }));
     };
 
-    // Calcular totais por grupo para a subtab atual
-    const getGroupTotalForCurrentTab = (group: any) => {
-        const payments = filteredPayments(group.payments);
-        return payments.reduce((sum, p) => sum + p.grossAmount, 0);
+    const getGroupTotal = (group: any) => {
+        const patients = filteredPatients(group.patients || []);
+        return patients.reduce((sum: number, patient: any) => 
+            sum + (patient.payments || []).reduce((pSum: number, p: any) => pSum + (p.grossAmount || 0), 0), 0
+        );
+    };
+
+    const countByStatus = (receivables: InsuranceReceivableGroup[], status: string) => {
+        return receivables.reduce((sum, group) => 
+            sum + (group.patients || []).reduce((pSum, patient) => 
+                pSum + (patient.payments || []).filter((p: any) => p.status === status).length, 0
+            ), 0
+        );
     };
 
     return (
@@ -406,22 +400,17 @@ const InsuranceTab = () => {
                 <Tabs 
                     value={subTab} 
                     onChange={(_, v) => setSubTab(v)} 
-                    sx={{ 
-                        borderBottom: 1, 
-                        borderColor: 'divider',
-                        px: 2,
-                        pt: 1
-                    }}
+                    sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 1 }}
                 >
                     <Tab 
                         icon={<Clock size={16} />} 
                         iconPosition="start" 
-                        label={`A Faturar (${receivables.reduce((sum, g) => sum + g.payments.filter(p => p.status === 'pending_billing').length, 0)})`} 
+                        label={`A Faturar (${countByStatus(receivables, 'pending_billing')})`} 
                     />
                     <Tab 
                         icon={<Send size={16} />} 
                         iconPosition="start" 
-                        label={`Faturados (${receivables.reduce((sum, g) => sum + g.payments.filter(p => p.status === 'billed').length, 0)})`} 
+                        label={`Faturados (${countByStatus(receivables, 'billed')})`} 
                     />
                     <Tab 
                         icon={<CheckCircle size={16} />} 
@@ -441,21 +430,18 @@ const InsuranceTab = () => {
                             <Typography variant="h6" color="text.secondary" gutterBottom>
                                 Nenhum atendimento de convênio
                             </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                Clique em "Novo Atendimento" para começar
-                            </Typography>
                         </div>
                     ) : (
                         <div className="space-y-4">
                             {receivables.map((group) => {
-                                const paymentsToShow = filteredPayments(group.payments);
-                                if (paymentsToShow.length === 0) return null;
-                                const groupTotal = getGroupTotalForCurrentTab(group);
+                                const patientsToShow = filteredPatients(group.patients || []);
+                                if (patientsToShow.length === 0) return null;
+                                const groupTotal = getGroupTotal(group);
                                 const isExpanded = expandedGroups[group._id] !== false;
 
                                 return (
                                     <Card key={group._id} variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
-                                        {/* Header do Grupo - Clicável */}
+                                        {/* Header do Convênio */}
                                         <Box 
                                             sx={{ 
                                                 p: 2, 
@@ -475,11 +461,9 @@ const InsuranceTab = () => {
                                                     <Building2 className="w-4 h-4 text-white" />
                                                 </Avatar>
                                                 <Box>
-                                                    <Typography fontWeight="600">
-                                                        {group._id}
-                                                    </Typography>
+                                                    <Typography fontWeight="600">{group._id}</Typography>
                                                     <Typography variant="caption" color="text.secondary">
-                                                        {paymentsToShow.length} atendimentos • Total: {groupTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                        {patientsToShow.reduce((sum, p) => sum + (p.payments?.length || 0), 0)} atendimentos • {patientsToShow.length} paciente(s)
                                                     </Typography>
                                                 </Box>
                                             </Box>
@@ -487,148 +471,33 @@ const InsuranceTab = () => {
                                                 <Chip 
                                                     size="small"
                                                     label={`R$ ${groupTotal.toLocaleString('pt-BR')}`}
-                                                    sx={{ 
-                                                        bgcolor: '#3B82F6',
-                                                        color: 'white',
-                                                        fontWeight: 'bold'
-                                                    }}
+                                                    sx={{ bgcolor: '#3B82F6', color: 'white', fontWeight: 'bold' }}
                                                 />
                                                 {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                                             </Box>
                                         </Box>
 
-                                        {/* Lista de Pagamentos (Collapsible) */}
+                                        {/* Lista de Pacientes com Accordion e Tabs */}
                                         <Collapse in={isExpanded}>
                                             <div className="divide-y">
-                                                {paymentsToShow.map((payment) => {
-                                                    const statusConfig = STATUS_CONFIG[payment.status as keyof typeof STATUS_CONFIG];
-                                                    const StatusIcon = statusConfig.icon;
-                                                    
-                                                    return (
-                                                        <div key={payment.paymentId} className="p-3 hover:bg-gray-50 transition-colors">
-                                                            <div className="flex items-start gap-3">
-                                                                {/* Avatar do paciente */}
-                                                                <Avatar 
-                                                                    sx={{ 
-                                                                        bgcolor: payment.patientName !== 'N/A' ? '#E5E7EB' : '#F3F4F6',
-                                                                        width: 40, 
-                                                                        height: 40,
-                                                                        cursor: payment.patient && payment.patientName !== 'N/A' ? 'pointer' : 'default',
-                                                                        opacity: payment.patientName === 'N/A' ? 0.5 : 1,
-                                                                        '&:hover': payment.patient && payment.patientName !== 'N/A' ? { bgcolor: '#D1D5DB' } : {}
-                                                                    }}
-                                                                    onClick={() => {
-                                                                        if (payment.patient && payment.patientName !== 'N/A') {
-                                                                            handleOpen360(payment.patient);
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <User className="w-4 h-4 text-gray-600" />
-                                                                </Avatar>
-
-                                                                {/* Informações principais */}
-                                                                <Box sx={{ flex: 1 }}>
-                                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                                        <Box>
-                                                                            <Typography 
-                                                                                fontWeight="600"
-                                                                                sx={{ 
-                                                                                    cursor: payment.patient && payment.patientName !== 'N/A' ? 'pointer' : 'default',
-                                                                                    color: payment.patientName === 'N/A' ? 'text.secondary' : 'text.primary',
-                                                                                    '&:hover': payment.patient && payment.patientName !== 'N/A' ? { color: '#3B82F6' } : {}
-                                                                                }}
-                                                                                onClick={() => {
-                                                                                    if (payment.patient && payment.patientName !== 'N/A') {
-                                                                                        handleOpen360(payment.patient);
-                                                                                    }
-                                                                                }}
-                                                                            >
-                                                                                {payment.patientName === 'N/A' ? 'Paciente não identificado' : payment.patientName}
-                                                                            </Typography>
-                                                                            
-                                                                            <Box sx={{ display: 'flex', gap: 2, mt: 0.5, flexWrap: 'wrap' }}>
-                                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                                                    <Calendar className="w-3 h-3 text-gray-400" />
-                                                                                    <Typography variant="caption" color="text.secondary">
-                                                                                        {payment.paymentDate}
-                                                                                    </Typography>
-                                                                                </Box>
-                                                                                
-                                                                                {payment.authorizationCode && (
-                                                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                                                        <FileText className="w-3 h-3 text-gray-400" />
-                                                                                        <Typography variant="caption" color="text.secondary">
-                                                                                            Guia: {payment.authorizationCode}
-                                                                                        </Typography>
-                                                                                    </Box>
-                                                                                )}
-                                                                            </Box>
-                                                                        </Box>
-
-                                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                                            <Box sx={{ textAlign: 'right' }}>
-                                                                                <Typography variant="body1" fontWeight="bold">
-                                                                                    {payment.grossAmount > 0 
-                                                                                        ? payment.grossAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-                                                                                        : 'Valor não informado'}
-                                                                                </Typography>
-                                                                                {payment.status === 'partial' && (
-                                                                                    <Typography variant="caption" color="#F59E0B">
-                                                                                        Recebido: {payment.receivedAmount?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                                                                    </Typography>
-                                                                                )}
-                                                                            </Box>
-
-                                                                            <div className="flex items-center gap-2">
-                                                                                {getStatusChip(payment.status)}
-
-                                                                                {/* Ações */}
-                                                                                {payment.status === 'pending_billing' && payment.grossAmount > 0 && (
-                                                                                    <Button
-                                                                                        size="small"
-                                                                                        variant="outlined"
-                                                                                        startIcon={<Send size={14} />}
-                                                                                        onClick={() => handleMarkAsBilled(payment.paymentId)}
-                                                                                        sx={{ 
-                                                                                            borderColor: '#3B82F6',
-                                                                                            color: '#3B82F6',
-                                                                                            '&:hover': { borderColor: '#2563EB', bgcolor: '#3B82F610' }
-                                                                                        }}
-                                                                                    >
-                                                                                        Faturar
-                                                                                    </Button>
-                                                                                )}
-                                                                                
-                                                                                {payment.status === 'billed' && (
-                                                                                    <Button
-                                                                                        size="small"
-                                                                                        variant="contained"
-                                                                                        startIcon={<Check size={14} />}
-                                                                                        onClick={() => {
-                                                                                            setSelectedPayment(payment);
-                                                                                            setReceiveData({
-                                                                                                receivedAmount: payment.grossAmount,
-                                                                                                receivedDate: new Date().toISOString().split('T')[0],
-                                                                                                notes: ''
-                                                                                            });
-                                                                                            setReceiveModalOpen(true);
-                                                                                        }}
-                                                                                        sx={{ 
-                                                                                            bgcolor: '#10B981',
-                                                                                            '&:hover': { bgcolor: '#059669' }
-                                                                                        }}
-                                                                                    >
-                                                                                        Receber
-                                                                                    </Button>
-                                                                                )}
-                                                                            </div>
-                                                                        </Box>
-                                                                    </Box>
-                                                                </Box>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
+                                                {patientsToShow.map((patient) => (
+                                                    <PatientAccordionSection
+                                                        key={patient.patientId}
+                                                        patient={patient}
+                                                        onOpen360={handleOpen360}
+                                                        onMarkAsBilled={handleMarkAsBilled}
+                                                        onReceive={(payment) => {
+                                                            setSelectedPayment(payment);
+                                                            setReceiveData({
+                                                                receivedAmount: payment.grossAmount,
+                                                                receivedDate: new Date().toISOString().split('T')[0],
+                                                                notes: ''
+                                                            });
+                                                            setReceiveModalOpen(true);
+                                                        }}
+                                                        getStatusChip={getStatusChip}
+                                                    />
+                                                ))}
                                             </div>
                                         </Collapse>
                                     </Card>
@@ -660,7 +529,6 @@ const InsuranceTab = () => {
                             InputLabelProps={{ shrink: true }}
                             required
                         />
-
                         <FormControl fullWidth>
                             <InputLabel>Paciente *</InputLabel>
                             <Select
@@ -673,7 +541,6 @@ const InsuranceTab = () => {
                                 ))}
                             </Select>
                         </FormControl>
-
                         <FormControl fullWidth>
                             <InputLabel>Profissional *</InputLabel>
                             <Select
@@ -686,7 +553,6 @@ const InsuranceTab = () => {
                                 ))}
                             </Select>
                         </FormControl>
-
                         <FormControl fullWidth>
                             <InputLabel>Convênio *</InputLabel>
                             <Select
@@ -699,17 +565,15 @@ const InsuranceTab = () => {
                                 ))}
                             </Select>
                         </FormControl>
-
                         <Box>
                             <Typography variant="body2" gutterBottom>Valor da Tabela *</Typography>
                             <InputCurrency
-                                name=''
+                                name=""
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                                 value={formData.grossAmount}
                                 onChange={(e) => setFormData({ ...formData, grossAmount: Number(e.target.value) })}
                             />
                         </Box>
-
                         <TextField
                             fullWidth
                             label="Código da Guia/Autorização"
@@ -717,29 +581,11 @@ const InsuranceTab = () => {
                             onChange={(e) => setFormData({ ...formData, authorizationCode: e.target.value })}
                             placeholder="Opcional"
                         />
-
-                        <TextField
-                            fullWidth
-                            multiline
-                            rows={2}
-                            label="Observações"
-                            value={formData.notes}
-                            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                            placeholder="Opcional"
-                        />
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => setIsNewModalOpen(false)} variant="outlined">
-                        Cancelar
-                    </Button>
-                    <Button
-                        variant="contained"
-                        onClick={handleCreateInsurance}
-                        disabled={loading}
-                        startIcon={<Check size={16} />}
-                        sx={{ bgcolor: '#3B82F6' }}
-                    >
+                    <Button onClick={() => setIsNewModalOpen(false)} variant="outlined">Cancelar</Button>
+                    <Button variant="contained" onClick={handleCreateInsurance} disabled={loading} startIcon={<Check size={16} />} sx={{ bgcolor: '#3B82F6' }}>
                         Registrar
                     </Button>
                 </DialogActions>
@@ -750,32 +596,28 @@ const InsuranceTab = () => {
                 <DialogTitle>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Avatar sx={{ bgcolor: '#10B981', width: 32, height: 32 }}>
-                            <Receipt className="w-4 h-4 text-white" />
+                            <CheckCircle className="w-4 h-4 text-white" />
                         </Avatar>
                         <Typography variant="h6">Registrar Recebimento</Typography>
                     </Box>
                 </DialogTitle>
                 <DialogContent dividers>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
-                        <Alert severity="info" sx={{ bgcolor: '#EFF6FF', border: '1px solid #BFDBFE' }}>
-                            <Typography variant="body2">
-                                <strong>Paciente:</strong> {selectedPayment?.patientName === 'N/A' ? 'Não identificado' : selectedPayment?.patientName}
-                            </Typography>
-                            <Typography variant="body2">
-                                <strong>Valor esperado:</strong> {selectedPayment?.grossAmount?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                            </Typography>
-                        </Alert>
-
+                        <Typography variant="body2">
+                            <strong>Paciente:</strong> {selectedPayment?.patientName}
+                        </Typography>
+                        <Typography variant="body2">
+                            <strong>Valor esperado:</strong> R$ {selectedPayment?.grossAmount?.toLocaleString('pt-BR')}
+                        </Typography>
                         <Box>
                             <Typography variant="body2" gutterBottom>Valor Recebido *</Typography>
                             <InputCurrency
-                                name=''
+                                name=""
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                                 value={receiveData.receivedAmount}
                                 onChange={(e) => setReceiveData({ ...receiveData, receivedAmount: Number(e.target.value) })}
                             />
                         </Box>
-
                         <TextField
                             fullWidth
                             type="date"
@@ -784,33 +626,12 @@ const InsuranceTab = () => {
                             onChange={(e) => setReceiveData({ ...receiveData, receivedDate: e.target.value })}
                             InputLabelProps={{ shrink: true }}
                         />
-
-                        {receiveData.receivedAmount < (selectedPayment?.grossAmount || 0) && (
-                            <TextField
-                                fullWidth
-                                multiline
-                                rows={2}
-                                label="Motivo da Glosa"
-                                value={receiveData.notes}
-                                onChange={(e) => setReceiveData({ ...receiveData, notes: e.target.value })}
-                                helperText="Informe o motivo do valor menor"
-                                required
-                            />
-                        )}
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => setReceiveModalOpen(false)} variant="outlined">
-                        Cancelar
-                    </Button>
-                    <Button
-                        variant="contained"
-                        color="success"
-                        onClick={handleReceive}
-                        startIcon={<CheckCircle size={16} />}
-                        sx={{ bgcolor: '#10B981' }}
-                    >
-                        Confirmar Recebimento
+                    <Button onClick={() => setReceiveModalOpen(false)} variant="outlined">Cancelar</Button>
+                    <Button variant="contained" color="success" onClick={handleReceive} startIcon={<CheckCircle size={16} />} sx={{ bgcolor: '#10B981' }}>
+                        Confirmar
                     </Button>
                 </DialogActions>
             </Dialog>

@@ -161,10 +161,34 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
                 const from = normalizeE164BR(payload.from || "");
                 const to = normalizeE164BR(payload.to || "");
                 const phone = from || to;
+                
+                // 🐛 DEBUG: Log para entender problemas de matching
+                console.log('[ContactsContext] message:new recebido:', {
+                    from: payload.from,
+                    to: payload.to,
+                    fromNormalized: from,
+                    toNormalized: to,
+                    phone,
+                    direction: payload.direction,
+                    indexSize: phoneIndexRef.current.size,
+                    indexHasPhone: phoneIndexRef.current.has(phone),
+                    indexKeys: Array.from(phoneIndexRef.current.keys()).slice(0, 5), // primeiros 5
+                });
+                
                 if (!phone) return;
 
-                const contactId = phoneIndexRef.current.get(phone);
-                if (!contactId) return;
+                // 🎯 PRIORIZA contactId do payload (mais confiável que busca por telefone)
+                let contactId: string | undefined = payload.contactId || payload.contact?._id;
+                
+                // Fallback: busca no índice por telefone se não tiver contactId no payload
+                if (!contactId) {
+                    contactId = phoneIndexRef.current.get(phone);
+                }
+                
+                if (!contactId) {
+                    console.warn('[ContactsContext] Contato não encontrado. Phone:', phone, 'Payload contactId:', payload.contactId);
+                    return;
+                }
 
                 const dir = String(payload.direction || "").toLowerCase();
                 const isInbound = dir ? dir === "inbound" : Boolean(from);
