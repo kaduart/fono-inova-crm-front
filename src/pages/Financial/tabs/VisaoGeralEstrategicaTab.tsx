@@ -40,7 +40,12 @@ import {
     Savings,
     Timeline,
     AccountBalanceWallet,
-    LocalHospital
+    LocalHospital,
+    Group,
+    CalendarMonth,
+    MedicalServices,
+    FolderSpecial,
+    EventAvailable
 } from '@mui/icons-material';
 import { useFinancialOverview } from '../../../hooks/useFinancialOverview';
 import { ptBR } from 'date-fns/locale';
@@ -208,6 +213,138 @@ const VisaoGeralEstrategicaTab = () => {
                 </Box>
             ) : data ? (
                 <>
+                    {/* Cards de Métricas Operacionais (Funnel) */}
+                    <Paper elevation={0} sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'primary.main' + '20', borderRadius: 2, bgcolor: 'primary.main' + '05' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                            <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}>
+                                <Assessment sx={{ fontSize: 18, color: 'white' }} />
+                            </Avatar>
+                            <Typography variant="h6" fontWeight="600">📊 Métricas Operacionais - Fevereiro</Typography>
+                        </Box>
+
+                        <Grid container spacing={2}>
+                            {/* Leads Recebidos */}
+                            <Grid item xs={12} sm={6} md={4} lg={2.4}>
+                                <Card elevation={0} sx={{ border: '1px solid', borderColor: '#3B82F630', borderRadius: 2, height: '100%' }}>
+                                    <CardContent sx={{ p: 2 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                                            <Avatar sx={{ bgcolor: '#3B82F6', width: 40, height: 40 }}>
+                                                <Group sx={{ color: 'white', fontSize: 20 }} />
+                                            </Avatar>
+                                            <Box>
+                                                <Typography variant="caption" color="text.secondary">Leads Recebidos</Typography>
+                                                <Typography variant="h5" fontWeight="bold" color="#3B82F6">
+                                                    {data.metrics?.leadsRecebidos || 0}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                        <Chip 
+                                            size="small" 
+                                            label="Novos contatos" 
+                                            sx={{ bgcolor: '#3B82F615', color: '#3B82F6', fontWeight: 500, fontSize: '0.7rem' }} 
+                                        />
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+
+                            {/* Agendamentos (Avaliações Agendadas) */}
+                            <Grid item xs={12} sm={6} md={4} lg={2.4}>
+                                <Card elevation={0} sx={{ border: '1px solid', borderColor: '#10B98130', borderRadius: 2, height: '100%' }}>
+                                    <CardContent sx={{ p: 2 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                                            <Avatar sx={{ bgcolor: '#10B981', width: 40, height: 40 }}>
+                                                <CalendarMonth sx={{ color: 'white', fontSize: 20 }} />
+                                            </Avatar>
+                                            <Box>
+                                                <Typography variant="caption" color="text.secondary">Avaliações Agend.</Typography>
+                                                <Typography variant="h5" fontWeight="bold" color="#10B981">
+                                                    {data.metrics?.agendamentosRealizados || 0}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                        <Chip 
+                                            size="small" 
+                                            label={`${data.metrics?.leadsRecebidos ? Math.round(((data.metrics?.agendamentosRealizados || 0) / data.metrics.leadsRecebidos) * 100) : 0}% conversão`}
+                                            sx={{ bgcolor: '#10B98115', color: '#10B981', fontWeight: 500, fontSize: '0.7rem' }} 
+                                        />
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+
+                            {/* Avaliações Realizadas */}
+                            <Grid item xs={12} sm={6} md={4} lg={2.4}>
+                                <Card elevation={0} sx={{ border: '1px solid', borderColor: '#F59E0B30', borderRadius: 2, height: '100%' }}>
+                                    <CardContent sx={{ p: 2 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                                            <Avatar sx={{ bgcolor: '#F59E0B', width: 40, height: 40 }}>
+                                                <MedicalServices sx={{ color: 'white', fontSize: 20 }} />
+                                            </Avatar>
+                                            <Box>
+                                                <Typography variant="caption" color="text.secondary">Avaliações Realiz.</Typography>
+                                                <Typography variant="h5" fontWeight="bold" color="#F59E0B">
+                                                    {data.metrics?.avaliacoesRealizadas || 0}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                        <Chip 
+                                            size="small" 
+                                            label={`${data.metrics?.agendamentosRealizados ? Math.round(((data.metrics?.avaliacoesRealizadas || 0) / data.metrics.agendamentosRealizados) * 100) : 0}% compareceram`}
+                                            sx={{ bgcolor: '#F59E0B15', color: '#F59E0B', fontWeight: 500, fontSize: '0.7rem' }} 
+                                        />
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+
+                            {/* Projetos Fechados (Pacotes) */}
+                            <Grid item xs={12} sm={6} md={4} lg={2.4}>
+                                <Card elevation={0} sx={{ border: '1px solid', borderColor: '#8B5CF630', borderRadius: 2, height: '100%' }}>
+                                    <CardContent sx={{ p: 2 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                                            <Avatar sx={{ bgcolor: '#8B5CF6', width: 40, height: 40 }}>
+                                                <FolderSpecial sx={{ color: 'white', fontSize: 20 }} />
+                                            </Avatar>
+                                            <Box>
+                                                <Typography variant="caption" color="text.secondary">Pacotes Fechados</Typography>
+                                                <Typography variant="h5" fontWeight="bold" color="#8B5CF6">
+                                                    {data.metrics?.projetosFechados || 0}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                        <Chip 
+                                            size="small" 
+                                            label={`${data.metrics?.avaliacoesRealizadas ? Math.round(((data.metrics?.projetosFechados || 0) / data.metrics.avaliacoesRealizadas) * 100) : 0}% conversão`}
+                                            sx={{ bgcolor: '#8B5CF615', color: '#8B5CF6', fontWeight: 500, fontSize: '0.7rem' }} 
+                                        />
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+
+                            {/* Sessões do Mês */}
+                            <Grid item xs={12} sm={6} md={4} lg={2.4}>
+                                <Card elevation={0} sx={{ border: '1px solid', borderColor: '#EC489930', borderRadius: 2, height: '100%' }}>
+                                    <CardContent sx={{ p: 2 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                                            <Avatar sx={{ bgcolor: '#EC4899', width: 40, height: 40 }}>
+                                                <EventAvailable sx={{ color: 'white', fontSize: 20 }} />
+                                            </Avatar>
+                                            <Box>
+                                                <Typography variant="caption" color="text.secondary">Sessões do Mês</Typography>
+                                                <Typography variant="h5" fontWeight="bold" color="#EC4899">
+                                                    {data.metrics?.sessoesMes || 0}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                        <Chip 
+                                            size="small" 
+                                            label={`${data.metrics?.projetosFechados ? Math.round((data.metrics?.sessoesMes || 0) / data.metrics.projetosFechados) : 0} sessões/pacote`}
+                                            sx={{ bgcolor: '#EC489915', color: '#EC4899', fontWeight: 500, fontSize: '0.7rem' }} 
+                                        />
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        </Grid>
+                    </Paper>
+
                     {/* Cards Principais */}
                     <Grid container spacing={2.5} sx={{ mb: 3 }}>
                         <Grid item xs={12} sm={6} md={3}>

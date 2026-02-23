@@ -43,6 +43,17 @@ export const patientService = {
         );
     },
 
+    /**
+     * 🔍 Busca pacientes por nome, CPF ou telefone
+     */
+    search: async (searchTerm: string): Promise<IPatient[]> => {
+        if (!searchTerm || searchTerm.trim().length < 2) {
+            return [];
+        }
+        const response = await API.get<IPatient[]>(`/patients?search=${encodeURIComponent(searchTerm.trim())}`);
+        return response.data;
+    },
+
     async create(data: IPatient): Promise<IPatient> {
         // Normaliza os dados antes de enviar
         const normalizedData = normalizeIPatient(data);

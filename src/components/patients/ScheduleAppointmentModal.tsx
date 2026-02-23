@@ -1,5 +1,5 @@
 import { Calendar, DollarSign, User, Users, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import DatePicker, { registerLocale } from 'react-datepicker';
 
 import { ptBR } from "date-fns/locale";
@@ -9,6 +9,7 @@ import Modal from 'react-modal';
 import { toast } from 'react-toastify';
 import { INSURANCE_PROVIDERS, getProviderById } from '../../constants/insuranceProviders';
 import { IDoctor, IPatient, ScheduleAppointment } from '../../utils/types/types';
+import { patientService } from '../../services/patientService';
 import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
 import { Label } from '../ui/Label';
@@ -64,6 +65,9 @@ const ScheduleAppointmentModal = ({
     const [selectedPatient, setSelectedPatient] = useState<IPatient | null>(null);
     // 👇 NOVO: texto digitado no campo de busca de paciente
     const [patientSearch, setPatientSearch] = useState('');
+    // 👇 NOVO: pacientes buscados do backend
+    const [searchedPatients, setSearchedPatients] = useState<IPatient[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
 
     // 🏥 CONVÊNIO
     const [billingType, setBillingType] = useState<'particular' | 'convenio'>('particular');
@@ -78,17 +82,52 @@ const ScheduleAppointmentModal = ({
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '') || '';
 
-    // 👇 NOVO: pacientes filtrados pelo texto digitado
+    // 🔍 Busca pacientes no backend quando digitar (com debounce)
+    useEffect(() => {
+        const searchTerm = patientSearch.trim();
+        
+        // Se não tem termo de busca, limpa resultados
+        if (searchTerm.length < 2) {
+            setSearchedPatients([]);
+            return;
+        }
+
+        // Se já selecionou um paciente e o nome corresponde exatamente, não busca
+        if (selectedPatient && selectedPatient.fullName.toLowerCase() === searchTerm.toLowerCase()) {
+            return;
+        }
+
+        const timeoutId = setTimeout(async () => {
+            setIsSearching(true);
+            try {
+                const results = await patientService.search(searchTerm);
+                setSearchedPatients(results);
+            } catch (error) {
+                console.error('Erro ao buscar pacientes:', error);
+            } finally {
+                setIsSearching(false);
+            }
+        }, 300); // debounce de 300ms
+
+        return () => clearTimeout(timeoutId);
+    }, [patientSearch, selectedPatient]);
+
+    // 👇 Pacientes a exibir (buscados do backend ou filtrados localmente se tiver poucos)
     const filteredPatients = useMemo(() => {
+        // Se tem resultados da busca no backend, usa eles
+        if (patientSearch.trim().length >= 2 && searchedPatients.length > 0) {
+            return searchedPatients;
+        }
+        
+        // Fallback: filtra localmente se tiver poucos pacientes
         if (!patients || patients.length === 0) return [];
         if (!patientSearch.trim()) return patients;
 
         const search = normalize(patientSearch);
-
         return patients.filter((p) =>
             normalize(p.fullName).includes(search)
         );
-    }, [patients, patientSearch]);
+    }, [patients, patientSearch, searchedPatients]);
 
     registerLocale("pt-BR", ptBR);
 
@@ -119,6 +158,7 @@ const ScheduleAppointmentModal = ({
             setInsuranceValue(0);
             setAuthorizationCode('');
             setPatientSearch('');
+            setSearchedPatients([]);
             setSelectedPatient(null);
             setPackages([]);
         }
@@ -305,13 +345,23 @@ const ScheduleAppointmentModal = ({
                         </Label>
 
                         {/* Campo de busca */}
-                        <input
-                            type="text"
-                            value={patientSearch}
-                            onChange={(e) => setPatientSearch(e.target.value)}
-                            placeholder="Digite o nome do paciente..."
-                            className="w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                        />
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={patientSearch}
+                                onChange={(e) => setPatientSearch(e.target.value)}
+                                placeholder="Digite o nome do paciente..."
+                                className="w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm pr-10"
+                            />
+                            {isSearching && (
+                                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                                    <svg className="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                </div>
+                            )}
+                        </div>
 
                         {/* Dropdown dinâmico */}
                         {patientSearch.length > 0 && filteredPatients.length > 0 && (
@@ -335,7 +385,11 @@ const ScheduleAppointmentModal = ({
 
                         {patientSearch.length > 0 && filteredPatients.length === 0 && (
                             <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-md px-3 py-2 text-sm text-gray-500">
-                                Nenhum paciente encontrado
+                                {isSearching 
+                                    ? 'Buscando...' 
+                                    : patientSearch.length < 2 
+                                        ? 'Digite pelo menos 2 caracteres...'
+                                        : 'Nenhum paciente encontrado'}
                             </div>
                         )}
                     </div>

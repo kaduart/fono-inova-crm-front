@@ -48,6 +48,12 @@ export interface MetricsData {
   convenio?: ConvenioMetrics;
   // NOVO: Crédito em pacotes
   creditoPacotes?: CreditoPacotes;
+  // NOVO: Métricas operacionais (funnel)
+  leadsRecebidos?: number;
+  agendamentosRealizados?: number;
+  avaliacoesRealizadas?: number;
+  projetosFechados?: number;
+  sessoesMes?: number;
 }
 
 export interface FinancialOverviewData {
@@ -140,6 +146,12 @@ export function useFinancialOverview(): UseFinancialOverviewReturn {
             convenio: metrics.convenio,
             // NOVO: Crédito em pacotes
             creditoPacotes: metrics.creditoPacotes,
+            // NOVO: Métricas operacionais (funnel)
+            leadsRecebidos: metrics.leadsRecebidos || 0,
+            agendamentosRealizados: metrics.agendamentosRealizados || 0,
+            avaliacoesRealizadas: metrics.avaliacoesRealizadas || 0,
+            projetosFechados: metrics.projetosFechados || 0,
+            sessoesMes: metrics.sessoesMes || 0,
           },
           variacao: {
             receita: variation.receita,
