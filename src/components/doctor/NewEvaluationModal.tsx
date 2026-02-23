@@ -385,12 +385,18 @@ export function NewEvaluationModal({
         setAreaScores(initialAreas);
     }, [open, dynamicMetrics, dynamicAreas]);
 
-    // Reset form quando abre
+    // Reset form quando abre/fecha - sempre começa vazio
     useEffect(() => {
         if (open) {
             setDate(format(new Date(), 'yyyy-MM-dd'));
             setTime('10:00');
             setContent('');
+            // Sempre começa vazio - profissional adiciona o que precisa
+            setDynamicMetrics([]);
+            setDynamicAreas([]);
+            setSelectedSpecialty('');
+            setMetrics({});
+            setAreaScores({});
         }
     }, [open]);
 
@@ -401,6 +407,10 @@ export function NewEvaluationModal({
             const template = SPECIALTY_TEMPLATES[specialty];
             setDynamicMetrics([...template.metrics]);
             setDynamicAreas([...template.areas]);
+        } else {
+            // Se desselecionar, limpa tudo
+            setDynamicMetrics([]);
+            setDynamicAreas([]);
         }
     };
 
