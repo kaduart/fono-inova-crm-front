@@ -12,6 +12,7 @@ export interface GAMetrics {
   sessions: number;
   engagedSessions: number;
   avgSessionDuration: number;
+  source?: 'ga4' | 'internal'; // Indica a fonte dos dados
 }
 
 export const analyticsService = {

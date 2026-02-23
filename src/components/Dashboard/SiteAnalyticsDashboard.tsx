@@ -16,6 +16,7 @@ import {
 import { useAnalytics } from '../../hooks/analytics';
 import API from '../../services/api';
 import AmandaInsights from '../mkt/whatsapp/AmandaInsights';
+import MarketingDashboard from './MarketingDashboard';
 import SiteAnalyticsTable from './SiteAnalyticsTable';
 
 // Cores para os gráficos
@@ -53,7 +54,7 @@ const SiteAnalyticsDashboard = () => {
     });
 
     const [selectedEventType, setSelectedEventType] = useState('all');
-    const [activeTab, setActiveTab] = useState('analytics'); // 'analytics' ou 'insights'
+    const [activeTab, setActiveTab] = useState('marketing'); // 'marketing' | 'insights' | 'gmb'
 
     const { events, metrics, loading, error } = useAnalytics(dateRange);
 
@@ -150,60 +151,85 @@ const SiteAnalyticsDashboard = () => {
     }
 
     return (
-        <div className="container mx-auto p-4">
-            <h1 className="text-3xl font-bold mb-6">Dashboard de Marketing</h1>
+        <div className="max-w-7xl mx-auto px-4 py-6">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                    <div className="p-3 bg-blue-50 rounded-xl">
+                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Dashboard de Marketing</h1>
+                        <p className="text-sm text-gray-500">Análise de tráfego e conversões do site</p>
+                    </div>
+                </div>
+            </div>
 
             {/* Abas */}
             <div className="border-b border-gray-200 mb-6">
                 <nav className="-mb-px flex space-x-8">
                     <button
+                        onClick={() => setActiveTab('marketing')}
+                        className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                            activeTab === 'marketing'
+                                ? 'border-purple-500 text-purple-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
+                    >
+                        Marketing
+                    </button>
+                    <button
                         onClick={() => setActiveTab('analytics')}
-                        className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${activeTab === 'analytics'
+                        className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                            activeTab === 'analytics'
                                 ? 'border-blue-500 text-blue-600'
                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
+                        }`}
                     >
                         Analytics do Site
                     </button>
                     <button
                         onClick={() => setActiveTab('insights')}
-                        className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${activeTab === 'insights'
+                        className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                            activeTab === 'insights'
                                 ? 'border-blue-500 text-blue-600'
                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
+                        }`}
                     >
                         Insights da Amanda
                     </button>
                 </nav>
             </div>
 
-            {activeTab === 'analytics' ? (
+            {activeTab === 'analytics' && (
                 <>
                     {/* Filtros */}
-                    <div className="bg-white p-4 rounded-lg shadow mb-6">
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Data Inicial</label>
+                                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Data Inicial</label>
                                 <input
                                     type="date"
-                                    className="w-full p-2 border border-gray-300 rounded"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                                     value={dateRange.startDate}
                                     onChange={(e) => handleFilterChange('dateRange', { ...dateRange, startDate: e.target.value })}
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Data Final</label>
+                                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Data Final</label>
                                 <input
                                     type="date"
-                                    className="w-full p-2 border border-gray-300 rounded"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                                     value={dateRange.endDate}
                                     onChange={(e) => handleFilterChange('dateRange', { ...dateRange, endDate: e.target.value })}
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Evento</label>
+                                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Tipo de Evento</label>
                                 <select
-                                    className="w-full p-2 border border-gray-300 rounded"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                                     value={selectedEventType}
                                     onChange={(e) => handleFilterChange('eventType', e.target.value)}
                                 >
@@ -222,88 +248,105 @@ const SiteAnalyticsDashboard = () => {
                         <div className="space-y-6">
                             <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-4">
                                 {[...Array(5)].map((_, i) => (
-                                    <div key={i} className="p-4 shadow rounded bg-white">
-                                        <div className="skeleton h-4 w-1/2 mb-2"></div>
-                                        <div className="skeleton h-8 w-3/4"></div>
+                                    <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
+                                        <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+                                        <div className="h-8 bg-gray-300 rounded w-3/4"></div>
                                     </div>
                                 ))}
                             </div>
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <div className="chart-container skeleton h-80"></div>
-                                <div className="chart-container skeleton h-80"></div>
+                                {[...Array(2)].map((_, i) => (
+                                    <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
+                                        <div className="h-6 bg-gray-200 rounded w-48 mb-4"></div>
+                                        <div className="h-64 bg-gray-100 rounded"></div>
+                                    </div>
+                                ))}
                             </div>
-                            <div className="bg-white rounded-lg shadow overflow-hidden">
-                                <div className="skeleton h-64"></div>
+                            <div className="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
+                                <div className="h-6 bg-gray-200 rounded w-48 mb-4"></div>
+                                <div className="h-48 bg-gray-100 rounded"></div>
                             </div>
                         </div>
                     ) : (
                         <>
-                            {/* Cards de Métricas */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-8">
-                                <div className="p-4 shadow rounded bg-white fade-in">
-                                    <div className="text-gray-500">Usuários Totais</div>
-                                    <div className="text-2xl font-bold">{metrics?.totalUsers ?? '-'}</div>
-                                </div>
-                                <div className="p-4 shadow rounded bg-white fade-in">
-                                    <div className="text-gray-500">Usuários Ativos</div>
-                                    <div className="text-2xl font-bold">{metrics?.activeUsers ?? '-'}</div>
-                                </div>
-                                <div className="p-4 shadow rounded bg-white fade-in">
-                                    <div className="text-gray-500">Sessões</div>
-                                    <div className="text-2xl font-bold">{metrics?.sessions ?? '-'}</div>
-                                </div>
-                                <div className="p-4 shadow rounded bg-white fade-in">
-                                    <div className="text-gray-500">Sessões Engajadas</div>
-                                    <div className="text-2xl font-bold">{metrics?.engagedSessions ?? '-'}</div>
-                                </div>
-                                <div className="p-4 shadow rounded bg-white fade-in">
-                                    <div className="text-gray-500">Duração Média</div>
-                                    <div className="text-2xl font-bold">
-                                        {metrics?.avgSessionDuration ? (metrics.avgSessionDuration / 60).toFixed(2) + ' min' : '-'}
+                            {/* Cards de Métricas - GA4 */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">
+                                {[
+                                    { label: 'Usuários Totais', value: metrics?.totalUsers },
+                                    { label: 'Usuários Ativos', value: metrics?.activeUsers },
+                                    { label: 'Sessões', value: metrics?.sessions },
+                                    { label: 'Sessões Engajadas', value: metrics?.engagedSessions },
+                                    { 
+                                        label: 'Duração Média', 
+                                        value: metrics?.avgSessionDuration ? (metrics.avgSessionDuration / 60).toFixed(2) + ' min' : '-'
+                                    }
+                                ].map((metric, idx) => (
+                                    <div key={idx} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
+                                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">{metric.label}</div>
+                                        <div className="text-2xl font-bold text-gray-900">{metric.value ?? '-'}</div>
                                     </div>
-                                </div>
+                                ))}
                             </div>
-                            {/* Cards de Métricas Adicionais */}
+
+                            {/* Cards de Métricas - Eventos */}
                             {calculatedMetrics && (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                                    <div className="p-4 shadow rounded bg-white fade-in">
-                                        <div className="text-gray-500">Total de Eventos</div>
-                                        <div className="text-2xl font-bold">{calculatedMetrics.totalEvents}</div>
-                                    </div>
-                                    <div className="p-4 shadow rounded bg-white fade-in">
-                                        <div className="text-gray-500">Tipos de Eventos</div>
-                                        <div className="text-2xl font-bold">{calculatedMetrics.uniqueEventTypes}</div>
-                                    </div>
-                                    <div className="p-4 shadow rounded bg-white fade-in">
-                                        <div className="text-gray-500">Valor Médio</div>
-                                        <div className="text-2xl font-bold">{calculatedMetrics.averageValue}</div>
-                                    </div>
-                                    <div className="p-4 shadow rounded bg-white fade-in">
-                                        <div className="text-gray-500">Maior Valor</div>
-                                        <div className="text-2xl font-bold">{calculatedMetrics.maxValue}</div>
-                                    </div>
+                                    {[
+                                        { label: 'Total de Eventos', value: calculatedMetrics.totalEvents, color: 'blue' },
+                                        { label: 'Tipos de Eventos', value: calculatedMetrics.uniqueEventTypes, color: 'green' },
+                                        { label: 'Valor Médio', value: calculatedMetrics.averageValue, color: 'purple' },
+                                        { label: 'Maior Valor', value: calculatedMetrics.maxValue, color: 'orange' }
+                                    ].map((metric, idx) => (
+                                        <div 
+                                            key={idx} 
+                                            className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
+                                        >
+                                            <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">{metric.label}</div>
+                                            <div className={`text-2xl font-bold text-${metric.color}-600`}>{metric.value}</div>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
 
                             {/* Gráficos */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                                 {/* Gráfico de Evolução Temporal */}
-                                <div className="chart-container">
-                                    <h2 className="text-xl font-semibold mb-4">Evolução Temporal de Eventos</h2>
+                                <div className="bg-white rounded-xl border border-gray-200 p-4">
+                                    <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                        <div className="w-1 h-5 bg-blue-500 rounded-full"></div>
+                                        Evolução Temporal de Eventos
+                                    </h2>
                                     <ResponsiveContainer width="100%" height={300}>
                                         <LineChart data={lineChartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                                            <CartesianGrid stroke="#f5f5f5" />
-                                            <XAxis dataKey="date" />
-                                            <YAxis />
-                                            <Tooltip />
-                                            <Line type="monotone" dataKey="total" stroke="#3b82f6" strokeWidth={3} />
+                                            <CartesianGrid stroke="#f0f0f0" strokeDasharray="3 3" vertical={false} />
+                                            <XAxis dataKey="date" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                                            <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                                            <Tooltip 
+                                                contentStyle={{ 
+                                                    backgroundColor: 'white',
+                                                    border: '1px solid #e5e7eb',
+                                                    borderRadius: '8px',
+                                                    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                                                }}
+                                            />
+                                            <Line 
+                                                type="monotone" 
+                                                dataKey="total" 
+                                                stroke="#3b82f6" 
+                                                strokeWidth={3}
+                                                dot={{ fill: '#3b82f6', strokeWidth: 2 }}
+                                                activeDot={{ r: 6, fill: '#3b82f6' }}
+                                            />
                                         </LineChart>
                                     </ResponsiveContainer>
                                 </div>
 
                                 {/* Gráfico de Distribuição de Eventos */}
-                                <div className="chart-container">
-                                    <h2 className="text-xl font-semibold mb-4">Distribuição de Eventos</h2>
+                                <div className="bg-white rounded-xl border border-gray-200 p-4">
+                                    <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                        <div className="w-1 h-5 bg-purple-500 rounded-full"></div>
+                                        Distribuição de Eventos
+                                    </h2>
                                     <ResponsiveContainer width="100%" height={300}>
                                         <PieChart>
                                             <Pie
@@ -311,64 +354,59 @@ const SiteAnalyticsDashboard = () => {
                                                 cx="50%"
                                                 cy="50%"
                                                 outerRadius={100}
+                                                innerRadius={60}
                                                 fill="#8884d8"
                                                 dataKey="value"
-                                                label
+                                                label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                                labelLine={false}
                                             >
                                                 {pieChartData.map((entry, index) => (
                                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                                 ))}
                                             </Pie>
-                                            <Tooltip />
-                                            <Legend />
+                                            <Tooltip 
+                                                contentStyle={{ 
+                                                    backgroundColor: 'white',
+                                                    border: '1px solid #e5e7eb',
+                                                    borderRadius: '8px',
+                                                    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                                                }}
+                                            />
+                                            <Legend 
+                                                layout="vertical" 
+                                                align="right"
+                                                verticalAlign="middle"
+                                                wrapperStyle={{ fontSize: 12 }}
+                                            />
                                         </PieChart>
                                     </ResponsiveContainer>
                                 </div>
                             </div>
 
                             {/* Tabela de Eventos */}
-                            <div className="bg-white rounded-lg shadow overflow-hidden mb-8">
-                                <div className="px-6 py-4 border-b border-gray-200">
-                                    <h2 className="text-xl font-semibold">Eventos Detalhados</h2>
-                                    <p className="text-sm text-gray-600">
-                                        Exibindo {filteredEvents.length} eventos
-                                        {selectedEventType !== 'all' ? ` do tipo "${selectedEventType}"` : ''}
-                                    </p>
+                            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-8">
+                                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h2 className="text-lg font-semibold text-gray-800">Eventos Detalhados</h2>
+                                            <p className="text-sm text-gray-500">
+                                                Exibindo {filteredEvents.length} eventos
+                                                {selectedEventType !== 'all' ? ` do tipo "${selectedEventType}"` : ''}
+                                            </p>
+                                        </div>
+                                        <div className="text-xs text-gray-400">
+                                            Última atualização: {new Date().toLocaleDateString('pt-BR')}
+                                        </div>
+                                    </div>
                                 </div>
                                 <SiteAnalyticsTable data={filteredEvents} />
                             </div>
                         </>
                     )}
                 </>
-            ) : (
-                <AmandaInsights />
             )}
-
-            <style>{`
-                .chart-container {
-                    background-color: white;
-                    border-radius: 0.5rem;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-                    padding: 1.25rem;
-                }
-                .skeleton {
-                    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-                    background-size: 200% 100%;
-                    animation: loading 1.5s infinite;
-                    border-radius: 0.25rem;
-                }
-                .fade-in {
-                    animation: fadeIn 0.5s ease-in-out;
-                }
-                @keyframes loading {
-                    0% { background-position: 200% 0; }
-                    100% { background-position: -200% 0; }
-                }
-                @keyframes fadeIn {
-                    from { opacity: 0; }
-                    to { opacity: 1; }
-                }
-            `}</style>
+            {activeTab === 'insights' && <AmandaInsights />}
+            {activeTab === 'marketing' && <MarketingDashboard />}
         </div>
     );
 };
