@@ -19,6 +19,7 @@ import { useState } from 'react';
 import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
 import CashflowTab from '../Financial/CashflowTab';
+import PaymentPage from '../../components/financial/PaymentPage';
 import ExpensesTab from './tabs/ExpensesTab';
 import EntradasSaidasTab from './tabs/EntradasSaidasTab';
 import RevenueTab from './tabs/RevenueTab';
@@ -71,13 +72,13 @@ const FinancialDashboard = ({
     // Tabs do modo OPERACIONAL (Gestão do Dia a Dia)
     const operacionalTabs = [
         {
-            label: 'Receitas',
-            icon: <TrendingUp size={18} />,
+            label: 'Caixa Diário',
+            icon: <DollarSign size={18} />,
             component: (
-                <RevenueTab
+                <PaymentPage
                     patients={patients}
                     doctors={doctors}
-                    payments={initialPayments}
+                    initialPayments={initialPayments}
                     onMarkAsPaid={onMarkAsPaid}
                     registerAppointmentAndPayemntFuture={registerAppointmentAndPaymentFuture}
                     onCancelPayment={onCancelPayment}
@@ -108,6 +109,11 @@ const FinancialDashboard = ({
 
     // Tabs do modo ESTRATÉGICO (Gestão de Crescimento)
     const estrategicoTabs = [
+        {
+            label: 'Receitas',
+            icon: <TrendingUp size={18} />,
+            component: <RevenueTab />
+        },
         {
             label: 'Visão Geral',
             icon: <BarChart3 size={18} />,

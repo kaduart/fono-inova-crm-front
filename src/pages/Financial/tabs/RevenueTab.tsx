@@ -19,40 +19,22 @@ import {
     TrendingUp,
     Receipt,
     CalendarToday,
-    CompareArrows,
     ArrowUpward,
     ArrowDownward,
     Assessment,
+    TrendingDown,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import PaymentPage from '../../../components/financial/PaymentPage';
-import { FinancialRecord } from '../../../services/paymentService';
-import { IDoctor, IPatient } from '../../../utils/types/types';
 import { useFinancialOverview } from '../../../hooks/useFinancialOverview';
 
-interface RevenueTabProps {
-    patients: IPatient[];
-    doctors: IDoctor[];
-    payments: FinancialRecord[];
-    onMarkAsPaid: (payment: FinancialRecord) => void;
-    registerAppointmentAndPayemntFuture: (payment: FinancialRecord) => void;
-    onCancelPayment: (paymentId: string) => void;
-}
-
-const RevenueTab: React.FC<RevenueTabProps> = ({
-    patients,
-    doctors,
-    payments,
-    onMarkAsPaid,
-    registerAppointmentAndPayemntFuture,
-    onCancelPayment,
-}) => {
+// 🆕 RevenueTab Estratégico - Apenas análise e métricas (sem caixa diário)
+const RevenueTab: React.FC = () => {
     // Estado para filtros de mês/ano
     const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
-    // Hook de visão geral financeira
+    // Hook de visão geral financeira - busca da API
     const {
         data,
         loading,
@@ -66,32 +48,28 @@ const RevenueTab: React.FC<RevenueTabProps> = ({
         fetchOverview(currentMonth, currentYear, 'previous');
     }, [currentMonth, currentYear, fetchOverview]);
 
-    // Calcular métricas baseadas nos pagamentos do período selecionado
+    // Métricas calculadas dos dados da API
     const metrics = useMemo(() => {
-        const startOfMonth = new Date(currentYear, currentMonth - 1, 1);
-        const endOfMonth = new Date(currentYear, currentMonth, 0, 23, 59, 59);
-
-        // Filtrar pagamentos do período
-        const periodPayments = payments.filter(p => {
-            const paymentDate = new Date(p.date);
-            return paymentDate >= startOfMonth && paymentDate <= endOfMonth;
-        });
-
-        // Total de receita
-        const totalRevenue = periodPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-
-        // Número de transações
-        const transactionCount = periodPayments.length;
-
-        // Ticket médio
-        const averageTicket = transactionCount > 0 ? totalRevenue / transactionCount : 0;
+        if (!data?.metrics) {
+            return {
+                totalRevenue: 0,
+                transactionCount: 0,
+                averageTicket: 0,
+                particularRecebido: 0,
+                convenioRecebido: 0,
+                aReceber: 0,
+            };
+        }
 
         return {
-            totalRevenue,
-            transactionCount,
-            averageTicket,
+            totalRevenue: data.metrics.receita || 0,
+            transactionCount: data.metrics.totalTransacoes || 0,
+            averageTicket: data.metrics.ticketMedio || 0,
+            particularRecebido: data.metrics.particularRecebido || 0,
+            convenioRecebido: data.metrics.convenioRecebido || 0,
+            aReceber: data.metrics.aReceber || 0,
         };
-    }, [payments, currentMonth, currentYear]);
+    }, [data]);
 
     // Dados para os selects
     const months = Array.from({ length: 12 }, (_, i) => ({
@@ -102,7 +80,7 @@ const RevenueTab: React.FC<RevenueTabProps> = ({
     const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
 
     // Variação vs mês anterior (do hook)
-    const variationPercent = data?.variation?.receita || 0;
+    const variationPercent = data?.variacao?.receita || 0;
     const isPositiveVariation = variationPercent >= 0;
 
     return (
@@ -132,10 +110,10 @@ const RevenueTab: React.FC<RevenueTabProps> = ({
                         </Avatar>
                         <Box>
                             <Typography variant="h5" fontWeight="bold">
-                                Receitas
+                                Receitas - Visão Estratégica
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                                Gestão de pagamentos e acompanhamento financeiro
+                                Análise de receita, ticket médio e variações mensais
                             </Typography>
                         </Box>
                     </Box>
@@ -187,9 +165,9 @@ const RevenueTab: React.FC<RevenueTabProps> = ({
                     {/* Total Mês */}
                     <Grid item xs={12} sm={6} md={3}>
                         <SummaryCard
-                            title="Total Mês"
+                            title="Total Receita"
                             value={formatCurrency(metrics.totalRevenue)}
-                            subtitle={formatCurrency(data?.metrics?.receita || metrics.totalRevenue)}
+                            subtitle={`Particular: ${formatCurrency(metrics.particularRecebido)} | Convênio: ${formatCurrency(metrics.convenioRecebido)}`}
                             icon={<AttachMoney />}
                             color="#10B981"
                         />
@@ -211,7 +189,7 @@ const RevenueTab: React.FC<RevenueTabProps> = ({
                         <SummaryCard
                             title="Transações"
                             value={metrics.transactionCount.toString()}
-                            subtitle={`${metrics.transactionCount} pagamentos`}
+                            subtitle={`${metrics.transactionCount} pagamentos no período`}
                             icon={<CalendarToday />}
                             color="#8B5CF6"
                         />
@@ -258,7 +236,7 @@ const RevenueTab: React.FC<RevenueTabProps> = ({
                                         {isPositiveVariation ? (
                                             <TrendingUp sx={{ color: '#10B981' }} />
                                         ) : (
-                                            <ArrowDownward sx={{ color: '#EF4444' }} />
+                                            <TrendingDown sx={{ color: '#EF4444' }} />
                                         )}
                                     </Avatar>
                                 </Box>
@@ -284,15 +262,80 @@ const RevenueTab: React.FC<RevenueTabProps> = ({
                 </Grid>
             )}
 
-            {/* PaymentPage existente */}
-            <PaymentPage
-                patients={patients}
-                doctors={doctors}
-                initialPayments={payments}
-                onMarkAsPaid={onMarkAsPaid}
-                registerAppointmentAndPayemntFuture={registerAppointmentAndPayemntFuture}
-                onCancelPayment={onCancelPayment}
-            />
+            {/* Seção de Detalhamento */}
+            {!loading && data && (
+                <Grid container spacing={3}>
+                    {/* Breakdown por Tipo */}
+                    <Grid item xs={12} md={6}>
+                        <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
+                            <Typography variant="h6" fontWeight="bold" gutterBottom>
+                                Detalhamento por Tipo
+                            </Typography>
+                            <Box sx={{ mt: 2 }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, p: 2, bgcolor: '#F3F4F6', borderRadius: 1 }}>
+                                    <Typography>Particular Recebido</Typography>
+                                    <Typography fontWeight="bold" color="#10B981">
+                                        {formatCurrency(metrics.particularRecebido)}
+                                    </Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, p: 2, bgcolor: '#F3F4F6', borderRadius: 1 }}>
+                                    <Typography>Convênio Recebido</Typography>
+                                    <Typography fontWeight="bold" color="#0EA5E9">
+                                        {formatCurrency(metrics.convenioRecebido)}
+                                    </Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 2, bgcolor: '#FEF3C7', borderRadius: 1 }}>
+                                    <Typography>A Receber</Typography>
+                                    <Typography fontWeight="bold" color="#F59E0B">
+                                        {formatCurrency(metrics.aReceber)}
+                                    </Typography>
+                                </Box>
+                            </Box>
+                        </Paper>
+                    </Grid>
+
+                    {/* Insights */}
+                    <Grid item xs={12} md={6}>
+                        <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
+                            <Typography variant="h6" fontWeight="bold" gutterBottom>
+                                Insights
+                            </Typography>
+                            <Box sx={{ mt: 2 }}>
+                                {data.insights && data.insights.length > 0 ? (
+                                    data.insights.slice(0, 3).map((insight, idx) => (
+                                        <Box 
+                                            key={idx} 
+                                            sx={{ 
+                                                mb: 2, 
+                                                p: 2, 
+                                                borderRadius: 1,
+                                                bgcolor: insight.type === 'positive' ? '#10B98110' : 
+                                                         insight.type === 'warning' ? '#F59E0B10' : '#EF444410',
+                                                borderLeft: 4,
+                                                borderColor: insight.type === 'positive' ? '#10B981' : 
+                                                            insight.type === 'warning' ? '#F59E0B' : '#EF4444'
+                                            }}
+                                        >
+                                            <Typography fontWeight="bold" color="text.primary">
+                                                {insight.message}
+                                            </Typography>
+                                            <Typography variant="body2" color="text.secondary">
+                                                {insight.detail}
+                                            </Typography>
+                                        </Box>
+                                    ))
+                                ) : (
+                                    <Typography color="text.secondary">
+                                        Nenhum insight disponível para o período selecionado.
+                                    </Typography>
+                                )}
+                            </Box>
+                        </Paper>
+                    </Grid>
+                </Grid>
+            )}
+
+            {/* Nota: Caixa Diário movido para aba separada no modo Operacional */}
         </Box>
     );
 };
