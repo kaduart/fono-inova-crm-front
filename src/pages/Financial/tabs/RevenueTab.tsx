@@ -13,6 +13,7 @@ import {
     Paper,
     Skeleton,
     Chip,
+    Divider,
 } from '@mui/material';
 import {
     AttachMoney,
@@ -24,6 +25,8 @@ import {
     Assessment,
     TrendingDown,
     TrendingFlat,
+    AccountBalance,
+    Insights,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -81,11 +84,9 @@ const RevenueTab: React.FC = () => {
     const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
 
     // Variação vs mês anterior (do hook)
-    const variationPercent = data?.variacao?.receita || 0;
-    const isPositiveVariation = variationPercent >= 0;
-    
-    // Verifica se a variação é válida (evita mostrar valores absurdos quando não há dados do mês anterior)
-    const hasValidVariation = Math.abs(variationPercent) < 500 && Math.abs(variationPercent) > 0;
+    const variationPercent = data?.variacao?.receita;
+    const hasValidVariation = variationPercent !== null && variationPercent !== undefined;
+    const isPositiveVariation = hasValidVariation ? variationPercent >= 0 : false;
 
     return (
         <Box>
@@ -97,7 +98,8 @@ const RevenueTab: React.FC = () => {
                     mb: 3, 
                     border: '1px solid', 
                     borderColor: 'grey.200', 
-                    borderRadius: 2 
+                    borderRadius: 2,
+                    bgcolor: 'white'
                 }}
             >
                 <Box sx={{ 
@@ -110,13 +112,13 @@ const RevenueTab: React.FC = () => {
                     {/* Título */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                         <Avatar sx={{ bgcolor: '#10B981', width: 48, height: 48 }}>
-                            <Assessment sx={{ fontSize: 24, color: 'white' }} />
+                            <Assessment sx={{ fontSize: 24 }} />
                         </Avatar>
                         <Box>
-                            <Typography variant="h5" fontWeight="bold">
+                            <Typography variant="h5" fontWeight="bold" sx={{ color: '#1F2937' }}>
                                 Receitas - Visão Estratégica
                             </Typography>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" sx={{ color: '#6B7280' }}>
                                 Análise de receita, ticket médio e variações mensais
                             </Typography>
                         </Box>
@@ -130,6 +132,11 @@ const RevenueTab: React.FC = () => {
                                 value={currentMonth}
                                 label="Mês"
                                 onChange={(e) => setCurrentMonth(Number(e.target.value))}
+                                sx={{
+                                    borderRadius: 1.5,
+                                    '&:hover': { borderColor: '#10B981' },
+                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#10B981' }
+                                }}
                             >
                                 {months.map(m => (
                                     <MenuItem key={m.value} value={m.value}>
@@ -145,6 +152,11 @@ const RevenueTab: React.FC = () => {
                                 value={currentYear}
                                 label="Ano"
                                 onChange={(e) => setCurrentYear(Number(e.target.value))}
+                                sx={{
+                                    borderRadius: 1.5,
+                                    '&:hover': { borderColor: '#10B981' },
+                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#10B981' }
+                                }}
                             >
                                 {years.map(y => (
                                     <MenuItem key={y} value={y}>{y}</MenuItem>
@@ -157,23 +169,34 @@ const RevenueTab: React.FC = () => {
 
             {/* Cards de Resumo */}
             {loading ? (
-                <Grid container spacing={2.5} sx={{ mb: 3 }}>
+                <Grid container spacing={2.5} sx={{ mb: 4 }}>
                     {[1, 2, 3, 4].map(i => (
                         <Grid item xs={12} sm={6} md={3} key={i}>
-                            <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 2 }} />
+                            <Skeleton variant="rectangular" height={140} sx={{ borderRadius: 2 }} />
                         </Grid>
                     ))}
                 </Grid>
             ) : (
-                <Grid container spacing={2.5} sx={{ mb: 3 }}>
+                <Grid container spacing={2.5} sx={{ mb: 4 }}>
                     {/* Total Mês */}
                     <Grid item xs={12} sm={6} md={3}>
                         <SummaryCard
-                            title="Total Receita"
+                            title="Receita Total"
                             value={formatCurrency(metrics.totalRevenue)}
-                            subtitle={`Particular: ${formatCurrency(metrics.particularRecebido)} | Convênio: ${formatCurrency(metrics.convenioRecebido)}`}
                             icon={<AttachMoney />}
                             color="#10B981"
+                            bgColor="#10B98110"
+                            subtitle={
+                                <Box sx={{ mt: 1 }}>
+                                    <Box component="span" sx={{ color: '#10B981', fontWeight: 600 }}>
+                                        Particular: {formatCurrency(metrics.particularRecebido)}
+                                    </Box>
+                                    <br />
+                                    <Box component="span" sx={{ color: '#0EA5E9', fontWeight: 600 }}>
+                                        Convênio: {formatCurrency(metrics.convenioRecebido)}
+                                    </Box>
+                                </Box>
+                            }
                         />
                     </Grid>
 
@@ -182,9 +205,10 @@ const RevenueTab: React.FC = () => {
                         <SummaryCard
                             title="Ticket Médio"
                             value={formatCurrency(metrics.averageTicket)}
-                            subtitle={`Média por transação`}
                             icon={<Receipt />}
                             color="#0EA5E9"
+                            bgColor="#0EA5E910"
+                            subtitle={`Média por transação`}
                         />
                     </Grid>
 
@@ -193,9 +217,10 @@ const RevenueTab: React.FC = () => {
                         <SummaryCard
                             title="Transações"
                             value={metrics.transactionCount.toString()}
-                            subtitle={`${metrics.transactionCount} pagamentos no período`}
                             icon={<CalendarToday />}
                             color="#8B5CF6"
+                            bgColor="#8B5CF610"
+                            subtitle={`${metrics.transactionCount} pagamentos no período`}
                         />
                     </Grid>
 
@@ -215,10 +240,10 @@ const RevenueTab: React.FC = () => {
                                 }
                             }}
                         >
-                            <CardContent>
+                            <CardContent sx={{ p: 2.5 }}>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                                     <Box>
-                                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        <Typography variant="body2" sx={{ color: '#6B7280', fontWeight: 500, mb: 0.5 }}>
                                             vs Mês Anterior
                                         </Typography>
                                         <Typography 
@@ -230,7 +255,7 @@ const RevenueTab: React.FC = () => {
                                             }}
                                         >
                                             {hasValidVariation 
-                                                ? `${isPositiveVariation ? '+' : ''}${formatPercent(variationPercent * 100)}`
+                                                ? `${isPositiveVariation ? '+' : ''}${formatPercent(variationPercent)}`
                                                 : 'N/A'
                                             }
                                         </Typography>
@@ -238,30 +263,36 @@ const RevenueTab: React.FC = () => {
                                     <Avatar sx={{ 
                                         bgcolor: hasValidVariation ? (isPositiveVariation ? '#10B98115' : '#EF444415') : '#9CA3AF15', 
                                         width: 48, 
-                                        height: 48 
+                                        height: 48,
+                                        '& .MuiSvgIcon-root': {
+                                            color: hasValidVariation ? (isPositiveVariation ? '#10B981' : '#EF4444') : '#9CA3AF'
+                                        }
                                     }}>
                                         {hasValidVariation ? (
                                             isPositiveVariation ? (
-                                                <TrendingUp sx={{ color: '#10B981' }} />
+                                                <TrendingUp />
                                             ) : (
-                                                <TrendingDown sx={{ color: '#EF4444' }} />
+                                                <TrendingDown />
                                             )
                                         ) : (
-                                            <TrendingFlat sx={{ color: '#9CA3AF' }} />
+                                            <TrendingFlat />
                                         )}
                                     </Avatar>
                                 </Box>
                                 
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
                                     {hasValidVariation ? (
                                         <Chip
                                             size="small"
-                                            icon={isPositiveVariation ? <ArrowUpward /> : <ArrowDownward />}
-                                            label={`${Math.abs(variationPercent * 100).toFixed(1)}%`}
+                                            icon={isPositiveVariation ? <ArrowUpward sx={{ fontSize: 14 }} /> : <ArrowDownward sx={{ fontSize: 14 }} />}
+                                            label={`${Math.abs(variationPercent || 0).toFixed(1)}%`}
                                             sx={{
                                                 bgcolor: isPositiveVariation ? '#10B98110' : '#EF444410',
                                                 color: isPositiveVariation ? '#10B981' : '#EF4444',
                                                 fontWeight: 600,
+                                                fontSize: '0.75rem',
+                                                height: 24,
+                                                '& .MuiChip-icon': { fontSize: 14 }
                                             }}
                                         />
                                     ) : (
@@ -272,10 +303,12 @@ const RevenueTab: React.FC = () => {
                                                 bgcolor: '#9CA3AF10',
                                                 color: '#9CA3AF',
                                                 fontWeight: 600,
+                                                fontSize: '0.75rem',
+                                                height: 24
                                             }}
                                         />
                                     )}
-                                    <Typography variant="caption" color="text.secondary">
+                                    <Typography variant="caption" sx={{ color: '#6B7280' }}>
                                         {hasValidVariation 
                                             ? (isPositiveVariation ? 'Crescimento' : 'Redução') 
                                             : 'Mês anterior sem dados'
@@ -290,29 +323,79 @@ const RevenueTab: React.FC = () => {
 
             {/* Seção de Detalhamento */}
             {!loading && data && (
-                <Grid container spacing={3}>
+                <Grid container spacing={2.5}>
                     {/* Breakdown por Tipo */}
                     <Grid item xs={12} md={6}>
                         <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
-                            <Typography variant="h6" fontWeight="bold" gutterBottom>
-                                Detalhamento por Tipo
-                            </Typography>
-                            <Box sx={{ mt: 2 }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, p: 2, bgcolor: '#F3F4F6', borderRadius: 1 }}>
-                                    <Typography>Particular Recebido</Typography>
-                                    <Typography fontWeight="bold" color="#10B981">
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                                <Avatar sx={{ bgcolor: '#8B5CF610', width: 32, height: 32 }}>
+                                    <AccountBalance sx={{ fontSize: 18, color: '#8B5CF6' }} />
+                                </Avatar>
+                                <Typography variant="h6" fontWeight="bold" sx={{ color: '#1F2937' }}>
+                                    Detalhamento por Tipo
+                                </Typography>
+                            </Box>
+                            
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <Box sx={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center',
+                                    p: 2, 
+                                    bgcolor: '#F9FAFB', 
+                                    borderRadius: 1.5,
+                                    border: '1px solid',
+                                    borderColor: '#10B98130'
+                                }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Avatar sx={{ bgcolor: '#10B98115', width: 28, height: 28 }}>
+                                            <AttachMoney sx={{ fontSize: 16, color: '#10B981' }} />
+                                        </Avatar>
+                                        <Typography fontWeight="500">Particular Recebido</Typography>
+                                    </Box>
+                                    <Typography fontWeight="bold" sx={{ color: '#10B981', fontSize: '1.1rem' }}>
                                         {formatCurrency(metrics.particularRecebido)}
                                     </Typography>
                                 </Box>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, p: 2, bgcolor: '#F3F4F6', borderRadius: 1 }}>
-                                    <Typography>Convênio Recebido</Typography>
-                                    <Typography fontWeight="bold" color="#0EA5E9">
+
+                                <Box sx={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center',
+                                    p: 2, 
+                                    bgcolor: '#F9FAFB', 
+                                    borderRadius: 1.5,
+                                    border: '1px solid',
+                                    borderColor: '#0EA5E930'
+                                }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Avatar sx={{ bgcolor: '#0EA5E915', width: 28, height: 28 }}>
+                                            <Receipt sx={{ fontSize: 16, color: '#0EA5E9' }} />
+                                        </Avatar>
+                                        <Typography fontWeight="500">Convênio Recebido</Typography>
+                                    </Box>
+                                    <Typography fontWeight="bold" sx={{ color: '#0EA5E9', fontSize: '1.1rem' }}>
                                         {formatCurrency(metrics.convenioRecebido)}
                                     </Typography>
                                 </Box>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 2, bgcolor: '#FEF3C7', borderRadius: 1 }}>
-                                    <Typography>A Receber</Typography>
-                                    <Typography fontWeight="bold" color="#F59E0B">
+
+                                <Box sx={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center',
+                                    p: 2, 
+                                    bgcolor: '#FEF3C7', 
+                                    borderRadius: 1.5,
+                                    border: '1px solid',
+                                    borderColor: '#F59E0B30'
+                                }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Avatar sx={{ bgcolor: '#F59E0B15', width: 28, height: 28 }}>
+                                            <CalendarToday sx={{ fontSize: 16, color: '#F59E0B' }} />
+                                        </Avatar>
+                                        <Typography fontWeight="500">A Receber</Typography>
+                                    </Box>
+                                    <Typography fontWeight="bold" sx={{ color: '#F59E0B', fontSize: '1.1rem' }}>
                                         {formatCurrency(metrics.aReceber)}
                                     </Typography>
                                 </Box>
@@ -323,45 +406,60 @@ const RevenueTab: React.FC = () => {
                     {/* Insights */}
                     <Grid item xs={12} md={6}>
                         <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
-                            <Typography variant="h6" fontWeight="bold" gutterBottom>
-                                Insights
-                            </Typography>
-                            <Box sx={{ mt: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                                <Avatar sx={{ bgcolor: '#8B5CF610', width: 32, height: 32 }}>
+                                    <Insights sx={{ fontSize: 18, color: '#8B5CF6' }} />
+                                </Avatar>
+                                <Typography variant="h6" fontWeight="bold" sx={{ color: '#1F2937' }}>
+                                    Insights
+                                </Typography>
+                            </Box>
+                            
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                 {data.insights && data.insights.length > 0 ? (
                                     data.insights.slice(0, 3).map((insight, idx) => (
                                         <Box 
                                             key={idx} 
                                             sx={{ 
-                                                mb: 2, 
-                                                p: 2, 
-                                                borderRadius: 1,
-                                                bgcolor: insight.type === 'positive' ? '#10B98110' : 
-                                                         insight.type === 'warning' ? '#F59E0B10' : '#EF444410',
+                                                p: 2.5, 
+                                                borderRadius: 1.5,
+                                                bgcolor: insight.type === 'positive' ? '#10B98108' : 
+                                                         insight.type === 'warning' ? '#F59E0B08' : '#EF444408',
                                                 borderLeft: 4,
                                                 borderColor: insight.type === 'positive' ? '#10B981' : 
-                                                            insight.type === 'warning' ? '#F59E0B' : '#EF4444'
+                                                            insight.type === 'warning' ? '#F59E0B' : '#EF4444',
+                                                transition: 'all 0.2s',
+                                                '&:hover': {
+                                                    bgcolor: insight.type === 'positive' ? '#10B98115' : 
+                                                             insight.type === 'warning' ? '#F59E0B15' : '#EF444415',
+                                                }
                                             }}
                                         >
-                                            <Typography fontWeight="bold" color="text.primary">
+                                            <Typography fontWeight="bold" sx={{ color: '#1F2937', mb: 0.5 }}>
                                                 {insight.message}
                                             </Typography>
-                                            <Typography variant="body2" color="text.secondary">
+                                            <Typography variant="body2" sx={{ color: '#6B7280' }}>
                                                 {insight.detail}
                                             </Typography>
                                         </Box>
                                     ))
                                 ) : (
-                                    <Typography color="text.secondary">
-                                        Nenhum insight disponível para o período selecionado.
-                                    </Typography>
+                                    <Box sx={{ 
+                                        p: 4, 
+                                        textAlign: 'center',
+                                        bgcolor: '#F9FAFB',
+                                        borderRadius: 1.5
+                                    }}>
+                                        <Typography sx={{ color: '#6B7280' }}>
+                                            Nenhum insight disponível para o período selecionado.
+                                        </Typography>
+                                    </Box>
                                 )}
                             </Box>
                         </Paper>
                     </Grid>
                 </Grid>
             )}
-
-            {/* Nota: Caixa Diário movido para aba separada no modo Operacional */}
         </Box>
     );
 };
@@ -370,12 +468,13 @@ const RevenueTab: React.FC = () => {
 interface SummaryCardProps {
     title: string;
     value: string;
-    subtitle: string;
     icon: React.ReactNode;
     color: string;
+    bgColor?: string;
+    subtitle?: string | React.ReactNode;
 }
 
-const SummaryCard = ({ title, value, subtitle, icon, color }: SummaryCardProps) => (
+const SummaryCard = ({ title, value, icon, color, bgColor = 'white', subtitle }: SummaryCardProps) => (
     <Card 
         elevation={0} 
         sx={{ 
@@ -391,10 +490,10 @@ const SummaryCard = ({ title, value, subtitle, icon, color }: SummaryCardProps) 
             }
         }}
     >
-        <CardContent>
+        <CardContent sx={{ p: 2.5 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                 <Box>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                    <Typography variant="body2" sx={{ color: '#6B7280', fontWeight: 500, mb: 0.5 }}>
                         {title}
                     </Typography>
                     <Typography 
@@ -402,7 +501,8 @@ const SummaryCard = ({ title, value, subtitle, icon, color }: SummaryCardProps) 
                         fontWeight="bold" 
                         sx={{ 
                             color,
-                            lineHeight: 1.2 
+                            lineHeight: 1.2,
+                            fontSize: { xs: '1.5rem', sm: '1.75rem' }
                         }}
                     >
                         {value}
@@ -413,16 +513,19 @@ const SummaryCard = ({ title, value, subtitle, icon, color }: SummaryCardProps) 
                     width: 48, 
                     height: 48,
                     '& .MuiSvgIcon-root': {
-                        color: color
+                        color: color,
+                        fontSize: 24
                     }
                 }}>
                     {icon}
                 </Avatar>
             </Box>
             
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                {subtitle}
-            </Typography>
+            {subtitle && (
+                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block' }}>
+                    {subtitle}
+                </Typography>
+            )}
         </CardContent>
     </Card>
 );

@@ -131,7 +131,7 @@ export function useFinancialOverview(): UseFinancialOverviewReturn {
             despesas: metrics.despesas,
             lucro: metrics.lucro,
             margem: metrics.margem,
-            ticketMedio: metrics.countReceitas > 0 ? metrics.receita / metrics.countReceitas : 0,
+            ticketMedio: metrics.ticketMedio || 0,
             totalTransacoes: metrics.countReceitas || 0,
             meta: metrics.meta,
             metaPercent: metrics.metaPercent,
