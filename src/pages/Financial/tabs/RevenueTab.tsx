@@ -23,6 +23,7 @@ import {
     ArrowDownward,
     Assessment,
     TrendingDown,
+    TrendingFlat,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -82,6 +83,9 @@ const RevenueTab: React.FC = () => {
     // Variação vs mês anterior (do hook)
     const variationPercent = data?.variacao?.receita || 0;
     const isPositiveVariation = variationPercent >= 0;
+    
+    // Verifica se a variação é válida (evita mostrar valores absurdos quando não há dados do mês anterior)
+    const hasValidVariation = Math.abs(variationPercent) < 500 && Math.abs(variationPercent) > 0;
 
     return (
         <Box>
@@ -201,13 +205,13 @@ const RevenueTab: React.FC = () => {
                             elevation={0} 
                             sx={{ 
                                 border: '1px solid', 
-                                borderColor: isPositiveVariation ? '#10B98130' : '#EF444430', 
+                                borderColor: hasValidVariation ? (isPositiveVariation ? '#10B98130' : '#EF444430') : '#9CA3AF30', 
                                 borderRadius: 2, 
                                 height: '100%',
                                 transition: 'all 0.2s',
                                 '&:hover': {
-                                    boxShadow: `0 4px 12px ${isPositiveVariation ? '#10B98120' : '#EF444420'}`,
-                                    borderColor: isPositiveVariation ? '#10B981' : '#EF4444'
+                                    boxShadow: `0 4px 12px ${hasValidVariation ? (isPositiveVariation ? '#10B98120' : '#EF444420') : '#9CA3AF20'}`,
+                                    borderColor: hasValidVariation ? (isPositiveVariation ? '#10B981' : '#EF4444') : '#9CA3AF'
                                 }
                             }}
                         >
@@ -221,39 +225,61 @@ const RevenueTab: React.FC = () => {
                                             variant="h4" 
                                             fontWeight="bold" 
                                             sx={{ 
-                                                color: isPositiveVariation ? '#10B981' : '#EF4444',
+                                                color: hasValidVariation ? (isPositiveVariation ? '#10B981' : '#EF4444') : '#9CA3AF',
                                                 lineHeight: 1.2 
                                             }}
                                         >
-                                            {isPositiveVariation ? '+' : ''}{formatPercent(variationPercent * 100)}
+                                            {hasValidVariation 
+                                                ? `${isPositiveVariation ? '+' : ''}${formatPercent(variationPercent * 100)}`
+                                                : 'N/A'
+                                            }
                                         </Typography>
                                     </Box>
                                     <Avatar sx={{ 
-                                        bgcolor: isPositiveVariation ? '#10B98115' : '#EF444415', 
+                                        bgcolor: hasValidVariation ? (isPositiveVariation ? '#10B98115' : '#EF444415') : '#9CA3AF15', 
                                         width: 48, 
                                         height: 48 
                                     }}>
-                                        {isPositiveVariation ? (
-                                            <TrendingUp sx={{ color: '#10B981' }} />
+                                        {hasValidVariation ? (
+                                            isPositiveVariation ? (
+                                                <TrendingUp sx={{ color: '#10B981' }} />
+                                            ) : (
+                                                <TrendingDown sx={{ color: '#EF4444' }} />
+                                            )
                                         ) : (
-                                            <TrendingDown sx={{ color: '#EF4444' }} />
+                                            <TrendingFlat sx={{ color: '#9CA3AF' }} />
                                         )}
                                     </Avatar>
                                 </Box>
                                 
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Chip
-                                        size="small"
-                                        icon={isPositiveVariation ? <ArrowUpward /> : <ArrowDownward />}
-                                        label={`${Math.abs(variationPercent * 100).toFixed(1)}%`}
-                                        sx={{
-                                            bgcolor: isPositiveVariation ? '#10B98110' : '#EF444410',
-                                            color: isPositiveVariation ? '#10B981' : '#EF4444',
-                                            fontWeight: 600,
-                                        }}
-                                    />
+                                    {hasValidVariation ? (
+                                        <Chip
+                                            size="small"
+                                            icon={isPositiveVariation ? <ArrowUpward /> : <ArrowDownward />}
+                                            label={`${Math.abs(variationPercent * 100).toFixed(1)}%`}
+                                            sx={{
+                                                bgcolor: isPositiveVariation ? '#10B98110' : '#EF444410',
+                                                color: isPositiveVariation ? '#10B981' : '#EF4444',
+                                                fontWeight: 600,
+                                            }}
+                                        />
+                                    ) : (
+                                        <Chip
+                                            size="small"
+                                            label="Sem dados"
+                                            sx={{
+                                                bgcolor: '#9CA3AF10',
+                                                color: '#9CA3AF',
+                                                fontWeight: 600,
+                                            }}
+                                        />
+                                    )}
                                     <Typography variant="caption" color="text.secondary">
-                                        {isPositiveVariation ? 'Crescimento' : 'Redução'}
+                                        {hasValidVariation 
+                                            ? (isPositiveVariation ? 'Crescimento' : 'Redução') 
+                                            : 'Mês anterior sem dados'
+                                        }
                                     </Typography>
                                 </Box>
                             </CardContent>
