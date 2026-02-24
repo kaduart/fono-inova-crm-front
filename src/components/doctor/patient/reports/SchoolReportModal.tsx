@@ -594,10 +594,10 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
                         </div>
                     </div>
 
-                    <div className="flex h-[600px]">
+                    <div className="flex flex-col md:flex-row md:h-[600px]">
                         {/* Sidebar - Sections */}
-                        <div className="w-64 border-r border-gray-200 bg-gray-50 p-4 overflow-y-auto">
-                            <div className="space-y-2">
+                        <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-gray-200 bg-gray-50 p-3 md:p-4 overflow-x-auto md:overflow-x-visible md:overflow-y-auto flex-shrink-0">
+                            <div className="flex gap-2 md:flex-col md:space-y-2 md:gap-0">
                                 {sections.map((section) => {
                                     const isActive = section.id === activeSection;
                                     const Icon = section.icon;
@@ -606,18 +606,18 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
                                         <button
                                             key={section.id}
                                             onClick={() => setActiveSection(section.id)}
-                                            className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-all ${isActive
+                                            className={`flex-shrink-0 min-w-[120px] md:min-w-0 md:w-full flex items-center gap-2 md:gap-3 px-3 py-2 md:py-3 rounded-lg text-left transition-all ${isActive
                                                     ? 'bg-white shadow-sm border border-green-200 text-green-700'
                                                     : 'text-gray-600 hover:bg-gray-100'
                                                 }`}
                                         >
-                                            <div className={`p-2 rounded-lg ${isActive ? 'bg-green-100' : 'bg-gray-100'
+                                            <div className={`p-2 rounded-lg shrink-0 ${isActive ? 'bg-green-100' : 'bg-gray-100'
                                                 }`}>
                                                 <Icon className={`w-4 h-4 ${isActive ? 'text-green-600' : 'text-gray-600'
                                                     }`} />
                                             </div>
-                                            <div className="flex-1">
-                                                <div className="text-sm font-medium">{section.label}</div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-xs md:text-sm font-medium truncate">{section.label}</div>
                                             </div>
                                         </button>
                                     );

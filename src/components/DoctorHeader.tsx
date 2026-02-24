@@ -5,10 +5,12 @@ import {
     FileText,
     Home,
     LogOut,
+    Menu,
     MessageCircle,
     Stethoscope,
     User,
-    Users
+    Users,
+    X
 } from "lucide-react";
 import React, { useState } from "react";
 import { BsSoundwave } from "react-icons/bs";
@@ -32,6 +34,7 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
     const { logout: authLogout } = useAuth();
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
     const [openMenu, setOpenMenu] = useState('');
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const handleLogout = async () => {
         await authLogout();
@@ -49,6 +52,11 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
     const handleTabChange = (tab: string) => {
         onTabChange(tab);
         setOpenMenu(''); // Fecha menus abertos
+    };
+
+    const handleMobileTabChange = (tab: string) => {
+        onTabChange(tab);
+        setIsMobileMenuOpen(false);
     };
 
     const toggleMenu = (menuName: string) => {
@@ -115,7 +123,7 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
                                 <span className="text-xl font-bold text-white">
                                     Fono Inova
                                 </span>
-                                <span className="text-xs text-emerald-100 font-medium">
+                                <span className="hidden sm:block text-xs text-emerald-100 font-medium">
                                     Portal do Médico
                                 </span>
                             </div>
@@ -201,13 +209,23 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
                         </NavButton>
                     </nav>
 
-                    {/* Perfil */}
+                    {/* Perfil + Hamburguer */}
+                    <div className="flex items-center gap-2">
+                        {/* Hamburguer - só no mobile */}
+                        <button
+                            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                            className="md:hidden p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+                            aria-label="Menu"
+                        >
+                            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                        </button>
+
                     <div className="relative">
                         <button
                             onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
                             className="flex items-center space-x-3 p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-200 group shadow-md"
                         >
-                            <div className="flex flex-col items-end">
+                            <div className="hidden sm:flex flex-col items-end">
                                 <span className="text-sm font-medium">
                                     Dr(a). {doctorInfo?.fullName?.split(' ')[0] || "Médico"}
                                 </span>
@@ -257,7 +275,44 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
                             </div>
                         )}
                     </div>
+                    </div>{/* fecha flex items-center gap-2 */}
                 </div>
+
+                {/* Menu Mobile */}
+                {isMobileMenuOpen && (
+                    <div className="md:hidden border-t border-emerald-600 pt-3 mt-3 pb-2 space-y-1">
+                        <button onClick={() => handleMobileTabChange("overview")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "overview" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
+                            <Home size={18} className="text-blue-400" /> Dashboard
+                        </button>
+                        <button onClick={() => handleMobileTabChange("patients")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "patients" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
+                            <Users size={18} className="text-purple-400" /> Pacientes
+                        </button>
+                        <button onClick={() => handleMobileTabChange("therapy")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "therapy" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
+                            <Stethoscope size={18} className="text-green-400" /> Evolução
+                        </button>
+                        <button onClick={() => handleMobileTabChange("appointments")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "appointments" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
+                            <Calendar size={18} className="text-amber-400" /> Agenda
+                        </button>
+                        <p className="px-3 pt-2 pb-1 text-xs text-emerald-300 font-semibold uppercase tracking-wide">Relatórios</p>
+                        <button onClick={() => handleMobileTabChange("reports")} className={`flex items-center gap-3 w-full px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "reports" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
+                            <FileText size={18} className="text-cyan-400" /> Relatórios Clínicos
+                        </button>
+                        <button onClick={() => handleMobileTabChange("attendance")} className={`flex items-center gap-3 w-full px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "attendance" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
+                            <Users size={18} className="text-purple-400" /> Frequência
+                        </button>
+                        <button onClick={() => handleMobileTabChange("messages")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "messages" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
+                            <MessageCircle size={18} className="text-emerald-400" /> Mensagens
+                        </button>
+                        <div className="border-t border-emerald-600 mt-2 pt-2">
+                            <button onClick={() => { handleMobileTabChange("profile"); }} className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-emerald-100 hover:bg-emerald-700 transition-colors">
+                                <User size={18} className="text-emerald-300" /> Meu Perfil
+                            </button>
+                            <button onClick={handleLogout} className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-red-300 hover:bg-red-900/30 transition-colors">
+                                <LogOut size={18} /> Sair do Sistema
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </header>
     );

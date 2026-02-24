@@ -110,8 +110,8 @@ export const SessionModal = ({
                 </div>
 
                 {/* Corpo do formulário */}
-                <div className="p-6 max-h-[70vh] overflow-y-auto">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="p-4 sm:p-6 max-h-[70vh] overflow-y-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                         {/* Coluna Esquerda - Informações Principais */}
                         <div className="space-y-6">
                             {/* Profissional */}
@@ -135,7 +135,7 @@ export const SessionModal = ({
                             </div>
 
                             {/* Data e Hora */}
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-3 sm:gap-4">
                                 <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
                                     <label className="block mb-3 text-sm font-semibold text-gray-700 flex items-center gap-2">
                                         <Calendar className="w-4 h-4 text-blue-600" />
@@ -200,7 +200,7 @@ export const SessionModal = ({
                             </div>
 
                             {/* Status e Tipo */}
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-3 sm:gap-4">
                                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
                                     <label className="block mb-2 text-sm font-medium text-gray-700">Tipo de Sessão</label>
                                     <Select

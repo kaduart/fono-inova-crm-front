@@ -60,7 +60,7 @@ export function WhatsAppDiagnostic() {
             {data && (
                 <>
                     {/* Cards de Resumo */}
-                    <div className="grid grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div className="bg-white p-4 rounded-lg shadow">
                             <div className="text-sm text-gray-600">Leads no Banco</div>
                             <div className="text-2xl font-bold">{data.mongoLeads}</div>

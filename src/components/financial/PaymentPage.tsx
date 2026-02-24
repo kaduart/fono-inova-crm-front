@@ -502,24 +502,24 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                         ) : (
                             <Paper elevation={0} sx={{ borderRadius: 2, overflow: 'hidden', border: 1, borderColor: 'grey.200' }}>
                                 <div className="overflow-x-auto">
-                                    <table className="w-full min-w-[1000px]">
+                                    <table className="w-full min-w-[700px]">
                                         <thead className="bg-gray-50">
                                             <tr>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Paciente</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Profissional</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Agendamento</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Sessões</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tipo</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Valor</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Método</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ações</th>
+                                                <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Paciente</th>
+                                                <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hidden sm:table-cell">Profissional</th>
+                                                <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hidden md:table-cell">Agendamento</th>
+                                                <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hidden lg:table-cell">Sessões</th>
+                                                <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hidden lg:table-cell">Tipo</th>
+                                                <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Valor</th>
+                                                <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                                                <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hidden sm:table-cell">Método</th>
+                                                <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ações</th>
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-200">
                                             {currentPayments.map(payment => (
                                                 <tr key={payment._id} className="hover:bg-gray-50 transition-colors">
-                                                    <td className="px-4 py-3 text-sm text-gray-900 max-w-[150px] truncate" title={payment.patient?.fullName}>
+                                                    <td className="px-2 py-2 sm:px-4 sm:py-3 text-sm text-gray-900 max-w-[120px] truncate" title={payment.patient?.fullName}>
                                                         <span
                                                             className="cursor-pointer hover:text-blue-600 hover:underline font-medium"
                                                             onClick={() => payment.patient?._id && handleOpen360(payment.patient._id)}
@@ -527,26 +527,26 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                                             {payment.patient?.fullName}
                                                         </span>
                                                     </td>
-                                                    <td className="px-4 py-3 text-sm text-gray-600 max-w-[150px] truncate" title={payment.doctor?.fullName}>
+                                                    <td className="px-2 py-2 sm:px-4 sm:py-3 text-sm text-gray-600 max-w-[120px] truncate hidden sm:table-cell" title={payment.doctor?.fullName}>
                                                         {payment.doctor?.fullName}
                                                     </td>
-                                                    <td className="px-4 py-3 text-sm text-gray-600">
+                                                    <td className="px-2 py-2 sm:px-4 sm:py-3 text-sm text-gray-600 hidden md:table-cell">
                                                         {payment && payment.appointment
                                                             ? `${formatDateToDMY(payment.appointment.date)} às ${payment.appointment.time}`
                                                             : 'Pacote'}
                                                     </td>
-                                                    <td className="px-4 py-3 text-sm text-gray-600 text-center">
+                                                    <td className="px-2 py-2 sm:px-4 sm:py-3 text-sm text-gray-600 text-center hidden lg:table-cell">
                                                         {payment && payment.advancedSessions?.length > 0 ? payment.advancedSessions.length : '0'}
                                                     </td>
-                                                    <td className="px-4 py-3 text-sm text-gray-600">
+                                                    <td className="px-2 py-2 sm:px-4 sm:py-3 text-sm text-gray-600 hidden lg:table-cell">
                                                         {getServiceTypeLabel(payment.serviceType)}
                                                     </td>
-                                                    <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                                                    <td className="px-2 py-2 sm:px-4 sm:py-3 text-sm font-semibold text-gray-900">
                                                         {payment.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                                     </td>
-                                                    <td className="px-4 py-3">
+                                                    <td className="px-2 py-2 sm:px-4 sm:py-3">
                                                         <span
-                                                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${payment.status === 'paid'
+                                                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${payment.status === 'paid'
                                                                 ? 'bg-green-100 text-green-800'
                                                                 : payment.status === 'partial'
                                                                     ? 'bg-orange-100 text-orange-800'
@@ -564,10 +564,10 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                                                         : 'CANCELADO'}
                                                         </span>
                                                     </td>
-                                                    <td className="px-4 py-3 text-sm text-gray-600">
+                                                    <td className="px-2 py-2 sm:px-4 sm:py-3 text-sm text-gray-600 hidden sm:table-cell">
                                                         {payment.paymentMethod}
                                                     </td>
-                                                    <td className="px-4 text-sm font-medium ">
+                                                    <td className="px-2 py-2 sm:px-4 text-sm font-medium">
                                                         <PaymentActionIcons
                                                             payment={payment}
                                                             onMarkAsPaid={() => onMarkAsPaid(payment)}

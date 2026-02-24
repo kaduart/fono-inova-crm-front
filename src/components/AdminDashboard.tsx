@@ -1,5 +1,5 @@
 import { Paper, Typography, useTheme } from '@mui/material';
-import { BarChart3 } from "lucide-react";
+import { BarChart3, CalendarPlus } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -622,9 +622,19 @@ export default function AdminDashboard() {
                 return <ManageDoctors {...manageDoctorsProps} />;
             case 'Calendário':
                 return (
-                    <Suspense fallback={<TabSkeleton />}>
-                        <EnhancedCalendar {...calendarProps} />
-                    </Suspense>
+                    <>
+                        <div className="flex justify-end mb-3">
+                            <button
+                                onClick={() => setActiveTab('Pré-Agendamentos')}
+                                className="flex items-center gap-2 bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-xl text-sm font-medium shadow transition-colors"
+                            >
+                                <CalendarPlus size={16} /> Pré-Agendamentos
+                            </button>
+                        </div>
+                        <Suspense fallback={<TabSkeleton />}>
+                            <EnhancedCalendar {...calendarProps} />
+                        </Suspense>
+                    </>
                 );
             case 'Financeiro':
                 return (
@@ -673,7 +683,7 @@ export default function AdminDashboard() {
                 onLogout={handleLogout}
             />
 
-            <main className="max-w-[95%] lg:max-w-[85rem] mx-auto px-8 py-0">
+            <main className="max-w-[95%] lg:max-w-[85rem] mx-auto px-2 sm:px-4 lg:px-8 py-0 overflow-x-hidden">
 
                 {/* <div className="mb-6 flex justify-between items-center">
                     <h2 className="text-2xl font-bold text-gray-900">
@@ -681,12 +691,12 @@ export default function AdminDashboard() {
                     </h2>
                 </div> */}
 
-                <div className="bg-white rounded-lg shadow-sm space-y-6 p-6 overflow-hidden">
+                <div className="bg-white rounded-lg shadow-sm space-y-6 p-2 sm:p-6 overflow-hidden">
                     {activeTab === 'Dashboard' && (
                         <Paper
                             elevation={2}
                             sx={{
-                                p: 4,
+                                p: { xs: 2, md: 4 },
                                 mb: 4,
                                 mt: 2,
                                 borderRadius: 3,

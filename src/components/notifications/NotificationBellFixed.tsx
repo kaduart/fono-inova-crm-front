@@ -223,10 +223,10 @@ export const NotificationBellFixed: React.FC = () => {
       {/* Dropdown */}
       {isOpen && (
         <div style={{
-          position: 'absolute',
-          right: 0,
-          top: '45px',
-          width: '380px',
+          position: 'fixed',
+          right: '8px',
+          top: '60px',
+          width: 'min(380px, calc(100vw - 16px))',
           background: 'white',
           borderRadius: '12px',
           boxShadow: '0 20px 50px rgba(0,0,0,0.25)',

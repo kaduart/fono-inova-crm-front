@@ -463,10 +463,10 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                         </div>
                     </div>
 
-                    <div className="flex h-[600px]">
+                    <div className="flex flex-col md:flex-row md:h-[600px]">
                         {/* Sidebar - Steps */}
-                        <div className="w-64 border-r border-gray-200 bg-gray-50 p-4 overflow-y-auto">
-                            <div className="space-y-2">
+                        <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-gray-200 bg-gray-50 p-3 md:p-4 overflow-x-auto md:overflow-x-visible md:overflow-y-auto flex-shrink-0">
+                            <div className="flex gap-2 md:flex-col md:space-y-2 md:gap-0">
                                 {steps.map((step, index) => {
                                     const isActive = index === activeStep;
                                     const isCompleted = completed[index];
@@ -476,7 +476,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                                         <button
                                             key={index}
                                             onClick={() => setActiveStep(index)}
-                                            className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-all ${isActive
+                                            className={`flex-shrink-0 min-w-[130px] md:min-w-0 md:w-full flex items-center gap-2 md:gap-3 px-3 py-2 md:py-3 rounded-lg text-left transition-all ${isActive
                                                 ? 'bg-white shadow-sm border border-blue-200 text-blue-700'
                                                 : isCompleted
                                                     ? 'bg-green-50 text-green-700 hover:bg-green-100'
@@ -489,12 +489,12 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                                                     ? 'bg-green-100'
                                                     : 'bg-gray-100'
                                                 }`}>
-                                                <Icon className={`w-4 h-4 ${isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : step.color
+                                                <Icon className={`w-4 h-4 ${isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : step.bgColor
                                                     }`} />
                                             </div>
-                                            <div className="flex-1">
-                                                <div className="text-sm font-medium">{step.label}</div>
-                                                <div className={`text-xs ${isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-500'
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-xs md:text-sm font-medium truncate">{step.label}</div>
+                                                <div className={`text-xs hidden md:block ${isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-500'
                                                     }`}>
                                                     {isCompleted ? 'Concluído' : isActive ? 'Atual' : 'Pendente'}
                                                 </div>

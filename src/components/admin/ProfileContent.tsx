@@ -50,7 +50,7 @@ const ProfileContent: React.FC<ProfileContentProps> = ({
             </CardHeader>
             <CardContent>
                 <form className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="fullName">Nome Completo</Label>
                             <Input

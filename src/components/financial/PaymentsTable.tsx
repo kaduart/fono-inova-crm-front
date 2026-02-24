@@ -75,7 +75,8 @@ export function PaymentsTable({ filters }: PaymentsTableProps) {
                 </button>
             </div>
 
-            <table className="w-full table-auto border">
+            <div className="overflow-x-auto">
+            <table className="w-full table-auto border min-w-[600px]">
                 <thead>
                     <tr>
                         <th className="px-2 py-1">Paciente</th>
@@ -120,6 +121,7 @@ export function PaymentsTable({ filters }: PaymentsTableProps) {
                     ))}
                 </tbody>
             </table>
+            </div>
         </div>
     );
 }

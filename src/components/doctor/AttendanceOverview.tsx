@@ -128,7 +128,7 @@ export default function AttendanceOverview({ doctorId }: { doctorId: string }) {
                             }}
                         />
 
-                        <div className="grid grid-cols-5 text-sm text-gray-600">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-y-1 text-sm text-gray-600">
                             <span>Total: {item.total}</span>
                             <span>Presenças: {item.attended}</span>
                             <span>Faltas: {item.missed}</span>

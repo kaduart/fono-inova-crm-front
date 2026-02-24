@@ -116,7 +116,7 @@ const SignUp = () => {
   return (
     <div className='min-h-screen flex flex-row'>
       {/* Lado Esquerdo - Slideshow de Imagens */}
-      <div className="w-1/2 bg-white flex justify-center items-center relative h-screen overflow-hidden">
+      <div className="hidden md:flex w-1/2 bg-white justify-center items-center relative h-screen overflow-hidden">
         <div className="flex flex-col justify-center items-center gap-5">
           {/* Container do Slideshow */}
           <div className="relative h-[50vh] w-[50vh]">
@@ -139,7 +139,7 @@ const SignUp = () => {
       </div>
 
       {/* Lado Direito - Formulário de Cadastro */}
-      <div className="w-1/2 bg-gradient-to-br from-green-600 to-emerald-700 flex items-center justify-center p-4">
+      <div className="w-full md:w-1/2 bg-gradient-to-br from-green-600 to-emerald-700 flex items-center justify-center p-4 min-h-screen">
         <div className="w-full max-w-md">
           <div className="bg-transparent text-white p-6">
             <h2 className="text-2xl font-bold text-center">Cadastre-se como Paciente</h2>

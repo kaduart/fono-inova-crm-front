@@ -105,11 +105,11 @@ const AppointmentsSection: React.FC<AppointmentsSectionProps> = ({ calendarEvent
 
     return (
         <div className="bg-white rounded-3xl border-2 border-gray-200 shadow-2xl overflow-hidden">
-            <div className="bg-gradient-to-r from-green-600 via-green-500 to-cyan-500 p-8">
+            <div className="bg-gradient-to-r from-green-600 via-green-500 to-cyan-500 p-4 sm:p-8">
                 <div className="flex items-center gap-3">
-                    <Calendar className="h-8 w-8 text-white" />
+                    <Calendar className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
                     <div>
-                        <h2 className="text-3xl font-bold text-white">Calendário de Agendamentos</h2>
+                        <h2 className="text-xl sm:text-3xl font-bold text-white">Calendário de Agendamentos</h2>
                         <p className="text-green-100 text-sm mt-1">
                             Clique nos eventos para ver detalhes completos
                         </p>
@@ -117,8 +117,8 @@ const AppointmentsSection: React.FC<AppointmentsSectionProps> = ({ calendarEvent
                 </div>
             </div>
 
-            <div className="p-8">
-                <div className="bg-gradient-to-br from-gray-50 to-white rounded-2xl border-2 border-gray-100 p-6 shadow-inner">
+            <div className="p-2 sm:p-8">
+                <div className="bg-gradient-to-br from-gray-50 to-white rounded-2xl border-2 border-gray-100 p-2 sm:p-6 shadow-inner">
                     <FullCalendar
                         ref={calendarRef}
                         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}

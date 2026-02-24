@@ -883,7 +883,7 @@ const TimelineSlot = ({ slot, isExpanded, onToggle, onClick, formatCurrency, isF
                     </div>
 
                     {/* Estatísticas rápidas - mais visuais */}
-                    <div className="grid grid-cols-4 gap-6 text-sm">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 text-sm">
                         <div className="text-center">
                             <div className="text-green-600 font-bold text-lg">{slot.stats.confirmed}</div>
                             <div className="text-gray-500 text-xs uppercase tracking-wide">Confirmadas</div>

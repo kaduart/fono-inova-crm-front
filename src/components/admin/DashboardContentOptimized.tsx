@@ -221,7 +221,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
         return (
             <div className="space-y-6">
                 {/* Skeleton Loading */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
                     <MetricCardSkeleton />
                     <MetricCardSkeleton />
                     <MetricCardSkeleton />
@@ -318,13 +318,13 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                 }
             >
                 {loading && !stats ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
                         <MetricCardSkeleton />
                         <MetricCardSkeleton />
                         <MetricCardSkeleton />
                     </div>
                 ) : stats ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
                         <MetricCard
                             title="Total Profissionais"
                             value={stats.totalDoctors}
@@ -369,7 +369,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                     : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                 }
             >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
                     {/* Visão dos Profissionais */}
                     <Card className="border border-gray-200 rounded-lg">
                         <CardHeader>

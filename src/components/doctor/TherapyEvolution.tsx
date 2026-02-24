@@ -455,15 +455,15 @@ export default function TherapyEvolution({
                     {activeTab === 'evolution' && (
                         <div className="bg-white rounded-3xl border-2 border-gray-200 shadow-2xl overflow-hidden">
                             <Card className="border-0">
-                                <CardHeader className="bg-gradient-to-r from-green-600 via-green-500 to-cyan-500 p-8">
-                                    <CardTitle className="flex items-center gap-4 text-white text-3xl font-bold drop-shadow-lg">
+                                <CardHeader className="bg-gradient-to-r from-green-600 via-green-500 to-cyan-500 p-4 sm:p-8">
+                                    <CardTitle className="flex items-center gap-3 sm:gap-4 text-white text-xl sm:text-3xl font-bold drop-shadow-lg">
                                         <Activity className="h-8 w-8" />
                                         Evolução Terapêutica
                                     </CardTitle>
                                 </CardHeader>
 
-                                <CardContent className="p-8">
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+                                <CardContent className="p-3 sm:p-8">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8 mb-6 sm:mb-10">
                                         {/* seleção de paciente */}
                                         <div className="space-y-4 p-6 bg-gradient-to-br from-green-50 to-white rounded-2xl border-2 border-green-100 shadow-lg hover:shadow-xl transition-all">
                                             <Label
@@ -513,7 +513,7 @@ export default function TherapyEvolution({
                                                         }}
                                                     />
                                                 </div>
-                                                <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-cyan-500 min-w-[80px] text-right">
+                                                <span className="text-xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-cyan-500 min-w-[60px] sm:min-w-[80px] text-right">
                                                     {Math.round(calculateProgress())}%
                                                 </span>
                                             </div>
@@ -649,10 +649,10 @@ export default function TherapyEvolution({
 
                                     {selectedPatient ? (
                                         <div className="space-y-8">
-                                            <div className="flex justify-between items-center p-6 bg-gradient-to-r from-gray-50 to-white rounded-2xl border-2 border-gray-200 shadow-md">
+                                            <div className="flex flex-wrap justify-between items-center gap-3 p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-white rounded-2xl border-2 border-gray-200 shadow-md">
                                                 <div>
-                                                    <h3 className="font-bold text-2xl text-gray-900 flex items-center gap-3">
-                                                        <span className="text-3xl">📋</span>
+                                                    <h3 className="font-bold text-lg sm:text-2xl text-gray-900 flex items-center gap-2 sm:gap-3">
+                                                        <span className="text-2xl sm:text-3xl">📋</span>
                                                         Histórico de Evoluções
                                                     </h3>
                                                     <p className="text-gray-600 text-base mt-1 font-medium">
@@ -673,7 +673,7 @@ export default function TherapyEvolution({
                                                     evaluations.map((evaluation: any, index: number) => (
                                                         <div
                                                             key={evaluation._id}
-                                                            className="bg-white border-2 border-gray-200 rounded-2xl p-8 hover:shadow-2xl transition-all hover:border-green-200 group"
+                                                            className="bg-white border-2 border-gray-200 rounded-2xl p-4 sm:p-8 hover:shadow-2xl transition-all hover:border-green-200 group"
                                                         >
                                                             <div className="flex justify-between items-start">
                                                                 <div className="flex-1">
@@ -788,13 +788,13 @@ export default function TherapyEvolution({
                                                 )}
                                             </div>
 
-                                            <div className="mt-10">
-                                                <h3 className="font-bold text-2xl text-gray-900 mb-6 flex items-center gap-3">
-                                                    <span className="text-3xl">📈</span>
+                                            <div className="mt-6 sm:mt-10">
+                                                <h3 className="font-bold text-lg sm:text-2xl text-gray-900 mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3">
+                                                    <span className="text-2xl sm:text-3xl">📈</span>
                                                     Análise Gráfica da Evolução
                                                 </h3>
                                                 {chartData ? (
-                                                    <div className="bg-white border-2 border-gray-200 rounded-2xl shadow-xl p-8 hover:shadow-2xl transition-shadow">
+                                                    <div className="bg-white border-2 border-gray-200 rounded-2xl shadow-xl p-3 sm:p-8 hover:shadow-2xl transition-shadow">
                                                         <EvolutionChart chartData={chartData} />
                                                     </div>
                                                 ) : (
@@ -827,14 +827,14 @@ export default function TherapyEvolution({
                     {activeTab === 'analytics' && (
                         <div className="bg-white rounded-3xl border-2 border-gray-200 shadow-2xl overflow-hidden">
                             <Card className="border-0">
-                                <CardHeader className="bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 p-8">
-                                    <CardTitle className="flex items-center gap-4 text-white text-3xl font-bold drop-shadow-lg">
-                                        <BarChart3 className="h-8 w-8" />
+                                <CardHeader className="bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 p-4 sm:p-8">
+                                    <CardTitle className="flex items-center gap-3 text-white text-xl sm:text-3xl font-bold drop-shadow-lg">
+                                        <BarChart3 className="h-6 w-6 sm:h-8 sm:w-8" />
                                         Analytics de Protocolos
                                     </CardTitle>
                                 </CardHeader>
 
-                                <CardContent className="p-8">
+                                <CardContent className="p-3 sm:p-8">
                                     <ProtocolAnalytics specialty={(user as any)?.specialty} />
                                 </CardContent>
                             </Card>

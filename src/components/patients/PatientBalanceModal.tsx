@@ -246,7 +246,7 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-6 text-white">
+                <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-4 sm:p-6 text-white">
                     <div className="flex justify-between items-start">
                         <div>
                             <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -266,7 +266,7 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                     {/* Saldo atual */}
                     <div className="mt-6 p-4 bg-white/20 rounded-xl backdrop-blur-sm">
                         <p className="text-sm text-amber-100">Saldo Atual</p>
-                        <p className={`text-3xl font-bold ${
+                        <p className={`text-2xl sm:text-3xl font-bold ${
                             (balance?.currentBalance || 0) > 0 
                                 ? 'text-red-200' 
                                 : (balance?.currentBalance || 0) < 0 
@@ -312,7 +312,7 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                 </div>
 
                 {/* Content */}
-                <div className="p-6 max-h-[50vh] overflow-y-auto">
+                <div className="p-3 sm:p-6 max-h-[50vh] overflow-y-auto">
                     {loading ? (
                         <div className="flex justify-center py-8">
                             <LoadingSpinner size="large" />
@@ -491,7 +491,7 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                 
                 {/* 💰 MODAL DE PAGAMENTO RÁPIDO */}
                 {showQuickPaymentForm && payingTransaction && (
-                    <div className="absolute inset-0 bg-white rounded-2xl p-6 z-10">
+                    <div className="absolute inset-0 bg-white rounded-2xl p-4 sm:p-6 z-10 overflow-y-auto">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                                 <DollarSign className="w-6 h-6 text-blue-600" />
@@ -523,7 +523,7 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Forma de Pagamento
                                 </label>
-                                <div className="grid grid-cols-3 gap-2">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                     {['dinheiro', 'pix', 'cartao_credito', 'cartao_debito', 'transferencia_bancaria'].map((method) => (
                                         <button
                                             key={method}

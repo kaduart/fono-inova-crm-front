@@ -1,15 +1,16 @@
 import {
     Activity,
-    CalendarPlus,
     ChevronDown,
     Clock,
     DollarSign,
     Home,
     LogOut,
+    Menu,
     MessageCircle,
     Stethoscope,
     User,
-    Users
+    Users,
+    X
 } from "lucide-react";
 import React, { useState } from "react";
 import { BsSoundwave } from "react-icons/bs";
@@ -42,6 +43,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     const navigate = useNavigate();
     const { logout: authLogout } = useAuth();
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     // 1) logo após os hooks/props, crie este helper:
     const isMarketingActive =
         activeTab === "Leads" || activeTab === "Analytics";
@@ -57,6 +59,11 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
         }
 
         navigate("/login");
+    };
+
+    const handleMobileTabChange = (tab: string) => {
+        handleTabChange(tab);
+        setIsMobileMenuOpen(false);
     };
 
     return (
@@ -79,7 +86,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                 <span className="text-xl font-bold text-white">
                                     Fono Inova
                                 </span>
-                                <span className="text-xs text-emerald-100 font-medium">
+                                <span className="hidden sm:block text-xs text-emerald-100 font-medium">
                                     Gestão Clínica
                                 </span>
                             </div>
@@ -88,14 +95,14 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
 
                     {/* Navegação - CORRIGIDO: texto em cinza para não selecionados */}
                     <nav className="hidden md:flex items-center space-x-1">
-                        <NavButton
+                        {/* <NavButton
                             active={activeTab === "Dashboard"}
                             onClick={() => handleTabChange("Dashboard")}
                             icon={<Home size={16} className="text-blue-500" />}
                             className={activeTab === "Dashboard" ? "bg-blue-100 text-blue-600" : "!text-white"}
                         >
                             Dashboard
-                        </NavButton>
+                        </NavButton> */}
 
                         <div className="relative">
                             <NavButton
@@ -218,27 +225,28 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                             WhatsApp
                         </NavButton>
 
-                        <NavButton
-                            active={activeTab === "Pré-Agendamentos"}
-                            onClick={() => handleTabChange("Pré-Agendamentos")}
-                            icon={<CalendarPlus className="h-4 w-4 text-pink-500" />}
-                            className={activeTab === "Pré-Agendamentos" ? "bg-blue-100 text-blue-600" : "!text-white"}
-                        >
-                            Pré-Agendamentos
-                        </NavButton>
                     </nav>
 
                     {/* 🔔 Notificações + Perfil */}
                     <div className="flex items-center gap-3">
                         <NotificationBellFixed />
 
-                        {/* Perfil - VERSÃO ELEGANTE MELHORADA */}
-                        <div className="relative">
+                        {/* Hamburguer - só no mobile */}
+                        <button
+                            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                            className="md:hidden p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+                            aria-label="Menu"
+                        >
+                            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                        </button>
+
+                        {/* Perfil - oculto no mobile (acesso via menu hamburguer) */}
+                        <div className="relative hidden md:block">
                             <button
                                 onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
                                 className="flex items-center space-x-3 p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-200 group shadow-md"
                             >
-                                <div className="flex flex-col items-end">
+                                <div className="hidden sm:flex flex-col items-end">
                                     <span className="text-sm font-medium">
                                         {adminInfo?.fullName?.split(' ')[0] || "Admin"}
                                     </span>
@@ -291,6 +299,47 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         </div>
                     </div>
                 </div>
+
+                {/* Menu Mobile */}
+                {isMobileMenuOpen && (
+                    <div className="md:hidden border-t border-emerald-600 pt-3 mt-3 pb-2 space-y-1">
+                        <button onClick={() => handleMobileTabChange("Dashboard")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "Dashboard" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
+                            <Home size={18} className="text-blue-400" /> Dashboard
+                        </button>
+                        <p className="px-3 pt-2 pb-1 text-xs text-emerald-300 font-semibold uppercase tracking-wide">Gestão</p>
+                        <button onClick={() => handleMobileTabChange("Add Profissional")} className={`flex items-center gap-3 w-full px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "Add Profissional" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
+                            <Stethoscope size={18} className="text-purple-400" /> Profissionais
+                        </button>
+                        <button onClick={() => handleMobileTabChange("Add Paciente")} className={`flex items-center gap-3 w-full px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "Add Paciente" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
+                            <Users size={18} className="text-blue-400" /> Pacientes
+                        </button>
+                        <button onClick={() => handleMobileTabChange("Calendário")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "Calendário" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
+                            <Clock size={18} className="text-amber-400" /> Agenda
+                        </button>
+                        <button onClick={() => handleMobileTabChange("Financeiro")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "Financeiro" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
+                            <DollarSign size={18} className="text-green-400" /> Financeiro
+                        </button>
+                        <p className="px-3 pt-2 pb-1 text-xs text-emerald-300 font-semibold uppercase tracking-wide">Marketing</p>
+                        <button onClick={() => handleMobileTabChange("Leads")} className={`flex items-center gap-3 w-full px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "Leads" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
+                            <Activity size={18} className="text-cyan-400" /> Leads
+                        </button>
+                        <button onClick={() => handleMobileTabChange("Analytics")} className={`flex items-center gap-3 w-full px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "Analytics" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
+                            <Activity size={18} className="text-indigo-400" /> Analytics
+                        </button>
+                        <button onClick={() => handleMobileTabChange("Mensagens")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "Mensagens" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
+                            <MessageCircle size={18} className="text-emerald-400" /> WhatsApp
+                        </button>
+
+                        <div className="border-t border-emerald-600 mt-2 pt-2">
+                            <button onClick={() => { setActiveTab("Profile"); setIsMobileMenuOpen(false); }} className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-emerald-100 hover:bg-emerald-700 transition-colors">
+                                <User size={18} className="text-emerald-300" /> Meu Perfil
+                            </button>
+                            <button onClick={handleLogout} className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-red-300 hover:bg-red-900/30 transition-colors">
+                                <LogOut size={18} /> Sair do Sistema
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </header>
     );

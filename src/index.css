@@ -52,3 +52,27 @@ code {
   animation: progress 2s ease-in-out infinite;
 }
 
+/* FullCalendar — ajustes mobile */
+@media (max-width: 767px) {
+  .fc .fc-toolbar {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .fc .fc-toolbar-title {
+    font-size: 1rem !important;
+  }
+  /* Oculta "Semana" no mobile (sobra espaço para Mês e Dia) */
+  .fc .fc-timeGridWeek-button {
+    display: none !important;
+  }
+  /* Oculta "Hoje" no mobile (navegação pelos prev/next) */
+  .fc .fc-today-button {
+    display: none !important;
+  }
+  /* Botões menores */
+  .fc .fc-button {
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.75rem !important;
+  }
+}
+

@@ -53,7 +53,7 @@ export default function ProfessionalProfilePage() {
 
             <div>
                 <h2>Estatísticas por Especialidade</h2>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {specialties.map(specialty => (
                         <SpecialtyCard
                             key={specialty.id}

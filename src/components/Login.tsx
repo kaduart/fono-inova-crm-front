@@ -171,7 +171,7 @@ const Login = () => {
       {/* Componente para manipular expiração de sessão */}
       <SessionExpiryHandler />
 
-      <div className="w-1/2 bg-white flex justify-center items-center relative h-screen overflow-hidden">
+      <div className="hidden md:flex w-1/2 bg-white justify-center items-center relative h-screen overflow-hidden">
         <div className="flex flex-col justify-center items-center gap-5">
           <div className="relative h-[50vh] w-[50vh]">
             {images.map((img, index) => (
@@ -187,7 +187,7 @@ const Login = () => {
         </div>
       </div>
 
-      <div className="w-1/2 bg-gradient-to-br from-green-600 to-emerald-700 flex items-center justify-center p-4">
+      <div className="w-full md:w-1/2 bg-gradient-to-br from-green-600 to-emerald-700 flex items-center justify-center p-4 min-h-screen">
         <div className="w-full max-w-md overflow-hidden">
           <div className="bg-transparent p-6 text-white">
             <h2 className="text-2xl font-bold text-center">

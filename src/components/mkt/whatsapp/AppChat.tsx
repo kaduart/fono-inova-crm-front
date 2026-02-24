@@ -35,6 +35,7 @@ const AppChat: React.FC = () => {
     const [error, setError] = useState("");
     const [showAddModal, setShowAddModal] = useState(false);
     const [searchResults, setSearchResults] = useState<Contact[] | null>(null);
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(true);
 
     const debouncedSearch = useDebouncedCallback(async (term: string) => {
 
@@ -61,6 +62,7 @@ const AppChat: React.FC = () => {
     const handleSelectContact = (contact: Contact) => {
         markAsRead(contact._id);
         setActiveContactId(contact._id);
+        setMobileSidebarOpen(false); // no mobile, vai direto para o chat
     };
 
     // 📍 Selecionar contato via pendingContactPhone
@@ -119,7 +121,7 @@ const AppChat: React.FC = () => {
     );
 
     const ErrorNotification = () => (
-        <div className="fixed bottom-6 right-6 bg-white border border-red-200 rounded-2xl shadow-2xl z-50 max-w-md">
+        <div className="fixed bottom-4 right-4 left-4 sm:left-auto bg-white border border-red-200 rounded-2xl shadow-2xl z-50 sm:max-w-md">
             <div className="p-4 flex items-start space-x-3">
                 <FiAlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
                 <div className="flex-1">
@@ -139,8 +141,8 @@ const AppChat: React.FC = () => {
             <Paper
                 elevation={0}
                 sx={{
-                    p: 4,
-                    mb: 6,
+                    p: { xs: 2, md: 4 },
+                    mb: { xs: 2, md: 6 },
                     borderRadius: 3,
                     background: `linear-gradient(135deg, ${theme.palette.primary.main}08, ${theme.palette.secondary.main}05)`,
                     border: `1px solid ${theme.palette.grey[200]}`,
@@ -176,19 +178,30 @@ const AppChat: React.FC = () => {
             </Paper>
 
             <div className="flex h-[85vh] bg-gray-50 overflow-hidden">
-                <Sidebar
-                    contacts={searchResults ?? contacts}
-                    onSearch={debouncedSearch}
-                    isServerFiltered={searchResults !== null}
-                    activeContactId={activeContactId}
-                    onSelect={handleSelectContact}
-                    onLoadMore={loadMoreContacts}
-                    hasMore={hasMore}
-                    isLoadingMore={loadingMore}
-                    className="w-80 shrink-0 bg-gradient-to-b from-indigo-900 to-purple-800 text-white shadow-xl overflow-y-auto"
-                />
+                {/* Sidebar — full width no mobile, w-80 fixo no desktop */}
+                <div className={`${mobileSidebarOpen ? 'flex' : 'hidden'} sm:flex flex-col w-full sm:w-80 shrink-0`}>
+                    <Sidebar
+                        contacts={searchResults ?? contacts}
+                        onSearch={debouncedSearch}
+                        isServerFiltered={searchResults !== null}
+                        activeContactId={activeContactId}
+                        onSelect={handleSelectContact}
+                        onLoadMore={loadMoreContacts}
+                        hasMore={hasMore}
+                        isLoadingMore={loadingMore}
+                        className="flex-1 bg-gradient-to-b from-indigo-900 to-purple-800 text-white shadow-xl overflow-y-auto"
+                    />
+                </div>
 
-                <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+                {/* Área do chat — escondida no mobile enquanto sidebar está aberta */}
+                <div className={`${!mobileSidebarOpen ? 'flex' : 'hidden'} sm:flex flex-1 min-w-0 flex-col overflow-hidden`}>
+                    {/* Botão voltar — só no mobile */}
+                    <button
+                        onClick={() => setMobileSidebarOpen(true)}
+                        className="sm:hidden flex items-center gap-2 px-4 py-2 bg-indigo-900 text-white text-sm font-medium shrink-0"
+                    >
+                        ← Contatos
+                    </button>
                     {active ? (
                         <ChatWindow
                             contact={active as any}

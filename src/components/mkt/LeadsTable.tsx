@@ -36,7 +36,8 @@ const LeadTable: React.FC<LeadTableProps> = ({
     if (loading) {
         return (
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <table className="w-full">
+            <div className="overflow-x-auto">
+                <table className="w-full min-w-[520px]">
                     <thead>
                         <tr className="bg-slate-50 border-b border-slate-200">
                             <th className="p-4 font-semibold text-slate-700 text-left">Nome</th>
@@ -68,6 +69,7 @@ const LeadTable: React.FC<LeadTableProps> = ({
                         ))}
                     </tbody>
                 </table>
+            </div>
             </div>
         );
     }
@@ -161,6 +163,7 @@ const LeadTable: React.FC<LeadTableProps> = ({
                     ))}
                 </tbody>
             </table>
+            </div>
 
             {leads.length === 0 && !loading && (
                 <div className="text-center py-8">

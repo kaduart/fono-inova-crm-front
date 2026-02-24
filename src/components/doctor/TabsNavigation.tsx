@@ -39,15 +39,15 @@ export default function TabsNavigation({
 }) {
     return (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-            <TabsList className="grid grid-cols-5 gap-2 w-full bg-gray-100 p-2 rounded-lg">
+            <TabsList className="grid grid-cols-5 gap-1 sm:gap-2 w-full bg-gray-100 p-1 sm:p-2 rounded-lg">
                 {tabs.map(tab => (
                     <TabsTrigger
                         key={tab.value}
                         value={tab.value}
-                        className="flex flex-col items-center justify-center p-3 rounded-md transition-colors data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                        className="flex flex-col items-center justify-center p-1.5 sm:p-3 rounded-md transition-colors data-[state=active]:bg-white data-[state=active]:shadow-sm"
                     >
-                        <span className="mb-1">{tab.icon}</span>
-                        <span className="text-xs">{tab.label}</span>
+                        <span className="mb-0.5 sm:mb-1">{tab.icon}</span>
+                        <span className="text-[10px] sm:text-xs leading-tight truncate w-full text-center">{tab.label}</span>
                     </TabsTrigger>
                 ))}
             </TabsList>

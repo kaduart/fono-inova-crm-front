@@ -149,7 +149,7 @@ const FinancialDashboard = ({
             <Paper
                 elevation={2}
                 sx={{
-                    p: 4,
+                    p: { xs: 2, md: 4 },
                     borderRadius: 3,
                     background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
                     border: `1px solid ${theme.palette.divider}`,
@@ -193,7 +193,7 @@ const FinancialDashboard = ({
                         </div>
                     </div>
 
-                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
                         {/* Toggle Operacional/Estratégico */}
                         <ToggleButtonGroup
                             value={viewMode}
@@ -207,7 +207,7 @@ const FinancialDashboard = ({
                                 border: '1px solid',
                                 borderColor: 'divider',
                                 '& .MuiToggleButton-root': {
-                                    px: 3,
+                                    px: { xs: 1.5, md: 3 },
                                     py: 1,
                                     border: 'none',
                                     borderRadius: 1,
@@ -291,9 +291,9 @@ const FinancialDashboard = ({
                             icon={tab.icon}
                             iconPosition="start"
                             sx={{
-                                minHeight: 64,
+                                minHeight: { xs: 48, md: 64 },
                                 textTransform: 'none',
-                                fontSize: '1rem',
+                                fontSize: { xs: '0.75rem', md: '1rem' },
                                 fontWeight: 500,
                                 borderRadius: 2,
                                 '&.Mui-selected': {
@@ -305,7 +305,7 @@ const FinancialDashboard = ({
                     ))}
                 </Tabs>
 
-                <Box sx={{ p: 3 }}>
+                <Box sx={{ p: { xs: 1, sm: 3 } }}>
                     {currentTabs[currentTab]?.component}
                 </Box>
             </Paper>

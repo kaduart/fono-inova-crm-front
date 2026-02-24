@@ -209,7 +209,7 @@ function AddMetricModal({
                         />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-semibold text-gray-800 mb-2">Valor Mínimo</label>
                             <input
@@ -484,15 +484,15 @@ export function NewEvaluationModal({
             <div className="fixed inset-0 bg-gradient-to-br from-black/70 to-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
                 <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col animate-in fade-in zoom-in duration-300">
                     {/* HEADER */}
-                    <div className="bg-gradient-to-br from-green-600 via-green-500 to-cyan-500 p-8 rounded-t-3xl shrink-0">
-                        <h3 className="font-bold text-3xl text-white drop-shadow-lg">Nova Avaliação</h3>
-                        <p className="text-green-50 text-base mt-2 font-light">
+                    <div className="bg-gradient-to-br from-green-600 via-green-500 to-cyan-500 p-4 sm:p-8 rounded-t-3xl shrink-0">
+                        <h3 className="font-bold text-xl sm:text-3xl text-white drop-shadow-lg">Nova Avaliação</h3>
+                        <p className="text-green-50 text-sm sm:text-base mt-1 sm:mt-2 font-light">
                             Preencha os dados da avaliação do paciente com atenção
                         </p>
                     </div>
 
                     {/* BODY */}
-                    <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-gradient-to-br from-gray-50 to-white">
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-4 sm:space-y-8 bg-gradient-to-br from-gray-50 to-white">
 
                         {/* ⚡ SELETOR DE ESPECIALIDADE / TEMPLATE */}
                         <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-5 space-y-3">

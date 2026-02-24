@@ -181,7 +181,7 @@ function NewLeadModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <div>
               <label className="text-sm text-slate-600">Buscando</label>
               <select
@@ -556,10 +556,11 @@ const FollowupPage = () => {
               </div>
             </div>
 
+            <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="p-4 font-semibold text-slate-700 text-left min-w-[180px]">Lead</th>
+                  <th className="px-3 py-3 sm:p-4 font-semibold text-slate-700 text-left">Lead</th>
                   <th className="p-4 font-semibold text-slate-700 text-left hidden lg:table-cell">Origem</th>
                   <th className="p-4 font-semibold text-slate-700 text-center hidden md:table-cell">Score</th>
                   <th className="p-4 font-semibold text-slate-700 text-center hidden xl:table-cell">Interesse</th>
@@ -742,6 +743,7 @@ const FollowupPage = () => {
                 )}
               </tbody>
             </table>
+            </div>
 
             {/* RODAPÉ COM PAGINAÇÃO */}
             {leads.length > 0 && (

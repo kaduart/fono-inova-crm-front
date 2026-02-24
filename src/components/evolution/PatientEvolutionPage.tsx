@@ -107,22 +107,22 @@ const PatientEvolutionPage = ({ patientId, patients }) => {
                 {/* Conteúdo principal com abas */}
                 <div className="lg:col-span-3">
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                        <TabsList className="grid grid-cols-4 bg-gray-100 p-2 rounded-lg">
-                            <TabsTrigger value="evolution" className="flex items-center gap-2">
-                                <LineChart className="h-4 w-4" />
-                                <span>Evolução</span>
+                        <TabsList className="grid grid-cols-4 bg-gray-100 p-1 sm:p-2 rounded-lg">
+                            <TabsTrigger value="evolution" className="flex items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 sm:py-2">
+                                <LineChart className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                                <span className="text-[11px] sm:text-sm truncate">Evolução</span>
                             </TabsTrigger>
-                            <TabsTrigger value="notes" className="flex items-center gap-2">
-                                <ClipboardList className="h-4 w-4" />
-                                <span>Anotações</span>
+                            <TabsTrigger value="notes" className="flex items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 sm:py-2">
+                                <ClipboardList className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                                <span className="text-[11px] sm:text-sm truncate">Notas</span>
                             </TabsTrigger>
-                            <TabsTrigger value="sessions" className="flex items-center gap-2">
-                                <Stethoscope className="h-4 w-4" />
-                                <span>Sessões</span>
+                            <TabsTrigger value="sessions" className="flex items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 sm:py-2">
+                                <Stethoscope className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                                <span className="text-[11px] sm:text-sm truncate">Sessões</span>
                             </TabsTrigger>
-                            <TabsTrigger value="history" className="flex items-center gap-2">
-                                <FileText className="h-4 w-4" />
-                                <span>Histórico</span>
+                            <TabsTrigger value="history" className="flex items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 sm:py-2">
+                                <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                                <span className="text-[11px] sm:text-sm truncate">Histórico</span>
                             </TabsTrigger>
                         </TabsList>
 

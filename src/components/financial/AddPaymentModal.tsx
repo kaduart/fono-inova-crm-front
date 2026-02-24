@@ -89,7 +89,7 @@ export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentM
                 </div>
 
                 {/* Conteúdo do Formulário */}
-                <div className="p-6 space-y-6">
+                <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
                     {/* Valor */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">

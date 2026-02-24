@@ -111,7 +111,8 @@ const DoctorAgendaCalendar = ({
       </div>
 
       {/* Grade de dias */}
-      <div className="grid grid-cols-7 gap-2">
+      <div className="overflow-x-auto -mx-2 px-2">
+      <div className="grid grid-cols-6 gap-1 sm:gap-2 min-w-[480px]">
         {[0, 1, 2, 3, 4, 5].map((index) => {
           const date = addDays(weekStart, index);
           const formattedDate = formatISO(date, { representation: 'date' });
@@ -167,6 +168,7 @@ const DoctorAgendaCalendar = ({
 
           );
         })}
+      </div>
       </div>
 
       {/* Painel expansível de horários */}
