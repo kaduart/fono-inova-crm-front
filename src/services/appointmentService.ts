@@ -56,6 +56,12 @@ export const OPERATIONAL_STATUS_CONFIG: StatusConfig = {
         textColor: "#FFFFFF",
         label: "Concluído",
     },
+    // 🎯 NOVO: Pré-agendamento - tratado como um status normal
+    pre_agendado: {
+        backgroundColor: "#EC4899", // Rosa
+        textColor: "#FFFFFF",
+        label: "Pré-Agendado",
+    },
 };
 
 
@@ -74,6 +80,7 @@ export interface IAppointmentStatusCount {
     agendado: number;
     concluído: number;
     cancelado: number;
+    pre_agendado?: number; // 🎯 NOVO: Contagem de pré-agendamentos
 }
 
 export type UpdateAppointmentParams = Partial<{
@@ -98,6 +105,7 @@ export type PaginationParams = {
     startDate?: Date;
     endDate?: Date;
     sessionType?: TherapyType;
+    excludePreAgendamentos?: boolean;
 };
 
 export type RescheduleParams = {
@@ -160,7 +168,8 @@ export const appointmentService = {
                 patientId: params.patientId,
                 sessionType: params.sessionType,
                 startDate: params.startDate,
-                endDate: params.endDate
+                endDate: params.endDate,
+                excludePreAgendamentos: params.excludePreAgendamentos || false
             }
         });
     },

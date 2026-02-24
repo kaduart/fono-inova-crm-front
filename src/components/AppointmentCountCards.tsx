@@ -8,7 +8,8 @@ import {
     RefreshCw,
     XCircle,
     CreditCard,
-    UserX
+    UserX,
+    Star
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import appointmentService, { IAppointmentStatusCount } from '../services/appointmentService';
@@ -18,6 +19,7 @@ import { Card, CardContent, CardHeader } from './ui/Card';
 interface IAppointmentStatusCountExtended extends IAppointmentStatusCount {
     pago?: number;
     faltou?: number;
+    pre_agendado?: number; // 🎯 Pré-agendados
 }
 
 const AppointmentStatusCards = () => {
@@ -26,7 +28,8 @@ const AppointmentStatusCards = () => {
         confirmado: 0,
         cancelado: 0,
         pago: 0,
-        faltou: 0
+        faltou: 0,
+        pre_agendado: 0
     });
     
     const [loading, setLoading] = useState(true);
@@ -51,7 +54,8 @@ const AppointmentStatusCards = () => {
                     confirmado: response.data.data.confirmado || 0,
                     cancelado: response.data.data.cancelado || 0,
                     pago: response.data.data.pago || 0,
-                    faltou: response.data.data.faltou || 0
+                    faltou: response.data.data.faltou || 0,
+                    pre_agendado: response.data.data.pre_agendado || 0
                 });
             } else {
                 setError('Não foi possível obter os dados de status');
@@ -198,7 +202,7 @@ const AppointmentStatusCards = () => {
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
                             <StatusCard
                                 title="Agendados"
                                 value={counts.agendado}
@@ -232,6 +236,13 @@ const AppointmentStatusCards = () => {
                                 value={counts.faltou}
                                 color="orange"
                                 icon={<UserX className="w-8 h-8 text-orange-600" />}
+                            />
+                            
+                            <StatusCard
+                                title="Pré-Agendados"
+                                value={counts.pre_agendado}
+                                color="pink"
+                                icon={<Star className="w-8 h-8 text-pink-600" />}
                             />
                         </div>
                     )}

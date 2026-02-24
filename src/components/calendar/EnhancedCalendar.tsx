@@ -105,6 +105,11 @@ export const OPERATIONAL_STATUS_VISUAL_CONFIG = {
         color: "#ef4444",
         icon: XCircle,
     },
+    pre_agendado: {
+        label: "Pré-Agendado",
+        color: "#ec4899", // Rosa
+        icon: Clock,
+    },
 };
 
 export const VISUAL_FLAG_CONFIG = {
@@ -259,11 +264,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             const hasDate = !!appt.date;
             const hasTime = !!appt.time;
             const hasId = !!(appt.id || appt._id);
-            // 🔧 NÃO MOSTRAR pré-agendamentos (interesses) na lista de agendamentos
-            const isPreAgendamento = appt.__isPreAgendamento === true || 
-                                     appt.title?.startsWith('[INTERESSE]') ||
-                                     appt.extendedProps?.__isPreAgendamento === true;
-            return hasDate && hasTime && hasId && !isPreAgendamento;
+            // 🎯 SIMPLIFICAÇÃO: Pré-agendamentos agora são tratados como agendamentos normais
+            // com operationalStatus = 'pre_agendado', então não precisamos filtrar
+            return hasDate && hasTime && hasId;
         });
 
         return validAppointments.map((appt) => {
@@ -448,6 +451,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             completed: { label: '✅ Concluído', bg: 'bg-green-700', text: 'text-white' },
             canceled: { label: '❌ Cancel.', bg: 'bg-gray-600', text: 'text-white' },
             absent: { label: '🚫 Faltou', bg: 'bg-red-700', text: 'text-white' },
+            pre_agendado: { label: '⭐ Pré-Agend.', bg: 'bg-pink-500', text: 'text-white' }, // 🎯 NOVO
         };
 
         const paymentBadge = PAYMENT_BADGE[financialStatus] || PAYMENT_BADGE.pending;

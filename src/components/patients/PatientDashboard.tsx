@@ -97,49 +97,43 @@ export default function PatientDashboard() {
   });
   const navigate = useNavigate();
 
-  const {
-    fetchAppointmentsByPatient,
-    /*   fetchAppointments,
-      createAppointment,
-      updateAppointment,
-      completeAppointment,
-      cancelAppointment,
-      getAvailableSlots */
-  } = useAppointments();
-
-
-  useEffect(() => {
-    if (patientId) {
-      const fetch = async () => {
-        try {
-          const response = await fetchAppointmentsByPatient(patientId);
-          setAllAppointmentsById(response);
-        } catch (err) {
-          console.error('Erro ao buscar agendamentos por paciente:', err);
-        }
-      };
-
-      fetch();
-    }
-  }, [patientId, fetchAppointmentsByPatient]);
   const [mode, setMode] = useState<'create' | 'edit'>('create');
+  const [patientAppointments, setPatientAppointments] = useState<IAppointment[]>([]);
 
   const {
     patients,
-    /*   fetchPatients,
-      updatePatient,
-      createPatient */
   } = usePatients();
 
   const {
     appointments,
     fetchAppointments,
+    fetchAppointmentsByPatient,
     createAppointment,
-    /* updateAppointment,
-    completeAppointment,
-    cancelAppointment,*/
     getAvailableSlots
   } = useAppointments();
+
+  // Busca agendamentos específicos do paciente
+  useEffect(() => {
+    if (patientId) {
+      const loadAppointments = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch(`${BASE_URL}/appointments/patient/${patientId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setPatientAppointments(data || []);
+            setAllAppointmentsById(data || []);
+          }
+        } catch (err) {
+          console.error('Erro ao buscar agendamentos:', err);
+        }
+      };
+
+      loadAppointments();
+    }
+  }, [patientId]);
   const handleNewAppointment = async (appointmentData: IAppointment) => {
     try {
       const payload: CreateAppointmentParams = {
@@ -245,13 +239,17 @@ export default function PatientDashboard() {
       return [];
     }
   };
-  const today = new Date().toISOString().split('T')[0]; // formato 'YYYY-MM-DD'
+  // Data de hoje no formato YYYY-MM-DD
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
 
-  const todaysAppointments = appointments?.filter((appt) => {
-
-    const apptDate = new Date(appt.date).toISOString().split('T')[0];
-    return apptDate === today;
-  });
+  // Filtra apenas os agendamentos DESSE paciente que são para hoje
+  const todaysAppointments = patientAppointments?.filter((appt) => {
+    if (!appt.date) return false;
+    // Pega apenas a parte da data (YYYY-MM-DD) da string de data
+    const apptDateStr = appt.date.split('T')[0];
+    return apptDateStr === todayStr;
+  }) || [];
 
   const fetchAvailableSlots = async (doctorId, date) => {
     if (!doctorId || !date) return;
@@ -293,30 +291,12 @@ export default function PatientDashboard() {
     setShowHistory(true);
   };
 
-  const fetchCompletedAppointments = async () => {
-    /* try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-  
-      const response = await fetch(BASE_URL + '/patient/appointment/completed-cancelled', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-  
-      if (response.ok) {
-        const data = await response.json();
-        setCompletedAppointments(data);
-      } else {
-        console.error('Failed to fetch completed/cancelled appointments');
-      }
-    } catch (error) {
-      console.error('Error fetching completed/cancelled appointments:', error);
-    } */
-  };
+  // Agora usamos patientAppointments diretamente para o card de atividades
+  const recentActivities = patientAppointments.filter(appt =>
+    appt.operationalStatus === 'completed' ||
+    appt.operationalStatus === 'cancelled' ||
+    appt.operationalStatus === 'confirmed'
+  );
 
 
   const fetchCareTeam = async () => {
@@ -435,8 +415,7 @@ export default function PatientDashboard() {
     fetchDoctors();
     fetchCareTeam();
     fetchPrescriptions();
-    fetchCompletedAppointments();
-  }, []);
+  }, [patientId]);
 
   /* const submitEvaluation = async (data: EvaluationData, id?: string) => {
     try {
@@ -495,62 +474,51 @@ export default function PatientDashboard() {
   const renderDashboard = () => (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-
-        <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-5 py-4 border-b border-gray-200">
+        {/* Card Agendamentos para Hoje */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100">
             <div className="flex items-center gap-3">
-              <div className="bg-blue-100 p-2 rounded-lg">
+              <div className="p-2 bg-blue-50 rounded-lg">
                 <Calendar className="h-5 w-5 text-blue-600" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-800">Agendamentos para Hoje</h3>
-                <p className="text-sm text-gray-600 mt-1">
-
-                  <div className="flex justify-end items-center mb-0">
-                    <span className="text-sm text-gray-500">
-                      Atualizado em {new Date().toLocaleString('pt-BR', {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
-                        hour: 'numeric',
-                        minute: 'numeric'
-                      })}
-                    </span>
-                  </div>
+                <h3 className="text-base font-semibold text-gray-900">Agendamentos para Hoje</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {new Date().toLocaleDateString('pt-BR', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  })} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="p-1">
+          <div className="divide-y divide-gray-100">
             {todaysAppointments.length > 0 ? (
-              <div className="space-y-3">
-                {todaysAppointments.map((appointment) => (
-                  <div
-                    key={appointment._id}
-                    className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors"
-                  >
-                    <div className="flex-shrink-0">
-                      <div className="bg-gray-200 border-2 border-dashed rounded-xl w-16 h-16" />
+              todaysAppointments.map((appointment) => (
+                <div key={appointment._id} className="p-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-start gap-3">
+                    {/* Avatar com inicial do profissional */}
+                    <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm shadow-sm">
+                      {appointment.doctor?.fullName?.charAt(0) || '?'}
                     </div>
-
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-medium text-gray-900 truncate">
-                          {appointment.doctor ? `Dr. ${appointment.doctor.fullName}` : 'Profissional não especificado'}
+                        <h4 className="text-sm font-medium text-gray-900 truncate">
+                          Dr. {appointment.doctor?.fullName || 'Profissional'}
                         </h4>
-                        <span className="text-sm font-medium text-gray-500">
+                        <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
                           {appointment.time}
                         </span>
                       </div>
-
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${appointment.operationalStatus === 'confirmed'
-                          ? 'bg-green-100 text-green-800'
-                          : appointment.operationalStatus === 'canceled'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-blue-100 text-blue-800'
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${appointment.operationalStatus === 'confirmed'
+                            ? 'bg-green-100 text-green-700'
+                            : appointment.operationalStatus === 'canceled'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-blue-100 text-blue-700'
                           }`}>
                           {appointment.operationalStatus}
                         </span>
@@ -558,130 +526,118 @@ export default function PatientDashboard() {
                           {appointment.duration} min
                         </span>
                       </div>
-
                       {appointment.notes && (
-                        <p className="mt-2 text-sm text-gray-500 line-clamp-2">
+                        <p className="mt-2 text-xs text-gray-500 line-clamp-2">
                           {appointment.notes}
                         </p>
                       )}
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-10 text-center">
-                <div className="mx-auto bg-gray-100 p-4 rounded-full w-max">
-                  <Calendar className="h-8 w-8 text-gray-400 mx-auto" />
                 </div>
-                <h4 className="mt-4 text-lg font-medium text-gray-900">
-                  Nenhum agendamento hoje
-                </h4>
-                <p className="mt-1 text-sm text-gray-500 max-w-md mx-auto">
-                  Você não tem consultas agendadas para hoje. Agende uma nova consulta para começar.
+              ))
+            ) : (
+              <div className="p-8 text-center">
+                <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                  <Calendar className="h-6 w-6 text-gray-400" />
+                </div>
+                <h4 className="text-sm font-medium text-gray-900 mb-1">Nenhum agendamento hoje</h4>
+                <p className="text-xs text-gray-500 max-w-xs mx-auto">
+                  Não há consultas agendadas para hoje. Agende uma nova consulta para começar.
                 </p>
               </div>
             )}
           </div>
 
-          <div className="bg-gray-50 px-5 py-3 border-t border-gray-200 flex justify-between">
+          <div className="bg-gray-50 px-4 py-3 border-t border-gray-100 flex justify-end">
             <button
-              className="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
               onClick={handleOpenHistory}
+              className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors"
             >
-              Ver histórico completo
+              Ver histórico completo →
             </button>
-
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100">
-          <div className="bg-gradient-to-r from-teal-50 to-cyan-50 px-5 py-4 border-b border-gray-200">
+        {/* Card Atividades Recentes */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100">
             <div className="flex items-center gap-3">
-              <div className="bg-teal-100 p-2 rounded-lg">
+              <div className="p-2 bg-teal-50 rounded-lg">
                 <Activity className="h-5 w-5 text-teal-600" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-800">Atividades Recentes</h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  Histórico das últimas consultas
-                </p>
+                <h3 className="text-base font-semibold text-gray-900">Atividades Recentes</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Histórico das últimas consultas</p>
               </div>
             </div>
           </div>
 
-          <div className="p-1">
-            {completedAppointments.length > 0 ? (
-              <div className="space-y-4 p-4">
-                {completedAppointments.slice(0, 3).map((appointment) => (
-                  <div key={appointment._id} className="relative pl-6">
-                    <div className="absolute left-0 top-3 w-3 h-3 rounded-full bg-teal-500"></div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex justify-between">
-                        <h4 className="font-medium text-gray-900">
-                          {appointment.operationalStatus === 'confirmed'
-                            ? 'Consulta realizada'
-                            : 'Consulta cancelada'}
-                        </h4>
-                        <span className="text-xs font-medium text-gray-500">
-                          {new Date(appointment.date).toLocaleDateString('pt-BR')}
-                        </span>
-                      </div>
-
-                      <div className="mt-2 flex items-center gap-2">
-                        <div className="flex-shrink-0">
-                          <div className="bg-gray-200 border-2 border-dashed rounded-xl w-10 h-10" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-700">
-                            Dr. {appointment.doctor?.fullName}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {appointment.time} • {appointment.duration} min
-                          </p>
-                        </div>
-                      </div>
-
-                      {appointment.history?.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-gray-100">
-                          <p className="text-xs text-gray-500">
-                            <span className="font-medium">Última ação:</span> {appointment.history[0].action}
-                          </p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            {new Date(appointment.history[0].timestamp).toLocaleString('pt-BR')}
-                          </p>
-                        </div>
-                      )}
-                    </div>
+          <div className="divide-y divide-gray-100">
+            {recentActivities.slice(0, 3).map((appointment) => (
+              <div key={appointment._id} className="p-4 hover:bg-gray-50 transition-colors">
+                <div className="flex items-start gap-3">
+                  <div className="relative flex-shrink-0 mt-1">
+                    <div className="w-2 h-2 rounded-full bg-teal-500"></div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-10 text-center">
-                <div className="mx-auto bg-gray-100 p-4 rounded-full w-max">
-                  <Activity className="h-8 w-8 text-gray-400 mx-auto" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-medium text-gray-900">
+                        {appointment.operationalStatus === 'confirmed' ? 'Consulta realizada' : 'Consulta cancelada'}
+                      </h4>
+                      <span className="text-xs text-gray-500">
+                        {new Date(appointment.date).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="w-8 h-8 bg-gradient-to-br from-gray-400 to-gray-600 rounded-lg flex items-center justify-center text-white text-xs font-semibold shadow-sm">
+                        {appointment.doctor?.fullName?.charAt(0) || '?'}
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-700">
+                          Dr. {appointment.doctor?.fullName}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {appointment.time} • {appointment.duration} min
+                        </p>
+                      </div>
+                    </div>
+                    {appointment.history?.length > 0 && (
+                      <div className="mt-3 pt-2 border-t border-gray-100">
+                        <p className="text-xs text-gray-600">
+                          <span className="font-medium">Última ação:</span> {appointment.history[0].action}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {new Date(appointment.history[0].timestamp).toLocaleString('pt-BR')}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <h4 className="mt-4 text-lg font-medium text-gray-900">
-                  Nenhuma atividade recente
-                </h4>
-                <p className="mt-1 text-sm text-gray-500 max-w-md mx-auto">
-                  Suas consultas realizadas e agendamentos futuros aparecerão aqui.
+              </div>
+            ))}
+            {recentActivities.length === 0 && (
+              <div className="p-8 text-center">
+                <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                  <Activity className="h-6 w-6 text-gray-400" />
+                </div>
+                <h4 className="text-sm font-medium text-gray-900 mb-1">Nenhuma atividade recente</h4>
+                <p className="text-xs text-gray-500 max-w-xs mx-auto">
+                  Suas consultas realizadas aparecerão aqui.
                 </p>
               </div>
             )}
           </div>
 
-          <div className="bg-gray-50 px-5 py-3 border-t border-gray-200 text-center">
-            <button className="text-sm font-medium text-teal-600 hover:text-teal-800 transition-colors">
-              Ver todas as atividades
+          <div className="bg-gray-50 px-4 py-3 border-t border-gray-100 flex justify-end">
+            <button className="text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors">
+              Ver todas as atividades →
             </button>
           </div>
         </div>
       </div>
 
-      {patientInfo?._id && (
-        <FutureSessionsCard patientId={patientInfo._id} />
-      )}
-
+      {/* O restante do conteúdo permanece igual */}
+      {patientInfo?._id && <FutureSessionsCard patientId={patientInfo._id} />}
       <div className="grid grid-cols-1 md:grid-cols-1 mb-5 gap-6">
         <PatientAvailablesCard
           doctors={doctors}
@@ -691,7 +647,6 @@ export default function PatientDashboard() {
           setEvaluationToEdit={setEvaluationToEdit}
           onSubmit={handleEvaluationSubmit}
           onDelete={handleDelete}
-
         />
       </div>
 

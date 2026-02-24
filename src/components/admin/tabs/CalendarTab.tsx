@@ -74,7 +74,7 @@ export const CalendarTab = ({
                 setPatients(Array.isArray(patientsRes) ? patientsRes : []);
                 setDoctors(doctorsRes.data || []);
 
-                // Carrega appointments do mês
+                // Carrega appointments do mês (incluindo pré-agendados como status normal)
                 const appointmentsRes = await appointmentService.list({
                     startDate: dateRange.startDate,
                     endDate: dateRange.endDate

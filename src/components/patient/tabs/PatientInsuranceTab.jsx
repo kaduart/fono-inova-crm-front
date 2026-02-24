@@ -380,9 +380,9 @@ const GuideSection = ({ title, count, guides, color, onOpenMenu }) => {
         variant="caption"
         sx={{
           display: 'block',
-          mb: 1.5,
+          mb: 2,
           color,
-          fontWeight: 500,
+          fontWeight: 600,
           textTransform: 'uppercase',
           letterSpacing: '0.5px',
           fontSize: '0.75rem'
@@ -391,44 +391,58 @@ const GuideSection = ({ title, count, guides, color, onOpenMenu }) => {
         {title} ({count})
       </Typography>
       <AnimatePresence>
-        {guides.map(guide => (
-          <GuideCard
-            key={guide._id}
-            guide={guide}
-            onOpenMenu={onOpenMenu}
-          />
-        ))}
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: '1fr',
+            sm: 'repeat(2, 1fr)',
+            lg: 'repeat(3, 1fr)'
+          },
+          gap: 2.5
+        }}>
+          {guides.map(guide => (
+            <GuideCard
+              key={guide._id}
+              guide={guide}
+              onOpenMenu={onOpenMenu}
+            />
+          ))}
+        </Box>
       </AnimatePresence>
     </Box>
   );
 };
 
 // ----------------------------------------------------------------------
-// Componente de card individual
+// Componente de card individual (redesenhado com fundo clarinho)
 // ----------------------------------------------------------------------
 const GuideCard = ({ guide, onOpenMenu }) => {
   const percentage = (guide.remaining / guide.totalSessions) * 100;
   const daysUntilExpiration = differenceInDays(parseISO(guide.expiresAt), new Date());
   const isUrgent = daysUntilExpiration <= 7 && daysUntilExpiration >= 0;
+  const isExpiringSoon = daysUntilExpiration <= 30 && daysUntilExpiration > 0;
 
-  // Cor da borda baseada no status
-  const borderColor =
+  // Cor do status (usada em badges e bordas sutis)
+  const statusColor =
     guide.status === 'cancelled' ? '#9e9e9e' :
       guide.status === 'expired' ? '#d32f2f' :
         guide.status === 'exhausted' || guide.remaining === 0 ? '#d32f2f' :
           percentage <= 20 ? '#ed6c02' : '#2e7d32';
 
-  // Cor do chip de status
-  const statusColor =
-    guide.status === 'cancelled' ? 'default' :
-      guide.status === 'expired' ? 'error' :
-        guide.status === 'exhausted' || guide.remaining === 0 ? 'error' :
-          percentage <= 20 ? 'warning' : 'success';
-
   const statusLabel =
     guide.status === 'cancelled' ? 'Cancelada' :
       guide.status === 'expired' ? 'Expirada' :
         guide.status === 'exhausted' || guide.remaining === 0 ? 'Esgotada' : 'Ativa';
+
+  // Formatação amigável
+  const specialtyFormatted = guide.specialty
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+  const insuranceFormatted = guide.insurance
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 
   return (
     <motion.div
@@ -436,163 +450,196 @@ const GuideCard = ({ guide, onOpenMenu }) => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.15 }}
+      style={{ height: '100%' }}
     >
-      <Card sx={{
-        mb: 2,
-        borderRadius: '8px',
-        border: '1px solid #f0f0f0',
-        boxShadow: 'none',
-        transition: 'all 0.2s',
-        '&:hover': {
-          boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-          borderColor: '#e0e0e0'
-        }
-      }}>
-        <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-            {/* Informações principais */}
-            <Box sx={{ flex: 1 }}>
-              {/* Cabeçalho do card */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 500, color: '#1a1a1a' }}>
-                  Guia #{guide.number}
-                </Typography>
-                <Chip
-                  label={statusLabel}
-                  color={statusColor}
-                  size="small"
-                  sx={{
-                    height: '20px',
-                    fontSize: '0.625rem',
-                    '& .MuiChip-label': { px: 1 }
-                  }}
-                />
-                {guide.usedSessions === 0 && (
-                  <Chip
-                    label="Não utilizada"
-                    size="small"
-                    variant="outlined"
-                    sx={{
-                      height: '20px',
-                      fontSize: '0.625rem',
-                      borderColor: '#90caf9',
-                      color: '#1976d2'
-                    }}
-                  />
-                )}
-              </Box>
+      <Card
+        elevation={0}
+        sx={{
+          height: '100%',
+          borderRadius: '16px',
+          border: '1px solid',
+          borderColor: 'grey.100',
+          backgroundColor: '#d4f0f2',
+          transition: 'all 0.2s ease',
+          '&:hover': {
+            transform: 'translateY(-4px)',
+            boxShadow: '0 12px 24px -8px rgba(0,0,0,0.1)',
+            borderColor: 'grey.200'
+          },
+          position: 'relative',
+          overflow: 'hidden'
+        }}
+      >
+        {/* Barra superior sutil na cor do status */}
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '4px',
+            background: `linear-gradient(90deg, ${statusColor}40, ${statusColor})`
+          }}
+        />
 
-              {/* Grid de informações */}
-              <Box sx={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: 2,
-                mb: 2.5
-              }}>
-                <Box>
-                  <Typography variant="caption" sx={{ color: '#666', display: 'block', mb: 0.5 }}>
-                    Especialidade
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontSize: '0.8125rem', fontWeight: 500 }}>
-                    {guide.specialty.charAt(0).toUpperCase() + guide.specialty.slice(1).replace('-', ' ')}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" sx={{ color: '#666', display: 'block', mb: 0.5 }}>
-                    Convênio
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontSize: '0.8125rem', fontWeight: 500 }}>
-                    {guide.insurance.split('-').map(word =>
-                      word.charAt(0).toUpperCase() + word.slice(1)
-                    ).join(' ')}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" sx={{ color: '#666', display: 'block', mb: 0.5 }}>
-                    Validade
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Calendar size={12} className="text-gray-500" />
-                    <Typography variant="body2" sx={{ fontSize: '0.8125rem', fontWeight: 500 }}>
-                      {format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}
-                    </Typography>
-                    {isUrgent && (
-                      <AlertCircle size={14} className="text-yellow-600" />
-                    )}
-                  </Box>
-                  {isUrgent && (
-                    <Typography variant="caption" sx={{ color: '#ed6c02', display: 'block', mt: 0.5 }}>
-                      Expira em {daysUntilExpiration} dia(s)
-                    </Typography>
-                  )}
-                </Box>
-                <Box>
-                  <Typography variant="caption" sx={{ color: '#666', display: 'block', mb: 0.5 }}>
-                    Sessões
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontSize: '0.8125rem', fontWeight: 500 }}>
-                    {guide.remaining} de {guide.totalSessions}
-                  </Typography>
-                </Box>
-              </Box>
+        <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
+          {/* Header com número e menu */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <FileText size={18} className="text-gray-400" />
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'grey.800' }}>
+                #{guide.number}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Chip
+                label={statusLabel}
+                size="small"
+                sx={{
+                  height: '24px',
+                  fontSize: '0.7rem',
+                  fontWeight: 500,
+                  backgroundColor: `${statusColor}15`,
+                  color: statusColor,
+                  border: 'none'
+                }}
+              />
+              <IconButton
+                size="small"
+                onClick={(e) => onOpenMenu(e, guide)}
+                sx={{
+                  color: 'grey.400',
+                  '&:hover': { color: 'grey.700', bgcolor: 'grey.50' }
+                }}
+              >
+                <MoreVertical size={18} />
+              </IconButton>
+            </Box>
+          </Box>
 
-              {/* Barra de progresso */}
-              <Box sx={{ mb: guide.notes ? 2 : 0 }}>
-                <LinearProgress
-                  variant="determinate"
-                  value={percentage}
-                  sx={{
-                    height: 4,
-                    borderRadius: 2,
-                    backgroundColor: '#f0f0f0',
-                    mb: 0.5,
-                    '& .MuiLinearProgress-bar': {
-                      backgroundColor:
-                        percentage <= 20 ? '#ed6c02' :
-                          percentage <= 50 ? '#1976d2' :
-                            '#2e7d32',
-                      borderRadius: 2
-                    }
-                  }}
-                />
-                <Typography variant="caption" sx={{ color: '#666' }}>
-                  {guide.usedSessions} sessões utilizadas ({percentage.toFixed(0)}% disponível)
-                </Typography>
-              </Box>
+          {/* Especialidade e convênio */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 2.5 }}>
+            <Typography variant="body2" sx={{ fontWeight: 500, color: 'grey.800' }}>
+              {specialtyFormatted}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'grey.500' }}>
+              {insuranceFormatted}
+            </Typography>
+          </Box>
 
-              {/* Notas */}
-              {guide.notes && (
-                <Box sx={{
-                  mt: 2,
-                  p: 1.5,
-                  bgcolor: '#fafafa',
-                  borderRadius: '6px',
-                  border: '1px solid #f0f0f0'
+          {/* Grid de informações: sessões e validade */}
+          <Box sx={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 1.5,
+            mb: 2.5
+          }}>
+            <Box sx={{ p: 1.5, bgcolor: 'grey.50', borderRadius: 2 }}>
+              <Typography variant="caption" sx={{ color: 'grey.600', display: 'block', mb: 0.5 }}>
+                Sessões
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: 'grey.800' }}>
+                {guide.remaining} / {guide.totalSessions}
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'grey.500', fontSize: '0.65rem' }}>
+                {guide.usedSessions} usadas
+              </Typography>
+            </Box>
+            <Box sx={{ p: 1.5, bgcolor: 'grey.50', borderRadius: 2 }}>
+              <Typography variant="caption" sx={{ color: 'grey.600', display: 'block', mb: 0.5 }}>
+                Validade
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: 'grey.800' }}>
+                {format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}
+              </Typography>
+              {daysUntilExpiration > 0 ? (
+                <Typography variant="caption" sx={{
+                  color: isUrgent ? '#d32f2f' : isExpiringSoon ? '#ed6c02' : 'grey.500',
+                  fontSize: '0.65rem',
+                  fontWeight: 500
                 }}>
-                  <Typography variant="caption" sx={{ color: '#666' }}>
-                    <span style={{ fontWeight: 500 }}>Observações:</span> {guide.notes}
-                  </Typography>
-                </Box>
+                  {daysUntilExpiration} dias
+                </Typography>
+              ) : daysUntilExpiration === 0 ? (
+                <Typography variant="caption" sx={{ color: '#d32f2f', fontSize: '0.65rem', fontWeight: 500 }}>
+                  Hoje!
+                </Typography>
+              ) : (
+                <Typography variant="caption" sx={{ color: '#d32f2f', fontSize: '0.65rem', fontWeight: 500 }}>
+                  Vencida
+                </Typography>
               )}
             </Box>
-
-            {/* Menu de ações */}
-            <IconButton
-              size="small"
-              onClick={(e) => onOpenMenu(e, guide)}
-              sx={{
-                ml: 1,
-                color: '#999',
-                '&:hover': { color: '#666', bgcolor: '#f5f5f5' }
-              }}
-            >
-              <MoreVertical size={16} />
-            </IconButton>
           </Box>
+
+          {/* Barra de progresso */}
+          <Box sx={{ mb: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+              <Typography variant="caption" sx={{ color: 'grey.600' }}>
+                Utilização
+              </Typography>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: percentage <= 20 ? '#ed6c02' : 'grey.700' }}>
+                {percentage.toFixed(0)}%
+              </Typography>
+            </Box>
+            <LinearProgress
+              variant="determinate"
+              value={percentage}
+              sx={{
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: '#f0f0f0',
+                '& .MuiLinearProgress-bar': {
+                  backgroundColor:
+                    percentage <= 20 ? '#ed6c02' :
+                      percentage <= 50 ? '#1976d2' :
+                        '#2e7d32',
+                  borderRadius: 3
+                }
+              }}
+            />
+          </Box>
+
+          {/* Notas, se houver */}
+          {guide.notes && (
+            <Box sx={{
+              p: 1.5,
+              bgcolor: '#f9f9f9',
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'grey.100'
+            }}>
+              <Typography variant="caption" sx={{ color: 'grey.600' }}>
+                <span style={{ fontWeight: 500 }}>Obs:</span> {guide.notes}
+              </Typography>
+            </Box>
+          )}
+
+          {/* Badge de "Nova" se não utilizada */}
+          {guide.usedSessions === 0 && guide.status === 'active' && (
+            <Box sx={{
+              position: 'absolute',
+              top: 12,
+              right: 12,
+              bgcolor: '#e3f2fd',
+              color: '#1976d2',
+              px: 1,
+              py: 0.5,
+              borderRadius: 1,
+              fontSize: '0.6rem',
+              fontWeight: 600,
+              border: '1px solid',
+              borderColor: '#1976d2'
+            }}>
+              ✨ Nova
+            </Box>
+          )}
         </CardContent>
       </Card>
     </motion.div>
   );
 };
+
+
 
 export default PatientInsuranceTab;

@@ -55,105 +55,52 @@ const PatientHeader: React.FC<PatientHeaderProps> = ({
     };
 
     return (
-        <header className="bg-emerald-700 shadow-lg border-b border-emerald-600 text-white">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between h-16 items-center">
+        <header className="bg-emerald-700 text-white px-3 py-3.5 shadow-sm sticky top-0 z-50">
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
                     {/* Logo e nome da clínica */}
-                    <div className="flex items-center gap-3 cursor-pointer">
-                        <div
-                            onClick={() => navigate("/admin")}
-                            className="flex items-center gap-3 cursor-pointer hover:opacity-90 transition-opacity"
-                        >
-
-                            <div className="h-10 w-10 rounded-lg bg-white flex items-center justify-center shadow-md">
-                                <Heart className="w-6 h-6 text-emerald-600" />
-                            </div>
-
-                            <div className="flex flex-col">
-                                <span className="text-xl font-bold text-white">
-                                    Fono Inova
-                                </span>
-                                <span className="hidden sm:block text-xs text-emerald-100 font-medium">
-                                    Área do Paciente
-                                </span>
-                            </div>
-                        </div>
+                    <div className="flex items-center gap-1.5 cursor-pointer ml-6" onClick={() => navigate("/admin")}>
+                    <div className="bg-white p-1 rounded-full">
+                        <Heart className="h-4 w-4 text-emerald-700" />
                     </div>
+                    <span className="text-base font-bold tracking-tight text-white">
+                        Fono <span className="text-emerald-200">Inova</span>
+                    </span>
+                </div>
 
-                    {/* Navegação Específica para Pacientes */}
-                    <nav className="hidden md:flex items-center space-x-1">
-                        <NavButton
-                            active={activeTab === "Dashboard"}
-                            onClick={() => handleTabChange("Dashboard")}
-                            icon={<Home size={16} className="text-blue-400" />}
-                            className={activeTab === "Dashboard" ? "bg-white text-emerald-700" : "!text-white hover:bg-emerald-600"}
-                        >
-                            Dashboard
-                        </NavButton>
-
-                        <NavButton
-                            active={activeTab === "Profile"}
-                            onClick={() => handleTabChange("Profile")}
-                            icon={<UserCircle size={16} className="text-purple-400" />}
-                            className={activeTab === "Profile" ? "bg-white text-emerald-700" : "!text-white hover:bg-emerald-600"}
-                        >
-                            Meu Perfil
-                        </NavButton>
-
-                        <NavButton
-                            active={activeTab === "Appointment Booking"}
-                            onClick={() => handleTabChange("Appointment Booking")}
-                            icon={<Calendar size={16} className="text-amber-400" />}
-                            className={activeTab === "Appointment Booking" ? "bg-white text-emerald-700" : "!text-white hover:bg-emerald-600"}
-                        >
-                            Agendamentos
-                        </NavButton>
-
-                        <NavButton
-                            active={activeTab === "Management Packages"}
-                            onClick={() => handleTabChange("Management Packages")}
-                            icon={<Package size={16} className="text-green-400" />}
-                            className={activeTab === "Management Packages" ? "bg-white text-emerald-700" : "!text-white hover:bg-emerald-600"}
-                        >
-                            Pacotes
-                        </NavButton>
-
-                        <NavButton
-                            active={activeTab === "Insurance Guides"}
-                            onClick={() => handleTabChange("Insurance Guides")}
-                            icon={<Shield size={16} className="text-blue-400" />}
-                            className={activeTab === "Insurance Guides" ? "bg-white text-emerald-700" : "!text-white hover:bg-emerald-600"}
-                        >
-                            Guias Convênio
-                        </NavButton>
-
-                        <NavButton
-                            active={activeTab === "Evolution"}
-                            onClick={() => handleTabChange("Evolution")}
-                            icon={<LineChart size={16} className="text-cyan-400" />}
-                            className={activeTab === "Evolution" ? "bg-white text-emerald-700" : "!text-white hover:bg-emerald-600"}
-                        >
-                            Evolução
-                        </NavButton>
-
-                        <NavButton
-                            active={activeTab === "Messages"}
-                            onClick={() => handleTabChange("Messages")}
-                            icon={<MessageCircle size={16} className="text-emerald-300" />}
-                            className={activeTab === "Messages" ? "bg-white text-emerald-700" : "!text-white hover:bg-emerald-600"}
-                        >
-                            Mensagens
-                        </NavButton>
+                    {/* Navegação */}
+                    <nav className="hidden md:flex items-center gap-1">
+                        {[
+                            { id: "Dashboard", label: "Dashboard", icon: <Home size={14} /> },
+                            { id: "Profile", label: "Perfil", icon: <UserCircle size={14} /> },
+                            { id: "Appointment Booking", label: "Agenda", icon: <Calendar size={14} /> },
+                            { id: "Management Packages", label: "Pacotes", icon: <Package size={14} /> },
+                            { id: "Insurance Guides", label: "Guias", icon: <Shield size={14} /> },
+                            { id: "Evolution", label: "Evolução", icon: <LineChart size={14} /> },
+                            { id: "Messages", label: "Chat", icon: <MessageCircle size={14} /> },
+                        ].map((item) => (
+                            <button
+                                key={item.id}
+                                onClick={() => handleTabChange(item.id)}
+                                className={`flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-colors ${
+                                    activeTab === item.id
+                                        ? "bg-white text-emerald-700 font-medium"
+                                        : "text-emerald-100 hover:bg-emerald-600"
+                                }`}
+                            >
+                                {item.icon}
+                                {item.label}
+                            </button>
+                        ))}
                     </nav>
 
                     {/* Botão de Ação Rápida - Novo Agendamento */}
                     <div className="flex items-center gap-3">
                         <button
                             onClick={onNewAppointment}
-                            className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white text-emerald-700 rounded-lg hover:bg-emerald-50 transition-colors font-medium shadow-md"
+                            className="hidden sm:flex items-center gap-1 px-2.5 py-1 text-xs bg-white text-emerald-700 hover:bg-emerald-50 rounded-md transition-all"
                         >
-                            <Clock size={16} />
-                            Novo Agendamento
+                            <Clock size={12} />
+                            Novo
                         </button>
 
                         {/* Hamburguer - só no mobile */}
@@ -169,22 +116,10 @@ const PatientHeader: React.FC<PatientHeaderProps> = ({
                         <div className="relative">
                             <button
                                 onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                                className="flex items-center space-x-3 p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-200 group shadow-md"
+                                className="flex items-center gap-1.5 px-2 py-1 text-xs bg-emerald-600 text-white hover:bg-emerald-500 rounded-md transition-all"
                             >
-                                <div className="hidden sm:flex flex-col items-end">
-                                    <span className="text-sm font-medium">
-                                        {adminInfo?.fullName?.split(' ')[0] || "Admin"}
-                                    </span>
-                                    <span className="text-xs text-emerald-100">
-                                        {adminInfo?.role || "Administrador"}
-                                    </span>
-                                </div>
-                                <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center border border-white/30">
-                                    <span className="text-sm font-bold">
-                                        {adminInfo?.fullName?.charAt(0) || "A"}
-                                    </span>
-                                </div>
-                                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
+                                <span className="hidden sm:inline">{adminInfo?.fullName?.split(' ')[0] || "Admin"}</span>
+                                <ChevronDown size={12} />
                             </button>
 
                             {isProfileDropdownOpen && (
@@ -261,7 +196,7 @@ const PatientHeader: React.FC<PatientHeaderProps> = ({
                             )}
                         </div>
                     </div>
-                </div>
+                
 
                 {/* Menu Mobile */}
                 {isMobileMenuOpen && (
