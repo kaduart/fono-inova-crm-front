@@ -69,14 +69,14 @@ const CashflowTab = () => {
         <Box>
             {/* Filtro de período - mais clean */}
             <Paper elevation={0} sx={{ p: 2, mb: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
-                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+                <Box sx={{ display: 'flex', gap: { xs: 1.5, sm: 2 }, alignItems: 'center', flexWrap: 'wrap' }}>
                     <TextField
                         select
                         label="Período"
                         size="small"
                         value={filters.period}
                         onChange={(e) => setFilters((prev) => ({ ...prev, period: e.target.value }))}
-                        sx={{ minWidth: 150 }}
+                        sx={{ minWidth: 100, flex: { xs: 1, md: 'none' }, maxWidth: { xs: 120, md: 'none' } }}
                     >
                         <MenuItem value="day">Hoje</MenuItem>
                         <MenuItem value="month">Este mês</MenuItem>
@@ -90,6 +90,7 @@ const CashflowTab = () => {
                             value={filters.date}
                             onChange={(e) => setFilters((prev) => ({ ...prev, date: e.target.value }))}
                             InputLabelProps={{ shrink: true }}
+                            sx={{ flex: { xs: 1, md: 'none' } }}
                         />
                     ) : (
                         <>
@@ -99,7 +100,7 @@ const CashflowTab = () => {
                                 size="small"
                                 value={filters.month}
                                 onChange={(e) => setFilters((prev) => ({ ...prev, month: Number(e.target.value) }))}
-                                sx={{ minWidth: 100 }}
+                                sx={{ minWidth: 80, flex: { xs: 1, md: 'none' }, maxWidth: { xs: '50%', md: 'none' } }}
                             >
                                 {Array.from({ length: 12 }, (_, i) => (
                                     <MenuItem key={i + 1} value={i + 1}>
@@ -113,7 +114,7 @@ const CashflowTab = () => {
                                 size="small"
                                 value={filters.year}
                                 onChange={(e) => setFilters((prev) => ({ ...prev, year: Number(e.target.value) }))}
-                                sx={{ minWidth: 100 }}
+                                sx={{ minWidth: 70, flex: { xs: 1, md: 'none' }, maxWidth: { xs: '50%', md: 'none' } }}
                             >
                                 {[2024, 2025, 2026].map((y) => (
                                     <MenuItem key={y} value={y}>{y}</MenuItem>
@@ -122,7 +123,7 @@ const CashflowTab = () => {
                         </>
                     )}
 
-                    <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ ml: { xs: 0, md: 'auto' }, display: 'flex', alignItems: 'center', gap: 1, width: { xs: 'auto', md: 'auto' } }}>
                         <Chip 
                             size="small" 
                             icon={<CalendarTodayIcon />} 
@@ -136,7 +137,7 @@ const CashflowTab = () => {
             {summary && (
                 <>
                     {/* Cards Financeiros - Redesenhados com dados reais da API */}
-                    <Grid container spacing={2.5} sx={{ mb: 4 }}>
+                    <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ width: '100%', mb: { xs: 3, sm: 4 } }}>
                         <Grid item xs={12} sm={6} md={3}>
                             <Card elevation={0} sx={{ border: '1px solid', borderColor: '#16A34A20', borderRadius: 2, bgcolor: '#16A34A05' }}>
                                 <CardContent>

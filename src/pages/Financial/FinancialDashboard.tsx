@@ -156,7 +156,7 @@ const FinancialDashboard = ({
                     mb: 2
                 }}
             >
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3">
                     <div className="flex items-center gap-4">
                         <div
                             className="p-3 rounded-2xl"
@@ -193,7 +193,7 @@ const FinancialDashboard = ({
                         </div>
                     </div>
 
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center', width: { xs: '100%', md: 'auto' } }}>
                         {/* Toggle Operacional/Estratégico */}
                         <ToggleButtonGroup
                             value={viewMode}
@@ -202,12 +202,15 @@ const FinancialDashboard = ({
                             aria-label="modo de visualização"
                             size="small"
                             sx={{
+                                width: { xs: '100%', md: 'auto' },
+                                flex: { xs: 'none', md: 'none' },
                                 bgcolor: 'background.paper',
                                 borderRadius: 2,
                                 border: '1px solid',
                                 borderColor: 'divider',
                                 '& .MuiToggleButton-root': {
-                                    px: { xs: 1.5, md: 3 },
+                                    flex: 1,
+                                    px: { xs: 2, md: 3 },
                                     py: 1,
                                     border: 'none',
                                     borderRadius: 1,
@@ -238,6 +241,7 @@ const FinancialDashboard = ({
                                 variant="contained"
                                 startIcon={<Plus size={20} />}
                                 onClick={handleOpenPayment}
+                                fullWidth
                                 sx={{
                                     borderRadius: 3,
                                     px: 4,
@@ -305,7 +309,7 @@ const FinancialDashboard = ({
                     ))}
                 </Tabs>
 
-                <Box sx={{ p: { xs: 1, sm: 3 } }}>
+                <Box sx={{ p: { xs: 0.5, sm: 1, md: 2 } }}>
                     {currentTabs[currentTab]?.component}
                 </Box>
             </Paper>

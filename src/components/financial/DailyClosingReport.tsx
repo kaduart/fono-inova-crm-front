@@ -173,8 +173,8 @@ const DailyClosingReport = () => {
 
     if (!processedData) {
         return (
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+            <div className="w-full mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-8">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 sm:p-6 text-center">
                     <div className="text-yellow-700 font-medium text-lg mb-2">
                         Nenhum dado encontrado
                     </div>
@@ -187,30 +187,30 @@ const DailyClosingReport = () => {
     }
 
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <div className="w-full mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-8">
             {/* HEADER */}
-            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">
+                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
                         Painel Diário
                     </h1>
-                    <p className="text-gray-600">
-                        {formatDateBrazilian(dateFilter)} • {processedData.summary.totalAppointments} sessões agendadas
+                    <p className="text-sm text-gray-600">
+                        {formatDateBrazilian(dateFilter)} • {processedData.summary.totalAppointments} sessões
                     </p>
                 </div>
-                <div className="flex gap-4">
+                <div className="w-full sm:w-auto">
                     <input
                         type="date"
                         value={dateFilter}
                         onChange={(e) => setDateFilter(e.target.value)}
-                        className="border border-gray-300 rounded-lg px-3 py-2 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full sm:w-auto border border-gray-300 rounded-lg px-3 py-2 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                 </div>
             </div>
 
             {/* ABAS DE NAVEGAÇÃO REFINADAS */}
-            <div className="border-b border-gray-200">
-                <nav className="-mb-px flex space-x-8">
+            <div className="border-b border-gray-200 overflow-x-auto">
+                <nav className="-mb-px flex space-x-4 sm:space-x-8 min-w-max">
                     {[
                         { id: 'overview', name: 'Visão Geral', icon: BsCalendar3 },
                         { id: 'timeline', name: 'Timeline', icon: BsClock },
@@ -221,7 +221,7 @@ const DailyClosingReport = () => {
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab.id
+                            className={`flex items-center gap-1.5 sm:gap-2 py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${activeTab === tab.id
                                 ? 'border-blue-500 text-blue-600'
                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                 }`}
@@ -234,7 +234,7 @@ const DailyClosingReport = () => {
             </div>
 
             {/* CARDS DE RESUMO COM MÉTRICAS AVANÇADAS */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 <SummaryCard
                     title="Sessões Confirmadas"
                     value={processedData.summary.totalConfirmed}

@@ -84,7 +84,7 @@ const ProjecaoMensalTab = () => {
             {/* Cards dos 3 Cenários */}
             <Grid container spacing={3} sx={{ mb: 4 }}>
                 <Grid item xs={12} md={4}>
-                    <Card sx={{ borderLeft: 4, borderColor: 'error.main', height: '100%' }}>
+                    <Card sx={{ width: "100%", borderLeft: 4, borderColor: 'error.main', height: '100%' }}>
                         <CardContent>
                             <Typography color="error.main" fontWeight="bold" gutterBottom>
                                 CENÁRIO PESSIMISTA
@@ -100,7 +100,7 @@ const ProjecaoMensalTab = () => {
                 </Grid>
 
                 <Grid item xs={12} md={4}>
-                    <Card sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', height: '100%' }}>
+                    <Card sx={{ width: "100%", bgcolor: 'primary.main', color: 'primary.contrastText', height: '100%' }}>
                         <CardContent>
                             <Typography fontWeight="bold" gutterBottom>
                                 CENÁRIO ESPERADO ⭐
@@ -116,7 +116,7 @@ const ProjecaoMensalTab = () => {
                 </Grid>
 
                 <Grid item xs={12} md={4}>
-                    <Card sx={{ borderLeft: 4, borderColor: 'success.main', height: '100%' }}>
+                    <Card sx={{ width: "100%", borderLeft: 4, borderColor: 'success.main', height: '100%' }}>
                         <CardContent>
                             <Typography color="success.main" fontWeight="bold" gutterBottom>
                                 CENÁRIO OTIMISTA

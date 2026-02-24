@@ -95,7 +95,7 @@ const GoalsTab = () => {
   return (
     <Box>
       {/* Header */}
-      <Paper elevation={0} sx={{ p: 2.5, mb: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
+      <Paper elevation={0} sx={{ p: { xs: 2, sm: 2.5 }, mb: { xs: 2, sm: 3 }, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Avatar sx={{ bgcolor: '#8B5CF6', width: 48, height: 48 }}>
@@ -131,7 +131,7 @@ const GoalsTab = () => {
       </Paper>
 
       {/* Cards de Metas */}
-      <Grid container spacing={2.5}>
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
         {uniquePlannings.length > 0 ? (
           uniquePlannings.map((plan: any) => {
             const statusConfig = getStatusConfig(plan.progress.overallStatus);
@@ -148,8 +148,8 @@ const GoalsTab = () => {
               : 0;
 
             return (
-              <Grid item xs={12} md={6} key={plan._id}>
-                <Card elevation={0} sx={{ 
+              <Grid item xs={12} sm={6} md={6} key={plan._id}>
+                <Card elevation={0} sx={{ width: "100%", 
                   border: '1px solid', 
                   borderColor: 'grey.200', 
                   borderRadius: 2,
@@ -159,9 +159,9 @@ const GoalsTab = () => {
                     borderColor: statusConfig.color
                   }
                 }}>
-                  <CardContent sx={{ p: 3 }}>
+                  <CardContent sx={{ p: { xs: 2, sm: 2.5, md: 3 } }}>
                     {/* Header do Card */}
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: { xs: 1.5, sm: 2 } }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                         <Avatar sx={{ bgcolor: statusConfig.bgColor, color: statusConfig.color, width: 40, height: 40 }}>
                           <StatusIcon />
@@ -211,7 +211,7 @@ const GoalsTab = () => {
                       return (
                         <>
                           {/* Métricas Principais */}
-                          <Grid container spacing={2} sx={{ mt: 1 }}>
+                          <Grid container spacing={{ xs: 1, sm: 1.5, md: 2 }} sx={{ mt: 1 }}>
                             {/* Meta de Receita */}
                             <Grid item xs={6}>
                               <Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#F9FAFB' }}>
@@ -411,7 +411,7 @@ const GoalsTab = () => {
                     {/* Barras de Progresso */}
                     <Box sx={{ mt: 3 }}>
                       {/* Progresso Receita */}
-                      <Box sx={{ mb: 2 }}>
+                      <Box sx={{ mb: { xs: 1.5, sm: 2 } }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                           <Typography variant="body2" color="text.secondary">
                             Progresso Receita
@@ -437,7 +437,7 @@ const GoalsTab = () => {
                       </Box>
 
                       {/* Progresso Sessões */}
-                      <Box sx={{ mb: 2 }}>
+                      <Box sx={{ mb: { xs: 1.5, sm: 2 } }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                           <Typography variant="body2" color="text.secondary">
                             Progresso Sessões
@@ -555,11 +555,11 @@ const GoalsTab = () => {
         ) : (
           <Grid item xs={12}>
             <Paper elevation={0} sx={{ p: 4, border: '1px solid', borderColor: 'grey.200', borderRadius: 2, textAlign: 'center' }}>
-              <Assessment sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+              <Assessment sx={{ fontSize: 48, color: 'text.disabled', mb: { xs: 1.5, sm: 2 } }} />
               <Typography variant="h6" color="text.secondary" gutterBottom>
                 Nenhuma meta encontrada
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: { xs: 2, sm: 3 } }}>
                 Crie um planejamento mensal na aba Planejamento para começar a acompanhar metas.
               </Typography>
               <Button

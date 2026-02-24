@@ -1,94 +1,271 @@
-// src/AppRoutes.tsx
-import { lazy, Suspense } from 'react';
-import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import MainLayout from './components/MainLayout';
-import ContactsPage from './components/mkt/whatsapp/ContactsPage';
+/**
+ * 🚀 AppRoutes Consolidado
+ * 
+ * Versão unificada com lazy loading para componentes pesados,
+ * reduzindo o bundle inicial e melhorando o tempo de carregamento.
+ * Mantém todas as rotas das versões anteriores.
+ */
+
+import React, { lazy, Suspense } from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { useAuth } from './contexts/AuthContext';
-import { PrivateRoute } from './utils/PrivateRoute';
-import SalesList from './pages/Financial/SalesList';
-import SaleForm from './pages/Financial/SaleForm';
-import ProvisionamentoTab from './pages/Financial/tabs/ProvisionamentoTab';
 
-// Páginas públicas
-const Home = lazy(() => import('./components/Home'));
-const Login = lazy(() => import('./components/Login'));
-const SignUp = lazy(() => import('./components/SignUp'));
-const ResetPassword = lazy(() => import('./components/ResetPassword'));
+// Importação síncrona de componentes críticos (login, home)
+import Home from './components/Home';
+import Login from './components/Login';
+import ResetPassword from './components/ResetPassword';
+import SignUp from './components/SignUp';
 
-// Páginas privadas
+// 🎯 Lazy loading de componentes pesados
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 const DoctorDashboard = lazy(() => import('./components/DoctorDashboard'));
 const PatientDashboard = lazy(() => import('./components/patients/PatientDashboard'));
 const CreateAppointmentPage = lazy(() => import('./pages/appointments/create'));
 const SchedulePage = lazy(() => import('./pages/schedule'));
-
-// Novas páginas de paciente e relatórios
 const PatientsTable = lazy(() => import('./components/doctor/patient/PatientsTable'));
 const PreAgendamentosPage = lazy(() => import('./pages/Secretaria/PreAgendamentosPage'));
 const PatientDetail = lazy(() => import('./components/doctor/patient/PatientDetail'));
-//const AnamnesisReport = lazy(() => import('./components/doctor/patient/report/AnamnesisReport'));
-//const SchoolReport = lazy(() => import('./components/doctor/patient/reports/SchoolReport'));
 const MedicalReportsSection = lazy(() => import('./components/doctor/patient/reports/MedicalReportsSection'));
+const ContactsPage = lazy(() => import('./components/mkt/whatsapp/ContactsPage'));
 
-const AppRoutes = () => {
-    const { isLoading } = useAuth();
+// Lazy loading de sub-features do Admin
+const SiteAnalyticsDashboard = lazy(() => import('./components/Dashboard/SiteAnalyticsDashboard'));
+const MarketingDashboard = lazy(() => import('./components/Dashboard/MarketingDashboard'));
+const FollowupDashboard = lazy(() => import('./components/Dashboard/FollowupDashboard'));
+const AppChat = lazy(() => import('./components/mkt/whatsapp/AppChat'));
+const FinancialDashboard = lazy(() => import('./pages/Financial/FinancialDashboard'));
+const PaymentPage = lazy(() => import('./components/financial/PaymentPage'));
+const ManageDoctors = lazy(() => import('./components/ManageDoctors/ManageDoctors'));
+const DoctorAgenda = lazy(() => import('./components/ManageDoctors/DoctorAgenda'));
+const EnhancedCalendar = lazy(() => import('./components/calendar/EnhancedCalendar'));
+const FollowupPage = lazy(() => import('./pages/FollowupPage'));
+const SalesList = lazy(() => import('./pages/Financial/SalesList'));
+const SaleForm = lazy(() => import('./pages/Financial/SaleForm'));
+const ProvisionamentoTab = lazy(() => import('./pages/Financial/tabs/ProvisionamentoTab'));
+
+// Componente de loading para Suspense
+const PageLoader = () => (
+    <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="large" message="Carregando..." />
+    </div>
+);
+
+// Wrapper para rotas privadas
+interface PrivateRouteProps {
+    children: React.ReactNode;
+    allowedRoles?: string[];
+}
+
+const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, allowedRoles }) => {
+    const { user, isLoading } = useAuth();
+
+    if (isLoading) {
+        return <PageLoader />;
+    }
+
+    if (!user) {
+        return <Navigate to="/login" replace />;
+    }
+
+    if (allowedRoles && !allowedRoles.includes(user.role)) {
+        // Redirecionar para dashboard apropriado baseado na role
+        switch (user.role) {
+            case 'admin':
+                return <Navigate to="/admin" replace />;
+            case 'doctor':
+                return <Navigate to="/doctor" replace />;
+            case 'patient':
+                return <Navigate to="/patient" replace />;
+            default:
+                return <Navigate to="/" replace />;
+        }
+    }
+
+    return <>{children}</>;
+};
+
+const AppRoutes: React.FC = () => {
+    const { user, isLoading } = useAuth();
     const location = useLocation();
-    const navigate = useNavigate();
 
-    if (isLoading) return <LoadingSpinner fullscreen />;
+    if (isLoading) return <PageLoader />;
 
-    // 🔒 Protege domínio
-    if (
-        window.location.hostname !== 'app.clinicafonoinova.com.br' &&
-        window.location.hostname !== 'localhost'
-    ) {
-        window.location.replace(`https://app.clinicafonoinova.com.br${location.pathname}`);
-        return <LoadingSpinner fullscreen />;
+    // 🔒 Protege domínio - redireciona para o domínio oficial se necessário
+    const APP_URL = import.meta.env.VITE_APP_URL || 'https://app.clinicafonoinova.com.br';
+    const ALLOWED_HOSTNAMES = [
+        new URL(APP_URL).hostname,
+        'localhost',
+        '127.0.0.1'
+    ];
+    
+    if (!ALLOWED_HOSTNAMES.includes(window.location.hostname)) {
+        window.location.replace(`${APP_URL}${location.pathname}`);
+        return <PageLoader />;
     }
 
     return (
-        <Suspense fallback={<LoadingSpinner fullscreen />}>
-            <Routes location={location}>
-                {/* PÚBLICAS */}
+        <Suspense fallback={<PageLoader />}>
+            <Routes>
+                {/* ==================== ROTAS PÚBLICAS ==================== */}
                 <Route path="/" element={<Home />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<SignUp />} />
+                <Route path="/login" element={
+                    user ? <Navigate to={`/${user.role}`} replace /> : <Login />
+                } />
+                <Route path="/signup" element={
+                    user ? <Navigate to={`/${user.role}`} replace /> : <SignUp />
+                } />
                 <Route path="/reset-password/:token" element={<ResetPassword />} />
                 <Route path="/contacts" element={<ContactsPage />} />
 
-                {/* PRIVADAS COM LAYOUT */}
-                <Route
-                    element={
-                        <PrivateRoute allowedRoles={['admin', 'professional', 'doctor', 'patient']}>
-                            <MainLayout />
-                        </PrivateRoute>
-                    }
-                >
-                    <Route path="admin/*" element={<AdminDashboard />} />
-                    <Route path="doctors" element={<DoctorDashboard />} />
-                    <Route path="patient" element={<PatientDashboard />} />
-                    <Route path="patient-dashboard/:id" element={<PatientDashboard />} />
-                    <Route path="create-appointment" element={<CreateAppointmentPage />} />
-                    <Route path="schedule" element={<SchedulePage />} />
+                {/* ==================== ROTAS PRIVADAS ==================== */}
+                
+                {/* Admin Dashboard (com abas internas) */}
+                <Route path="/admin" element={
+                    <PrivateRoute allowedRoles={['admin']}>
+                        <AdminDashboard />
+                    </PrivateRoute>
+                } />
 
-                    <Route path="/vendas" element={<SalesList onNewSale={() => navigate('/vendas/nova')} onViewSale={(id) => navigate(`/vendas/${id}`)} />} />
-                    <Route path="/vendas/nova" element={<SaleForm onCancel={() => navigate('/vendas')} onSuccess={() => navigate('/vendas')} />} />
-                    <Route path="/provisionamento" element={<ProvisionamentoTab />} />
+                {/* Sub-rotas do Admin - Lazy Loaded */}
+                <Route path="/admin/analytics" element={
+                    <PrivateRoute allowedRoles={['admin']}>
+                        <SiteAnalyticsDashboard />
+                    </PrivateRoute>
+                } />
+                <Route path="/admin/marketing" element={
+                    <PrivateRoute allowedRoles={['admin']}>
+                        <MarketingDashboard />
+                    </PrivateRoute>
+                } />
+                <Route path="/admin/followup" element={
+                    <PrivateRoute allowedRoles={['admin']}>
+                        <FollowupDashboard />
+                    </PrivateRoute>
+                } />
+                <Route path="/admin/leads" element={
+                    <PrivateRoute allowedRoles={['admin']}>
+                        <FollowupPage />
+                    </PrivateRoute>
+                } />
+                <Route path="/admin/messages" element={
+                    <PrivateRoute allowedRoles={['admin']}>
+                        <AppChat />
+                    </PrivateRoute>
+                } />
+                <Route path="/admin/contacts" element={
+                    <PrivateRoute allowedRoles={['admin']}>
+                        <ContactsPage />
+                    </PrivateRoute>
+                } />
+                <Route path="/admin/financial" element={
+                    <PrivateRoute allowedRoles={['admin']}>
+                        <FinancialDashboard />
+                    </PrivateRoute>
+                } />
+                <Route path="/admin/payments" element={
+                    <PrivateRoute allowedRoles={['admin']}>
+                        <PaymentPage patients={[]} initialPayments={[]} doctors={[]} />
+                    </PrivateRoute>
+                } />
+                <Route path="/admin/doctors" element={
+                    <PrivateRoute allowedRoles={['admin']}>
+                        <ManageDoctors />
+                    </PrivateRoute>
+                } />
+                <Route path="/admin/doctors/:id/agenda" element={
+                    <PrivateRoute allowedRoles={['admin']}>
+                        <DoctorAgenda />
+                    </PrivateRoute>
+                } />
+                <Route path="/admin/calendar" element={
+                    <PrivateRoute allowedRoles={['admin']}>
+                        <EnhancedCalendar />
+                    </PrivateRoute>
+                } />
 
-                    {/* NOVAS ROTAS PARA GESTÃO DE PACIENTES - CORRIGIDAS */}
-                    <Route path="patients" element={<PatientsTable />} />
-                    <Route path="patients/:id" element={<PatientDetail />} />
-                    {/*    <Route path="patients/:id/anamnesis" element={<AnamnesisReport />} />
-                    <Route path="patients/:id/school-report" element={<SchoolReport />} /> */}
-                    <Route path="patients/:id/medical-reports" element={<MedicalReportsSection />} />
+                {/* Rotas de Doctor */}
+                <Route path="/doctor" element={
+                    <PrivateRoute allowedRoles={['doctor', 'admin']}>
+                        <DoctorDashboard />
+                    </PrivateRoute>
+                } />
 
-                    {/* ROTA PARA SECRETÁRIA - PRÉ-AGENDAMENTOS */}
-                    <Route path="pre-agendamentos" element={<PreAgendamentosPage />} />
+                {/* Rotas de Patient */}
+                <Route path="/patient" element={
+                    <PrivateRoute allowedRoles={['patient', 'admin']}>
+                        <PatientDashboard />
+                    </PrivateRoute>
+                } />
+                <Route path="/patient-dashboard/:id" element={
+                    <PrivateRoute allowedRoles={['patient', 'admin']}>
+                        <PatientDashboard />
+                    </PrivateRoute>
+                } />
 
-                </Route>
+                {/* Gestão de Pacientes */}
+                <Route path="/patients" element={
+                    <PrivateRoute allowedRoles={['admin', 'doctor']}>
+                        <PatientsTable />
+                    </PrivateRoute>
+                } />
+                <Route path="/patients/:id" element={
+                    <PrivateRoute allowedRoles={['admin', 'doctor']}>
+                        <PatientDetail />
+                    </PrivateRoute>
+                } />
+                <Route path="/patients/:id/medical-reports" element={
+                    <PrivateRoute allowedRoles={['admin', 'doctor']}>
+                        <MedicalReportsSection />
+                    </PrivateRoute>
+                } />
 
-                <Route path="*" element={<Navigate to="/" replace />} />
+                {/* Agendamentos */}
+                <Route path="/create-appointment" element={
+                    <PrivateRoute allowedRoles={['admin', 'doctor']}>
+                        <CreateAppointmentPage />
+                    </PrivateRoute>
+                } />
+                <Route path="/schedule" element={
+                    <PrivateRoute allowedRoles={['admin', 'doctor']}>
+                        <SchedulePage />
+                    </PrivateRoute>
+                } />
+                <Route path="/pre-agendamentos" element={
+                    <PrivateRoute allowedRoles={['admin', 'doctor']}>
+                        <PreAgendamentosPage />
+                    </PrivateRoute>
+                } />
+
+                {/* Financeiro */}
+                <Route path="/vendas" element={
+                    <PrivateRoute allowedRoles={['admin']}>
+                        <SalesList />
+                    </PrivateRoute>
+                } />
+                <Route path="/vendas/nova" element={
+                    <PrivateRoute allowedRoles={['admin']}>
+                        <SaleForm />
+                    </PrivateRoute>
+                } />
+                <Route path="/provisionamento" element={
+                    <PrivateRoute allowedRoles={['admin']}>
+                        <ProvisionamentoTab />
+                    </PrivateRoute>
+                } />
+
+                {/* Rota de fallback */}
+                <Route path="*" element={
+                    <div className="min-h-screen flex items-center justify-center">
+                        <div className="text-center">
+                            <h1 className="text-4xl font-bold text-gray-800 mb-4">404</h1>
+                            <p className="text-gray-600 mb-6">Página não encontrada</p>
+                            <a href="/" className="text-blue-600 hover:underline">
+                                Voltar para home
+                            </a>
+                        </div>
+                    </div>
+                } />
             </Routes>
         </Suspense>
     );

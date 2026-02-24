@@ -2,11 +2,11 @@
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import React from 'react';
 import { useFollowupAnalytics } from '../../hooks/useFollowupAnalytics';
-import ErrorBoundary from '../components/common/ErrorBoundary';
-import FollowupConversionChart from '../components/followup/FollowupConversionChart';
-import FollowupPerformanceChart from '../components/followup/FollowupPerformanceChart';
-import FollowupStats from '../components/followup/FollowupStats';
-import FollowupTrendChart from '../components/followup/FollowupTrendChart';
+import ErrorBoundary from '../common/ErrorBoundary';
+import FollowupConversionChart from './FollowupConversionChart';
+import FollowupPerformanceChart from './FollowupPerformanceChart';
+import FollowupStats from './FollowupStats';
+import FollowupTrendChart from './FollowupTrendChart';
 
 const FollowupDashboard: React.FC = () => {
   const { data, loading, error, refetch } = useFollowupAnalytics();

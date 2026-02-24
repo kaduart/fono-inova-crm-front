@@ -35,7 +35,7 @@ const formatCurrency = (val: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 
 const MetricCard = ({ title, value, subtitle, icon, color, trend }: any) => (
-    <Card variant="outlined" sx={{ borderRadius: 3, border: '1px solid #edf2f7', transition: 'transform 0.2s', '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' } }}>
+    <Card variant="outlined" sx={{ width: "100%", borderRadius: 3, border: '1px solid #edf2f7', transition: 'transform 0.2s', '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' } }}>
         <CardContent sx={{ p: 2.5 }}>
             <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
                 <Box sx={{ p: 1, borderRadius: 2, bgcolor: `${color}15`, color: color }}>
@@ -83,7 +83,7 @@ const InteligenciaFinanceiraTab = () => {
     const metaAlcancada = (projecaoMes?.metas?.percentualAtual || 0) >= 100;
 
     return (
-        <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
+        <Box sx={{ width: '100%' }}>
             {/* Header Estratégico */}
             <Box display="flex" justifyContent="space-between" alignItems="flex-end" mb={4}>
                 <Box>

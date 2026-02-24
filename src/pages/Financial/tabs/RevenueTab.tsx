@@ -94,8 +94,8 @@ const RevenueTab: React.FC = () => {
             <Paper 
                 elevation={0} 
                 sx={{ 
-                    p: 2.5, 
-                    mb: 3, 
+                    p: { xs: 2, sm: 2.5 }, 
+                    mb: { xs: 2, sm: 3 }, 
                     border: '1px solid', 
                     borderColor: 'grey.200', 
                     borderRadius: 2,
@@ -125,8 +125,8 @@ const RevenueTab: React.FC = () => {
                     </Box>
 
                     {/* Filtros de Mês/Ano */}
-                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-                        <FormControl size="small" sx={{ minWidth: 120 }}>
+                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', width: { xs: '100%', md: 'auto' } }}>
+                        <FormControl size="small" sx={{ flex: 1, maxWidth: { xs: '50%', sm: 140, md: 'none' } }}>
                             <InputLabel>Mês</InputLabel>
                             <Select
                                 value={currentMonth}
@@ -146,7 +146,7 @@ const RevenueTab: React.FC = () => {
                             </Select>
                         </FormControl>
 
-                        <FormControl size="small" sx={{ minWidth: 100 }}>
+                        <FormControl size="small" sx={{ flex: 1, maxWidth: { xs: '50%', sm: 120, md: 'none' } }}>
                             <InputLabel>Ano</InputLabel>
                             <Select
                                 value={currentYear}
@@ -169,7 +169,7 @@ const RevenueTab: React.FC = () => {
 
             {/* Cards de Resumo */}
             {loading ? (
-                <Grid container spacing={2.5} sx={{ mb: 4 }}>
+                <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: { xs: 2, sm: 3, md: 4 } }}>
                     {[1, 2, 3, 4].map(i => (
                         <Grid item xs={12} sm={6} md={3} key={i}>
                             <Skeleton variant="rectangular" height={140} sx={{ borderRadius: 2 }} />
@@ -177,7 +177,7 @@ const RevenueTab: React.FC = () => {
                     ))}
                 </Grid>
             ) : (
-                <Grid container spacing={2.5} sx={{ mb: 4 }}>
+                <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ width: '100%', mb: { xs: 3, sm: 4 } }}>
                     {/* Total Mês */}
                     <Grid item xs={12} sm={6} md={3}>
                         <SummaryCard
@@ -229,6 +229,7 @@ const RevenueTab: React.FC = () => {
                         <Card 
                             elevation={0} 
                             sx={{ 
+                                width: '100%',
                                 border: '1px solid', 
                                 borderColor: hasValidVariation ? (isPositiveVariation ? '#10B98130' : '#EF444430') : '#9CA3AF30', 
                                 borderRadius: 2, 
@@ -240,8 +241,8 @@ const RevenueTab: React.FC = () => {
                                 }
                             }}
                         >
-                            <CardContent sx={{ p: 2.5 }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                            <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: { xs: 1.5, sm: 2 } }}>
                                     <Box>
                                         <Typography variant="body2" sx={{ color: '#6B7280', fontWeight: 500, mb: 0.5 }}>
                                             vs Mês Anterior
@@ -326,8 +327,8 @@ const RevenueTab: React.FC = () => {
                 <Grid container spacing={2.5}>
                     {/* Breakdown por Tipo */}
                     <Grid item xs={12} md={6}>
-                        <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                        <Paper elevation={0} sx={{ p: { xs: 2, sm: 2.5, md: 3 }, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: { xs: 2, sm: 3 } }}>
                                 <Avatar sx={{ bgcolor: '#8B5CF610', width: 32, height: 32 }}>
                                     <AccountBalance sx={{ fontSize: 18, color: '#8B5CF6' }} />
                                 </Avatar>
@@ -405,8 +406,8 @@ const RevenueTab: React.FC = () => {
 
                     {/* Insights */}
                     <Grid item xs={12} md={6}>
-                        <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                        <Paper elevation={0} sx={{ p: { xs: 2, sm: 2.5, md: 3 }, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: { xs: 2, sm: 3 } }}>
                                 <Avatar sx={{ bgcolor: '#8B5CF610', width: 32, height: 32 }}>
                                     <Insights sx={{ fontSize: 18, color: '#8B5CF6' }} />
                                 </Avatar>
@@ -478,6 +479,7 @@ const SummaryCard = ({ title, value, icon, color, bgColor = 'white', subtitle }:
     <Card 
         elevation={0} 
         sx={{ 
+            width: '100%',
             border: '1px solid', 
             borderColor: `${color}30`, 
             borderRadius: 2, 
@@ -490,8 +492,8 @@ const SummaryCard = ({ title, value, icon, color, bgColor = 'white', subtitle }:
             }
         }}
     >
-        <CardContent sx={{ p: 2.5 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+        <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: { xs: 1.5, sm: 2 } }}>
                 <Box>
                     <Typography variant="body2" sx={{ color: '#6B7280', fontWeight: 500, mb: 0.5 }}>
                         {title}

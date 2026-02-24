@@ -16,10 +16,10 @@ const Button = ({ children, primary, onClick, ...props }) => (
 );
 
 const Card = ({ icon: Icon, title, description, primary }) => (
-  <div className={`rounded-lg shadow-md p-6 transition-all duration-300 hover:shadow-lg ${primary ? 'bg-white' : 'bg-gray-50'}`}>
-    <Icon className="w-8 h-8 text-green-600 mb-4" />
-    <h3 className="text-xl font-bold mb-2 text-gray-800">{title}</h3>
-    <p className="text-gray-600 mb-4">{description}</p>
+  <div className={`rounded-lg shadow-sm p-2.5 transition-all duration-300 hover:shadow-md ${primary ? 'bg-white' : 'bg-gray-50'}`}>
+    <Icon className="w-5 h-5 text-green-600 mb-1" />
+    <h3 className="text-sm font-semibold mb-0.5 text-gray-800">{title}</h3>
+    <p className="text-xs text-gray-600 leading-tight">{description}</p>
   </div>
 );
 
@@ -43,28 +43,28 @@ const Home = () => {
       <Header />
 
       <main className="flex-1">
-        <Section bg="bg-gradient-to-r from-green-600 to-emerald-700" height="min-h-[30rem]">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center h-full">
+        <Section bg="bg-gradient-to-r from-green-600 to-emerald-700" height="py-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
             <div>
-              <h1 className="text-5xl font-bold text-white mb-6 text-left">
-                Simplifique a gestão do sua clínica
+              <h1 className="text-2xl font-bold text-white mb-2 text-left">
+                Simplifique a gestão da sua clínica
               </h1>
-              <p className="text-xl text-green-100 mb-10 text-left">
-                Nosso sistema abrangente de gestão clínica ajuda você a otimizar o atendimento ao paciente, agilizar as operações e melhorar a eficiência geral.
+              <p className="text-sm text-green-100 mb-4 text-left">
+                Sistema completo para otimizar atendimento, agilizar operações e melhorar a eficiência.
               </p>
-              <div className="flex gap-4 justify-left">
-                <Button primary onClick={() => handleButtonClick('/login')}>Explorar recursos</Button>
-                <Button onClick={() => handleButtonClick('/login')}>Compromissos</Button>
+              <div className="flex gap-2 justify-left">
+                <Button primary onClick={() => handleButtonClick('/login')}>Explorar</Button>
+                <Button onClick={() => handleButtonClick('/login')}>Agenda</Button>
               </div>
             </div>
-            <div className="bg-gray-200 w-full h-full min-h-[20rem] rounded-lg overflow-hidden">
-              <img src="home-1.jpeg" alt="" />
+            <div className="bg-gray-200 w-full h-56 rounded-lg overflow-hidden hidden md:block">
+              <img src="home-1.jpeg" alt="" className="w-full h-full object-cover" />
             </div>
           </div>
         </Section>
 
-        <Section>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <Section height="py-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             {[
               { icon: User, title: "Gestão de Pacientes", description: "Gerencie com eficiência registros de pacientes, consultas e histórico médico." },
               { icon: Hospital, title: "Gestão de Profissionais", description: "Gerencie perfis de profissionais, agendas e atribuições de pacientes." },
@@ -75,30 +75,29 @@ const Home = () => {
           </div>
         </Section>
 
-        <Section bg="bg-gray-50" height="min-h-[25rem]">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-            <div className="bg-gray-200 w-full h-64 min-h-[18rem] rounded-lg overflow-hidden flex justify-center items-center">
-              <img src="home-2.jpeg" alt="" className='w-full' />
+        <Section bg="bg-gray-50" height="py-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            <div className="bg-gray-200 w-full h-64 rounded-lg overflow-hidden hidden md:block">
+              <img src="home-2.jpeg" alt="" className="w-full h-full object-cover" />
             </div>
             <div>
-              <h2 className="text-3xl font-bold mb-4 text-left text-gray-800">Modernize as operações do sua clínica</h2>
-              <p className="text-xl text-gray-600 mb-8 text-left">
-                Nosso sistema de gestão clínica oferece recursos de ponta para otimizar seus fluxos de trabalho, melhorar
-                a satisfação do paciente e gerar melhores resultados.
+              <h2 className="text-xl font-bold mb-3 text-left text-gray-800">Modernize as operações da sua clínica</h2>
+              <p className="text-sm text-gray-600 mb-5 text-left">
+                Otimize seus fluxos de trabalho, melhore a satisfação do paciente e gere melhores resultados.
               </p>
-              <div className="flex gap-4 justify-left">
-                <Button primary onClick={() => handleButtonClick('/login')}>Explorar Recursos</Button>
-                <Button onClick={() => handleButtonClick('/login')}>Compromissos</Button>
+              <div className="flex gap-3 justify-left">
+                <Button primary onClick={() => handleButtonClick('/login')}>Explorar</Button>
+                <Button onClick={() => handleButtonClick('/login')}>Agenda</Button>
               </div>
             </div>
           </div>
         </Section>
 
-        <Section>
-          <h2 className="text-3xl font-bold mb-12 text-center text-gray-800">
-            Por que escolher nosso sistema de gestão clínica?
+        <Section height="py-5">
+          <h2 className="text-lg font-bold mb-3 text-center text-gray-800">
+            Por que escolher nosso sistema?
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             {[
               { icon: Clipboard, title: "Eficiência Aprimorada", description: "Nosso sistema agiliza tarefas administrativas, reduz a papelada e melhora a eficiência geral do hospital." },
               { icon: Users, title: "Atendimento ao Paciente Aprimorado", description: "Com registros abrangentes dos pacientes e agendamento inteligente, nosso sistema ajuda você a oferecer um melhor atendimento." },

@@ -114,54 +114,63 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     '/signup',
     '/forgot-password'
   ];
-  // Efeito para verificar expiração da sessão
+
+  // 🔒 Efeito único e consolidado para validação de autenticação
+  // Evita race condition entre múltiplos useEffect concorrentes
   useEffect(() => {
-    // se a rota for pública, não roda checkAuth
-    if (publicPaths.some(path => location.pathname.startsWith(path))) {
-      setAuthLoading(false);
-      return;
-    }
+    let isMounted = true;
+    let isRunning = false;
 
-    const checkAuth = async () => {
+    const validateAuth = async () => {
+      // Previne execuções concorrentes
+      if (isRunning) return;
+      isRunning = true;
+
       try {
-        setAuthLoading(true);
-        const isExpired = checkSessionExpiry();
-
-        if (isExpired) {
-          await logout();
-          window.dispatchEvent(new CustomEvent('sessionExpired'));
+        // Rotas públicas não precisam de validação
+        if (publicPaths.some(path => location.pathname.startsWith(path))) {
+          if (isMounted) setAuthLoading(false);
           return;
         }
 
+        if (isMounted) setAuthLoading(true);
+
+        // Etapa 1: Verifica expiração da sessão
+        const isExpired = checkSessionExpiry();
+        if (isExpired) {
+          if (isMounted) {
+            await logout();
+            window.dispatchEvent(new CustomEvent('sessionExpired'));
+          }
+          return;
+        }
+
+        // Etapa 2: Valida token com o backend
         const userRes = await API.get('/users/me');
-        setUser(userRes.data);
-        updateLastActivity();
+        
+        if (isMounted) {
+          setUser(userRes.data);
+          updateLastActivity();
+        }
       } catch (error) {
-        setUser(null);
-        await logout();
+        if (isMounted) {
+          setUser(null);
+          await logout();
+        }
       } finally {
-        setAuthLoading(false);
+        if (isMounted) {
+          setAuthLoading(false);
+        }
+        isRunning = false;
       }
     };
 
-    checkAuth();
+    validateAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, [checkSessionExpiry, logout, updateLastActivity]);
-
-  useEffect(() => {
-    const validateSession = async () => {
-      try {
-        setAuthLoading(true);
-        const userRes = await API.get('/users/me');
-        setUser(userRes.data);
-      } catch (error) {
-        setUser(null);
-      } finally {
-        setAuthLoading(false);
-      }
-    };
-
-    validateSession();
-  }, []); // Removidas as dependências desnecessárias
 
   useEffect(() => {
     const renewToken = async () => {

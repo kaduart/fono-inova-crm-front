@@ -14,7 +14,6 @@ import { AppointmentsProvider } from "./contexts/AppointmentsContext";
 import { useAuth } from "./contexts/AuthContext";
 import { ChatNavigationProvider } from "./contexts/ChatNavigationContext";
 import { PreAgendamentoNotificationPopup } from "./components/patients/PreAgendamentoNotificationPopup";
-import { PWAInstallBanner } from "./components/PWAInstallBanner";
 
 const App: React.FC = () => {
   const { isLoading } = useAuth();
@@ -53,7 +52,6 @@ const App: React.FC = () => {
       <MediaNotificationPopup />
       <ChatNotificationPopup />
       <PreAgendamentoNotificationPopup />
-      <PWAInstallBanner />
     </ChatNavigationProvider>
   );
 };

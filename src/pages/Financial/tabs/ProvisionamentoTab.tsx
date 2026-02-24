@@ -109,11 +109,12 @@ const ProvisionamentoTab = () => {
   return (
     <Box>
       {/* Header com Filtros */}
-      <Paper sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+      <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, mb: { xs: 2, sm: 3 }, borderRadius: 2 }}>
         <Box sx={{
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center',
+          alignItems: { xs: 'stretch', md: 'center' },
+          flexDirection: { xs: 'column', md: 'row' },
           flexWrap: 'wrap',
           gap: 2
         }}>
@@ -126,8 +127,8 @@ const ProvisionamentoTab = () => {
             </Typography>
           </Box>
 
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            <FormControl size="small" sx={{ minWidth: 120 }}>
+          <Box sx={{ display: 'flex', gap: { xs: 1.5, sm: 2 }, alignItems: 'center', flexWrap: 'wrap', width: { xs: '100%', md: 'auto' } }}>
+            <FormControl size="small" sx={{ minWidth: 100, flex: { xs: 1, md: 'none' }, maxWidth: { xs: 120, md: 'none' } }}>
               <InputLabel>Mês</InputLabel>
               <Select
                 value={mes}
@@ -142,7 +143,7 @@ const ProvisionamentoTab = () => {
               </Select>
             </FormControl>
 
-            <FormControl size="small" sx={{ minWidth: 100 }}>
+            <FormControl size="small" sx={{ minWidth: 80, flex: { xs: 1, md: 'none' }, maxWidth: { xs: 100, md: 'none' } }}>
               <InputLabel>Ano</InputLabel>
               <Select
                 value={ano}
@@ -162,6 +163,7 @@ const ProvisionamentoTab = () => {
                 carregarPendentes(mes, ano);
               }}
               size="small"
+              sx={{ flex: { xs: 1, md: 'none' } }}
             >
               Atualizar
             </Button>
@@ -171,6 +173,7 @@ const ProvisionamentoTab = () => {
               startIcon={<Download />}
               onClick={handleExport}
               size="small"
+              sx={{ flex: { xs: 1, md: 'none' } }}
             >
               Excel
             </Button>
@@ -180,9 +183,9 @@ const ProvisionamentoTab = () => {
 
       {/* Cards Indicadores */}
       {data && (
-        <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }} sx={{ mb: { xs: 2, sm: 3 } }}>
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Card sx={{ borderLeft: 4, borderColor: 'success.main' }}>
+            <Card sx={{ width: "100%", borderLeft: 4, borderColor: 'success.main' }}>
               <CardContent>
                 <Typography color="success.main" fontWeight="bold" gutterBottom>
                   GARANTIDO
@@ -198,7 +201,7 @@ const ProvisionamentoTab = () => {
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Card sx={{ borderLeft: 4, borderColor: 'warning.main' }}>
+            <Card sx={{ width: "100%", borderLeft: 4, borderColor: 'warning.main' }}>
               <CardContent>
                 <Typography color="warning.main" fontWeight="bold" gutterBottom>
                   CONFIRMADO
@@ -214,7 +217,7 @@ const ProvisionamentoTab = () => {
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Card sx={{ borderLeft: 4, borderColor: 'error.main' }}>
+            <Card sx={{ width: "100%", borderLeft: 4, borderColor: 'error.main' }}>
               <CardContent>
                 <Typography color="error.main" fontWeight="bold" gutterBottom>
                   PENDENTE
@@ -235,7 +238,7 @@ const ProvisionamentoTab = () => {
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Card sx={{
+            <Card sx={{ width: "100%",
               bgcolor: 'primary.main',
               color: 'primary.contrastText',
               borderLeft: 4,
@@ -319,7 +322,7 @@ const ProvisionamentoTab = () => {
                   </Typography>
 
                   {/* Cards Principais */}
-                  <Grid container spacing={3} sx={{ mb: 3 }}>
+                  <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }} sx={{ mb: { xs: 2, sm: 3 } }}>
                     <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <Card>
                         <CardContent>
@@ -377,7 +380,7 @@ const ProvisionamentoTab = () => {
                     </Grid>
 
                     <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                      <Card sx={{ bgcolor: 'primary.50' }}>
+                      <Card sx={{ width: "100%", bgcolor: 'primary.50' }}>
                         <CardContent>
                           <Typography color="primary.main" variant="body2" fontWeight="bold" gutterBottom>
                             PROJEÇÃO DE CRESCIMENTO
@@ -530,7 +533,7 @@ const ProvisionamentoTab = () => {
 
               {/* Métricas */}
               {data && (
-                <Grid container spacing={2} sx={{ mt: 4 }}>
+                <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mt: { xs: 2, sm: 3, md: 4 } }}>
                   <Grid size={{ xs: 6, md: 3 }}>
                     <Paper sx={{ p: 2, textAlign: 'center' }}>
                       <Typography variant="body2" color="text.secondary">
@@ -707,7 +710,7 @@ const ProvisionamentoTab = () => {
                 <Grid container spacing={3} sx={{ mb: 6 }}>
                   {pacotesAndamento.map((pacote: any, idx: number) => (
                     <Grid size={{ xs: 12, md: 6, lg: 4 }} key={idx}>
-                      <Card variant="outlined" sx={{ height: '100%', borderLeft: 4, borderColor: 'primary.main' }}>
+                      <Card variant="outlined" sx={{ width: "100%", height: '100%', borderLeft: 4, borderColor: 'primary.main' }}>
                         <CardContent>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                             <Typography variant="caption" color="text.secondary">
@@ -745,7 +748,7 @@ const ProvisionamentoTab = () => {
                           </Box>
 
                           <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                            <Grid container spacing={2}>
+                            <Grid container spacing={{ xs: 1, sm: 1.5, md: 2 }}>
                               <Grid size={{ xs: 6 }}>
                                 <Typography variant="caption" color="text.secondary" display="block">
                                   Valor Total
@@ -863,7 +866,7 @@ const ProvisionamentoTab = () => {
                       <Typography variant="subtitle1" fontWeight="bold" color="error.main" gutterBottom>
                         CUSTOS VARIÁVEIS
                       </Typography>
-                      <Grid container spacing={3}>
+                      <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }}>
                         <Grid size={{ xs: 6, md: 3 }}>
                           <Typography variant="body2" color="text.secondary">CMV</Typography>
                           <Typography variant="h6">{formatCurrency(fechamentoData.dre.cmv)}</Typography>

@@ -2,7 +2,8 @@ import { Paper, Typography, useTheme } from '@mui/material';
 import { BarChart3, CalendarPlus } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { TabErrorBoundary } from './error/TabErrorBoundary';
 import { IPatient, ScheduleAppointment } from '../../utils/types/types';
 import { useAppointmentsContext } from '../contexts/AppointmentsContext';
 import { useChatNavigation } from "../contexts/ChatNavigationContext";
@@ -91,7 +92,16 @@ const initialPatientState: IPatient = {
 };
 
 export default function AdminDashboard() {
-    const [activeTab, setActiveTab] = useState('Dashboard');
+    const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
+    
+    // 🎯 Lê a aba da URL ou usa 'Dashboard' como padrão
+    const activeTab = searchParams.get('tab') || 'Dashboard';
+    
+    // 📝 Atualiza a URL quando muda de aba
+    const setActiveTab = useCallback((tab: string) => {
+        setSearchParams({ tab });
+    }, [setSearchParams]);
     const [openMenu, setOpenMenu] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [showAdminPassword, setShowAdminPassword] = useState(false);
@@ -144,7 +154,6 @@ export default function AdminDashboard() {
     // 🗓️ Estado para controle do range de datas do calendário
     const [calendarDateRange, setCalendarDateRange] = useState<{ startDate?: string; endDate?: string }>({});
 
-    const navigate = useNavigate();
     const theme = useTheme();
 
     // 🎯 Hook otimizado do dashboard (substitui múltiplas chamadas)
@@ -622,7 +631,7 @@ export default function AdminDashboard() {
                 return <ManageDoctors {...manageDoctorsProps} />;
             case 'Calendário':
                 return (
-                    <>
+                    <TabErrorBoundary tabName="Calendário">
                         <div className="flex justify-end mb-3">
                             <button
                                 onClick={() => setActiveTab('Pré-Agendamentos')}
@@ -634,37 +643,47 @@ export default function AdminDashboard() {
                         <Suspense fallback={<TabSkeleton />}>
                             <EnhancedCalendar {...calendarProps} />
                         </Suspense>
-                    </>
+                    </TabErrorBoundary>
                 );
             case 'Financeiro':
                 return (
-                    <Suspense fallback={<TabSkeleton />}>
-                        <FinancialDashboard {...financialProps} />
-                    </Suspense>
+                    <TabErrorBoundary tabName="Financeiro">
+                        <Suspense fallback={<TabSkeleton />}>
+                            <FinancialDashboard {...financialProps} />
+                        </Suspense>
+                    </TabErrorBoundary>
                 );
             case 'Leads':
                 return (
-                    <Suspense fallback={<TabSkeleton />}>
-                        <FollowupPage />
-                    </Suspense>
+                    <TabErrorBoundary tabName="Leads">
+                        <Suspense fallback={<TabSkeleton />}>
+                            <FollowupPage />
+                        </Suspense>
+                    </TabErrorBoundary>
                 );
             case 'Analytics':
                 return (
-                    <Suspense fallback={<TabSkeleton />}>
-                        <SiteAnalyticsDashboard {...analyticsProps} />
-                    </Suspense>
+                    <TabErrorBoundary tabName="Analytics">
+                        <Suspense fallback={<TabSkeleton />}>
+                            <SiteAnalyticsDashboard {...analyticsProps} />
+                        </Suspense>
+                    </TabErrorBoundary>
                 );
             case 'Mensagens':
                 return (
-                    <Suspense fallback={<TabSkeleton />}>
-                        <AppChat />
-                    </Suspense>
+                    <TabErrorBoundary tabName="Mensagens">
+                        <Suspense fallback={<TabSkeleton />}>
+                            <AppChat />
+                        </Suspense>
+                    </TabErrorBoundary>
                 );
             case 'Pré-Agendamentos':
                 return (
-                    <Suspense fallback={<TabSkeleton />}>
-                        <PreAgendamentosPage />
-                    </Suspense>
+                    <TabErrorBoundary tabName="Pré-Agendamentos">
+                        <Suspense fallback={<TabSkeleton />}>
+                            <PreAgendamentosPage />
+                        </Suspense>
+                    </TabErrorBoundary>
                 );
             default:
                 return <div>Conteúdo não encontrado</div>;
@@ -683,7 +702,7 @@ export default function AdminDashboard() {
                 onLogout={handleLogout}
             />
 
-            <main className="max-w-[95%] lg:max-w-[85rem] mx-auto px-2 sm:px-4 lg:px-8 py-0 overflow-x-hidden">
+            <main className="w-full mx-auto px-2 sm:px-4 lg:px-8 py-0 overflow-x-hidden">
 
                 {/* <div className="mb-6 flex justify-between items-center">
                     <h2 className="text-2xl font-bold text-gray-900">
@@ -691,7 +710,7 @@ export default function AdminDashboard() {
                     </h2>
                 </div> */}
 
-                <div className="bg-white rounded-lg shadow-sm space-y-6 p-2 sm:p-6 overflow-hidden">
+                <div className="bg-white rounded-lg shadow-sm space-y-6 p-1 sm:p-4 lg:p-6 overflow-hidden">
                     {activeTab === 'Dashboard' && (
                         <Paper
                             elevation={2}

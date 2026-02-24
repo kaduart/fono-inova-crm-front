@@ -134,7 +134,7 @@ const VisaoGeralEstrategicaTab = () => {
     return (
         <Box>
             {/* Header com Filtros */}
-            <Paper elevation={0} sx={{ p: 2.5, mb: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
+            <Paper elevation={0} sx={{ p: { xs: 2, sm: 2.5 }, mb: { xs: 2, sm: 3 }, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                         <Avatar sx={{ bgcolor: '#8B5CF6', width: 48, height: 48 }}>
@@ -150,8 +150,8 @@ const VisaoGeralEstrategicaTab = () => {
                         </Box>
                     </Box>
 
-                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-                        <FormControl size="small" sx={{ minWidth: 120 }}>
+                    <Box sx={{ display: 'flex', gap: { xs: 1, sm: 1.5 }, alignItems: 'center', width: { xs: '100%', md: 'auto' } }}>
+                        <FormControl size="small" sx={{ flex: 1, maxWidth: { xs: '33%', sm: 110, md: 'none' } }}>
                             <InputLabel>Mês</InputLabel>
                             <Select
                                 value={selectedMonth}
@@ -166,7 +166,7 @@ const VisaoGeralEstrategicaTab = () => {
                             </Select>
                         </FormControl>
 
-                        <FormControl size="small" sx={{ minWidth: 100 }}>
+                        <FormControl size="small" sx={{ flex: 1, maxWidth: { xs: '33%', sm: 90, md: 'none' } }}>
                             <InputLabel>Ano</InputLabel>
                             <Select
                                 value={selectedYear}
@@ -179,7 +179,7 @@ const VisaoGeralEstrategicaTab = () => {
                             </Select>
                         </FormControl>
 
-                        <FormControl size="small" sx={{ minWidth: 140 }}>
+                        <FormControl size="small" sx={{ flex: 1.5, maxWidth: { xs: '34%', sm: 140, md: 'none' } }}>
                             <InputLabel>Comparar</InputLabel>
                             <Select
                                 value={selectedComparison}
@@ -203,9 +203,9 @@ const VisaoGeralEstrategicaTab = () => {
             {loading ? (
                 <Box sx={{ mt: 2 }}>
                     <LinearProgress sx={{ mb: 3, borderRadius: 1 }} />
-                    <Grid container spacing={2.5}>
+                    <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
                         {[1, 2, 3, 4, 5, 6].map(i => (
-                            <Grid item xs={12} sm={6} md={4} lg={2} key={i}>
+                            <Grid item xs={6} sm={6} md={4} lg={2} key={i}>
                                 <Skeleton variant="rectangular" height={140} sx={{ borderRadius: 2 }} />
                             </Grid>
                         ))}
@@ -214,19 +214,19 @@ const VisaoGeralEstrategicaTab = () => {
             ) : data ? (
                 <>
                     {/* Cards de Métricas Operacionais (Funnel) */}
-                    <Paper elevation={0} sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'primary.main' + '20', borderRadius: 2, bgcolor: 'primary.main' + '05' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                    <Paper elevation={0} sx={{ p: { xs: 2, sm: 2.5, md: 3 }, mb: { xs: 2, sm: 3 }, border: '1px solid', borderColor: 'primary.main' + '20', borderRadius: 2, bgcolor: 'primary.main' + '05' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: { xs: 2, sm: 3 } }}>
                             <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}>
                                 <Assessment sx={{ fontSize: 18, color: 'white' }} />
                             </Avatar>
                             <Typography variant="h6" fontWeight="600">📊 Métricas Operacionais - Fevereiro</Typography>
                         </Box>
 
-                        <Grid container spacing={2}>
+                        <Grid container spacing={{ xs: 1, sm: 1.5, md: 2 }}>
                             {/* Leads Recebidos */}
-                            <Grid item xs={12} sm={6} md={4} lg={2.4}>
-                                <Card elevation={0} sx={{ border: '1px solid', borderColor: '#3B82F630', borderRadius: 2, height: '100%' }}>
-                                    <CardContent sx={{ p: 2 }}>
+                            <Grid item xs={6} sm={6} md={4} lg={2.4}>
+                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#3B82F630', borderRadius: 2, height: '100%' }}>
+                                    <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
                                             <Avatar sx={{ bgcolor: '#3B82F6', width: 40, height: 40 }}>
                                                 <Group sx={{ color: 'white', fontSize: 20 }} />
@@ -249,8 +249,8 @@ const VisaoGeralEstrategicaTab = () => {
 
                             {/* Agendamentos (Avaliações Agendadas) */}
                             <Grid item xs={12} sm={6} md={4} lg={2.4}>
-                                <Card elevation={0} sx={{ border: '1px solid', borderColor: '#10B98130', borderRadius: 2, height: '100%' }}>
-                                    <CardContent sx={{ p: 2 }}>
+                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#10B98130', borderRadius: 2, height: '100%' }}>
+                                    <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
                                             <Avatar sx={{ bgcolor: '#10B981', width: 40, height: 40 }}>
                                                 <CalendarMonth sx={{ color: 'white', fontSize: 20 }} />
@@ -273,8 +273,8 @@ const VisaoGeralEstrategicaTab = () => {
 
                             {/* Avaliações Realizadas */}
                             <Grid item xs={12} sm={6} md={4} lg={2.4}>
-                                <Card elevation={0} sx={{ border: '1px solid', borderColor: '#F59E0B30', borderRadius: 2, height: '100%' }}>
-                                    <CardContent sx={{ p: 2 }}>
+                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#F59E0B30', borderRadius: 2, height: '100%' }}>
+                                    <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
                                             <Avatar sx={{ bgcolor: '#F59E0B', width: 40, height: 40 }}>
                                                 <MedicalServices sx={{ color: 'white', fontSize: 20 }} />
@@ -297,8 +297,8 @@ const VisaoGeralEstrategicaTab = () => {
 
                             {/* Projetos Fechados (Pacotes) */}
                             <Grid item xs={12} sm={6} md={4} lg={2.4}>
-                                <Card elevation={0} sx={{ border: '1px solid', borderColor: '#8B5CF630', borderRadius: 2, height: '100%' }}>
-                                    <CardContent sx={{ p: 2 }}>
+                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#8B5CF630', borderRadius: 2, height: '100%' }}>
+                                    <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
                                             <Avatar sx={{ bgcolor: '#8B5CF6', width: 40, height: 40 }}>
                                                 <FolderSpecial sx={{ color: 'white', fontSize: 20 }} />
@@ -321,8 +321,8 @@ const VisaoGeralEstrategicaTab = () => {
 
                             {/* Sessões do Mês */}
                             <Grid item xs={12} sm={6} md={4} lg={2.4}>
-                                <Card elevation={0} sx={{ border: '1px solid', borderColor: '#EC489930', borderRadius: 2, height: '100%' }}>
-                                    <CardContent sx={{ p: 2 }}>
+                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#EC489930', borderRadius: 2, height: '100%' }}>
+                                    <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
                                             <Avatar sx={{ bgcolor: '#EC4899', width: 40, height: 40 }}>
                                                 <EventAvailable sx={{ color: 'white', fontSize: 20 }} />
@@ -346,7 +346,7 @@ const VisaoGeralEstrategicaTab = () => {
                     </Paper>
 
                     {/* Cards Principais */}
-                    <Grid container spacing={2.5} sx={{ mb: 3 }}>
+                    <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ width: '100%', mb: { xs: 3, sm: 3 } }}>
                         <Grid item xs={12} sm={6} md={3}>
                             <MetricCard
                                 title="Receita"
@@ -410,9 +410,9 @@ const VisaoGeralEstrategicaTab = () => {
                     </Grid>
 
                     {/* Segunda Linha - Caixa, A Receber, Meta, Projeção */}
-                    <Grid container spacing={2.5} sx={{ mb: 4 }}>
+                    <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ width: '100%', mb: { xs: 3, sm: 4 } }}>
                         <Grid item xs={12} sm={6} md={3}>
-                            <Card elevation={0} sx={{ border: '1px solid', borderColor: '#05966930', borderRadius: 2, height: '100%' }}>
+                            <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#05966930', borderRadius: 2, height: '100%' }}>
                                 <CardContent>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
                                         <Avatar sx={{ bgcolor: '#059669', width: 40, height: 40 }}>
@@ -434,7 +434,7 @@ const VisaoGeralEstrategicaTab = () => {
                         </Grid>
 
                         <Grid item xs={12} sm={6} md={3}>
-                            <Card elevation={0} sx={{ border: '1px solid', borderColor: '#0284C730', borderRadius: 2, height: '100%' }}>
+                            <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#0284C730', borderRadius: 2, height: '100%' }}>
                                 <CardContent>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
                                         <Avatar sx={{ bgcolor: '#0284C7', width: 40, height: 40 }}>
@@ -454,7 +454,7 @@ const VisaoGeralEstrategicaTab = () => {
                         </Grid>
 
                         <Grid item xs={12} sm={6} md={3}>
-                            <Card elevation={0} sx={{ border: '1px solid', borderColor: '#8B5CF630', borderRadius: 2, height: '100%' }}>
+                            <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#8B5CF630', borderRadius: 2, height: '100%' }}>
                                 <CardContent>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
                                         <Avatar sx={{ bgcolor: '#8B5CF6', width: 40, height: 40 }}>
@@ -484,7 +484,7 @@ const VisaoGeralEstrategicaTab = () => {
                         </Grid>
 
                         <Grid item xs={12} sm={6} md={3}>
-                            <Card elevation={0} sx={{ border: '1px solid', borderColor: '#F59E0B30', borderRadius: 2, height: '100%' }}>
+                            <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#F59E0B30', borderRadius: 2, height: '100%' }}>
                                 <CardContent>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
                                         <Avatar sx={{ bgcolor: '#F59E0B', width: 40, height: 40 }}>
@@ -509,8 +509,8 @@ const VisaoGeralEstrategicaTab = () => {
                     </Grid>
 
                     {/* Caixa Real + Convênios - CONSOLIDADO INLINE */}
-                    <Paper elevation={0} sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                    <Paper elevation={0} sx={{ p: { xs: 2, sm: 2.5, md: 3 }, mb: { xs: 2, sm: 3 }, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: { xs: 2, sm: 3 } }}>
                             <Avatar sx={{ bgcolor: '#059669', width: 32, height: 32 }}>
                                 <AccountBalanceWallet sx={{ fontSize: 18, color: 'white' }} />
                             </Avatar>
@@ -530,13 +530,13 @@ const VisaoGeralEstrategicaTab = () => {
                         )}
 
                         {/* 6 Cards de Caixa */}
-                        <Grid container spacing={2.5}>
+                        <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
                             {/* Particular */}
                             <Grid item xs={12} sm={6} md={4} lg={2}>
                                 <Tooltip title="Pagamentos particulares (PIX, dinheiro, cartão)" arrow>
-                                    <Card elevation={0} sx={{ border: '1px solid', borderColor: '#10B98130', borderRadius: 2, height: '100%', bgcolor: '#10B98110' }}>
+                                    <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#10B98130', borderRadius: 2, height: '100%', bgcolor: '#10B98110' }}>
                                         <CardContent>
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: { xs: 1.5, sm: 2 } }}>
                                                 <Box>
                                                     <Typography variant="body2" color="text.secondary" gutterBottom fontSize="0.8rem">Particular</Typography>
                                                     <Typography variant="h6" fontWeight="bold" sx={{ color: '#10B981' }}>
@@ -556,9 +556,9 @@ const VisaoGeralEstrategicaTab = () => {
                             {/* Convênios Recebidos */}
                             <Grid item xs={12} sm={6} md={4} lg={2}>
                                 <Tooltip title="Convênios que efetivamente pagaram neste mês" arrow>
-                                    <Card elevation={0} sx={{ border: '1px solid', borderColor: '#3B82F630', borderRadius: 2, height: '100%', bgcolor: '#3B82F610' }}>
+                                    <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#3B82F630', borderRadius: 2, height: '100%', bgcolor: '#3B82F610' }}>
                                         <CardContent>
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: { xs: 1.5, sm: 2 } }}>
                                                 <Box>
                                                     <Typography variant="body2" color="text.secondary" gutterBottom fontSize="0.8rem">Convênios Pagos</Typography>
                                                     <Typography variant="h6" fontWeight="bold" sx={{ color: '#3B82F6' }}>
@@ -578,9 +578,9 @@ const VisaoGeralEstrategicaTab = () => {
                             {/* Convênios Atendidos */}
                             <Grid item xs={12} sm={6} md={4} lg={2}>
                                 <Tooltip title="Sessões de convênio realizadas neste mês (produção)" arrow>
-                                    <Card elevation={0} sx={{ border: '1px solid', borderColor: '#8B5CF630', borderRadius: 2, height: '100%', bgcolor: '#8B5CF610' }}>
+                                    <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#8B5CF630', borderRadius: 2, height: '100%', bgcolor: '#8B5CF610' }}>
                                         <CardContent>
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: { xs: 1.5, sm: 2 } }}>
                                                 <Box>
                                                     <Typography variant="body2" color="text.secondary" gutterBottom fontSize="0.8rem">Convênios Atendidos</Typography>
                                                     <Typography variant="h6" fontWeight="bold" sx={{ color: '#8B5CF6' }}>
@@ -600,9 +600,9 @@ const VisaoGeralEstrategicaTab = () => {
                             {/* Provisão Acumulada */}
                             <Grid item xs={12} sm={6} md={4} lg={2}>
                                 <Tooltip title="Total acumulado de convênios a receber até o mês" arrow>
-                                    <Card elevation={0} sx={{ border: '1px solid', borderColor: '#F59E0B30', borderRadius: 2, height: '100%', bgcolor: '#F59E0B10' }}>
+                                    <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#F59E0B30', borderRadius: 2, height: '100%', bgcolor: '#F59E0B10' }}>
                                         <CardContent>
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: { xs: 1.5, sm: 2 } }}>
                                                 <Box>
                                                     <Typography variant="body2" color="text.secondary" gutterBottom fontSize="0.8rem">Provisão Acumulada</Typography>
                                                     <Typography variant="h6" fontWeight="bold" sx={{ color: '#F59E0B' }}>
@@ -622,9 +622,9 @@ const VisaoGeralEstrategicaTab = () => {
                             {/* Provisão Agendadas */}
                             <Grid item xs={12} sm={6} md={4} lg={2}>
                                 <Tooltip title="Valor projetado de sessões agendadas para futuro" arrow>
-                                    <Card elevation={0} sx={{ border: '1px solid', borderColor: '#EC489930', borderRadius: 2, height: '100%', bgcolor: '#EC489910' }}>
+                                    <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#EC489930', borderRadius: 2, height: '100%', bgcolor: '#EC489910' }}>
                                         <CardContent>
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: { xs: 1.5, sm: 2 } }}>
                                                 <Box>
                                                     <Typography variant="body2" color="text.secondary" gutterBottom fontSize="0.8rem">Provisão Agendadas</Typography>
                                                     <Typography variant="h6" fontWeight="bold" sx={{ color: '#EC4899' }}>
@@ -644,9 +644,9 @@ const VisaoGeralEstrategicaTab = () => {
                             {/* Total Caixa */}
                             <Grid item xs={12} sm={6} md={4} lg={2}>
                                 <Tooltip title="Caixa real + provisões (visão completa)" arrow>
-                                    <Card elevation={2} sx={{ border: '2px solid', borderColor: '#059669', borderRadius: 2, height: '100%', bgcolor: '#05966915' }}>
+                                    <Card elevation={2} sx={{ width: '100%', border: '2px solid', borderColor: '#059669', borderRadius: 2, height: '100%', bgcolor: '#05966915' }}>
                                         <CardContent>
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: { xs: 1.5, sm: 2 } }}>
                                                 <Box>
                                                     <Typography variant="body2" color="text.secondary" gutterBottom fontSize="0.8rem" fontWeight="600">TOTAL CAIXA</Typography>
                                                     <Typography variant="h5" fontWeight="bold" sx={{ color: '#059669', fontSize: '1.2rem' }}>
@@ -693,7 +693,7 @@ const VisaoGeralEstrategicaTab = () => {
                                     } 
                                     arrow
                                 >
-                                    <Card elevation={0} sx={{ border: '2px solid', borderColor: '#EA580C30', borderRadius: 2, height: '100%', bgcolor: '#FFF7ED' }}>
+                                    <Card elevation={0} sx={{ width: '100%', border: '2px solid', borderColor: '#EA580C30', borderRadius: 2, height: '100%', bgcolor: '#FFF7ED' }}>
                                         <CardContent>
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                                                 <Box>
@@ -750,8 +750,8 @@ const VisaoGeralEstrategicaTab = () => {
 
                     {/* Insights Estratégicos */}
                     {data.insights.length > 0 && (
-                        <Paper elevation={0} sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+                        <Paper elevation={0} sx={{ p: { xs: 2, sm: 2.5, md: 3 }, mb: { xs: 2, sm: 3 }, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: { xs: 2, sm: 3 } }}>
                                 <Avatar sx={{ bgcolor: '#8B5CF6', width: 32, height: 32 }}>
                                     <Info sx={{ fontSize: 18, color: 'white' }} />
                                 </Avatar>
@@ -819,11 +819,11 @@ const MetricCard = ({
     formatPercent, getVariationColor, getVariationIcon, isInverted = false, subtitle
 }: MetricCardProps) => (
     <Card elevation={0} sx={{ 
-        border: '1px solid', borderColor: `${color}30`, borderRadius: 2, height: '100%', bgcolor: bgColor,
+        width: '100%', border: '1px solid', borderColor: `${color}30`, borderRadius: 2, height: '100%', bgcolor: bgColor,
         transition: 'all 0.2s', '&:hover': { boxShadow: `0 4px 12px ${color}20`, borderColor: color }
     }}>
         <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: { xs: 1.5, sm: 2 } }}>
                 <Box>
                     <Typography variant="body2" color="text.secondary" gutterBottom>{title}</Typography>
                     <Typography variant="h4" fontWeight="bold" sx={{ color, lineHeight: 1.2 }}>{value}</Typography>

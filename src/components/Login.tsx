@@ -192,7 +192,7 @@ const Login = () => {
           <div className="bg-transparent p-6 text-white">
             <h2 className="text-2xl font-bold text-center">
               {showForgotPassword ? 'Recuperar Senha' :
-                showCreatePassword ? 'Criar Nova Senha' : 'Faça login no Portal de Saúde'}
+                showCreatePassword ? 'Criar Nova Senha' : 'Faça login no Portal Fono Inova'}
             </h2>
             <p className="text-center text-green-100 mt-1">
               {showForgotPassword ? 'Receba instruções por email' :

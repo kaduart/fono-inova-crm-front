@@ -300,8 +300,8 @@ const EntradasSaidasTab = () => {
     return (
         <Box>
             {/* HEADER COM FILTRO */}
-            <Paper sx={{ p: 3, mb: 3, borderRadius: 3, boxShadow: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+            <Paper sx={{ p: { xs: 2, sm: 3 }, mb: { xs: 2, sm: 3 }, borderRadius: 3, boxShadow: 2 }}>
+                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: { xs: 'flex-start', md: 'space-between' }, alignItems: { xs: 'stretch', md: 'center' }, gap: 2 }}>
                     <Box>
                         <Typography variant="h5" fontWeight="bold" gutterBottom>
                             📊 Entradas e Saídas
@@ -311,16 +311,16 @@ const EntradasSaidasTab = () => {
                         </Typography>
                     </Box>
 
-                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, alignItems: 'center', flexWrap: 'wrap', width: { xs: '100%', md: 'auto' } }}>
                         <TextField
                             select
                             size="small"
+                            sx={{ flex: { xs: 1, md: 'none' }, minWidth: { xs: 100, sm: 180 } }}
                             value={`${filters.month}-${filters.year}`}
                             onChange={(e) => {
                                 const [m, y] = e.target.value.split('-').map(Number);
                                 setFilters({ month: m, year: y });
                             }}
-                            sx={{ minWidth: 180 }}
                         >
                             {Array.from({ length: 12 }, (_, i) => (
                                 <MenuItem key={i} value={`${i + 1}-${filters.year}`}>
@@ -331,7 +331,7 @@ const EntradasSaidasTab = () => {
 
                         <Chip 
                             icon={<Calendar size={16} />} 
-                            label="Atualizado agora"
+                            label="Atualizado"
                             size="small"
                             variant="outlined"
                             color="success"
@@ -341,7 +341,7 @@ const EntradasSaidasTab = () => {
                             variant="contained"
                             startIcon={<Plus size={18} />}
                             onClick={() => { setEditingExpense(null); setModalOpen(true); }}
-                            sx={{ borderRadius: 2, textTransform: 'none' }}
+                            sx={{ borderRadius: 2, textTransform: 'none', flex: { xs: 1, md: 'none' } }}
                         >
                             Nova Despesa
                         </Button>
@@ -350,10 +350,10 @@ const EntradasSaidasTab = () => {
             </Paper>
 
             {/* CARDS PRINCIPAIS - CAIXA vs A RECEBER vs RESULTADO */}
-            <Grid container spacing={3} sx={{ mb: 4 }}>
+            <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ width: '100%', mb: { xs: 3, sm: 4 } }}>
                 {/* CARD CAIXA (REALIZADO) */}
                 <Grid item xs={12} md={4}>
-                    <Card sx={{ 
+                    <Card sx={{ width: "100%", 
                         height: '100%',
                         background: 'linear-gradient(135deg, #10B98115, #10B98105)',
                         border: '1px solid',
@@ -404,8 +404,8 @@ const EntradasSaidasTab = () => {
                 </Grid>
 
                 {/* CARD A RECEBER (FUTURO) */}
-                <Grid item xs={12} md={4}>
-                    <Card sx={{ 
+                <Grid item xs={12} sm={6} md={4}>
+                    <Card sx={{ width: "100%", 
                         height: '100%',
                         background: 'linear-gradient(135deg, #0EA5E915, #0EA5E905)',
                         border: '1px solid',
@@ -455,7 +455,7 @@ const EntradasSaidasTab = () => {
 
                 {/* CARD RESULTADO (LUCRO) */}
                 <Grid item xs={12} md={4}>
-                    <Card sx={{ 
+                    <Card sx={{ width: "100%", 
                         height: '100%',
                         background: statusPositivo 
                             ? 'linear-gradient(135deg, #8B5CF615, #8B5CF605)'
@@ -519,7 +519,7 @@ const EntradasSaidasTab = () => {
 
             {/* PROJEÇÃO vs META */}
             {meta && (
-                <Card sx={{ mb: 4, borderRadius: 3, boxShadow: 2, overflow: 'visible' }}>
+                <Card sx={{ width: "100%", mb: 4, borderRadius: 3, boxShadow: 2, overflow: 'visible' }}>
                     <CardContent sx={{ p: 3 }}>
                         <Typography variant="h6" fontWeight="bold" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             📊 PROJEÇÃO vs META

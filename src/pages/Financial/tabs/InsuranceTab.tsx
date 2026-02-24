@@ -301,8 +301,8 @@ const InsuranceTab = () => {
     return (
         <Box>
             {/* Header */}
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-3">
+            <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 mb-6">
+                <div className="flex items-center gap-3 flex-wrap">
                     <Avatar sx={{ bgcolor: '#3B82F6', width: 48, height: 48 }}>
                         <Building2 className="w-6 h-6 text-white" />
                     </Avatar>
@@ -320,10 +320,11 @@ const InsuranceTab = () => {
                     variant="contained"
                     startIcon={<Plus size={18} />}
                     onClick={() => setIsNewModalOpen(true)}
+                    fullWidth
                     sx={{
                         borderRadius: 2,
                         background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-                        px: 3,
+                        px: { xs: 2, md: 3 },
                         py: 1,
                         '&:hover': { background: 'linear-gradient(135deg, #2563eb, #1e40af)' }
                     }}
@@ -333,9 +334,9 @@ const InsuranceTab = () => {
             </div>
 
             {/* Cards de Resumo */}
-            <Grid container spacing={2.5} sx={{ mb: 4 }}>
+            <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ width: '100%', mb: { xs: 3, sm: 4 } }}>
                 <Grid item xs={12} md={4}>
-                    <Card elevation={0} sx={{ border: '1px solid', borderColor: '#3B82F620', borderRadius: 2 }}>
+                    <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#3B82F620', borderRadius: 2 }}>
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                 <Avatar sx={{ bgcolor: '#3B82F6', width: 40, height: 40 }}>
@@ -355,7 +356,7 @@ const InsuranceTab = () => {
                 </Grid>
 
                 <Grid item xs={12} md={4}>
-                    <Card elevation={0} sx={{ border: '1px solid', borderColor: '#F59E0B20', borderRadius: 2 }}>
+                    <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#F59E0B20', borderRadius: 2 }}>
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                 <Avatar sx={{ bgcolor: '#F59E0B', width: 40, height: 40 }}>
@@ -375,7 +376,7 @@ const InsuranceTab = () => {
                 </Grid>
 
                 <Grid item xs={12} md={4}>
-                    <Card elevation={0} sx={{ border: '1px solid', borderColor: '#10B98120', borderRadius: 2 }}>
+                    <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#10B98120', borderRadius: 2 }}>
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                 <Avatar sx={{ bgcolor: '#10B981', width: 40, height: 40 }}>
@@ -440,7 +441,7 @@ const InsuranceTab = () => {
                                 const isExpanded = expandedGroups[group._id] !== false;
 
                                 return (
-                                    <Card key={group._id} variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                                    <Card key={group._id} variant="outlined" sx={{ width: "100%", borderRadius: 2, overflow: 'hidden' }}>
                                         {/* Header do Convênio */}
                                         <Box 
                                             sx={{ 

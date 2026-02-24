@@ -304,7 +304,7 @@ const PlanningTab = () => {
       {filteredPlannings.length > 0 && (
         <Grid container spacing={2.5} sx={{ mb: 4 }}>
           <Grid item xs={12} md={3}>
-            <Card elevation={0} sx={{ border: '1px solid', borderColor: '#8B5CF630', borderRadius: 2 }}>
+            <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#8B5CF630', borderRadius: 2 }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                   <Avatar sx={{ bgcolor: '#8B5CF6', width: 40, height: 40 }}>
@@ -324,7 +324,7 @@ const PlanningTab = () => {
             </Card>
           </Grid>
           <Grid item xs={12} md={3}>
-            <Card elevation={0} sx={{ border: '1px solid', borderColor: '#10B98130', borderRadius: 2 }}>
+            <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#10B98130', borderRadius: 2 }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                   <Avatar sx={{ bgcolor: '#10B981', width: 40, height: 40 }}>
@@ -344,7 +344,7 @@ const PlanningTab = () => {
             </Card>
           </Grid>
           <Grid item xs={12} md={3}>
-            <Card elevation={0} sx={{ border: '1px solid', borderColor: '#F59E0B30', borderRadius: 2 }}>
+            <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#F59E0B30', borderRadius: 2 }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                   <Avatar sx={{ bgcolor: '#F59E0B', width: 40, height: 40 }}>
@@ -364,7 +364,7 @@ const PlanningTab = () => {
             </Card>
           </Grid>
           <Grid item xs={12} md={3}>
-            <Card elevation={0} sx={{ border: '1px solid', borderColor: '#3B82F630', borderRadius: 2 }}>
+            <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#3B82F630', borderRadius: 2 }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                   <Avatar sx={{ bgcolor: '#3B82F6', width: 40, height: 40 }}>
@@ -674,7 +674,7 @@ const PlanningTab = () => {
           <Grid container spacing={3}>
             {/* Resumo */}
             <Grid item xs={12} md={4}>
-              <Card sx={{ bgcolor: '#10B98110', border: '1px solid #10B98130' }}>
+              <Card sx={{ width: '100%', bgcolor: '#10B98110', border: '1px solid #10B98130' }}>
                 <CardContent>
                   <Typography variant="h4" fontWeight="bold" color="#10B981">
                     {formatCurrency(selectedPlanning?.actual?.actualRevenue || 0)}
@@ -686,7 +686,7 @@ const PlanningTab = () => {
               </Card>
             </Grid>
             <Grid item xs={12} md={4}>
-              <Card sx={{ bgcolor: '#3B82F610', border: '1px solid #3B82F630' }}>
+              <Card sx={{ width: '100%', bgcolor: '#3B82F610', border: '1px solid #3B82F630' }}>
                 <CardContent>
                   <Typography variant="h4" fontWeight="bold" color="#3B82F6">
                     {selectedPlanning?.details?.totalPacientes || 0}
@@ -698,7 +698,7 @@ const PlanningTab = () => {
               </Card>
             </Grid>
             <Grid item xs={12} md={4}>
-              <Card sx={{ bgcolor: '#F59E0B10', border: '1px solid #F59E0B30' }}>
+              <Card sx={{ width: '100%', bgcolor: '#F59E0B10', border: '1px solid #F59E0B30' }}>
                 <CardContent>
                   <Typography variant="h4" fontWeight="bold" color="#F59E0B">
                     {selectedPlanning?.details?.totalPacotes || 0}
@@ -1025,6 +1025,7 @@ const PlanningCard = ({ planning, formatCurrency, getStatusConfig, onViewDetails
   return (
     <Grid item xs={12} md={6} lg={4}>
       <Card elevation={0} sx={{ 
+        width: '100%',
         border: '1px solid', 
         borderColor: 'grey.200', 
         borderRadius: 2,

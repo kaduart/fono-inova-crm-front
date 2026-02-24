@@ -123,7 +123,7 @@ const ExpensesTab = () => {
   return (
     <Box>
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
         <div className="flex items-center gap-3">
           <Avatar sx={{ bgcolor: '#EF4444', width: 48, height: 48 }}>
             <TrendingDown className="w-6 h-6 text-white" />
@@ -138,12 +138,12 @@ const ExpensesTab = () => {
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
           <Button
             variant="outlined"
             startIcon={<RefreshCw size={18} />}
             onClick={() => generateCommissions()}
-            sx={{ borderRadius: 2 }}
+            sx={{ borderRadius: 2, width: { xs: '100%', sm: 'auto' } }}
           >
             Gerar Comissões
           </Button>
@@ -156,6 +156,7 @@ const ExpensesTab = () => {
             }}
             sx={{
               borderRadius: 2,
+              width: { xs: '100%', sm: 'auto' },
               background: 'linear-gradient(135deg, #EF4444, #DC2626)',
               '&:hover': { background: 'linear-gradient(135deg, #DC2626, #B91C1C)' }
             }}
@@ -166,9 +167,9 @@ const ExpensesTab = () => {
       </div>
 
       {/* Cards de Resumo com dados reais da API */}
-      <Grid container spacing={2.5} sx={{ mb: 4 }}>
+      <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ width: '100%', mb: { xs: 3, sm: 4 } }}>
         <Grid item xs={12} md={4}>
-          <Card elevation={0} sx={{ border: '1px solid', borderColor: '#10B98120', borderRadius: 2 }}>
+          <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#10B98120', borderRadius: 2 }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                 <Avatar sx={{ bgcolor: '#10B981', width: 40, height: 40 }}>
@@ -191,7 +192,7 @@ const ExpensesTab = () => {
         </Grid>
 
         <Grid item xs={12} md={4}>
-          <Card elevation={0} sx={{ border: '1px solid', borderColor: '#F59E0B20', borderRadius: 2 }}>
+          <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#F59E0B20', borderRadius: 2 }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                 <Avatar sx={{ bgcolor: '#F59E0B', width: 40, height: 40 }}>
@@ -214,7 +215,7 @@ const ExpensesTab = () => {
         </Grid>
 
         <Grid item xs={12} md={4}>
-          <Card elevation={0} sx={{ border: '1px solid', borderColor: '#6366F120', borderRadius: 2 }}>
+          <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#6366F120', borderRadius: 2 }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                 <Avatar sx={{ bgcolor: '#6366F1', width: 40, height: 40 }}>
