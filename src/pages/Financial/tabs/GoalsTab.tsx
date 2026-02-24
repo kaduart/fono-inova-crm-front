@@ -32,7 +32,9 @@ import {
   Refresh,
   ArrowUpward,
   ArrowDownward,
-  Assessment
+  Assessment,
+  AccountBalance,
+  LocalHospital
 } from '@mui/icons-material';
 import { usePlanning } from '../../../hooks/usePlanning';
 import { format } from 'date-fns';
@@ -192,8 +194,14 @@ const GoalsTab = () => {
 
                     {/* Cálculos de Gap */}
                     {(() => {
-                      // Usar gapRevenue do backend ou calcular
-                      const gapRevenue = plan.progress?.gapRevenue ?? Math.max(0, plan.targets.expectedRevenue - plan.actual.actualRevenue);
+                      // Calcular receita total realizada (Particular + Convênio Recebido + Convênio a Receber)
+                      const particular = plan.actual.actualRevenueParticular || 0;
+                      const convenioRecebido = plan.actual.actualRevenueConvenio || 0;
+                      const convenioAReceber = plan.actual.actualRevenueConvenioAReceber || 0;
+                      const receitaTotalRealizada = particular + convenioRecebido + convenioAReceber;
+                      
+                      // Usar gapRevenue do backend ou calcular baseado na receita total
+                      const gapRevenue = Math.max(0, plan.targets.expectedRevenue - receitaTotalRealizada);
                       const gapSessions = Math.max(0, plan.targets.totalSessions - plan.actual.completedSessions);
                       const gapHours = Math.max(0, (plan.targets.workHours || 0) - (plan.actual.workedHours || 0));
                       const gapSlots = Math.max(0, (plan.targets.availableSlots || 0) - (plan.actual.usedSlots || 0));
@@ -217,7 +225,7 @@ const GoalsTab = () => {
                                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                     <AttachMoney sx={{ fontSize: 14, color: '#10B981' }} />
                                     <Typography variant="caption" color="#10B981" fontWeight={500}>
-                                      Realizado: {formatCurrency(plan.actual.actualRevenue)}
+                                      Realizado: {formatCurrency(receitaTotalRealizada)}
                                     </Typography>
                                   </Box>
                                   {gapRevenue > 0 ? (
@@ -236,6 +244,53 @@ const GoalsTab = () => {
                                     </Box>
                                   )}
                                 </Box>
+                              </Paper>
+                            </Grid>
+
+                            {/* Detalhamento por Tipo de Receita */}
+                            <Grid item xs={12}>
+                              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#FFFFFF', borderColor: '#E0E7FF' }}>
+                                <Typography variant="caption" color="text.secondary" display="block" gutterBottom fontWeight={600}>
+                                  💰 Detalhamento da Receita
+                                </Typography>
+                                <Grid container spacing={1} sx={{ mt: 0.5 }}>
+                                  {/* Particular */}
+                                  <Grid item xs={4}>
+                                    <Box sx={{ textAlign: 'center', p: 1, bgcolor: '#ECFDF5', borderRadius: 1 }}>
+                                      <AttachMoney sx={{ fontSize: 16, color: '#059669' }} />
+                                      <Typography variant="caption" display="block" color="text.secondary">
+                                        Particular
+                                      </Typography>
+                                      <Typography variant="body2" fontWeight="bold" color="#059669">
+                                        {formatCurrency(plan.actual.actualRevenueParticular || 0)}
+                                      </Typography>
+                                    </Box>
+                                  </Grid>
+                                  {/* Convênio Recebido */}
+                                  <Grid item xs={4}>
+                                    <Box sx={{ textAlign: 'center', p: 1, bgcolor: '#DBEAFE', borderRadius: 1 }}>
+                                      <LocalHospital sx={{ fontSize: 16, color: '#2563EB' }} />
+                                      <Typography variant="caption" display="block" color="text.secondary">
+                                        Convênio (Rec.)
+                                      </Typography>
+                                      <Typography variant="body2" fontWeight="bold" color="#2563EB">
+                                        {formatCurrency(plan.actual.actualRevenueConvenio || 0)}
+                                      </Typography>
+                                    </Box>
+                                  </Grid>
+                                  {/* Convênio a Receber */}
+                                  <Grid item xs={4}>
+                                    <Box sx={{ textAlign: 'center', p: 1, bgcolor: '#FEF3C7', borderRadius: 1 }}>
+                                      <AccountBalance sx={{ fontSize: 16, color: '#D97706' }} />
+                                      <Typography variant="caption" display="block" color="text.secondary">
+                                        Convênio (A Rec.)
+                                      </Typography>
+                                      <Typography variant="body2" fontWeight="bold" color="#D97706">
+                                        {formatCurrency(plan.actual.actualRevenueConvenioAReceber || 0)}
+                                      </Typography>
+                                    </Box>
+                                  </Grid>
+                                </Grid>
                               </Paper>
                             </Grid>
 

@@ -62,9 +62,37 @@ const SparklesIcon = () => (
 const ESPECIALIDADES = [
   { id: 'fonoaudiologia', nome: 'Fonoaudiologia', cor: 'purple' },
   { id: 'psicologia', nome: 'Psicologia', cor: 'pink' },
-  { id: 'terapiaocupacional', nome: 'Terapia Ocupacional', cor: 'amber' },
+  { id: 'terapia_ocupacional', nome: 'Terapia Ocupacional', cor: 'amber' },
   { id: 'fisioterapia', nome: 'Fisioterapia', cor: 'emerald' },
+  { id: 'psicomotricidade', nome: 'Psicomotricidade', cor: 'orange' },
+  { id: 'freio_lingual', nome: 'Freio Lingual', cor: 'rose' },
+  { id: 'neuropsicologia', nome: 'Avaliação Neuropsicológica', cor: 'violet' },
+  { id: 'psicopedagogia', nome: 'Psicopedagogia', cor: 'cyan' },
+  { id: 'musicoterapia', nome: 'Musicoterapia', cor: 'fuchsia' },
 ];
+
+// 🕐 Horários estratégicos para publicação no GMB
+const HORARIOS_ESTRATEGICOS = [
+  { value: '08:00', label: '🌅 08:00 - Início do dia' },
+  { value: '12:30', label: '🌞 12:30 - Almoço' },
+  { value: '15:00', label: '☕ 15:00 - Tarde' },
+  { value: '19:00', label: '🌆 19:00 - Final do dia' },
+  { value: '21:00', label: '🌙 21:00 - Noite' },
+];
+
+// Gerar datas dos próximos 7 dias
+const getProximosDias = () => {
+  const dias = [];
+  const hoje = new Date();
+  for (let i = 0; i < 7; i++) {
+    const data = new Date(hoje);
+    data.setDate(hoje.getDate() + i);
+    const value = data.toISOString().split('T')[0];
+    const label = i === 0 ? 'Hoje' : i === 1 ? 'Amanhã' : data.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'short' });
+    dias.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) });
+  }
+  return dias;
+};
 
 const TAB_CONFIG = {
   gmb: { label: '📍 Google Meu Negócio', color: 'blue', shortLabel: 'GMB' },
@@ -81,6 +109,11 @@ export default function MarketingDashboard() {
   const [selectedEspecialidade, setSelectedEspecialidade] = useState('');
   const [selectedFunnelStage, setSelectedFunnelStage] = useState<FunnelStage>('top');
   const [customTheme, setCustomTheme] = useState('');
+  
+  // 🕐 Controle de agendamento GMB
+  const [schedulePost, setSchedulePost] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [scheduleTime, setScheduleTime] = useState('');
 
   const [generating, setGenerating] = useState(false);
   const [publishingPost, setPublishingPost] = useState<string | null>(null);
@@ -134,8 +167,19 @@ export default function MarketingDashboard() {
     setGenerating(true);
     try {
       if (activeTab === 'gmb') {
-        await gmb.generate(selectedEspecialidade || undefined, customTheme);
-        toast.success('✅ Post GMB criado!');
+        // 🕐 Prepara data/hora de agendamento se habilitado
+        let scheduledAt: string | undefined;
+        if (schedulePost && scheduleDate && scheduleTime) {
+          scheduledAt = `${scheduleDate}T${scheduleTime}:00`;
+        }
+        
+        await gmb.generate(selectedEspecialidade || undefined, customTheme, scheduledAt);
+        toast.success(scheduledAt ? `✅ Post GMB agendado!` : '✅ Post GMB criado!');
+        
+        // Limpa campos de agendamento
+        setSchedulePost(false);
+        setScheduleDate('');
+        setScheduleTime('');
       } else if (activeTab === 'instagram') {
         await instagram.generate(selectedEspecialidade || undefined, customTheme, selectedFunnelStage);
         toast.success('✅ Post Instagram criado!');
@@ -474,6 +518,56 @@ export default function MarketingDashboard() {
               />
             </div>
             
+            {/* 🕐 Agendamento GMB */}
+            {activeTab === 'gmb' && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-5">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={schedulePost}
+                    onChange={(e) => {
+                      setSchedulePost(e.target.checked);
+                      if (e.target.checked) {
+                        // Preenche com valores padrão
+                        const hoje = new Date().toISOString().split('T')[0];
+                        setScheduleDate(hoje);
+                        setScheduleTime('08:00');
+                      }
+                    }}
+                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="font-medium text-gray-900">Agendar publicação</span>
+                    <p className="text-xs text-gray-500">Escolha quando o post será publicado no Google</p>
+                  </div>
+                </label>
+                
+                {schedulePost && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+                    <select
+                      value={scheduleDate}
+                      onChange={(e) => setScheduleDate(e.target.value)}
+                      className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
+                    >
+                      {getProximosDias().map(dia => (
+                        <option key={dia.value} value={dia.value}>{dia.label}</option>
+                      ))}
+                    </select>
+                    
+                    <select
+                      value={scheduleTime}
+                      onChange={(e) => setScheduleTime(e.target.value)}
+                      className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
+                    >
+                      {HORARIOS_ESTRATEGICOS.map(horario => (
+                        <option key={horario.value} value={horario.value}>{horario.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
+            
             <div className="flex justify-end">
               <button
                 onClick={handleGenerate}
@@ -495,7 +589,7 @@ export default function MarketingDashboard() {
                 ) : (
                   <>
                     <PlusIcon />
-                    {activeTab === 'gmb' && 'Gerar Post GMB'}
+                    {activeTab === 'gmb' && (schedulePost ? `📅 Agendar Post GMB` : 'Gerar Post GMB')}
                     {activeTab === 'instagram' && 'Gerar Post Instagram'}
                     {activeTab === 'facebook' && 'Gerar Post Facebook'}
                   </>
