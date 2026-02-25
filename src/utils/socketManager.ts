@@ -1,4 +1,4 @@
-// src/utils/socketManager.ts - VERSÃO COMPLETA (só adicionei 3 linhas no final)
+// src/utils/socketManager.ts
 import { io, type Socket } from "socket.io-client";
 import { logger } from "./logger";
 
@@ -35,44 +35,57 @@ class SocketManager {
     private activeChatPhone: string | null = null;
     private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
     private lastPong: number = Date.now();
+    // Evita limpar socket que está em processo de conexão (ainda não connected)
+    private isConnecting = false;
 
-    private ensureSocket() {
+    // ✅ Registro persistente de handlers — sobrevive ao reconnect
+    private persistentHandlers: Map<string, Set<AnyHandler>> = new Map();
+
+    private getSocketUrl(): string {
+        const viteUrl = (import.meta as any).env?.VITE_BACKEND_URL ||
+            (import.meta as any).env?.VITE_API_URL;
+        if (viteUrl) {
+            logger.info("🔌 [socket] Usando VITE_URL:", viteUrl);
+            return viteUrl;
+        }
+        if (window.location.hostname === 'app.clinicafonoinova.com.br') {
+            const renderUrl = 'https://fono-inova-crm-back.onrender.com';
+            logger.info("🔌 [socket] Vercel → Render:", renderUrl);
+            return renderUrl;
+        }
+        if (window.location.hostname.includes('onrender.com')) {
+            logger.info("🔌 [socket] Render origin:", window.location.origin);
+            return window.location.origin;
+        }
+        logger.warn("⚠️ [socket] Fallback para localhost:5000");
+        return "http://localhost:5000";
+    }
+
+    // ✅ Reaplica todos os handlers persistentes no socket (idempotente: off→on)
+    private applyPersistentHandlers(s: Socket) {
+        let total = 0;
+        this.persistentHandlers.forEach((handlers, event) => {
+            handlers.forEach(h => {
+                s.off(event, h); // remove primeiro para evitar duplicata
+                s.on(event, h);
+                total++;
+            });
+        });
+        if (total > 0) {
+            logger.info(`🔄 [socket] ${total} handlers replicados após reconnect`);
+        }
+    }
+
+    private ensureSocket(): Socket {
         if (this.socket?.connected) return this.socket;
 
+        // Socket existe mas não conectado: se ainda está tentando conectar, retorna sem limpar
         if (this.socket && !this.socket.connected) {
-            this.cleanup();
+            if (this.isConnecting) return this.socket;
+            this.cleanupSocket();
         }
 
-        // ✅ DETECÇÃO ROBUSTA DA URL
-        const getSocketUrl = () => {
-            // 1. Tenta variáveis de ambiente Vite
-            const viteUrl = (import.meta as any).env?.VITE_BACKEND_URL ||
-                (import.meta as any).env?.VITE_API_URL;
-
-            if (viteUrl) {
-                logger.info("🔌 [socket] Usando VITE_URL:", viteUrl);
-                return viteUrl;
-            }
-
-            // 2. Se está no Vercel (frontend), conecta no Render (backend) ✅ CORRIGIDO
-            if (window.location.hostname === 'app.clinicafonoinova.com.br') {
-                const renderUrl = 'https://fono-inova-crm-back.onrender.com';
-                logger.info("🔌 [socket] Vercel → Render:", renderUrl);
-                return renderUrl;
-            }
-
-            // 3. Se está no próprio Render
-            if (window.location.hostname.includes('onrender.com')) {
-                logger.info("🔌 [socket] Render origin:", window.location.origin);
-                return window.location.origin;
-            }
-
-            // 4. Localhost
-            logger.warn("⚠️ [socket] Fallback para localhost:5000");
-            return "http://localhost:5000";
-        };
-
-        const url = getSocketUrl();
+        const url = this.getSocketUrl();
         logger.info("🔌 [socket] Conectando em:", url);
 
         const s = io(url, {
@@ -85,25 +98,23 @@ class SocketManager {
             withCredentials: true,
         });
 
-        // ✅ Listeners de conexão
         s.on("connect", () => {
+            this.isConnecting = false;
             logger.info("🔌 [socket] Conectado:", s.id);
             this.lastPong = Date.now();
             this.startHeartbeat();
-
-            // ✅ EXPÕE GLOBALMENTE QUANDO CONECTA
             (window as any).globalSocket = s;
             (window as any).socketManager = this;
         });
 
         s.on("connect_error", (e: any) => {
+            this.isConnecting = false;
             logger.warn("⚠️ [socket] Erro de conexão:", e?.message || e);
         });
 
         s.on("disconnect", (reason: any) => {
             logger.warn("⚠️ [socket] Desconectado:", reason);
             this.stopHeartbeat();
-
             if (reason === "io server disconnect" || reason === "transport close") {
                 logger.info("🔄 [socket] Tentando reconectar...");
                 setTimeout(() => s.connect(), 1000);
@@ -115,9 +126,24 @@ class SocketManager {
         });
 
         this.socket = s;
+        this.isConnecting = true;
+
         this.setupVisibilityHandler();
 
+        // ✅ Reaplica handlers persistentes no novo socket (idempotente: off→on)
+        this.applyPersistentHandlers(s);
+
         return s;
+    }
+
+    private cleanupSocket() {
+        this.isConnecting = false;
+        this.stopHeartbeat();
+        if (this.socket) {
+            this.socket.removeAllListeners();
+            this.socket.disconnect();
+            this.socket = null;
+        }
     }
 
     private startHeartbeat() {
@@ -168,47 +194,26 @@ class SocketManager {
         });
     }
 
-    private cleanup() {
-        this.stopHeartbeat();
-        if (this.socket) {
-            this.socket.removeAllListeners();
-            this.socket.disconnect();
-            this.socket = null;
-        }
-    }
-
     public onPreAgendamento(callback: (data: any) => void) {
-        const s = this.ensureSocket();
-        s.on("preagendamento:new", callback);
-        return () => s.off("preagendamento:new", callback);
+        return this.on("preagendamento:new", callback);
     }
 
     public onPreAgendamentoUpdate(callback: (data: any) => void) {
-        const s = this.ensureSocket();
-        s.on("preagendamento:imported", callback);
-        s.on("preagendamento:updated", callback);
-        return () => {
-            s.off("preagendamento:imported", callback);
-            s.off("preagendamento:updated", callback);
-        };
+        const u1 = this.on("preagendamento:imported", callback);
+        const u2 = this.on("preagendamento:updated", callback);
+        return () => { u1(); u2(); };
     }
 
     public onPreAgendamentoCanceled(callback: (data: any) => void) {
-        const s = this.ensureSocket();
-        s.on("preagendamento:canceled", callback);
-        return () => s.off("preagendamento:canceled", callback);
+        return this.on("preagendamento:canceled", callback);
     }
 
     public onPreAgendamentoUpdated(callback: (data: any) => void) {
-        const s = this.ensureSocket();
-        s.on("preagendamento:updated", callback);
-        return () => s.off("preagendamento:updated", callback);
+        return this.on("preagendamento:updated", callback);
     }
 
     public onPreAgendamentoDeleted(callback: (data: any) => void) {
-        const s = this.ensureSocket();
-        s.on("preagendamento:deleted", callback);
-        return () => s.off("preagendamento:deleted", callback);
+        return this.on("preagendamento:deleted", callback);
     }
 
     isConnected(): boolean {
@@ -217,7 +222,7 @@ class SocketManager {
 
     reconnect() {
         logger.info("🔄 [socket] Forçando reconexão...");
-        this.cleanup();
+        this.cleanupSocket();
         this.ensureSocket();
     }
 
@@ -226,7 +231,8 @@ class SocketManager {
     }
 
     disconnect() {
-        this.cleanup();
+        this.persistentHandlers.clear();
+        this.cleanupSocket();
     }
 
     setActiveChatPhone(phoneNormalizedE164: string | null) {
@@ -237,30 +243,43 @@ class SocketManager {
         return this.activeChatPhone;
     }
 
-    onMessageNew(handler: AnyHandler<MessageNewPayload>): Unsubscribe {
+    // ✅ on() armazena handler persistente e registra no socket atual
+    on(event: string, handler: AnyHandler): Unsubscribe {
+        if (!this.persistentHandlers.has(event)) {
+            this.persistentHandlers.set(event, new Set());
+        }
+        this.persistentHandlers.get(event)!.add(handler);
+
+        // Captura socket existente ANTES do ensureSocket para detectar se um novo foi criado
+        const existingSocket = this.socket;
         const s = this.ensureSocket();
-        const h = (payload: MessageNewPayload) => handler(payload);
-        s.on("message:new", h);
-        s.on("whatsapp:new_message", h as any);
-        s.on("whatsapp:new_media", h as any);
+
+        if (s === existingSocket) {
+            // Socket já existia — handler não foi aplicado pelo applyPersistentHandlers
+            s.on(event, handler);
+        }
+        // else: socket novo foi criado → applyPersistentHandlers já registrou este handler
+
         return () => {
-            s.off("message:new", h);
-            s.off("whatsapp:new_message", h as any);
-            s.off("whatsapp:new_media", h as any);
+            this.persistentHandlers.get(event)?.delete(handler);
+            this.socket?.off(event, handler);
         };
     }
 
-    onMessageDeleted(handler: AnyHandler<MessageDeletedPayload>): Unsubscribe {
-        const s = this.ensureSocket();
-        const h = (payload: MessageDeletedPayload) => handler(payload);
-        s.on("message:deleted", h);
-        return () => s.off("message:deleted", h);
+    onMessageNew(handler: AnyHandler<MessageNewPayload>): Unsubscribe {
+        const u1 = this.on("message:new", handler);
+        const u2 = this.on("whatsapp:new_message", handler);
+        const u3 = this.on("whatsapp:new_media", handler);
+        return () => { u1(); u2(); u3(); };
     }
 
-    on(event: string, handler: AnyHandler): Unsubscribe {
-        const s = this.ensureSocket();
-        s.on(event, handler);
-        return () => s.off(event, handler);
+    onMessageDeleted(handler: AnyHandler<MessageDeletedPayload>): Unsubscribe {
+        return this.on("message:deleted", handler);
+    }
+
+    // ✅ Registra callback para evento de (re)conexão
+    onReconnect(callback: () => void): Unsubscribe {
+        return this.on("connect", callback);
     }
 
     emit(event: string, data?: any) {
@@ -275,13 +294,14 @@ class SocketManager {
             socketId: this.socket?.id || null,
             activeChatPhone: this.activeChatPhone,
             lastPong: new Date(this.lastPong).toISOString(),
+            persistentHandlerCount: Array.from(this.persistentHandlers.values())
+                .reduce((sum, s) => sum + s.size, 0),
         };
     }
 }
 
 export const socketManager = new SocketManager();
 
-// ✅ APENAS 3 LINHAS ADICIONADAS NO FINAL:
 if (typeof window !== 'undefined') {
     (window as any).socketManager = socketManager;
 }

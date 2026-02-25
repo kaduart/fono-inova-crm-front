@@ -1,12 +1,14 @@
 /**
  * 📍 Dashboard do Google Meu Negócio (GMB)
- * VERSÃO 100% GRATUITA - Com Edição e Deleção
+ * Publicação automática via Make (Integromat)
  */
 
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { useGmb } from '../../hooks/useGmb';
 import API from '../../services/api';
+import GmbAssistedPublishModal from './GmbAssistedPublishModal';
+import GmbIntelligencePanel from './GmbIntelligencePanel';
 
 // Ícones
 const RefreshIcon = () => (
@@ -65,6 +67,7 @@ const RepublishIcon = () => (
 
 const GmbDashboard = () => {
   const { posts, stats, loading, error, refresh } = useGmb();
+  const [makeStatus, setMakeStatus] = useState<{ configured: boolean } | null>(null);
   const [previewModal, setPreviewModal] = useState<{
     open: boolean;
     content: string;
@@ -75,12 +78,24 @@ const GmbDashboard = () => {
     open: boolean;
     post: any;
   } | null>(null);
+  const [assistedModal, setAssistedModal] = useState<{
+    open: boolean;
+    post: any;
+  } | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [creatingAssisted, setCreatingAssisted] = useState(false);
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [republishingId, setRepublishingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedEspecialidade, setSelectedEspecialidade] = useState<string>('');
   const [customTheme, setCustomTheme] = useState<string>('');
+  const [selectedType, setSelectedType] = useState<string>('daily');
+
+  useEffect(() => {
+    API.get('/gmb/make/status')
+      .then(r => setMakeStatus(r.data))
+      .catch(() => setMakeStatus({ configured: false }));
+  }, []);
 
   const especialidades = [
     { id: '', nome: 'Automático (rotação)' },
@@ -147,6 +162,42 @@ const GmbDashboard = () => {
     }
   };
 
+  // 🤖 Publisher Assistido
+  const handleCreateAssisted = async () => {
+    setCreatingAssisted(true);
+    try {
+      const response = await API.post('/gmb/assisted/create', {
+        type: selectedType,
+        especialidadeId: selectedEspecialidade || undefined,
+        customTheme: customTheme.trim() || undefined,
+        generateImage: true
+      });
+      
+      const post = response.data.data.post;
+      
+      toast.success(
+        <div>
+          <div>✅ Post criado no modo assistido!</div>
+          <div className="text-xs text-blue-600">Clique em "Publicar no Google"</div>
+        </div>
+      );
+      
+      refresh();
+      
+      // Abre modal automaticamente
+      setAssistedModal({ open: true, post });
+      
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Erro ao criar post assistido');
+    } finally {
+      setCreatingAssisted(false);
+    }
+  };
+
+  const handleOpenAssistedModal = (post: any) => {
+    setAssistedModal({ open: true, post });
+  };
+
   const handlePublish = async (postId: string) => {
     setPublishingId(postId);
     try {
@@ -161,17 +212,12 @@ const GmbDashboard = () => {
   };
 
   const handleRepublish = async (postId: string, postTitle: string) => {
-    if (!confirm(`Republicar o post "${postTitle || 'Sem título'}" no Google Meu Negócio?\n\nIsso vai criar uma nova publicação no Google.`)) return;
-    
+    if (!confirm(`Reenviar o post "${postTitle || 'Sem título'}" ao Make para republicar no Google?`)) return;
+
     setRepublishingId(postId);
     try {
-      const response = await API.post(`/gmb/posts/${postId}/republish`);
-      toast.success(
-        <div>
-          <div>✅ Post republicado!</div>
-          <div className="text-xs text-green-600">ID: {response.data.gmbPostId?.slice(-20)}...</div>
-        </div>
-      );
+      await API.post(`/gmb/posts/${postId}/republish`);
+      toast.success('✅ Post reenviado ao Make para republicação!');
       refresh();
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Erro ao republicar');
@@ -232,6 +278,7 @@ const GmbDashboard = () => {
   const StatusBadge = ({ status }: { status: string }) => {
     const styles = {
       draft: 'bg-gray-100 text-gray-800',
+      ready: 'bg-purple-100 text-purple-800',
       scheduled: 'bg-blue-100 text-blue-800',
       published: 'bg-green-100 text-green-800',
       failed: 'bg-red-100 text-red-800',
@@ -240,6 +287,7 @@ const GmbDashboard = () => {
     
     const labels = {
       draft: 'Rascunho',
+      ready: 'Pronto para Publicar',
       scheduled: 'Agendado',
       published: 'Publicado',
       failed: 'Falhou',
@@ -273,18 +321,20 @@ const GmbDashboard = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header com badge GRATUITO */}
-      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-6">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <h2 className="text-xl font-bold text-gray-900">Google Meu Negócio</h2>
-              <span className="px-2 py-0.5 bg-green-500 text-white text-xs font-bold rounded-full">
-                100% GRATUITO
-              </span>
+              {makeStatus !== null && (
+                makeStatus.configured
+                  ? <span className="px-2 py-0.5 bg-green-500 text-white text-xs font-bold rounded-full">Make ✅ Automático</span>
+                  : <span className="px-2 py-0.5 bg-orange-400 text-white text-xs font-bold rounded-full">Make ⚠️ Não configurado</span>
+              )}
             </div>
             <p className="text-gray-600 text-sm">
-              1 post por dia • Texto: OpenAI GPT (créditos grátis) • Imagens: IA Gratuita • Custo: R$ 0,00
+              1 post por dia • Texto: GPT • Imagens: IA • Publicação: {makeStatus?.configured ? 'automática via Make' : 'manual (configure MAKE_WEBHOOK_URL)'}
             </p>
           </div>
           
@@ -299,7 +349,7 @@ const GmbDashboard = () => {
         </div>
 
         {/* Formulário de geração */}
-        <div className="mt-6 pt-6 border-t border-green-200 space-y-4">
+        <div className="mt-6 pt-6 border-t border-blue-200 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Especialidade */}
             <div>
@@ -363,22 +413,46 @@ const GmbDashboard = () => {
               <RefreshIcon />
               Gerar Semana
             </button>
+
+            {/* 🤖 Botão de Publicação Assistida */}
+            <button
+              onClick={handleCreateAssisted}
+              disabled={creatingAssisted}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 border-2 border-blue-400"
+              title="Sistema gera, você publica no Google em 30 segundos"
+            >
+              {creatingAssisted ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Criando...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  🤖 Publicação Assistida
+                </>
+              )}
+            </button>
           </div>
         </div>
 
-        {/* Info de como é gratuito */}
-        <div className="mt-4 pt-4 border-t border-green-200 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+        {/* Info do fluxo */}
+        <div className="mt-4 pt-4 border-t border-blue-200 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
           <div className="flex items-center gap-2">
             <FreeIcon />
-            <span><strong>Texto:</strong> GPT-3.5 (créditos iniciais)</span>
+            <span><strong>Texto:</strong> GPT-3.5</span>
           </div>
           <div className="flex items-center gap-2">
             <FreeIcon />
-            <span><strong>Imagem:</strong> IA Gerada (gratuita)</span>
+            <span><strong>Imagem:</strong> IA (DALL-E / HuggingFace)</span>
           </div>
           <div className="flex items-center gap-2">
-            <FreeIcon />
-            <span><strong>Edição:</strong> Altere antes de publicar</span>
+            {makeStatus?.configured
+              ? <><FreeIcon /><span><strong>Publicação:</strong> Automática via Make</span></>
+              : <><AlertIcon /><span className="text-orange-600"><strong>Make:</strong> Configure MAKE_WEBHOOK_URL</span></>
+            }
           </div>
         </div>
       </div>
@@ -404,6 +478,23 @@ const GmbDashboard = () => {
           </div>
         </div>
       )}
+
+      {/* 🧠 Painel de Inteligência */}
+      <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-200">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-2xl">🧠</span>
+          <h3 className="text-lg font-bold text-gray-900">Motor Inteligente GMB</h3>
+          <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
+            Analisa agenda, vendas e reviews
+          </span>
+        </div>
+        <GmbIntelligencePanel 
+          onSuggestionAccepted={(post) => {
+            setAssistedModal({ open: true, post });
+            refresh();
+          }}
+        />
+      </div>
 
       {/* Lista de posts */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -480,8 +571,8 @@ const GmbDashboard = () => {
                       
                       {/* Ações */}
                       <div className="flex items-center gap-1">
-                        {/* Editar (só rascunho/agendado) */}
-                        {(post.status === 'draft' || post.status === 'scheduled') && (
+                        {/* Editar - todos menos falhos/cancelados */}
+                        {(post.status !== 'failed' && post.status !== 'cancelled') && (
                           <button
                             onClick={() => handleEdit(post)}
                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
@@ -491,19 +582,20 @@ const GmbDashboard = () => {
                           </button>
                         )}
 
-                        {/* Publicar */}
+                        {/* Publicar via Make */}
                         {post.status === 'scheduled' && (
                           <button
                             onClick={() => handlePublish(post._id)}
                             disabled={publishingId === post._id}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50"
+                            className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                            title={makeStatus?.configured ? 'Enviar ao Make para publicar no Google' : 'Make não configurado'}
                           >
                             {publishingId === post._id ? (
                               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                             ) : (
                               <PlayIcon />
                             )}
-                            Publicar
+                            {makeStatus?.configured ? 'Publicar via Make' : 'Publicar'}
                           </button>
                         )}
 
@@ -523,11 +615,26 @@ const GmbDashboard = () => {
                             Republicar
                           </button>
                         )}
+
+                        {/* 🤖 Publicar no Google - modo assistido (status 'ready') */}
+                        {post.status === 'ready' && (
+                          <button
+                            onClick={() => handleOpenAssistedModal(post)}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                            title="Abrir assistente de publicação"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            Publicar no Google
+                          </button>
+                        )}
                         
-                        {/* Preview -->
+                        {/* Preview - todos os posts */}
                         <button
                           onClick={() => handlePreview(post)}
                           className="px-3 py-1.5 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50"
+                          title="Ver post"
                         >
                           Ver
                         </button>
@@ -609,10 +716,44 @@ const GmbDashboard = () => {
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(previewModal.content || '');
+                    toast.success('Texto copiado!');
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 text-gray-700"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Copiar texto
+                </button>
+                {previewModal.imageUrl && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        const resp = await fetch(previewModal.imageUrl!);
+                        const blob = await resp.blob();
+                        await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+                        toast.success('Imagem copiada!');
+                      } catch {
+                        toast.error('Erro ao copiar imagem');
+                      }
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 text-gray-700"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Copiar imagem
+                  </button>
+                )}
+              </div>
               <button
                 onClick={() => setPreviewModal(null)}
-                className="px-4 py-2 text-gray-700 hover:text-gray-900"
+                className="px-4 py-2 text-gray-700 hover:text-gray-900 text-sm"
               >
                 Fechar
               </button>
@@ -703,6 +844,17 @@ const GmbDashboard = () => {
           </div>
         </div>
       )}
+
+      {/* 🤖 Modal de Publicação Assistida */}
+      <GmbAssistedPublishModal
+        post={assistedModal?.post}
+        isOpen={assistedModal?.open || false}
+        onClose={() => setAssistedModal(null)}
+        onPublished={() => {
+          refresh();
+          toast.success('Post marcado como publicado no Google!');
+        }}
+      />
     </div>
   );
 };

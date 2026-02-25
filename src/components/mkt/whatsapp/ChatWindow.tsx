@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { updateContactApi, MediaType } from '../../../services/whatsappService';
 import { socketManager } from '../../../utils/socketManager';
 import { logger } from '../../../utils/logger';
+import { normalizeE164BR } from '../../../utils/phone';
 import { Button } from '../../ui/Button';
 import { useContacts } from '../../../contexts/ContactsContext';
 import EditContactModal from './EditContactModal';
@@ -60,30 +61,40 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
         syncWithContact(!!contact?.manualActive);
     }, [contact?.manualActive, syncWithContact]);
 
-    // Monitorar status do socket
+    // ✅ Marcar o contato ativo no socketManager para suprimir notificação do chat aberto
     useEffect(() => {
-        const checkSocketStatus = () => {
-            setSocketConnected(socketManager.isConnected());
+        if (!contact?.phone) return;
+        const normalized = normalizeE164BR(contact.phone).replace(/^55/, '');
+        socketManager.setActiveChatPhone(normalized);
+        return () => {
+            socketManager.setActiveChatPhone(null);
         };
-        
-        const interval = setInterval(checkSocketStatus, 5000);
-        checkSocketStatus();
-        
-        return () => clearInterval(interval);
+    }, [contact?.phone]);
+
+    // ✅ Monitorar status do socket via evento (instantâneo, sem polling)
+    useEffect(() => {
+        setSocketConnected(socketManager.isConnected());
+        const unsubConnect = socketManager.onReconnect(() => {
+            setSocketConnected(true);
+        });
+        const unsubDisconnect = socketManager.on("disconnect", () => {
+            setSocketConnected(false);
+        });
+        return () => {
+            unsubConnect();
+            unsubDisconnect();
+        };
     }, []);
 
-    // Carregar mensagens quando socket reconecta (com throttle)
-    const lastLoadRef = useRef<number>(0);
+    // ✅ Recarregar mensagens imediatamente quando socket reconecta (busca gap)
     useEffect(() => {
-        if (!socketConnected || !contact?.phone) return;
-        
-        const now = Date.now();
-        if (now - lastLoadRef.current > 5000) {
-            logger.info("[ChatWindow] Socket conectado, verificando mensagens...");
-            lastLoadRef.current = now;
+        if (!contact?.phone) return;
+        const unsub = socketManager.onReconnect(() => {
+            logger.info("[ChatWindow] Socket reconectado — recarregando mensagens para buscar gap");
             loadMessages(contact.phone);
-        }
-    }, [socketConnected, contact?.phone, loadMessages]);
+        });
+        return unsub;
+    }, [contact?.phone, loadMessages]);
 
     // Carregar mensagens quando muda de contato
     useEffect(() => {

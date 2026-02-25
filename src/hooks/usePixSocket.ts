@@ -1,4 +1,4 @@
-// usePixSocket.ts - VERSÃO CORRIGIDA E FUNCIONAL
+// usePixSocket.ts
 import { useEffect, useRef } from "react";
 import { toast } from "react-toastify";
 import { useNotification } from "../contexts/NotificationContext";
@@ -25,14 +25,6 @@ export const usePixSocket = ({
         showPreAgendamentoNotification
     } = useNotification();
 
-    const lastEventTime = useRef<number>(0);
-    const throttled = () => {
-        const now = Date.now();
-        if (now - lastEventTime.current < 1500) return true;
-        lastEventTime.current = now;
-        return false;
-    };
-
     const notifRef = useRef({
         showPaymentNotification,
         showChatNotification,
@@ -54,17 +46,23 @@ export const usePixSocket = ({
             onCalendarRefresh,
             onPreAgendamentoRefresh,
         };
-    }, [showPaymentNotification, showChatNotification, showMediaNotification, showPreAgendamentoNotification, onPaymentRefresh, onCalendarRefresh, onPreAgendamentoRefresh]);
+    }, [
+        showPaymentNotification,
+        showChatNotification,
+        showMediaNotification,
+        showPreAgendamentoNotification,
+        onPaymentRefresh,
+        onCalendarRefresh,
+        onPreAgendamentoRefresh,
+    ]);
 
-    // ✅ UM ÚNICO useEffect COM TUDO
     useEffect(() => {
-        console.log("🔌 [usePixSocket] INICIANDO");
+        logger.info("🔌 [usePixSocket] Iniciando e registrando listeners");
 
-        // 1. Define TODAS as funções de handler PRIMEIRO (antes de registrar)
+        socketManager.initialize();
 
         // 💰 PIX
         const onPix = (pix: any) => {
-            if (throttled()) return;
             logger.info("💰 PIX recebido:", pix);
             notifRef.current.showPaymentNotification({
                 appointmentId: pix?.appointmentId || "",
@@ -76,27 +74,15 @@ export const usePixSocket = ({
             notifRef.current.onCalendarRefresh?.();
         };
 
-        const onPaymentUpdate = (data: any) => {
-            if (throttled()) return;
-            notifRef.current.showPaymentNotification({
-                appointmentId: data?.appointmentId || "",
-                amount: data?.amount || 0,
-                date: new Date(data?.date || Date.now()),
-                patientName: data?.patientName || "Atualização de pagamento",
-            });
-            notifRef.current.onPaymentRefresh?.();
-        };
-
+        // 📅 PRÉ-AGENDAMENTOS
         const onPreAgendamentoNew = (data: any) => {
-            console.log("📅 [SOCKET] preagendamento:new", data);
-            // Só toast, sem popup, sem som
+            logger.info("📅 [SOCKET] preagendamento:new", data);
             toast.info(`Novo pré-agendamento: ${data.patientName || "Paciente"}`);
             notifRef.current.onPreAgendamentoRefresh?.();
         };
 
         const onPreAgendamentoImported = (data: any) => {
-            console.log("✅ [SOCKET] preagendamento:imported", data);
-            // 🎉 POPUP + SOM quando confirma!
+            logger.info("✅ [SOCKET] preagendamento:imported", data);
             new Audio("/notification.mp3").play().catch(() => { });
             notifRef.current.showPreAgendamentoNotification({
                 id: `confirmed-${data.preAgendamentoId || Date.now()}`,
@@ -108,35 +94,27 @@ export const usePixSocket = ({
             notifRef.current.onPreAgendamentoRefresh?.();
         };
 
-
         const onPreAgendamentoCanceled = (data: any) => {
-            console.log("🚫 [SOCKET] preagendamento:canceled", data);
-            if (data?.patientName) {
-                toast.warning(`${data.patientName} - CANCELADO`);
-            }
+            logger.info("🚫 [SOCKET] preagendamento:canceled", data);
+            if (data?.patientName) toast.warning(`${data.patientName} - CANCELADO`);
             notifRef.current.onPreAgendamentoRefresh?.();
         };
 
         const onPreAgendamentoUpdated = (data: any) => {
-            console.log("✏️ [SOCKET] preagendamento:updated", data);
-            if (data?.patientName) {
-                toast.info(`${data.patientName} - Dados atualizados`);
-            }
+            logger.info("✏️ [SOCKET] preagendamento:updated", data);
+            if (data?.patientName) toast.info(`${data.patientName} - Dados atualizados`);
             notifRef.current.onPreAgendamentoRefresh?.();
         };
 
         const onPreAgendamentoDeleted = (data: any) => {
-            console.log("🗑️ [SOCKET] preagendamento:deleted", data);
-            if (data?.patientName) {
-                toast.error(`${data.patientName} - EXCLUÍDO`);
-            }
+            logger.info("🗑️ [SOCKET] preagendamento:deleted", data);
+            if (data?.patientName) toast.error(`${data.patientName} - EXCLUÍDO`);
             notifRef.current.onPreAgendamentoRefresh?.();
         };
 
-        // 💬 WHATSAPP
+        // 💬 WHATSAPP — notificação para secretaria
         const onAnyMessage = (data: any) => {
-            if (throttled()) return;
-            const type = data?.type || "text";
+            const type = (data?.type || "text").toLowerCase();
             const text = data?.content ?? data?.text ?? "";
             const from = data?.from || "";
             const to = data?.to || "";
@@ -145,84 +123,71 @@ export const usePixSocket = ({
             const rawTs = data?.timestamp || Date.now();
             const timestamp = typeof rawTs === "number" ? rawTs : new Date(rawTs).getTime();
             const id = data?.id || data?.wamid || `${type}-${timestamp}`;
+            const contactName = data?.contact?.name || data?.contactName || "";
 
             const dir = (data?.direction || "").toLowerCase();
             const fromN = normalizePhone(from);
             const toN = normalizePhone(to);
+            // Mensagem inbound = recebida do lead
             const isInbound = dir ? dir === "inbound" : (!!fromN && !toN);
 
             if (!isInbound) return;
 
-            const active = (window as any).activeChatPhone || socketManager.getActiveChatPhone() || null;
+            // ✅ Não notifica se a secretaria já está com este chat aberto
+            const activeChatPhone = socketManager.getActiveChatPhone();
             const contactPhone = fromN || toN;
-            const isChatOpen = active && contactPhone && active === contactPhone;
-
-            if (isChatOpen) return;
+            if (activeChatPhone && contactPhone && activeChatPhone === contactPhone) {
+                return;
+            }
 
             if (!type || type === "text" || type === "template") {
-                notifRef.current.showChatNotification({ id, from, text, timestamp });
+                notifRef.current.showChatNotification({
+                    id,
+                    from,
+                    text,
+                    timestamp,
+                    contactName,
+                });
             } else {
-                notifRef.current.showMediaNotification({ id, from, type, caption, url: mediaUrl, timestamp });
+                notifRef.current.showMediaNotification({
+                    id,
+                    from,
+                    type,
+                    caption,
+                    url: mediaUrl,
+                    timestamp,
+                });
             }
         };
 
-        // 2. Inicializa socket
-        socketManager.initialize();
-        console.log("🔌 [usePixSocket] Socket inicializado");
+        // ✅ Registra todos os listeners com cleanup correto
+        const unsubPix       = socketManager.on("pix-received", onPix);
+        const unsubMsg       = socketManager.onMessageNew(onAnyMessage);
+        const unsubPreNew    = socketManager.on("preagendamento:new", onPreAgendamentoNew);
+        const unsubPreImp    = socketManager.on("preagendamento:imported", onPreAgendamentoImported);
+        const unsubPreUpd    = socketManager.on("preagendamento:updated", onPreAgendamentoUpdated);
+        const unsubPreCan    = socketManager.on("preagendamento:canceled", onPreAgendamentoCanceled);
+        const unsubPreDel    = socketManager.on("preagendamento:deleted", onPreAgendamentoDeleted);
 
-        // 3. Registra listeners DEPOIS das funções existirem
-        const registraTudo = () => {
-            console.log("🔄 [usePixSocket] Registrando listeners...");
-            console.log("🔌 Socket conectado?", socketManager.isConnected());
-            console.log("🔌 Socket ID:", socketManager.getStatus().socketId);
-
-            // PIX
-            console.log("💰 Registrando pix-received...");
-            socketManager.on("pix-received", onPix);
-
-            // WhatsApp
-            console.log("💬 Registrando onMessageNew...");
-            socketManager.onMessageNew(onAnyMessage);
-
-            // Pré-agendamentos - LOG ESPECÍFICO AQUI
-            console.log("📅 Registrando preagendamento:new...");
-            try {
-                socketManager.on("preagendamento:new", onPreAgendamentoNew);
-                console.log("✅ preagendamento:new registrado com sucesso");
-            } catch (e) {
-                console.error("❌ Erro ao registrar preagendamento:new:", e);
-            }
-
-            socketManager.on("preagendamento:imported", onPreAgendamentoImported);
-            socketManager.on("preagendamento:updated", onPreAgendamentoUpdated);
-            socketManager.on("preagendamento:canceled", onPreAgendamentoCanceled);
-            socketManager.on("preagendamento:deleted", onPreAgendamentoDeleted);
-
-            console.log("✅ [usePixSocket] Todos os listeners registrados");
-        };
-
-        registraTudo();
-
-        // Keep-alive
-        const pingInterval = setInterval(() => {
-            if (socketManager.isConnected?.()) {
-                socketManager.emit?.("ping", Date.now());
-            }
-        }, 20000);
+        logger.info("✅ [usePixSocket] Todos os listeners registrados");
 
         // Debug global
         (window as any).sm = socketManager;
         (window as any).checkSocket = () => {
-            console.log("Conectado:", socketManager.isConnected?.());
-            console.log("Status:", socketManager.getStatus?.());
+            console.log("Status:", socketManager.getStatus());
         };
 
-        // Cleanup
         return () => {
-            clearInterval(pingInterval);
-            console.log("🧹 [usePixSocket] Limpando...");
+            logger.info("🧹 [usePixSocket] Removendo listeners");
+            unsubPix();
+            unsubMsg();
+            unsubPreNew();
+            unsubPreImp();
+            unsubPreUpd();
+            unsubPreCan();
+            unsubPreDel();
         };
-    }, []); // ✅ Array vazio - roda só uma vez
+    }, []);
 
     return null;
 };
