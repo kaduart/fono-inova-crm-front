@@ -57,6 +57,12 @@ const TrashIcon = () => (
   </svg>
 );
 
+const RepublishIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+  </svg>
+);
+
 const GmbDashboard = () => {
   const { posts, stats, loading, error, refresh } = useGmb();
   const [previewModal, setPreviewModal] = useState<{
@@ -71,6 +77,7 @@ const GmbDashboard = () => {
   } | null>(null);
   const [generating, setGenerating] = useState(false);
   const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [republishingId, setRepublishingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedEspecialidade, setSelectedEspecialidade] = useState<string>('');
   const [customTheme, setCustomTheme] = useState<string>('');
@@ -150,6 +157,26 @@ const GmbDashboard = () => {
       toast.error(err.response?.data?.error || 'Erro ao publicar');
     } finally {
       setPublishingId(null);
+    }
+  };
+
+  const handleRepublish = async (postId: string, postTitle: string) => {
+    if (!confirm(`Republicar o post "${postTitle || 'Sem título'}" no Google Meu Negócio?\n\nIsso vai criar uma nova publicação no Google.`)) return;
+    
+    setRepublishingId(postId);
+    try {
+      const response = await API.post(`/gmb/posts/${postId}/republish`);
+      toast.success(
+        <div>
+          <div>✅ Post republicado!</div>
+          <div className="text-xs text-green-600">ID: {response.data.gmbPostId?.slice(-20)}...</div>
+        </div>
+      );
+      refresh();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Erro ao republicar');
+    } finally {
+      setRepublishingId(null);
     }
   };
 
@@ -479,8 +506,25 @@ const GmbDashboard = () => {
                             Publicar
                           </button>
                         )}
+
+                        {/* Republicar - para posts já publicados ou falhos */}
+                        {(post.status === 'published' || post.status === 'failed') && (
+                          <button
+                            onClick={() => handleRepublish(post._id, post.title)}
+                            disabled={republishingId === post._id}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600 disabled:opacity-50"
+                            title="Republicar no Google Meu Negócio"
+                          >
+                            {republishingId === post._id ? (
+                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                              <RepublishIcon />
+                            )}
+                            Republicar
+                          </button>
+                        )}
                         
-                        {/* Preview */}
+                        {/* Preview -->
                         <button
                           onClick={() => handlePreview(post)}
                           className="px-3 py-1.5 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50"
