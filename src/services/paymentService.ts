@@ -186,7 +186,7 @@ export const createInsurancePayment = (data: InsurancePaymentData) =>
     API.post<{ success: boolean; data: InsurancePayment }>('/payments/insurance', data);
 
 // Listar contas a receber de convênios
-export const getInsuranceReceivables = (filters?: { provider?: string; status?: string }) =>
+export const getInsuranceReceivables = (filters?: { provider?: string; status?: string; month?: string }) =>
     API.get<{ success: boolean; data: InsuranceReceivableGroup[]; summary: { totalProviders: number; grandTotal: number } }>(
         '/payments/insurance/receivables',
         { params: filters }

@@ -100,6 +100,41 @@ const InsuranceTab = () => {
     });
     const [selectedPatient360Id, setSelectedPatient360Id] = useState<string | null>(null);
     const [is360ModalOpen, setIs360ModalOpen] = useState(false);
+    const [selectedMonthYear, setSelectedMonthYear] = useState(() => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    });
+
+    const getMonthLabel = () => {
+        if (!selectedMonthYear) return '';
+        const [year, month] = selectedMonthYear.split('-');
+        const date = new Date(Number(year), Number(month) - 1);
+        return date.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+    };
+
+    const paymentMatchesMonth = (payment: any) => {
+        if (!selectedMonthYear) return true;
+        const date = payment.paymentDate || '';
+        return date.substring(0, 7) === selectedMonthYear;
+    };
+
+    const getMonthSummary = () => {
+        const allPayments = receivables.flatMap(g =>
+            (g.patients || []).flatMap((p: any) =>
+                (p.payments || []).filter(paymentMatchesMonth)
+            )
+        );
+        const activeProviders = new Set(
+            receivables
+                .filter(g => (g.patients || []).some((p: any) => (p.payments || []).some(paymentMatchesMonth)))
+                .map(g => g._id)
+        ).size;
+        return {
+            grandTotal: allPayments.reduce((s: number, p: any) => s + (p.grossAmount || 0), 0),
+            pendingCount: allPayments.filter((p: any) => p.status !== 'received').length,
+            totalProviders: activeProviders
+        };
+    };
 
     const handleOpen360 = (patientId: string) => {
         setSelectedPatient360Id(patientId);
@@ -139,14 +174,17 @@ const InsuranceTab = () => {
     };
 
     useEffect(() => {
-        loadReceivables();
         loadPatientsAndDoctors();
     }, []);
 
-    const loadReceivables = async () => {
+    useEffect(() => {
+        loadReceivables(selectedMonthYear);
+    }, [selectedMonthYear]);
+
+    const loadReceivables = async (month?: string) => {
         setLoading(true);
         try {
-            const response = await getInsuranceReceivables();
+            const response = await getInsuranceReceivables({ month });
             const data = response.data.data || [];
             
             const filteredData = data.map((group: any) => ({
@@ -216,7 +254,7 @@ const InsuranceTab = () => {
                 notes: '',
                 paymentDate: new Date().toISOString().split('T')[0]
             });
-            loadReceivables();
+            loadReceivables(selectedMonthYear);
         } catch (error: any) {
             toast.error(error.response?.data?.message || 'Erro ao registrar');
         } finally {
@@ -228,7 +266,7 @@ const InsuranceTab = () => {
         try {
             await markInsuranceAsBilled(paymentId);
             toast.success('Marcado como faturado!');
-            loadReceivables();
+            loadReceivables(selectedMonthYear);
         } catch (error) {
             toast.error('Erro ao faturar');
         }
@@ -242,7 +280,7 @@ const InsuranceTab = () => {
             toast.success('Recebimento registrado! 💚');
             setReceiveModalOpen(false);
             setSelectedPayment(null);
-            loadReceivables();
+            loadReceivables(selectedMonthYear);
         } catch (error) {
             toast.error('Erro ao registrar recebimento');
         }
@@ -269,6 +307,7 @@ const InsuranceTab = () => {
         return patients.map(patient => ({
             ...patient,
             payments: (patient.payments || []).filter((p: any) => {
+                if (!paymentMatchesMonth(p)) return false;
                 if (subTab === 0) return p.status === 'pending_billing';
                 if (subTab === 1) return p.status === 'billed';
                 return ['received', 'partial', 'glosa'].includes(p.status);
@@ -291,9 +330,9 @@ const InsuranceTab = () => {
     };
 
     const countByStatus = (receivables: InsuranceReceivableGroup[], status: string) => {
-        return receivables.reduce((sum, group) => 
-            sum + (group.patients || []).reduce((pSum, patient) => 
-                pSum + (patient.payments || []).filter((p: any) => p.status === status).length, 0
+        return receivables.reduce((sum, group) =>
+            sum + (group.patients || []).reduce((pSum, patient) =>
+                pSum + (patient.payments || []).filter((p: any) => p.status === status && paymentMatchesMonth(p)).length, 0
             ), 0
         );
     };
@@ -333,67 +372,94 @@ const InsuranceTab = () => {
                 </Button>
             </div>
 
+            {/* Filtro de Mês */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
+                    <Calendar size={18} />
+                    <Typography variant="body2" fontWeight={500}>Período:</Typography>
+                </Box>
+                <TextField
+                    type="month"
+                    label="Mês de referência"
+                    value={selectedMonthYear}
+                    onChange={(e) => setSelectedMonthYear(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                    size="small"
+                    sx={{ width: 200 }}
+                />
+                <Typography variant="body2" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
+                    {getMonthLabel()}
+                </Typography>
+            </Box>
+
             {/* Cards de Resumo */}
             <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ width: '100%', mb: { xs: 3, sm: 4 } }}>
-                <Grid item xs={12} md={4}>
-                    <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#3B82F620', borderRadius: 2 }}>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                <Avatar sx={{ bgcolor: '#3B82F6', width: 40, height: 40 }}>
-                                    <DollarSign className="w-5 h-5 text-white" />
-                                </Avatar>
-                                <Box sx={{ flex: 1 }}>
-                                    <Typography variant="body2" color="text.secondary">
-                                        Total a Receber
-                                    </Typography>
-                                    <Typography variant="h5" fontWeight="bold" color="#3B82F6">
-                                        {summary.grandTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
+                {(() => {
+                    const ms = getMonthSummary();
+                    return (
+                        <>
+                            <Grid item xs={12} md={4}>
+                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#3B82F620', borderRadius: 2 }}>
+                                    <CardContent>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                            <Avatar sx={{ bgcolor: '#3B82F6', width: 40, height: 40 }}>
+                                                <DollarSign className="w-5 h-5 text-white" />
+                                            </Avatar>
+                                            <Box sx={{ flex: 1 }}>
+                                                <Typography variant="body2" color="text.secondary">
+                                                    Total Faturado no Mês
+                                                </Typography>
+                                                <Typography variant="h5" fontWeight="bold" color="#3B82F6">
+                                                    {ms.grandTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
 
-                <Grid item xs={12} md={4}>
-                    <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#F59E0B20', borderRadius: 2 }}>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                <Avatar sx={{ bgcolor: '#F59E0B', width: 40, height: 40 }}>
-                                    <Building2 className="w-5 h-5 text-white" />
-                                </Avatar>
-                                <Box sx={{ flex: 1 }}>
-                                    <Typography variant="body2" color="text.secondary">
-                                        Convênios Ativos
-                                    </Typography>
-                                    <Typography variant="h5" fontWeight="bold" color="#F59E0B">
-                                        {summary.totalProviders}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
+                            <Grid item xs={12} md={4}>
+                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#F59E0B20', borderRadius: 2 }}>
+                                    <CardContent>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                            <Avatar sx={{ bgcolor: '#F59E0B', width: 40, height: 40 }}>
+                                                <Building2 className="w-5 h-5 text-white" />
+                                            </Avatar>
+                                            <Box sx={{ flex: 1 }}>
+                                                <Typography variant="body2" color="text.secondary">
+                                                    Convênios no Mês
+                                                </Typography>
+                                                <Typography variant="h5" fontWeight="bold" color="#F59E0B">
+                                                    {ms.totalProviders}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
 
-                <Grid item xs={12} md={4}>
-                    <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#10B98120', borderRadius: 2 }}>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                <Avatar sx={{ bgcolor: '#10B981', width: 40, height: 40 }}>
-                                    <Clock className="w-5 h-5 text-white" />
-                                </Avatar>
-                                <Box sx={{ flex: 1 }}>
-                                    <Typography variant="body2" color="text.secondary">
-                                        Pendentes
-                                    </Typography>
-                                    <Typography variant="h5" fontWeight="bold" color="#10B981">
-                                        {summary.pendingCount} atendimentos
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
+                            <Grid item xs={12} md={4}>
+                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#10B98120', borderRadius: 2 }}>
+                                    <CardContent>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                            <Avatar sx={{ bgcolor: '#10B981', width: 40, height: 40 }}>
+                                                <Clock className="w-5 h-5 text-white" />
+                                            </Avatar>
+                                            <Box sx={{ flex: 1 }}>
+                                                <Typography variant="body2" color="text.secondary">
+                                                    Pendentes no Mês
+                                                </Typography>
+                                                <Typography variant="h5" fontWeight="bold" color="#10B981">
+                                                    {ms.pendingCount} atendimentos
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        </>
+                    );
+                })()}
             </Grid>
 
             {/* Sub-tabs */}

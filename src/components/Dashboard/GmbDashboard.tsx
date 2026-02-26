@@ -82,11 +82,12 @@ const GmbDashboard = () => {
     open: boolean;
     post: any;
   } | null>(null);
-  const [generating, setGenerating] = useState(false);
+  const [generatingCount, setGeneratingCount] = useState(0);
   const [creatingAssisted, setCreatingAssisted] = useState(false);
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [republishingId, setRepublishingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [regeneratingImageId, setRegeneratingImageId] = useState<string | null>(null);
   const [selectedEspecialidade, setSelectedEspecialidade] = useState<string>('');
   const [customTheme, setCustomTheme] = useState<string>('');
   const [selectedType, setSelectedType] = useState<string>('daily');
@@ -112,17 +113,16 @@ const GmbDashboard = () => {
   ];
 
   const handleGenerate = async () => {
-    setGenerating(true);
+    setGeneratingCount(c => c + 1);
     try {
       const response = await API.post('/gmb/admin/trigger-generation', {
         especialidadeId: selectedEspecialidade || undefined,
         customTheme: customTheme.trim() || undefined,
         generateImage: true
       });
-      
-      const isFree = response.data.data?.isFree;
+
       const especialidade = response.data.data?.especialidade?.nome;
-      
+
       toast.success(
         <div>
           <div>✅ Post "{especialidade}" criado!</div>
@@ -130,21 +130,20 @@ const GmbDashboard = () => {
           <div className="text-xs text-green-600">💚 100% GRATUITO</div>
         </div>
       );
-      
-      // Limpa tema personalizado após gerar
+
       setCustomTheme('');
       refresh();
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Erro ao gerar post');
     } finally {
-      setGenerating(false);
+      setGeneratingCount(c => c - 1);
     }
   };
 
   const handleGenerateWeek = async () => {
     if (!confirm('Gerar posts para toda a semana?\n\n💚 Tudo gratuito!')) return;
-    
-    setGenerating(true);
+
+    setGeneratingCount(c => c + 1);
     try {
       const response = await API.post('/gmb/admin/trigger-weekly');
       const count = response.data.data.filter((r: any) => r.success).length;
@@ -157,8 +156,9 @@ const GmbDashboard = () => {
       refresh();
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Erro ao gerar semana');
+      refresh(); // posts gerados parcialmente ainda aparecem
     } finally {
-      setGenerating(false);
+      setGeneratingCount(c => c - 1);
     }
   };
 
@@ -250,19 +250,37 @@ const GmbDashboard = () => {
 
   const handleSaveEdit = async () => {
     if (!editModal?.post) return;
-    
+
     try {
       await API.put(`/gmb/posts/${editModal.post._id}`, {
         title: editModal.post.title,
         content: editModal.post.content,
         scheduledAt: editModal.post.scheduledAt
       });
-      
+
       toast.success('✅ Post atualizado!');
       setEditModal(null);
       refresh();
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Erro ao salvar');
+    }
+  };
+
+  const handleRegenerateImage = async () => {
+    if (!editModal?.post?._id) return;
+    const postId = editModal.post._id;
+    setRegeneratingImageId(postId);
+    try {
+      const response = await API.post(`/gmb/posts/${postId}/regenerate-image`);
+      const newUrl = response.data.data?.mediaUrl;
+      if (newUrl) {
+        setEditModal(prev => prev ? { ...prev, post: { ...prev.post, mediaUrl: newUrl } } : prev);
+        toast.success('✅ Nova imagem gerada!');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Erro ao gerar imagem');
+    } finally {
+      setRegeneratingImageId(null);
     }
   };
 
@@ -389,26 +407,15 @@ const GmbDashboard = () => {
           <div className="flex flex-wrap gap-3">
             <button
               onClick={handleGenerate}
-              disabled={generating}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
             >
-              {generating ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Gerando...
-                </>
-              ) : (
-                <>
-                  <PlusIcon />
-                  {customTheme ? `Gerar sobre "${customTheme.substring(0, 20)}${customTheme.length > 20 ? '...' : ''}"` : 'Gerar Post'}
-                </>
-              )}
+              <PlusIcon />
+              {customTheme ? `Gerar sobre "${customTheme.substring(0, 20)}${customTheme.length > 20 ? '...' : ''}"` : 'Gerar Post'}
             </button>
 
             <button
               onClick={handleGenerateWeek}
-              disabled={generating}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
             >
               <RefreshIcon />
               Gerar Semana
@@ -517,7 +524,7 @@ const GmbDashboard = () => {
               </div>
             ))}
           </div>
-        ) : posts.length === 0 ? (
+        ) : posts.length === 0 && generatingCount === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <div className="mb-4">
               <svg className="w-16 h-16 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -532,6 +539,26 @@ const GmbDashboard = () => {
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
+            {/* Skeletons de gerações em andamento */}
+            {generatingCount > 0 && [...Array(generatingCount)].map((_, i) => (
+              <div key={`skel-${i}`} className="p-4 bg-green-50/40 animate-pulse">
+                <div className="flex gap-4 items-center">
+                  <div className="w-24 h-24 flex-shrink-0 bg-green-100 rounded-lg flex items-center justify-center">
+                    <div className="w-6 h-6 border-2 border-green-400/40 border-t-green-500 rounded-full animate-spin" />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-3 w-3 bg-green-400 rounded-full animate-pulse" />
+                      <span className="text-xs font-medium text-green-700">Gerando post + imagem...</span>
+                    </div>
+                    <div className="h-3 bg-green-100 rounded w-3/4" />
+                    <div className="h-3 bg-green-100 rounded w-1/2" />
+                    <div className="h-3 bg-green-100 rounded w-2/3" />
+                  </div>
+                </div>
+              </div>
+            ))}
+            {console.log('[GMB DEBUG] Total posts:', posts.length, 'First post status:', posts[0]?.status) || true}
             {posts.map((post: any) => (
               <div key={post._id} className="p-4 hover:bg-gray-50">
                 <div className="flex gap-4">
@@ -583,7 +610,7 @@ const GmbDashboard = () => {
                         )}
 
                         {/* Publicar via Make */}
-                        {post.status === 'scheduled' && (
+                        {(post.status === 'scheduled' || post.status === 'draft') && (
                           <button
                             onClick={() => handlePublish(post._id)}
                             disabled={publishingId === post._id}
@@ -600,6 +627,7 @@ const GmbDashboard = () => {
                         )}
 
                         {/* Republicar - para posts já publicados ou falhos */}
+                        {console.log('[DEBUG GMB] Post:', post._id, 'Status:', post.status, 'Title:', post.title?.substring(0, 30)) || true}
                         {(post.status === 'published' || post.status === 'failed') && (
                           <button
                             onClick={() => handleRepublish(post._id, post.title)}
@@ -782,6 +810,51 @@ const GmbDashboard = () => {
             </div>
 
             <div className="p-6 overflow-y-auto flex-1 space-y-4">
+              {/* Imagem atual + botão regenerar */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Imagem</label>
+                  <button
+                    onClick={handleRegenerateImage}
+                    disabled={regeneratingImageId === editModal.post._id}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white text-xs rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                    title="Gerar nova imagem com IA (DALL-E 3 HD)"
+                  >
+                    {regeneratingImageId === editModal.post._id ? (
+                      <>
+                        <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Gerando...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Gerar nova imagem
+                      </>
+                    )}
+                  </button>
+                </div>
+                {editModal.post.mediaUrl ? (
+                  <div className="relative rounded-lg overflow-hidden bg-gray-100" style={{ aspectRatio: '1/1' }}>
+                    <img
+                      src={editModal.post.mediaUrl}
+                      alt="Imagem do post"
+                      className="w-full h-full object-cover"
+                    />
+                    {regeneratingImageId === editModal.post._id && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <div className="text-white text-sm font-medium">Gerando nova imagem...</div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center h-32 text-gray-400 text-sm">
+                    Sem imagem — clique em "Gerar nova imagem"
+                  </div>
+                )}
+              </div>
+
               {/* Título */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
