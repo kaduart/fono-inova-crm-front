@@ -236,7 +236,7 @@ const FinancialDashboard = ({
                             </ToggleButton>
                         </ToggleButtonGroup>
 
-                        {viewMode === 'operacional' && (
+                       {/*  {viewMode === 'operacional' && (
                             <Button
                                 variant="contained"
                                 startIcon={<Plus size={20} />}
@@ -259,7 +259,7 @@ const FinancialDashboard = ({
                             >
                                 Novo Registro
                             </Button>
-                        )}
+                        )} */}
                     </Box>
                 </div>
             </Paper>

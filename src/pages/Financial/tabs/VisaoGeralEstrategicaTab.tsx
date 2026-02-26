@@ -48,13 +48,32 @@ import {
     EventAvailable
 } from '@mui/icons-material';
 import { useFinancialOverview } from '../../../hooks/useFinancialOverview';
+import { MetricDetailModal } from '../components/MetricDetailModal';
 import { ptBR } from 'date-fns/locale';
 import { format } from 'date-fns';
+
+type ViewPeriod = 'daily' | 'weekly' | 'biweekly' | 'monthly';
+
+type ModalType = 'leads' | 'avaliacoes-agendadas' | 'avaliacoes-realizadas' | 'pacotes' | 'sessoes';
 
 const VisaoGeralEstrategicaTab = () => {
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [selectedComparison, setSelectedComparison] = useState<'previous' | 'lastYear'>('previous');
+    const [viewPeriod, setViewPeriod] = useState<ViewPeriod>('monthly');
+    
+    // 🆕 Estados para modal
+    const [modalOpen, setModalOpen] = useState(false);
+    const [modalType, setModalType] = useState<ModalType>('leads');
+    const [modalTitle, setModalTitle] = useState('');
+    const [modalColor, setModalColor] = useState('#3B82F6');
+    
+    const openModal = (type: ModalType, title: string, color: string) => {
+        setModalType(type);
+        setModalTitle(title);
+        setModalColor(color);
+        setModalOpen(true);
+    };
 
     const {
         data,
@@ -225,31 +244,94 @@ const VisaoGeralEstrategicaTab = () => {
                         <Grid container spacing={{ xs: 1, sm: 1.5, md: 2 }}>
                             {/* Leads Recebidos */}
                             <Grid item xs={6} sm={6} md={4} lg={2.4}>
-                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#3B82F630', borderRadius: 2, height: '100%' }}>
+                                <Card 
+                                    elevation={0} 
+                                    onClick={() => openModal('leads', 'Leads Recebidos', '#3B82F6')}
+                                    sx={{ 
+                                        width: '100%', 
+                                        border: '1px solid', 
+                                        borderColor: '#3B82F630', 
+                                        borderRadius: 2, 
+                                        height: '100%',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        '&:hover': { 
+                                            boxShadow: '0 4px 12px #3B82F630',
+                                            borderColor: '#3B82F6',
+                                            transform: 'translateY(-2px)'
+                                        }
+                                    }}
+                                >
                                     <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
                                             <Avatar sx={{ bgcolor: '#3B82F6', width: 40, height: 40 }}>
                                                 <Group sx={{ color: 'white', fontSize: 20 }} />
                                             </Avatar>
                                             <Box>
                                                 <Typography variant="caption" color="text.secondary">Leads Recebidos</Typography>
                                                 <Typography variant="h5" fontWeight="bold" color="#3B82F6">
-                                                    {data.metrics?.leadsRecebidos || 0}
+                                                    {(() => {
+                                                        const total = data.metrics?.leadsRecebidos || 0;
+                                                        const diasNoMes = new Date(selectedYear, selectedMonth, 0).getDate();
+                                                        switch (viewPeriod) {
+                                                            case 'daily': return Math.round(total / diasNoMes);
+                                                            case 'weekly': return Math.round(total / 4);
+                                                            case 'biweekly': return Math.round(total / 2);
+                                                            default: return total;
+                                                        }
+                                                    })()}
                                                 </Typography>
                                             </Box>
                                         </Box>
-                                        <Chip 
-                                            size="small" 
-                                            label="Novos contatos" 
-                                            sx={{ bgcolor: '#3B82F615', color: '#3B82F6', fontWeight: 500, fontSize: '0.7rem' }} 
-                                        />
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                            <Chip 
+                                                size="small" 
+                                                label="Novos contatos" 
+                                                sx={{ bgcolor: '#3B82F615', color: '#3B82F6', fontWeight: 500, fontSize: '0.7rem' }} 
+                                            />
+                                            <FormControl size="small" sx={{ mt: 0.5 }}>
+                                                <Select
+                                                    value={viewPeriod}
+                                                    onChange={(e) => setViewPeriod(e.target.value as ViewPeriod)}
+                                                    sx={{ 
+                                                        fontSize: '0.7rem', 
+                                                        height: 24,
+                                                        '& .MuiSelect-select': { py: 0.3, px: 1 },
+                                                        bgcolor: '#3B82F608',
+                                                        '& .MuiOutlinedInput-notchedOutline': { borderColor: '#3B82F640' }
+                                                    }}
+                                                >
+                                                    <MenuItem value="daily" sx={{ fontSize: '0.75rem' }}>Por Dia</MenuItem>
+                                                    <MenuItem value="weekly" sx={{ fontSize: '0.75rem' }}>Por Semana</MenuItem>
+                                                    <MenuItem value="biweekly" sx={{ fontSize: '0.75rem' }}>Por Quinzena</MenuItem>
+                                                    <MenuItem value="monthly" sx={{ fontSize: '0.75rem' }}>Por Mês</MenuItem>
+                                                </Select>
+                                            </FormControl>
+                                        </Box>
                                     </CardContent>
                                 </Card>
                             </Grid>
 
                             {/* Agendamentos (Avaliações Agendadas) */}
                             <Grid item xs={12} sm={6} md={4} lg={2.4}>
-                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#10B98130', borderRadius: 2, height: '100%' }}>
+                                <Card 
+                                    elevation={0} 
+                                    onClick={() => openModal('avaliacoes-agendadas', 'Avaliações Agendadas', '#10B981')}
+                                    sx={{ 
+                                        width: '100%', 
+                                        border: '1px solid', 
+                                        borderColor: '#10B98130', 
+                                        borderRadius: 2, 
+                                        height: '100%',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        '&:hover': { 
+                                            boxShadow: '0 4px 12px #10B98130',
+                                            borderColor: '#10B981',
+                                            transform: 'translateY(-2px)'
+                                        }
+                                    }}
+                                >
                                     <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
                                             <Avatar sx={{ bgcolor: '#10B981', width: 40, height: 40 }}>
@@ -273,7 +355,24 @@ const VisaoGeralEstrategicaTab = () => {
 
                             {/* Avaliações Realizadas */}
                             <Grid item xs={12} sm={6} md={4} lg={2.4}>
-                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#F59E0B30', borderRadius: 2, height: '100%' }}>
+                                <Card 
+                                    elevation={0} 
+                                    onClick={() => openModal('avaliacoes-realizadas', 'Avaliações Realizadas', '#F59E0B')}
+                                    sx={{ 
+                                        width: '100%', 
+                                        border: '1px solid', 
+                                        borderColor: '#F59E0B30', 
+                                        borderRadius: 2, 
+                                        height: '100%',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        '&:hover': { 
+                                            boxShadow: '0 4px 12px #F59E0B30',
+                                            borderColor: '#F59E0B',
+                                            transform: 'translateY(-2px)'
+                                        }
+                                    }}
+                                >
                                     <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
                                             <Avatar sx={{ bgcolor: '#F59E0B', width: 40, height: 40 }}>
@@ -297,7 +396,24 @@ const VisaoGeralEstrategicaTab = () => {
 
                             {/* Projetos Fechados (Pacotes) */}
                             <Grid item xs={12} sm={6} md={4} lg={2.4}>
-                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#8B5CF630', borderRadius: 2, height: '100%' }}>
+                                <Card 
+                                    elevation={0} 
+                                    onClick={() => openModal('pacotes', 'Pacotes Fechados', '#8B5CF6')}
+                                    sx={{ 
+                                        width: '100%', 
+                                        border: '1px solid', 
+                                        borderColor: '#8B5CF630', 
+                                        borderRadius: 2, 
+                                        height: '100%',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        '&:hover': { 
+                                            boxShadow: '0 4px 12px #8B5CF630',
+                                            borderColor: '#8B5CF6',
+                                            transform: 'translateY(-2px)'
+                                        }
+                                    }}
+                                >
                                     <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
                                             <Avatar sx={{ bgcolor: '#8B5CF6', width: 40, height: 40 }}>
@@ -321,7 +437,24 @@ const VisaoGeralEstrategicaTab = () => {
 
                             {/* Sessões do Mês */}
                             <Grid item xs={12} sm={6} md={4} lg={2.4}>
-                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#EC489930', borderRadius: 2, height: '100%' }}>
+                                <Card 
+                                    elevation={0} 
+                                    onClick={() => openModal('sessoes', 'Sessões do Mês', '#EC4899')}
+                                    sx={{ 
+                                        width: '100%', 
+                                        border: '1px solid', 
+                                        borderColor: '#EC489930', 
+                                        borderRadius: 2, 
+                                        height: '100%',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        '&:hover': { 
+                                            boxShadow: '0 4px 12px #EC489930',
+                                            borderColor: '#EC4899',
+                                            transform: 'translateY(-2px)'
+                                        }
+                                    }}
+                                >
                                     <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
                                             <Avatar sx={{ bgcolor: '#EC4899', width: 40, height: 40 }}>
@@ -339,6 +472,127 @@ const VisaoGeralEstrategicaTab = () => {
                                             label={`${data.metrics?.projetosFechados ? Math.round((data.metrics?.sessoesMes || 0) / data.metrics.projetosFechados) : 0} sessões/pacote`}
                                             sx={{ bgcolor: '#EC489915', color: '#EC4899', fontWeight: 500, fontSize: '0.7rem' }} 
                                         />
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        </Grid>
+                    </Paper>
+
+                    {/* 🆕 Cards de Análise de Leads - Origem e Pico */}
+                    <Paper elevation={0} sx={{ p: { xs: 2, sm: 2.5, md: 3 }, mb: { xs: 2, sm: 3 }, border: '1px solid', borderColor: '#3B82F620', borderRadius: 2, bgcolor: '#EFF6FF' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: { xs: 2, sm: 3 } }}>
+                            <Avatar sx={{ bgcolor: '#3B82F6', width: 32, height: 32 }}>
+                                <Group sx={{ fontSize: 18, color: 'white' }} />
+                            </Avatar>
+                            <Typography variant="h6" fontWeight="600">📈 Análise de Leads - Origens</Typography>
+                        </Box>
+
+                        <Grid container spacing={{ xs: 1, sm: 1.5, md: 2 }}>
+                            {/* WhatsApp */}
+                            <Grid item xs={6} sm={4} md={2.4}>
+                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#25D36630', borderRadius: 2, height: '100%', bgcolor: '#25D36608' }}>
+                                    <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Avatar sx={{ bgcolor: '#25D366', width: 32, height: 32 }}>
+                                                <Typography sx={{ color: 'white', fontSize: 14, fontWeight: 'bold' }}>Wpp</Typography>
+                                            </Avatar>
+                                            <Box>
+                                                <Typography variant="caption" color="text.secondary" display="block">WhatsApp</Typography>
+                                                <Typography variant="h6" fontWeight="bold" color="#25D366">
+                                                    {data.metrics?.leadsWhatsApp || 0}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+
+                            {/* Tráfego Pago */}
+                            <Grid item xs={6} sm={4} md={2.4}>
+                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#F59E0B30', borderRadius: 2, height: '100%', bgcolor: '#F59E0B08' }}>
+                                    <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Avatar sx={{ bgcolor: '#F59E0B', width: 32, height: 32 }}>
+                                                <Typography sx={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>Ads</Typography>
+                                            </Avatar>
+                                            <Box>
+                                                <Typography variant="caption" color="text.secondary" display="block">Tráfego Pago</Typography>
+                                                <Typography variant="h6" fontWeight="bold" color="#F59E0B">
+                                                    {data.metrics?.leadsTrafegoPago || 0}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+
+                            {/* Agenda Direta */}
+                            <Grid item xs={6} sm={4} md={2.4}>
+                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#8B5CF630', borderRadius: 2, height: '100%', bgcolor: '#8B5CF608' }}>
+                                    <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Avatar sx={{ bgcolor: '#8B5CF6', width: 32, height: 32 }}>
+                                                <Typography sx={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>Dir</Typography>
+                                            </Avatar>
+                                            <Box>
+                                                <Typography variant="caption" color="text.secondary" display="block">Agenda Direta</Typography>
+                                                <Typography variant="h6" fontWeight="bold" color="#8B5CF6">
+                                                    {data.metrics?.leadsAgendaDireta || 0}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                        {data.metrics?.leadsAutoCriados ? (
+                                            <Chip 
+                                                size="small" 
+                                                label={`${data.metrics.leadsAutoCriados} auto`}
+                                                sx={{ mt: 0.5, bgcolor: '#8B5CF615', color: '#8B5CF6', fontSize: '0.65rem', height: 18 }} 
+                                            />
+                                        ) : null}
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+
+                            {/* Dia com Pico */}
+                            <Grid item xs={6} sm={4} md={2.4}>
+                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#EF444430', borderRadius: 2, height: '100%', bgcolor: '#EF444408' }}>
+                                    <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Avatar sx={{ bgcolor: '#EF4444', width: 32, height: 32 }}>
+                                                <Typography sx={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>🔥</Typography>
+                                            </Avatar>
+                                            <Box>
+                                                <Typography variant="caption" color="text.secondary" display="block">Dia com Pico</Typography>
+                                                <Typography variant="h6" fontWeight="bold" color="#EF4444">
+                                                    {data.metrics?.diaPico ? format(new Date(data.metrics.diaPico.data), 'dd/MM', { locale: ptBR }) : '--'}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                        {data.metrics?.diaPico ? (
+                                            <Chip 
+                                                size="small" 
+                                                label={`${data.metrics.diaPico.quantidade} leads`}
+                                                sx={{ mt: 0.5, bgcolor: '#EF444415', color: '#EF4444', fontSize: '0.65rem', height: 18 }} 
+                                            />
+                                        ) : null}
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+
+                            {/* Agendamentos Diretos */}
+                            <Grid item xs={6} sm={4} md={2.4}>
+                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#10B98130', borderRadius: 2, height: '100%', bgcolor: '#10B98108' }}>
+                                    <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Avatar sx={{ bgcolor: '#10B981', width: 32, height: 32 }}>
+                                                <Typography sx={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>+</Typography>
+                                            </Avatar>
+                                            <Box>
+                                                <Typography variant="caption" color="text.secondary" display="block">Agend. Diretos</Typography>
+                                                <Typography variant="h6" fontWeight="bold" color="#10B981">
+                                                    {data.metrics?.agendamentosDiretos || 0}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
                                     </CardContent>
                                 </Card>
                             </Grid>
@@ -795,6 +1049,17 @@ const VisaoGeralEstrategicaTab = () => {
                     </Box>
                 </>
             ) : null}
+            
+            {/* 🆕 Modal de Detalhes */}
+            <MetricDetailModal
+                open={modalOpen}
+                onClose={() => setModalOpen(false)}
+                type={modalType}
+                month={selectedMonth}
+                year={selectedYear}
+                title={modalTitle}
+                color={modalColor}
+            />
         </Box>
     );
 };

@@ -74,10 +74,11 @@ export const CalendarTab = ({
                 setPatients(Array.isArray(patientsRes) ? patientsRes : []);
                 setDoctors(doctorsRes.data || []);
 
-                // Carrega appointments do mês (incluindo pré-agendados como status normal)
+                // Carrega appointments do mês (excluindo pré-agendamentos no CRM)
                 const appointmentsRes = await appointmentService.list({
                     startDate: dateRange.startDate,
-                    endDate: dateRange.endDate
+                    endDate: dateRange.endDate,
+                    excludePreAgendamentos: true  // 🎯 No CRM só mostra agendamentos reais
                 });
 
                 if (!mounted) return;

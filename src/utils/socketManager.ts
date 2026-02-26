@@ -277,6 +277,11 @@ class SocketManager {
         return this.on("message:deleted", handler);
     }
 
+    // 🆕 Escuta mudanças no controle manual (Amanda pausada/reativada)
+    onManualControlChange(handler: AnyHandler<{ leadId: string; manualActive: boolean; phone: string; reason: string; timestamp: string }>): Unsubscribe {
+        return this.on("lead:manualControl", handler);
+    }
+
     // ✅ Registra callback para evento de (re)conexão
     onReconnect(callback: () => void): Unsubscribe {
         return this.on("connect", callback);

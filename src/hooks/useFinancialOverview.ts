@@ -54,6 +54,17 @@ export interface MetricsData {
   avaliacoesRealizadas?: number;
   projetosFechados?: number;
   sessoesMes?: number;
+  // 🆕 NOVAS MÉTRICAS DE LEADS
+  diaPico?: {
+    data: string;
+    quantidade: number;
+  } | null;
+  origemBreakdown?: Record<string, number>;
+  agendamentosDiretos?: number;
+  leadsAutoCriados?: number;
+  leadsWhatsApp?: number;
+  leadsAgendaDireta?: number;
+  leadsTrafegoPago?: number;
 }
 
 export interface FinancialOverviewData {
@@ -117,7 +128,7 @@ export function useFinancialOverview(): UseFinancialOverviewReturn {
     setError(null);
     
     try {
-      const response = await api.get('/financial/overview', {
+      const response = await api.get('/financial', {
         params: { month, year, compare }
       });
 
@@ -152,6 +163,14 @@ export function useFinancialOverview(): UseFinancialOverviewReturn {
             avaliacoesRealizadas: metrics.avaliacoesRealizadas || 0,
             projetosFechados: metrics.projetosFechados || 0,
             sessoesMes: metrics.sessoesMes || 0,
+            // 🆕 NOVAS MÉTRICAS DE LEADS
+            diaPico: metrics.diaPico,
+            origemBreakdown: metrics.origemBreakdown || {},
+            agendamentosDiretos: metrics.agendamentosDiretos || 0,
+            leadsAutoCriados: metrics.leadsAutoCriados || 0,
+            leadsWhatsApp: metrics.leadsWhatsApp || 0,
+            leadsAgendaDireta: metrics.leadsAgendaDireta || 0,
+            leadsTrafegoPago: metrics.leadsTrafegoPago || 0,
           },
           variacao: {
             receita: variation.receita,

@@ -3,7 +3,7 @@
  * Centraliza GMB, Instagram, Facebook, Vídeos e Spy de Concorrentes
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import API from '../../services/api';
 import { useMarketing, type FunnelStage, type AdSpy } from '../../hooks/useMarketing';
@@ -110,6 +110,24 @@ export default function MarketingDashboard() {
   const [selectedFunnelStage, setSelectedFunnelStage] = useState<FunnelStage>('top');
   const [customTheme, setCustomTheme] = useState('');
 
+  // 🧠 Cálculo da fila automática (sincronizado entre card e botão)
+  const automaticConfig = useMemo(() => {
+    const now = new Date();
+    const dayIndex = now.getDay();
+    const hour = now.getHours();
+    
+    // Roda entre as 7 especialidades ao longo do dia/semana
+    const espIndex = (dayIndex + Math.floor(hour / 4)) % ESPECIALIDADES.length;
+    const esp = ESPECIALIDADES[espIndex];
+    
+    // Funil por horário
+    let funnel: FunnelStage = 'top';
+    if (hour >= 12 && hour < 17) funnel = 'middle';
+    else if (hour >= 17) funnel = 'bottom';
+    
+    return { especialidade: esp.id, funnel, especialidadeNome: esp.nome };
+  }, []); // Calcula uma vez ao montar o componente
+
   // 🕐 Controle de agendamento GMB
   const [schedulePost, setSchedulePost] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
@@ -121,6 +139,8 @@ export default function MarketingDashboard() {
   const [deletingPost, setDeletingPost] = useState<string | null>(null);
   const [editModal, setEditModal] = useState<{ open: boolean; post: any } | null>(null);
   const [previewModal, setPreviewModal] = useState<{ open: boolean; post: any } | null>(null);
+  const [previewContent, setPreviewContent] = useState<{ type: 'caption' | 'hooks' | null; data: any } | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [generatingImagePostId, setGeneratingImagePostId] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<30 | 45 | 60>(30);
   const [videoRoteiro, setVideoRoteiro] = useState('');
@@ -165,32 +185,56 @@ export default function MarketingDashboard() {
     }
   }, [activeTab, spyTab]);
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (mode: 'caption' | 'hooks' | 'full' = 'full') => {
     setGenerating(true);
     try {
-      if (activeTab === 'gmb') {
-        // 🕐 Prepara data/hora de agendamento se habilitado
-        let scheduledAt: string | undefined;
-        if (schedulePost && scheduleDate && scheduleTime) {
-          scheduledAt = `${scheduleDate}T${scheduleTime}:00`;
+      const endpoint = activeTab === 'gmb' ? '/gmb' : activeTab === 'instagram' ? '/instagram' : '/facebook';
+      
+      // 🧠 Determina especialidade e funil (manual ou automático)
+      const espId = selectedEspecialidade || automaticConfig.especialidade;
+      const funnel = selectedEspecialidade ? selectedFunnelStage : automaticConfig.funnel;
+      
+      if (mode === 'caption') {
+        // 🟢 Modo Legenda SEO - só preview, não salva
+        const res = await API.post(`${endpoint}/generate-caption`, {
+          especialidadeId: espId,
+          customTheme,
+          funnelStage: funnel
+        });
+        setPreviewContent({ type: 'caption', data: res.data.data });
+        toast.success('📝 Legenda SEO gerada! Copie e use.');
+      } else if (mode === 'hooks') {
+        // 🟡 Modo Ganchos - só preview, não salva
+        const res = await API.post(`${endpoint}/generate-hooks`, {
+          especialidadeId: espId,
+          customTheme,
+          funnelStage: funnel,
+          count: 10
+        });
+        setPreviewContent({ type: 'hooks', data: res.data.data });
+        toast.success('🎣 10 Ganchos gerados! Teste no Reels.');
+      } else {
+        // 🔴 Modo Post Completo - salva no banco + imagem
+        if (activeTab === 'gmb') {
+          let scheduledAt: string | undefined;
+          if (schedulePost && scheduleDate && scheduleTime) {
+            scheduledAt = `${scheduleDate}T${scheduleTime}:00`;
+          }
+          await gmb.generate(espId, customTheme, scheduledAt, funnel);
+          toast.success(scheduledAt ? `✅ Post GMB agendado!` : '✅ Post GMB criado!');
+          setSchedulePost(false);
+          setScheduleDate('');
+          setScheduleTime('');
+        } else if (activeTab === 'instagram') {
+          await instagram.generate(espId, customTheme, funnel);
+          toast.success('✅ Post Instagram criado!');
+        } else if (activeTab === 'facebook') {
+          await facebook.generate(espId, customTheme, funnel);
+          toast.success('✅ Post Facebook criado!');
         }
-
-        await gmb.generate(selectedEspecialidade || undefined, customTheme, scheduledAt);
-        toast.success(scheduledAt ? `✅ Post GMB agendado!` : '✅ Post GMB criado!');
-
-        // Limpa campos de agendamento
-        setSchedulePost(false);
-        setScheduleDate('');
-        setScheduleTime('');
-      } else if (activeTab === 'instagram') {
-        await instagram.generate(selectedEspecialidade || undefined, customTheme, selectedFunnelStage);
-        toast.success('✅ Post Instagram criado!');
-      } else if (activeTab === 'facebook') {
-        await facebook.generate(selectedEspecialidade || undefined, customTheme, selectedFunnelStage);
-        toast.success('✅ Post Facebook criado!');
+        setCustomTheme('');
+        refresh();
       }
-      setCustomTheme('');
-      refresh();
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Erro ao gerar');
     } finally {
@@ -503,13 +547,55 @@ export default function MarketingDashboard() {
               </div>
             </div>
 
+            {/* 🎴 Fila Automática (mostra quando não selecionou manualmente) */}
+            {!selectedEspecialidade && (
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-5 border border-blue-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-blue-600 uppercase tracking-wider font-medium mb-1">
+                      🔄 Próximo da fila automática
+                    </p>
+                    <div className="flex items-center gap-3">
+                      {(() => {
+                        const esp = ESPECIALIDADES.find(e => e.id === automaticConfig.especialidade)!;
+                        const funnelLabels = {
+                          top: { emoji: '🔴', label: 'Topo (Descoberta)', color: 'red' },
+                          middle: { emoji: '🟡', label: 'Meio (Consideração)', color: 'yellow' },
+                          bottom: { emoji: '🟢', label: 'Fundo (Conversão)', color: 'green' }
+                        };
+                        const fl = funnelLabels[automaticConfig.funnel];
+                        return (
+                          <>
+                            <span className="text-lg font-semibold text-gray-900">{esp.nome}</span>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium bg-${fl.color}-100 text-${fl.color}-700 border border-${fl.color}-200`}>
+                              {fl.emoji} {fl.label}
+                            </span>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-400">Gatilho principal</p>
+                    <p className="text-sm font-medium text-gray-700">
+                      {(() => {
+                        if (automaticConfig.funnel === 'top') return 'Curiosidade / Contradição';
+                        if (automaticConfig.funnel === 'middle') return 'Prova Social / Autoridade';
+                        return 'Urgência / Benefício Rápido';
+                      })()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
               <select
                 value={selectedEspecialidade}
                 onChange={(e) => setSelectedEspecialidade(e.target.value)}
                 className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
               >
-                <option value="">Todas Especialidades</option>
+                <option value="">🔄 Fila Automática</option>
                 {ESPECIALIDADES.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
               </select>
 
@@ -582,32 +668,73 @@ export default function MarketingDashboard() {
               </div>
             )}
 
-            <div className="flex justify-end gap-3">
+            {/* 🚀 BOTÃO PRINCIPAL - POST COMPLETO ESTRATÉGICO */}
+            <button
+              onClick={() => handleGenerate('full')}
+              disabled={generating}
+              className={`w-full px-6 py-4 text-white rounded-xl disabled:opacity-50 transition-all shadow-md text-base font-semibold flex items-center justify-center gap-3 ${activeTab === 'gmb' ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800' : activeTab === 'instagram' ? 'bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700' : 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800'}`}
+            >
+              {generating ? (
+                <>
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                  </svg>
+                  Criando post completo (copy + imagem)...
+                </>
+              ) : (
+                <>
+                  <span className="text-2xl">✨</span>
+                  GERAR PUBLICAÇÃO
+                  <span className="text-sm opacity-90 font-normal">
+                    (Imagem + Copy + CTA estratégico)
+                  </span>
+                </>
+              )}
+            </button>
+
+            {/* ⚙️ MODO AVANÇADO (Escondido) */}
+            <div className="mt-4 pt-4 border-t border-gray-100">
               <button
-                onClick={handleGenerate}
-                disabled={generating}
-                className={`px-6 py-2.5 text-white rounded-lg disabled:opacity-50 transition-all shadow-sm text-sm font-medium flex items-center gap-2 ${activeTab === 'gmb' ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800' :
-                    activeTab === 'instagram' ? 'bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700' :
-                      'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800'
-                  }`}
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 transition-colors"
               >
-                {generating ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Gerando...
-                  </>
-                ) : (
-                  <>
-                    <PlusIcon />
-                    {activeTab === 'gmb' && (schedulePost ? `📅 Agendar Post GMB` : 'Gerar Post GMB')}
-                    {activeTab === 'instagram' && 'Gerar Post Instagram'}
-                    {activeTab === 'facebook' && 'Gerar Post Facebook'}
-                  </>
-                )}
+                {showAdvanced ? '▼' : '▶'} Modo Avançado (Legenda SEO, Ganchos Virais)
               </button>
+
+              {showAdvanced && (
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <button
+                    onClick={() => handleGenerate('caption')}
+                    disabled={generating}
+                    className="px-4 py-3 bg-white border-2 border-emerald-200 hover:border-emerald-400 text-emerald-700 rounded-lg disabled:opacity-50 transition-all text-sm font-medium flex flex-col items-center gap-1"
+                  >
+                    <span className="text-lg">📝</span>
+                    <span>Só Legenda SEO</span>
+                    <span className="text-xs opacity-70">Otimizada p/ Google</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleGenerate('hooks')}
+                    disabled={generating}
+                    className="px-4 py-3 bg-white border-2 border-amber-200 hover:border-amber-400 text-amber-700 rounded-lg disabled:opacity-50 transition-all text-sm font-medium flex flex-col items-center gap-1"
+                  >
+                    <span className="text-lg">🎣</span>
+                    <span>10 Ganchos Virais</span>
+                    <span className="text-xs opacity-70">P/ testar no Reels</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleGenerate('full')}
+                    disabled={generating}
+                    className="px-4 py-3 bg-white border-2 border-gray-300 hover:border-gray-500 text-gray-700 rounded-lg disabled:opacity-50 transition-all text-sm font-medium flex flex-col items-center gap-1"
+                  >
+                    <span className="text-lg">🚀</span>
+                    <span>Post Completo</span>
+                    <span className="text-xs opacity-70">Forçar manual</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -716,7 +843,7 @@ export default function MarketingDashboard() {
               </div>
             ) : (
               filteredPosts.map((post: any) => (
-                <div key={post._id} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-all">
+                <div key={post._id} className={`rounded-xl border p-4 transition-all ${post.status === 'published' ? 'bg-gray-100 border-gray-200 opacity-50 hover:opacity-80 grayscale-[30%]' : 'bg-white border-gray-200 hover:shadow-md'}`}>
                   <div className="flex items-start gap-4">
                     <div className="flex-shrink-0 relative">
                       {post.mediaUrl ? (
@@ -1238,6 +1365,78 @@ export default function MarketingDashboard() {
               </div>
 
               <button onClick={() => setPreviewModal(null)} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🟢🟡 Modal de Preview para Legenda SEO e Ganchos */}
+      {previewContent && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={() => setPreviewContent(null)}>
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className={`flex items-center justify-between px-6 py-4 border-b ${previewContent.type === 'caption' ? 'border-emerald-100 bg-emerald-50/30' : 'border-amber-100 bg-amber-50/30'}`}>
+              <h3 className="text-base font-semibold text-gray-900">
+                {previewContent.type === 'caption' ? '📝 Legenda SEO Gerada' : '🎣 10 Ganchos Virais'}
+              </h3>
+              <button onClick={() => setPreviewContent(null)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              {previewContent.type === 'caption' ? (
+                <div className="space-y-4">
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-sm text-emerald-700 mb-2">
+                      <span>📊 SEO Score:</span>
+                      <span className="font-medium">Keyword: {previewContent.data.meta?.keyword}</span>
+                      <span className="text-emerald-600">|</span>
+                      <span>Densidade: {previewContent.data.meta?.density}</span>
+                      <span className="text-emerald-600">|</span>
+                      <span>{previewContent.data.meta?.wordCount} palavras</span>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{previewContent.data.content}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                    <p className="text-sm text-amber-800">
+                      💡 <strong>Dica:</strong> Teste esses ganchos nos primeiros 3-5 segundos do seu vídeo. 
+                      Use frases corridas (sem cortes) para retenção máxima.
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <pre className="text-sm text-gray-800 whitespace-pre-wrap font-mono leading-relaxed">{previewContent.data.content}</pre>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className={`px-6 py-4 border-t ${previewContent.type === 'caption' ? 'border-emerald-100 bg-emerald-50/20' : 'border-amber-100 bg-amber-50/20'} flex items-center justify-between`}>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(previewContent.data.content || '');
+                  toast.success('Conteúdo copiado! Cole no seu post.');
+                }}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white rounded-lg transition-colors ${
+                  previewContent.type === 'caption' 
+                    ? 'bg-emerald-600 hover:bg-emerald-700' 
+                    : 'bg-amber-600 hover:bg-amber-700'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                Copiar tudo
+              </button>
+              <button onClick={() => setPreviewContent(null)} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
                 Fechar
               </button>
             </div>

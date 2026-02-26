@@ -412,13 +412,13 @@ const FollowupPage = () => {
           </div>
 
           <div className="flex gap-3">
-            <Button
+           {/*  <Button
               onClick={() => setShowCreateModal(true)}
               className="bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-50 px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200"
             >
               <Plus size={18} />
               Novo Lead
-            </Button>
+            </Button> */}
 
             <Button
               onClick={handleRefresh}

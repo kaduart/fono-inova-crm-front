@@ -108,7 +108,7 @@ interface SpyData {
 export interface UseMarketingReturn {
   gmb: ChannelData & {
     publish: (postId: string) => Promise<void>;
-    generate: (especialidadeId?: string, customTheme?: string, scheduledAt?: string) => Promise<void>;
+    generate: (especialidadeId?: string, customTheme?: string, scheduledAt?: string, funnelStage?: FunnelStage) => Promise<void>;
     delete: (postId: string) => Promise<void>;
     update: (postId: string, data: Partial<Post>) => Promise<void>;
     generateImage: (postId: string, content: string) => Promise<string | null>;
@@ -285,12 +285,13 @@ export function useMarketing(): UseMarketingReturn {
     await fetchGmbData();
   };
 
-  const gmbGenerate = async (especialidadeId?: string, customTheme?: string, scheduledAt?: string) => {
+  const gmbGenerate = async (especialidadeId?: string, customTheme?: string, scheduledAt?: string, funnelStage?: FunnelStage) => {
     await API.post('/gmb/admin/trigger-generation', {
       especialidadeId,
       customTheme,
       generateImage: true,
-      scheduledAt
+      scheduledAt,
+      funnelStage
     });
     await fetchGmbData();
   };
