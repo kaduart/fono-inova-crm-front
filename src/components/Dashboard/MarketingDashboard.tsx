@@ -9,6 +9,11 @@ import API from '../../services/api';
 import { useMarketing, type FunnelStage, type AdSpy } from '../../hooks/useMarketing';
 
 import { VideoCard } from './VideoCard';
+import InstagramIcon from "@mui/icons-material/Instagram";
+import FacebookIcon from "@mui/icons-material/Facebook";
+import GoogleIcon from "@mui/icons-material/Google";
+import { Facebook, Google, Instagram, Search, VideoCall } from '@mui/icons-material';
+import { Video } from 'lucide-react';
 
 // Ícones
 const RefreshIcon = () => (
@@ -95,11 +100,36 @@ const getProximosDias = () => {
 };
 
 const TAB_CONFIG = {
-  gmb: { label: '📍 Google Meu Negócio', color: 'blue', shortLabel: 'GMB' },
-  instagram: { label: '📸 Instagram', color: 'pink', shortLabel: 'IG' },
-  facebook: { label: '📘 Facebook', color: 'indigo', shortLabel: 'FB' },
-  videos: { label: '🎬 Vídeos', color: 'red', shortLabel: 'Vídeos' },
-  spy: { label: '🔍 Spy', color: 'purple', shortLabel: 'Spy' }
+  gmb: {
+    label: 'Google Meu Negócio',
+    icon: Google,
+    color: 'blue',
+    shortLabel: 'GMB'
+  },
+  instagram: {
+    label: 'Instagram',
+    icon: Instagram,
+    color: 'pink',
+    shortLabel: 'IG'
+  },
+  facebook: {
+    label: 'Facebook',
+    icon: Facebook,
+    color: 'indigo',
+    shortLabel: 'FB'
+  },
+  videos: {
+    label: 'Vídeos',
+    icon: Video,
+    color: 'red',
+    shortLabel: 'Vídeos'
+  },
+  spy: {
+    label: 'Spy',
+    icon: Search,
+    color: 'purple',
+    shortLabel: 'Spy'
+  }
 };
 
 export default function MarketingDashboard() {
@@ -115,16 +145,16 @@ export default function MarketingDashboard() {
     const now = new Date();
     const dayIndex = now.getDay();
     const hour = now.getHours();
-    
+
     // Roda entre as 7 especialidades ao longo do dia/semana
     const espIndex = (dayIndex + Math.floor(hour / 4)) % ESPECIALIDADES.length;
     const esp = ESPECIALIDADES[espIndex];
-    
+
     // Funil por horário
     let funnel: FunnelStage = 'top';
     if (hour >= 12 && hour < 17) funnel = 'middle';
     else if (hour >= 17) funnel = 'bottom';
-    
+
     return { especialidade: esp.id, funnel, especialidadeNome: esp.nome };
   }, []); // Calcula uma vez ao montar o componente
 
@@ -189,11 +219,11 @@ export default function MarketingDashboard() {
     setGenerating(true);
     try {
       const endpoint = activeTab === 'gmb' ? '/gmb' : activeTab === 'instagram' ? '/instagram' : '/facebook';
-      
+
       // 🧠 Determina especialidade e funil (manual ou automático)
       const espId = selectedEspecialidade || automaticConfig.especialidade;
       const funnel = selectedEspecialidade ? selectedFunnelStage : automaticConfig.funnel;
-      
+
       if (mode === 'caption') {
         // 🟢 Modo Legenda SEO - só preview, não salva
         const res = await API.post(`${endpoint}/generate-caption`, {
@@ -214,26 +244,30 @@ export default function MarketingDashboard() {
         setPreviewContent({ type: 'hooks', data: res.data.data });
         toast.success('🎣 10 Ganchos gerados! Teste no Reels.');
       } else {
-        // 🔴 Modo Post Completo - salva no banco + imagem
+        // 🔴 Modo Post Completo - ASYNC (não bloqueia UI)
         if (activeTab === 'gmb') {
           let scheduledAt: string | undefined;
           if (schedulePost && scheduleDate && scheduleTime) {
             scheduledAt = `${scheduleDate}T${scheduleTime}:00`;
           }
-          await gmb.generate(espId, customTheme, scheduledAt, funnel);
-          toast.success(scheduledAt ? `✅ Post GMB agendado!` : '✅ Post GMB criado!');
+          // 🚀 Não await — dispara e libera UI imediatamente
+          gmb.generate(espId, customTheme, scheduledAt, funnel);
+          toast.success(scheduledAt ? '📅 Post GMB em processamento!' : '📝 Post GMB em processamento!');
           setSchedulePost(false);
           setScheduleDate('');
           setScheduleTime('');
         } else if (activeTab === 'instagram') {
-          await instagram.generate(espId, customTheme, funnel);
-          toast.success('✅ Post Instagram criado!');
+          // 🚀 Não await — dispara e libera UI imediatamente
+          instagram.generate(espId, customTheme, funnel);
+          toast.success('📸 Post Instagram em processamento!');
         } else if (activeTab === 'facebook') {
-          await facebook.generate(espId, customTheme, funnel);
-          toast.success('✅ Post Facebook criado!');
+          // 🚀 Não await — dispara e libera UI imediatamente
+          facebook.generate(espId, customTheme, funnel);
+          toast.success('📘 Post Facebook em processamento!');
         }
         setCustomTheme('');
-        refresh();
+        // Refresh após 2s para mostrar o novo post com status 'processing'
+        setTimeout(() => refresh(), 2000);
       }
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Erro ao gerar');
@@ -417,15 +451,19 @@ export default function MarketingDashboard() {
   };
 
   const StatusBadge = ({ status }: { status: string }) => {
-    const config: Record<string, { color: string; bg: string; label: string }> = {
+    const config: Record<string, { color: string; bg: string; label: string; animate?: boolean }> = {
       draft: { color: 'gray', bg: 'bg-gray-100', label: 'Rascunho' },
       scheduled: { color: 'blue', bg: 'bg-blue-100', label: 'Agendado' },
       published: { color: 'green', bg: 'bg-green-100', label: 'Publicado' },
-      failed: { color: 'red', bg: 'bg-red-100', label: 'Falhou' }
+      failed: { color: 'red', bg: 'bg-red-100', label: 'Falhou' },
+      processing: { color: 'yellow', bg: 'bg-yellow-100', label: 'Processando...', animate: true }
     };
     const cfg = config[status] || config.draft;
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${cfg.bg} text-${cfg.color}-800`}>
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${cfg.bg} text-${cfg.color}-800 flex items-center gap-1`}>
+        {cfg.animate && (
+          <span className="inline-block w-1.5 h-1.5 bg-yellow-600 rounded-full animate-pulse" />
+        )}
         {cfg.label}
       </span>
     );
@@ -501,18 +539,23 @@ export default function MarketingDashboard() {
 
           {/* Tabs */}
           <div className="flex space-x-1 overflow-x-auto">
-            {Object.entries(TAB_CONFIG).map(([key, config]) => (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key as any)}
-                className={`px-4 py-3 font-medium text-sm border-b-2 transition-all whitespace-nowrap ${activeTab === key
+            {Object.entries(TAB_CONFIG).map(([key, config]) => {
+              const Icon = config.icon;
+
+              return (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key as any)}
+                  className={`flex items-center gap-2 px-4 py-3 font-medium text-sm border-b-2 transition-all whitespace-nowrap ${activeTab === key
                     ? `border-${config.color}-600 text-${config.color}-600`
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-              >
-                {config.label}
-              </button>
-            ))}
+                    }`}
+                >
+                  <Icon size={18} />
+                  {config.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -528,8 +571,8 @@ export default function MarketingDashboard() {
           <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
             <div className="flex items-center gap-2 mb-5">
               <div className={`p-2 rounded-lg ${activeTab === 'gmb' ? 'bg-blue-100 text-blue-600' :
-                  activeTab === 'instagram' ? 'bg-pink-100 text-pink-600' :
-                    'bg-indigo-100 text-indigo-600'
+                activeTab === 'instagram' ? 'bg-pink-100 text-pink-600' :
+                  'bg-indigo-100 text-indigo-600'
                 }`}>
                 {activeTab === 'gmb' && <span className="text-lg">📍</span>}
                 {activeTab === 'instagram' && <span className="text-lg">📸</span>}
@@ -677,8 +720,8 @@ export default function MarketingDashboard() {
               {generating ? (
                 <>
                   <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
                   Criando post completo (copy + imagem)...
                 </>
@@ -1008,8 +1051,8 @@ export default function MarketingDashboard() {
               <button
                 onClick={() => setSpyTab('results')}
                 className={`px-4 py-2 font-medium text-sm border-b-2 transition-all ${spyTab === 'results'
-                    ? 'border-purple-600 text-purple-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-purple-600 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
               >
                 🔍 Buscar Anúncios
@@ -1017,8 +1060,8 @@ export default function MarketingDashboard() {
               <button
                 onClick={() => setSpyTab('saved')}
                 className={`px-4 py-2 font-medium text-sm border-b-2 transition-all ${spyTab === 'saved'
-                    ? 'border-purple-600 text-purple-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-purple-600 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
               >
                 ⭐ Salvos ({spy.saved.length})
@@ -1408,7 +1451,7 @@ export default function MarketingDashboard() {
                 <div className="space-y-3">
                   <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
                     <p className="text-sm text-amber-800">
-                      💡 <strong>Dica:</strong> Teste esses ganchos nos primeiros 3-5 segundos do seu vídeo. 
+                      💡 <strong>Dica:</strong> Teste esses ganchos nos primeiros 3-5 segundos do seu vídeo.
                       Use frases corridas (sem cortes) para retenção máxima.
                     </p>
                   </div>
@@ -1425,11 +1468,10 @@ export default function MarketingDashboard() {
                   navigator.clipboard.writeText(previewContent.data.content || '');
                   toast.success('Conteúdo copiado! Cole no seu post.');
                 }}
-                className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white rounded-lg transition-colors ${
-                  previewContent.type === 'caption' 
-                    ? 'bg-emerald-600 hover:bg-emerald-700' 
-                    : 'bg-amber-600 hover:bg-amber-700'
-                }`}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white rounded-lg transition-colors ${previewContent.type === 'caption'
+                  ? 'bg-emerald-600 hover:bg-emerald-700'
+                  : 'bg-amber-600 hover:bg-amber-700'
+                  }`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -1446,8 +1488,8 @@ export default function MarketingDashboard() {
 
       {/* Modal de Edição de Post */}
       {editModal?.open && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={() => setEditModal(null)}>
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-[60] p-2 sm:p-4 backdrop-blur-sm overflow-y-auto" onClick={() => setEditModal(null)}>
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl my-2 sm:my-0" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h3 className="text-base font-semibold text-gray-900">Editar Post</h3>
               <button
@@ -1460,33 +1502,42 @@ export default function MarketingDashboard() {
               </button>
             </div>
 
-            <div className="p-6 space-y-5">
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto max-h-[60vh] sm:max-h-[65vh]">
               <textarea
                 value={editModal.post.content}
                 onChange={(e) => setEditModal({ ...editModal, post: { ...editModal.post, content: e.target.value } })}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
-                rows={6}
+                rows={4}
                 placeholder="Escreva o conteúdo do post..."
               />
 
-              {/* Área de imagem */}
-              <div className="space-y-3">
-                <div className="relative w-full rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+              {/* Preview do Feed Instagram */}
+              <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 p-[2px]">
+                    <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-xs font-bold">FI</div>
+                  </div>
+                  <span className="text-sm font-semibold">fonoinova</span>
+                  <span className="text-gray-400 ml-auto">⋯</span>
+                </div>
+                
+                {/* Imagem do post (proporção Instagram 1:1) */}
+                <div className="relative aspect-square bg-gray-100">
                   {editModal.post.mediaUrl ? (
                     <img
                       src={editModal.post.mediaUrl}
-                      alt=""
-                      className={`w-full h-64 object-cover transition-opacity ${generatingImagePostId === editModal.post._id ? 'opacity-50' : 'opacity-100'}`}
+                      alt="Preview"
+                      className={`w-full h-full object-cover transition-opacity ${generatingImagePostId === editModal.post._id ? 'opacity-50' : 'opacity-100'}`}
                     />
                   ) : (
-                    <div className={`w-full h-64 flex flex-col items-center justify-center bg-gray-50 transition-all ${generatingImagePostId === editModal.post._id ? 'bg-purple-50' : ''}`}>
-                      <svg className="w-12 h-12 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className={`w-full h-full flex flex-col items-center justify-center transition-all ${generatingImagePostId === editModal.post._id ? 'bg-purple-50' : 'bg-gray-50'}`}>
+                      <svg className="w-16 h-16 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
-                      <span className="text-gray-400 text-sm">Nenhuma imagem</span>
+                      <span className="text-gray-400 text-sm">Sem imagem</span>
                     </div>
                   )}
-
+                  
                   {/* Overlay de loading */}
                   {generatingImagePostId === editModal.post._id && (
                     <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center backdrop-blur-sm">
@@ -1494,115 +1545,151 @@ export default function MarketingDashboard() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      <span className="text-white font-medium text-sm">Gerando imagem...</span>
-                      <span className="text-white/70 text-xs mt-1">Pode levar alguns segundos</span>
+                      <span className="text-white font-medium text-sm">Gerando...</span>
                     </div>
                   )}
                 </div>
-
-                <button
-                  onClick={() => handleGenerateNewImage(editModal.post._id)}
-                  disabled={generatingImagePostId === editModal.post._id}
-                  className="w-full flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white text-sm rounded-xl hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  {generatingImagePostId === editModal.post._id ? 'Gerando...' : editModal.post.mediaUrl ? 'Gerar nova imagem' : '🎨 Gerar imagem'}
-                </button>
+                
+                {/* Ações do Instagram */}
+                <div className="flex items-center gap-4 px-3 py-2">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                  <svg className="w-6 h-6 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
+                </div>
+                
+                {/* Preview do texto */}
+                <div className="px-3 pb-3">
+                  <p className="text-sm text-gray-800 line-clamp-3">
+                    <span className="font-semibold mr-1">fonoinova</span>
+                    {editModal.post.headline || editModal.post.content?.substring(0, 60)}
+                  </p>
+                </div>
               </div>
+
+                {/* Botões de ação da imagem */}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => handleGenerateNewImage(editModal.post._id)}
+                    disabled={generatingImagePostId === editModal.post._id}
+                    className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white text-sm rounded-lg hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    {generatingImagePostId === editModal.post._id ? 'Gerando...' : editModal.post.mediaUrl ? '🔄 Nova imagem' : '🎨 Gerar imagem'}
+                  </button>
+                  
+                  {editModal.post.mediaUrl && (
+                    <button
+                      onClick={() => setEditModal({ ...editModal, post: { ...editModal.post, mediaUrl: null } })}
+                      disabled={generatingImagePostId === editModal.post._id}
+                      className="px-4 py-2.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors text-sm font-medium"
+                    >
+                      🗑️ Remover
+                    </button>
+                  )}
+                </div>
+                
+                <p className="text-xs text-gray-500 text-center">
+                  💡 Esta é a prévia exata de como ficará no Instagram
+                </p>
             </div>
 
-            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-3">
+            <div className="px-4 sm:px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3">
               <button
                 onClick={() => setEditModal(null)}
-                className="px-5 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                className="w-full sm:w-auto px-5 py-2.5 sm:py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSaveEdit}
-                className="px-5 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-sm transition-all"
+                className="w-full sm:w-auto px-5 py-2.5 sm:py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-sm transition-all"
               >
-                Salvar alterações
+                💾 Salvar alterações
               </button>
             </div>
           </div>
         </div>
-      )}
+      )
+}
 
-      {/* Modal de Adaptação */}
-      {showAdaptModal && adaptedPost && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={() => setShowAdaptModal(false)}>
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                <span className="text-lg">✏️</span> Post Adaptado
-              </h3>
-              <button
-                onClick={() => setShowAdaptModal(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+{/* Modal de Adaptação */ }
+{
+  showAdaptModal && adaptedPost && (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={() => setShowAdaptModal(false)}>
+      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+            <span className="text-lg">✏️</span> Post Adaptado
+          </h3>
+          <button
+            onClick={() => setShowAdaptModal(false)}
+            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
-            <div className="p-6 space-y-5">
-              <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-5 border border-purple-100">
-                <textarea
-                  value={adaptedPost}
-                  onChange={(e) => setAdaptedPost(e.target.value)}
-                  className="w-full px-4 py-3 border border-purple-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all bg-white/80 resize-none"
-                  rows={8}
-                />
-              </div>
+        <div className="p-6 space-y-5">
+          <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-5 border border-purple-100">
+            <textarea
+              value={adaptedPost}
+              onChange={(e) => setAdaptedPost(e.target.value)}
+              className="w-full px-4 py-3 border border-purple-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all bg-white/80 resize-none"
+              rows={8}
+            />
+          </div>
 
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-3">Salvar como:</p>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { key: 'instagram', label: '📸 Instagram' },
-                    { key: 'facebook', label: '📘 Facebook' },
-                    { key: 'gmb', label: '📍 GMB' },
-                    { key: 'video', label: '🎬 Roteiro' }
-                  ].map(({ key, label }) => (
-                    <button
-                      key={key}
-                      onClick={() => setAdaptConfig({ ...adaptConfig, tipo: key as any })}
-                      className={`px-4 py-2 rounded-xl text-sm border transition-all ${adaptConfig.tipo === key
-                          ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
-                          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
-                        }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-3">
-              <button
-                onClick={() => setShowAdaptModal(false)}
-                className="px-5 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSaveAdapted}
-                className="px-5 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl hover:from-purple-700 hover:to-purple-800 shadow-sm transition-all flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Salvar no painel
-              </button>
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-3">Salvar como:</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: 'instagram', label: 'Instagram', icon: Instagram },
+                { key: 'facebook', label: 'Facebook', icon: Facebook },
+                { key: 'gmb', label: 'GMB', icon: Google },
+                { key: 'video', label: 'Roteiro', icon: Video }
+              ].map(({ key, label, icon: Icon }) => (
+                <button
+                  key={key}
+                  onClick={() => setAdaptConfig({ ...adaptConfig, tipo: key as any })}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm border transition-all ${adaptConfig.tipo === key
+                    ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                    }`}
+                >
+                  <Icon size={16} />
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
-      )}
+
+        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-3">
+          <button
+            onClick={() => setShowAdaptModal(false)}
+            className="px-5 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSaveAdapted}
+            className="px-5 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl hover:from-purple-700 hover:to-purple-800 shadow-sm transition-all flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            Salvar no painel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
     </div>
   );
 }

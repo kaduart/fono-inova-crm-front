@@ -229,6 +229,14 @@ export async function sendWhatsAppMedia(
     leadId?: string,
     onProgress?: (progress: number) => void
 ): Promise<{ success: boolean; messageId?: string; mediaId?: string; error?: string }> {
+    // Debug: verificar se o arquivo tem conteúdo
+    console.log('📁 [sendWhatsAppMedia] Arquivo:', {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        hasContent: file.size > 0
+    });
+    
     const formData = new FormData();
     formData.append('file', file);
     formData.append('phone', phone);

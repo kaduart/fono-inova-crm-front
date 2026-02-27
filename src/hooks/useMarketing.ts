@@ -286,6 +286,7 @@ export function useMarketing(): UseMarketingReturn {
   };
 
   const gmbGenerate = async (especialidadeId?: string, customTheme?: string, scheduledAt?: string, funnelStage?: FunnelStage) => {
+    // 🚀 ASYNC: Não espera resposta completa, retorna imediatamente
     await API.post('/gmb/admin/trigger-generation', {
       especialidadeId,
       customTheme,
@@ -293,7 +294,8 @@ export function useMarketing(): UseMarketingReturn {
       scheduledAt,
       funnelStage
     });
-    await fetchGmbData();
+    // Não faz await fetchGmbData() aqui — deixa o toast aparecer e libera UI
+    // O refresh() pode ser chamado manualmente ou via polling
   };
 
   const gmbDelete = async (postId: string) => {
@@ -318,12 +320,13 @@ export function useMarketing(): UseMarketingReturn {
   };
 
   const instagramGenerate = async (especialidadeId?: string, customTheme?: string, funnelStage?: FunnelStage) => {
+    // 🚀 ASYNC: Não espera resposta completa
     await API.post('/instagram/generate', {
       especialidadeId,
       customTheme,
       funnelStage
     });
-    await fetchInstagramData();
+    // Não faz await fetchInstagramData() aqui
   };
 
   const instagramDelete = async (postId: string) => {
@@ -343,12 +346,13 @@ export function useMarketing(): UseMarketingReturn {
   };
 
   const facebookGenerate = async (especialidadeId?: string, customTheme?: string, funnelStage?: FunnelStage) => {
+    // 🚀 ASYNC: Não espera resposta completa
     await API.post('/facebook/generate', {
       especialidadeId,
       customTheme,
       funnelStage
     });
-    await fetchFacebookData();
+    // Não faz await fetchFacebookData() aqui
   };
 
   const facebookDelete = async (postId: string) => {
