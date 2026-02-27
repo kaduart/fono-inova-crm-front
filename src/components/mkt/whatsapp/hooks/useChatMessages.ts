@@ -40,6 +40,8 @@ export function useChatMessages(contact: Contact | null, leadId?: string) {
         logger.info(`[useChatMessages] Registrando listener Socket.io para ${contact.phone}`);
 
         const unsubscribeNew = socketManager.onMessageNew((payload) => {
+            logger.info(`[useChatMessages] 📨 Socket recebeu message:new:`, payload);
+            
             // 🎯 Verifica se a mensagem é deste contato (prioriza contactId)
             const payloadContactId = payload.contactId || payload.contact?._id;
             const isSameContactById = payloadContactId && contact._id === payloadContactId;
@@ -56,10 +58,18 @@ export function useChatMessages(contact: Contact | null, leadId?: string) {
             
             const isMatch = isSameContactById || isMatchByPhone;
             
+            logger.info(`[useChatMessages] 🔍 Match check:`, {
+                isSameContactById,
+                isMatchByPhone,
+                isMatch,
+                messagePhone,
+                contactPhone,
+                payloadContactId,
+                contactId: contact._id
+            });
+            
             if (!isMatch) {
-                logger.debug(`[useChatMessages] Mensagem ignorada - não corresponde ao contato. ` +
-                    `contactId: ${contact._id}, payloadContactId: ${payloadContactId}, ` +
-                    `messagePhone: ${messagePhone}, contactPhone: ${contactPhone}`);
+                logger.info(`[useChatMessages] ❌ Mensagem ignorada - não corresponde ao contato ${contact.phone}`);
                 return;
             }
             

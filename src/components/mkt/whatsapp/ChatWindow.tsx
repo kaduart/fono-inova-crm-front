@@ -104,6 +104,20 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
         }
     }, [contact?.phone, loadMessages]);
 
+    // ✅ Scroll para o final quando mensagens terminam de carregar
+    useEffect(() => {
+        if (!loading && messages.length > 0 && messagesContainerRef.current) {
+            // Pequeno delay para garantir que o DOM foi atualizado
+            setTimeout(() => {
+                const container = messagesContainerRef.current;
+                if (container) {
+                    container.scrollTop = container.scrollHeight;
+                    console.log('[ChatWindow] Scroll para o final:', container.scrollHeight);
+                }
+            }, 150);
+        }
+    }, [loading, messages.length]);
+
     // Fechar dropdown quando clicar fora
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -294,6 +308,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                 pendingMessages={pendingMessages}
                 onLoadMore={handleLoadMore}
                 onRetry={handleRetry}
+                messagesEndRef={messagesEndRef}
+                messagesContainerRef={messagesContainerRef}
             />
 
             {/* Input Area */}

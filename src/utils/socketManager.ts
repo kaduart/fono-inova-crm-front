@@ -253,6 +253,7 @@ class SocketManager {
         // Captura socket existente ANTES do ensureSocket para detectar se um novo foi criado
         const existingSocket = this.socket;
         const s = this.ensureSocket();
+        
 
         if (s === existingSocket) {
             // Socket já existia — handler não foi aplicado pelo applyPersistentHandlers
@@ -260,9 +261,20 @@ class SocketManager {
         }
         // else: socket novo foi criado → applyPersistentHandlers já registrou este handler
 
+        // Log quando o evento for recebido
+        const wrappedHandler = (payload: any) => {
+            handler(payload);
+        };
+        
+        // Substitui o handler original pelo wrapped
+        if (s === existingSocket) {
+            s.off(event, handler);
+            s.on(event, wrappedHandler);
+        }
+
         return () => {
             this.persistentHandlers.get(event)?.delete(handler);
-            this.socket?.off(event, handler);
+            this.socket?.off(event, wrappedHandler);
         };
     }
 

@@ -14,6 +14,8 @@ interface ChatMessageListProps {
     pendingMessages: Set<string>;
     onLoadMore: () => void;
     onRetry: (messageId: string, text: string) => void;
+    messagesEndRef?: React.RefObject<HTMLDivElement>;
+    messagesContainerRef?: React.RefObject<HTMLDivElement>;
 }
 
 export const ChatMessageList: React.FC<ChatMessageListProps> = ({
@@ -25,9 +27,13 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
     pendingMessages,
     onLoadMore,
     onRetry,
+    messagesEndRef: externalEndRef,
+    messagesContainerRef: externalContainerRef,
 }) => {
-    const messagesEndRef = useRef<HTMLDivElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
+    const internalEndRef = useRef<HTMLDivElement>(null);
+    const messagesEndRef = externalEndRef || internalEndRef;
+    const internalContainerRef = useRef<HTMLDivElement>(null);
+    const containerRef = externalContainerRef || internalContainerRef;
 
     if (loading) {
         return (

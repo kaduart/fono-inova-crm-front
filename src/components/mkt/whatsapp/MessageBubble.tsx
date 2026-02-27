@@ -42,9 +42,12 @@ export default function MessageBubble({
   const getMediaSrc = (opts: { url?: string; mediaId?: string }): string => {
     const { url, mediaId } = opts;
 
-    const backendBase =
-      import.meta.env.VITE_BACKEND_URL || "https://fono-inova-crm-back.onrender.com";
-    const base = backendBase.replace(/^http:\/\//, "https://").replace(/\/+$/, "");
+    // ✅ Correção: usar URL correta para desenvolvimento vs produção
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const backendBase = isLocal 
+      ? 'http://localhost:5000'
+      : (import.meta.env.VITE_BACKEND_URL || "https://fono-inova-crm-back.onrender.com");
+    const base = backendBase.replace(/\/+$/, "");
 
     if (mediaId && mediaId.trim().length > 0) {
       return `${base}/api/proxy-media?mediaId=${encodeURIComponent(mediaId.trim())}`;

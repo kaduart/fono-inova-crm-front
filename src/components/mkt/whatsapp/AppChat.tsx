@@ -15,8 +15,10 @@ import Sidebar from "./Sidebar";
 import { useDebouncedCallback } from "../../../hooks/useDebounce";
 import { searchContactsByMessage } from "../../../services/whatsappService";
 import AmandaStatusBadge from "./AmandaStatusBadge";
+import { socketManager } from "../../../utils/socketManager";
 
 const AppChat: React.FC = () => {
+    console.log('[AppChat] Componente montado');
     const theme = useTheme();
     const { pendingContactPhone, setPendingContactPhone } = useChatNavigation();
 
@@ -76,6 +78,37 @@ const AppChat: React.FC = () => {
 
         setPendingContactPhone(null);
     }, [pendingContactPhone, contacts, setPendingContactPhone]);
+
+    // 🔔 TESTE: useEffect simples
+    useEffect(() => {
+        console.log('[AppChat] 🔥 USEEFFECT TESTE RODOU');
+    });
+
+    // 🔔 Atualizar lista de contatos quando chegar mensagem nova via socket
+    useEffect(() => {
+        console.log('[AppChat] useEffect socket - INICIANDO');
+        console.log('[AppChat] refreshContacts:', refreshContacts);
+        console.log('[AppChat] refreshContacts tipo:', typeof refreshContacts);
+        
+        if (!refreshContacts) {
+            console.log('[AppChat] refreshContacts não disponível ainda, aguardando...');
+            return;
+        }
+        
+        const unsubscribe = socketManager.onMessageNew((payload) => {
+            console.log('[AppChat] ⭐⭐⭐ Socket message:new recebido:', payload);
+            // Atualiza a lista de contatos para mostrar notificação
+            refreshContacts();
+            console.log('[AppChat] refreshContacts chamado');
+        });
+        
+        console.log('[AppChat] Listener registrado, unsubscribe:', !!unsubscribe);
+        
+        return () => {
+            console.log('[AppChat] useEffect socket - LIMPANDO');
+            unsubscribe();
+        };
+    }, [refreshContacts]);
 
     // 💬 Enviar mensagem
     const sendMessage = async (phone: string, text: string) => {
