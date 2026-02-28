@@ -351,6 +351,21 @@ export const addBalancePayment = (patientId: string, data: {
     return API.post(`/payments/balance/${patientId}/payment`, data);
 };
 
+// 💰 Nova função para múltiplas formas de pagamento
+export const addBalancePaymentMulti = (patientId: string, data: {
+    payments: Array<{
+        amount: number;
+        paymentMethod: string;
+        description?: string;
+        sessionId?: string;
+        appointmentId?: string;
+    }>;
+    totalAmount: number;
+    debitIds: string[]; // IDs dos débitos selecionados para marcar como pagos
+}) => {
+    return API.post(`/payments/balance/${patientId}/payment-multi`, data);
+};
+
 export const getBalanceDebtors = () => {
     return API.get('/payments/balance/debtors');
 };

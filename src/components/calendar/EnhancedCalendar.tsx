@@ -68,7 +68,7 @@ export const PAYMENT_STATUS_CONFIG = {
     pending: {
         label: "Pendente",
         color: "#b91c1c",
-        icon: Clock,
+        icon: DollarSign,
         bgColor: "rgba(235, 130, 219, 1)",
         textColor: "#7f1d1d",
     },
@@ -194,7 +194,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         const { event } = info;
         console.log('🗓️ [Calendar] Evento clicado:', event);
         console.log('📦 [Calendar] ExtendedProps:', event.extendedProps);
-        
+
         const formattedDate = event.start
             ? new Intl.DateTimeFormat("pt-BR", {
                 day: "2-digit",
@@ -207,7 +207,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
         const time = `${String(event.start.getHours()).padStart(2, '0')}:${String(event.start.getMinutes()).padStart(2, '0')}`;
         const extendedProps = event.extendedProps;
-        
+
         console.log('👤 [Calendar] Patient from extendedProps:', extendedProps.patient);
         console.log('👨‍⚕️ [Calendar] Doctor from extendedProps:', extendedProps.doctor);
         console.log('🆔 [Calendar] patientId:', extendedProps.patientId, 'doctorId:', extendedProps.doctorId);
@@ -215,7 +215,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         // 🔧 CORREÇÃO: Usa patientId/doctorId como fallback quando objeto não tem ID
         const patientId = extendedProps.patient?._id || extendedProps.patient?.id || extendedProps.patientId || '';
         const doctorId = extendedProps.doctor?._id || extendedProps.doctor?.id || extendedProps.doctorId || '';
-        
+
         const selectedEventData = {
             id: event.id,
             patient: {
@@ -246,7 +246,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             specialty: extendedProps.specialty || extendedProps.sessionType || '',
             __isPreAgendamento: extendedProps.__isPreAgendamento || false
         };
-        
+
         console.log('📤 [Calendar] selectedEventData:', selectedEventData);
         setSelectedEvent(selectedEventData);
         setIsAppointmentDetailModalOpen(true);
@@ -396,17 +396,17 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
         const packageData = arg.event.extendedProps.package;
         const hasPackage = !!packageData;
-        
+
         // 💰 SALDO DEVEDOR DO PACIENTE
         const patientBalance = arg.event.extendedProps.patientBalance || 0;
         const patientHasDebt = arg.event.extendedProps.patientHasDebt || false;
-        
+
         // 🆕 NOVAS INFORMAÇÕES NO CARD
         const serviceType = arg.event.extendedProps.serviceType || arg.event.extendedProps.sessionType || 'Sessão';
         const specialty = arg.event.extendedProps.specialty || '';
         const sessionValue = arg.event.extendedProps.sessionValue || arg.event.extendedProps.paymentAmount || 0;
         const reason = arg.event.extendedProps.reason || arg.event.extendedProps.notes || '';
-        
+
         // Mapear tipo de serviço para label amigável
         const SERVICE_TYPE_LABELS: Record<string, string> = {
             'individual_session': 'Sessão',
@@ -419,13 +419,13 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             'tongue_tie_test': 'Teste Lingua'
         };
         const serviceLabel = SERVICE_TYPE_LABELS[serviceType] || serviceType;
-        
+
         // 🆕 DADOS DE CONVÊNIO
         const billingType = arg.event.extendedProps.billingType;
         const insuranceProvider = arg.event.extendedProps.insuranceProvider;
         // ✅ Mostra convênio se tiver insuranceProvider (mesmo se billingType estiver como particular)
         const isConvenio = insuranceProvider && insuranceProvider !== '';
-        const insuranceProviderName = isConvenio 
+        const insuranceProviderName = isConvenio
             ? INSURANCE_PROVIDERS.find(p => p.id === insuranceProvider)?.name || insuranceProvider
             : '';
 
@@ -434,24 +434,24 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             : arg.event.extendedProps.paymentStatus;
 
         const PAYMENT_BADGE: Record<string, { label: string; icon: string; bg: string; text: string }> = {
-            paid: { label: 'Pago', icon: '💰', bg: 'bg-green-600', text: 'text-white' },
+            paid: { label: 'Pago', icon: '$', bg: 'bg-green-600', text: 'text-white' },
+            pending: { label: 'Pendente', icon: '$', bg: 'bg-red-600', text: 'text-white' },
             package_paid: { label: 'Pacote', icon: '📦', bg: 'bg-green-600', text: 'text-white' },
             partial: { label: 'Parcial', icon: '⚠️', bg: 'bg-amber-500', text: 'text-white' },
             advanced: { label: 'Adiant.', icon: '💵', bg: 'bg-blue-600', text: 'text-white' },
             open: { label: 'Aberto', icon: '❌', bg: 'bg-red-600', text: 'text-white' },
-            pending: { label: 'Pendente', icon: '⏱️', bg: 'bg-red-600', text: 'text-white' },
             overdue: { label: 'Vencido', icon: '🔴', bg: 'bg-rose-700', text: 'text-white' },
             canceled: { label: 'Cancel.', icon: '⛔', bg: 'bg-gray-500', text: 'text-white' },
         };
 
         const OPERATIONAL_BADGE: Record<string, { label: string; bg: string; text: string }> = {
-            scheduled: { label: '📅 Agendado', bg: 'bg-blue-500', text: 'text-white' },
-            confirmed: { label: '✔️ Confirm.', bg: 'bg-emerald-600', text: 'text-white' },
-            in_progress: { label: '⏳ Andamento', bg: 'bg-orange-500', text: 'text-white' },
-            completed: { label: '✅ Concluído', bg: 'bg-green-700', text: 'text-white' },
-            canceled: { label: '❌ Cancel.', bg: 'bg-gray-600', text: 'text-white' },
-            absent: { label: '🚫 Faltou', bg: 'bg-red-700', text: 'text-white' },
-            pre_agendado: { label: '⭐ Pré-Agend.', bg: 'bg-pink-500', text: 'text-white' }, // 🎯 NOVO
+            scheduled: { label: 'Agendado', bg: 'bg-blue-500', text: 'text-white' },
+            confirmed: { label: 'Confirm.', bg: 'bg-emerald-600', text: 'text-white' },
+            in_progress: { label: 'Andamento', bg: 'bg-orange-500', text: 'text-white' },
+            completed: { label: 'Concluído', bg: 'bg-green-700', text: 'text-white' },
+            canceled: { label: 'Cancel.', bg: 'bg-gray-600', text: 'text-white' },
+            absent: { label: 'Faltou', bg: 'bg-red-700', text: 'text-white' },
+            pre_agendado: { label: 'Pré-Agend.', bg: 'bg-pink-500', text: 'text-white' }, // 🎯 NOVO
         };
 
         const paymentBadge = PAYMENT_BADGE[financialStatus] || PAYMENT_BADGE.pending;
@@ -482,7 +482,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             </div>
                             {doctorName}
                         </div>
-                        
+
                         {/* 🆕 INFO NA TOOLTIP */}
                         <div className="mb-3 text-xs space-y-1">
                             <div className="flex items-center gap-2">
@@ -523,7 +523,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 </div>
                             </div>
                         )}
-                        
+
                         {/* 🆕 INFO DE CONVÊNIO NA TOOLTIP */}
                         {isConvenio && (
                             <div className="mb-3 p-2 bg-blue-700/30 rounded-lg border border-blue-500/30">
@@ -536,7 +536,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 </div>
                             </div>
                         )}
-                        
+
                         {/* 💰 ALERTA DE SALDO DEVEDOR NA TOOLTIP */}
                         {patientHasDebt && (
                             <div className="mb-3 p-2 bg-red-700/50 rounded-lg border border-red-500/50 animate-pulse">
@@ -587,84 +587,82 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             >
                 <Paper
                     elevation={2}
-                    className="flex flex-col p-4 rounded-xl w-full h-full relative transition-all duration-200 hover:shadow-lg"
+                    className="flex flex-col p-3 rounded-xl w-full h-full relative transition-all duration-200 hover:shadow-lg"
                     style={{
                         background: 'linear-gradient(135deg, #a2ddbfff 0%, #1aac68ff 100%)',
                         borderLeft: `8px solid ${operationalConfig.color}`,
                         opacity: ['canceled', 'absent'].includes(arg.event.extendedProps.operationalStatus) ? 0.7 : 1,
-                        minHeight: '140px',
+                        minHeight: '170px', // aumentado para dar mais espaço
                     }}
                 >
-                    <div className="flex justify-between items-start mb-3 gap-2">
-                        <span className="text-base font-bold bg-white/90 text-gray-800 px-3 py-1.5 rounded-lg">
+                    {/* Linha superior: horário e status pagamento */}
+                    <div className="flex justify-between items-start mb-2 gap-2">
+                        <span className="text-sm font-bold bg-white/90 text-gray-800 px-2 py-1 rounded-lg">
                             {formatTime(arg.timeText)}
                         </span>
-                        <div className={`${paymentBadge.bg} ${paymentBadge.text} px-3 py-1.5 rounded-lg text-[11px] font-extrabold shadow-md flex items-center gap-1`}>
+                        <div className={`${paymentBadge.bg} ${paymentBadge.text} px-2 py-1 rounded-lg text-[10px] font-extrabold shadow-md flex items-center gap-1`}>
                             <span>{paymentBadge.icon}</span>
                             <span>{paymentBadge.label}</span>
                         </div>
                     </div>
 
-                    <div className="flex-1 min-w-0 py-1">
-                        {/* Nome paciente */}
-                        <p className="text-[14px] font-bold truncate leading-tight text-gray-900">
-                            {patientName}
-                        </p>
-                        {/* Profissional */}
-                        <p className="text-[11px] truncate text-gray-700 leading-tight mt-1">
-                            {doctorName}
-                        </p>
-                        {/* 🆕 SERVIÇO + ESPECIALIDADE */}
-                        <div className="flex flex-wrap gap-1 mt-2">
-                            <span className="text-[10px] bg-white/80 px-2 py-0.5 rounded text-gray-800 font-medium">
-                                {serviceLabel}
+                    {/* Nome do paciente em destaque */}
+                    <p className="text-base font-bold truncate leading-tight text-gray-900 mb-1">
+                        {patientName}
+                    </p>
+
+                    {/* Profissional */}
+                    <p className="text-xs truncate text-gray-700 leading-tight mb-2">
+                        {doctorName}
+                    </p>
+
+                    {/* Linha de serviço + especialidade */}
+                    <div className="flex flex-wrap gap-1 mb-2">
+                        <span className="text-[10px] bg-white/80 px-2 py-0.5 rounded text-gray-800 font-medium">
+                            {serviceLabel}
+                        </span>
+                        {specialty && (
+                            <span className="text-[10px] bg-white/80 px-2 py-0.5 rounded text-gray-800 font-medium capitalize">
+                                {specialty.replace('_', ' ')}
                             </span>
-                            {specialty && (
-                                <span className="text-[10px] bg-white/80 px-2 py-0.5 rounded text-gray-800 font-medium capitalize">
-                                    {specialty.replace('_', ' ')}
-                                </span>
-                            )}
-                        </div>
-                        {/* Valor ou Motivo */}
-                        <div className="flex items-center justify-between mt-2">
-                            {!hasPackage && !isConvenio && sessionValue > 0 ? (
-                                <span className="text-[11px] text-gray-800 font-semibold">
-                                    💰 R$ {sessionValue.toFixed(2)}
-                                </span>
-                            ) : reason ? (
-                                <span className="text-[10px] text-gray-700 truncate italic max-w-[120px]" title={reason}>
-                                    📝 {reason.length > 20 ? reason.substring(0, 20) + '...' : reason}
-                                </span>
-                            ) : (
-                                <span></span>
-                            )}
-                        </div>
+                        )}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-1 mt-2">
-                        <div className={`${operationalBadge.bg} ${operationalBadge.text} px-2 py-1 rounded text-[10px] font-bold shadow-sm flex items-center gap-1 flex-shrink-0`}>
-                            <OperationalIcon size={10} />
-                            {operationalBadge.label}
+                    {/* Valor ou motivo (se houver) */}
+                    {!hasPackage && !isConvenio && sessionValue > 0 && (
+                        <p className="text-[11px] text-gray-800 font-semibold mb-2">
+                            💰 R$ {sessionValue.toFixed(2)}
+                        </p>
+                    )}
+                    {reason && !hasPackage && !isConvenio && sessionValue === 0 && (
+                        <p className="text-[10px] text-gray-700 truncate italic mb-2" title={reason}>
+                            📝 {reason.length > 25 ? reason.substring(0, 25) + '...' : reason}
+                        </p>
+                    )}
+
+                    {/* Badges adicionais */}
+                    <div className="flex flex-wrap items-center gap-1 mt-auto">
+                        <div className={`${operationalBadge.bg} ${operationalBadge.text} px-2 py-0.5 rounded text-[9px] font-bold flex items-center gap-1`}>
+                            <OperationalIcon size={9} />
+                            <span>{operationalBadge.label}</span>
                         </div>
-                        {/* 💰 ALERTA DE DÉBITO - BADGE VERMELHO PISCANTE */}
                         {patientHasDebt && (
-                            <div className="bg-red-600 text-white px-2 py-1 rounded text-[8px] font-bold flex-shrink-0 animate-pulse cursor-pointer shadow-lg border border-red-400" title={`Paciente deve R$ ${patientBalance.toFixed(2)}`}>
-                                ⚠️ DEVENDO R$ {patientBalance.toFixed(0)}
-                            </div>
-                        )}
-                        {/* 🆕 PACOTE + CONVÊNIO BADGES */}
-                        {hasPackage && !isConvenio && (
-                            <div className="bg-purple-600 text-white px-2 py-1 rounded text-[8px] font-bold flex-shrink-0">
-                                📦 Pac. Particular
+                            <div className="bg-red-600 text-white px-2 py-0.5 rounded text-[9px] font-bold animate-pulse" title={`Paciente deve R$ ${patientBalance.toFixed(2)}`}>
+                                ⚠️ R$ {patientBalance.toFixed(0)}
                             </div>
                         )}
                         {hasPackage && isConvenio && (
-                            <div className="bg-blue-600 text-white px-2 py-1 rounded text-[8px] font-bold flex-shrink-0">
-                                📦 Pac. Convênio
+                            <div className="bg-orange-600 text-white px-2 py-0.5 rounded text-[9px] font-bold">
+                                📦 Convênio
+                            </div>
+                        )}
+                        {hasPackage && !isConvenio && (
+                            <div className="bg-purple-600 text-white px-2 py-0.5 rounded text-[9px] font-bold">
+                                📦 Pacote
                             </div>
                         )}
                         {!hasPackage && isConvenio && (
-                            <div className="bg-blue-600 text-white px-2 py-1 rounded text-[8px] font-bold flex-shrink-0">
+                            <div className="bg-orange-600 text-white px-2 py-0.5 rounded text-[9px] font-bold">
                                 🏥 Convênio
                             </div>
                         )}

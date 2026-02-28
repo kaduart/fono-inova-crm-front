@@ -225,7 +225,7 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
                             onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
                             className="flex items-center space-x-3 p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-200 group shadow-md"
                         >
-                            <div className="hidden sm:flex flex-col items-end">
+                          {/*   <div className="hidden sm:flex flex-col items-end">
                                 <span className="text-sm font-medium">
                                     Dr(a). {doctorInfo?.fullName?.split(' ')[0] || "Médico"}
                                 </span>
@@ -237,7 +237,7 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
                                 <span className="text-sm font-bold">
                                     {doctorInfo?.fullName?.charAt(0) || "D"}
                                 </span>
-                            </div>
+                            </div> */}
                             <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
                         </button>
 

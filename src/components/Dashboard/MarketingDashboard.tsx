@@ -138,6 +138,7 @@ export default function MarketingDashboard() {
   const [funnelFilter, setFunnelFilter] = useState<'all' | 'top' | 'middle' | 'bottom'>('all');
   const [selectedEspecialidade, setSelectedEspecialidade] = useState('');
   const [selectedFunnelStage, setSelectedFunnelStage] = useState<FunnelStage>('top');
+  const [selectedProvider, setSelectedProvider] = useState<'auto' | 'fal' | 'together' | 'replicate' | 'pollinations' | 'gemini-nano'>('auto');
   const [customTheme, setCustomTheme] = useState('');
 
   // 🧠 Cálculo da fila automática (sincronizado entre card e botão)
@@ -170,7 +171,12 @@ export default function MarketingDashboard() {
   const [editModal, setEditModal] = useState<{ open: boolean; post: any } | null>(null);
   const [previewModal, setPreviewModal] = useState<{ open: boolean; post: any } | null>(null);
   const [previewContent, setPreviewContent] = useState<{ type: 'caption' | 'hooks' | null; data: any } | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [selectedMode, setSelectedMode] = useState<'full' | 'caption' | 'hooks'>('full');
+
+  // Default de modo por aba: GMB → Legenda SEO | Instagram/Facebook → Post Completo
+  useEffect(() => {
+    setSelectedMode(activeTab === 'gmb' ? 'caption' : 'full');
+  }, [activeTab]);
   const [generatingImagePostId, setGeneratingImagePostId] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<30 | 45 | 60>(30);
   const [videoRoteiro, setVideoRoteiro] = useState('');
@@ -224,51 +230,78 @@ export default function MarketingDashboard() {
       const espId = selectedEspecialidade || automaticConfig.especialidade;
       const funnel = selectedEspecialidade ? selectedFunnelStage : automaticConfig.funnel;
 
-      if (mode === 'caption') {
-        // 🟢 Modo Legenda SEO - só preview, não salva
-        const res = await API.post(`${endpoint}/generate-caption`, {
-          especialidadeId: espId,
-          customTheme,
-          funnelStage: funnel
-        });
-        setPreviewContent({ type: 'caption', data: res.data.data });
-        toast.success('📝 Legenda SEO gerada! Copie e use.');
-      } else if (mode === 'hooks') {
-        // 🟡 Modo Ganchos - só preview, não salva
-        const res = await API.post(`${endpoint}/generate-hooks`, {
-          especialidadeId: espId,
-          customTheme,
-          funnelStage: funnel,
-          count: 10
-        });
-        setPreviewContent({ type: 'hooks', data: res.data.data });
-        toast.success('🎣 10 Ganchos gerados! Teste no Reels.');
-      } else {
-        // 🔴 Modo Post Completo - ASYNC (não bloqueia UI)
-        if (activeTab === 'gmb') {
-          let scheduledAt: string | undefined;
-          if (schedulePost && scheduleDate && scheduleTime) {
-            scheduledAt = `${scheduleDate}T${scheduleTime}:00`;
-          }
-          // 🚀 Não await — dispara e libera UI imediatamente
-          gmb.generate(espId, customTheme, scheduledAt, funnel);
-          toast.success(scheduledAt ? '📅 Post GMB em processamento!' : '📝 Post GMB em processamento!');
-          setSchedulePost(false);
-          setScheduleDate('');
-          setScheduleTime('');
-        } else if (activeTab === 'instagram') {
-          // 🚀 Não await — dispara e libera UI imediatamente
-          instagram.generate(espId, customTheme, funnel);
-          toast.success('📸 Post Instagram em processamento!');
-        } else if (activeTab === 'facebook') {
-          // 🚀 Não await — dispara e libera UI imediatamente
-          facebook.generate(espId, customTheme, funnel);
-          toast.success('📘 Post Facebook em processamento!');
+      // 🚀 CRIA O POST com o modo selecionado — modo flui até o worker/IA
+      if (activeTab === 'gmb') {
+        let scheduledAt: string | undefined;
+        if (schedulePost && scheduleDate && scheduleTime) {
+          scheduledAt = `${scheduleDate}T${scheduleTime}:00`;
         }
-        setCustomTheme('');
-        // Refresh após 2s para mostrar o novo post com status 'processing'
-        setTimeout(() => refresh(), 2000);
+
+        if (mode === 'full') {
+          // 🔵 POST COMPLETO: chama API diretamente para capturar postId e fazer polling
+          const res = await API.post('/gmb/admin/trigger-generation', {
+            especialidadeId: espId,
+            customTheme,
+            generateImage: true,
+            scheduledAt,
+            funnelStage: funnel,
+            provider: selectedProvider
+          });
+          const postId = res.data.postId;
+          toast.success(scheduledAt ? '📅 Post GMB agendado! Aguarde o briefing...' : '✨ Post sendo gerado... o briefing abrirá automaticamente!');
+
+          if (postId) {
+            const pollInterval = setInterval(async () => {
+              try {
+                const postRes = await API.get(`/gmb/posts/${postId}`);
+                const post = postRes.data.data;
+                if (post.processingStatus === 'completed') {
+                  clearInterval(pollInterval);
+                  setPreviewModal({ open: true, post });
+                  refresh();
+                } else if (post.processingStatus === 'failed') {
+                  clearInterval(pollInterval);
+                  toast.error('Falha ao gerar post');
+                  refresh();
+                }
+              } catch {
+                clearInterval(pollInterval);
+              }
+            }, 3000);
+            setTimeout(() => clearInterval(pollInterval), 180000);
+          }
+        } else {
+          gmb.generate(espId, customTheme, scheduledAt, funnel, selectedProvider, false);
+          toast.success('📝 Legenda SEO gerada + post salvo (sem imagem)!');
+        }
+
+        setSchedulePost(false);
+        setScheduleDate('');
+        setScheduleTime('');
+
+      } else if (activeTab === 'instagram') {
+        // 📸 Instagram: passa o modo — worker usa a estratégia certa
+        instagram.generate(espId, customTheme, funnel, selectedProvider, mode);
+        const modeLabel = mode === 'hooks'
+          ? '🎣 Gerando post com ganchos virais para Reels!'
+          : mode === 'caption'
+          ? '📝 Gerando post com legenda SEO otimizada!'
+          : `📸 Post Instagram em processamento! (${selectedProvider === 'auto' ? 'IA automática' : selectedProvider})`;
+        toast.success(modeLabel);
+
+      } else if (activeTab === 'facebook') {
+        // 📘 Facebook: passa o modo — worker usa a estratégia certa
+        facebook.generate(espId, customTheme, funnel, selectedProvider, mode);
+        const modeLabel = mode === 'hooks'
+          ? '🎣 Gerando post com ganchos virais!'
+          : mode === 'caption'
+          ? '📝 Gerando post com legenda SEO otimizada!'
+          : `📘 Post Facebook em processamento! (${selectedProvider === 'auto' ? 'IA automática' : selectedProvider})`;
+        toast.success(modeLabel);
       }
+
+      setCustomTheme('');
+      setTimeout(() => refresh(), 2000);
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Erro ao gerar');
     } finally {
@@ -632,7 +665,8 @@ export default function MarketingDashboard() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
+            {/* Linha 1: 3 selects */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
               <select
                 value={selectedEspecialidade}
                 onChange={(e) => setSelectedEspecialidade(e.target.value)}
@@ -652,55 +686,89 @@ export default function MarketingDashboard() {
                 <option value="bottom">🟢 Fundo (Conversão)</option>
               </select>
 
-              <input
-                type="text"
-                value={customTheme}
-                onChange={(e) => setCustomTheme(e.target.value)}
-                placeholder="Tema personalizado (opcional)"
-                className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors md:col-span-2"
-              />
+              <select
+                value={selectedProvider}
+                onChange={(e) => setSelectedProvider(e.target.value as any)}
+                className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
+                title="IA para gerar imagem"
+              >
+                <option value="auto">🤖 Auto (melhor disponível)</option>
+                <option value="fal">⚡ fal.ai FLUX (rápido)</option>
+                <option value="together">🔗 Together.ai (econômico)</option>
+                <option value="replicate">💾 Replicate (confiável)</option>
+                <option value="pollinations">🍁 Pollinations (gratuito)</option>
+                <option value="gemini-nano">🤖 Gemini Nano (local)</option>
+              </select>
             </div>
 
-            {/* 🕐 Agendamento GMB */}
+            {/* Linha 2: Tema personalizado — largura total */}
+            <input
+              type="text"
+              value={customTheme}
+              onChange={(e) => setCustomTheme(e.target.value)}
+              placeholder="Tema personalizado (opcional) — ex: volta às aulas, ansiedade infantil..."
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors mb-4"
+            />
+
+            {/* 🚀 Botão GERAR — largura total */}
+            <button
+              onClick={() => handleGenerate(selectedMode)}
+              disabled={generating}
+              className={`w-full py-3 text-white rounded-xl disabled:opacity-50 transition-all shadow-sm text-base font-semibold flex items-center justify-center gap-2 ${activeTab === 'gmb' ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800' : activeTab === 'instagram' ? 'bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700' : 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800'}`}
+            >
+              {generating ? (
+                <>
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  {selectedMode === 'caption' ? 'Gerando legenda SEO...' : selectedMode === 'hooks' ? 'Gerando 10 ganchos...' : 'Criando post...'}
+                </>
+              ) : (
+                <>
+                  <span>{selectedMode === 'caption' ? '📝' : selectedMode === 'hooks' ? '🎣' : '✨'}</span>
+                  Gerar publicação
+                  <span className="opacity-70 font-normal text-sm">
+                    {selectedMode === 'caption' ? '· Legenda SEO' : selectedMode === 'hooks' ? '· 10 Ganchos' : '· Post Completo'}
+                  </span>
+                </>
+              )}
+            </button>
+
+            {/* Agendar publicação — só no GMB, como checkbox abaixo do botão */}
             {activeTab === 'gmb' && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-5">
-                <label className="flex items-center gap-3 cursor-pointer">
+              <div className="mt-3">
+                <label className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer select-none w-fit">
                   <input
                     type="checkbox"
                     checked={schedulePost}
                     onChange={(e) => {
                       setSchedulePost(e.target.checked);
                       if (e.target.checked) {
-                        // Preenche com valores padrão
-                        const hoje = new Date().toISOString().split('T')[0];
-                        setScheduleDate(hoje);
+                        setScheduleDate(new Date().toISOString().split('T')[0]);
                         setScheduleTime('08:00');
                       }
                     }}
-                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
-                  <div>
-                    <span className="font-medium text-gray-900">Agendar publicação</span>
-                    <p className="text-xs text-gray-500">Escolha quando o post será publicado no Google</p>
-                  </div>
+                  <span>📅 Agendar publicação</span>
                 </label>
 
                 {schedulePost && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+                  <div className="grid grid-cols-2 gap-2 mt-2">
                     <select
                       value={scheduleDate}
                       onChange={(e) => setScheduleDate(e.target.value)}
-                      className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
+                      className="px-3 py-2 border border-blue-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 bg-blue-50"
                     >
                       {getProximosDias().map(dia => (
                         <option key={dia.value} value={dia.value}>{dia.label}</option>
                       ))}
                     </select>
-
                     <select
                       value={scheduleTime}
                       onChange={(e) => setScheduleTime(e.target.value)}
-                      className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
+                      className="px-3 py-2 border border-blue-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 bg-blue-50"
                     >
                       {HORARIOS_ESTRATEGICOS.map(horario => (
                         <option key={horario.value} value={horario.value}>{horario.label}</option>
@@ -711,73 +779,40 @@ export default function MarketingDashboard() {
               </div>
             )}
 
-            {/* 🚀 BOTÃO PRINCIPAL - POST COMPLETO ESTRATÉGICO */}
-            <button
-              onClick={() => handleGenerate('full')}
-              disabled={generating}
-              className={`w-full px-6 py-4 text-white rounded-xl disabled:opacity-50 transition-all shadow-md text-base font-semibold flex items-center justify-center gap-3 ${activeTab === 'gmb' ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800' : activeTab === 'instagram' ? 'bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700' : 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800'}`}
-            >
-              {generating ? (
-                <>
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Criando post completo (copy + imagem)...
-                </>
-              ) : (
-                <>
-                  <span className="text-2xl">✨</span>
-                  GERAR PUBLICAÇÃO
-                  <span className="text-sm opacity-90 font-normal">
-                    (Imagem + Copy + CTA estratégico)
-                  </span>
-                </>
-              )}
-            </button>
-
-            {/* ⚙️ MODO AVANÇADO (Escondido) */}
+            {/* 🎯 SELEÇÃO DE MODO DE GERAÇÃO */}
             <div className="mt-4 pt-4 border-t border-gray-100">
-              <button
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 transition-colors"
-              >
-                {showAdvanced ? '▼' : '▶'} Modo Avançado (Legenda SEO, Ganchos Virais)
-              </button>
+              <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">Modo de geração</p>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => setSelectedMode('full')}
+                  className={`px-3 py-3 rounded-lg border-2 text-sm font-medium flex flex-col items-center gap-1 transition-all ${selectedMode === 'full' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                >
+                  <span className="text-lg">✨</span>
+                  <span>Post Completo</span>
+                  <span className="text-xs opacity-70">Imagem + Copy + CTA</span>
+                  <span className="text-xs mt-1 px-1.5 py-0.5 rounded bg-pink-100 text-pink-600 font-normal">📸 Insta · 📘 Face</span>
+                </button>
 
-              {showAdvanced && (
-                <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <button
-                    onClick={() => handleGenerate('caption')}
-                    disabled={generating}
-                    className="px-4 py-3 bg-white border-2 border-emerald-200 hover:border-emerald-400 text-emerald-700 rounded-lg disabled:opacity-50 transition-all text-sm font-medium flex flex-col items-center gap-1"
-                  >
-                    <span className="text-lg">📝</span>
-                    <span>Só Legenda SEO</span>
-                    <span className="text-xs opacity-70">Otimizada p/ Google</span>
-                  </button>
+                <button
+                  onClick={() => setSelectedMode('caption')}
+                  className={`px-3 py-3 rounded-lg border-2 text-sm font-medium flex flex-col items-center gap-1 transition-all ${selectedMode === 'caption' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                >
+                  <span className="text-lg">📝</span>
+                  <span>Só Legenda SEO</span>
+                  <span className="text-xs opacity-70">Texto otimizado</span>
+                  <span className="text-xs mt-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 font-normal">🔵 Google</span>
+                </button>
 
-                  <button
-                    onClick={() => handleGenerate('hooks')}
-                    disabled={generating}
-                    className="px-4 py-3 bg-white border-2 border-amber-200 hover:border-amber-400 text-amber-700 rounded-lg disabled:opacity-50 transition-all text-sm font-medium flex flex-col items-center gap-1"
-                  >
-                    <span className="text-lg">🎣</span>
-                    <span>10 Ganchos Virais</span>
-                    <span className="text-xs opacity-70">P/ testar no Reels</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleGenerate('full')}
-                    disabled={generating}
-                    className="px-4 py-3 bg-white border-2 border-gray-300 hover:border-gray-500 text-gray-700 rounded-lg disabled:opacity-50 transition-all text-sm font-medium flex flex-col items-center gap-1"
-                  >
-                    <span className="text-lg">🚀</span>
-                    <span>Post Completo</span>
-                    <span className="text-xs opacity-70">Forçar manual</span>
-                  </button>
-                </div>
-              )}
+                <button
+                  onClick={() => setSelectedMode('hooks')}
+                  className={`px-3 py-3 rounded-lg border-2 text-sm font-medium flex flex-col items-center gap-1 transition-all ${selectedMode === 'hooks' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                >
+                  <span className="text-lg">🎣</span>
+                  <span>10 Ganchos Virais</span>
+                  <span className="text-xs opacity-70">Testa no Reels</span>
+                  <span className="text-xs mt-1 px-1.5 py-0.5 rounded bg-purple-100 text-purple-600 font-normal">📸 Insta Reels</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -893,10 +928,10 @@ export default function MarketingDashboard() {
                         <img
                           src={post.mediaUrl}
                           alt=""
-                          className={`w-16 h-16 object-cover rounded-lg border border-gray-200 transition-opacity ${generatingImagePostId === post._id ? 'opacity-50' : ''}`}
+                          className={`w-16 h-16 object-cover rounded-lg border border-gray-200 transition-opacity ${(generatingImagePostId === post._id || post.status === 'processing') ? 'opacity-50' : ''}`}
                         />
                       ) : (
-                        <div className={`w-16 h-16 rounded-lg border border-dashed flex flex-col items-center justify-center transition-colors ${generatingImagePostId === post._id ? 'bg-purple-50 border-purple-300' : 'bg-gray-50 border-gray-300'}`}>
+                        <div className={`w-16 h-16 rounded-lg border border-dashed flex flex-col items-center justify-center transition-colors ${(generatingImagePostId === post._id || post.status === 'processing') ? 'bg-purple-50 border-purple-300' : 'bg-gray-50 border-gray-300'}`}>
                           <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
@@ -904,7 +939,7 @@ export default function MarketingDashboard() {
                       )}
 
                       {/* Loading overlay na thumbnail */}
-                      {generatingImagePostId === post._id && (
+                      {(generatingImagePostId === post._id || post.status === 'processing') && (
                         <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center">
                           <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
@@ -914,7 +949,7 @@ export default function MarketingDashboard() {
                       )}
 
                       {/* Botão de gerar imagem na lista */}
-                      {!post.mediaUrl && !generatingImagePostId && (
+                      {!post.mediaUrl && !generatingImagePostId && post.status !== 'processing' && (
                         <button
                           onClick={() => handleGenerateNewImage(post._id)}
                           className="absolute -bottom-2 -right-2 p-1.5 bg-purple-600 text-white rounded-full shadow-lg hover:bg-purple-700 transition-colors"
@@ -1351,12 +1386,17 @@ export default function MarketingDashboard() {
         )}
       </div>
 
-      {/* Modal de Preview do Post */}
+      {/* Modal de Preview do Post (Briefing) */}
       {previewModal?.open && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={() => setPreviewModal(null)}>
           <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-hidden shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h3 className="text-base font-semibold text-gray-900">Preview do Post</h3>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-blue-100 bg-blue-50/30">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">✅ Briefing do Post Gerado</h3>
+                {previewModal.post.theme && (
+                  <p className="text-xs text-gray-500 mt-0.5 capitalize">{previewModal.post.theme.replace(/_/g, ' ')}</p>
+                )}
+              </div>
               <button onClick={() => setPreviewModal(null)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />

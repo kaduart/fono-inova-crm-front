@@ -105,23 +105,25 @@ interface SpyData {
   error: string | null;
 }
 
+export type ImageProvider = 'auto' | 'fal' | 'together' | 'replicate' | 'pollinations' | 'gemini-nano';
+
 export interface UseMarketingReturn {
   gmb: ChannelData & {
     publish: (postId: string) => Promise<void>;
-    generate: (especialidadeId?: string, customTheme?: string, scheduledAt?: string, funnelStage?: FunnelStage) => Promise<void>;
+    generate: (especialidadeId?: string, customTheme?: string, scheduledAt?: string, funnelStage?: FunnelStage, provider?: ImageProvider, generateImage?: boolean) => Promise<void>;
     delete: (postId: string) => Promise<void>;
     update: (postId: string, data: Partial<Post>) => Promise<void>;
     generateImage: (postId: string, content: string) => Promise<string | null>;
   };
   instagram: ChannelData & {
     publish: (postId: string) => Promise<void>;
-    generate: (especialidadeId?: string, customTheme?: string, funnelStage?: FunnelStage) => Promise<void>;
+    generate: (especialidadeId?: string, customTheme?: string, funnelStage?: FunnelStage, provider?: ImageProvider, mode?: 'full' | 'caption' | 'hooks') => Promise<void>;
     delete: (postId: string) => Promise<void>;
     update: (postId: string, data: Partial<Post>) => Promise<void>;
   };
   facebook: ChannelData & {
     publish: (postId: string) => Promise<void>;
-    generate: (especialidadeId?: string, customTheme?: string, funnelStage?: FunnelStage) => Promise<void>;
+    generate: (especialidadeId?: string, customTheme?: string, funnelStage?: FunnelStage, provider?: ImageProvider, mode?: 'full' | 'caption' | 'hooks') => Promise<void>;
     delete: (postId: string) => Promise<void>;
     update: (postId: string, data: Partial<Post>) => Promise<void>;
   };
@@ -285,17 +287,17 @@ export function useMarketing(): UseMarketingReturn {
     await fetchGmbData();
   };
 
-  const gmbGenerate = async (especialidadeId?: string, customTheme?: string, scheduledAt?: string, funnelStage?: FunnelStage) => {
+  const gmbGenerate = async (especialidadeId?: string, customTheme?: string, scheduledAt?: string, funnelStage?: FunnelStage, provider?: ImageProvider, generateImage: boolean = true) => {
     // 🚀 ASYNC: Não espera resposta completa, retorna imediatamente
     await API.post('/gmb/admin/trigger-generation', {
       especialidadeId,
       customTheme,
-      generateImage: true,
+      generateImage,
       scheduledAt,
-      funnelStage
+      funnelStage,
+      provider
     });
     // Não faz await fetchGmbData() aqui — deixa o toast aparecer e libera UI
-    // O refresh() pode ser chamado manualmente ou via polling
   };
 
   const gmbDelete = async (postId: string) => {
@@ -319,12 +321,14 @@ export function useMarketing(): UseMarketingReturn {
     await fetchInstagramData();
   };
 
-  const instagramGenerate = async (especialidadeId?: string, customTheme?: string, funnelStage?: FunnelStage) => {
+  const instagramGenerate = async (especialidadeId?: string, customTheme?: string, funnelStage?: FunnelStage, provider?: ImageProvider, mode: 'full' | 'caption' | 'hooks' = 'full') => {
     // 🚀 ASYNC: Não espera resposta completa
     await API.post('/instagram/generate', {
       especialidadeId,
       customTheme,
-      funnelStage
+      funnelStage,
+      provider,
+      mode
     });
     // Não faz await fetchInstagramData() aqui
   };
@@ -345,12 +349,14 @@ export function useMarketing(): UseMarketingReturn {
     await fetchFacebookData();
   };
 
-  const facebookGenerate = async (especialidadeId?: string, customTheme?: string, funnelStage?: FunnelStage) => {
+  const facebookGenerate = async (especialidadeId?: string, customTheme?: string, funnelStage?: FunnelStage, provider?: ImageProvider, mode: 'full' | 'caption' | 'hooks' = 'full') => {
     // 🚀 ASYNC: Não espera resposta completa
     await API.post('/facebook/generate', {
       especialidadeId,
       customTheme,
-      funnelStage
+      funnelStage,
+      provider,
+      mode
     });
     // Não faz await fetchFacebookData() aqui
   };

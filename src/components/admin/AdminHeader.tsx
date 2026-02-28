@@ -214,7 +214,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                 onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
                                 className="flex items-center space-x-3 p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-200 group shadow-md"
                             >
-                                <div className="hidden sm:flex flex-col items-end">
+                               {/*  <div className="hidden sm:flex flex-col items-end">
                                     <span className="text-sm font-medium">
                                         {adminInfo?.fullName?.split(' ')[0] || "Admin"}
                                     </span>
@@ -226,7 +226,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                     <span className="text-sm font-bold">
                                         {adminInfo?.fullName?.charAt(0) || "A"}
                                     </span>
-                                </div>
+                                </div> */}
                                 <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
                             </button>
 
