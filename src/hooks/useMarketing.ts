@@ -105,7 +105,7 @@ interface SpyData {
   error: string | null;
 }
 
-export type ImageProvider = 'auto' | 'fal' | 'together' | 'replicate' | 'pollinations' | 'gemini-nano';
+export type ImageProvider = 'auto' | 'freepik' | 'fal' | 'together' | 'replicate' | 'pollinations' | 'gemini-nano';
 
 export interface UseMarketingReturn {
   gmb: ChannelData & {

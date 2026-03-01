@@ -164,6 +164,11 @@ export default function MarketingDashboard() {
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState('');
 
+  // 🎨 Layout selector (Instagram only)
+  const [layoutsDisponiveis, setLayoutsDisponiveis] = useState<any[]>([]);
+  const [layoutSelecionado, setLayoutSelecionado] = useState<string | null>(null);
+  const [carregandoLayouts, setCarregandoLayouts] = useState(false);
+
   const [generating, setGenerating] = useState(false);
   const [publishingPost, setPublishingPost] = useState<string | null>(null);
   const [republishingPost, setRepublishingPost] = useState<string | null>(null);
@@ -173,11 +178,33 @@ export default function MarketingDashboard() {
   const [previewContent, setPreviewContent] = useState<{ type: 'caption' | 'hooks' | null; data: any } | null>(null);
   const [selectedMode, setSelectedMode] = useState<'full' | 'caption' | 'hooks'>('full');
 
-  // Default de modo por aba: GMB → Legenda SEO | Instagram/Facebook → Post Completo
+  // Default de modo por aba: todos começam como 'full' (post completo com imagem)
   useEffect(() => {
-    setSelectedMode(activeTab === 'gmb' ? 'caption' : 'full');
+    setSelectedMode('full');
+  }, [activeTab]);
+
+  // Carregar layouts profissionais ao entrar na aba Instagram
+  useEffect(() => {
+    if (activeTab === 'instagram' && (!layoutsDisponiveis || layoutsDisponiveis.length === 0)) {
+      setCarregandoLayouts(true);
+      API.get('/instagram/layouts')
+        .then(res => {
+          if (res.data.success && Array.isArray(res.data.layouts)) {
+            setLayoutsDisponiveis(res.data.layouts);
+          } else {
+            setLayoutsDisponiveis([]);
+          }
+        })
+        .catch(err => {
+          console.error('Erro ao carregar layouts:', err);
+          setLayoutsDisponiveis([]);
+        })
+        .finally(() => setCarregandoLayouts(false));
+    }
   }, [activeTab]);
   const [generatingImagePostId, setGeneratingImagePostId] = useState<string | null>(null);
+  // 🆕 Estado para armazenar imagens recém-geradas (mostra imediatamente sem esperar refresh)
+  const [pendingImages, setPendingImages] = useState<Record<string, string>>({});
   const [videoDuration, setVideoDuration] = useState<30 | 45 | 60>(30);
   const [videoRoteiro, setVideoRoteiro] = useState('');
   const [generatingVideo, setGeneratingVideo] = useState(false);
@@ -206,6 +233,9 @@ export default function MarketingDashboard() {
         : null;
 
   const posts = currentData?.posts || [];
+  const videosList = videos?.videos || [];
+  const spyAds = spy?.ads || [];
+  const spySaved = spy?.saved || [];
   const stats = currentData?.stats;
 
   const filteredPosts = posts.filter((post: any) => {
@@ -248,7 +278,7 @@ export default function MarketingDashboard() {
             provider: selectedProvider
           });
           const postId = res.data.postId;
-          toast.success(scheduledAt ? '📅 Post GMB agendado! Aguarde o briefing...' : '✨ Post sendo gerado... o briefing abrirá automaticamente!');
+          toast.info(scheduledAt ? '📅 Post GMB agendado! Aguarde o briefing...' : '✨ Post sendo gerado... o briefing abrirá automaticamente!');
 
           if (postId) {
             const pollInterval = setInterval(async () => {
@@ -280,14 +310,26 @@ export default function MarketingDashboard() {
         setScheduleTime('');
 
       } else if (activeTab === 'instagram') {
-        // 📸 Instagram: passa o modo — worker usa a estratégia certa
-        instagram.generate(espId, customTheme, funnel, selectedProvider, mode);
-        const modeLabel = mode === 'hooks'
-          ? '🎣 Gerando post com ganchos virais para Reels!'
-          : mode === 'caption'
-          ? '📝 Gerando post com legenda SEO otimizada!'
-          : `📸 Post Instagram em processamento! (${selectedProvider === 'auto' ? 'IA automática' : selectedProvider})`;
-        toast.success(modeLabel);
+        if (layoutSelecionado && mode === 'full') {
+          // 🎨 Layout profissional selecionado: usa o novo endpoint
+          await API.post('/instagram/generate-with-layout', {
+            especialidadeId: espId,
+            funnelStage: funnel,
+            customTheme: customTheme || undefined,
+            layoutId: layoutSelecionado
+          });
+          const layoutNome = layoutsDisponiveis.find(l => l.id === layoutSelecionado)?.nome || layoutSelecionado;
+          toast.success(`🎨 Post profissional em geração! (${layoutNome})`);
+        } else {
+          // 📸 Instagram: passa o modo — worker usa a estratégia certa
+          instagram.generate(espId, customTheme, funnel, selectedProvider, mode);
+          const modeLabel = mode === 'hooks'
+            ? '🎣 Gerando post com ganchos virais para Reels!'
+            : mode === 'caption'
+              ? '📝 Gerando post com legenda SEO otimizada!'
+              : `📸 Post Instagram em processamento! (${selectedProvider === 'auto' ? 'IA automática' : selectedProvider})`;
+          toast.success(modeLabel);
+        }
 
       } else if (activeTab === 'facebook') {
         // 📘 Facebook: passa o modo — worker usa a estratégia certa
@@ -295,8 +337,8 @@ export default function MarketingDashboard() {
         const modeLabel = mode === 'hooks'
           ? '🎣 Gerando post com ganchos virais!'
           : mode === 'caption'
-          ? '📝 Gerando post com legenda SEO otimizada!'
-          : `📘 Post Facebook em processamento! (${selectedProvider === 'auto' ? 'IA automática' : selectedProvider})`;
+            ? '📝 Gerando post com legenda SEO otimizada!'
+            : `📘 Post Facebook em processamento! (${selectedProvider === 'auto' ? 'IA automática' : selectedProvider})`;
         toast.success(modeLabel);
       }
 
@@ -315,7 +357,7 @@ export default function MarketingDashboard() {
       if (activeTab === 'gmb') await gmb.publish(postId);
       else if (activeTab === 'instagram') await instagram.publish(postId);
       else if (activeTab === 'facebook') await facebook.publish(postId);
-      toast.success('✅ Publicado!');
+      toast.success('Publicado!');
       refresh();
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Erro ao publicar');
@@ -329,7 +371,7 @@ export default function MarketingDashboard() {
     setRepublishingPost(postId);
     try {
       await API.post(`/gmb/posts/${postId}/republish`);
-      toast.success('✅ Post reenviado para republicação!');
+      toast.success('Post reenviado para republicação!');
       refresh();
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Erro ao republicar');
@@ -345,7 +387,7 @@ export default function MarketingDashboard() {
       if (activeTab === 'gmb') await gmb.delete(postId);
       else if (activeTab === 'instagram') await instagram.delete(postId);
       else if (activeTab === 'facebook') await facebook.delete(postId);
-      toast.success('✅ Excluído!');
+      toast.warning('Excluído!');
       refresh();
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Erro ao excluir');
@@ -365,7 +407,7 @@ export default function MarketingDashboard() {
       if (activeTab === 'gmb') await gmb.update(editModal.post._id, data);
       else if (activeTab === 'instagram') await instagram.update(editModal.post._id, data);
       else if (activeTab === 'facebook') await facebook.update(editModal.post._id, data);
-      toast.success('✅ Salvo!');
+      toast.success('Salvo!');
       setEditModal(null);
       refresh();
     } catch (err: any) {
@@ -390,14 +432,20 @@ export default function MarketingDashboard() {
         content: editModal?.post?.content || '',
         especialidadeId
       });
-      const newImageUrl = response.data.data?.imageUrl;
+      let newImageUrl = response.data.data?.imageUrl;
       if (newImageUrl) {
+        // 🆕 ATUALIZA IMEDIATAMENTE: Adiciona timestamp para forçar refresh do navegador
+        newImageUrl = newImageUrl + '?t=' + Date.now();
+
+        // Guarda no estado local para mostrar na lista sem esperar refresh
+        setPendingImages(prev => ({ ...prev, [targetPostId]: newImageUrl }));
+
         // Se estiver no modal, atualiza o post do modal
         if (editModal?.post && editModal.post._id === targetPostId) {
           setEditModal({ ...editModal, post: { ...editModal.post, mediaUrl: newImageUrl } });
         }
-        toast.success('✅ Imagem gerada com sucesso!');
-        refresh(); // Atualiza a lista
+        toast.success('Imagem gerada com sucesso!');
+        refresh(); // Atualiza a lista em background
       }
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Erro ao gerar imagem');
@@ -418,7 +466,7 @@ export default function MarketingDashboard() {
         roteiro: videoRoteiro,
         duration: videoDuration
       });
-      toast.success('✅ Vídeo em processamento!');
+      toast.info('Vídeo em processamento!');
       setVideoRoteiro('');
       refresh();
     } catch (err: any) {
@@ -436,7 +484,7 @@ export default function MarketingDashboard() {
   const handleSaveAd = async (ad: AdSpy) => {
     try {
       await spy.save(ad);
-      toast.success('⭐ Anúncio salvo como referência!');
+      toast.success('Anúncio salvo como referência!');
     } catch (err) {
       toast.error('Erro ao salvar anúncio');
     }
@@ -476,7 +524,7 @@ export default function MarketingDashboard() {
 
   const handleSaveAdapted = async () => {
     // Aqui você pode salvar o post adaptado no banco
-    toast.success('✅ Post adaptado salvo!');
+    toast.info('Post adaptado salvo!');
     setShowAdaptModal(false);
     setAdaptedPost(null);
     setAnalysisResult(null);
@@ -544,6 +592,29 @@ export default function MarketingDashboard() {
     );
   };
 
+  const copiarImagem = async (url: string) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('load'));
+        img.src = url;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext('2d')!.drawImage(img, 0, 0);
+      const blob = await new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob(b => (b ? resolve(b) : reject(new Error('blob'))), 'image/png')
+      );
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      toast.info('Imagem copiada!');
+    } catch {
+      toast.error('Erro ao copiar imagem');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -601,76 +672,134 @@ export default function MarketingDashboard() {
 
         {/* Área de Geração - Posts */}
         {activeTab !== 'videos' && activeTab !== 'spy' && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-5">
-              <div className={`p-2 rounded-lg ${activeTab === 'gmb' ? 'bg-blue-100 text-blue-600' :
+          <div className="bg-white rounded-xl border border-gray-200 p-5 mb-5 shadow-sm">
+            {/* Cabeçalho com ícone e título */}
+            <div className="flex items-center gap-2 mb-3">
+              <div className={`p-1.5 rounded-md ${activeTab === 'gmb' ? 'bg-blue-100 text-blue-600' :
                 activeTab === 'instagram' ? 'bg-pink-100 text-pink-600' :
                   'bg-indigo-100 text-indigo-600'
                 }`}>
-                {activeTab === 'gmb' && <span className="text-lg">📍</span>}
-                {activeTab === 'instagram' && <span className="text-lg">📸</span>}
-                {activeTab === 'facebook' && <span className="text-lg">📘</span>}
+                {activeTab === 'gmb' && <span className="text-base">📍</span>}
+                {activeTab === 'instagram' && <span className="text-base">📸</span>}
+                {activeTab === 'facebook' && <span className="text-base">📘</span>}
               </div>
               <div>
-                <h2 className="font-semibold text-gray-900">
+                <h2 className="font-semibold text-gray-900 text-sm">
                   {activeTab === 'gmb' && 'Gerar Post para Google Meu Negócio'}
                   {activeTab === 'instagram' && 'Gerar Post para Instagram'}
                   {activeTab === 'facebook' && 'Gerar Post para Facebook'}
                 </h2>
                 <p className="text-xs text-gray-500">
-                  Conteúdo + imagem serão gerados automaticamente
+                  Conteúdo + imagem gerados automaticamente
                 </p>
               </div>
             </div>
 
-            {/* 🎴 Fila Automática (mostra quando não selecionou manualmente) */}
-            {!selectedEspecialidade && (
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-5 border border-blue-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-blue-600 uppercase tracking-wider font-medium mb-1">
-                      🔄 Próximo da fila automática
-                    </p>
-                    <div className="flex items-center gap-3">
-                      {(() => {
-                        const esp = ESPECIALIDADES.find(e => e.id === automaticConfig.especialidade)!;
-                        const funnelLabels = {
-                          top: { emoji: '🔴', label: 'Topo (Descoberta)', color: 'red' },
-                          middle: { emoji: '🟡', label: 'Meio (Consideração)', color: 'yellow' },
-                          bottom: { emoji: '🟢', label: 'Fundo (Conversão)', color: 'green' }
-                        };
-                        const fl = funnelLabels[automaticConfig.funnel];
-                        return (
-                          <>
-                            <span className="text-lg font-semibold text-gray-900">{esp.nome}</span>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium bg-${fl.color}-100 text-${fl.color}-700 border border-${fl.color}-200`}>
-                              {fl.emoji} {fl.label}
-                            </span>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-400">Gatilho principal</p>
-                    <p className="text-sm font-medium text-gray-700">
-                      {(() => {
-                        if (automaticConfig.funnel === 'top') return 'Curiosidade / Contradição';
-                        if (automaticConfig.funnel === 'middle') return 'Prova Social / Autoridade';
-                        return 'Urgência / Benefício Rápido';
-                      })()}
-                    </p>
+            {/* Header com botão Gerar - sempre no topo direito */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 mb-4 border border-blue-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-blue-600 uppercase tracking-wider font-medium mb-1">
+                    {!selectedEspecialidade ? '🔄 Próximo da fila automática' : '🎯 Modo Manual'}
+                  </p>
+                  <div className="flex items-center gap-3">
+                    {(() => {
+                      const esp = ESPECIALIDADES.find(e => e.id === (selectedEspecialidade || automaticConfig.especialidade))!;
+                      const funnel = selectedEspecialidade ? selectedFunnelStage : automaticConfig.funnel;
+                      const funnelLabels = {
+                        top: { emoji: '🔴', label: 'Topo (Descoberta)', color: 'red' },
+                        middle: { emoji: '🟡', label: 'Meio (Consideração)', color: 'yellow' },
+                        bottom: { emoji: '🟢', label: 'Fundo (Conversão)', color: 'green' }
+                      };
+                      const fl = funnelLabels[funnel];
+                      return (
+                        <>
+                          <span className="text-sm font-semibold text-gray-900">{esp.nome}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium bg-${fl.color}-100 text-${fl.color}-700 border border-${fl.color}-200`}>
+                            {fl.emoji} {fl.label}
+                          </span>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
+                <div className="flex items-center gap-3">
+                  {/* Checkbox Agendar (GMB apenas) */}
+                  {activeTab === 'gmb' && (
+                    <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={schedulePost}
+                        onChange={(e) => {
+                          setSchedulePost(e.target.checked);
+                          if (e.target.checked) {
+                            setScheduleDate(new Date().toISOString().split('T')[0]);
+                            setScheduleTime('08:00');
+                          }
+                        }}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>📅 Agendar</span>
+                    </label>
+                  )}
+                  {/* Botão Gerar - sempre no topo direito */}
+                  <button
+                    onClick={() => handleGenerate('full')}
+                    disabled={generating}
+                    className={`px-4 py-2 text-white rounded-lg disabled:opacity-50 transition-all text-sm font-medium flex items-center gap-2 ${activeTab === 'gmb' ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800' :
+                        activeTab === 'instagram' ? 'bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700' :
+                          'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800'
+                      }`}
+                  >
+                    {generating ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <span>Criando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>✨</span>
+                        <span>Gerar</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-            )}
+              
+              {/* Campos de agendamento (aparecem abaixo quando checkbox marcado) */}
+              {activeTab === 'gmb' && schedulePost && (
+                <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-blue-200">
+                  <select
+                    value={scheduleDate}
+                    onChange={(e) => setScheduleDate(e.target.value)}
+                    className="px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-blue-50"
+                  >
+                    {getProximosDias().map(dia => (
+                      <option key={dia.value} value={dia.value}>{dia.label}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={scheduleTime}
+                    onChange={(e) => setScheduleTime(e.target.value)}
+                    className="px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-blue-50"
+                  >
+                    {HORARIOS_ESTRATEGICOS.map(horario => (
+                      <option key={horario.value} value={horario.value}>{horario.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
 
-            {/* Linha 1: 3 selects */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+            {/* Linha 1: 3 selects - tamanho reduzido */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
               <select
                 value={selectedEspecialidade}
                 onChange={(e) => setSelectedEspecialidade(e.target.value)}
-                className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
               >
                 <option value="">🔄 Fila Automática</option>
                 {ESPECIALIDADES.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
@@ -679,7 +808,7 @@ export default function MarketingDashboard() {
               <select
                 value={selectedFunnelStage}
                 onChange={(e) => setSelectedFunnelStage(e.target.value as FunnelStage)}
-                className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
               >
                 <option value="top">🔴 Topo (Descoberta)</option>
                 <option value="middle">🟡 Meio (Consideração)</option>
@@ -689,128 +818,122 @@ export default function MarketingDashboard() {
               <select
                 value={selectedProvider}
                 onChange={(e) => setSelectedProvider(e.target.value as any)}
-                className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
                 title="IA para gerar imagem"
               >
-                <option value="auto">🤖 Auto (melhor disponível)</option>
-                <option value="fal">⚡ fal.ai FLUX (rápido)</option>
-                <option value="together">🔗 Together.ai (econômico)</option>
-                <option value="replicate">💾 Replicate (confiável)</option>
-                <option value="pollinations">🍁 Pollinations (gratuito)</option>
-                <option value="gemini-nano">🤖 Gemini Nano (local)</option>
+                <option value="auto">🤖 Auto (melhor)</option>
+                <option value="freepik">🎨 Freepik AI (Recomendado)</option>
+                <option value="fal">⚡ fal.ai FLUX</option>
+                <option value="together">🔗 Together.ai</option>
+                <option value="replicate">💾 Replicate</option>
+                <option value="pollinations">🍁 Pollinations</option>
+                <option value="gemini-nano">🤖 Gemini Nano</option>
               </select>
             </div>
 
-            {/* Linha 2: Tema personalizado — largura total */}
+            {/* Tema personalizado */}
             <input
               type="text"
               value={customTheme}
               onChange={(e) => setCustomTheme(e.target.value)}
               placeholder="Tema personalizado (opcional) — ex: volta às aulas, ansiedade infantil..."
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors mb-4"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors mb-3"
             />
 
-            {/* 🚀 Botão GERAR — largura total */}
-            <button
-              onClick={() => handleGenerate(selectedMode)}
-              disabled={generating}
-              className={`w-full py-3 text-white rounded-xl disabled:opacity-50 transition-all shadow-sm text-base font-semibold flex items-center justify-center gap-2 ${activeTab === 'gmb' ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800' : activeTab === 'instagram' ? 'bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700' : 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800'}`}
-            >
-              {generating ? (
-                <>
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  {selectedMode === 'caption' ? 'Gerando legenda SEO...' : selectedMode === 'hooks' ? 'Gerando 10 ganchos...' : 'Criando post...'}
-                </>
-              ) : (
-                <>
-                  <span>{selectedMode === 'caption' ? '📝' : selectedMode === 'hooks' ? '🎣' : '✨'}</span>
-                  Gerar publicação
-                  <span className="opacity-70 font-normal text-sm">
-                    {selectedMode === 'caption' ? '· Legenda SEO' : selectedMode === 'hooks' ? '· 10 Ganchos' : '· Post Completo'}
-                  </span>
-                </>
-              )}
-            </button>
-
-            {/* Agendar publicação — só no GMB, como checkbox abaixo do botão */}
-            {activeTab === 'gmb' && (
-              <div className="mt-3">
-                <label className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer select-none w-fit">
-                  <input
-                    type="checkbox"
-                    checked={schedulePost}
-                    onChange={(e) => {
-                      setSchedulePost(e.target.checked);
-                      if (e.target.checked) {
-                        setScheduleDate(new Date().toISOString().split('T')[0]);
-                        setScheduleTime('08:00');
-                      }
-                    }}
-                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                  />
-                  <span>📅 Agendar publicação</span>
-                </label>
-
-                {schedulePost && (
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <select
-                      value={scheduleDate}
-                      onChange={(e) => setScheduleDate(e.target.value)}
-                      className="px-3 py-2 border border-blue-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 bg-blue-50"
+            {/* Layouts Instagram (apenas modo full) */}
+            {activeTab === 'instagram' && selectedMode === 'full' && (
+              <div className="mb-3 border border-pink-200 rounded-lg overflow-hidden">
+                <div className="bg-pink-50 px-3 py-2 flex items-center justify-between">
+                  <p className="text-xs font-semibold text-gray-700">
+                    🎨 Layout
+                    {layoutSelecionado && (
+                      <span className="ml-2 text-xs text-pink-600 font-normal">
+                        ✓ {(layoutsDisponiveis || []).find(l => l.id === layoutSelecionado)?.nome}
+                      </span>
+                    )}
+                  </p>
+                  {layoutSelecionado && (
+                    <button
+                      onClick={() => setLayoutSelecionado(null)}
+                      className="text-xs text-gray-400 hover:text-gray-600"
                     >
-                      {getProximosDias().map(dia => (
-                        <option key={dia.value} value={dia.value}>{dia.label}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={scheduleTime}
-                      onChange={(e) => setScheduleTime(e.target.value)}
-                      className="px-3 py-2 border border-blue-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 bg-blue-50"
-                    >
-                      {HORARIOS_ESTRATEGICOS.map(horario => (
-                        <option key={horario.value} value={horario.value}>{horario.label}</option>
-                      ))}
-                    </select>
+                      Limpar
+                    </button>
+                  )}
+                </div>
+                {carregandoLayouts ? (
+                  <div className="py-4 text-center text-xs text-gray-500 bg-white">
+                    <svg className="animate-spin h-4 w-4 inline mr-1" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Carregando...
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-1 p-2 bg-white">
+                    {(layoutsDisponiveis || []).map((layout) => (
+                      <button
+                        key={layout.id}
+                        onClick={() => setLayoutSelecionado(layoutSelecionado === layout.id ? null : layout.id)}
+                        className={`rounded border p-1.5 text-left transition-all ${layoutSelecionado === layout.id
+                            ? 'border-pink-500 bg-pink-50 shadow-sm'
+                            : 'border-gray-200 hover:border-pink-300'
+                          }`}
+                      >
+                        <div
+                          className="w-full h-12 rounded mb-1"
+                          style={{
+                            background: `linear-gradient(135deg, ${layout.cores.primaria} 0%, ${layout.cores.secundaria || layout.cores.destaque} 100%)`
+                          }}
+                        />
+                        <p className="text-xs font-medium text-gray-800 truncate">{layout.nome}</p>
+                        <div className="flex gap-0.5 mt-0.5">
+                          {Object.values(layout.cores).slice(0, 3).map((cor: any, idx) => (
+                            <div key={idx} className="w-2 h-2 rounded-full border border-white" style={{ backgroundColor: cor }} />
+                          ))}
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
             )}
 
-            {/* 🎯 SELEÇÃO DE MODO DE GERAÇÃO */}
-            <div className="mt-4 pt-4 border-t border-gray-100">
+            {/* Modo de geração - cards menores */}
+
+            {/* Seleção de modo de geração - cards menores */}
+            <div className="mt-3 pt-3 border-t border-gray-100">
               <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">Modo de geração</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-1.5">
                 <button
                   onClick={() => setSelectedMode('full')}
-                  className={`px-3 py-3 rounded-lg border-2 text-sm font-medium flex flex-col items-center gap-1 transition-all ${selectedMode === 'full' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                  className={`px-2 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedMode === 'full' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                    }`}
                 >
-                  <span className="text-lg">✨</span>
-                  <span>Post Completo</span>
-                  <span className="text-xs opacity-70">Imagem + Copy + CTA</span>
-                  <span className="text-xs mt-1 px-1.5 py-0.5 rounded bg-pink-100 text-pink-600 font-normal">📸 Insta · 📘 Face</span>
+                  <span className="text-base">✨</span>
+                  <span>Completo</span>
+                  <span className="text-[10px] opacity-70">Imagem + Copy</span>
+                  <span className="text-[9px] mt-0.5 px-1 py-0.5 rounded bg-pink-100 text-pink-600">📸 Insta</span>
                 </button>
-
                 <button
                   onClick={() => setSelectedMode('caption')}
-                  className={`px-3 py-3 rounded-lg border-2 text-sm font-medium flex flex-col items-center gap-1 transition-all ${selectedMode === 'caption' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                  className={`px-2 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedMode === 'caption' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                    }`}
                 >
-                  <span className="text-lg">📝</span>
-                  <span>Só Legenda SEO</span>
-                  <span className="text-xs opacity-70">Texto otimizado</span>
-                  <span className="text-xs mt-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 font-normal">🔵 Google</span>
+                  <span className="text-base">📝</span>
+                  <span>Só Legenda</span>
+                  <span className="text-[10px] opacity-70">Texto SEO</span>
+                  <span className="text-[9px] mt-0.5 px-1 py-0.5 rounded bg-blue-100 text-blue-600">🔵 Google</span>
                 </button>
-
                 <button
                   onClick={() => setSelectedMode('hooks')}
-                  className={`px-3 py-3 rounded-lg border-2 text-sm font-medium flex flex-col items-center gap-1 transition-all ${selectedMode === 'hooks' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                  className={`px-2 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedMode === 'hooks' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                    }`}
                 >
-                  <span className="text-lg">🎣</span>
-                  <span>10 Ganchos Virais</span>
-                  <span className="text-xs opacity-70">Testa no Reels</span>
-                  <span className="text-xs mt-1 px-1.5 py-0.5 rounded bg-purple-100 text-purple-600 font-normal">📸 Insta Reels</span>
+                  <span className="text-base">🎣</span>
+                  <span>10 Ganchos</span>
+                  <span className="text-[10px] opacity-70">Virais</span>
+                  <span className="text-[9px] mt-0.5 px-1 py-0.5 rounded bg-purple-100 text-purple-600">📸 Reels</span>
                 </button>
               </div>
             </div>
@@ -889,13 +1012,13 @@ export default function MarketingDashboard() {
               <div className="col-span-full flex justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
               </div>
-            ) : videos.videos.length === 0 ? (
+            ) : videosList.length === 0 ? (
               <div className="col-span-full text-center py-12 bg-white rounded-xl border border-gray-200">
                 <p className="text-gray-500">Nenhum vídeo encontrado</p>
                 <p className="text-sm text-gray-400 mt-1">Gere seu primeiro vídeo acima</p>
               </div>
             ) : (
-              videos.videos.map((video) => (
+              videosList.map((video) => (
                 <VideoCard
                   key={video._id}
                   video={video}
@@ -1099,7 +1222,7 @@ export default function MarketingDashboard() {
                   : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
               >
-                ⭐ Salvos ({spy.saved.length})
+                ⭐ Salvos ({spySaved.length})
               </button>
             </div>
 
@@ -1160,13 +1283,13 @@ export default function MarketingDashboard() {
                     <div className="flex justify-center py-12">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
                     </div>
-                  ) : spy.ads.length === 0 ? (
+                  ) : spyAds.length === 0 ? (
                     <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
                       <p className="text-gray-500">Nenhum anúncio encontrado</p>
                       <p className="text-sm text-gray-400 mt-1">Faça uma busca para encontrar anúncios de concorrentes</p>
                     </div>
                   ) : (
-                    spy.ads.map((ad: AdSpy) => (
+                    spyAds.map((ad: AdSpy) => (
                       <div key={ad.adId} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-all">
                         <div className="flex items-start gap-4">
                           {/* Ícone/Lado esquerdo */}
@@ -1338,13 +1461,13 @@ export default function MarketingDashboard() {
             {/* Anúncios Salvos */}
             {spyTab === 'saved' && (
               <div className="grid gap-4">
-                {spy.saved.length === 0 ? (
+                {spySaved.length === 0 ? (
                   <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
                     <p className="text-gray-500">Nenhum anúncio salvo</p>
                     <p className="text-sm text-gray-400 mt-1">Busque anúncios e salve os que gostar como referência</p>
                   </div>
                 ) : (
-                  spy.saved.map((ad: AdSpy) => (
+                  spySaved.map((ad: AdSpy) => (
                     <div key={ad._id} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-all">
                       <div className="flex items-start gap-4">
                         <div className="flex-shrink-0">
@@ -1416,7 +1539,7 @@ export default function MarketingDashboard() {
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(previewModal.post.content || '');
-                    toast.success('Texto copiado!');
+                    toast.info('Texto copiado!');
                   }}
                   className="inline-flex items-center gap-1.5 px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
                 >
@@ -1427,16 +1550,7 @@ export default function MarketingDashboard() {
                 </button>
                 {previewModal.post.mediaUrl && (
                   <button
-                    onClick={async () => {
-                      try {
-                        const resp = await fetch(previewModal.post.mediaUrl);
-                        const blob = await resp.blob();
-                        await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-                        toast.success('Imagem copiada!');
-                      } catch {
-                        toast.error('Erro ao copiar imagem');
-                      }
-                    }}
+                    onClick={() => copiarImagem(previewModal.post.mediaUrl)}
                     className="inline-flex items-center gap-1.5 px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1506,7 +1620,7 @@ export default function MarketingDashboard() {
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(previewContent.data.content || '');
-                  toast.success('Conteúdo copiado! Cole no seu post.');
+                  toast.info('Conteúdo copiado! Cole no seu post.');
                 }}
                 className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white rounded-lg transition-colors ${previewContent.type === 'caption'
                   ? 'bg-emerald-600 hover:bg-emerald-700'
@@ -1560,11 +1674,12 @@ export default function MarketingDashboard() {
                   <span className="text-sm font-semibold">fonoinova</span>
                   <span className="text-gray-400 ml-auto">⋯</span>
                 </div>
-                
+
                 {/* Imagem do post (proporção Instagram 1:1) */}
                 <div className="relative aspect-square bg-gray-100">
                   {editModal.post.mediaUrl ? (
                     <img
+                      key={editModal.post.mediaUrl}
                       src={editModal.post.mediaUrl}
                       alt="Preview"
                       className={`w-full h-full object-cover transition-opacity ${generatingImagePostId === editModal.post._id ? 'opacity-50' : 'opacity-100'}`}
@@ -1577,7 +1692,7 @@ export default function MarketingDashboard() {
                       <span className="text-gray-400 text-sm">Sem imagem</span>
                     </div>
                   )}
-                  
+
                   {/* Overlay de loading */}
                   {generatingImagePostId === editModal.post._id && (
                     <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center backdrop-blur-sm">
@@ -1589,7 +1704,7 @@ export default function MarketingDashboard() {
                     </div>
                   )}
                 </div>
-                
+
                 {/* Ações do Instagram */}
                 <div className="flex items-center gap-4 px-3 py-2">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
@@ -1597,7 +1712,7 @@ export default function MarketingDashboard() {
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
                   <svg className="w-6 h-6 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
                 </div>
-                
+
                 {/* Preview do texto */}
                 <div className="px-3 pb-3">
                   <p className="text-sm text-gray-800 line-clamp-3">
@@ -1607,129 +1722,158 @@ export default function MarketingDashboard() {
                 </div>
               </div>
 
-                {/* Botões de ação da imagem */}
-                <div className="flex flex-wrap gap-2">
+              {/* Botões de ação da imagem */}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => handleGenerateNewImage(editModal.post._id)}
+                  disabled={generatingImagePostId === editModal.post._id}
+                  className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white text-sm rounded-lg hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  {generatingImagePostId === editModal.post._id ? 'Gerando...' : editModal.post.mediaUrl ? '🔄 Nova imagem' : '🎨 Gerar imagem'}
+                </button>
+
+                {editModal.post.mediaUrl && (
                   <button
-                    onClick={() => handleGenerateNewImage(editModal.post._id)}
+                    onClick={() => setEditModal({ ...editModal, post: { ...editModal.post, mediaUrl: null } })}
                     disabled={generatingImagePostId === editModal.post._id}
-                    className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white text-sm rounded-lg hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                    className="px-4 py-2.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors text-sm font-medium"
+                  >
+                    🗑️ Remover
+                  </button>
+                )}
+              </div>
+
+              <p className="text-xs text-gray-500 text-center">
+                💡 Esta é a prévia exata de como ficará no Instagram
+              </p>
+            </div>
+
+            <div className="px-4 sm:px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex flex-col gap-3">
+              {/* Botões de cópia */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(editModal.post.content || '');
+                    toast.info('Texto copiado!');
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Copiar texto
+                </button>
+                {editModal.post.mediaUrl && (
+                  <button
+                    onClick={() => copiarImagem(editModal.post.mediaUrl)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    {generatingImagePostId === editModal.post._id ? 'Gerando...' : editModal.post.mediaUrl ? '🔄 Nova imagem' : '🎨 Gerar imagem'}
+                    Copiar imagem
                   </button>
-                  
-                  {editModal.post.mediaUrl && (
-                    <button
-                      onClick={() => setEditModal({ ...editModal, post: { ...editModal.post, mediaUrl: null } })}
-                      disabled={generatingImagePostId === editModal.post._id}
-                      className="px-4 py-2.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors text-sm font-medium"
-                    >
-                      🗑️ Remover
-                    </button>
-                  )}
-                </div>
-                
-                <p className="text-xs text-gray-500 text-center">
-                  💡 Esta é a prévia exata de como ficará no Instagram
-                </p>
-            </div>
-
-            <div className="px-4 sm:px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3">
-              <button
-                onClick={() => setEditModal(null)}
-                className="w-full sm:w-auto px-5 py-2.5 sm:py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSaveEdit}
-                className="w-full sm:w-auto px-5 py-2.5 sm:py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-sm transition-all"
-              >
-                💾 Salvar alterações
-              </button>
+                )}
+              </div>
+              {/* Ações principais */}
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3">
+                <button
+                  onClick={() => setEditModal(null)}
+                  className="w-full sm:w-auto px-5 py-2.5 sm:py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  className="w-full sm:w-auto px-5 py-2.5 sm:py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-sm transition-all"
+                >
+                  💾 Salvar alterações
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )
-}
+      }
 
-{/* Modal de Adaptação */ }
-{
-  showAdaptModal && adaptedPost && (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={() => setShowAdaptModal(false)}>
-      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-            <span className="text-lg">✏️</span> Post Adaptado
-          </h3>
-          <button
-            onClick={() => setShowAdaptModal(false)}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="p-6 space-y-5">
-          <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-5 border border-purple-100">
-            <textarea
-              value={adaptedPost}
-              onChange={(e) => setAdaptedPost(e.target.value)}
-              className="w-full px-4 py-3 border border-purple-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all bg-white/80 resize-none"
-              rows={8}
-            />
-          </div>
-
-          <div>
-            <p className="text-sm font-medium text-gray-700 mb-3">Salvar como:</p>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { key: 'instagram', label: 'Instagram', icon: Instagram },
-                { key: 'facebook', label: 'Facebook', icon: Facebook },
-                { key: 'gmb', label: 'GMB', icon: Google },
-                { key: 'video', label: 'Roteiro', icon: Video }
-              ].map(({ key, label, icon: Icon }) => (
+      {/* Modal de Adaptação */}
+      {
+        showAdaptModal && adaptedPost && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={() => setShowAdaptModal(false)}>
+            <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-xl" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                  <span className="text-lg">✏️</span> Post Adaptado
+                </h3>
                 <button
-                  key={key}
-                  onClick={() => setAdaptConfig({ ...adaptConfig, tipo: key as any })}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm border transition-all ${adaptConfig.tipo === key
-                    ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
-                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
-                    }`}
+                  onClick={() => setShowAdaptModal(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  <Icon size={16} />
-                  {label}
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
-              ))}
+              </div>
+
+              <div className="p-6 space-y-5">
+                <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-5 border border-purple-100">
+                  <textarea
+                    value={adaptedPost}
+                    onChange={(e) => setAdaptedPost(e.target.value)}
+                    className="w-full px-4 py-3 border border-purple-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all bg-white/80 resize-none"
+                    rows={8}
+                  />
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-3">Salvar como:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { key: 'instagram', label: 'Instagram', icon: Instagram },
+                      { key: 'facebook', label: 'Facebook', icon: Facebook },
+                      { key: 'gmb', label: 'GMB', icon: Google },
+                      { key: 'video', label: 'Roteiro', icon: Video }
+                    ].map(({ key, label, icon: Icon }) => (
+                      <button
+                        key={key}
+                        onClick={() => setAdaptConfig({ ...adaptConfig, tipo: key as any })}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm border transition-all ${adaptConfig.tipo === key
+                          ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                          }`}
+                      >
+                        <Icon size={16} />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-3">
+                <button
+                  onClick={() => setShowAdaptModal(false)}
+                  className="px-5 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSaveAdapted}
+                  className="px-5 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl hover:from-purple-700 hover:to-purple-800 shadow-sm transition-all flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Salvar no painel
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-3">
-          <button
-            onClick={() => setShowAdaptModal(false)}
-            className="px-5 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleSaveAdapted}
-            className="px-5 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl hover:from-purple-700 hover:to-purple-800 shadow-sm transition-all flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            Salvar no painel
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+        )
+      }
     </div>
   );
 }
