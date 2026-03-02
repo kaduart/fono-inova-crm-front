@@ -7,7 +7,6 @@ import {
   Plus,
   RefreshCw,
   Search,
-  TrendingUp,
   Users,
   X
 } from "lucide-react";
@@ -25,7 +24,6 @@ import { FollowupFilters } from "../components/Dashboard/FollowupFilters";
 import FollowupInsights from "../components/Dashboard/FollowupInsights";
 import FollowupStats from "../components/Dashboard/FollowupStats";
 import FollowupTrendChart from "../components/Dashboard/FollowupTrendChart";
-import MarketingDashboard from "../components/Dashboard/MarketingDashboard";
 
 // Hooks customizados
 import { useFollowupAnalytics } from "../hooks/useFollowupAnalytics";
@@ -246,7 +244,7 @@ const FollowupPage = () => {
   const [showTimelineModal, setShowTimelineModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState("timeline");
+  const [activeTab, setActiveTab] = useState("leads");
   const [historyMetrics, setHistoryMetrics] = useState<HistoryMetrics | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -339,7 +337,7 @@ const FollowupPage = () => {
   };
 
   useEffect(() => {
-    if (activeTab === "timeline") {
+    if (activeTab === "leads") {
       const interval = setInterval(() => {
         refetchLeads();
         refetchAnalytics();
@@ -368,7 +366,7 @@ const FollowupPage = () => {
     };
 
     // carrega quando a aba de insights estiver ativa
-    if (activeTab === "analytics") {
+    if (activeTab === "metricas") {
       loadHistoryMetrics();
     }
   }, [activeTab]);
@@ -442,11 +440,11 @@ const FollowupPage = () => {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-white rounded-2xl shadow-sm border border-slate-200 mb-6 flex gap-1 p-1.5">
           <TabsTrigger
-            value="timeline"
+            value="leads"
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 data-[state=active]:bg-emerald-500 data-[state=active]:text-white"
           >
-            <MessageCircle size={16} />
-            Timeline
+            <Users size={16} />
+            Leads
             {leads.length > 0 && (
               <span className="bg-emerald-100 text-emerald-600 text-xs px-1.5 py-0.5 rounded-full ml-1">
                 {leads.length}
@@ -455,32 +453,26 @@ const FollowupPage = () => {
           </TabsTrigger>
 
           <TabsTrigger
-            value="analytics"
+            value="metricas"
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 data-[state=active]:bg-blue-500 data-[state=active]:text-white"
           >
             <BarChart3 size={16} />
-            Insights
+            Métricas do Funil
           </TabsTrigger>
 
-          <TabsTrigger
-            value="marketing"
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 data-[state=active]:bg-purple-500 data-[state=active]:text-white"
-          >
-            <TrendingUp size={16} />
-            Marketing
-          </TabsTrigger>
+
 
           <TabsTrigger
             value="diagnostic"
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 data-[state=active]:bg-orange-500 data-[state=active]:text-white"
           >
             <RefreshCw size={16} />
-            Diagnóstico
+            Diagnóstico WhatsApp
           </TabsTrigger>
         </TabsList>
 
-        {/* ABA TIMELINE */}
-        <TabsContent value="timeline" className="space-y-6">
+        {/* ABA LEADS */}
+        <TabsContent value="leads" className="space-y-6">
           <FollowupFilters onFilter={handleFilter} />
 
           {/* BARRA DE BUSCA */}
@@ -839,8 +831,8 @@ const FollowupPage = () => {
           </div>
         </TabsContent>
 
-        {/* ABA ANALYTICS */}
-        <TabsContent value="analytics">
+        {/* ABA MÉTRICAS DO FUNIL */}
+        <TabsContent value="metricas">
           <div className="space-y-6">
             <FollowupInsights data={analyticsData} />
 
@@ -905,11 +897,6 @@ const FollowupPage = () => {
           </div>
         </TabsContent>
 
-
-        {/* ABA MARKETING */}
-        <TabsContent value="marketing">
-          <MarketingDashboard />
-        </TabsContent>
 
         <TabsContent value="diagnostic">
           <WhatsAppDiagnostic />

@@ -147,8 +147,34 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
         activeContactIdRef.current = activeContactId;
     }, [activeContactId]);
 
+    // 🔄 Escuta mudanças de autenticação para recarregar quando fizer login
     useEffect(() => {
-        refreshContacts();
+        const handleAuthReady = () => {
+            console.log('[ContactsContext] Auth ready, loading contacts...');
+            refreshContacts();
+        };
+
+        const handleAuthLogout = () => {
+            console.log('[ContactsContext] Logout detected, clearing contacts...');
+            setContacts([]);
+            setPage(1);
+            setHasMore(true);
+        };
+
+        // Verifica se já tem token no mount
+        const token = localStorage.getItem('token');
+        if (token) {
+            refreshContacts();
+        }
+
+        // Escuta eventos de auth
+        window.addEventListener('authReady', handleAuthReady);
+        window.addEventListener('authLogout', handleAuthLogout);
+
+        return () => {
+            window.removeEventListener('authReady', handleAuthReady);
+            window.removeEventListener('authLogout', handleAuthLogout);
+        };
     }, []);
 
     // socket listener

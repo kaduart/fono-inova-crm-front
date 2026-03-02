@@ -21,7 +21,8 @@ import {
     Card,
     CardContent,
     Grid,
-    Collapse
+    Collapse,
+    Checkbox
 } from '@mui/material';
 import { Patient360Modal } from '../components/Patient360Modal';
 import {
@@ -49,7 +50,9 @@ import {
     getInsuranceReceivables,
     InsuranceReceivableGroup,
     markInsuranceAsBilled,
-    receiveInsurancePayment
+    receiveInsurancePayment,
+    faturarConvenioLote,
+    receberConvenioLote
 } from '../../../services/paymentService';
 
 const INSURANCE_PROVIDERS = [
@@ -78,6 +81,9 @@ const InsuranceTab = () => {
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
     const [expandedPatients, setExpandedPatients] = useState<Record<string, boolean>>({});
     const [patientSpecialtyTabs, setPatientSpecialtyTabs] = useState<Record<string, string>>({});
+    
+    // Estados para seleção em lote
+    const [selectedPayments, setSelectedPayments] = useState<Set<string>>(new Set());
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
     const [patients, setPatients] = useState<any[]>([]);
     const [doctors, setDoctors] = useState<any[]>([]);
@@ -103,6 +109,13 @@ const InsuranceTab = () => {
     const [selectedMonthYear, setSelectedMonthYear] = useState(() => {
         const now = new Date();
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    });
+
+    // Estados para modal de faturamento em lote
+    const [faturarLoteModalOpen, setFaturarLoteModalOpen] = useState(false);
+    const [faturarLoteData, setFaturarLoteData] = useState({
+        dataFaturamento: new Date().toISOString().split('T')[0],
+        notaFiscal: ''
     });
 
     const getMonthLabel = () => {
@@ -337,6 +350,102 @@ const InsuranceTab = () => {
         );
     };
 
+    // Funções para seleção em lote
+    const togglePaymentSelection = (paymentId: string) => {
+        const newSelected = new Set(selectedPayments);
+        if (newSelected.has(paymentId)) {
+            newSelected.delete(paymentId);
+        } else {
+            newSelected.add(paymentId);
+        }
+        setSelectedPayments(newSelected);
+    };
+
+    const selectAllFromPatient = (patient: any) => {
+        const newSelected = new Set(selectedPayments);
+        patient.payments.forEach((p: any) => {
+            if (subTab === 0 && p.status === 'pending_billing') {
+                newSelected.add(p.paymentId);
+            } else if (subTab === 1 && p.status === 'billed') {
+                newSelected.add(p.paymentId);
+            }
+        });
+        setSelectedPayments(newSelected);
+    };
+
+    const deselectAllFromPatient = (patient: any) => {
+        const newSelected = new Set(selectedPayments);
+        patient.payments.forEach((p: any) => {
+            newSelected.delete(p.paymentId);
+        });
+        setSelectedPayments(newSelected);
+    };
+
+    const clearAllSelection = () => {
+        setSelectedPayments(new Set());
+    };
+
+    const handleOpenFaturarLoteModal = () => {
+        if (selectedPayments.size === 0) {
+            toast.warn('Selecione pelo menos um atendimento');
+            return;
+        }
+        setFaturarLoteData({
+            dataFaturamento: new Date().toISOString().split('T')[0],
+            notaFiscal: ''
+        });
+        setFaturarLoteModalOpen(true);
+    };
+
+    const handleFaturarLote = async () => {
+        try {
+            const result = await faturarConvenioLote({
+                paymentIds: Array.from(selectedPayments),
+                dataFaturamento: faturarLoteData.dataFaturamento,
+                notaFiscal: faturarLoteData.notaFiscal || undefined
+            });
+            
+            if (result.data.success) {
+                toast.success(`${result.data.data.faturados} atendimentos faturados!`);
+                setFaturarLoteModalOpen(false);
+                clearAllSelection();
+                loadReceivables(selectedMonthYear);
+            } else {
+                toast.error(result.data.error || 'Erro ao faturar');
+            }
+        } catch (error: any) {
+            toast.error(error.response?.data?.error || 'Erro ao faturar em lote');
+        }
+    };
+
+    const handleReceberLote = async () => {
+        if (selectedPayments.size === 0) {
+            toast.warn('Selecione pelo menos um atendimento');
+            return;
+        }
+
+        const dataRecebimento = prompt('Data do recebimento (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+        
+        if (!dataRecebimento) return;
+
+        try {
+            const result = await receberConvenioLote({
+                paymentIds: Array.from(selectedPayments),
+                dataRecebimento
+            });
+            
+            if (result.data.success) {
+                toast.success(`${result.data.data.recebidos} recebimentos registrados no caixa de ${dataRecebimento}! 💰`);
+                clearAllSelection();
+                loadReceivables(selectedMonthYear);
+            } else {
+                toast.error(result.data.error || 'Erro ao receber');
+            }
+        } catch (error: any) {
+            toast.error(error.response?.data?.error || 'Erro ao receber em lote');
+        }
+    };
+
     return (
         <Box>
             {/* Header */}
@@ -486,6 +595,48 @@ const InsuranceTab = () => {
                     />
                 </Tabs>
 
+                {/* Barra de Ações em Lote */}
+                {selectedPayments.size > 0 && (
+                    <Paper elevation={2} sx={{ p: 2, m: 2, bgcolor: '#F0F9FF', border: '1px solid #3B82F6' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+                            <Typography variant="body1" fontWeight={600} color="#3B82F6">
+                                {selectedPayments.size} atendimento(s) selecionado(s)
+                            </Typography>
+                            <Box sx={{ display: 'flex', gap: 2 }}>
+                                <Button 
+                                    variant="outlined" 
+                                    size="small"
+                                    onClick={clearAllSelection}
+                                >
+                                    Limpar
+                                </Button>
+                                {subTab === 0 && (
+                                    <Button 
+                                        variant="contained" 
+                                        size="small"
+                                        startIcon={<Send size={16} />}
+                                        onClick={handleOpenFaturarLoteModal}
+                                        sx={{ bgcolor: '#F59E0B', '&:hover': { bgcolor: '#D97706' } }}
+                                    >
+                                        Faturar Selecionados
+                                    </Button>
+                                )}
+                                {subTab === 1 && (
+                                    <Button 
+                                        variant="contained" 
+                                        size="small"
+                                        startIcon={<CheckCircle size={16} />}
+                                        onClick={handleReceberLote}
+                                        sx={{ bgcolor: '#10B981', '&:hover': { bgcolor: '#059669' } }}
+                                    >
+                                        Receber Selecionados
+                                    </Button>
+                                )}
+                            </Box>
+                        </Box>
+                    </Paper>
+                )}
+
                 <Box sx={{ p: 3 }}>
                     {loading ? (
                         <div className="flex justify-center py-12">
@@ -563,6 +714,11 @@ const InsuranceTab = () => {
                                                             setReceiveModalOpen(true);
                                                         }}
                                                         getStatusChip={getStatusChip}
+                                                        selectedPayments={selectedPayments}
+                                                        onTogglePayment={togglePaymentSelection}
+                                                        onSelectAllFromPatient={selectAllFromPatient}
+                                                        onDeselectAllFromPatient={deselectAllFromPatient}
+                                                        subTab={subTab}
                                                     />
                                                 ))}
                                             </div>
@@ -574,6 +730,55 @@ const InsuranceTab = () => {
                     )}
                 </Box>
             </Paper>
+
+            {/* Modal: Faturar em Lote */}
+            <Dialog open={faturarLoteModalOpen} onClose={() => setFaturarLoteModalOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Avatar sx={{ bgcolor: '#F59E0B', width: 32, height: 32 }}>
+                            <Send className="w-4 h-4 text-white" />
+                        </Avatar>
+                        <Typography variant="h6">Faturar Atendimentos Selecionados</Typography>
+                    </Box>
+                </DialogTitle>
+                <DialogContent dividers>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
+                        <Typography variant="body2" color="text.secondary">
+                            {selectedPayments.size} atendimento(s) serão faturados
+                        </Typography>
+                        
+                        <TextField
+                            fullWidth
+                            type="date"
+                            label="Data do Faturamento *"
+                            value={faturarLoteData.dataFaturamento}
+                            onChange={(e) => setFaturarLoteData({ ...faturarLoteData, dataFaturamento: e.target.value })}
+                            InputLabelProps={{ shrink: true }}
+                            required
+                        />
+                        
+                        <TextField
+                            fullWidth
+                            label="Nota Fiscal (opcional)"
+                            placeholder="Número da NF"
+                            value={faturarLoteData.notaFiscal}
+                            onChange={(e) => setFaturarLoteData({ ...faturarLoteData, notaFiscal: e.target.value })}
+                        />
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button onClick={() => setFaturarLoteModalOpen(false)}>
+                        Cancelar
+                    </Button>
+                    <Button 
+                        variant="contained"
+                        onClick={handleFaturarLote}
+                        sx={{ bgcolor: '#F59E0B', '&:hover': { bgcolor: '#D97706' } }}
+                    >
+                        Confirmar Faturamento
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             {/* Modal: Novo Atendimento */}
             <Dialog open={isNewModalOpen} onClose={() => setIsNewModalOpen(false)} maxWidth="sm" fullWidth>

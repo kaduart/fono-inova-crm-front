@@ -91,7 +91,10 @@ const InteligenciaFinanceiraTab = () => {
                         Dashboard Estratégico
                     </Typography>
                     <Typography variant="h4" fontWeight="bold" sx={{ color: '#1a202c', mt: 0.5 }}>
-                        Inteligência Financeira
+                        🧠 Inteligência Financeira
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                        Provisão de receitas, projeções e análise de cenários
                     </Typography>
                 </Box>
 

@@ -72,7 +72,7 @@ const FinancialDashboard = ({
     // Tabs do modo OPERACIONAL (Gestão do Dia a Dia)
     const operacionalTabs = [
         {
-            label: 'Caixa Diário',
+            label: '💰 Lançamentos',
             icon: <DollarSign size={18} />,
             component: (
                 <PaymentPage
@@ -86,58 +86,58 @@ const FinancialDashboard = ({
             )
         },
         {
-            label: 'Despesas',
+            label: '🧾 Despesas',
             icon: <Receipt size={18} />,
             component: <ExpensesTab />
         },
         {
-            label: 'Entradas e Saídas',
-            icon: <ArrowLeftRight size={18} />,
-            component: <EntradasSaidasTab />
-        },
-        {
-            label: 'Convênios',
+            label: '💳 Convênios',
             icon: <Building2 size={18} />,
             component: <InsuranceTab />
         },
         {
-            label: 'Fluxo de Caixa',
-            icon: <DollarSign size={18} />,
+            label: '📊 Fluxo de Caixa',
+            icon: <ArrowLeftRight size={18} />,
             component: <CashflowTab />
+        },
+        {
+            label: '📈 Extrato',
+            icon: <TrendingUp size={18} />,
+            component: <EntradasSaidasTab />
         },
     ];
 
     // Tabs do modo ESTRATÉGICO (Gestão de Crescimento)
     const estrategicoTabs = [
         {
-            label: 'Receitas',
-            icon: <TrendingUp size={18} />,
-            component: <RevenueTab />
-        },
-        {
-            label: 'Visão Geral',
+            label: '📊 Dashboard Executivo',
             icon: <BarChart3 size={18} />,
             component: <VisaoGeralEstrategicaTab />
         },
         {
-            label: 'Metas',
+            label: '💵 Receitas & Análise',
+            icon: <TrendingUp size={18} />,
+            component: <RevenueTab />
+        },
+        {
+            label: '🎯 Metas & Provisão',
             icon: <Target size={18} />,
             component: <GoalsTab />
         },
         {
-            label: 'Planejamento',
-            icon: <Calendar size={18} />,
-            component: <PlanningTab />
+            label: '🧠 Inteligência Financeira',
+            icon: <PieChart size={18} />,
+            component: <InteligenciaFinanceiraTab />
         },
         {
-            label: 'Analytics',
+            label: '📈 Business Intelligence',
             icon: <TrendingDown size={18} />,
             component: <AnalyticsTab />
         },
         {
-            label: 'Inteligência',
-            icon: <PieChart size={18} />,
-            component: <InteligenciaFinanceiraTab />
+            label: '📅 Planejamento Anual',
+            icon: <Calendar size={18} />,
+            component: <PlanningTab />
         },
     ];
 
@@ -187,8 +187,8 @@ const FinancialDashboard = ({
                                 sx={{ opacity: 0.8 }}
                             >
                                 {viewMode === 'operacional' 
-                                    ? 'Controle operacional: receitas, despesas e fluxo de caixa' 
-                                    : 'Análise estratégica: metas, projeções e indicadores de crescimento'}
+                                    ? '💰 Dia a dia: lançamentos, despesas, convênios e fluxo de caixa' 
+                                    : '📊 Estratégia: dashboard, receitas, metas, BI e planejamento'}
                             </Typography>
                         </div>
                     </div>
@@ -228,11 +228,11 @@ const FinancialDashboard = ({
                         >
                             <ToggleButton value="operacional">
                                 <ClipboardList size={16} style={{ marginRight: 8 }} />
-                                Operacional
+                                💰 Operacional
                             </ToggleButton>
                             <ToggleButton value="estrategico">
                                 <BarChart3 size={16} style={{ marginRight: 8 }} />
-                                Estratégico
+                                📊 Estratégico
                             </ToggleButton>
                         </ToggleButtonGroup>
 

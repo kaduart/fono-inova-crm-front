@@ -103,7 +103,7 @@ const GoalsTab = () => {
             </Avatar>
             <Box>
               <Typography variant="h5" fontWeight="bold">
-                Metas Financeiras
+                🎯 Metas & Provisão
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Acompanhamento de metas mensais de receita e sessões

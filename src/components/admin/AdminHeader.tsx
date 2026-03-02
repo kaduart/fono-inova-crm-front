@@ -44,8 +44,8 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-    const isMarketingActive =
-        activeTab === "Leads" || activeTab === "Analytics";
+    const isVendasMarketingActive =
+        activeTab === "Leads" || activeTab === "Analytics" || activeTab === "SocialMedia";
 
     const handleLogout = async () => {
         await authLogout();
@@ -151,24 +151,45 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
 
                         <div className="relative">
                             <NavButton
-                                active={isMarketingActive}
-                                onClick={() => toggleMenu("marketing")}
+                                active={isVendasMarketingActive}
+                                onClick={() => toggleMenu("vendas-marketing")}
                                 icon={<Activity className="h-4 w-4 text-cyan-500" />}
                                 hasChevron
-                                className={isMarketingActive ? "bg-blue-100 text-blue-600" : "!text-white"}
+                                className={isVendasMarketingActive ? "bg-blue-100 text-blue-600" : "!text-white"}
                             >
-                                Marketing
+                                Vendas & Marketing
                             </NavButton>
-                            {openMenu === "marketing" && (
-                                <div className="absolute z-10 mt-2 w-56 rounded-lg shadow-xl bg-white border border-emerald-200 py-2">
+                            {openMenu === "vendas-marketing" && (
+                                <div className="absolute z-10 mt-2 w-64 rounded-lg shadow-xl bg-white border border-emerald-200 py-2">
+                                    {/* SEÇÃO VENDAS */}
+                                    <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                                        Vendas
+                                    </div>
                                     <NavDropdownItem
                                         active={activeTab === "Leads"}
                                         onClick={() => handleTabChange("Leads")}
-                                        icon={<Activity className="h-4 w-4 text-cyan-500" />}
+                                        icon={<Users className="h-4 w-4 text-cyan-500" />}
                                     >
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-gray-800">Leads</span>
-                                            <span className="text-xs text-gray-500">Potenciais pacientes</span>
+                                            <span className="text-sm font-medium text-gray-800">Leads & Follow-up</span>
+                                            <span className="text-xs text-gray-500">Gestão de potenciais pacientes</span>
+                                        </div>
+                                    </NavDropdownItem>
+                                    
+                                    <div className="my-2 border-t border-gray-100"></div>
+                                    
+                                    {/* SEÇÃO MARKETING */}
+                                    <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                                        Marketing Digital
+                                    </div>
+                                    <NavDropdownItem
+                                        active={activeTab === "SocialMedia"}
+                                        onClick={() => handleTabChange("SocialMedia")}
+                                        icon={<Activity className="h-4 w-4 text-pink-500" />}
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-gray-800">Social Media</span>
+                                            <span className="text-xs text-gray-500">GMB, Instagram, Facebook, Vídeos</span>
                                         </div>
                                     </NavDropdownItem>
                                     <NavDropdownItem
@@ -177,8 +198,8 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         icon={<Activity className="h-4 w-4 text-indigo-500" />}
                                     >
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-gray-800">Analytics</span>
-                                            <span className="text-xs text-gray-500">Desempenho de campanhas</span>
+                                            <span className="text-sm font-medium text-gray-800">Analytics do Site</span>
+                                            <span className="text-xs text-gray-500">Métricas GA4 e conversões</span>
                                         </div>
                                     </NavDropdownItem>
                                 </div>
@@ -326,7 +347,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         </div>
 
                         <div className="space-y-1">
-                            <p className="px-4 pt-2 pb-1 text-xs text-emerald-300 font-semibold uppercase tracking-wide">Marketing</p>
+                            <p className="px-4 pt-2 pb-1 text-xs text-emerald-300 font-semibold uppercase tracking-wide">Vendas & Marketing</p>
                             <button
                                 onClick={() => handleMobileTabChange("Leads")}
                                 className={`flex items-center gap-3 w-full px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "Leads"
@@ -334,7 +355,16 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         : "text-emerald-100 hover:bg-emerald-700"
                                     }`}
                             >
-                                <Activity size={18} className="text-cyan-400" /> Leads
+                                <Users size={18} className="text-cyan-400" /> Leads & Follow-up
+                            </button>
+                            <button
+                                onClick={() => handleMobileTabChange("SocialMedia")}
+                                className={`flex items-center gap-3 w-full px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "SocialMedia"
+                                        ? "bg-emerald-600 text-white"
+                                        : "text-emerald-100 hover:bg-emerald-700"
+                                    }`}
+                            >
+                                <Activity size={18} className="text-pink-400" /> Social Media
                             </button>
                             <button
                                 onClick={() => handleMobileTabChange("Analytics")}
@@ -343,7 +373,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         : "text-emerald-100 hover:bg-emerald-700"
                                     }`}
                             >
-                                <Activity size={18} className="text-indigo-400" /> Analytics
+                                <Activity size={18} className="text-indigo-400" /> Analytics do Site
                             </button>
                             <button
                                 onClick={() => handleMobileTabChange("Mensagens")}

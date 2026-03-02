@@ -10,7 +10,8 @@ import {
     Collapse,
     Tabs,
     Tab,
-    Button
+    Button,
+    Checkbox
 } from '@mui/material';
 import { User, Calendar, ChevronDown, ChevronUp, Send, Check } from 'lucide-react';
 
@@ -38,6 +39,12 @@ interface PatientAccordionSectionProps {
     onMarkAsBilled: (paymentId: string) => void;
     onReceive: (payment: Payment) => void;
     getStatusChip: (status: string) => React.ReactNode;
+    // Props para seleção em lote
+    selectedPayments?: Set<string>;
+    onTogglePayment?: (paymentId: string) => void;
+    onSelectAllFromPatient?: (patient: Patient) => void;
+    onDeselectAllFromPatient?: (patient: Patient) => void;
+    subTab?: number;
 }
 
 // Função para formatar data de YYYY-MM-DD para DD/MM/YYYY
@@ -65,10 +72,21 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
     onOpen360,
     onMarkAsBilled,
     onReceive,
-    getStatusChip
+    getStatusChip,
+    selectedPayments = new Set(),
+    onTogglePayment,
+    onSelectAllFromPatient,
+    onDeselectAllFromPatient,
+    subTab = 0
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [activeTab, setActiveTab] = useState<string>('');
+
+    // Verificar estado de seleção do paciente
+    const patientPaymentIds = patient.payments.map(p => p.paymentId);
+    const selectedCount = patientPaymentIds.filter(id => selectedPayments.has(id)).length;
+    const isAllSelected = selectedCount === patient.payments.length && patient.payments.length > 0;
+    const isIndeterminate = selectedCount > 0 && selectedCount < patient.payments.length;
 
     // Agrupar pagamentos por especialidade
     const groupedBySpecialty: Record<string, Payment[]> = {};
@@ -102,6 +120,23 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
                 onClick={toggleExpand}
             >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    {/* Checkbox de seleção do paciente */}
+                    {onTogglePayment && (
+                        <Checkbox
+                            checked={isAllSelected}
+                            indeterminate={isIndeterminate}
+                            onChange={(e) => {
+                                e.stopPropagation();
+                                if (e.target.checked) {
+                                    onSelectAllFromPatient?.(patient);
+                                } else {
+                                    onDeselectAllFromPatient?.(patient);
+                                }
+                            }}
+                            size="small"
+                            sx={{ mr: 1 }}
+                        />
+                    )}
                     <Avatar 
                         sx={{ bgcolor: '#E5E7EB', width: 40, height: 40 }}
                         onClick={(e) => { e.stopPropagation(); onOpen360(patient.patientId); }}
@@ -182,12 +217,20 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
                                     alignItems: 'center',
                                     p: 1.5,
                                     mb: 1,
-                                    bgcolor: '#F9FAFB',
+                                    bgcolor: selectedPayments.has(payment.paymentId) ? '#F0F9FF' : '#F9FAFB',
                                     borderRadius: 1,
-                                    border: '1px solid #E5E7EB'
+                                    border: selectedPayments.has(payment.paymentId) ? '2px solid #3B82F6' : '1px solid #E5E7EB'
                                 }}
                             >
                                 <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                                    {/* Checkbox individual */}
+                                    {onTogglePayment && (
+                                        <Checkbox
+                                            checked={selectedPayments.has(payment.paymentId)}
+                                            onChange={() => onTogglePayment(payment.paymentId)}
+                                            size="small"
+                                        />
+                                    )}
                                     <Calendar className="w-4 h-4 text-gray-400" />
                                     <Box>
                                         <Typography variant="body2" fontWeight={500}>

@@ -161,7 +161,7 @@ const VisaoGeralEstrategicaTab = () => {
                         </Avatar>
                         <Box>
                             <Typography variant="h5" fontWeight="bold">
-                                Visão Geral Estratégica
+                                📊 Dashboard Executivo
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
                                 Painel executivo de saúde financeira da clínica

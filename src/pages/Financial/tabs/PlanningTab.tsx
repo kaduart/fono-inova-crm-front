@@ -245,7 +245,7 @@ const PlanningTab = () => {
             </Avatar>
             <Box>
               <Typography variant="h5" fontWeight="bold">
-                Planejamento Financeiro
+                📅 Planejamento Anual
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Defina metas de receita, sessões e acompanhe o progresso

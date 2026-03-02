@@ -362,7 +362,7 @@ const OverviewView = ({ data, formatCurrency, onTimeSlotClick }: any) => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                     {/* RECEBIDO HOJE */}
                     <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-green-50 border border-green-100">
-                        <span className="text-sm font-medium text-green-700">Recebido Hoje</span>
+                        <span className="text-sm font-medium text-green-700">Recebido do Dia</span>
                         <span className="text-2xl font-bold text-green-700 mt-1">
                             {formatCurrency(data.financial?.totalReceived || 0)}
                         </span>

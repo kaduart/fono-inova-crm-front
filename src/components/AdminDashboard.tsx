@@ -29,6 +29,7 @@ const FollowupPage = lazy(() => import('../pages/FollowupPage'));
 const PreAgendamentosPage = lazy(() => import('../pages/Secretaria/PreAgendamentosPage'));
 const EnhancedCalendar = lazy(() => import('./calendar/EnhancedCalendar'));
 const SiteAnalyticsDashboard = lazy(() => import('./Dashboard/SiteAnalyticsDashboard'));
+const MarketingDashboard = lazy(() => import('./Dashboard/MarketingDashboard'));
 const AppChat = lazy(() => import('./mkt/whatsapp/AppChat'));
 
 // Modais também podem ser lazy loaded
@@ -655,9 +656,17 @@ export default function AdminDashboard() {
                 );
             case 'Leads':
                 return (
-                    <TabErrorBoundary tabName="Leads">
+                    <TabErrorBoundary tabName="Leads & Follow-up">
                         <Suspense fallback={<TabSkeleton />}>
                             <FollowupPage />
+                        </Suspense>
+                    </TabErrorBoundary>
+                );
+            case 'SocialMedia':
+                return (
+                    <TabErrorBoundary tabName="Social Media">
+                        <Suspense fallback={<TabSkeleton />}>
+                            <MarketingDashboard />
                         </Suspense>
                     </TabErrorBoundary>
                 );

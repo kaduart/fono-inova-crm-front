@@ -73,6 +73,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLastActivity(Date.now());
       API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
+      // 🔔 Notifica outros contextos que auth está pronto
+      window.dispatchEvent(new CustomEvent('authReady', { 
+        detail: { user: userData, role: userData.role } 
+      }));
+
       return { success: true, userRole: userData.role };
     } catch {
       return { success: false };
@@ -88,6 +93,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setUser(null);
       delete API.defaults.headers.common['Authorization'];
+
+      // 🔔 Notifica outros contextos sobre logout
+      window.dispatchEvent(new CustomEvent('authLogout'));
 
       // Delay para visualização do loading
       return { success: true };

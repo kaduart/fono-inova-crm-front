@@ -119,13 +119,13 @@ const TAB_CONFIG = {
     shortLabel: 'FB'
   },
   videos: {
-    label: 'Vídeos',
+    label: 'Vídeos com IA',
     icon: Video,
     color: 'red',
     shortLabel: 'Vídeos'
   },
   spy: {
-    label: 'Spy',
+    label: 'Spy de Concorrentes',
     icon: Search,
     color: 'purple',
     shortLabel: 'Spy'
@@ -628,8 +628,8 @@ export default function MarketingDashboard() {
                 </svg>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Marketing Dashboard</h1>
-                <p className="text-xs text-gray-500">GMB • Instagram • Facebook • Vídeos • Spy</p>
+                <h1 className="text-xl font-bold text-gray-900">Social Media Dashboard</h1>
+                <p className="text-xs text-gray-500">GMB • Instagram • Facebook • Vídeos • Spy de Concorrentes</p>
               </div>
             </div>
             <button

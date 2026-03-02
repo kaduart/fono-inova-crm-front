@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import { Expense } from '../../../services/expenseService';
 import { useExpenses } from '../../../hooks/useExpenses';
+import { toast } from 'react-toastify';
 
 type ExpenseModalProps = {
     open: boolean;
@@ -68,16 +69,21 @@ const ExpenseModal = ({ open, onClose, expense, onSaved }: ExpenseModalProps) =>
     };
 
     const handleSubmit = async () => {
+        const amountValue = parseFloat(form.amount);
+        if (isNaN(amountValue) || amountValue <= 0) {
+            toast.error('Informe um valor válido para a despesa');
+            return;
+        }
+
         const payload: Partial<Expense> = {
             description: form.description,
             category: form.category as Expense['category'],
             subcategory: form.subcategory || undefined,
-            amount: Number(form.amount),
+            amount: amountValue,
             date: form.date,
             paymentMethod: form.paymentMethod,
             status: form.status as Expense['status'],
             notes: form.notes,
-            // 🔹 se quiser atrelar a um profissional aqui depois é só adicionar relatedDoctor
         };
 
         if (isEditing && expense) {
@@ -141,7 +147,8 @@ const ExpenseModal = ({ open, onClose, expense, onSaved }: ExpenseModalProps) =>
                             value={form.amount}
                             onChange={(e) => handleChange('amount', e.target.value)}
                             size="small"
-                            inputProps={{ min: 0, step: 0.01 }}
+                            inputProps={{ min: 0.01, step: 0.01 }}
+                            required
                         />
                     </Grid>
 

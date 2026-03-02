@@ -6,7 +6,7 @@
  * Mantém todas as rotas das versões anteriores.
  */
 
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, Component, type ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { useAuth } from './contexts/AuthContext';
@@ -17,32 +17,52 @@ import Login from './components/Login';
 import ResetPassword from './components/ResetPassword';
 import SignUp from './components/SignUp';
 
-// 🎯 Lazy loading de componentes pesados
-const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
-const DoctorDashboard = lazy(() => import('./components/DoctorDashboard'));
-const PatientDashboard = lazy(() => import('./components/patients/PatientDashboard'));
-const CreateAppointmentPage = lazy(() => import('./pages/appointments/create'));
-const SchedulePage = lazy(() => import('./pages/schedule'));
-const PatientsTable = lazy(() => import('./components/doctor/patient/PatientsTable'));
-const PreAgendamentosPage = lazy(() => import('./pages/Secretaria/PreAgendamentosPage'));
-const PatientDetail = lazy(() => import('./components/doctor/patient/PatientDetail'));
-const MedicalReportsSection = lazy(() => import('./components/doctor/patient/reports/MedicalReportsSection'));
-const ContactsPage = lazy(() => import('./components/mkt/whatsapp/ContactsPage'));
+// 🔧 Helper para lazy loading com retry em caso de falha de chunk
+const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1000) => {
+  return lazy(() => 
+    importFn().catch((error: any) => {
+      // Se for erro de chunk não encontrado (atualização de build), recarrega a página
+      if (error?.name === 'TypeError' || error?.message?.includes('Failed to fetch dynamically imported module')) {
+        console.warn('[AppRoutes] Chunk load failed, attempting retry...');
+        
+        // Tenta novamente após delay
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            resolve(importFn());
+          }, delay);
+        });
+      }
+      throw error;
+    })
+  );
+};
+
+// 🎯 Lazy loading de componentes pesados (com retry automático)
+const AdminDashboard = lazyWithRetry(() => import('./components/AdminDashboard'));
+const DoctorDashboard = lazyWithRetry(() => import('./components/DoctorDashboard'));
+const PatientDashboard = lazyWithRetry(() => import('./components/patients/PatientDashboard'));
+const CreateAppointmentPage = lazyWithRetry(() => import('./pages/appointments/create'));
+const SchedulePage = lazyWithRetry(() => import('./pages/schedule'));
+const PatientsTable = lazyWithRetry(() => import('./components/doctor/patient/PatientsTable'));
+const PreAgendamentosPage = lazyWithRetry(() => import('./pages/Secretaria/PreAgendamentosPage'));
+const PatientDetail = lazyWithRetry(() => import('./components/doctor/patient/PatientDetail'));
+const MedicalReportsSection = lazyWithRetry(() => import('./components/doctor/patient/reports/MedicalReportsSection'));
+const ContactsPage = lazyWithRetry(() => import('./components/mkt/whatsapp/ContactsPage'));
 
 // Lazy loading de sub-features do Admin
-const SiteAnalyticsDashboard = lazy(() => import('./components/Dashboard/SiteAnalyticsDashboard'));
-const MarketingDashboard = lazy(() => import('./components/Dashboard/MarketingDashboard'));
-const FollowupDashboard = lazy(() => import('./components/Dashboard/FollowupDashboard'));
-const AppChat = lazy(() => import('./components/mkt/whatsapp/AppChat'));
-const FinancialDashboard = lazy(() => import('./pages/Financial/FinancialDashboard'));
-const PaymentPage = lazy(() => import('./components/financial/PaymentPage'));
-const ManageDoctors = lazy(() => import('./components/ManageDoctors/ManageDoctors'));
-const DoctorAgenda = lazy(() => import('./components/ManageDoctors/DoctorAgenda'));
-const EnhancedCalendar = lazy(() => import('./components/calendar/EnhancedCalendar'));
-const FollowupPage = lazy(() => import('./pages/FollowupPage'));
-const SalesList = lazy(() => import('./pages/Financial/SalesList'));
-const SaleForm = lazy(() => import('./pages/Financial/SaleForm'));
-const ProvisionamentoTab = lazy(() => import('./pages/Financial/tabs/ProvisionamentoTab'));
+const SiteAnalyticsDashboard = lazyWithRetry(() => import('./components/Dashboard/SiteAnalyticsDashboard'));
+const MarketingDashboard = lazyWithRetry(() => import('./components/Dashboard/MarketingDashboard'));
+const FollowupDashboard = lazyWithRetry(() => import('./components/Dashboard/FollowupDashboard'));
+const AppChat = lazyWithRetry(() => import('./components/mkt/whatsapp/AppChat'));
+const FinancialDashboard = lazyWithRetry(() => import('./pages/Financial/FinancialDashboard'));
+const PaymentPage = lazyWithRetry(() => import('./components/financial/PaymentPage'));
+const ManageDoctors = lazyWithRetry(() => import('./components/ManageDoctors/ManageDoctors'));
+const DoctorAgenda = lazyWithRetry(() => import('./components/ManageDoctors/DoctorAgenda'));
+const EnhancedCalendar = lazyWithRetry(() => import('./components/calendar/EnhancedCalendar'));
+const FollowupPage = lazyWithRetry(() => import('./pages/FollowupPage'));
+const SalesList = lazyWithRetry(() => import('./pages/Financial/SalesList'));
+const SaleForm = lazyWithRetry(() => import('./pages/Financial/SaleForm'));
+const ProvisionamentoTab = lazyWithRetry(() => import('./pages/Financial/tabs/ProvisionamentoTab'));
 
 // Componente de loading para Suspense
 const PageLoader = () => (

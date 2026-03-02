@@ -207,6 +207,14 @@ export const markInsuranceAsBilled = (id: string) =>
 export const receiveInsurancePayment = (id: string, data: { receivedAmount?: number; receivedDate?: string; notes?: string }) =>
     API.patch<{ success: boolean; data: InsurancePayment }>(`/payments/insurance/${id}/receive`, data);
 
+// Faturar em lote
+export const faturarConvenioLote = (data: { paymentIds: string[]; dataFaturamento: string; notaFiscal?: string }) =>
+    API.post<{ success: boolean; data: any }>('/financial/convenio/faturar-lote', data);
+
+// Receber em lote
+export const receberConvenioLote = (data: { paymentIds: string[]; dataRecebimento: string }) =>
+    API.post<{ success: boolean; data: any }>('/financial/convenio/receber-lote', data);
+
 // CRUD básicos
 export const getPayments = (filters: Record<string, any> = {}) =>
     API.get<FinancialRecord[]>('/payments', { params: filters });

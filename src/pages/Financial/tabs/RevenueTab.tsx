@@ -97,7 +97,7 @@ const RevenueTab: React.FC = () => {
                     p: { xs: 2, sm: 2.5 }, 
                     mb: { xs: 2, sm: 3 }, 
                     border: '1px solid', 
-                    borderColor: 'grey.200', 
+                    borderColor: 'grey.200',
                     borderRadius: 2,
                     bgcolor: 'white'
                 }}
@@ -107,7 +107,8 @@ const RevenueTab: React.FC = () => {
                     justifyContent: 'space-between', 
                     alignItems: 'center', 
                     flexWrap: 'wrap', 
-                    gap: 2 
+                    gap: 2,
+                    mb: 2
                 }}>
                     {/* Título */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -116,7 +117,7 @@ const RevenueTab: React.FC = () => {
                         </Avatar>
                         <Box>
                             <Typography variant="h5" fontWeight="bold" sx={{ color: '#1F2937' }}>
-                                Receitas - Visão Estratégica
+                                💵 Receitas & Análise Mensal
                             </Typography>
                             <Typography variant="body2" sx={{ color: '#6B7280' }}>
                                 Análise de receita, ticket médio e variações mensais
