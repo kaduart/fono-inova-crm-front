@@ -1,5 +1,5 @@
 import { Box, Divider, Grid, Stack, Typography, useTheme } from '@mui/material';
-import { AlertCircle, Building2, CheckCircle, CircleDollarSign, Clock, CreditCard } from 'lucide-react';
+import { AlertCircle, CheckCircle, CheckCircle2, CircleDollarSign, Clock, CreditCard, DollarSign } from 'lucide-react';
 import React from 'react';
 
 interface FinancialSummaryCardProps {
@@ -8,7 +8,12 @@ interface FinancialSummaryCardProps {
     totalPending: number;
     countReceived: number;
     countPending: number;
-    // Produção de Convênios
+    // Particular
+    particularReceived?: number;
+    particularPending?: number;
+    particularCountReceived?: number;
+    particularCountPending?: number;
+    // Convênios
     totalInsuranceProduction?: number;
     totalInsuranceReceived?: number;
     totalInsurancePending?: number;
@@ -32,72 +37,10 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
   };
 
   const hasInsuranceData = data.totalInsuranceProduction && data.totalInsuranceProduction > 0;
-
-  const cards = [
-    {
-      title: 'Total Recebido',
-      value: formatCurrency(data.totalReceived),
-      count: data.countReceived,
-      icon: CircleDollarSign,
-      color: '#16A34A',
-      bgColor: '#F0FDF4',
-      iconBg: '#DCFCE7',
-      description: 'pagamentos confirmados'
-    },
-    {
-      title: 'Total Pendente',
-      value: formatCurrency(data.totalPending),
-      count: data.countPending,
-      icon: Clock,
-      color: '#D97706',
-      bgColor: '#FFFBEB',
-      iconBg: '#FEF3C7',
-      description: 'aguardando confirmação'
-    },
-    {
-      title: 'Recebidos',
-      value: data.countReceived.toString(),
-      count: data.countReceived,
-      icon: CreditCard,
-      color: '#2563EB',
-      bgColor: '#EFF6FF',
-      iconBg: '#DBEAFE',
-      description: 'transações concluídas'
-    },
-    {
-      title: 'Pendentes',
-      value: data.countPending.toString(),
-      count: data.countPending,
-      icon: AlertCircle,
-      color: '#DC2626',
-      bgColor: '#FEF2F2',
-      iconBg: '#FEE2E2',
-      description: 'transações pendentes'
-    },
-    // Cards de Convênios (só aparecem se houver dados)
-    ...(hasInsuranceData ? [
-      {
-        title: 'Produção Convênios',
-        value: formatCurrency(data.totalInsuranceProduction || 0),
-        count: data.countInsuranceTotal || 0,
-        icon: Building2,
-        color: '#0891B2',
-        bgColor: '#ECFEFF',
-        iconBg: '#CFFAFE',
-        description: 'atendimentos realizados'
-      },
-      {
-        title: 'Convênios a Receber',
-        value: formatCurrency(data.totalInsurancePending || 0),
-        count: data.countInsurancePending || 0,
-        icon: Clock,
-        color: '#7C3AED',
-        bgColor: '#F5F3FF',
-        iconBg: '#EDE9FE',
-        description: 'pendentes de pagamento'
-      }
-    ] : [])
-  ];
+  
+  // Calcula total a receber (particular + convênios)
+  const totalAReceber = (data.particularPending || 0) + (data.totalInsurancePending || 0);
+  const countAReceber = (data.particularCountPending || 0) + (data.countInsurancePending || 0);
 
   return (
     <Box
@@ -167,167 +110,135 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
         </Box>
       </Box>
 
-      {/* Cards Grid */}
-      <Grid container spacing={2.5} sx={{ mb: 4 }}>
-        {cards.map((card, index) => (
-          <Grid item xs={12} sm={6} md={3} key={index}>
-            <Box
-              sx={{
-                backgroundColor: 'white',
-                borderRadius: 2,
-                p: 3,
-                height: '100%',
-                border: `1px solid ${theme.palette.divider}`,
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                position: 'relative',
-                overflow: 'hidden',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: `0 12px 24px ${card.color}15`,
-                  borderColor: card.color,
-                },
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '4px',
-                  backgroundColor: card.color,
-                }
-              }}
-            >
-              {/* Icon and Title */}
-              <Box display="flex" alignItems="center" mb={2}>
-                <Box
-                  sx={{
-                    backgroundColor: `${card.color}15`,
-                    p: 1.5,
-                    borderRadius: '12px',
-                    mr: 2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  <card.icon size={22} color={card.color} />
-                </Box>
-                <Typography
-                  variant="subtitle2"
-                  sx={{
-                    fontWeight: 600,
-                    color: 'grey.700',
-                    fontSize: '0.9rem'
-                  }}
-                >
-                  {card.title}
-                </Typography>
-              </Box>
-
-              {/* Value */}
-              <Typography
-                variant="h4"
-                sx={{
-                  fontWeight: 700,
-                  color: 'grey.900',
-                  mb: 1,
-                  fontSize: { xs: '1.5rem', sm: '1.75rem' },
-                  lineHeight: 1.2,
-                  letterSpacing: '-0.02em'
-                }}
-              >
-                {card.value}
-              </Typography>
-
-              {/* Description and Count */}
-              <Box display="flex" justifyContent="space-between" alignItems="center" mt={2.5}>
-                <Box display="flex" alignItems="center">
-                  <Box
-                    sx={{
-                      backgroundColor: `${card.color}10`,
-                      p: 1,
-                      borderRadius: '8px',
-                      mr: 1.5,
-                      display: 'flex'
-                    }}
-                  >
-                    {index < 2 ? (
-                      <CreditCard size={16} color={card.color} />
-                    ) : (
-                      <CheckCircle size={16} color={card.color} />
-                    )}
-                  </Box>
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: 'grey.600',
-                      fontWeight: 500,
-                      fontSize: '0.78rem'
-                    }}
-                  >
-                    {card.count} {card.description}
-                  </Typography>
-                </Box>
-
-                {/* Percentage or Indicator */}
-                {index < 2 && (
-                  <Box sx={{
-                    px: 1.5,
-                    py: 0.5,
-                    borderRadius: '12px',
-                    backgroundColor: index === 0 ? '#10B98115' : '#F59E0B15'
-                  }}>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        fontWeight: 600,
-                        color: index === 0 ? '#10B981' : '#F59E0B',
-                        fontSize: '0.75rem'
-                      }}
-                    >
-                      {index === 0 ? '100%' : `${((data.totalPending / (data.totalReceived + data.totalPending)) * 100).toFixed(1)}%`}
-                    </Typography>
-                  </Box>
-                )}
-              </Box>
-
-              {/* Progress Bar */}
-              {index < 2 && (
-                <Box sx={{ mt: 2.5 }}>
-                  <Box sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    mb: 0.5
-                  }}>
-                    <Typography variant="caption" sx={{ color: 'grey.500', fontWeight: 500 }}>
-                      Recebido
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: 'grey.500', fontWeight: 500 }}>
-                      Pendente
-                    </Typography>
-                  </Box>
-                  <Box sx={{
-                    width: '100%',
-                    height: 6,
-                    bgcolor: 'grey.200',
-                    borderRadius: 3,
-                    overflow: 'hidden'
-                  }}>
-                    <Box
-                      sx={{
-                        width: index === 0 ? '100%' : `${(data.totalPending / (data.totalReceived + data.totalPending)) * 100}%`,
-                        height: '100%',
-                        bgcolor: card.color,
-                        borderRadius: 3,
-                        transition: 'width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                      }}
-                    />
-                  </Box>
-                </Box>
-              )}
+      {/* Cards Grid - 4 colunas distribuídas ocupando toda largura */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {/* CARD 1: Particular Recebido */}
+        <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex' }}>
+          <Box
+            sx={{
+              backgroundColor: 'white',
+              borderRadius: 2,
+              p: 3,
+              height: '100%',
+              width: '100%',
+              border: `1px solid ${theme.palette.divider}`,
+              borderTop: '3px solid #059669',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                boxShadow: '0 8px 24px rgba(5, 150, 105, 0.12)',
+              }
+            }}
+          >
+            <Box sx={{ backgroundColor: '#ECFDF5', p: 1.5, borderRadius: '10px', width: 'fit-content', mb: 2 }}>
+              <DollarSign size={24} color="#059669" />
             </Box>
-          </Grid>
-        ))}
+            <Typography variant="caption" sx={{ color: 'grey.500', fontWeight: 500, fontSize: '0.8rem' }}>
+              Particular Recebido
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: '#059669', my: 0.5, fontSize: '1.5rem' }}>
+              {formatCurrency(data.particularReceived || 0)}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'grey.400', fontSize: '0.75rem' }}>
+              {data.particularCountReceived || 0} pagamentos confirmados
+            </Typography>
+          </Box>
+        </Grid>
+
+        {/* CARD 2: Convênios Recebidos */}
+        <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex' }}>
+          <Box
+            sx={{
+              backgroundColor: 'white',
+              borderRadius: 2,
+              p: 3,
+              height: '100%',
+              width: '100%',
+              border: `1px solid ${theme.palette.divider}`,
+              borderTop: '3px solid #0891B2',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                boxShadow: '0 8px 24px rgba(8, 145, 178, 0.12)',
+              }
+            }}
+          >
+            <Box sx={{ backgroundColor: '#ECFEFF', p: 1.5, borderRadius: '10px', width: 'fit-content', mb: 2 }}>
+              <CheckCircle2 size={24} color="#0891B2" />
+            </Box>
+            <Typography variant="caption" sx={{ color: 'grey.500', fontWeight: 500, fontSize: '0.8rem' }}>
+              Convênios Recebidos
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: '#0891B2', my: 0.5, fontSize: '1.5rem' }}>
+              {formatCurrency(data.totalInsuranceReceived || 0)}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'grey.400', fontSize: '0.75rem' }}>
+              {data.countInsuranceReceived || 0} repasses confirmados
+            </Typography>
+          </Box>
+        </Grid>
+
+        {/* CARD 3: Particular Pendente */}
+        <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex' }}>
+          <Box
+            sx={{
+              backgroundColor: 'white',
+              borderRadius: 2,
+              p: 3,
+              height: '100%',
+              width: '100%',
+              border: `1px solid ${theme.palette.divider}`,
+              borderTop: '3px solid #D97706',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                boxShadow: '0 8px 24px rgba(217, 119, 6, 0.12)',
+              }
+            }}
+          >
+            <Box sx={{ backgroundColor: '#FFFBEB', p: 1.5, borderRadius: '10px', width: 'fit-content', mb: 2 }}>
+              <Clock size={24} color="#D97706" />
+            </Box>
+            <Typography variant="caption" sx={{ color: 'grey.500', fontWeight: 500, fontSize: '0.8rem' }}>
+              Particular Pendente
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: '#D97706', my: 0.5, fontSize: '1.5rem' }}>
+              {formatCurrency(data.particularPending || 0)}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'grey.400', fontSize: '0.75rem' }}>
+              {data.particularCountPending || 0} aguardando pagamento
+            </Typography>
+          </Box>
+        </Grid>
+
+        {/* CARD 4: Convênios Pendentes */}
+        <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex' }}>
+          <Box
+            sx={{
+              backgroundColor: 'white',
+              borderRadius: 2,
+              p: 3,
+              height: '100%',
+              width: '100%',
+              border: `1px solid ${theme.palette.divider}`,
+              borderTop: '3px solid #7C3AED',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                boxShadow: '0 8px 24px rgba(124, 58, 237, 0.12)',
+              }
+            }}
+          >
+            <Box sx={{ backgroundColor: '#F5F3FF', p: 1.5, borderRadius: '10px', width: 'fit-content', mb: 2 }}>
+              <Clock size={24} color="#7C3AED" />
+            </Box>
+            <Typography variant="caption" sx={{ color: 'grey.500', fontWeight: 500, fontSize: '0.8rem' }}>
+              Convênios Pendentes
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: '#7C3AED', my: 0.5, fontSize: '1.5rem' }}>
+              {formatCurrency(data.totalInsurancePending || 0)}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'grey.400', fontSize: '0.75rem' }}>
+              {data.countInsurancePending || 0} aguardando repasse
+            </Typography>
+          </Box>
+        </Grid>
       </Grid>
 
       {/* Total Summary */}
@@ -378,6 +289,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
 
         {/* Grid de Valores Principais */}
         <Grid container spacing={3} alignItems="stretch">
+          {/* Particular Recebido */}
           <Grid item xs={12} md={hasInsuranceData ? 4 : 6}>
             <Box sx={{
               p: 3,
@@ -394,31 +306,32 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
                   <Box sx={{
                     width: 12,
                     height: 12,
-                    bgcolor: '#16A34A',
+                    bgcolor: '#059669',
                     borderRadius: '50%',
                     mr: 1.5
                   }} />
                   <Typography variant="body2" sx={{ color: 'grey.600', fontWeight: 500 }}>
-                    Caixa (Recebido)
+                    Particular Recebido
                   </Typography>
                 </Box>
                 <Typography
                   variant="h4"
                   sx={{
                     fontWeight: 700,
-                    color: '#16A34A',
+                    color: '#059669',
                     fontSize: '1.75rem'
                   }}
                 >
-                  {formatCurrency(data.totalReceived)}
+                  {formatCurrency(data.particularReceived || 0)}
                 </Typography>
               </Box>
               <Typography variant="caption" sx={{ color: 'grey.500', display: 'block', mt: 2 }}>
-                Valores já creditados
+                Pagamentos confirmados
               </Typography>
             </Box>
           </Grid>
 
+          {/* Convênios Recebidos (já no caixa) */}
           {hasInsuranceData && (
             <Grid item xs={12} md={4}>
               <Box sx={{
@@ -441,7 +354,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
                       mr: 1.5
                     }} />
                     <Typography variant="body2" sx={{ color: 'grey.600', fontWeight: 500 }}>
-                      Produção Convênios
+                      Convênios Recebidos
                     </Typography>
                   </Box>
                   <Typography
@@ -452,16 +365,17 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
                       fontSize: '1.75rem'
                     }}
                   >
-                    {formatCurrency(data.totalInsuranceProduction || 0)}
+                    {formatCurrency(data.totalInsuranceReceived || 0)}
                   </Typography>
                 </Box>
                 <Typography variant="caption" sx={{ color: 'grey.500', display: 'block', mt: 2 }}>
-                  Realizados neste período
+                  Repasses já creditados
                 </Typography>
               </Box>
             </Grid>
           )}
 
+          {/* Total Esperado (Caixa + Pendentes) */}
           <Grid item xs={12} md={hasInsuranceData ? 4 : 6}>
             <Box sx={{
               p: 3,
@@ -485,7 +399,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
                     mr: 1.5
                   }} />
                   <Typography variant="body2" sx={{ color: 'grey.600', fontWeight: 500 }}>
-                    {hasInsuranceData ? 'Total Combinado' : 'Saldo Total'}
+                    {hasInsuranceData ? 'Total Esperado' : 'Saldo Total'}
                   </Typography>
                 </Box>
                 <Typography
@@ -503,7 +417,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
                 </Typography>
               </Box>
               <Typography variant="caption" sx={{ color: 'grey.600', fontWeight: 500, display: 'block', mt: 2 }}>
-                {hasInsuranceData ? 'Soma de todas as fontes' : 'Total geral'}
+                {hasInsuranceData ? 'Caixa + Pendentes' : 'Total geral'}
               </Typography>
             </Box>
           </Grid>
@@ -527,22 +441,22 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
                   borderRadius: 2,
                   border: '1px solid',
                   borderColor: 'grey.200',
-                  '&:hover': { borderColor: '#16A34A' }
+                  '&:hover': { borderColor: '#059669' }
                 }}>
                   <Box display="flex" alignItems="center" justifyContent="space-between">
                     <Box display="flex" alignItems="center">
-                      <Box sx={{ width: 10, height: 10, bgcolor: '#16A34A', borderRadius: '50%', mr: 1.5 }} />
+                      <Box sx={{ width: 10, height: 10, bgcolor: '#059669', borderRadius: '50%', mr: 1.5 }} />
                       <Box>
                         <Typography variant="body2" sx={{ color: 'grey.700', fontWeight: 500 }}>
-                          Caixa Recebido
+                          Particular Recebido
                         </Typography>
                         <Typography variant="caption" sx={{ color: 'grey.500', display: 'block' }}>
-                          Valores já creditados
+                          Pagamentos confirmados
                         </Typography>
                       </Box>
                     </Box>
                     <Typography variant="body1" sx={{ fontWeight: 600, color: 'grey.800' }}>
-                      {formatCurrency(data.totalReceived)}
+                      {formatCurrency(data.particularReceived || 0)}
                     </Typography>
                   </Box>
                 </Box>
@@ -563,12 +477,12 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
                           Particular Pendente
                         </Typography>
                         <Typography variant="caption" sx={{ color: 'grey.500', display: 'block' }}>
-                          Aguardando recebimento
+                          Aguardando pagamento
                         </Typography>
                       </Box>
                     </Box>
                     <Typography variant="body1" sx={{ fontWeight: 600, color: 'grey.800' }}>
-                      {formatCurrency(data.totalPending)}
+                      {formatCurrency(data.particularPending || 0)}
                     </Typography>
                   </Box>
                 </Box>
@@ -591,15 +505,15 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
                         <Box sx={{ width: 10, height: 10, bgcolor: '#0891B2', borderRadius: '50%', mr: 1.5 }} />
                         <Box>
                           <Typography variant="body2" sx={{ color: 'grey.700', fontWeight: 500 }}>
-                            Convênios Realizados
+                            Convênios Recebidos
                           </Typography>
                           <Typography variant="caption" sx={{ color: 'grey.500', display: 'block' }}>
-                            Produção executada
+                            Repasses confirmados
                           </Typography>
                         </Box>
                       </Box>
                       <Typography variant="body1" sx={{ fontWeight: 600, color: 'grey.800' }}>
-                        {formatCurrency(data.totalInsuranceProduction || 0)}
+                        {formatCurrency(data.totalInsuranceReceived || 0)}
                       </Typography>
                     </Box>
                   </Box>

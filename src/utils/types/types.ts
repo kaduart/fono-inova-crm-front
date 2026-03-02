@@ -517,6 +517,12 @@ export interface PaymentTotals {
     countPending: number;    // Quantidade de pagamentos pendentes
     countPartial: number;    // Quantidade de pagamentos parciais
 
+    // 💰 Particular (separado)
+    particularReceived?: number;        // Valor particular recebido
+    particularPending?: number;         // Valor particular pendente
+    particularCountReceived?: number;   // Quantidade particular recebida
+    particularCountPending?: number;    // Quantidade particular pendente
+
     // 🏥 Produção de Convênios
     totalInsuranceProduction?: number;  // Valor total de convênios realizados (independente de pagamento)
     totalInsuranceReceived?: number;    // Valor de convênios já recebidos
@@ -525,7 +531,7 @@ export interface PaymentTotals {
     countInsuranceReceived?: number;    // Quantidade de convênios recebidos
     countInsurancePending?: number;     // Quantidade de convênios pendentes
 
-    // 💰 Total combinado (caixa + produção de convênios)
+    // 💰 Total combinado (caixa + convênios pendentes)
     totalCombined?: number;
 }
 

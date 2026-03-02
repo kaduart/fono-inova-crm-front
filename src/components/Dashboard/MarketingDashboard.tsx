@@ -841,7 +841,7 @@ export default function MarketingDashboard() {
             />
 
             {/* Layouts Instagram (apenas modo full) */}
-            {activeTab === 'instagram' && selectedMode === 'full' && (
+            {/* {activeTab === 'instagram' && selectedMode === 'full' && (
               <div className="mb-3 border border-pink-200 rounded-lg overflow-hidden">
                 <div className="bg-pink-50 px-3 py-2 flex items-center justify-between">
                   <p className="text-xs font-semibold text-gray-700">
@@ -898,7 +898,7 @@ export default function MarketingDashboard() {
                 )}
               </div>
             )}
-
+ */}
             {/* Modo de geração - cards menores */}
 
             {/* Seleção de modo de geração - cards menores */}

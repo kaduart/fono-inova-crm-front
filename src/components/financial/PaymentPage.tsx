@@ -375,7 +375,12 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                             totalPending: paymentTotals.totalPending || 0,
                                             countReceived: paymentTotals.countReceived || 0,
                                             countPending: paymentTotals.countPending || 0,
-                                            // 🏥 Produção de Convênios
+                                            // 💰 Particular (separado)
+                                            particularReceived: paymentTotals.particularReceived || 0,
+                                            particularPending: paymentTotals.particularPending || 0,
+                                            particularCountReceived: paymentTotals.particularCountReceived || 0,
+                                            particularCountPending: paymentTotals.particularCountPending || 0,
+                                            // 🏥 Convênios
                                             totalInsuranceProduction: paymentTotals.totalInsuranceProduction || 0,
                                             totalInsuranceReceived: paymentTotals.totalInsuranceReceived || 0,
                                             totalInsurancePending: paymentTotals.totalInsurancePending || 0,

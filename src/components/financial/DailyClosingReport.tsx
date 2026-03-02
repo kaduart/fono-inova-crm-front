@@ -24,6 +24,7 @@ import {
 } from "react-icons/md";
 import { TbCalendarStats } from "react-icons/tb";
 import usePayment from "../../hooks/usePayment";
+import { getPaymentTotals } from "../../services/paymentService";
 import { formatDateBrazilian } from "../../utils/dateFormat";
 import { LoadingSpinner } from "../ui/LoadingSpinner";
 import SummaryCard from "./SummaryCard";
@@ -91,9 +92,55 @@ const DailyClosingReport = () => {
     });
 
     const { dailyClosing: report, loading, error, fetchDailyClosing } = usePayment();
+    
+    // 🏥 Dados de convênio
+    const [insuranceData, setInsuranceData] = useState({
+        totalInsuranceProduction: 0,
+        totalInsuranceReceived: 0,
+        totalInsurancePending: 0,
+        countInsuranceTotal: 0,
+        countInsuranceReceived: 0,
+        countInsurancePending: 0,
+    });
+    const [loadingInsurance, setLoadingInsurance] = useState(false);
 
     useEffect(() => {
         fetchDailyClosing(dateFilter);
+        
+        // Buscar dados de convênio para a data
+        const fetchInsuranceData = async () => {
+            setLoadingInsurance(true);
+            try {
+                const startDate = new Date(dateFilter);
+                startDate.setHours(0, 0, 0, 0);
+                const endDate = new Date(dateFilter);
+                endDate.setHours(23, 59, 59, 999);
+                
+                const response = await getPaymentTotals({
+                    period: 'custom',
+                    startDate: startDate.toISOString(),
+                    endDate: endDate.toISOString()
+                });
+                
+                if (response.success && response.data?.totals) {
+                    const totals = response.data.totals;
+                    setInsuranceData({
+                        totalInsuranceProduction: totals.totalInsuranceProduction || 0,
+                        totalInsuranceReceived: totals.totalInsuranceReceived || 0,
+                        totalInsurancePending: totals.totalInsurancePending || 0,
+                        countInsuranceTotal: totals.countInsuranceTotal || 0,
+                        countInsuranceReceived: totals.countInsuranceReceived || 0,
+                        countInsurancePending: totals.countInsurancePending || 0,
+                    });
+                }
+            } catch (e) {
+                console.error('Erro ao buscar dados de convênio:', e);
+            } finally {
+                setLoadingInsurance(false);
+            }
+        };
+        
+        fetchInsuranceData();
     }, [dateFilter, fetchDailyClosing]);
 
     // 🎯 PROCESSAMENTO DE DADOS OTIMIZADO
@@ -272,6 +319,8 @@ const DailyClosingReport = () => {
                     data={processedData}
                     formatCurrency={formatCurrency}
                     onTimeSlotClick={handleTimeSlotClick}
+                    insuranceData={insuranceData}
+                    loadingInsurance={loadingInsurance}
                 />
             )}
 
@@ -320,7 +369,7 @@ const DailyClosingReport = () => {
 };
 
 // 🎨 COMPONENTE DE VISÃO GERAL
-const OverviewView = ({ data, formatCurrency, onTimeSlotClick }: any) => {
+const OverviewView = ({ data, formatCurrency, onTimeSlotClick, insuranceData, loadingInsurance }: any) => {
     const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
 
     // ==========================================================
@@ -384,6 +433,47 @@ const OverviewView = ({ data, formatCurrency, onTimeSlotClick }: any) => {
                         </span>
                     </div>
                 </div>
+
+                {/* CARDS DE CONVÊNIOS - Só aparecem se houver dados */}
+                {(insuranceData.totalInsuranceProduction > 0 || loadingInsurance) && (
+                    <div className="mt-6 pt-6 border-t border-gray-200">
+                        <h4 className="text-sm font-medium text-gray-500 mb-4">🏥 Convênios</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            {/* PRODUÇÃO CONVÊNIOS */}
+                            <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-cyan-50 border border-cyan-100">
+                                <span className="text-sm font-medium text-cyan-700">Produção</span>
+                                <span className="text-xl font-bold text-cyan-700 mt-1">
+                                    {formatCurrency(insuranceData.totalInsuranceProduction)}
+                                </span>
+                                <span className="text-xs text-cyan-600 mt-1">
+                                    {insuranceData.countInsuranceTotal} atendimentos
+                                </span>
+                            </div>
+
+                            {/* RECEBIDOS */}
+                            <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-emerald-50 border border-emerald-100">
+                                <span className="text-sm font-medium text-emerald-700">Recebidos</span>
+                                <span className="text-xl font-bold text-emerald-700 mt-1">
+                                    {formatCurrency(insuranceData.totalInsuranceReceived)}
+                                </span>
+                                <span className="text-xs text-emerald-600 mt-1">
+                                    {insuranceData.countInsuranceReceived} recebidos
+                                </span>
+                            </div>
+
+                            {/* A RECEBER */}
+                            <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-violet-50 border border-violet-100">
+                                <span className="text-sm font-medium text-violet-700">A Receber</span>
+                                <span className="text-xl font-bold text-violet-700 mt-1">
+                                    {formatCurrency(insuranceData.totalInsurancePending)}
+                                </span>
+                                <span className="text-xs text-violet-600 mt-1">
+                                    {insuranceData.countInsurancePending} pendentes
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* PERÍODOS DO DIA */}
