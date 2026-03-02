@@ -128,7 +128,7 @@ export interface UseMarketingReturn {
     update: (postId: string, data: Partial<Post>) => Promise<void>;
   };
   videos: VideoData & {
-    generate: (data: { especialidadeId: string; roteiro: string; duration: number }) => Promise<void>;
+    generate: (data: { especialidadeId: string; roteiro: string; duration: number; modo?: 'avatar' | 'ilustrativo' }) => Promise<void>;
     publish: (videoId: string, channels: Channel[]) => Promise<void>;
     delete: (videoId: string) => Promise<void>;
   };
@@ -372,7 +372,7 @@ export function useMarketing(): UseMarketingReturn {
   };
 
   // Video Actions
-  const videoGenerate = async (data: { especialidadeId: string; roteiro: string; duration: number }) => {
+  const videoGenerate = async (data: { especialidadeId: string; roteiro: string; duration: number; modo?: 'avatar' | 'ilustrativo' }) => {
     await API.post('/videos', data);
     await fetchVideosData();
   };

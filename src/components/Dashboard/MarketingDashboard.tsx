@@ -207,6 +207,7 @@ export default function MarketingDashboard() {
   const [pendingImages, setPendingImages] = useState<Record<string, string>>({});
   const [videoDuration, setVideoDuration] = useState<30 | 45 | 60>(30);
   const [videoRoteiro, setVideoRoteiro] = useState('');
+  const [videoMode, setVideoMode] = useState<'avatar' | 'ilustrativo'>('avatar');
   const [generatingVideo, setGeneratingVideo] = useState(false);
 
   // Spy states
@@ -464,9 +465,10 @@ export default function MarketingDashboard() {
       await videos.generate({
         especialidadeId: selectedEspecialidade,
         roteiro: videoRoteiro,
-        duration: videoDuration
+        duration: videoDuration,
+        modo: videoMode
       });
-      toast.info('Vídeo em processamento!');
+      toast.info(`Vídeo ${videoMode === 'avatar' ? 'com avatar' : 'ilustrativo'} em processamento!`);
       setVideoRoteiro('');
       refresh();
     } catch (err: any) {
@@ -962,6 +964,14 @@ export default function MarketingDashboard() {
                 <option value={45}>⏱️ 45 segundos</option>
                 <option value={60}>⏱️ 60 segundos</option>
               </select>
+              <select
+                value={videoMode}
+                onChange={(e) => setVideoMode(e.target.value as 'avatar' | 'ilustrativo')}
+                className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
+              >
+                <option value="avatar">🎭 Avatar (HeyGen)</option>
+                <option value="ilustrativo">🖼️ Ilustrativo (Imagens)</option>
+              </select>
             </div>
             <textarea
               value={videoRoteiro}
@@ -975,7 +985,7 @@ export default function MarketingDashboard() {
               disabled={generatingVideo || !selectedEspecialidade}
               className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 disabled:opacity-50 transition-all shadow-sm text-sm font-medium"
             >
-              {generatingVideo ? 'Gerando...' : '🎬 Gerar Vídeo'}
+              {generatingVideo ? 'Gerando...' : `🎬 Gerar Vídeo ${videoMode === 'avatar' ? 'com Avatar' : 'Ilustrativo'}`}
             </button>
           </div>
         )}
