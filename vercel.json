@@ -1,13 +1,13 @@
 {
-  "outputDirectory": "dist",
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "https://fono-inova-crm-back.onrender.com/api/$1"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/"
-    }
-  ]
+    "outputDirectory": "dist",
+    "rewrites": [
+        {
+            "source": "/api/(.*)",
+            "destination": "https://fono-inova-crm-back.onrender.com/api/$1"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/"
+        }
+    ]
 }
