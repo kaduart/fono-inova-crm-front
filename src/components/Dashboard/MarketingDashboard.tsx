@@ -566,6 +566,17 @@ export default function MarketingDashboard() {
     );
   };
 
+  const AutoBadge = ({ post }: { post: any }) => {
+    const isAuto = post.publishedBy === 'cron' || post.tags?.includes('auto');
+    if (!isAuto) return null;
+    return (
+      <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200 flex items-center gap-1">
+        <span>🤖</span>
+        <span>Auto</span>
+      </span>
+    );
+  };
+
   // Cards de estatísticas
   const StatsCards = () => {
     if (!stats) return null;
@@ -1104,6 +1115,7 @@ export default function MarketingDashboard() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <StatusBadge status={post.status} />
                           {post.funnelStage && <FunnelBadge stage={post.funnelStage} />}
+                          <AutoBadge post={post} />
                           {post.theme && (
                             <span className="px-2 py-0.5 bg-gray-100 rounded-full text-xs font-medium text-gray-700">
                               {ESPECIALIDADES.find(e => e.id === post.theme)?.nome || post.theme}
