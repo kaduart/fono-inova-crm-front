@@ -26,7 +26,7 @@ export default defineConfig(({ mode }) => {
       react(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'images/*.png'],
+        includeAssets: ['favicon.ico', 'logo192.png', 'logo512.png'],
         manifest: {
           name: 'Fono Inova - CRM Clínica',
           short_name: 'Fono Inova',
@@ -39,12 +39,12 @@ export default defineConfig(({ mode }) => {
           start_url: '/',
           icons: [
             {
-              src: 'images/logo-padrao-3d-longa.png',
+              src: 'logo192.png',
               sizes: '192x192',
               type: 'image/png',
             },
             {
-              src: 'images/logo-padrao-3d-longa.png',
+              src: 'logo512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any maskable',
@@ -53,6 +53,7 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+          globIgnores: ['images/logo-*.png'],  // Ignora imagens grandes originais
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fono-inova-crm-back\.onrender\.com\/api\//,
