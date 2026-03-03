@@ -10,6 +10,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const isDev = mode === 'development';
 
+  
   // Configuração robusta de URLs
   const baseUrl = isDev
     ? 'http://localhost:5000'
