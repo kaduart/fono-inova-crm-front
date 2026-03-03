@@ -104,7 +104,7 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
     );
 
     return (
-        <header className="bg-emerald-700 shadow-lg border-b border-emerald-600 text-white">
+        <header className="shadow-lg border-b text-white" style={{ backgroundColor: 'rgb(13 138 108)', borderColor: 'rgba(255,255,255,0.2)' }}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between h-16 items-center">
                     {/* Logo e nome da clínica */}
@@ -115,7 +115,7 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
                             onClick={() => handleTabChange("overview")}
                         >
                             <div className="h-10 w-10 rounded-lg bg-white flex items-center justify-center shadow-md">
-                                <img className="w-12 h-12" src="images/cabeca-logo-verde-clara.png" alt="" />
+                                <img className="w-12 h-12" src="images/logo-padrao-3d-encurtada.png" alt="" />
 
                             </div>
 

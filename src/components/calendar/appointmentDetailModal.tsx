@@ -691,26 +691,21 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             <div className="space-y-2">
                                 <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                                     <User className="w-4 h-4 text-green-600" />
-                                    Paciente *
+                                    Paciente <span className="text-red-500">(não pode ser alterado)</span>
                                 </label>
-                                <select
-                                    value={editedAppointment.patientId}
-                                    onChange={(e) => handleFieldChange('patientId', e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
-                                >
-                                    <option value="">Selecione um paciente</option>
-                                    {patients.map(patient => (
-                                        <option key={patient._id} value={patient._id}>
-                                            {patient.fullName}
-                                        </option>
-                                    ))}
-                                    {/* 🔧 ADICIONADO: Garante que o paciente do agendamento atual apareça, mesmo se não estiver na lista */}
-                                    {editedAppointment.patientId && !patients.find(p => p._id === editedAppointment.patientId) && event?.patient && (
-                                        <option key={editedAppointment.patientId} value={editedAppointment.patientId}>
-                                            {event.patient.fullName}
-                                        </option>
-                                    )}
-                                </select>
+                                {/* 🚫 BLOQUEADO: Paciente não pode ser alterado em agendamento existente */}
+                                <div className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 flex items-center gap-3">
+                                    <i className="fas fa-user-lock text-gray-500"></i>
+                                    <span className="font-medium">
+                                        {patients.find(p => p._id === editedAppointment.patientId)?.fullName || 
+                                         event?.patient?.fullName || 
+                                         'Paciente não encontrado'}
+                                    </span>
+                                </div>
+                                <p className="text-xs text-amber-600 mt-1">
+                                    <i className="fas fa-exclamation-triangle mr-1"></i>
+                                    Para trocar de paciente, cancele este agendamento e crie um novo.
+                                </p>
                             </div>
 
                             <div className="space-y-2">

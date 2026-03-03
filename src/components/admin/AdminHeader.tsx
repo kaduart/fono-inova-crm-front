@@ -66,7 +66,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     };
 
     return (
-        <header className="bg-emerald-700 shadow-lg border-b border-emerald-600 text-white py-3 sticky top-0 z-50">
+        <header className="shadow-lg border-b text-white py-3 sticky top-0 z-50" style={{ backgroundColor: 'rgb(13 138 108)', borderColor: 'rgba(255,255,255,0.2)' }}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between">
                     {/* Logo e nome da clínica */}
@@ -76,7 +76,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         onClick={() => handleTabChange("Dashboard")}
                     >
                         <div className="h-12 w-12 rounded-lg bg-white flex items-center justify-center overflow-hidden">
-                            <img className="w-12 h-12 object-cover" src="images/cabeca-logo-verde-clara.png" alt="" />
+                            <img className="w-12 h-12 object-cover" src="images/logo-padrao-3d-encurtada.png" alt="" />
                         </div>
                         <div className="flex flex-col">
                             <span className="text-xl font-bold text-white leading-tight">

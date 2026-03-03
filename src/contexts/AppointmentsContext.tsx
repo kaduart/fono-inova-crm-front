@@ -32,6 +32,8 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 limit: 500,
                 // 🎯 SIMPLIFICAÇÃO: Pré-agendamentos agora são tratados como agendamentos normais
                 // com operationalStatus = 'pre_agendado', então são incluídos automaticamente
+                // ❌ MAS não queremos mostrar no calendário - só no painel de pré-agendamentos
+                excludePreAgendamentos: true,
                 ...(filters?.startDate && { startDate: filters.startDate }),
                 ...(filters?.endDate && { endDate: filters.endDate }),
             };
