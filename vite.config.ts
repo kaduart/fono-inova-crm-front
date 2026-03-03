@@ -38,12 +38,12 @@ export default defineConfig(({ mode }) => {
           start_url: '/',
           icons: [
             {
-              src: 'images/icone-colorido-cabeca.png',
+              src: 'images/logo-padrao-3d-longa.png',
               sizes: '192x192',
               type: 'image/png',
             },
             {
-              src: 'images/icone-colorido-cabeca.png',
+              src: 'images/logo-padrao-3d-longa.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any maskable',
