@@ -4,6 +4,7 @@ import { ToastContainer } from "react-toastify";
 import { Toaster } from "react-hot-toast";
 import "./App.css";
 import AppRoutes from "./AppRoutes";
+import { useWhatsAppDeliveryError } from "./hooks/useWhatsAppDeliveryError";
 import PixNotificationPopup from "./components/financial/PixNotificationPopup";
 import { ChatNotificationPopup } from "./components/mkt/whatsapp/ChatNotificationPopup";
 import { MediaNotificationPopup } from "./components/mkt/whatsapp/MediaNotificationPopup";
@@ -18,6 +19,9 @@ import { PreAgendamentoNotificationPopup } from "./components/patients/PreAgenda
 const App: React.FC = () => {
   const { isLoading } = useAuth();
   const didInitSocket = useRef(false);
+
+  // 🆕 Inicializa listener de falhas de entrega WhatsApp
+  useWhatsAppDeliveryError();
 
   return (
     <ChatNavigationProvider>

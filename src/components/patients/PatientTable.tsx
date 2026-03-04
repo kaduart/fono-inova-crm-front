@@ -1,4 +1,4 @@
-import { Calendar, ChevronDown, ChevronUp, Edit, Eye, FileHeart, List, Package, Phone, Search, User, X } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, Edit, Eye, FileHeart, List, Package, Phone, Search, Trash2, User, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from 'react';
 import { BsHourglass } from "react-icons/bs";
 import { Link } from "react-router-dom";
@@ -37,6 +37,7 @@ interface Patient {
 interface PatientTableProps {
     patients?: Patient[];
     onEditPatient?: (patient: Patient) => void;
+    onDeletePatient?: (patient: Patient) => void;
     onPaymentAdvancedSuccess?: (patient: Patient) => void;
     onRegisterPayment?: (patient: Patient) => void;
 }
@@ -147,6 +148,7 @@ const normalizeString = (str?: string | null): string => {
 const PatientTable: React.FC<PatientTableProps> = ({
     patients: initialPatients = [],
     onEditPatient,
+    onDeletePatient,
     onPaymentAdvancedSuccess,
     onRegisterPayment,
 }) => {
@@ -487,7 +489,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                         </Link>
-                                                        <button
+                                                       {/*  <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 onPaymentAdvancedSuccess?.(patient);
@@ -496,7 +498,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                             className="p-1.5 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 rounded-md transition-colors"
                                                         >
                                                             <BsHourglass className="w-4 h-4" />
-                                                        </button>
+                                                        </button> */}
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -513,6 +515,16 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                             className="p-1.5 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-md transition-colors"
                                                         >
                                                             <FileHeart className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onDeletePatient?.(patient);
+                                                            }}
+                                                            title="Deletar paciente"
+                                                            className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
                                                         </button>
                                                     </div>
                                                 </td>

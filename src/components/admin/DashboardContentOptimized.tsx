@@ -51,6 +51,7 @@ interface DashboardContentOptimizedProps {
     setSelectedPatient?: (patient: any) => void;
     setPaymentContext?: (context: any) => void;
     setPaymentModalOpen?: (isOpen: boolean) => void;
+    onDeletePatient?: (patient: any) => void;
 }
 
 // Componente de skeleton para métricas
@@ -177,7 +178,8 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     setShowAdvancedPayment,
     setSelectedPatient,
     setPaymentContext,
-    setPaymentModalOpen
+    setPaymentModalOpen,
+    onDeletePatient
 }) => {
     // Estados dos accordions
     const [birthdaySectionOpen, setBirthdaySectionOpen] = useState(false);
@@ -302,6 +304,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                         });
                         setPaymentModalOpen(true);
                     }}
+                    onDeletePatient={onDeletePatient}
                 />
             </AccordionSection>
 

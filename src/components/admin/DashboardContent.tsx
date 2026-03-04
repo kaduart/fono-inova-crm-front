@@ -20,6 +20,7 @@ interface DashboardContentProps {
     setSelectedPatient: (patient: any) => void;
     setPaymentContext: (context: any) => void;
     setPaymentModalOpen: (isOpen: boolean) => void;
+    onDeletePatient?: (patient: any) => void;
 }
 
 const DashboardContent: React.FC<DashboardContentProps> = ({
@@ -36,7 +37,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({
     setShowAdvancedPayment,
     setSelectedPatient,
     setPaymentContext,
-    setPaymentModalOpen
+    setPaymentModalOpen,
+    onDeletePatient
 }) => {
     const occupancyRate = ((totalPatients / hospitalCapacity) * 100).toFixed(2);
     const [showDoctors, setShowDoctors] = React.useState(false);
@@ -105,6 +107,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({
                                 });
                                 setPaymentModalOpen(true);
                             }}
+                            onDeletePatient={onDeletePatient}
                         />
                     </div>
                 )}

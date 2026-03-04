@@ -294,6 +294,11 @@ class SocketManager {
         return this.on("lead:manualControl", handler);
     }
 
+    // 🆕 Escuta falhas de entrega de mensagens WhatsApp
+    onMessageFailed(handler: AnyHandler<{ messageId: string; leadId: string; phone: string; error: any; content?: string; timestamp: string }>): Unsubscribe {
+        return this.on("whatsapp:message:failed", handler);
+    }
+
     // ✅ Registra callback para evento de (re)conexão
     onReconnect(callback: () => void): Unsubscribe {
         return this.on("connect", callback);

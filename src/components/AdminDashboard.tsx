@@ -3,6 +3,8 @@ import { BarChart3, CalendarPlus } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { patientService } from '../services/patientService';
+import { confirmToast } from '../utils/confirmToast';
 import { TabErrorBoundary } from './error/TabErrorBoundary';
 import { IPatient, ScheduleAppointment } from '../../utils/types/types';
 import { useAppointmentsContext } from '../contexts/AppointmentsContext';
@@ -517,6 +519,29 @@ export default function AdminDashboard() {
         });
     }, []);
 
+    // 🗑️ Handler para deletar paciente com confirmação
+    const handleDeletePatient = useCallback(async (patient: IPatient) => {
+        if (!patient._id) return;
+        
+        const confirmed = await confirmToast(
+            `Tem certeza que deseja excluir o paciente "${patient.fullName}"? Esta ação não pode ser desfeita.`
+        );
+        
+        if (!confirmed) return;
+        
+        try {
+            await patientService.delete(patient._id);
+            toast.success('Paciente excluído com sucesso!');
+            // 🔄 Atualiza a lista de pacientes
+            fetchPatients();
+            // 🔄 Atualiza o dashboard
+            refreshDashboard();
+        } catch (error: any) {
+            const msg = error?.response?.data?.error || error?.response?.data?.message || 'Erro ao excluir paciente';
+            toast.error(msg);
+        }
+    }, [fetchPatients, refreshDashboard]);
+
     // 🗓️ Handler para quando o usuário muda de mês no calendário
     const handleMonthChange = useCallback((startDate: Date, endDate: Date) => {
         const formatDateForAPI = (date: Date): string => {
@@ -558,8 +583,9 @@ export default function AdminDashboard() {
         setSelectedPatient,
         setPaymentContext,
         setPaymentModalOpen,
+        onDeletePatient: handleDeletePatient,
     }), [stats, doctorsOverview, upcomingAppts, patients, dashboardLoading, refreshDashboard, 
-        handleAddProfessional, handleAddPatient]);
+        handleAddProfessional, handleAddPatient, handleDeletePatient]);
 
     const manageDoctorsProps = useMemo(() => ({
         onSubmitDoctor: handleSaveDoctor,
