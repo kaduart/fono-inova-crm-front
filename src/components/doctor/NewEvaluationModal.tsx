@@ -41,6 +41,9 @@ type NewEvaluationModalProps = {
     onSelectProtocol?: (code: string) => void;
     protocolsLoading?: boolean;
     protocolsError?: string | null;
+    // NOVO: permite recarregar protocolos quando muda especialidade
+    onSpecialtyChange?: (specialty: string) => void;
+    doctorSpecialty?: string;
 };
 
 // ============================================
@@ -400,17 +403,49 @@ export function NewEvaluationModal({
         }
     }, [open]);
 
-    // Handler para carregar template de especialidade
+    // Handler para carregar template de especialidade - AGORA SÓ ADICIONA AO CATALOGO
     const handleLoadTemplate = (specialty: string) => {
         setSelectedSpecialty(specialty);
-        if (specialty && SPECIALTY_TEMPLATES[specialty]) {
-            const template = SPECIALTY_TEMPLATES[specialty];
+        
+        // NOVO: Notifica o componente pai para recarregar protocolos da especialidade
+        if (onSpecialtyChange && specialty) {
+            onSpecialtyChange(specialty);
+        }
+        
+        // ALTERADO: Nao pre-preenche mais automaticamente
+        // Agora so limpa para o medico adicionar manualmente do catalogo
+        setDynamicMetrics([]);
+        setDynamicAreas([]);
+    };
+    
+    // NOVO: Funcao para adicionar TODAS as metricas do template (se o medico quiser)
+    const handleLoadAllMetricsFromTemplate = () => {
+        if (selectedSpecialty && SPECIALTY_TEMPLATES[selectedSpecialty]) {
+            const template = SPECIALTY_TEMPLATES[selectedSpecialty];
             setDynamicMetrics([...template.metrics]);
             setDynamicAreas([...template.areas]);
-        } else {
-            // Se desselecionar, limpa tudo
-            setDynamicMetrics([]);
-            setDynamicAreas([]);
+        }
+    };
+    
+    // NOVO: Funcao para adicionar metrica especifica do template
+    const handleAddMetricFromTemplate = (metricId: string) => {
+        if (selectedSpecialty && SPECIALTY_TEMPLATES[selectedSpecialty]) {
+            const template = SPECIALTY_TEMPLATES[selectedSpecialty];
+            const metric = template.metrics.find(m => m.id === metricId);
+            if (metric && !dynamicMetrics.find(m => m.id === metricId)) {
+                setDynamicMetrics(prev => [...prev, metric]);
+            }
+        }
+    };
+    
+    // NOVO: Funcao para adicionar area especifica do template
+    const handleAddAreaFromTemplate = (areaId: string) => {
+        if (selectedSpecialty && SPECIALTY_TEMPLATES[selectedSpecialty]) {
+            const template = SPECIALTY_TEMPLATES[selectedSpecialty];
+            const area = template.areas.find(a => a.id === areaId);
+            if (area && !dynamicAreas.find(a => a.id === areaId)) {
+                setDynamicAreas(prev => [...prev, area]);
+            }
         }
     };
 
@@ -499,8 +534,8 @@ export function NewEvaluationModal({
                             <div className="flex items-center gap-3">
                                 <span className="text-2xl">⚡</span>
                                 <div className="flex-1">
-                                    <h4 className="font-bold text-gray-900">Carregar Template por Especialidade</h4>
-                                    <p className="text-sm text-gray-600">Preencha automaticamente métricas e áreas da sua área de atuação</p>
+                                    <h4 className="font-bold text-gray-900">Selecionar Especialidade</h4>
+                                    <p className="text-sm text-gray-600">Escolha a especialidade para carregar o catálogo de métricas e protocolos específicos</p>
                                 </div>
                             </div>
                             <select
@@ -518,12 +553,83 @@ export function NewEvaluationModal({
                                 <option value="psicomotricidade">🤸 Psicomotricidade</option>
                                 <option value="psicopedagogia">📚 Psicopedagogia</option>
                             </select>
+                            
                             {selectedSpecialty && (
-                                <p className="text-xs text-green-700 bg-green-100 rounded-lg p-2">
-                                    ✓ Template de <strong>{selectedSpecialty}</strong> carregado! Você pode adicionar ou remover itens conforme necessário.
-                                </p>
+                                <div className="space-y-2">
+                                    <p className="text-xs text-amber-700 bg-amber-100 rounded-lg p-2">
+                                        📋 Catálogo de <strong>{selectedSpecialty}</strong> disponível. Adicione as métricas e áreas que foram avaliadas.
+                                    </p>
+                                    
+                                    {/* Botão para carregar tudo (se o medico quiser) */}
+                                    <button
+                                        onClick={handleLoadAllMetricsFromTemplate}
+                                        className="text-sm text-blue-600 hover:text-blue-800 underline"
+                                    >
+                                        📝 Ou clique aqui para carregar TODAS as métricas de {selectedSpecialty}
+                                    </button>
+                                </div>
                             )}
                         </div>
+                        
+                        {/* Catalogo de Métricas da Especialidade Selecionada */}
+                        {selectedSpecialty && SPECIALTY_TEMPLATES[selectedSpecialty] && (
+                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl p-5 space-y-4">
+                                <h4 className="font-bold text-gray-900 flex items-center gap-2">
+                                    <span>📚</span> Catálogo de {selectedSpecialty}
+                                </h4>
+                                <p className="text-sm text-gray-600">
+                                    Clique nos itens abaixo para adicionar à avaliação:
+                                </p>
+                                
+                                {/* Métricas disponíveis */}
+                                <div className="space-y-2">
+                                    <p className="text-xs font-semibold text-gray-500 uppercase">Métricas disponíveis:</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {SPECIALTY_TEMPLATES[selectedSpecialty].metrics.map((metric) => {
+                                            const isAdded = dynamicMetrics.find(m => m.id === metric.id);
+                                            return (
+                                                <button
+                                                    key={metric.id}
+                                                    onClick={() => handleAddMetricFromTemplate(metric.id)}
+                                                    disabled={!!isAdded}
+                                                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                                                        isAdded 
+                                                            ? 'bg-green-100 text-green-700 cursor-default' 
+                                                            : 'bg-white border border-blue-300 text-blue-700 hover:bg-blue-100'
+                                                    }`}
+                                                >
+                                                    {isAdded ? '✓ ' : '+ '}{metric.name}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                                
+                                {/* Áreas disponíveis */}
+                                <div className="space-y-2">
+                                    <p className="text-xs font-semibold text-gray-500 uppercase">Áreas disponíveis:</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {SPECIALTY_TEMPLATES[selectedSpecialty].areas.map((area) => {
+                                            const isAdded = dynamicAreas.find(a => a.id === area.id);
+                                            return (
+                                                <button
+                                                    key={area.id}
+                                                    onClick={() => handleAddAreaFromTemplate(area.id)}
+                                                    disabled={!!isAdded}
+                                                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                                                        isAdded 
+                                                            ? 'bg-green-100 text-green-700 cursor-default' 
+                                                            : 'bg-white border border-purple-300 text-purple-700 hover:bg-purple-100'
+                                                    }`}
+                                                >
+                                                    {isAdded ? '✓ ' : '+ '}{area.name}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* 🎯 Plano terapêutico / Protocolo */}
                         <div className="border-2 border-gray-200 rounded-2xl bg-white shadow-lg p-6 space-y-4">

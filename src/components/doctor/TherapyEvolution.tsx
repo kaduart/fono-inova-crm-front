@@ -53,6 +53,7 @@ export default function TherapyEvolution({
     const [protocolsLoading, setProtocolsLoading] = useState(false);
     const [protocolsError, setProtocolsError] = useState<string | null>(null);
     const [selectedProtocolCode, setSelectedProtocolCode] = useState<string | null>(null);
+    const [selectedSpecialty, setSelectedSpecialty] = useState<string>((user as any)?.specialty || '');
 
 
     useEffect(() => {
@@ -77,6 +78,13 @@ export default function TherapyEvolution({
             loadProtocols();
         }
     }, [user]);
+    
+    // NOVO: Recarrega protocolos quando muda a especialidade selecionada
+    useEffect(() => {
+        if (selectedSpecialty) {
+            loadProtocolsBySpecialty(selectedSpecialty);
+        }
+    }, [selectedSpecialty]);
 
     useEffect(() => {
         if (!selectedPatientId) {
@@ -268,7 +276,7 @@ export default function TherapyEvolution({
             // ✅ Payload final
             const payload = {
                 patient: selectedPatientId,
-                specialty: (user as any)?.specialty || 'fonoaudiologia',
+                specialty: (user as any)?.specialty || selectedSpecialty || 'geral',
                 date: new Date(form.date),
                 time: form.time || '10:00',
                 content: form.content || '',
@@ -373,7 +381,7 @@ export default function TherapyEvolution({
         return count > 0 ? totalProgress / count : 0;
     };
 
-    // CORREÇÃO 1: Remover filtro active da query (linha 326-347)
+    // CORREÇÃO 1: Remover filtro active da query
 
     const loadProtocols = async () => {
         try {
@@ -382,23 +390,49 @@ export default function TherapyEvolution({
 
             const specialty = (user as any)?.specialty;
 
-            // ✅ CORRIGIDO: Remover &active=true
+            // CORRIGIDO: Remover &active=true
             const query = specialty
                 ? `?specialty=${encodeURIComponent(specialty)}`
                 : '';
 
-            console.log('🔍 Buscando protocolos:', `/protocols${query}`);
+            console.log('Buscando protocolos:', `/protocols${query}`);
             const response = await API.get(`/protocols${query}`);
-            console.log('✅ Protocolos recebidos:', response.data);
+            console.log('Protocolos recebidos:', response.data);
 
             setProtocols(response.data || []);
 
             if (response.data?.length === 0) {
-                console.warn('⚠️ Nenhum protocolo encontrado para especialidade:', specialty);
+                console.warn('Nenhum protocolo encontrado para especialidade:', specialty);
             }
         } catch (err: any) {
-            console.error('❌ Erro ao carregar protocolos:', err);
-            setProtocolsError('Erro ao carregar protocolos terapêuticos');
+            console.error('Erro ao carregar protocolos:', err);
+            setProtocolsError('Erro ao carregar protocolos terapeuticos');
+            toast.error('Erro ao carregar protocolos');
+        } finally {
+            setProtocolsLoading(false);
+        }
+    };
+    
+    // NOVO: Carrega protocolos por especialidade específica (para quando muda no modal)
+    const loadProtocolsBySpecialty = async (specialty: string) => {
+        try {
+            setProtocolsLoading(true);
+            setProtocolsError(null);
+
+            const query = `?specialty=${encodeURIComponent(specialty)}`;
+
+            console.log('Buscando protocolos para especialidade:', specialty);
+            const response = await API.get(`/protocols${query}`);
+            console.log('Protocolos recebidos:', response.data);
+
+            setProtocols(response.data || []);
+
+            if (response.data?.length === 0) {
+                console.warn('Nenhum protocolo encontrado para especialidade:', specialty);
+            }
+        } catch (err: any) {
+            console.error('Erro ao carregar protocolos:', err);
+            setProtocolsError('Erro ao carregar protocolos terapeuticos');
             toast.error('Erro ao carregar protocolos');
         } finally {
             setProtocolsLoading(false);
@@ -418,6 +452,8 @@ export default function TherapyEvolution({
                 onSelectProtocol={(code) => setSelectedProtocolCode(code || null)}
                 protocolsLoading={protocolsLoading}
                 protocolsError={protocolsError}
+                onSpecialtyChange={(specialty) => setSelectedSpecialty(specialty)}
+                doctorSpecialty={(user as any)?.specialty}
             />
 
             <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-cyan-50 py-8 px-4 sm:px-6 lg:px-8">
