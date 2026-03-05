@@ -293,7 +293,9 @@ const DailyClosingReport = () => {
                 <SummaryCard
                     title="Receita Prevista"
                     value={formatCurrency(processedData.summary.totalRevenue)}
-                    subtitle="Valor total das sessões"
+                    subtitle={report?.summary?.insurance?.production > 0 
+                        ? `Particular: ${formatCurrency(processedData.summary.totalRevenue - (report.summary.insurance.production || 0))} + Convênio: ${formatCurrency(report.summary.insurance.production)}`
+                        : "Valor total das sessões"}
                     icon={<FiDollarSign className="text-emerald-500 text-lg" />}
                     trend="positive"
                 />
@@ -434,44 +436,108 @@ const OverviewView = ({ data, formatCurrency, onTimeSlotClick, insuranceData, lo
                     </div>
                 </div>
 
-                {/* CARDS DE CONVÊNIOS - Só aparecem se houver dados */}
-                {(insuranceData.totalInsuranceProduction > 0 || loadingInsurance) && (
+                {/* CARDS DE CONVÊNIOS - Usa dados do daily-closing ou fallback para /totals */}
+                {((data.summary?.insurance?.production > 0) || insuranceData.totalInsuranceProduction > 0 || loadingInsurance) && (
                     <div className="mt-6 pt-6 border-t border-gray-200">
                         <h4 className="text-sm font-medium text-gray-500 mb-4">🏥 Convênios</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            {/* PRODUÇÃO CONVÊNIOS */}
-                            <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-cyan-50 border border-cyan-100">
-                                <span className="text-sm font-medium text-cyan-700">Produção</span>
-                                <span className="text-xl font-bold text-cyan-700 mt-1">
-                                    {formatCurrency(insuranceData.totalInsuranceProduction)}
-                                </span>
-                                <span className="text-xs text-cyan-600 mt-1">
-                                    {insuranceData.countInsuranceTotal} atendimentos
-                                </span>
-                            </div>
+                        
+                        {/* NOVO: Dados do daily-closing */}
+                        {data.summary?.insurance?.production > 0 && (
+                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
+                                {/* PRODUÇÃO CONVÊNIOS */}
+                                <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-cyan-50 border border-cyan-100">
+                                    <span className="text-sm font-medium text-cyan-700">Produção</span>
+                                    <span className="text-xl font-bold text-cyan-700 mt-1">
+                                        {formatCurrency(data.summary.insurance.production)}
+                                    </span>
+                                    <span className="text-xs text-cyan-600 mt-1">
+                                        {data.summary.insurance.sessionsCount} atendimentos
+                                    </span>
+                                </div>
 
-                            {/* RECEBIDOS */}
-                            <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-emerald-50 border border-emerald-100">
-                                <span className="text-sm font-medium text-emerald-700">Recebidos</span>
-                                <span className="text-xl font-bold text-emerald-700 mt-1">
-                                    {formatCurrency(insuranceData.totalInsuranceReceived)}
-                                </span>
-                                <span className="text-xs text-emerald-600 mt-1">
-                                    {insuranceData.countInsuranceReceived} recebidos
-                                </span>
-                            </div>
+                                {/* RECEBIDOS */}
+                                <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-emerald-50 border border-emerald-100">
+                                    <span className="text-sm font-medium text-emerald-700">Recebidos</span>
+                                    <span className="text-xl font-bold text-emerald-700 mt-1">
+                                        {formatCurrency(data.summary.insurance.received)}
+                                    </span>
+                                    <span className="text-xs text-emerald-600 mt-1">
+                                        no caixa
+                                    </span>
+                                </div>
 
-                            {/* A RECEBER */}
-                            <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-violet-50 border border-violet-100">
-                                <span className="text-sm font-medium text-violet-700">A Receber</span>
-                                <span className="text-xl font-bold text-violet-700 mt-1">
-                                    {formatCurrency(insuranceData.totalInsurancePending)}
-                                </span>
-                                <span className="text-xs text-violet-600 mt-1">
-                                    {insuranceData.countInsurancePending} pendentes
-                                </span>
+                                {/* A RECEBER */}
+                                <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-violet-50 border border-violet-100">
+                                    <span className="text-sm font-medium text-violet-700">A Receber</span>
+                                    <span className="text-xl font-bold text-violet-700 mt-1">
+                                        {formatCurrency(data.summary.insurance.pending)}
+                                    </span>
+                                    <span className="text-xs text-violet-600 mt-1">
+                                        do convênio
+                                    </span>
+                                </div>
+
+                                {/* GRAND TOTAL */}
+                                <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200">
+                                    <span className="text-sm font-medium text-blue-700">Total Geral</span>
+                                    <span className="text-xl font-bold text-blue-700 mt-1">
+                                        {formatCurrency(data.financial?.grandTotal || 0)}
+                                    </span>
+                                    <span className="text-xs text-blue-600 mt-1">
+                                        caixa + convênio
+                                    </span>
+                                </div>
                             </div>
-                        </div>
+                        )}
+
+                        {/* Fallback: Dados do /totals quando daily-closing não tem */}
+                        {!data.summary?.insurance?.production && insuranceData.totalInsuranceProduction > 0 && (
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-cyan-50 border border-cyan-100">
+                                    <span className="text-sm font-medium text-cyan-700">Produção</span>
+                                    <span className="text-xl font-bold text-cyan-700 mt-1">
+                                        {formatCurrency(insuranceData.totalInsuranceProduction)}
+                                    </span>
+                                    <span className="text-xs text-cyan-600 mt-1">
+                                        {insuranceData.countInsuranceTotal} atendimentos
+                                    </span>
+                                </div>
+                                <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-emerald-50 border border-emerald-100">
+                                    <span className="text-sm font-medium text-emerald-700">Recebidos</span>
+                                    <span className="text-xl font-bold text-emerald-700 mt-1">
+                                        {formatCurrency(insuranceData.totalInsuranceReceived)}
+                                    </span>
+                                    <span className="text-xs text-emerald-600 mt-1">
+                                        {insuranceData.countInsuranceReceived} recebidos
+                                    </span>
+                                </div>
+                                <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-violet-50 border border-violet-100">
+                                    <span className="text-sm font-medium text-violet-700">A Receber</span>
+                                    <span className="text-xl font-bold text-violet-700 mt-1">
+                                        {formatCurrency(insuranceData.totalInsurancePending)}
+                                    </span>
+                                    <span className="text-xs text-violet-600 mt-1">
+                                        {insuranceData.countInsurancePending} pendentes
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Lista de providers */}
+                        {data.summary?.insurance?.byProvider && data.summary.insurance.byProvider.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-gray-100">
+                                <h5 className="text-xs font-medium text-gray-400 mb-2">Por Convênio:</h5>
+                                <div className="flex flex-wrap gap-2">
+                                    {data.summary.insurance.byProvider.map((provider: any) => (
+                                        <div key={provider.provider} className="px-3 py-1 bg-cyan-50 border border-cyan-100 rounded-full text-sm">
+                                            <span className="font-medium text-cyan-700">{provider.provider}</span>
+                                            <span className="text-cyan-600 ml-2">{formatCurrency(provider.value)}</span>
+                                            <span className="text-cyan-500 text-xs ml-1">({provider.sessions})</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -608,7 +674,7 @@ const TimePeriodCard = ({ period, isSelected, onSelect, onTimeSlotClick, formatC
 // 🎨 CARD DE TIMESLOT COMPACTO
 const TimeSlotCard = ({ slot, onClick, formatCurrency }: any) => {
     const hasAlerts = slot.alerts && Object.values(slot.alerts).some((alert: any) => alert);
-
+console.log('sssssssssslot', slot)
     // Determinar a cor baseada no status predominante das sessões
     const getCardStyle = () => {
         const total = slot.count;
@@ -932,6 +998,33 @@ const TimelineView = ({ timeSlots, formatCurrency, onTimeSlotClick }: any) => {
 
 // 🎨 SLOT INDIVIDUAL DA TIMELINE
 const TimelineSlot = ({ slot, isExpanded, onToggle, onClick, formatCurrency, isFirst, isLast }: any) => {
+    // 🐛 DEBUG: Log do slot completo
+    console.log('[TimelineSlot] Renderizando slot:', {
+        time: slot.time,
+        count: slot.count,
+        appointmentsCount: slot.appointments?.length,
+        appointments: slot.appointments?.map((a: any) => ({
+            id: a.id,
+            patient: a.patient,
+            doctor: a.doctor,
+            service: a.service,
+            sessionValue: a.sessionValue,
+            isPackage: a.isPackage,
+            isConvenio: a.isConvenio,
+            insuranceValue: a.insuranceValue
+        }))
+    });
+
+    // Calcular cor da ocupação baseada no percentual
+    const getOccupancyColor = (occupancy: number) => {
+        if (occupancy >= 80) return 'bg-red-500';
+        if (occupancy >= 50) return 'bg-amber-500';
+        if (occupancy >= 30) return 'bg-blue-500';
+        return 'bg-green-500';
+    };
+    
+    const occupancyColor = getOccupancyColor(slot.stats.occupancy);
+
     return (
         <div className="relative flex gap-6 group">
             {/* Marcador do horário - mais elegante */}
@@ -946,9 +1039,14 @@ const TimelineSlot = ({ slot, isExpanded, onToggle, onClick, formatCurrency, isF
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-4">
                             <h3 className="font-bold text-gray-900 text-lg">{slot.time}</h3>
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 flex-wrap">
                                 <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium border border-blue-200">
                                     {slot.count} sessões
+                                </span>
+                                {/* 🆕 Badge de Ocupação */}
+                                <span className={`px-3 py-1 rounded-full text-sm font-medium border flex items-center gap-1 ${occupancyColor.replace('bg-', 'bg-opacity-10 bg-').replace('500', '100')} ${occupancyColor.replace('bg-', 'text-').replace('500', '700')} border-current`}>
+                                    <div className={`w-2 h-2 rounded-full ${occupancyColor}`} />
+                                    {slot.stats.occupancy}% ocupado
                                 </span>
                                 {slot.alerts?.lowConfirmation && (
                                     <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-sm font-medium border border-amber-200 flex items-center gap-1">
@@ -972,40 +1070,71 @@ const TimelineSlot = ({ slot, isExpanded, onToggle, onClick, formatCurrency, isF
                         </div>
                     </div>
 
+                    {/* 🆕 Barra de progresso da ocupação */}
+                    <div className="mb-4">
+                        <div className="flex justify-between text-xs text-gray-500 mb-1">
+                            <span>Ocupação do horário</span>
+                            <span>{slot.stats.occupancy}%</span>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div 
+                                className={`h-full ${occupancyColor} transition-all duration-500`}
+                                style={{ width: `${Math.min(100, slot.stats.occupancy)}%` }}
+                            />
+                        </div>
+                    </div>
+
                     {/* Estatísticas rápidas - mais visuais */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 text-sm">
-                        <div className="text-center">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 text-sm">
+                        <div className="text-center p-2 bg-green-50 rounded-lg">
                             <div className="text-green-600 font-bold text-lg">{slot.stats.confirmed}</div>
                             <div className="text-gray-500 text-xs uppercase tracking-wide">Confirmadas</div>
                         </div>
-                        <div className="text-center">
+                        <div className="text-center p-2 bg-blue-50 rounded-lg">
                             <div className="text-blue-600 font-bold text-lg">{slot.stats.scheduled}</div>
                             <div className="text-gray-500 text-xs uppercase tracking-wide">Agendadas</div>
                         </div>
-                        <div className="text-center">
+                        <div className="text-center p-2 bg-red-50 rounded-lg">
                             <div className="text-red-600 font-bold text-lg">{slot.stats.canceled}</div>
                             <div className="text-gray-500 text-xs uppercase tracking-wide">Canceladas</div>
                         </div>
-                        <div className="text-center">
+                        <div className="text-center p-2 bg-purple-50 rounded-lg">
                             <div className="text-purple-600 font-bold text-lg">
                                 {Math.round(slot.stats.confirmationRate)}%
                             </div>
-                            <div className="text-gray-500 text-xs uppercase tracking-wide">Taxa</div>
+                            <div className="text-gray-500 text-xs uppercase tracking-wide">Taxa Conf.</div>
+                        </div>
+                        <div className="text-center p-2 bg-gray-50 rounded-lg">
+                            <div className="text-gray-600 font-bold text-lg">
+                                {slot.stats.professionals?.length || 0}
+                            </div>
+                            <div className="text-gray-500 text-xs uppercase tracking-wide">Profissionais</div>
                         </div>
                     </div>
 
                     {/* Sessões expandidas */}
                     {isExpanded && (
                         <div className="mt-6 pt-6 border-t border-gray-200">
+                            {/* 🆕 Header mostrando múltiplos profissionais */}
+                            {slot.stats.professionals?.length > 1 && (
+                                <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                                    <p className="text-sm text-blue-700">
+                                        <strong>{slot.stats.professionals.length} profissionais</strong> neste horário: {slot.stats.professionals.join(', ')}
+                                    </p>
+                                </div>
+                            )}
                             <div className="space-y-3">
-                                {slot.appointments.map((appointment: any) => (
-                                    <TimelineAppointmentItem
-                                        key={appointment.id}
-                                        appointment={appointment}
-                                        formatCurrency={formatCurrency}
-                                        onClick={onClick}
-                                    />
-                                ))}
+                                {slot.appointments.map((appointment: any, index: number) => {
+                                    console.log(`[TimelineSlot] Renderizando appointment ${index + 1}/${slot.appointments.length}:`, appointment.patient, appointment.service);
+                                    return (
+                                        <TimelineAppointmentItem
+                                            key={appointment.id}
+                                            appointment={appointment}
+                                            formatCurrency={formatCurrency}
+                                            onClick={onClick}
+                                        />
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
@@ -1016,6 +1145,18 @@ const TimelineSlot = ({ slot, isExpanded, onToggle, onClick, formatCurrency, isF
 };
 // 🎨 ITEM DE APPOINTMENT NA TIMELINE
 const TimelineAppointmentItem = ({ appointment, formatCurrency, onClick }: any) => {
+    // Debug log
+    console.log('[TimelineAppointmentItem] appointment:', {
+        id: appointment.id,
+        patient: appointment.patient,
+        sessionValue: appointment.sessionValue,
+        isPackage: appointment.isPackage,
+        isConvenio: appointment.isConvenio,
+        insuranceProvider: appointment.insuranceProvider,
+        insuranceValue: appointment.insuranceValue,
+        service: appointment.service
+    });
+
     const getStatusConfig = (status: string) => {
         const configs: any = {
             confirmed: {
@@ -1037,7 +1178,34 @@ const TimelineAppointmentItem = ({ appointment, formatCurrency, onClick }: any) 
         return configs[status] || configs.scheduled;
     };
 
+    // Determinar o tipo de sessão e configurações visuais
+    const getSessionTypeConfig = () => {
+        if (appointment.isConvenio) {
+            return {
+                label: 'Convênio',
+                badgeColor: 'bg-cyan-100 text-cyan-700 border-cyan-200',
+                icon: '🏥',
+                value: appointment.insuranceValue || appointment.sessionValue || 0
+            };
+        }
+        if (appointment.isPackage) {
+            return {
+                label: 'Pacote',
+                badgeColor: 'bg-purple-100 text-purple-700 border-purple-200',
+                icon: '📦',
+                value: appointment.sessionValue || 0
+            };
+        }
+        return {
+            label: 'Individual',
+            badgeColor: 'bg-blue-100 text-blue-700 border-blue-200',
+            icon: '📋',
+            value: appointment.sessionValue || 0
+        };
+    };
+
     const statusConfig = getStatusConfig(appointment.operationalStatus);
+    const sessionType = getSessionTypeConfig();
     const Icon = statusConfig.icon;
 
     return (
@@ -1050,17 +1218,56 @@ const TimelineAppointmentItem = ({ appointment, formatCurrency, onClick }: any) 
                     <Icon className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
-                        {appointment.patient}
-                    </h4>
+                    {/* Linha 1: Paciente + Badge do tipo */}
+                    <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                            {appointment.patient}
+                        </h4>
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full border ${sessionType.badgeColor}`}>
+                            {sessionType.icon} {sessionType.label}
+                        </span>
+                    </div>
+                    
+                    {/* Linha 2: Profissional + Serviço */}
                     <p className="text-sm text-gray-600 truncate">
-                        {appointment.doctor} • {appointment.service?.replace('_', ' ') || 'Sessão'}
+                        <span className="font-medium">{appointment.doctor}</span>
+                        <span className="text-gray-400 mx-1">•</span>
+                        <span className="text-gray-500">{appointment.service?.replace(/_/g, ' ') || 'Sessão'}</span>
                     </p>
+                    
+                    {/* Linha 3: Info adicional (convênio ou método de pagamento) */}
+                    {appointment.isConvenio ? (
+                        appointment.insuranceProvider && (
+                            <p className="text-xs text-cyan-600 mt-1 font-medium">
+                                🏥 {appointment.insuranceProvider}
+                            </p>
+                        )
+                    ) : (
+                        appointment.paymentMethod && (
+                            <p className="text-xs text-gray-500 mt-1">
+                                {appointment.paymentMethod === 'pix' && '💳 PIX'}
+                                {appointment.paymentMethod === 'dinheiro' && '💵 Dinheiro'}
+                                {appointment.paymentMethod === 'credit_card' && '💳 Cartão Crédito'}
+                                {appointment.paymentMethod === 'debit_card' && '💳 Cartão Débito'}
+                                {appointment.paymentMethod === 'cartão' && '💳 Cartão'}
+                            </p>
+                        )
+                    )}
                 </div>
             </div>
-            <div className="text-right">
-                <div className="font-bold text-gray-900 text-lg">{formatCurrency(appointment.sessionValue)}</div>
-                <div className="text-sm text-gray-500">{appointment.time}</div>
+            
+            {/* Coluna da direita: Valor + Status de pagamento */}
+            <div className="text-right ml-4">
+                <div className={`font-bold text-lg ${sessionType.value > 0 ? 'text-gray-900' : 'text-gray-400'}`}>
+                    {formatCurrency(sessionType.value)}
+                </div>
+                <div className={`text-xs mt-1 px-2 py-0.5 rounded-full inline-block ${
+                    appointment.paidStatus === 'Pago no dia' ? 'bg-green-100 text-green-700' :
+                    appointment.paidStatus === 'Pago antes' ? 'bg-blue-100 text-blue-700' :
+                    'bg-amber-100 text-amber-700'
+                }`}>
+                    {appointment.paidStatus || 'Pendente'}
+                </div>
             </div>
         </div>
     );
@@ -1233,71 +1440,145 @@ const FinancialView = ({ financial, payments, formatCurrency }: any) => {
     const paymentMethods = financial?.paymentMethods || {};
     const totalReceived = financial?.totalReceived || 0;
     const totalExpected = financial?.totalExpected || 0;
+    
+    // 📦 Dados de pacotes
+    const packages = financial?.packages || { total: 0, details: [] };
+    const hasPackages = packages.total > 0;
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-                    <div className="p-6 border-b border-gray-200">
-                        <h2 className="text-lg font-semibold text-gray-900">Movimentação Financeira</h2>
+        <div className="space-y-6">
+            {/* 📦 CARDS DE PACOTES */}
+            {hasPackages && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                            📦 Pacotes Vendidos
+                        </h3>
+                        <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
+                            {packages.details.length} pacotes
+                        </span>
                     </div>
-                    <div className="p-6">
-                        <div className="space-y-4">
-                            {payments.map((payment: any) => (
-                                <FinancialPaymentItem
-                                    key={payment.id}
-                                    payment={payment}
-                                    formatCurrency={formatCurrency}
-                                />
+                    
+                    {/* Total de pacotes */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                        <div className="flex flex-col items-center p-4 rounded-lg bg-purple-50 border border-purple-100">
+                            <span className="text-sm font-medium text-purple-700">Total Vendido</span>
+                            <span className="text-2xl font-bold text-purple-700">
+                                {formatCurrency(packages.total)}
+                            </span>
+                        </div>
+                        <div className="flex flex-col items-center p-4 rounded-lg bg-blue-50 border border-blue-100">
+                            <span className="text-sm font-medium text-blue-700">Total de Sessões</span>
+                            <span className="text-2xl font-bold text-blue-700">
+                                {packages.details.reduce((sum: number, p: any) => sum + (p.sessions || 0), 0)}
+                            </span>
+                        </div>
+                        <div className="flex flex-col items-center p-4 rounded-lg bg-emerald-50 border border-emerald-100">
+                            <span className="text-sm font-medium text-emerald-700">Valor Médio/Sessão</span>
+                            <span className="text-2xl font-bold text-emerald-700">
+                                {formatCurrency(
+                                    packages.total / 
+                                    Math.max(1, packages.details.reduce((sum: number, p: any) => sum + (p.sessions || 0), 0))
+                                )}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    {/* Lista de pacotes */}
+                    <div className="border-t border-gray-200 pt-4">
+                        <h4 className="text-sm font-medium text-gray-500 mb-3">Detalhes dos Pacotes</h4>
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                            {packages.details.map((pkg: any, idx: number) => (
+                                <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-gray-900 truncate">{pkg.patient}</p>
+                                        <p className="text-xs text-gray-500">
+                                            {pkg.sessions} sessões • {formatCurrency(pkg.sessionValue)}/sessão
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-bold text-gray-900">{formatCurrency(pkg.value)}</p>
+                                        <p className="text-xs text-gray-500 capitalize">{pkg.method}</p>
+                                    </div>
+                                </div>
                             ))}
                         </div>
                     </div>
                 </div>
-            </div>
+            )}
 
-            <div className="space-y-6">
-                {/* Resumo Financeiro */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <h3 className="font-semibold text-gray-900 mb-4">Resumo do Dia</h3>
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                            <span className="text-gray-600">Total Recebido:</span>
-                            <span className="font-semibold text-green-600">
-                                {formatCurrency(totalReceived)}
-                            </span>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+                        <div className="p-6 border-b border-gray-200">
+                            <h2 className="text-lg font-semibold text-gray-900">Movimentação Financeira</h2>
                         </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-gray-600">A Receber:</span>
-                            <span className="font-semibold text-amber-600">
-                                {formatCurrency(totalExpected)}
-                            </span>
-                        </div>
-                        <div className="flex justify-between items-center pt-3 border-t border-gray-200">
-                            <span className="text-gray-800 font-medium">Total Previsto:</span>
-                            <span className="font-bold text-lg text-gray-900">
-                                {formatCurrency(totalReceived + totalExpected)}
-                            </span>
+                        <div className="p-6">
+                            <div className="space-y-4">
+                                {payments.map((payment: any) => (
+                                    <FinancialPaymentItem
+                                        key={payment.id}
+                                        payment={payment}
+                                        formatCurrency={formatCurrency}
+                                    />
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Métodos de Pagamento */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <h3 className="font-semibold text-gray-900 mb-4">Por Método</h3>
-                    <div className="space-y-3">
-                        {Object.entries(paymentMethods).map(([method, data]: [string, any]) => (
-                            <div key={method} className="flex justify-between items-center">
-                                <span className="text-gray-600 capitalize">{method}:</span>
-                                <div className="text-right">
-                                    <div className="font-semibold text-gray-900">
-                                        {formatCurrency(data.amount || 0)}
-                                    </div>
-                                    <div className="text-sm text-gray-500">
-                                        {data.details?.length || 0} transações
+                <div className="space-y-6">
+                    {/* Resumo Financeiro */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 className="font-semibold text-gray-900 mb-4">Resumo do Dia</h3>
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-600">Total Recebido:</span>
+                                <span className="font-semibold text-green-600">
+                                    {formatCurrency(totalReceived)}
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-600">A Receber:</span>
+                                <span className="font-semibold text-amber-600">
+                                    {formatCurrency(totalExpected)}
+                                </span>
+                            </div>
+                            {hasPackages && (
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-600">📦 Pacotes:</span>
+                                    <span className="font-semibold text-purple-600">
+                                        {formatCurrency(packages.total)}
+                                    </span>
+                                </div>
+                            )}
+                            <div className="flex justify-between items-center pt-3 border-t border-gray-200">
+                                <span className="text-gray-800 font-medium">Total Previsto:</span>
+                                <span className="font-bold text-lg text-gray-900">
+                                    {formatCurrency(totalExpected + (hasPackages ? 0 : 0))}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Métodos de Pagamento */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 className="font-semibold text-gray-900 mb-4">Por Método</h3>
+                        <div className="space-y-3">
+                            {Object.entries(paymentMethods).map(([method, data]: [string, any]) => (
+                                <div key={method} className="flex justify-between items-center">
+                                    <span className="text-gray-600 capitalize">{method}:</span>
+                                    <div className="text-right">
+                                        <div className="font-semibold text-gray-900">
+                                            {formatCurrency(data.amount || 0)}
+                                        </div>
+                                        <div className="text-sm text-gray-500">
+                                            {data.details?.length || 0} transações
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>

@@ -35,37 +35,45 @@ export interface ProfessionalFinancial {
 
 export interface DailyClosingData {
   date: string;
-  period: {
+  period?: {
     start: string;
     end: string;
   };
   isAdvancePayment?: boolean;
   summary: {
-    scheduled: {
-      count: number;
-      value: number;
-      details: AppointmentDetail[];
+    appointments: {
+      total: number;
+      attended: number;
+      canceled: number;
+      pending: number;
+      expectedValue: number;
+      pendingValue: number;
+      pendingCount: number;
     };
-    attended: {
-      count: number;
-      value: number;
-      details: AppointmentDetail[];
+    payments: {
+      totalReceived: number;
+      byMethod: {
+        dinheiro: number;
+        pix: number;
+        cartão: number;
+      };
     };
-    canceled: {
-      count: number;
-      value: number;
-      details: AppointmentDetail[];
+    // 🏥 NOVO: Seção de convênio
+    insurance?: {
+      production: number;
+      sessionsCount: number;
+      received: number;
+      pending: number;
+      byProvider: InsuranceProviderSummary[];
     };
-    pending: {
-      count: number;
-      value: number;
-      details: AppointmentDetail[];
-    };
-    patientsCount: number;
   };
   financial: {
     totalReceived: number;
     totalExpected: number;
+    totalRevenue?: number;
+    totalInsuranceProduction?: number;  // 🏥 NOVO
+    totalInsurancePending?: number;      // 🏥 NOVO
+    grandTotal?: number;                 // 🏥 NOVO
     paymentMethods: {
       dinheiro: PaymentMethodSummary;
       pix: PaymentMethodSummary;
@@ -75,9 +83,85 @@ export interface DailyClosingData {
       total: number;
       details: PackageDetail[];
     };
+    insurance?: {                        // 🏥 NOVO
+      total: number;
+      byProvider: InsuranceProviderSummary[];
+    };
   };
-  byProfessional: ProfessionalSummary[];
-  patients: string[];
+  timelines?: {
+    appointments: TimelineAppointment[];
+    payments: TimelinePayment[];
+    insuranceSessions?: InsuranceSessionDetail[];  // 🏥 NOVO
+  };
+  professionals: ProfessionalSummary[];
+  timeSlots?: TimeSlotSummary[];
+}
+
+// 🏥 NOVO: Tipos para convênio
+export interface InsuranceProviderSummary {
+  provider: string;
+  value: number;
+  sessions: number;
+}
+
+export interface InsuranceSessionDetail {
+  id: string;
+  time: string;
+  patient: string;
+  provider: string;
+  insuranceValue: number;
+  status: string;
+  paymentStatus: string;
+  isPaid: boolean;
+  guideNumber?: string | null;
+}
+
+export interface TimelineAppointment {
+  id: string;
+  patient: string;
+  service: string;
+  doctor: string;
+  sessionValue: number;
+  method: string;
+  paidStatus: string;
+  operationalStatus: string;
+  clinicalStatus: string;
+  displayStatus: string;
+  date: string;
+  time: string;
+  isPackage: boolean;
+  paymentMethod: string;
+  packageId: string | null;
+  isConvenio?: boolean;           // 🏥 NOVO
+  insuranceProvider?: string | null;  // 🏥 NOVO
+  insuranceValue?: number | null;     // 🏥 NOVO
+}
+
+export interface TimelinePayment {
+  id: string;
+  patient: string;
+  type: string;
+  method: string;
+  value: number;
+  paymentDate: string;
+  doctor: string;
+  serviceType: string | null;
+}
+
+export interface TimeSlotSummary {
+  time: string;
+  appointments: TimelineAppointment[];
+  count: number;
+  totalSessions?: number;
+  stats: {
+    confirmed: number;
+    canceled: number;
+    scheduled: number;
+    revenueReceived: number;
+    professionals: string[];
+    confirmationRate?: number;
+    occupancy?: number;
+  };
 }
 
 /* ────────────────────────────────
