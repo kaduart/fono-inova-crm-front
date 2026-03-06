@@ -1,6 +1,6 @@
 // src/components/whatsapp/ChatWindow.tsx
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { FiSend, FiUser, FiMoreVertical } from 'react-icons/fi';
+import { FiSend, FiUser, FiMoreVertical, FiMessageCircle, FiCalendar, FiCheckCircle, FiClock } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import { updateContactApi, MediaType } from '../../../services/whatsappService';
 import { socketManager } from '../../../utils/socketManager';
@@ -16,6 +16,10 @@ import { useChatMessages } from './hooks/useChatMessages';
 import { useAmandaControl } from './hooks/useAmandaControl';
 import { isGenericName } from './utils/messageHelpers';
 import type { Contact, ChatWindowProps } from './types/chat.types';
+import { enviarViaExtensao, type PreAgendamentoChat } from './extensionHelper';
+
+// Interface local (já importamos do helper)
+type PreAgendamentoLocal = PreAgendamentoChat;
 
 const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) => {
     // Hooks personalizados
@@ -50,6 +54,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
     const [showEditContact, setShowEditContact] = useState(false);
     const [showActionsDropdown, setShowActionsDropdown] = useState(false);
     const [socketConnected, setSocketConnected] = useState(true);
+    const [preAgendamentos, setPreAgendamentos] = useState<PreAgendamentoChat[]>([]);
+    const [loadingPreAgendamentos, setLoadingPreAgendamentos] = useState(false);
     
     const { updateContact } = useContacts();
     const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -103,6 +109,33 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
             setDraft('');
         }
     }, [contact?.phone, loadMessages]);
+
+    // 🆕 Buscar pré-agendamentos do contato
+    useEffect(() => {
+        if (!contact?.phone) {
+            setPreAgendamentos([]);
+            return;
+        }
+        
+        const fetchPreAgendamentos = async () => {
+            setLoadingPreAgendamentos(true);
+            try {
+                // Busca pré-agendamentos pelo telefone
+                const phone = contact.phone.replace(/\D/g, '');
+                const response = await fetch(`/api/pre-agendamento?phone=${phone}&status=novo,em_analise,contatado`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setPreAgendamentos(data.data || []);
+                }
+            } catch (err) {
+                console.error('Erro ao buscar pré-agendamentos:', err);
+            } finally {
+                setLoadingPreAgendamentos(false);
+            }
+        };
+        
+        fetchPreAgendamentos();
+    }, [contact?.phone]);
 
     // ✅ Scroll para o final quando mensagens terminam de carregar
     useEffect(() => {
@@ -221,6 +254,22 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
+                    {/* Botão Abrir no WhatsApp */}
+                    <button
+                        onClick={() => {
+                            const phone = contact?.phone?.replace(/\D/g, '');
+                            if (phone) {
+                                const message = encodeURIComponent(`Olá ${contact?.name?.split(' ')[0] || ''}, aqui é da Clínica Fono Inova 💚`);
+                                window.open(`https://wa.me/55${phone}?text=${message}`, '_blank');
+                            }
+                        }}
+                        className="p-2 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
+                        aria-label="Abrir no WhatsApp"
+                        title="Abrir no WhatsApp"
+                    >
+                        <FiMessageCircle className="w-5 h-5" />
+                    </button>
+
                     <button
                         onClick={() => setShowEditContact(true)}
                         className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
@@ -297,6 +346,93 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                     </div>
                 </div>
             </div>
+
+            {/* 🆕 Painel de Pré-Agendamentos */}
+            {preAgendamentos.length > 0 && (
+                <div className="bg-amber-50 border-b border-amber-200 p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                        <FiCalendar className="w-4 h-4 text-amber-600" />
+                        <span className="text-sm font-medium text-amber-800">
+                            Pré-Agendamento Pendente
+                        </span>
+                    </div>
+                    
+                    {preAgendamentos.map((pre) => {
+                        const data = new Date(pre.preferredDate + 'T12:00:00').toLocaleDateString('pt-BR');
+                        
+                        return (
+                            <div key={pre._id} className="bg-white rounded-lg p-3 shadow-sm border border-amber-200">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-900">
+                                            {pre.patientInfo.fullName}
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                            📅 {data} {pre.preferredTime && `às ${pre.preferredTime}`}
+                                        </p>
+                                        <p className="text-xs text-gray-500 capitalize">
+                                            🩺 {pre.specialty}
+                                        </p>
+                                    </div>
+                                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                        pre.urgency === 'critica' ? 'bg-red-100 text-red-700' :
+                                        pre.urgency === 'alta' ? 'bg-orange-100 text-orange-700' :
+                                        'bg-blue-100 text-blue-700'
+                                    }`}>
+                                        {pre.urgency}
+                                    </span>
+                                </div>
+                                
+                                <div className="flex gap-2 mt-2">
+                                    <button
+                                        onClick={async () => {
+                                            const result = await enviarViaExtensao(pre, 'confirmacao');
+                                            if (result.success) {
+                                                toast.success('✅ Mensagem injetada no WhatsApp Web! Pressione Enter para enviar.', {
+                                                    position: 'bottom-right',
+                                                    autoClose: 4000,
+                                                    icon: '📨'
+                                                });
+                                            } else {
+                                                toast.error(result.error, {
+                                                    position: 'bottom-right',
+                                                    autoClose: 6000
+                                                });
+                                            }
+                                        }}
+                                        className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium rounded-lg transition-colors"
+                                    >
+                                        <FiCheckCircle className="w-3 h-3" />
+                                        Confirmar
+                                    </button>
+                                    
+                                    <button
+                                        onClick={async () => {
+                                            const result = await enviarViaExtensao(pre, 'lembrete');
+                                            if (result.success) {
+                                                toast.success('🔔 Lembrete injetado no WhatsApp Web! Pressione Enter para enviar.', {
+                                                    position: 'bottom-right',
+                                                    autoClose: 4000,
+                                                    icon: '⏰'
+                                                });
+                                            } else {
+                                                toast.error(result.error, {
+                                                    position: 'bottom-right',
+                                                    autoClose: 6000
+                                                });
+                                            }
+                                        }}
+                                        className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 bg-white border border-emerald-500 text-emerald-600 hover:bg-emerald-50 text-xs font-medium rounded-lg transition-colors"
+                                    >
+                                        <FiClock className="w-3 h-3" />
+                                        Lembrete
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
 
             {/* Messages */}
             <ChatMessageList

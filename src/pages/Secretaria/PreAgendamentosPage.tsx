@@ -71,6 +71,7 @@ const ImportarModal = ({ open, onClose, pre, onImport, doctors }: any) => {
     sessionValue: pre?.suggestedValue || '',
     notes: ''
   });
+  const [whatsappLinks, setWhatsappLinks] = useState<{confirmacao: string, lembrete: string} | null>(null);
 
   useEffect(() => {
     if (pre) {
@@ -81,11 +82,47 @@ const ImportarModal = ({ open, onClose, pre, onImport, doctors }: any) => {
         sessionValue: pre.suggestedValue || '',
         notes: ''
       });
+      setWhatsappLinks(null); // Reseta links ao abrir
     }
   }, [pre]);
 
   const handleSubmit = () => {
     onImport(form);
+  };
+
+  // Gera links WhatsApp (sem API) para confirmação e lembrete
+  const gerarLinksWhatsApp = () => {
+    if (!pre) return;
+    
+    const phone = pre.patientInfo.phone.replace(/\D/g, '');
+    const nome = pre.patientInfo.fullName.split(' ')[0]; // Primeiro nome
+    const data = form.date ? new Date(form.date + 'T12:00:00').toLocaleDateString('pt-BR') : '';
+    const hora = form.time || '';
+    
+    // Mensagem de confirmação
+    const msgConfirmacao = `Olá, avaliação está CONFIRMADA! 💚\n\n` +
+      `O agendamento de *${nome}* está confirmado para a avaliação inicial.\n\n` +
+      `📅 Data: ${data}\n` +
+      `⏰ Horário: ${hora}\n` +
+      `🏥 Clínica Fono Inova\n\n` +
+      `Ficamos muito felizes em recebê-los e preparar tudo com carinho ✨\n\n` +
+      `Qualquer dúvida antes da consulta, pode contar com a gente.\n\n` +
+      `Um dia antes enviaremos uma mensagem de confirmação.\n\n` +
+      `Até o dia e horário combinados! 😊💚`;
+    
+    // Mensagem de lembrete (para o dia anterior)
+    const msgLembrete = `Olá ${nome}! 💚\n\n` +
+      `Lembrete: sua avaliação é *AMANHÃ*! 🔔\n\n` +
+      `📅 Data: ${data}\n` +
+      `⏰ Horário: ${hora}\n` +
+      `🏥 Clínica Fono Inova\n\n` +
+      `Estamos te esperando! ✨\n\n` +
+      `Precisa remarcar? Responda aqui.`;
+    
+    setWhatsappLinks({
+      confirmacao: `https://wa.me/55${phone}?text=${encodeURIComponent(msgConfirmacao)}`,
+      lembrete: `https://wa.me/55${phone}?text=${encodeURIComponent(msgLembrete)}`
+    });
   };
 
   return (
@@ -150,6 +187,57 @@ const ImportarModal = ({ open, onClose, pre, onImport, doctors }: any) => {
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
             fullWidth
           />
+
+          {/* 🆕 SEÇÃO WHATSAPP (SEM API) */}
+          <Divider sx={{ my: 1 }} />
+          <Typography variant="subtitle2" color="text.secondary">
+            💬 Confirmação via WhatsApp (Sem API)
+          </Typography>
+          
+          {!whatsappLinks ? (
+            <Button
+              variant="outlined"
+              color="success"
+              startIcon={<WhatsApp />}
+              onClick={gerarLinksWhatsApp}
+              fullWidth
+            >
+              Gerar Mensagens WhatsApp
+            </Button>
+          ) : (
+            <Stack spacing={1}>
+              <Alert severity="info" sx={{ fontSize: '0.85rem' }}>
+                Clique nos botões abaixo para abrir o WhatsApp Web com a mensagem pronta
+              </Alert>
+              
+              <Button
+                variant="contained"
+                color="success"
+                startIcon={<WhatsApp />}
+                onClick={() => window.open(whatsappLinks.confirmacao, '_blank')}
+                fullWidth
+              >
+                1️⃣ Enviar Confirmação Agora
+              </Button>
+              
+              <Button
+                variant="outlined"
+                color="success"
+                startIcon={<Schedule />}
+                onClick={() => {
+                  navigator.clipboard.writeText(whatsappLinks.lembrete);
+                  alert('🔗 Link do lembrete copiado! Cole no WhatsApp no dia anterior.');
+                }}
+                fullWidth
+              >
+                2️⃣ Copiar Link do Lembrete (Dia Anterior)
+              </Button>
+              
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                💡 <strong>Dica:</strong> O link do lembrete fica salvo no agendamento. Acesse no dia anterior e clique para enviar.
+              </Typography>
+            </Stack>
+          )}
         </Stack>
       </DialogContent>
       <DialogActions>
