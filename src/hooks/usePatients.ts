@@ -1,54 +1,59 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { patientService } from '../services/patientService';
 import { IPatient } from '../utils/types/types';
+import { 
+    subscribeToCacheInvalidation, 
+    invalidateCache,
+    isCacheValid,
+    getCache,
+    setCache
+} from '../utils/cacheManager';
 
 // 🔹 Cache estático para evitar recarregamentos desnecessários
-const cache = {
-    patients: null as IPatient[] | null,
-    totalPatients: 0,
-    patientOverview: null,
-    timestamp: 0,
+const localCache = {
     isLoading: false,
-    promises: null as Promise<void> | null
+    promise: null as Promise<void> | null
 };
 
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
-
 export const usePatients = () => {
-    const [patients, setPatients] = useState<IPatient[]>(cache.patients || []);
-    const [loading, setLoading] = useState(cache.isLoading);
+    const cachedData = getCache<{patients: IPatient[], totalPatients: number, patientOverview: any}>('patients');
+    
+    const [patients, setPatients] = useState<IPatient[]>(cachedData?.patients || []);
+    const [loading, setLoading] = useState(localCache.isLoading);
     const [error, setError] = useState<string | null>(null);
 
-    const [totalPatients, setTotalPatients] = useState<number>(cache.totalPatients);
-    const [patientOverview, setPatientOverview] = useState<any>(cache.patientOverview);
+    const [totalPatients, setTotalPatients] = useState<number>(cachedData?.totalPatients || 0);
+    const [patientOverview, setPatientOverview] = useState<any>(cachedData?.patientOverview || null);
 
     const isMounted = useRef(true);
     const isInitialLoad = useRef(true);
 
-    const fetchAllData = useCallback(async () => {
+    const fetchAllData = useCallback(async (forceRefresh = false) => {
         // Se já tem cache válido, não recarrega
-        const now = Date.now();
-        if (cache.patients && cache.timestamp && (now - cache.timestamp < CACHE_DURATION)) {
-            if (isMounted.current) {
-                setPatients(cache.patients!);
-                setTotalPatients(cache.totalPatients);
-                setPatientOverview(cache.patientOverview);
+        if (!forceRefresh && isCacheValid('patients')) {
+            const cached = getCache<{patients: IPatient[], totalPatients: number, patientOverview: any}>('patients');
+            if (cached && isMounted.current) {
+                console.log('📦 usePatients: Usando cache');
+                setPatients(cached.patients);
+                setTotalPatients(cached.totalPatients);
+                setPatientOverview(cached.patientOverview);
             }
             return;
         }
 
         // Se já está carregando, espera a promise existente
-        if (cache.isLoading && cache.promises) {
-            await cache.promises;
-            if (isMounted.current) {
-                setPatients(cache.patients!);
-                setTotalPatients(cache.totalPatients);
-                setPatientOverview(cache.patientOverview);
+        if (localCache.isLoading && localCache.promise) {
+            await localCache.promise;
+            const cached = getCache<{patients: IPatient[], totalPatients: number, patientOverview: any}>('patients');
+            if (cached && isMounted.current) {
+                setPatients(cached.patients);
+                setTotalPatients(cached.totalPatients);
+                setPatientOverview(cached.patientOverview);
             }
             return;
         }
 
-        cache.isLoading = true;
+        localCache.isLoading = true;
         setLoading(true);
 
         const loadPromise = (async () => {
@@ -66,27 +71,28 @@ export const usePatients = () => {
                     setPatientOverview(overviewData);
                 }
 
-                // Atualiza o cache
-                cache.patients = patientsData;
-                cache.totalPatients = totalData.totalPatients;
-                cache.patientOverview = overviewData;
-                cache.timestamp = Date.now();
+                // Atualiza o cache global
+                setCache('patients', {
+                    patients: patientsData,
+                    totalPatients: totalData.totalPatients,
+                    patientOverview: overviewData
+                });
             } catch (err) {
                 console.error('❌ Erro ao buscar dados dos pacientes:', err);
                 if (isMounted.current) {
                     setError('Falha ao carregar pacientes');
                 }
             } finally {
-                cache.isLoading = false;
+                localCache.isLoading = false;
                 if (isMounted.current) {
                     setLoading(false);
                 }
             }
         })();
 
-        cache.promises = loadPromise;
+        localCache.promise = loadPromise;
         await loadPromise;
-        cache.promises = null;
+        localCache.promise = null;
     }, []);
 
     useEffect(() => {
@@ -102,10 +108,19 @@ export const usePatients = () => {
         };
     }, [fetchAllData]);
 
+    // 🔔 Subscribe para invalidação de cache externa
+    useEffect(() => {
+        const unsubscribe = subscribeToCacheInvalidation('patients', () => {
+            console.log('🔄 usePatients: Cache invalidado externamente, recarregando...');
+            fetchAllData(true);
+        });
+
+        return () => unsubscribe();
+    }, [fetchAllData]);
+
     // 🔹 Método para forçar refresh manual
     const refreshData = useCallback(async () => {
-        cache.timestamp = 0; // Invalida o cache
-        await fetchAllData();
+        await fetchAllData(true);
     }, [fetchAllData]);
 
     const fetchPatients = useCallback(async () => {
@@ -128,8 +143,8 @@ export const usePatients = () => {
             setError(null);
 
             const newPatient = await patientService.create(IPatient);
-            // 🔹 Invalida cache e recarrega todos os dados de uma vez
-            cache.timestamp = 0;
+            // 🚀 Invalida cache e propaga para hooks relacionados
+            invalidateCache('patients');
             await refreshData();
             return newPatient;
         } catch (error: any) {
@@ -144,8 +159,8 @@ export const usePatients = () => {
         try {
             setLoading(true);
             const updatedPatient = await patientService.update(id, IPatient);
-            // 🔹 Invalida cache e recarrega todos os dados de uma vez
-            cache.timestamp = 0;
+            // 🚀 Invalida cache e propaga para hooks relacionados
+            invalidateCache('patients');
             await refreshData();
             return updatedPatient;
         } catch (error) {
@@ -160,8 +175,8 @@ export const usePatients = () => {
         try {
             setLoading(true);
             await patientService.delete(id);
-            // 🔹 Invalida cache e recarrega todos os dados de uma vez
-            cache.timestamp = 0;
+            // 🚀 Invalida cache e propaga para hooks relacionados
+            invalidateCache('patients');
             await refreshData();
         } catch (error) {
             setError('Falha ao remover paciente');

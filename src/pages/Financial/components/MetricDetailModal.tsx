@@ -16,7 +16,6 @@ import {
     Avatar,
     Typography,
     IconButton,
-    CircularProgress,
     Alert,
     TextField,
     FormControl,
@@ -578,10 +577,8 @@ export const MetricDetailModal = ({ open, onClose, type, month, year, title, col
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} align="center">
-                                        <Box sx={{ py: 4, display: 'flex', justifyContent: 'center' }}>
-                                            <CircularProgress size={32} />
-                                        </Box>
+                                    <TableCell colSpan={6}>
+                                        <FinancialTableLoading rowCount={5} colSpan={6} />
                                     </TableCell>
                                 </TableRow>
                             ) : (

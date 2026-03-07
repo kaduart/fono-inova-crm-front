@@ -12,6 +12,8 @@ import SessionExpiryHandler from "./components/SessionExpiryHandler";
 import { LoadingOverlay } from "./components/ui/LoadingOverlay";
 import { LoadingSpinner } from "./components/ui/LoadingSpinner";
 import { AppointmentsProvider } from "./contexts/AppointmentsContext";
+import { DoctorsProvider } from "./contexts/DoctorsContext";
+import { PatientsProvider } from "./contexts/PatientsContext";
 import { useAuth } from "./contexts/AuthContext";
 import { ChatNavigationProvider } from "./contexts/ChatNavigationContext";
 import { PreAgendamentoNotificationPopup } from "./components/patients/PreAgendamentoNotificationPopup";
@@ -35,9 +37,13 @@ const App: React.FC = () => {
       />
 
       <Suspense fallback={<LoadingSpinner />}>
-        <AppointmentsProvider>
-          <AppRoutes />
-        </AppointmentsProvider>
+        <DoctorsProvider>
+          <PatientsProvider>
+            <AppointmentsProvider>
+              <AppRoutes />
+            </AppointmentsProvider>
+          </PatientsProvider>
+        </DoctorsProvider>
 
         <ToastContainer
           position="top-center"

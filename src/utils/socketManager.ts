@@ -245,35 +245,25 @@ class SocketManager {
 
     // ✅ on() armazena handler persistente e registra no socket atual
     on(event: string, handler: AnyHandler): Unsubscribe {
-        if (!this.persistentHandlers.has(event)) {
-            this.persistentHandlers.set(event, new Set());
-        }
-        this.persistentHandlers.get(event)!.add(handler);
-
-        // Captura socket existente ANTES do ensureSocket para detectar se um novo foi criado
-        const existingSocket = this.socket;
-        const s = this.ensureSocket();
-        
-
-        if (s === existingSocket) {
-            // Socket já existia — handler não foi aplicado pelo applyPersistentHandlers
-            s.on(event, handler);
-        }
-        // else: socket novo foi criado → applyPersistentHandlers já registrou este handler
-
         // Log quando o evento for recebido
         const wrappedHandler = (payload: any) => {
             handler(payload);
         };
-        
-        // Substitui o handler original pelo wrapped
-        if (s === existingSocket) {
-            s.off(event, handler);
-            s.on(event, wrappedHandler);
+
+        // ✅ PRIMEIRO: Adiciona aos persistentHandlers ANTES de qualquer coisa
+        if (!this.persistentHandlers.has(event)) {
+            this.persistentHandlers.set(event, new Set());
         }
+        this.persistentHandlers.get(event)!.add(wrappedHandler);
+
+        // DEPOIS: Garante socket e registra
+        const s = this.ensureSocket();
+        
+        // Registra no socket atual (pode ser novo ou existente)
+        s.on(event, wrappedHandler);
 
         return () => {
-            this.persistentHandlers.get(event)?.delete(handler);
+            this.persistentHandlers.get(event)?.delete(wrappedHandler);
             this.socket?.off(event, wrappedHandler);
         };
     }

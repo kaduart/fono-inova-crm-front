@@ -22,21 +22,29 @@ import {
   Summary
 } from '../services/paymentService';
 import { DailyClosingData } from '../utils/types/daily-closing-model';
-import { PaymentTotals, PaymentTotalsResponse } from '../utils/types/types';
+import { PaymentTotals } from '../utils/types/types';
+import { invalidateCache } from '../utils/cacheManager';
 
 type PaymentFilters = Record<string, any>;
 
-// 🔹 Cache para evitar recarregamentos
-const cache = {
-  payments: null as FinancialRecord[] | null,
-  paymentTotals: null as PaymentTotals | null,
-  timestamp: 0,
-  totalsTimestamp: 0,
-  isLoading: false,
-  promise: null as Promise<any> | null
-};
+const CACHE_DURATION = 3 * 60 * 1000; // 3 minutos
 
-const CACHE_DURATION = 2 * 60 * 1000; // 2 minutos
+// Cache local para controle de estado de carregamento e dados de pagamento
+const cache: {
+  payments: FinancialRecord[] | null;
+  timestamp: number | null;
+  isLoading: boolean;
+  promise: Promise<any> | null;
+  paymentTotals: any;
+  totalsTimestamp: number | null;
+} = {
+  payments: null,
+  timestamp: null,
+  isLoading: false,
+  promise: null,
+  paymentTotals: null,
+  totalsTimestamp: null
+};
 
 const usePayment = () => {
   const [payments, setPayments] = useState<FinancialRecord[]>(cache.payments || []);
@@ -127,11 +135,15 @@ const usePayment = () => {
     setLoading(true);
     try {
       const newPayment = await createPayment(paymentData);
-      // 🔹 Invalida cache
-      cache.timestamp = 0;
-      cache.totalsTimestamp = 0;
+      // 🚀 Invalida cache local e global
+      cache.promise = null;
       setPayments(prev => [...prev, newPayment]);
       setError(null);
+      
+      // Invalida caches relacionados
+      invalidateCache('dashboard');
+      invalidateCache('patients');
+      
       return newPayment;
     } catch (err) {
       setError('Erro ao criar pagamento');
@@ -202,12 +214,16 @@ const usePayment = () => {
     try {
       const res = await markPaymentAsPaid(id);
       const updated = (res as any)?.data?.data ?? (res as any)?.data ?? res;
-      // 🔹 Invalida cache
-      cache.timestamp = 0;
-      cache.totalsTimestamp = 0;
+      // 🚀 Invalida cache local e global
+      cache.promise = null;
       setPayments(prev => prev.map(p => (p._id === id ? updated : p)));
       if (payment && payment._id === id) setPayment(updated);
       setError(null);
+      
+      // Invalida caches relacionados
+      invalidateCache('dashboard');
+      invalidateCache('patients');
+      
       return updated;
     } catch (err) {
       setError('Erro ao atualizar pagamento');
@@ -227,6 +243,10 @@ const usePayment = () => {
       setPayments(prev => prev.filter(p => p._id !== id));
       if (payment && payment._id === id) setPayment(null);
       setError(null);
+      
+      // 🚀 Invalida caches relacionados
+      invalidateCache('dashboard');
+      invalidateCache('patients');
     } catch (err) {
       setError('Erro ao deletar pagamento');
       console.error(err);

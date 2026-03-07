@@ -15,6 +15,7 @@ interface ContactsContextType {
     refreshContacts: () => Promise<void>;
     updateContact: (id: string, updates: Partial<Contact>) => void;
     markAsRead: (id: string) => void;
+    markAllAsRead: () => void;
     setActiveContactId: (id: string | null) => void;
 }
 
@@ -143,6 +144,12 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
         updateContact(id, { unreadCount: 0, hasNewMessage: false });
     };
 
+    const markAllAsRead = () => {
+        setContacts((prev) =>
+            prev.map((c) => ({ ...c, unreadCount: 0, hasNewMessage: false }))
+        );
+    };
+
     useEffect(() => {
         activeContactIdRef.current = activeContactId;
     }, [activeContactId]);
@@ -171,25 +178,47 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
         window.addEventListener('authReady', handleAuthReady);
         window.addEventListener('authLogout', handleAuthLogout);
 
+        // 🔄 FALLBACK: Polling a cada 10 segundos para garantir atualização
+        // (caso o socket falhe, os contatos ainda serão atualizados)
+        const pollInterval = setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                console.log('[ContactsContext] Polling: atualizando contatos...');
+                refreshContacts();
+            }
+        }, 10000);
+
         return () => {
             window.removeEventListener('authReady', handleAuthReady);
             window.removeEventListener('authLogout', handleAuthLogout);
+            clearInterval(pollInterval);
         };
     }, []);
 
     // socket listener
     useEffect(() => {
+        console.log('[ContactsContext] 🔌 Registrando listener de socket...');
         isMountedRef.current = true;
         socketManager.initialize();
 
         const unsub = socketManager.onMessageNew((payload) => {
+            console.log('[ContactsContext] ⭐⭐⭐ SOCKET EVENTO RECEBIDO:', {
+                event: 'message:new',
+                payload: {
+                    id: payload.id,
+                    direction: payload.direction,
+                    from: payload.from,
+                    to: payload.to,
+                    text: payload.text?.substring(0, 30)
+                }
+            });
+            
             try {
                 const from = normalizeE164BR(payload.from || "");
                 const to = normalizeE164BR(payload.to || "");
                 const phone = from || to;
                 
                 // 🐛 DEBUG: Log para entender problemas de matching
-                console.log('[ContactsContext] message:new recebido:', {
+                console.log('[ContactsContext] Processando mensagem:', {
                     from: payload.from,
                     to: payload.to,
                     fromNormalized: from,
@@ -198,7 +227,6 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
                     direction: payload.direction,
                     indexSize: phoneIndexRef.current.size,
                     indexHasPhone: phoneIndexRef.current.has(phone),
-                    indexKeys: Array.from(phoneIndexRef.current.keys()).slice(0, 5), // primeiros 5
                 });
                 
                 if (!phone) return;
@@ -211,8 +239,10 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
                     contactId = phoneIndexRef.current.get(phone);
                 }
                 
+                // Se não encontrou contato, faz refresh para buscar do servidor
                 if (!contactId) {
-                    console.warn('[ContactsContext] Contato não encontrado. Phone:', phone, 'Payload contactId:', payload.contactId);
+                    console.warn('[ContactsContext] Contato não encontrado, fazendo refresh... Phone:', phone);
+                    refreshContacts();
                     return;
                 }
 
@@ -224,6 +254,14 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
                 const activeId = activeContactIdRef.current;
                 const incUnread = isInbound && activeId !== contactId;
 
+                console.log('[ContactsContext] ✅ Atualizando contato:', {
+                    contactId,
+                    incUnread,
+                    isInbound,
+                    activeId,
+                    preview: preview?.substring(0, 30)
+                });
+                
                 setContacts((prev) => {
                     const updated = prev.map((c) =>
                         c._id === contactId
@@ -238,7 +276,9 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
                             : c
                     );
                     // ✅ Reordena pra mensagem nova ir pro topop
-                    return sortByLastMessage(updated);
+                    const sorted = sortByLastMessage(updated);
+                    console.log('[ContactsContext] ✅ Contatos atualizados:', sorted.length);
+                    return sorted;
                 });
 
             } catch (e) {
@@ -263,6 +303,7 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
             refreshContacts,
             updateContact,
             markAsRead,
+            markAllAsRead,
             setActiveContactId,
         }),
         [contacts, loading, loadingMore, hasMore, activeContactId]

@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { usePatients } from '../../../hooks/usePatients';
+import { usePatientsContext } from '../../../contexts/PatientsContext';
 import { PatientList } from '../../patients/PatientList';
 import { PatientSearch } from '../../patients/PatientSearch';
 import { Skeleton, Button } from '@mui/material';
@@ -22,14 +22,14 @@ export const PatientsTab = ({ onAddPatient, onEditPatient }: PatientsTabProps) =
     const [searchTerm, setSearchTerm] = useState('');
     const [page, setPage] = useState(1);
     
-    // 🎯 Só carrega quando a aba é ativada
+    // 🎯 USA O CONTEXTO GLOBAL DE PACIENTES
     const {
         patients,
         totalPatients,
         loading,
-        fetchPatients,
+        refreshPatients,
         searchPatients
-    } = usePatients();
+    } = usePatientsContext();
 
     // Carrega pacientes na montagem
     useEffect(() => {
@@ -39,8 +39,8 @@ export const PatientsTab = ({ onAddPatient, onEditPatient }: PatientsTabProps) =
             try {
                 if (searchTerm) {
                     await searchPatients(searchTerm);
-                } else {
-                    await fetchPatients({ page, limit: 20 });
+                } else if (patients.length === 0) {
+                    await refreshPatients();
                 }
             } catch (error) {
                 if (mounted) {
@@ -64,13 +64,14 @@ export const PatientsTab = ({ onAddPatient, onEditPatient }: PatientsTabProps) =
         if (term.length >= 3) {
             searchPatients(term);
         } else if (term === '') {
-            fetchPatients({ page: 1, limit: 20 });
+            refreshPatients();
         }
     }, [searchPatients, fetchPatients]);
 
     const handlePageChange = (newPage: number) => {
         setPage(newPage);
-        fetchPatients({ page: newPage, limit: 20 });
+        // Pagination com contexto global (dados já carregados)
+        setPage(newPage);
     };
 
     if (loading && patients.length === 0) {

@@ -17,6 +17,7 @@ import {
     Divider,
     IconButton
 } from '@mui/material';
+import { FinancialLoading } from '../components/FinancialLoading';
 import {
     TrendingUp,
     Target,
@@ -81,6 +82,10 @@ const InteligenciaFinanceiraTab = () => {
     };
 
     const metaAlcancada = (projecaoMes?.metas?.percentualAtual || 0) >= 100;
+
+    if (loading) {
+        return <FinancialLoading cardCount={3} gridSize={{ xs: 12, sm: 4 }} />;
+    }
 
     return (
         <Box sx={{ width: '100%' }}>

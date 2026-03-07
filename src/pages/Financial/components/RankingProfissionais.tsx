@@ -3,8 +3,9 @@ import React, { useEffect } from 'react';
 import {
     Table, TableBody, TableCell, TableContainer,
     TableHead, TableRow, Paper, Typography,
-    Box, Avatar, LinearProgress
+    Box, Avatar
 } from '@mui/material';
+import { FinancialLoadingCompact } from './FinancialLoading';
 import { useFinancialAnalytics } from '../../../hooks/useFinancialAnalytics';
 import { Trophy, Users, TrendingUp } from 'lucide-react';
 
@@ -25,7 +26,7 @@ export const RankingProfissionais: React.FC = () => {
     }, [fetchDoctors]);
 
     if (loadingDoctors && doctors.length === 0) {
-        return <LinearProgress />;
+        return <FinancialLoadingCompact />;
     }
 
     const maxRevenue = doctors.length > 0 ? doctors[0].totalRevenue : 0;

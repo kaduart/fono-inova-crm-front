@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import api from '../services/api';
+import { invalidateCache } from '../utils/cacheManager';
 
 export interface Sale {
     _id: string;
@@ -77,6 +78,11 @@ export const useSales = () => {
         try {
             const response = await api.post('/sales', data);
             setSales(prev => [response.data.data, ...prev]);
+            
+            // 🚀 Invalida dashboard pois vendas afetam o financeiro
+            invalidateCache('dashboard');
+            invalidateCache('patients');
+            
             return response.data.data;
         } catch (err: any) {
             setError(err.response?.data?.message || 'Erro ao criar venda');
@@ -117,6 +123,10 @@ export const useSales = () => {
         try {
             const response = await api.patch(`/sales/${id}/status`, { status });
             setSales(prev => prev.map(s => s._id === id ? response.data.data : s));
+            
+            // 🚀 Invalida dashboard pois status de venda afeta o financeiro
+            invalidateCache('dashboard');
+            
             return response.data.data;
         } catch (err) {
             console.error('Erro ao atualizar status:', err);

@@ -8,8 +8,8 @@
 import { useEffect, useState } from 'react';
 import FinancialDashboard from '../../../pages/Financial/FinancialDashboard';
 import { getPayments, FinancialRecord } from '../../../services/paymentService';
-import { patientService } from '../../../services/patientService';
-import { doctorService } from '../../../services/doctorService';
+import { usePatientsContext } from '../../../contexts/PatientsContext';
+import { useDoctorsContext } from '../../../contexts/DoctorsContext';
 import { IPatient } from '../../../utils/types/types';
 import { Skeleton } from '@mui/material';
 import toast from 'react-hot-toast';
@@ -32,9 +32,11 @@ export const FinancialTab = ({
     onCancelPayment
 }: FinancialTabProps) => {
     const [payments, setPayments] = useState<FinancialRecord[]>([]);
-    const [doctors, setDoctors] = useState<Doctor[]>([]);
-    const [patients, setPatients] = useState<IPatient[]>([]);
-    const [loading, setLoading] = useState(true);
+    // 🎯 USA OS CONTEXTOS GLOBAIS
+    const { patients, loading: patientsLoading } = usePatientsContext();
+    const { activeDoctors: doctors, loading: doctorsLoading } = useDoctorsContext();
+    const [loadingPayments, setLoadingPayments] = useState(true);
+    const loading = loadingPayments || patientsLoading || doctorsLoading;
 
     // 🎯 Só carrega quando a aba é ativada
     useEffect(() => {
@@ -43,20 +45,14 @@ export const FinancialTab = ({
         const loadData = async () => {
             const startTime = Date.now();
             try {
-                setLoading(true);
+                setLoadingPayments(true);
                 
-                // Carrega tudo em paralelo
-                const [paymentsRes, patientsRes, doctorsRes] = await Promise.all([
-                    getPayments(),
-                    patientService.fetchAll(false),
-                    doctorService.getAllDoctors()
-                ]);
+                // Carrega pagamentos (pacientes e médicos vêm dos contextos)
+                const paymentsRes = await getPayments();
 
                 if (!mounted) return;
 
                 setPayments(paymentsRes.data?.data || paymentsRes.data || []);
-                setPatients(Array.isArray(patientsRes) ? patientsRes : []);
-                setDoctors(doctorsRes.data || []);
             } catch (error) {
                 console.error('Erro ao carregar dados financeiros:', error);
                 toast.error('Erro ao carregar dados financeiros');
@@ -67,7 +63,7 @@ export const FinancialTab = ({
                 
                 setTimeout(() => {
                     if (mounted) {
-                        setLoading(false);
+                        setLoadingPayments(false);
                     }
                 }, minDelay);
             }

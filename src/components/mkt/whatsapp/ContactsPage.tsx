@@ -2,14 +2,20 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
 import { useContacts } from "../../../contexts/ContactsContext";
-import { usePatients } from "../../../hooks/usePatients"; // ✅ importa hook
+import { usePatientsContext } from "../../../contexts/PatientsContext"; // ✅ importa contexto
 import { addContact, deleteContact, editContact } from "../../../services/whatsappService";
 import ContactsList, { Contact } from "./ContactsList";
 
 export default function ContactsPage() {
-    const { listContacts, refreshContacts } = useContacts();
-    const { createPatient, patients } = usePatients(); // ✅ hook de pacientes
+    const { listContacts, refreshContacts, markAsRead } = useContacts();
+    const { createPatient, patients } = usePatientsContext(); // ✅ contexto global de pacientes
     const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+
+    // ✅ Seleciona contato e marca como lido (limpa notificação)
+    const handleSelect = (contact: Contact) => {
+        markAsRead(contact._id);
+        setSelectedContact(contact);
+    };
 
     // ✅ Função auxiliar: cria/busca paciente e vincula ao contato
     const syncContactWithPatient = async (contact: Contact, newName: string) => {
@@ -121,7 +127,7 @@ export default function ContactsPage() {
                 onAdd={handleAdd}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
-                onSelect={setSelectedContact}
+                onSelect={handleSelect}
                 selectedContactId={selectedContact?._id}
             />
         </div>

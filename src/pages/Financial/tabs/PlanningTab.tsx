@@ -32,7 +32,6 @@ import {
   Divider,
   Grid,
   IconButton,
-  LinearProgress,
   MenuItem,
   Paper,
   Table,
@@ -49,6 +48,7 @@ import {
   InputLabel,
   Select
 } from '@mui/material';
+import { FinancialLoading } from '../components/FinancialLoading';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useEffect, useState } from 'react';
@@ -82,6 +82,11 @@ const STATUS_CONFIG = {
 
 const PlanningTab = () => {
   const { plannings, fetchPlannings, createPlanning, updatePlanning, deletePlanning, refreshAllPlannings, loading } = usePlanning();
+
+  // Loading state para carregamento inicial
+  if (loading && plannings.length === 0) {
+    return <FinancialLoading cardCount={4} gridSize={{ xs: 12, sm: 6, md: 3 }} />;
+  }
   const [openModal, setOpenModal] = useState(false);
   const [openEditModal, setOpenEditModal] = useState(false);
   const [openDeleteModal, setOpenDeleteModal] = useState(false);

@@ -1,4 +1,5 @@
 import { Alert, Box, Card, CardContent, Chip, Grid, MenuItem, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, Divider, Avatar } from '@mui/material';
+import { FinancialLoading } from './components/FinancialLoading';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useEffect, useState } from 'react';
@@ -134,7 +135,9 @@ const CashflowTab = () => {
                 </Box>
             </Paper>
 
-            {summary && (
+            {loading ? (
+                <FinancialLoading cardCount={4} />
+            ) : summary ? (
                 <>
                     {/* Cards Financeiros - Redesenhados com dados reais da API */}
                     <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ width: '100%', mb: { xs: 3, sm: 4 } }}>
@@ -409,6 +412,8 @@ const CashflowTab = () => {
                         </Typography>
                     </Box>
                 </>
+            ) : (
+                <FinancialLoading cardCount={4} />
             )}
         </Box>
     );

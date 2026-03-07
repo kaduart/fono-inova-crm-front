@@ -24,6 +24,7 @@ import {
     Collapse,
     Checkbox
 } from '@mui/material';
+import { FinancialLoading, FinancialTableLoading } from '../components/FinancialLoading';
 import { Patient360Modal } from '../components/Patient360Modal';
 import {
     Building2,
@@ -639,9 +640,7 @@ const InsuranceTab = () => {
 
                 <Box sx={{ p: 3 }}>
                     {loading ? (
-                        <div className="flex justify-center py-12">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
-                        </div>
+                        <FinancialTableLoading rowCount={4} colSpan={1} />
                     ) : receivables.length === 0 ? (
                         <div className="text-center py-12 text-gray-500">
                             <Building2 className="w-16 h-16 mx-auto mb-4 opacity-20" />

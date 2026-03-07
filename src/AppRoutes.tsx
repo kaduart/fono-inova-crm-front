@@ -7,9 +7,10 @@
  */
 
 import React, { lazy, Suspense, Component, type ReactNode } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { useAuth } from './contexts/AuthContext';
+import MainLayout from './components/MainLayout';
 
 // Importação síncrona de componentes críticos (login, home)
 import Home from './components/Home';
@@ -39,7 +40,7 @@ const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1000) 
 
 // 🎯 Lazy loading de componentes pesados (com retry automático)
 const AdminDashboard = lazyWithRetry(() => import('./components/AdminDashboard'));
-const DoctorDashboard = lazyWithRetry(() => import('./components/DoctorDashboard'));
+const DoctorDashboard = lazyWithRetry(() => import('./pages/doctor/DoctorDashboard'));
 const PatientDashboard = lazyWithRetry(() => import('./components/patients/PatientDashboard'));
 const CreateAppointmentPage = lazyWithRetry(() => import('./pages/appointments/create'));
 const SchedulePage = lazyWithRetry(() => import('./pages/schedule'));
@@ -136,16 +137,20 @@ const AppRoutes: React.FC = () => {
                     user ? <Navigate to={`/${user.role}`} replace /> : <SignUp />
                 } />
                 <Route path="/reset-password/:token" element={<ResetPassword />} />
-                <Route path="/contacts" element={<ContactsPage />} />
 
-                {/* ==================== ROTAS PRIVADAS ==================== */}
-                
-                {/* Admin Dashboard (com abas internas) */}
-                <Route path="/admin" element={
-                    <PrivateRoute allowedRoles={['admin']}>
-                        <AdminDashboard />
-                    </PrivateRoute>
-                } />
+                {/* ==================== ROTAS COM LAYOUT (inclui socket listeners) ==================== */}
+                <Route element={<MainLayout />}>
+                    {/* Públicas com layout */}
+                    <Route path="/contacts" element={<ContactsPage />} />
+
+                    {/* ==================== ROTAS PRIVADAS ==================== */}
+                    
+                    {/* Admin Dashboard (com abas internas) */}
+                    <Route path="/admin" element={
+                        <PrivateRoute allowedRoles={['admin']}>
+                            <AdminDashboard />
+                        </PrivateRoute>
+                    } />
 
                 {/* Sub-rotas do Admin - Lazy Loaded */}
                 <Route path="/admin/analytics" element={
@@ -273,6 +278,8 @@ const AppRoutes: React.FC = () => {
                         <ProvisionamentoTab />
                     </PrivateRoute>
                 } />
+
+                </Route>{/* ← Fim do MainLayout */}
 
                 {/* Rota de fallback */}
                 <Route path="*" element={

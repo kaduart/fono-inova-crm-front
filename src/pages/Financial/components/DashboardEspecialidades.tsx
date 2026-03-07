@@ -1,6 +1,7 @@
 // frontend/src/pages/Financial/components/DashboardEspecialidades.tsx
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent, Typography, Box, Chip, CircularProgress, Grid } from '@mui/material';
+import { Card, CardContent, Typography, Box, Chip, Grid } from '@mui/material';
+import { FinancialLoadingCompact } from './FinancialLoading';
 import { useFinancialAnalytics } from '../../../hooks/useFinancialAnalytics';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -42,11 +43,7 @@ export const DashboardEspecialidades: React.FC = () => {
     const totalGeral = specialties.reduce((acc, s) => acc + s.totalRevenue, 0);
 
     if (loadingSpecialties) {
-        return (
-            <Box display="flex" justifyContent="center" alignItems="center" p={8}>
-                <CircularProgress />
-            </Box>
-        );
+        return <FinancialLoadingCompact />;
     }
 
     if (specialties.length === 0) {

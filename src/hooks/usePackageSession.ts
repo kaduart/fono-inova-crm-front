@@ -1,16 +1,24 @@
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
+import API from '../services/api';
+import { invalidateCache } from '../utils/cacheManager';
 
 const useTherapyPackage = () => {
   const [loading, setLoading] = useState(false);
 
-  const withTransaction = async (operation: () => Promise<any>, successMessage: string) => {
+  const withTransaction = async (operation: () => Promise<any>, successMessage: string, invalidateCaches: string[] = []) => {
     setLoading(true);
     try {
       const result = await operation();
       toast.success(successMessage);
+      
+      // 🚀 Invalida caches especificados
+      invalidateCaches.forEach(cacheKey => {
+        invalidateCache(cacheKey as any);
+      });
+      
       return result;
-    } catch (error) {
+    } catch (error: any) {
       const errorMessage = error.response?.data?.error || 'Erro na operação';
       toast.error(`Erro: ${errorMessage}`);
       throw new Error(errorMessage);
@@ -21,10 +29,38 @@ const useTherapyPackage = () => {
 
   return {
     loading,
-    createPackage: (data) => withTransaction(() => API.post('/therapy-packages', data), 'Pacote criado'),
-    addPayment: (packageId, payment) =>
-      withTransaction(() => API.post(`/therapy-packages/${packageId}/payments`, payment), 'Pagamento registrado'),
+    createPackage: (data: any) => 
+      withTransaction(
+        () => API.post('/therapy-packages', data), 
+        'Pacote criado',
+        ['dashboard', 'patients']
+      ),
+    addPayment: (packageId: string, payment: any) =>
+      withTransaction(
+        () => API.post(`/therapy-packages/${packageId}/payments`, payment), 
+        'Pagamento registrado',
+        ['dashboard', 'patients']
+      ),
     generateReport: () =>
-      withTransaction(() => API.get('/therapy-packages/reports/financial'), 'Relatório gerado')
+      withTransaction(
+        () => API.get('/therapy-packages/reports/financial'), 
+        'Relatório gerado'
+      ),
+    // 🚀 Nova função para atualizar package
+    updatePackage: (packageId: string, data: any) =>
+      withTransaction(
+        () => API.patch(`/therapy-packages/${packageId}`, data),
+        'Pacote atualizado',
+        ['dashboard', 'patients']
+      ),
+    // 🚀 Nova função para deletar package
+    deletePackage: (packageId: string) =>
+      withTransaction(
+        () => API.delete(`/therapy-packages/${packageId}`),
+        'Pacote removido',
+        ['dashboard', 'patients']
+      )
   };
 };
+
+export default useTherapyPackage;

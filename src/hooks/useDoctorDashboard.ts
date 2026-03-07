@@ -1,5 +1,5 @@
 // src/hooks/useDoctorDashboard.ts
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import API from '../services/api';
 import {
@@ -14,73 +14,215 @@ import {
 import { Appointment } from '../utils/types';
 import { IPatient } from '../utils/types/types';
 
+import {
+  subscribeToCacheInvalidation,
+  invalidateCache,
+  isCacheValid,
+  getCache,
+  setCache
+} from '../utils/cacheManager';
+
+// Cache local para controle de loading
+const localCache = {
+  isLoading: false,
+  promise: null as Promise<void> | null
+};
+
+/**
+ * @deprecated Este hook será substituído por useDoctorList e useDoctorStats
+ * Mantido para compatibilidade com código existente
+ * @see useDoctorList - Para lista de médicos
+ * @see useDoctorStats - Para estatísticas
+ */
 export default function useDoctorDashboard() {
-  const [loading, setLoading] = useState(true);
-  const [doctorData, setDoctorData] = useState<any>(null);
-  const [patients, setPatients] = useState<IPatient[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [therapySessions, setTherapySessions] = useState<any[]>([]);
-  const [stats, setStats] = useState<any>({
+  // 🎯 Verifica se o usuário é médico antes de carregar qualquer coisa
+  const [userRole, setUserRole] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const storedRole = localStorage.getItem('userRole');
+    if (storedRole) {
+      try {
+        setUserRole(JSON.parse(storedRole));
+      } catch {
+        setUserRole(storedRole);
+      }
+    }
+  }, []);
+  
+  const isDoctor = userRole === 'doctor';
+  
+  const cachedData = getCache<any>('doctors');
+  
+  const [loading, setLoading] = useState(!cachedData && isDoctor);
+  const [doctorData, setDoctorData] = useState<any>(cachedData?.doctorData || null);
+  const [patients, setPatients] = useState<IPatient[]>(cachedData?.patients || []);
+  const [appointments, setAppointments] = useState<Appointment[]>(cachedData?.appointments || []);
+  const [therapySessions, setTherapySessions] = useState<any[]>(cachedData?.therapySessions || []);
+  const [stats, setStats] = useState<any>(cachedData?.stats || {
     today: 0,
     confirmed: 0,
     totalPatients: 0,
     specialties: {}
   });
-  const [futureAppointments, setFutureAppointments] = useState<Appointment[]>([]);
-  const [totalDoctors, setTotalDoctors] = useState<number>(0);
-  const [doctorOverview, setDoctorOverview] = useState<any>(null);
-  const [doctors, setDoctors] = useState<any[]>([]);
-  const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+  const [futureAppointments, setFutureAppointments] = useState<Appointment[]>(cachedData?.futureAppointments || []);
+  const [totalDoctors, setTotalDoctors] = useState<number>(cachedData?.totalDoctors || 0);
+  const [doctorOverview, setDoctorOverview] = useState<any>(cachedData?.doctorOverview || null);
+  const [doctors, setDoctors] = useState<any[]>(cachedData?.doctors || []);
+  const [calendarEvents, setCalendarEvents] = useState<any[]>(cachedData?.calendarEvents || []);
+  const [attendanceSummary, setAttendanceSummary] = useState<any[]>(cachedData?.attendanceSummary || []);
 
-  const [attendanceSummary, setAttendanceSummary] = useState<any[]>([]);
+  const isMounted = useRef(true);
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [doctorRes, patientsRes, appointmentsRes, sessionsRes, statsRes] = await Promise.all([
-        API.get('/users/me'),
-        fetchPatients(),
-        fetchTodaysAppointments(),
-        fetchTherapySessions(),
-        fetchStats()
-      ]);
+  // ✅ CORREÇÃO: Usar ref para evitar stale closure sem causar re-renderizações
+  const isDoctorRef = useRef(isDoctor);
+  isDoctorRef.current = isDoctor;
+  
+  const loadData = useCallback(async (forceRefresh = false) => {
+    // 🚀 Verifica cache
+    if (!forceRefresh && isCacheValid('doctors')) {
+      const cached = getCache<any>('doctors');
+      if (cached) {
+        console.log('📦 useDoctorDashboard: Usando cache');
+        if (isMounted.current) {
+          setDoctorData(cached.doctorData);
+          setPatients(cached.patients);
+          setAppointments(cached.appointments);
+          setTherapySessions(cached.therapySessions);
+          setStats(cached.stats);
+          setCalendarEvents(cached.calendarEvents);
+          setFutureAppointments(cached.futureAppointments);
+          setDoctors(cached.doctors);
+          setTotalDoctors(cached.totalDoctors);
+          setDoctorOverview(cached.doctorOverview);
+          setAttendanceSummary(cached.attendanceSummary);
+        }
+        return;
+      }
+    }
 
-      setDoctorData(doctorRes.data);
-      setPatients(patientsRes);
-      setAppointments(appointmentsRes);
-      setTherapySessions(sessionsRes);
-      setStats(statsRes);
+    // 🚀 Se já está carregando, espera
+    if (localCache.isLoading && localCache.promise) {
+      await localCache.promise;
+      return;
+    }
 
-      if (doctorRes.data && doctorRes.data._id) {
-        const [calendarData, futureApps, doctorsRes, totalDoctorsRes, doctorOverviewRes, attendanceRes] =
-          await Promise.all([
+    localCache.isLoading = true;
+    if (isMounted.current) setLoading(true);
+
+    const loadPromise = (async () => {
+      try {
+        // ✅ Otimizado: Primeira leva de chamadas (COMUNS a todos os usuários)
+        const [doctorRes, patientsRes, appointmentsRes, sessionsRes, statsRes] = await Promise.all([
+          API.get('/users/me'),
+          fetchPatients(),
+          fetchTodaysAppointments(),
+          fetchTherapySessions(),
+          fetchStats()
+        ]);
+
+        if (isMounted.current) {
+          setDoctorData(doctorRes.data);
+          setPatients(patientsRes);
+          setAppointments(appointmentsRes);
+          setTherapySessions(sessionsRes);
+          setStats(statsRes);
+        }
+
+        let extendedData = {};
+        if (doctorRes.data && doctorRes.data._id) {
+          // ✅ Chamadas específicas para MÉDICOS (dados próprios)
+          const [calendarData, futureApps, attendanceRes] = await Promise.all([
             doctorService.getAppointmentCalendarDoctor(doctorRes.data._id),
             fetchFutureAppointments(),
-            doctorService.getAllDoctors(),
-            doctorService.getTotalDoctors(),
-            doctorService.getDoctorOverview(),
-            // 🔥 Novo endpoint de frequência
             doctorService.getAttendanceSummary(doctorRes.data._id)
           ]);
 
-        setCalendarEvents(calendarData);
-        setFutureAppointments(futureApps);
-        setDoctors(doctorsRes.data);
-        setTotalDoctors(totalDoctorsRes.totalDoctors);
-        setDoctorOverview(doctorOverviewRes);
-        setAttendanceSummary(attendanceRes.data?.data || []);
-      }
-    } catch (error) {
-      toast.error('Erro ao carregar dados do dashboard');
-      console.error('Erro no dashboard:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+          if (isMounted.current) {
+            setCalendarEvents(calendarData);
+            setFutureAppointments(futureApps);
+            setAttendanceSummary(attendanceRes.data?.data || []);
+          }
 
+          extendedData = {
+            calendarEvents: calendarData,
+            futureAppointments: futureApps,
+            attendanceSummary: attendanceRes.data?.data || []
+          };
+
+          // 🔥 Só carrega dados de ADMIN se NÃO for médico (usa ref para evitar re-render)
+          if (!isDoctorRef.current) {
+            const [doctorsRes, totalDoctorsRes, doctorOverviewRes] = await Promise.all([
+              doctorService.getAllDoctors(),
+              doctorService.getTotalDoctors(),
+              doctorService.getDoctorOverview()
+            ]);
+
+            if (isMounted.current) {
+              setDoctors(doctorsRes.data);
+              setTotalDoctors(totalDoctorsRes.totalDoctors);
+              setDoctorOverview(doctorOverviewRes);
+            }
+
+            extendedData = {
+              ...extendedData,
+              doctors: doctorsRes.data,
+              totalDoctors: totalDoctorsRes.totalDoctors,
+              doctorOverview: doctorOverviewRes
+            };
+          }
+        }
+
+        // 🚀 Atualiza cache global
+        setCache('doctors', {
+          doctorData: doctorRes.data,
+          patients: patientsRes,
+          appointments: appointmentsRes,
+          therapySessions: sessionsRes,
+          stats: statsRes,
+          ...extendedData
+        });
+
+      } catch (error) {
+        toast.error('Erro ao carregar dados do dashboard');
+        console.error('Erro no dashboard:', error);
+      } finally {
+        localCache.isLoading = false;
+        if (isMounted.current) setLoading(false);
+      }
+    })();
+
+    localCache.promise = loadPromise;
+    await loadPromise;
+    localCache.promise = null;
+  }, []); // ✅ CORREÇÃO: Sem deps para evitar re-carregamento quando isDoctor muda
+
+  // ✅ CORREÇÃO: Controle de carregamento único
+  const hasLoadedRef = useRef(false);
+  
   useEffect(() => {
-    loadData();
-  }, []);
+    isMounted.current = true;
+    
+    // 🚀 Só carrega uma vez quando o role estiver definido
+    if (userRole !== null && !hasLoadedRef.current) {
+      hasLoadedRef.current = true;
+      console.log('🚀 useDoctorDashboard: Primeiro carregamento (role:', userRole + ')');
+      loadData();
+    }
+    
+    return () => {
+      isMounted.current = false;
+    };
+  }, [loadData, userRole]);
+
+  // 🔔 Subscribe para invalidação de cache externa
+  useEffect(() => {
+    const unsubscribe = subscribeToCacheInvalidation('doctors', () => {
+      console.log('🔄 useDoctorDashboard: Cache invalidado externamente, recarregando...');
+      loadData(true);
+    });
+
+    return () => unsubscribe();
+  }, [loadData]);
 
   const handleCompleteSession = async (sessionId: string) => {
     try {
@@ -100,19 +242,21 @@ export default function useDoctorDashboard() {
     }
   };
 
-  const fetchDoctors = async () => {
-
+  // ✅ NOVO: fetchDoctors otimizado (sem useEffect duplicado)
+  const fetchDoctors = useCallback(async () => {
+    // 🔒 Apenas admin pode listar todos médicos
+    if (isDoctor) {
+      toast.error('Apenas administradores podem listar todos profissionais');
+      return;
+    }
     try {
       const response = await doctorService.getAllDoctors();
       setDoctors(response.data);
     } catch (error) {
-      toast.error('Erro ao atualizar status');
-      console.error('Erro ao atualizar status:', error);
+      toast.error('Erro ao atualizar lista de profissionais');
+      console.error('Erro ao atualizar profissionais:', error);
     }
-  };
-  useEffect(() => {
-    fetchDoctors();
-  }, []);
+  }, [isDoctor]);
 
   const handleUpdateStatus = async (appointmentId: string, status: string) => {
     try {
@@ -127,13 +271,26 @@ export default function useDoctorDashboard() {
     }
   };
 
+  // 🚀 Força refresh invalidando cache
+  const refreshData = useCallback(async () => {
+    invalidateCache('doctors');
+    await loadData(true);
+  }, [loadData]);
+
   const createDoctor = async (doctor: any) => {
+    // 🔒 Apenas admin pode criar médicos
+    if (isDoctor) {
+      toast.error('Apenas administradores podem criar profissionais');
+      throw new Error('Unauthorized');
+    }
     setLoading(true);
     try {
       await doctorService.createDoctor(doctor);
-      // atualiza a lista local
+      // 🚀 Invalida cache e propaga para hooks relacionados
+      invalidateCache('doctors');
       const allDoctors = await doctorService.getAllDoctors();
       setDoctors(allDoctors.data);
+      toast.success('Profissional criado com sucesso!');
     } catch (error: any) {
       console.error("Erro ao criar profissional:", error);
       toast.error(error.message || "Erro ao criar profissional");
@@ -145,21 +302,27 @@ export default function useDoctorDashboard() {
 
   const updateDoctor = async (doctor: any) => {
     if (!doctor._id) throw new Error("ID do profissional é obrigatório");
+    // 🔒 Apenas admin pode atualizar outros médicos (médico pode atualizar si próprio via outra rota)
+    if (isDoctor) {
+      toast.error('Apenas administradores podem atualizar profissionais');
+      throw new Error('Unauthorized');
+    }
     setLoading(true);
     try {
       await doctorService.updateDoctor(doctor._id, doctor);
+      // 🚀 Invalida cache e propaga para hooks relacionados
+      invalidateCache('doctors');
       const allDoctors = await doctorService.getAllDoctors();
       setDoctors(allDoctors.data);
+      toast.success('Profissional atualizado com sucesso!');
     } catch (error: any) {
       console.error("Erro ao atualizar profissional:", error);
       toast.error(error.message || "Erro ao atualizar profissional");
       throw error;
-    }
-    finally {
+    } finally {
       setLoading(false);
     }
   };
-
 
   return {
     loading,
@@ -177,10 +340,11 @@ export default function useDoctorDashboard() {
     attendanceSummary,
     handleCompleteSession,
     handleUpdateStatus,
-    refreshData: loadData,
+    refreshData, // 🚀 Agora invalida cache antes de recarregar
     createDoctor,
     fetchPatients,
     calendarEvents,
-    updateDoctor
+    updateDoctor,
+    fetchDoctors // ✅ Mantido para compatibilidade
   };
 }

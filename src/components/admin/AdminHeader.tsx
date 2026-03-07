@@ -19,6 +19,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import NavButton from "../ui/NavButton";
 import NavDropdownItem from "../ui/NavDropdownItem";
 import { NotificationBellFixed } from "../notifications/NotificationBellFixed";
+import { WhatsAppNotificationButton } from "../notifications/WhatsAppNotificationButton";
 
 interface AdminHeaderProps {
     activeTab: string;
@@ -206,14 +207,9 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                             )}
                         </div>
 
-                        <NavButton
-                            active={activeTab === "Mensagens"}
+                        <WhatsAppNotificationButton 
                             onClick={() => handleTabChange("Mensagens")}
-                            icon={<MessageCircle className="h-4 w-4 text-emerald-500" />}
-                            className={activeTab === "Mensagens" ? "bg-blue-100 text-blue-600" : "!text-white"}
-                        >
-                            WhatsApp
-                        </NavButton>
+                        />
                     </nav>
 
                     {/* 🔔 Notificações + Perfil + Hamburguer */}

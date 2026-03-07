@@ -48,7 +48,7 @@ export const planningService = {
     },
 
     // Listar planejamentos
-    getAll: async (filters?: { type?: string; status?: string; startDate?: string; endDate?: string }) => {
+    getAll: async (filters?: { type?: string; status?: string; startDate?: string; endDate?: string; month?: number; year?: number }) => {
         const response = await api.get('/planning', { params: filters });
         return response.data;
     },
@@ -90,7 +90,7 @@ export const planningService = {
     },
 
     // Buscar com atualização automática
-    getAllWithRefresh: async (filters?: { type?: string; status?: string; startDate?: string; endDate?: string }) => {
+    getAllWithRefresh: async (filters?: { type?: string; status?: string; startDate?: string; endDate?: string; month?: number; year?: number }) => {
         const response = await api.get('/planning', { params: { ...filters, refresh: true } });
         return response.data;
     },

@@ -1,7 +1,10 @@
 import { Button, Paper, Typography, useTheme } from '@mui/material';
 import { Plus, Users } from 'lucide-react';
 import React, { useEffect, useState } from "react";
+import { toast } from 'react-hot-toast';
 import { IAppointment, IDoctor, IPatient, ScheduleAppointment } from "../../utils/types/types";
+import { doctorService } from "../../services/doctorService";
+import { useDoctorsContext } from "../../contexts/DoctorsContext";
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
 import DoctorAgenda from "./DoctorAgenda";
 import DoctorFormModal from "./DoctorFormModal";
@@ -28,26 +31,26 @@ interface ManageDoctorsProps {
     closeModalSignal: number;
     setOpenModal: () => Promise<void>;
     onNewAppointment: (data: ScheduleAppointment) => Promise<void>;
+    onDoctorsChange?: () => Promise<void>;
 };
 
 const ManageDoctors: React.FC<ManageDoctorsProps> = ({
-    doctors = [],
-    patients = [],
-    loading,
+    doctors: propDoctors,
+    patients,
+    loading: propLoading,
     appointments,
     closeModalSignal,
     onNewAppointment,
     onSubmitDoctor,
     modalShouldClose,
-    setOpenModal
+    setOpenModal,
+    onDoctorsChange
 }) => {
     const [doctorSchedules, setDoctorSchedules] = useState(initialSchedules);
     const [selectedDoctor, setSelectedDoctor] = useState<IDoctor | null>(null);
-    const [localShouldClose, setLocalShouldClose] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [dataUpdateSlots, setdataUpdateSlots] = useState<ScheduleAppointment | undefined>();
     const [showAddDoctorModal, setShowAddDoctorModal] = useState(false);
-    const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [showAgendaModal, setshowAgendaModal] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -70,14 +73,16 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
         status: 'agendado',
     });
     const theme = useTheme();
-    console.log('Chamou - manager doctor ')
+
+    // 🎯 USA O CONTEXTO GLOBAL DE MÉDICOS
+    const { doctors: allDoctors, activeDoctors, inactiveDoctors, loading: isLoadingDoctors, refreshDoctors } = useDoctorsContext();
 
     useEffect(() => {
         if (modalShouldClose) {
             setShowModal(false);
             const timer = setTimeout(() => {
-                setOpenModal(false);
-            }, 300); // Tempo para animação de fechamento
+                setOpenModal();
+            }, 300);
             return () => clearTimeout(timer);
         }
         if (closeModalSignal) {
@@ -86,7 +91,6 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
     }, [modalShouldClose, closeModalSignal, setOpenModal]);
 
     const handleViewAgenda = (doctor: IDoctor) => {
-
         setSelectedDoctor(doctor);
         setshowAgendaModal(true);
     };
@@ -101,7 +105,6 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
         setShowModal(true);
     };
 
-    // abre o modal de agendamento com dados do horário e do médico
     const onOpenCloseModals = (data: {
         time: string;
         date: string;
@@ -109,15 +112,11 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
         specialty: string;
         isBookingModalOpen: boolean;
     }) => {
-        console.log('➡️ Dados recebidos no onOpenCloseModals:', data);
-
-        // Garante que temos a data no formato correto (YYYY-MM-DD)
         const baseDate =
             typeof data.date === 'string'
                 ? data.date
                 : new Date(data.date).toISOString().split('T')[0];
 
-        // Monta o objeto para o modal
         setScheduleAppointmentData({
             date: baseDate,
             time: data.time,
@@ -129,16 +128,14 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
             notes: '',
             paymentAmount: 0,
             paymentMethod: 'dinheiro',
-            serviceType: 'individual_session', // evita undefined no modal
+            serviceType: 'individual_session',
         });
 
         setShowScheduleModal(true);
         setSelectedBookingData(data);
     };
 
-
     const handleBookingSubmit = async (data: any) => {
-
         setScheduleAppointmentData({
             ...scheduleAppointmentData,
             date: data.date,
@@ -146,7 +143,6 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
             patientId: data.patientId,
             packages: data.packages,
         });
-        //  setBookingModalOpen(false);
         setShowScheduleModal(true);
     };
 
@@ -154,8 +150,6 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
         setIsLoading(true);
         try {
             await onNewAppointment(data);
-
-            // usa o próprio `data` pra atualizar slots locais
             setdataUpdateSlots({
                 ...data,
                 _syncKey: Date.now(),
@@ -163,6 +157,51 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
         } catch (error: any) {
             console.error("Erro no intermediário:", error);
             setErrorMessage(error.message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // 🆕 Inativar profissional (soft delete)
+    const handleDeactivateDoctor = async (doctor: IDoctor) => {
+        if (!doctor._id) return;
+        
+        setIsLoading(true);
+        try {
+            await doctorService.deactivateDoctor(doctor._id);
+            toast.success(`Profissional "${doctor.fullName}" inativado com sucesso!`);
+            
+            // 🎯 Atualiza via contexto
+            await refreshDoctors();
+            await onDoctorsChange?.();
+            
+            if (selectedDoctor?._id === doctor._id) {
+                setshowAgendaModal(false);
+                setSelectedDoctor(null);
+            }
+        } catch (error: any) {
+            console.error("Erro ao inativar profissional:", error);
+            toast.error(error.response?.data?.message || "Erro ao inativar profissional");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // 🆕 Reativar profissional
+    const handleReactivateDoctor = async (doctor: IDoctor) => {
+        if (!doctor._id) return;
+        
+        setIsLoading(true);
+        try {
+            await doctorService.reactivateDoctor(doctor._id);
+            toast.success(`Profissional "${doctor.fullName}" reativado com sucesso!`);
+            
+            // 🎯 Atualiza via contexto
+            await refreshDoctors();
+            await onDoctorsChange?.();
+        } catch (error: any) {
+            console.error("Erro ao reativar profissional:", error);
+            toast.error(error.response?.data?.message || "Erro ao reativar profissional");
         } finally {
             setIsLoading(false);
         }
@@ -180,7 +219,6 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
                 }}
             >
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    {/* Ícone e título */}
                     <div className="flex items-center gap-3">
                         <div
                             className="p-2 rounded-lg"
@@ -199,7 +237,6 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
                         </div>
                     </div>
 
-                    {/* Botão com gradiente institucional */}
                     <Button
                         variant="contained"
                         startIcon={<Plus size={18} />}
@@ -223,17 +260,22 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
                 </div>
             </Paper>
 
-            <DoctorList doctors={doctors} onEdit={handleAddOrEditDoctor} onViewAgenda={handleViewAgenda} />
+            <DoctorList 
+                doctors={allDoctors}
+                onEdit={handleAddOrEditDoctor} 
+                onViewAgenda={handleViewAgenda}
+                onDeactivate={handleDeactivateDoctor}
+                onReactivate={handleReactivateDoctor}
+            />
 
             {showAgendaModal && selectedDoctor && (
                 <DoctorAgenda
                     selectedDoctor={selectedDoctor}
-                    doctors={doctors}
+                    doctors={allDoctors}
                     patients={patients}
                     onDaySlotsChange={handleDaySlotsChange}
                     onSubmitSlotBooking={onOpenCloseModals}
                     updateSlots={dataUpdateSlots}
-
                 />
             )}
 
@@ -241,13 +283,14 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
                 <DoctorFormModal
                     selectedDoctor={selectedDoctor}
                     open={showModal}
-                    loading={loading}
+                    loading={isLoadingDoctors || propLoading}
                     onClose={() => setShowModal(false)}
                     onSubmitDoctor={async (doctor) => {
-                        await onSubmitDoctor(doctor);
+                        await onSubmitDoctor();
+                        await refreshDoctors(); // 🎯 Atualiza lista após salvar
                     }}
                     modalShouldClose={modalShouldClose}
-                    onCancel={() => setOpenModal(false)}
+                    onCancel={() => setOpenModal()}
                     onSubmitSlotBooking={handleBookingSubmit}
                 />
             )}
@@ -256,7 +299,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
                 <ScheduleAppointmentModal
                     isOpen={showScheduleModal}
                     initialData={scheduleAppointmentData}
-                    doctors={doctors}
+                    doctors={allDoctors}
                     patients={patients}
                     onClose={() => setShowScheduleModal(false)}
                     onSave={(data) => { handleBookingComplete(data) }}

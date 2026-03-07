@@ -1,30 +1,20 @@
 /**
- * CalendarTab - Lazy Loading
+ * CalendarTab - Integrado com Contextos Globais
  * 
- * Só carrega agendamentos quando a aba Calendário é ativada.
- * Usa range de datas do mês atual por padrão.
+ * Usa os contextos globais (Doctors, Patients, Appointments) para
+ * sincronização automática entre todas as telas.
  */
 
 import { useEffect, useState, useCallback } from 'react';
 import EnhancedCalendar from '../../calendar/EnhancedCalendar';
 
 import { appointmentService } from '../../../services/appointmentService';
-import { patientService } from '../../../services/patientService';
-import { doctorService } from '../../../services/doctorService';
+import { usePatientsContext } from '../../../contexts/PatientsContext';
+import { useDoctorsContext } from '../../../contexts/DoctorsContext';
+import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';
 import { Skeleton } from '@mui/material';
 import toast from 'react-hot-toast';
 import moment from 'moment-timezone';
-
-interface Doctor {
-    _id: string;
-    fullName: string;
-    specialty?: string;
-}
-
-interface Patient {
-    _id: string;
-    fullName: string;
-}
 
 interface CalendarTabProps {
     onNewAppointment: (data: any) => Promise<void>;
@@ -41,10 +31,12 @@ export const CalendarTab = ({
     onEditAppointment,
     onFetchAvailableSlots
 }: CalendarTabProps) => {
-    const [doctors, setDoctors] = useState<Doctor[]>([]);
-    const [patients, setPatients] = useState<Patient[]>([]);
-    const [appointments, setAppointments] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    // 🎯 USA OS CONTEXTOS GLOBAIS
+    const { activeDoctors: doctors, loading: doctorsLoading } = useDoctorsContext();
+    const { patients, loading: patientsLoading, refreshPatients } = usePatientsContext();
+    const { appointments, fetchAppointments } = useAppointmentsContext();
+    
+    const loading = patientsLoading || doctorsLoading;
     const [closeModalSignal, setCloseModalSignal] = useState(0);
     
     // Range padrão: mês atual
@@ -54,49 +46,28 @@ export const CalendarTab = ({
         return { startDate: start, endDate: end };
     });
 
-    // 🎯 Só carrega quando a aba é ativada
+    // 🎯 Carrega agendamentos iniciais (pacientes e médicos vêm dos contextos)
     useEffect(() => {
         let mounted = true;
 
         const loadData = async () => {
-            const startTime = Date.now();
             try {
-                setLoading(true);
-                
-                // Carrega dados dos pacientes e médicos
-                const [patientsRes, doctorsRes] = await Promise.all([
-                    patientService.fetchAll(false),
-                    doctorService.getAllDoctors()
-                ]);
+                // Garante que pacientes estão carregados
+                if (patients.length === 0) {
+                    await refreshPatients();
+                }
 
-                if (!mounted) return;
-
-                setPatients(Array.isArray(patientsRes) ? patientsRes : []);
-                setDoctors(doctorsRes.data || []);
-
-                // Carrega appointments do mês (excluindo pré-agendamentos no CRM)
-                const appointmentsRes = await appointmentService.list({
-                    startDate: dateRange.startDate,
-                    endDate: dateRange.endDate,
-                    excludePreAgendamentos: true  // 🎯 No CRM só mostra agendamentos reais
-                });
-
-                if (!mounted) return;
-
-                setAppointments(appointmentsRes.data || []);
+                // 🎯 Carrega appointments via contexto (sincronizado globalmente)
+                if (mounted) {
+                    await fetchAppointments({
+                        startDate: dateRange.startDate,
+                        endDate: dateRange.endDate,
+                        excludePreAgendamentos: true
+                    });
+                }
             } catch (error) {
                 console.error('Erro ao carregar calendário:', error);
                 toast.error('Erro ao carregar calendário');
-            } finally {
-                // Garante tempo mínimo de loading para evitar flash (400ms)
-                const elapsed = Date.now() - startTime;
-                const minDelay = Math.max(0, 400 - elapsed);
-                
-                setTimeout(() => {
-                    if (mounted) {
-                        setLoading(false);
-                    }
-                }, minDelay);
             }
         };
 
@@ -108,7 +79,7 @@ export const CalendarTab = ({
     }, []); // Só executa no mount
 
     // 🔄 Recarrega quando mudar de mês
-    const handleMonthChange = useCallback((startDate: Date, endDate: Date) => {
+    const handleMonthChange = useCallback(async (startDate: Date, endDate: Date) => {
         const formatDate = (date: Date): string => {
             return moment(date).format('YYYY-MM-DD');
         };
@@ -120,57 +91,41 @@ export const CalendarTab = ({
 
         setDateRange(newRange);
 
-        // Recarrega appointments com novo range
-        appointmentService.list({
-                    startDate: newRange.startDate,
-                    endDate: newRange.endDate
-                })
-            .then(res => setAppointments(res.data || []))
-            .catch(err => toast.error('Erro ao carregar agendamentos'));
-    }, []);
+        // 🎯 Usa o contexto para buscar appointments
+        await fetchAppointments({
+            startDate: newRange.startDate,
+            endDate: newRange.endDate,
+            excludePreAgendamentos: true
+        });
+    }, [fetchAppointments]);
 
     const handleNewAppointment = async (data: any) => {
         await onNewAppointment(data);
         setCloseModalSignal(prev => prev + 1);
         
-        // 🔧 RECARREGA PACIENTES TAMBÉM (novo paciente pode ter sido criado)
-        const [patientsRes, appointmentsRes] = await Promise.all([
-            patientService.fetchAll(false),
-            appointmentService.list({
-                startDate: dateRange.startDate,
-                endDate: dateRange.endDate
-            })
-        ]);
-        
-        setPatients(Array.isArray(patientsRes) ? patientsRes : []);
-        setAppointments(appointmentsRes.data || []);
+        // 🎯 Pacientes e Appointments já são atualizados via contexto
+        // Apenas recarrega pacientes se um novo foi criado
+        if (data.patientId && !patients.find(p => p._id === data.patientId)) {
+            await refreshPatients();
+        }
     };
 
     const handleCancelAppointment = async (id: string, reason: string) => {
         await onCancelAppointment(id, reason);
         setCloseModalSignal(prev => prev + 1);
-        
-        // Recarrega appointments
-        const res = await appointmentService.list(dateRange);
-        setAppointments(res.data || []);
+        // 🎯 Appointments já são atualizados via contexto
     };
 
     const handleCompleteAppointment = async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
         await onCompleteAppointment(id, data);
         setCloseModalSignal(prev => prev + 1);
-        
-        // Recarrega appointments
-        const res = await appointmentService.list(dateRange);
-        setAppointments(res.data || []);
+        // 🎯 Appointments já são atualizados via contexto
     };
 
     const handleEditAppointment = async (id: string, data: any) => {
         await onEditAppointment(id, data);
         setCloseModalSignal(prev => prev + 1);
-        
-        // Recarrega appointments
-        const res = await appointmentService.list(dateRange);
-        setAppointments(res.data || []);
+        // 🎯 Appointments já são atualizados via contexto
     };
 
     if (loading) {
@@ -199,16 +154,38 @@ export const CalendarTab = ({
 const CalendarSkeleton = () => (
     <div className="space-y-4">
         {/* Header do calendário */}
-        <div className="flex justify-between items-center">
-            <Skeleton variant="rectangular" width={200} height={40} />
+        <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm">
+            <div className="flex items-center gap-4">
+                <Skeleton variant="rectangular" width={40} height={40} className="rounded-lg" />
+                <Skeleton variant="text" width={200} height={32} />
+            </div>
             <div className="flex gap-2">
-                <Skeleton variant="circular" width={40} height={40} />
-                <Skeleton variant="circular" width={40} height={40} />
+                <Skeleton variant="rectangular" width={100} height={36} className="rounded-lg" />
+                <Skeleton variant="rectangular" width={120} height={36} className="rounded-lg" />
             </div>
         </div>
-        
-        {/* Grid do calendário */}
-        <Skeleton variant="rectangular" height={600} sx={{ borderRadius: 2 }} />
+
+        {/* Grade do calendário */}
+        <div className="bg-white rounded-lg shadow-sm p-4">
+            {/* Header dos dias da semana */}
+            <div className="grid grid-cols-7 gap-2 mb-4">
+                {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
+                    <div key={day} className="text-center py-2">
+                        <Skeleton variant="text" width={40} height={24} className="mx-auto" />
+                    </div>
+                ))}
+            </div>
+
+            {/* Dias do calendário */}
+            <div className="grid grid-cols-7 gap-2">
+                {Array.from({ length: 35 }).map((_, index) => (
+                    <div key={index} className="aspect-square p-2 border rounded-lg">
+                        <Skeleton variant="text" width={24} height={20} className="mb-2" />
+                        <Skeleton variant="rectangular" width="100%" height={16} className="rounded" />
+                    </div>
+                ))}
+            </div>
+        </div>
     </div>
 );
 

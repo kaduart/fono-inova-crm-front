@@ -28,7 +28,7 @@ export const useAuthNavigation = () => {
       // 3. Redireciona baseado no role (agora simplificado)
       switch (data.user.role) {
         case 'doctor':
-          navigate('/doctors');
+          navigate('/doctor');
           break;
         case 'admin':
           navigate('/admin');
@@ -37,7 +37,7 @@ export const useAuthNavigation = () => {
           navigate('/patient');
           break;
         default:
-          navigate('/dashboard');
+          navigate('/');
       }
 
       return { success: true };

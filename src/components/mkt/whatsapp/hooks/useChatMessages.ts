@@ -168,7 +168,8 @@ export function useChatMessages(contact: Contact | null, leadId?: string) {
             const oldestMessage = messages[0];
             const before = oldestMessage?.timestamp?.toISOString();
             
-            const older = await loadMoreMessages(contact.phone, before);
+            const result = await loadMoreMessages(contact.phone, before);
+            const older = result.data || [];
             
             if (!older || older.length === 0) {
                 setHasMoreMessages(false);
@@ -177,7 +178,7 @@ export function useChatMessages(contact: Contact | null, leadId?: string) {
 
             const formatted = older.map((m: any) => formatMessage(m, contact.phone));
             setMessages(prev => [...formatted, ...prev]);
-            setHasMoreMessages(older.length >= 50);
+            setHasMoreMessages(result.hasMore);
         } catch (err) {
             logger.error("Erro ao carregar mensagens antigas:", err);
         } finally {

@@ -1,6 +1,6 @@
 // src/pages/Financial/tabs/GoalsTab.tsx
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   Box,
   Grid,
@@ -15,8 +15,14 @@ import {
   IconButton,
   Tooltip,
   Alert,
-  Button
+  Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  SelectChangeEvent
 } from '@mui/material';
+import { FinancialLoading } from '../components/FinancialLoading';
 import {
   TrendingUp,
   TrendingDown,
@@ -34,10 +40,11 @@ import {
   ArrowDownward,
   Assessment,
   AccountBalance,
-  LocalHospital
+  LocalHospital,
+  FilterList
 } from '@mui/icons-material';
 import { usePlanning } from '../../../hooks/usePlanning';
-import { format } from 'date-fns';
+import { format, getMonth, getYear, isWeekend, addDays, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 // Configuração de status
@@ -49,13 +56,23 @@ const STATUS_CONFIG = {
 };
 
 const GoalsTab = () => {
-  const { plannings, fetchPlannings, refreshAllPlannings, loading } = usePlanning();
-  const [selectedPeriod, setSelectedPeriod] = useState<string>('fev_2026');
+  const { plannings, fetchPlannings, refreshAllPlannings, createMonthly, loading } = usePlanning();
+  
+  // Inicializa com o mês atual (março = 3)
+  const currentMonth = getMonth(new Date()) + 1; // getMonth retorna 0-11
+  const currentYear = getYear(new Date());
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth);
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    // Carrega metas mensais como padrão
-    fetchPlannings({ type: 'monthly' });
-  }, [fetchPlannings]);
+    // Carrega metas mensais filtradas pelo mês/ano selecionado
+    fetchPlannings({ 
+      type: 'monthly',
+      month: selectedMonth,
+      year: selectedYear 
+    });
+  }, [fetchPlannings, selectedMonth, selectedYear]);
 
   const formatCurrency = (value: number) =>
     `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -64,9 +81,95 @@ const GoalsTab = () => {
     return format(new Date(dateString), 'dd/MM/yyyy');
   };
 
+  // Calcula dias úteis restantes (seg-sex) até o final do mês
+  const getWorkingDaysRemaining = (endDate: Date): number => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+    
+    let workingDays = 0;
+    let current = new Date(today);
+    
+    // Se hoje for dia útil, conta hoje também
+    while (current <= endDate) {
+      if (!isWeekend(current)) {
+        workingDays++;
+      }
+      current = addDays(current, 1);
+    }
+    
+    return workingDays;
+  };
+
+  // Calcula dias úteis já trabalhados no mês (desde o início até hoje)
+  const getWorkingDaysElapsed = (startDate: Date): number => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    startDate.setHours(0, 0, 0, 0);
+    
+    let workingDays = 0;
+    let current = new Date(startDate);
+    
+    while (current < today) {
+      if (!isWeekend(current)) {
+        workingDays++;
+      }
+      current = addDays(current, 1);
+    }
+    
+    return workingDays;
+  };
+
   const getStatusConfig = (status: string) => {
     return STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.behind;
   };
+
+  // Calcula o status real considerando dias úteis decorridos vs meta
+  const calculateRealStatus = (
+    revenuePct: number,
+    sessionsPct: number,
+    hoursPct: number,
+    workingDaysElapsed: number,
+    totalWorkingDays: number
+  ): string => {
+    if (totalWorkingDays === 0) return 'on_track';
+    
+    // Porcentagem esperada baseada no tempo decorrido (dias úteis)
+    const expectedProgress = (workingDaysElapsed / totalWorkingDays) * 100;
+    
+    // Média dos progressos reais
+    const avgProgress = (revenuePct + sessionsPct + hoursPct) / 3;
+    
+    // Comparação: se estamos acima do esperado = on_track, abaixo = at_risk/behind
+    const diff = avgProgress - expectedProgress;
+    
+    if (avgProgress >= 100) return 'achieved';
+    if (diff >= -5) return 'on_track';      // Até 5% abaixo do esperado = ok
+    if (diff >= -15) return 'at_risk';      // 5-15% abaixo = em risco
+    return 'behind';                         // >15% abaixo = atrasado
+  };
+
+  // Meses disponíveis para o select
+  const months = useMemo(() => [
+    { value: 1, label: 'Janeiro' },
+    { value: 2, label: 'Fevereiro' },
+    { value: 3, label: 'Março' },
+    { value: 4, label: 'Abril' },
+    { value: 5, label: 'Maio' },
+    { value: 6, label: 'Junho' },
+    { value: 7, label: 'Julho' },
+    { value: 8, label: 'Agosto' },
+    { value: 9, label: 'Setembro' },
+    { value: 10, label: 'Outubro' },
+    { value: 11, label: 'Novembro' },
+    { value: 12, label: 'Dezembro' },
+  ], []);
+
+  // Anos disponíveis (ano atual +/- 2)
+  const years = useMemo(() => {
+    const currentY = getYear(new Date());
+    return [currentY - 2, currentY - 1, currentY, currentY + 1, currentY + 2];
+  }, []);
 
   // Agrupar metas por mês/ano para evitar duplicatas
   const groupedPlannings = plannings.reduce((acc: any, p: any) => {
@@ -84,12 +187,16 @@ const GoalsTab = () => {
 
   const uniquePlannings = Object.values(groupedPlannings);
 
+  const handleMonthChange = (event: SelectChangeEvent<number>) => {
+    setSelectedMonth(Number(event.target.value));
+  };
+
+  const handleYearChange = (event: SelectChangeEvent<number>) => {
+    setSelectedYear(Number(event.target.value));
+  };
+
   if (loading) {
-    return (
-      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center' }}>
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
-      </Box>
-    );
+    return <FinancialLoading cardCount={2} gridSize={{ xs: 12, md: 6 }} />;
   }
 
   return (
@@ -111,7 +218,42 @@ const GoalsTab = () => {
             </Box>
           </Box>
           
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {/* Filtro de Mês */}
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel id="month-select-label">Mês</InputLabel>
+              <Select
+                labelId="month-select-label"
+                value={selectedMonth}
+                label="Mês"
+                onChange={handleMonthChange}
+                startAdornment={<CalendarToday sx={{ fontSize: 16, mr: 0.5, color: '#8B5CF6' }} />}
+              >
+                {months.map((m) => (
+                  <MenuItem key={m.value} value={m.value}>
+                    {m.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {/* Filtro de Ano */}
+            <FormControl size="small" sx={{ minWidth: 100 }}>
+              <InputLabel id="year-select-label">Ano</InputLabel>
+              <Select
+                labelId="year-select-label"
+                value={selectedYear}
+                label="Ano"
+                onChange={handleYearChange}
+              >
+                {years.map((y) => (
+                  <MenuItem key={y} value={y}>
+                    {y}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
             <Tooltip title="Atualizar dados reais (sessões e pagamentos)">
               <IconButton 
                 onClick={async () => {
@@ -134,17 +276,37 @@ const GoalsTab = () => {
       <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
         {uniquePlannings.length > 0 ? (
           uniquePlannings.map((plan: any) => {
-            const statusConfig = getStatusConfig(plan.progress.overallStatus);
+            // Calcular dias úteis
+            const today = new Date();
+            const startDate = new Date(plan.period.start);
+            const endDate = new Date(plan.period.end);
+            const workingDaysRemaining = getWorkingDaysRemaining(endDate);
+            const workingDaysElapsed = getWorkingDaysElapsed(startDate);
+            const totalWorkingDays = workingDaysElapsed + workingDaysRemaining;
+            
+            // Calcular status real considerando tempo decorrido
+            const realStatus = calculateRealStatus(
+              plan.progress.revenuePercentage,
+              plan.progress.sessionsPercentage,
+              plan.progress.hoursPercentage,
+              workingDaysElapsed,
+              totalWorkingDays
+            );
+            
+            const statusConfig = getStatusConfig(realStatus);
             const StatusIcon = statusConfig.icon;
             
-            // Calcular dias restantes no mês
-            const today = new Date();
-            const endDate = new Date(plan.period.end);
-            const daysRemaining = Math.max(0, Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+            // Meta de receita por dia ÚTIL para atingir a meta
+            const dailyTarget = workingDaysRemaining > 0 
+              ? (plan.targets.expectedRevenue - plan.actual.actualRevenue) / workingDaysRemaining 
+              : 0;
             
-            // Meta de receita por dia para atingir a meta
-            const dailyTarget = daysRemaining > 0 
-              ? (plan.targets.expectedRevenue - plan.actual.actualRevenue) / daysRemaining 
+            // Ritmo atual (média por dia útil já trabalhado)
+            const currentDailyRevenue = workingDaysElapsed > 0 
+              ? plan.actual.actualRevenue / workingDaysElapsed 
+              : 0;
+            const currentDailySessions = workingDaysElapsed > 0
+              ? plan.actual.completedSessions / workingDaysElapsed
               : 0;
 
             return (
@@ -205,8 +367,9 @@ const GoalsTab = () => {
                       const gapSessions = Math.max(0, plan.targets.totalSessions - plan.actual.completedSessions);
                       const gapHours = Math.max(0, (plan.targets.workHours || 0) - (plan.actual.workedHours || 0));
                       const gapSlots = Math.max(0, (plan.targets.availableSlots || 0) - (plan.actual.usedSlots || 0));
-                      const dailyRevenueNeeded = daysRemaining > 0 ? gapRevenue / daysRemaining : 0;
-                      const dailySessionsNeeded = daysRemaining > 0 ? gapSessions / daysRemaining : 0;
+                      // Calcular metas diárias baseadas em DIAS ÚTEIS (seg-sex)
+                      const dailyRevenueNeeded = workingDaysRemaining > 0 ? gapRevenue / workingDaysRemaining : 0;
+                      const dailySessionsNeeded = workingDaysRemaining > 0 ? gapSessions / workingDaysRemaining : 0;
                       
                       return (
                         <>
@@ -381,29 +544,76 @@ const GoalsTab = () => {
                           </Grid>
 
                           {/* Meta Diária Necessária */}
-                          {(gapRevenue > 0 || gapSessions > 0) && daysRemaining > 0 && (
+                          {(gapRevenue > 0 || gapSessions > 0) && workingDaysRemaining > 0 && (
                             <Box sx={{ mt: 2, p: 2, bgcolor: '#FEF3C7', borderRadius: 2, border: '1px solid #FCD34D' }}>
                               <Typography variant="subtitle2" fontWeight="600" color="#92400E" gutterBottom>
-                                📊 Meta Diária Necessária (faltam {daysRemaining} dias)
+                                📊 Meta Diária Necessária (faltam {workingDaysRemaining} dias úteis)
                               </Typography>
                               <Grid container spacing={2}>
                                 {gapRevenue > 0 && (
                                   <Grid item xs={6}>
                                     <Typography variant="body2" color="#92400E">
-                                      💰 Receita: <strong>R$ {dailyRevenueNeeded.toFixed(0)}/dia</strong>
+                                      💰 Precisa: <strong>R$ {dailyRevenueNeeded.toFixed(0)}/dia</strong>
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary" display="block">
+                                      Ritmo atual: R$ {currentDailyRevenue.toFixed(0)}/dia
+                                      {currentDailyRevenue >= dailyRevenueNeeded ? ' ✅' : ' ⚠️'}
                                     </Typography>
                                   </Grid>
                                 )}
                                 {gapSessions > 0 && (
                                   <Grid item xs={6}>
                                     <Typography variant="body2" color="#92400E">
-                                      🎯 Sessões: <strong>{Math.ceil(dailySessionsNeeded)} por dia</strong>
+                                      🎯 Precisa: <strong>{Math.ceil(dailySessionsNeeded)} sessões/dia</strong>
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary" display="block">
+                                      Ritmo atual: {currentDailySessions.toFixed(1)} sessões/dia
+                                      {currentDailySessions >= dailySessionsNeeded ? ' ✅' : ' ⚠️'}
                                     </Typography>
                                   </Grid>
                                 )}
                               </Grid>
                             </Box>
                           )}
+
+                          {/* Análise de Projeção */}
+                          <Box sx={{ mt: 2, p: 2, bgcolor: '#ECFDF5', borderRadius: 2, border: '1px solid #10B981' }}>
+                            <Typography variant="subtitle2" fontWeight="600" color="#065F46" gutterBottom>
+                              📈 Análise de Projeção (baseada em {totalWorkingDays} dias úteis no mês)
+                            </Typography>
+                            <Grid container spacing={2}>
+                              <Grid item xs={6}>
+                                <Typography variant="body2" color="#065F46">
+                                  💵 Projeção Final: <strong>{formatCurrency(currentDailyRevenue * totalWorkingDays)}</strong>
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                  Meta: {formatCurrency(plan.targets.expectedRevenue)}
+                                  {currentDailyRevenue * totalWorkingDays >= plan.targets.expectedRevenue 
+                                    ? ' 🎯 Superará!' 
+                                    : ' ⚠️ Abaixo'}
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Typography variant="body2" color="#065F46">
+                                  📊 Ritmo vs Meta: <strong>
+                                    {((currentDailyRevenue / (plan.targets.expectedRevenue / totalWorkingDays)) * 100).toFixed(0)}%
+                                  </strong>
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                  Você está {currentDailyRevenue >= (plan.targets.expectedRevenue / totalWorkingDays) ? 'acima' : 'abaixo'} do ritmo ideal
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={12}>
+                                <Typography variant="caption" color="text.secondary">
+                                  <strong>Análise:</strong> Com ritmo de R$ {currentDailyRevenue.toFixed(0)}/dia em {workingDaysElapsed} dias úteis, 
+                                  você precisa manter R$ {dailyRevenueNeeded.toFixed(0)}/dia nos {workingDaysRemaining} dias restantes.
+                                  {currentDailyRevenue >= dailyRevenueNeeded 
+                                    ? ' Seu ritmo atual é suficiente! ✅' 
+                                    : ' Precisa acelerar o ritmo! ⚠️'}
+                                </Typography>
+                              </Grid>
+                            </Grid>
+                          </Box>
                         </>
                       );
                     })()}
@@ -465,7 +675,7 @@ const GoalsTab = () => {
 
                     {/* Insights e Projeções */}
                     <Box sx={{ mt: 3 }}>
-                      {plan.progress.overallStatus === 'behind' && (
+                      {realStatus === 'behind' && (
                         <Alert 
                           severity="error" 
                           icon={<Warning />}
@@ -479,14 +689,14 @@ const GoalsTab = () => {
                             Meta atrasada
                           </Typography>
                           <Typography variant="caption">
-                            {daysRemaining > 0 
-                              ? `Faltam ${daysRemaining} dias. Necessário R$ ${dailyTarget.toFixed(2)}/dia para atingir a meta.`
+                            {workingDaysRemaining > 0 
+                              ? `Faltam ${workingDaysRemaining} dias úteis. Necessário R$ ${dailyTarget.toFixed(0)}/dia útil para atingir a meta.`
                               : 'Período encerrado sem atingir a meta.'}
                           </Typography>
                         </Alert>
                       )}
 
-                      {plan.progress.overallStatus === 'at_risk' && (
+                      {realStatus === 'at_risk' && (
                         <Alert 
                           severity="warning"
                           icon={<Warning />}
@@ -500,12 +710,12 @@ const GoalsTab = () => {
                             Meta em risco
                           </Typography>
                           <Typography variant="caption">
-                            Acompanhamento próximo necessário para atingir a meta.
+                            Precisa de R$ {dailyTarget.toFixed(0)}/dia útil. Acompanhamento próximo necessário.
                           </Typography>
                         </Alert>
                       )}
 
-                      {plan.progress.overallStatus === 'on_track' && (
+                      {realStatus === 'on_track' && (
                         <Alert 
                           severity="info"
                           icon={<Info />}
@@ -519,7 +729,7 @@ const GoalsTab = () => {
                             No caminho certo
                           </Typography>
                           <Typography variant="caption">
-                            Mantenha o ritmo para atingir a meta.
+                            Meta diária: R$ {dailyTarget.toFixed(0)}/dia útil. Mantenha o ritmo!
                           </Typography>
                         </Alert>
                       )}
@@ -557,24 +767,48 @@ const GoalsTab = () => {
             <Paper elevation={0} sx={{ p: 4, border: '1px solid', borderColor: 'grey.200', borderRadius: 2, textAlign: 'center' }}>
               <Assessment sx={{ fontSize: 48, color: 'text.disabled', mb: { xs: 1.5, sm: 2 } }} />
               <Typography variant="h6" color="text.secondary" gutterBottom>
-                Nenhuma meta encontrada
+                Nenhuma meta encontrada para {months.find(m => m.value === selectedMonth)?.label}/{selectedYear}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: { xs: 2, sm: 3 } }}>
-                Crie um planejamento mensal na aba Planejamento para começar a acompanhar metas.
+                Não existe um planejamento mensal criado para este período. Crie um agora para começar a acompanhar suas metas.
               </Typography>
-              <Button
-                variant="contained"
-                startIcon={<TrendingUp />}
-                onClick={() => {
-                  // Navegar para a aba de Planejamento
-                  const planningTab = document.querySelector('[role="tablist"] button:last-child');
-                  if (planningTab) {
-                    (planningTab as HTMLElement).click();
-                  }
-                }}
-              >
-                Ir para Planejamento
-              </Button>
+              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+                <Button
+                  variant="contained"
+                  startIcon={creating ? <div className="animate-spin h-4 w-4 border-2 border-white rounded-full" /> : <TrendingUp />}
+                  disabled={creating}
+                  onClick={async () => {
+                    setCreating(true);
+                    try {
+                      await createMonthly(selectedMonth, selectedYear);
+                      await fetchPlannings({ 
+                        type: 'monthly',
+                        month: selectedMonth,
+                        year: selectedYear 
+                      });
+                    } catch (err) {
+                      console.error('Erro ao criar planejamento:', err);
+                    } finally {
+                      setCreating(false);
+                    }
+                  }}
+                >
+                  {creating ? 'Criando...' : 'Criar Meta Mensal'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<CalendarToday />}
+                  onClick={() => {
+                    // Navegar para a aba de Planejamento
+                    const planningTab = document.querySelector('[role="tablist"] button:last-child');
+                    if (planningTab) {
+                      (planningTab as HTMLElement).click();
+                    }
+                  }}
+                >
+                  Ir para Planejamento
+                </Button>
+              </Box>
             </Paper>
           </Grid>
         )}

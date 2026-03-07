@@ -11,7 +11,6 @@ import {
     InputLabel,
     Avatar,
     Paper,
-    Skeleton,
     Chip,
     Divider,
 } from '@mui/material';
@@ -31,6 +30,7 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useFinancialOverview } from '../../../hooks/useFinancialOverview';
+import { FinancialLoading } from '../components/FinancialLoading';
 
 // 🆕 RevenueTab Estratégico - Apenas análise e métricas (sem caixa diário)
 const RevenueTab: React.FC = () => {
@@ -170,13 +170,7 @@ const RevenueTab: React.FC = () => {
 
             {/* Cards de Resumo */}
             {loading ? (
-                <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: { xs: 2, sm: 3, md: 4 } }}>
-                    {[1, 2, 3, 4].map(i => (
-                        <Grid item xs={12} sm={6} md={3} key={i}>
-                            <Skeleton variant="rectangular" height={140} sx={{ borderRadius: 2 }} />
-                        </Grid>
-                    ))}
-                </Grid>
+                <FinancialLoading cardCount={4} />
             ) : (
                 <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ width: '100%', mb: { xs: 3, sm: 4 } }}>
                     {/* Total Mês */}

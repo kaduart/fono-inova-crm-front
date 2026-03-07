@@ -22,9 +22,9 @@ import {
   Avatar,
   Divider,
   Tooltip,
-  Alert,
-  LinearProgress
+  Alert
 } from '@mui/material';
+import { FinancialLoading, FinancialTableLoading } from '../components/FinancialLoading';
 import { 
   Plus, 
   Edit2, 
@@ -340,10 +340,8 @@ const ExpensesTab = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
-                  <div className="flex justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500" />
-                  </div>
+                <TableCell colSpan={9}>
+                  <FinancialTableLoading rowCount={5} colSpan={9} />
                 </TableCell>
               </TableRow>
             ) : expenses.length === 0 ? (

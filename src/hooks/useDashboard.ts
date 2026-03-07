@@ -18,6 +18,13 @@ import {
     invalidateDashboardCache,
     UpcomingAppointment
 } from '../services/dashboardService';
+import { 
+  subscribeToCacheInvalidation, 
+  invalidateCache as invalidateGlobalCache,
+  isCacheValid,
+  getCache,
+  setCache
+} from '../utils/cacheManager';
 
 interface UseDashboardReturn {
     // Dados
@@ -37,95 +44,56 @@ interface UseDashboardReturn {
     invalidateCache: () => Promise<void>;
 }
 
-// Cache global entre instâncias do hook
-const globalCache = {
-    overview: null as DashboardOverview | null,
-    timestamp: 0,
-    isLoading: false,
-    promise: null as Promise<void> | null
-};
-
-const CACHE_DURATION = 3 * 60 * 1000; // 3 minutos
-
-// Funções de debug expostas globalmente
-if (typeof window !== 'undefined') {
-    (window as any).clearUseDashboardCache = () => {
-        globalCache.overview = null;
-        globalCache.timestamp = 0;
-        globalCache.isLoading = false;
-        globalCache.promise = null;
-        console.log('🧹 useDashboard cache limpo');
-    };
-    (window as any).getUseDashboardCache = () => ({
-        hasData: !!globalCache.overview,
-        timestamp: globalCache.timestamp,
-        age: Date.now() - globalCache.timestamp,
-        isLoading: globalCache.isLoading
-    });
-}
-
 export const useDashboard = (): UseDashboardReturn => {
     // Estados locais
-    const [overview, setOverview] = useState<DashboardOverview | null>(globalCache.overview);
-    const [stats, setStats] = useState<DashboardStats | null>(null);
-    const [charts, setCharts] = useState<DashboardCharts | null>(null);
-    const [doctors, setDoctors] = useState<DoctorOverview[]>([]);
-    const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>([]);
+    const [overview, setOverview] = useState<DashboardOverview | null>(getCache('dashboard'));
+    const [stats, setStats] = useState<DashboardStats | null>(getCache('dashboard')?.stats || null);
+    const [charts, setCharts] = useState<DashboardCharts | null>(getCache('dashboard')?.charts || null);
+    const [doctors, setDoctors] = useState<DoctorOverview[]>(getCache('dashboard')?.doctorsOverview || []);
+    const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>(getCache('dashboard')?.upcomingAppointments || []);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(
+      getCache('dashboard') ? new Date() : null
+    );
 
     // Refs para controle de mount e race conditions
     const isMounted = useRef(true);
     const isInitialLoad = useRef(true);
+    const loadPromiseRef = useRef<Promise<void> | null>(null);
 
     /**
      * 🔄 Carrega dados do dashboard
      */
     const loadDashboard = useCallback(async (forceRefresh = false) => {
-        const now = Date.now();
-
         // Verificar cache global
-        if (!forceRefresh && globalCache.overview && (now - globalCache.timestamp < CACHE_DURATION)) {
-            // ✅ CORREÇÃO: Verificar se o cache tem todos os dados necessários
-            const hasCompleteData = globalCache.overview.upcomingAppointments !== undefined &&
-                globalCache.overview.doctorsOverview !== undefined &&
-                globalCache.overview.stats !== undefined;
-            if (hasCompleteData) {
-                console.log('📦 useDashboard: Usando cache global:', {
-                    statsTotalPatients: globalCache.overview?.stats?.totalPatients,
-                    doctorsCount: globalCache.overview?.doctorsOverview?.length,
-                    upcomingAppointmentsCount: globalCache.overview?.upcomingAppointments?.length
+        if (!forceRefresh && isCacheValid('dashboard')) {
+            const cached = getCache<DashboardOverview>('dashboard');
+            if (cached) {
+                console.log('📦 useDashboard: Usando cache:', {
+                    statsTotalPatients: cached?.stats?.totalPatients,
+                    doctorsCount: cached?.doctorsOverview?.length,
+                    upcomingAppointmentsCount: cached?.upcomingAppointments?.length
                 });
                 if (isMounted.current) {
-                    setOverview(globalCache.overview);
-                    setStats(globalCache.overview.stats);
-                    setCharts(globalCache.overview.charts);
-                    setDoctors(globalCache.overview.doctorsOverview || []);
-                    setUpcomingAppointments(globalCache.overview.upcomingAppointments || []);
-                    setLastUpdated(new Date(globalCache.timestamp));
+                    setOverview(cached);
+                    setStats(cached.stats);
+                    setCharts(cached.charts);
+                    setDoctors(cached.doctorsOverview || []);
+                    setUpcomingAppointments(cached.upcomingAppointments || []);
+                    setLastUpdated(new Date());
                 }
                 return;
             }
-            // Se o cache está incompleto, continua para recarregar
-            console.log('🔄 Cache incompleto, recarregando...');
         }
 
         // Se já está carregando, esperar
-        if (globalCache.isLoading && globalCache.promise) {
-            await globalCache.promise;
-            if (isMounted.current && globalCache.overview) {
-                setOverview(globalCache.overview);
-                setStats(globalCache.overview.stats);
-                setCharts(globalCache.overview.charts);
-                setDoctors(globalCache.overview.doctorsOverview);
-                setUpcomingAppointments(globalCache.overview.upcomingAppointments);
-            }
+        if (loadPromiseRef.current) {
+            await loadPromiseRef.current;
             return;
         }
 
         // Iniciar carregamento
-        globalCache.isLoading = true;
         if (isMounted.current) setLoading(true);
         setError(null);
 
@@ -144,29 +112,26 @@ export const useDashboard = (): UseDashboardReturn => {
                 }
 
                 // Atualizar cache global
-                globalCache.overview = data;
-                globalCache.timestamp = Date.now();
+                setCache('dashboard', data);
             } catch (err: any) {
                 console.error('Erro ao carregar dashboard:', err);
                 if (isMounted.current) {
                     setError(err.message || 'Erro ao carregar dados do dashboard');
                 }
             } finally {
-                globalCache.isLoading = false;
                 if (isMounted.current) setLoading(false);
+                loadPromiseRef.current = null;
             }
         })();
 
-        globalCache.promise = loadPromise;
+        loadPromiseRef.current = loadPromise;
         await loadPromise;
-        globalCache.promise = null;
     }, []);
 
     /**
      * 🔄 Força atualização dos dados
      */
     const refresh = useCallback(async () => {
-        globalCache.timestamp = 0; // Invalidar cache
         await loadDashboard(true);
     }, [loadDashboard]);
 
@@ -176,12 +141,21 @@ export const useDashboard = (): UseDashboardReturn => {
     const handleInvalidateCache = useCallback(async () => {
         try {
             await invalidateDashboardCache();
-            globalCache.timestamp = 0;
-            globalCache.overview = null;
+            invalidateGlobalCache('dashboard');
             await loadDashboard(true);
         } catch (err) {
             console.error('Erro ao invalidar cache:', err);
         }
+    }, [loadDashboard]);
+
+    // 🔔 Subscribe para invalidação de cache externa
+    useEffect(() => {
+        const unsubscribe = subscribeToCacheInvalidation('dashboard', () => {
+            console.log('🔄 useDashboard: Cache invalidado externamente, recarregando...');
+            loadDashboard(true);
+        });
+
+        return () => unsubscribe();
     }, [loadDashboard]);
 
     // Efeito inicial de carregamento

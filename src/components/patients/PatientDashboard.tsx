@@ -5,7 +5,7 @@ import { toast } from "react-hot-toast";
 import { useNavigate, useParams } from 'react-router-dom';
 import { BASE_URL } from '../../constants/constants';
 import { useAppointments } from '../../hooks/useAppointments';
-import { usePatients } from '../../hooks/usePatients';
+import { usePatientsContext } from '../../contexts/PatientsContext';
 import { AvailableSlotsParams, CreateAppointmentParams } from '../../services/appointmentService';
 import { createEvaluation, deleteEvaluation, getEvaluationsByPatient, updateEvaluation } from '../../services/evaluationService';
 import { IAppointment, IDoctors, IPatient } from '../../utils/types/types';
@@ -100,9 +100,8 @@ export default function PatientDashboard() {
   const [mode, setMode] = useState<'create' | 'edit'>('create');
   const [patientAppointments, setPatientAppointments] = useState<IAppointment[]>([]);
 
-  const {
-    patients,
-  } = usePatients();
+  // 🎯 USA O CONTEXTO GLOBAL DE PACIENTES
+  const { patients } = usePatientsContext();
 
   const {
     appointments,

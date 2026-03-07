@@ -3,7 +3,7 @@ import React from 'react';
 import {
     Dialog, DialogTitle, DialogContent, DialogActions,
     Button, Typography, Box, Chip, Alert, AlertTitle,
-    List, ListItem, ListItemText, Divider, CircularProgress,
+    List, ListItem, ListItemText, Divider,
     IconButton, Stack, Card, CardContent
 } from '@mui/material';
 
@@ -64,9 +64,7 @@ export const Patient360Modal: React.FC<Props> = ({ patientId, open, onClose }) =
 
             <DialogContent dividers>
                 {loadingPatient360 ? (
-                    <Box display="flex" justifyContent="center" alignItems="center" p={10}>
-                        <CircularProgress />
-                    </Box>
+                    <FinancialLoadingCompact />
                 ) : !patient360 ? (
                     <Typography color="textSecondary" align="center">Erro ao carregar dados do paciente.</Typography>
                 ) : (

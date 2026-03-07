@@ -1,7 +1,8 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { appointmentService, PaginationParams } from '../services/appointmentService';
 import { IAppointment } from '../utils/types/types';
 import { socketManager } from '../utils/socketManager';
+import { invalidateCache } from '../utils/cacheManager';
 
 interface AppointmentsContextData {
     appointments: IAppointment[];
@@ -19,27 +20,25 @@ const AppointmentsContext = createContext<AppointmentsContextData>({} as Appoint
 export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [appointments, setAppointments] = useState<IAppointment[]>([]);
     const [currentFilters, setCurrentFilters] = useState<{ startDate?: string; endDate?: string }>({});
+    
+    // Ref para debounce de socket events
+    const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const pendingRefreshRef = useRef(false);
 
-    // ✅ FIX: usando appointmentService.list() corretamente
     const fetchAppointments = useCallback(async (filters?: { startDate?: string; endDate?: string }) => {
         try {
-            // Guarda os filtros atuais para usar no refresh
             if (filters) {
                 setCurrentFilters(filters);
             }
             
             const params: PaginationParams = {
                 limit: 500,
-                // 🎯 SIMPLIFICAÇÃO: Pré-agendamentos agora são tratados como agendamentos normais
-                // com operationalStatus = 'pre_agendado', então são incluídos automaticamente
-                // ❌ MAS não queremos mostrar no calendário - só no painel de pré-agendamentos
                 excludePreAgendamentos: true,
                 ...(filters?.startDate && { startDate: filters.startDate }),
                 ...(filters?.endDate && { endDate: filters.endDate }),
             };
 
             const response = await appointmentService.list(params);
-
             const appointmentsData = Array.isArray(response.data) ? response.data : (response.data?.data || response.data || []);
 
             setAppointments(appointmentsData);
@@ -48,47 +47,50 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
     }, []);
 
-    // Função para refresh usando os filtros atuais
     const refreshAppointments = useCallback(async () => {
         console.log('🔄 [AppointmentsContext] Refreshing appointments...');
         await fetchAppointments(currentFilters);
     }, [fetchAppointments, currentFilters]);
 
-    // 🔄 Socket listeners para atualização em tempo real
+    // 🔄 Debounced refresh para evitar múltiplas chamadas
+    const debouncedRefresh = useCallback(() => {
+        pendingRefreshRef.current = true;
+        
+        if (refreshTimeoutRef.current) {
+            clearTimeout(refreshTimeoutRef.current);
+        }
+        
+        refreshTimeoutRef.current = setTimeout(() => {
+            if (pendingRefreshRef.current) {
+                pendingRefreshRef.current = false;
+                refreshAppointments();
+            }
+        }, 1000); // 1 segundo de debounce
+    }, [refreshAppointments]);
+
+    useEffect(() => {
+        return () => {
+            if (refreshTimeoutRef.current) {
+                clearTimeout(refreshTimeoutRef.current);
+            }
+        };
+    }, []);
+
+    // 🔄 Socket listeners com debounce
     useEffect(() => {
         console.log('🔌 [AppointmentsContext] Configurando listeners de socket...');
         
-        // Quando um agendamento é criado na agenda externa
-        const unsubCreated = socketManager.on('appointmentCreated', (data: any) => {
-            console.log('📡 [AppointmentsContext] Agendamento criado:', data);
-            refreshAppointments();
-        });
+        const handleSocketEvent = (eventName: string) => (data: any) => {
+            console.log(`📡 [AppointmentsContext] ${eventName}:`, data);
+            debouncedRefresh();
+        };
 
-        // Quando um agendamento é atualizado na agenda externa
-        const unsubUpdated = socketManager.on('appointmentUpdated', (data: any) => {
-            console.log('📡 [AppointmentsContext] Agendamento atualizado:', data);
-            refreshAppointments();
-        });
+        const unsubCreated = socketManager.on('appointmentCreated', handleSocketEvent('Agendamento criado'));
+        const unsubUpdated = socketManager.on('appointmentUpdated', handleSocketEvent('Agendamento atualizado'));
+        const unsubDeleted = socketManager.on('appointmentDeleted', handleSocketEvent('Agendamento deletado'));
+        const unsubPreImported = socketManager.on('preagendamento:imported', handleSocketEvent('Pré-agendamento importado'));
+        const unsubPreDiscarded = socketManager.on('preagendamento:discarded', handleSocketEvent('Pré-agendamento descartado'));
 
-        // Quando um agendamento é deletado na agenda externa
-        const unsubDeleted = socketManager.on('appointmentDeleted', (data: any) => {
-            console.log('📡 [AppointmentsContext] Agendamento deletado:', data);
-            refreshAppointments();
-        });
-
-        // Quando um pré-agendamento é importado/confirmado
-        const unsubPreImported = socketManager.on('preagendamento:imported', (data: any) => {
-            console.log('📡 [AppointmentsContext] Pré-agendamento importado:', data);
-            refreshAppointments();
-        });
-
-        // Quando um pré-agendamento é descartado
-        const unsubPreDiscarded = socketManager.on('preagendamento:discarded', (data: any) => {
-            console.log('📡 [AppointmentsContext] Pré-agendamento descartado:', data);
-            refreshAppointments();
-        });
-
-        // Cleanup
         return () => {
             console.log('🔌 [AppointmentsContext] Removendo listeners de socket...');
             unsubCreated();
@@ -97,30 +99,48 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             unsubPreImported();
             unsubPreDiscarded();
         };
-    }, [refreshAppointments]);
+    }, [debouncedRefresh]);
 
     const createAppointment = useCallback(async (data: any) => {
         const result = await appointmentService.create(data);
-        // Emite evento socket para notificar outros clients (agenda externa)
+        
+        // 🚀 Invalida caches relacionados
+        invalidateCache('dashboard');
+        invalidateCache('doctorStats');
+        
         socketManager.emit('appointmentCreated', { appointmentId: result?.data?._id || result?._id });
         return result;
     }, []);
 
     const updateAppointment = useCallback(async (id: string, data: any) => {
         const result = await appointmentService.update(id, data);
-        // Emite evento socket para notificar outros clients (agenda externa)
+        
+        // 🚀 Invalida caches relacionados
+        invalidateCache('dashboard');
+        invalidateCache('doctorStats');
+        
         socketManager.emit('appointmentUpdated', { appointmentId: id });
         return result;
     }, []);
 
     const completeAppointment = useCallback(async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
         const result = await appointmentService.complete(id, data);
+        
+        // 🚀 Invalida caches relacionados
+        invalidateCache('dashboard');
+        invalidateCache('doctorStats');
+        
         socketManager.emit('appointmentUpdated', { appointmentId: id });
         return result;
     }, []);
 
     const cancelAppointment = useCallback(async (id: string, params: any) => {
         const result = await appointmentService.cancel(id, params);
+        
+        // 🚀 Invalida caches relacionados
+        invalidateCache('dashboard');
+        invalidateCache('doctorStats');
+        
         socketManager.emit('appointmentUpdated', { appointmentId: id });
         return result;
     }, []);

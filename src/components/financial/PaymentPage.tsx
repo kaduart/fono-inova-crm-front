@@ -21,6 +21,7 @@ import { PaymentActionIcons } from './PaymentAction';
 import { PaymentsFilters } from './PaymentsFilters';
 import FinancialSummaryCard from './PaymentsSummary';
 import { Patient360Modal } from '../../pages/Financial/components/Patient360Modal';
+import { FinancialTableLoading } from '../../pages/Financial/components/FinancialLoading';
 
 interface PaymentPageProps {
     patients?: IPatient[];
@@ -501,9 +502,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                 </Button>
                             </Paper>
                         ) : loading ? (
-                            <div className="flex justify-center py-12">
-                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
-                            </div>
+                            <FinancialTableLoading rowCount={8} colSpan={1} />
                         ) : (
                             <Paper elevation={0} sx={{ borderRadius: 2, overflow: 'hidden', border: 1, borderColor: 'grey.200' }}>
                                 <div className="overflow-x-auto">

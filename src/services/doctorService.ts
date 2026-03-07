@@ -53,6 +53,26 @@ export const doctorService = {
     return API.patch<Doctor>(`/doctors/${id}`, data);
   },
 
+  // 🆕 Soft delete - inativa o profissional
+  deactivateDoctor: async (id: string) => {
+    return API.patch<{ message: string; doctor: Doctor }>(`/doctors/${id}/deactivate`);
+  },
+
+  // 🆕 Reativa um profissional inativado
+  reactivateDoctor: async (id: string) => {
+    return API.patch<{ message: string; doctor: Doctor }>(`/doctors/${id}/reactivate`);
+  },
+
+  // 🆕 Lista apenas profissionais ativos
+  getActiveDoctors: async () => {
+    return API.get<Doctor[]>("/doctors/active/list");
+  },
+
+  // 🆕 Lista apenas profissionais inativos
+  getInactiveDoctors: async () => {
+    return API.get<Doctor[]>("/doctors/inactive/list");
+  },
+
   getTotalDoctors: async (): Promise<{ totalDoctors: number }> => {
     const response = await API.get("/admin/total-doctors");
     return response.data;

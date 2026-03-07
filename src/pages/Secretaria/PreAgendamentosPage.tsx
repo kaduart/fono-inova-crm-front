@@ -15,7 +15,7 @@ import {
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import usePreAgendamentos, { PreAgendamento } from '../../hooks/usePreAgendamentos';
-import useDoctors from '../../hooks/useDoctors';
+import { useDoctorsContext } from '../../contexts/DoctorsContext';
 
 const statusColors: Record<string, any> = {
   novo: { color: 'info', label: 'Novo' },
@@ -272,7 +272,8 @@ const PreAgendamentosPage = () => {
     atribuir
   } = usePreAgendamentos();
 
-  const { doctors, refetch: fetchDoctors } = useDoctors();
+  // 🎯 USA O CONTEXTO GLOBAL DE MÉDICOS
+  const { activeDoctors: doctors, refreshDoctors: fetchDoctors } = useDoctorsContext();
 
   const [activeTab, setActiveTab] = useState('todos');
   const [selectedPre, setSelectedPre] = useState<PreAgendamento | null>(null);

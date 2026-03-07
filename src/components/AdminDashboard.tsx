@@ -11,11 +11,10 @@ import { useAppointmentsContext } from '../contexts/AppointmentsContext';
 import { useChatNavigation } from "../contexts/ChatNavigationContext";
 import { useAdmin } from '../hooks/useAdmin';
 import { useDashboard } from '../hooks/useDashboard';
-import useDoctorDashboard from '../hooks/useDoctorDashboard';
-import { usePatients } from '../hooks/usePatients';
+import { usePatientsContext } from '../contexts/PatientsContext';
 import usePayment from '../hooks/usePayment';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
-import { CreateDoctorParams } from '../services/doctorService';
+import { CreateDoctorParams, doctorService } from '../services/doctorService';
 import { createPayment, FinancialRecord, getPayments, updatePayment } from '../services/paymentService';
 import AddAdminContent from './admin/AddAdminContent';
 import AdminHeader from './admin/AdminHeader';
@@ -33,6 +32,8 @@ const EnhancedCalendar = lazy(() => import('./calendar/EnhancedCalendar'));
 const SiteAnalyticsDashboard = lazy(() => import('./Dashboard/SiteAnalyticsDashboard'));
 const MarketingDashboard = lazy(() => import('./Dashboard/MarketingDashboard'));
 const AppChat = lazy(() => import('./mkt/whatsapp/AppChat'));
+
+
 
 // Modais também podem ser lazy loaded
 const AdvancedPaymentModal = lazy(() => import('./financial/AdvancedPaymentModal').then(m => ({ default: m.AdvancedPaymentModal })));
@@ -156,6 +157,23 @@ export default function AdminDashboard() {
 
     // 🗓️ Estado para controle do range de datas do calendário
     const [calendarDateRange, setCalendarDateRange] = useState<{ startDate?: string; endDate?: string }>({});
+    
+    // 🎯 Estado para identificar o tipo de usuário
+    const [userRole, setUserRole] = useState<string | null>(null);
+    
+    // 🎯 Verifica o role do usuário no localStorage
+    useEffect(() => {
+        const storedRole = localStorage.getItem('userRole');
+        if (storedRole) {
+            try {
+                const parsedRole = JSON.parse(storedRole);
+                setUserRole(parsedRole);
+                console.log('👤 [AdminDashboard] User role:', parsedRole);
+            } catch {
+                setUserRole(storedRole); // Se não for JSON, usa direto
+            }
+        }
+    }, []);
 
     const theme = useTheme();
 
@@ -168,8 +186,12 @@ export default function AdminDashboard() {
         refresh: refreshDashboard
     } = useDashboard();
 
-    const { patients, totalPatients, fetchPatients, updatePatient, createPatient } = usePatients();
-    const { doctors, createDoctor, updateDoctor } = useDoctorDashboard();
+    // 🎯 USA O CONTEXTO GLOBAL DE PACIENTES
+    const { patients, totalPatients, refreshPatients, updatePatient, createPatient } = usePatientsContext();
+    
+    // 🚀 IMPORTANTE: AdminDashboard NÃO usa useDoctorDashboard!
+    // useDoctorDashboard é SÓ para o DoctorDashboard (perfil de médico)
+    // Admin usa useDashboard que já tem os dados necessários (doctorsOverview)
     const { adminInfo, editedInfo, setEditedInfo, loading, fetchAdminProfile, fetchCompletedAppointments, updateAdminProfile, addNewAdmin } = useAdmin();
 
     const {
@@ -187,22 +209,15 @@ export default function AdminDashboard() {
 
     // 🗓️ Buscar appointments quando o range de datas mudar
     useEffect(() => {
-        // Só buscar se tiver datas definidas (evita fetch vazio no primeiro render)
-    console.log("FETCH APPOINTMENTS DISPARADO");
-        fetchAppointments(calendarDateRange);
-    }, [fetchAppointments, calendarDateRange]);
-
-    useEffect(() => {
-        fetchPatients();
-    }, [fetchPatients]);
-
-    // 🔄 Refresh dashboard quando mudar de aba para Dashboard
-    useEffect(() => {
-        if (activeTab === 'Dashboard') {
-            refreshDashboard();
+        if (calendarDateRange.startDate && calendarDateRange.endDate) {
+            fetchAppointments(calendarDateRange);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab]); // Removido refreshDashboard das dependências para evitar loop
+    }, [fetchAppointments, calendarDateRange.startDate, calendarDateRange.endDate]);
+
+    // 🎯 Pacientes já são carregados pelo contexto global
+    // Não precisa chamar refreshPatients no mount
+
+    // Nota: useDashboard gerencia seu próprio cache, não precisa refresh forçado ao trocar aba
 
     const toggleMenu = useCallback((menuName: string) => {
         setOpenMenu(menuName);
@@ -249,20 +264,22 @@ export default function AdminDashboard() {
         setIsLoading(true);
         try {
             if (doctor._id) {
-                await updateDoctor(doctor);
+                await doctorService.updateDoctor(doctor._id, doctor);
                 toast.success("Profissional atualizado com sucesso!");
             } else {
-                await createDoctor(doctor);
+                await doctorService.createDoctor(doctor);
                 toast.success("Profissional cadastrado com sucesso!");
             }
 
             setModalShouldClose(true);
+            // 🔄 Atualiza dashboard para refletir mudanças
+            refreshDashboard();
         } catch (error: any) {
             toast.error(error.message || "Erro ao salvar profissional.");
         } finally {
             setIsLoading(false);
         }
-    }, [updateDoctor, createDoctor]);
+    }, [refreshDashboard]);
 
     const handleSavePatient = useCallback(async (formData: IPatient) => {
         setIsLoading(true);
@@ -533,14 +550,14 @@ export default function AdminDashboard() {
             await patientService.delete(patient._id);
             toast.success('Paciente excluído com sucesso!');
             // 🔄 Atualiza a lista de pacientes
-            fetchPatients();
+            refreshPatients();
             // 🔄 Atualiza o dashboard
             refreshDashboard();
         } catch (error: any) {
             const msg = error?.response?.data?.error || error?.response?.data?.message || 'Erro ao excluir paciente';
             toast.error(msg);
         }
-    }, [fetchPatients, refreshDashboard]);
+    }, [refreshPatients, refreshDashboard]);
 
     // 🗓️ Handler para quando o usuário muda de mês no calendário
     const handleMonthChange = useCallback((startDate: Date, endDate: Date) => {
@@ -589,7 +606,7 @@ export default function AdminDashboard() {
 
     const manageDoctorsProps = useMemo(() => ({
         onSubmitDoctor: handleSaveDoctor,
-        doctors,
+        doctors: doctorsOverview,
         patients,
         openModal,
         appointments,
@@ -597,11 +614,12 @@ export default function AdminDashboard() {
         onNewAppointment: handleNewAppointment,
         modalShouldClose,
         closeModalSignal,
-    }), [handleSaveDoctor, doctors, patients, openModal, appointments, handleNewAppointment, 
-        modalShouldClose, closeModalSignal]);
+        onDoctorsChange: refreshDashboard, // 🆕 Atualiza lista após inativação/reativação
+    }), [handleSaveDoctor, doctorsOverview, patients, openModal, appointments, handleNewAppointment, 
+        modalShouldClose, closeModalSignal, refreshDashboard]);
 
     const calendarProps = useMemo(() => ({
-        doctors,
+        doctors: doctorsOverview,
         patients,
         appointments,
         onDateClick: () => { },
@@ -613,28 +631,28 @@ export default function AdminDashboard() {
         onMonthChange: handleMonthChange,
         openModalAppointment,
         closeModalSignal,
-    }), [doctors, patients, appointments, handleNewAppointment, handleCancelAppointment, 
+    }), [doctorsOverview, patients, appointments, handleNewAppointment, handleCancelAppointment, 
         handleCompleteAppointment, handleEditAppointment, handleFetchAvailableSlots, 
         handleMonthChange, openModalAppointment, closeModalSignal]);
 
     const financialProps = useMemo(() => ({
         patients,
-        doctors,
+        doctors: doctorsOverview,
         initialPayments: allPayments,
         onMarkAsPaid: handleMarkAsPaid,
         registerAppointmentAndPayemntFuture: handleRegisterAppointmentAndPayemntFuture,
         onCancelPayment: handleCancelPayment,
-    }), [patients, doctors, allPayments, handleMarkAsPaid, handleRegisterAppointmentAndPayemntFuture, 
+    }), [patients, doctorsOverview, allPayments, handleMarkAsPaid, handleRegisterAppointmentAndPayemntFuture, 
         handleCancelPayment]);
 
     const analyticsProps = useMemo(() => ({
         patients,
-        doctors,
+        doctors: doctorsOverview,
         payments: allPayments,
         onMarkAsPaid: handleMarkAsPaid,
         registerAppointmentAndPayemntFuture: handleRegisterAppointmentAndPayemntFuture,
         onCancelPayment: handleCancelPayment,
-    }), [patients, doctors, allPayments, handleMarkAsPaid, handleRegisterAppointmentAndPayemntFuture, 
+    }), [patients, doctorsOverview, allPayments, handleMarkAsPaid, handleRegisterAppointmentAndPayemntFuture, 
         handleCancelPayment]);
 
     const renderContent = () => {
@@ -817,7 +835,7 @@ export default function AdminDashboard() {
                     <PaymentModal
                         open={paymentModalOpen}
                         patient={paymentContext.patient}
-                        doctors={doctors}
+                        doctors={doctorsOverview}
                         payment={paymentContext.payment}
                         onClose={() => {
                             setPaymentModalOpen(false);
@@ -837,7 +855,7 @@ export default function AdminDashboard() {
                     <AdvancedPaymentModal
                         open={showAdvancedPayment}
                         patients={patients}
-                        doctors={doctors}
+                        doctors={doctorsOverview}
                         onClose={() => setShowAdvancedPayment(false)}
                         onPaymentAdvancedSuccess={handleAdvancedPayment}
                     />

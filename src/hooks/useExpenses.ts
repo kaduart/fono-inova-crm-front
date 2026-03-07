@@ -2,6 +2,7 @@
 import { useState, useCallback } from 'react';
 import { expenseService, Expense, ExpenseFilters } from '../services/expenseService';
 import { toast } from 'react-toastify';
+import { invalidateCache } from '../utils/cacheManager';
 
 export const useExpenses = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -27,6 +28,10 @@ export const useExpenses = () => {
     try {
       const response = await expenseService.create(data);
       toast.success(response.message);
+      
+      // 🚀 Invalida dashboard pois despesas afetam o financeiro
+      invalidateCache('dashboard');
+      
       return response.data;
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao criar despesa');
@@ -38,6 +43,10 @@ export const useExpenses = () => {
     try {
       const response = await expenseService.update(id, data);
       toast.success(response.message);
+      
+      // 🚀 Invalida dashboard pois despesas afetam o financeiro
+      invalidateCache('dashboard');
+      
       return response.data;
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao atualizar despesa');
@@ -49,6 +58,10 @@ export const useExpenses = () => {
     try {
       const response = await expenseService.cancel(id);
       toast.success(response.message);
+      
+      // 🚀 Invalida dashboard pois despesas afetam o financeiro
+      invalidateCache('dashboard');
+      
       await fetchExpenses();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao cancelar despesa');
@@ -59,6 +72,10 @@ export const useExpenses = () => {
     try {
       const response = await expenseService.generateCommissions();
       toast.success(`${response.data.generated} comissões geradas com sucesso!`);
+      
+      // 🚀 Invalida dashboard pois comissões são despesas
+      invalidateCache('dashboard');
+      
       await fetchExpenses();
       return response.data;
     } catch (error: any) {
@@ -79,3 +96,5 @@ export const useExpenses = () => {
     generateCommissions
   };
 };
+
+export default useExpenses;

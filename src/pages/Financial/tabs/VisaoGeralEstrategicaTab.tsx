@@ -15,13 +15,12 @@ import {
     InputLabel,
     Alert,
     AlertTitle,
-    Skeleton,
     Divider,
-    LinearProgress,
     Avatar,
     Paper,
     IconButton,
-    Tooltip
+    Tooltip,
+    LinearProgress
 } from '@mui/material';
 import {
     TrendingUp,
@@ -49,6 +48,7 @@ import {
 } from '@mui/icons-material';
 import { useFinancialOverview } from '../../../hooks/useFinancialOverview';
 import { MetricDetailModal } from '../components/MetricDetailModal';
+import { FinancialLoadingDashboard } from '../components/FinancialLoading';
 import { ptBR } from 'date-fns/locale';
 import { format } from 'date-fns';
 
@@ -220,16 +220,7 @@ const VisaoGeralEstrategicaTab = () => {
             </Paper>
 
             {loading ? (
-                <Box sx={{ mt: 2 }}>
-                    <LinearProgress sx={{ mb: 3, borderRadius: 1 }} />
-                    <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
-                        {[1, 2, 3, 4, 5, 6].map(i => (
-                            <Grid item xs={6} sm={6} md={4} lg={2} key={i}>
-                                <Skeleton variant="rectangular" height={140} sx={{ borderRadius: 2 }} />
-                            </Grid>
-                        ))}
-                    </Grid>
-                </Box>
+                <FinancialLoadingDashboard />
             ) : data ? (
                 <>
                     {/* Cards de Métricas Operacionais (Funnel) */}
@@ -724,7 +715,7 @@ const VisaoGeralEstrategicaTab = () => {
                                             <Typography variant="caption" color="text.secondary">Progresso</Typography>
                                             <Typography variant="caption" fontWeight="600">{data.metrics?.metaPercent.toFixed(1)}%</Typography>
                                         </Box>
-                                        <LinearProgress 
+                                        <LinearProgress
                                             variant="determinate" 
                                             value={Math.min(data.metrics?.metaPercent, 100)} 
                                             sx={{ 

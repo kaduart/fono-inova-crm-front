@@ -12,20 +12,19 @@ import {
   Button,
   Card, CardContent,
   Chip,
-  CircularProgress,
   FormControl,
   InputLabel,
   LinearProgress,
   MenuItem,
   Paper,
   Select,
-  Skeleton,
   Tab,
   Table, TableBody, TableCell, TableHead, TableRow,
   Tabs,
   Typography,
   Grid
 } from '@mui/material';
+import { FinancialLoadingCompact, FinancialTableLoading } from '../components/FinancialLoading';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar } from 'lucide-react';
@@ -481,7 +480,7 @@ const ProvisionamentoTab = () => {
               </Box>
 
               {loadingPendentes ? (
-                <Skeleton height={200} />
+                <FinancialTableLoading rowCount={4} colSpan={6} />
               ) : pendingAppointments.length === 0 ? (
                 <Alert severity="info">Nenhum agendamento pendente</Alert>
               ) : (
@@ -587,9 +586,7 @@ const ProvisionamentoTab = () => {
           {/* ABA 1: Analítico */}
           {activeTab === 1 && (
             loadingAnalitico ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                <CircularProgress />
-              </Box>
+              <FinancialLoadingCompact />
             ) : analiticoData ? (
               <Box>
                 <Typography variant="h6" gutterBottom>
@@ -699,9 +696,7 @@ const ProvisionamentoTab = () => {
           {/* ABA 2: Pacotes */}
           {activeTab === 2 && (
             loadingPacotes ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                <CircularProgress />
-              </Box>
+              <FinancialLoadingCompact />
             ) : (
               <Box>
                 <Typography variant="h6" fontWeight="bold" gutterBottom>
@@ -813,9 +808,7 @@ const ProvisionamentoTab = () => {
           {/* ABA 3: DRE */}
           {activeTab === 3 && (
             loadingFechamento ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                <CircularProgress />
-              </Box>
+              <FinancialLoadingCompact />
             ) : fechamentoData ? (
               <Box>
                 <Typography variant="h6" gutterBottom fontWeight="bold">

@@ -3,8 +3,9 @@ import React, { useEffect, useState } from 'react';
 import {
     Box, Typography, Paper, Table, TableBody,
     TableCell, TableContainer, TableHead, TableRow,
-    IconButton, Chip, LinearProgress, Avatar
+    IconButton, Chip, Avatar
 } from '@mui/material';
+import { FinancialLoadingCompact } from './FinancialLoading';
 import { useFinancialAnalytics } from '../../../hooks/useFinancialAnalytics';
 import { Crown, Eye, Phone } from 'lucide-react';
 import { Patient360Modal } from './Patient360Modal';
@@ -28,7 +29,7 @@ export const ListaPacientesVIP: React.FC = () => {
     };
 
     if (loadingPatients && patientsList.data.length === 0) {
-        return <LinearProgress />;
+        return <FinancialLoadingCompact />;
     }
 
     return (
