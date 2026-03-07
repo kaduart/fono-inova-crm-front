@@ -2,6 +2,7 @@ import React, { Suspense, useEffect, useRef } from "react";
 import { socketManager } from "./utils/socketManager";
 import { ToastContainer } from "react-toastify";
 import { Toaster } from "react-hot-toast";
+import { Box } from "@mui/material";
 import "./App.css";
 import AppRoutes from "./AppRoutes";
 import { useWhatsAppDeliveryError } from "./hooks/useWhatsAppDeliveryError";
@@ -10,7 +11,7 @@ import { ChatNotificationPopup } from "./components/mkt/whatsapp/ChatNotificatio
 import { MediaNotificationPopup } from "./components/mkt/whatsapp/MediaNotificationPopup";
 import SessionExpiryHandler from "./components/SessionExpiryHandler";
 import { LoadingOverlay } from "./components/ui/LoadingOverlay";
-import { LoadingSpinner } from "./components/ui/LoadingSpinner";
+import { FinancialLoading } from "./pages/Financial/components/FinancialLoading";
 import { AppointmentsProvider } from "./contexts/AppointmentsContext";
 import { DoctorsProvider } from "./contexts/DoctorsContext";
 import { PatientsProvider } from "./contexts/PatientsContext";
@@ -36,7 +37,13 @@ const App: React.FC = () => {
         message="Autenticando..."
       />
 
-      <Suspense fallback={<LoadingSpinner />}>
+      <Suspense fallback={
+        isLoading ? null : (
+          <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh' }}>
+            <FinancialLoading cardCount={6} gridSize={{ xs: 12, sm: 6, md: 4 }} />
+          </Box>
+        )
+      }>
         <DoctorsProvider>
           <PatientsProvider>
             <AppointmentsProvider>

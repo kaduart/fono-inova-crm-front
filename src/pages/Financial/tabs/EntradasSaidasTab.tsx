@@ -49,6 +49,7 @@ import { ptBR } from 'date-fns/locale';
 import { useExpenses } from '../../../hooks/useExpenses';
 import ExpenseModal from '../components/ExpenseModal';
 import api from '../../../services/api';
+import { FinancialLoading } from '../components/FinancialLoading';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { AccountBalance, ArrowUpward, AttachMoney, LocalAtm, Schedule } from '@mui/icons-material';
 
@@ -288,9 +289,11 @@ const EntradasSaidasTab = () => {
 
     if (loading || !summary) {
         return (
-            <Box sx={{ p: 4, textAlign: 'center' }}>
-                <Typography color="text.secondary">Carregando dados financeiros...</Typography>
-                <LinearProgress sx={{ mt: 2, maxWidth: 400, mx: 'auto' }} />
+            <Box sx={{ p: { xs: 2, md: 4 } }}>
+                <Typography variant="h5" fontWeight="bold" sx={{ mb: 3, color: 'primary.main' }}>
+                    📈 Extrato Financeiro
+                </Typography>
+                <FinancialLoading cardCount={6} gridSize={{ xs: 12, sm: 6, md: 4 }} />
             </Box>
         );
     }

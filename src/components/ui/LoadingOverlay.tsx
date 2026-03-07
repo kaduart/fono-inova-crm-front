@@ -1,31 +1,48 @@
-import { LoadingSpinner } from './LoadingSpinner';
+import { Box } from '@mui/material';
+import { FinancialLoading } from '../../pages/Financial/components/FinancialLoading';
 
 interface LoadingOverlayProps {
     show: boolean;
     zIndex?: number;
-    spinnerSize?: 'small' | 'medium' | 'large';
     message?: string;
 }
 
 export const LoadingOverlay = ({
     show,
     zIndex = 100001,
-    spinnerSize = 'medium',
     message = 'Carregando...'
 }: LoadingOverlayProps) => {
     if (!show) return null;
 
     return (
-        <div
-            style={{ zIndex }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+        <Box
+            sx={{
+                position: 'fixed',
+                inset: 0,
+                bgcolor: 'rgba(0, 0, 0, 0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex
+            }}
         >
-            <LoadingSpinner
-                size={spinnerSize}
-                message={message}
-                isLoading={true}
-                overlay={false} // Desativa o overlay interno do Spinner
-            />
-        </div>
+            <Box
+                sx={{
+                    bgcolor: 'background.paper',
+                    borderRadius: 2,
+                    p: 4,
+                    width: '100%',
+                    maxWidth: 800,
+                    mx: 2
+                }}
+            >
+                <Box sx={{ mb: 2, textAlign: 'center' }}>
+                    <Box component="span" sx={{ fontSize: '1.1rem', fontWeight: 500 }}>
+                        {message}
+                    </Box>
+                </Box>
+                <FinancialLoading cardCount={4} gridSize={{ xs: 12, sm: 6 }} showProgress={true} />
+            </Box>
+        </Box>
     );
 };

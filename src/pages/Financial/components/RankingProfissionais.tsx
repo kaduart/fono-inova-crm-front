@@ -3,7 +3,8 @@ import React, { useEffect } from 'react';
 import {
     Table, TableBody, TableCell, TableContainer,
     TableHead, TableRow, Paper, Typography,
-    Box, Avatar
+    Box, Avatar,
+    LinearProgress
 } from '@mui/material';
 import { FinancialLoadingCompact } from './FinancialLoading';
 import { useFinancialAnalytics } from '../../../hooks/useFinancialAnalytics';

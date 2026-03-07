@@ -1,7 +1,8 @@
-import { Paper, Typography, useTheme } from '@mui/material';
+import { Box, Paper, Typography, useTheme } from '@mui/material';
 import { BarChart3, CalendarPlus } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { FinancialLoading, FinancialLoadingDashboard } from '../pages/Financial/components/FinancialLoading';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { patientService } from '../services/patientService';
 import { confirmToast } from '../utils/confirmToast';
@@ -39,17 +40,17 @@ const AppChat = lazy(() => import('./mkt/whatsapp/AppChat'));
 const AdvancedPaymentModal = lazy(() => import('./financial/AdvancedPaymentModal').then(m => ({ default: m.AdvancedPaymentModal })));
 const PaymentModal = lazy(() => import('./financial/PaymentModal').then(m => ({ default: m.PaymentModal })));
 
-// 🎯 Componente de loading para Suspense
+// 🎯 Componente de loading para Suspense (padronizado com FinancialDashboard)
 const TabSkeleton = () => (
-    <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
-    </div>
+    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: 400 }}>
+        <FinancialLoadingDashboard />
+    </Box>
 );
 
 const ModalSkeleton = () => (
-    <div className="flex items-center justify-center min-h-[200px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
-    </div>
+    <Box sx={{ p: 4, minHeight: 200 }}>
+        <FinancialLoading cardCount={1} gridSize={{ xs: 12 }} cardHeight={120} />
+    </Box>
 );
 
 const initialPatientState: IPatient = {

@@ -8,7 +8,7 @@
 
 import React, { lazy, Suspense, Component, type ReactNode } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
-import { LoadingSpinner } from './components/ui/LoadingSpinner';
+import { Box, LinearProgress } from '@mui/material';
 import { useAuth } from './contexts/AuthContext';
 import MainLayout from './components/MainLayout';
 
@@ -65,11 +65,11 @@ const SalesList = lazyWithRetry(() => import('./pages/Financial/SalesList'));
 const SaleForm = lazyWithRetry(() => import('./pages/Financial/SaleForm'));
 const ProvisionamentoTab = lazyWithRetry(() => import('./pages/Financial/tabs/ProvisionamentoTab'));
 
-// Componente de loading para Suspense
+// Componente de loading simples para Suspense (só barra de progresso)
 const PageLoader = () => (
-    <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="large" message="Carregando..." />
-    </div>
+    <Box sx={{ width: '100%', minHeight: '100vh' }}>
+        <LinearProgress />
+    </Box>
 );
 
 // Wrapper para rotas privadas
@@ -110,7 +110,9 @@ const AppRoutes: React.FC = () => {
     const { user, isLoading } = useAuth();
     const location = useLocation();
 
-    if (isLoading) return <PageLoader />;
+    // 🔄 Loading de auth é tratado pelo LoadingOverlay no App.tsx
+    // Não renderiza nada aqui para evitar duplo loading
+    if (isLoading) return null;
 
     // 🔒 Protege domínio - redireciona para o domínio oficial se necessário
     const APP_URL = import.meta.env.VITE_APP_URL || 'https://app.clinicafonoinova.com.br';

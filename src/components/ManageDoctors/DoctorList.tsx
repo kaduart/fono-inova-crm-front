@@ -62,12 +62,12 @@ const DoctorCard = ({ doctor, onEdit, onViewAgenda, onDeactivate, onReactivate, 
                 {/* Cabeçalho */}
                 <div className="p-6 pb-4">
                     <div className="flex items-center gap-4 mb-6">
-                        <div className={`w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 border ${
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 border ${
                             isInactive 
                                 ? 'bg-gray-200 border-gray-300' 
                                 : 'bg-emerald-50 border-emerald-100'
                         }`}>
-                            <User className={isInactive ? 'text-gray-500' : 'text-emerald-600'} size={24} />
+                            <User className={isInactive ? 'text-gray-500' : 'text-emerald-600'} size={18} />
                         </div>
                         <div className="min-w-0 pr-8">
                             <h3 className="text-lg font-semibold text-gray-900 truncate">
@@ -160,26 +160,24 @@ const DoctorCard = ({ doctor, onEdit, onViewAgenda, onDeactivate, onReactivate, 
                 </div>
 
                 {/* Rodapé - Ações */}
-                <div className="px-6 pb-6 pt-2">
-                    <div className="flex gap-3">
+                <div className="px-7 pb-7 pt-2">
+                    <div className="flex gap-2">
                         {!isInactive ? (
                             // Ações para médicos ativos
                             <>
                                 <button
                                     onClick={() => onEdit(doctor)}
-                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white/80 hover:bg-white text-gray-700 rounded-lg transition-colors font-medium border border-white/50"
+                                    className="flex-1 flex items-center justify-center gap-0 px-0 py-0 bg-white/80 hover:bg-white text-gray-700 rounded-lg transition-colors font-medium border border-white/50"
                                 >
-                                    <Pencil size={16} />
                                     Editar
                                 </button>
 
                                 {onViewAgenda && (
                                     <button
                                         onClick={() => onViewAgenda(doctor)}
-                                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors font-medium border border-emerald-100"
+                                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-100 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors font-medium border border-emerald-100"
                                     >
-                                        <Calendar size={16} />
-                                        Ver Agenda
+                                   Ver Agenda
                                     </button>
                                 )}
                             </>
@@ -337,7 +335,7 @@ const DoctorList = ({ doctors, onEdit, onViewAgenda, onDeactivate, onReactivate 
                     </p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
                     {currentDoctors.map((doctor) => (
                         <DoctorCard
                             key={doctor._id}

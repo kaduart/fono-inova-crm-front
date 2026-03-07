@@ -46,7 +46,8 @@ import {
   Collapse,
   FormControl,
   InputLabel,
-  Select
+  Select,
+  LinearProgress
 } from '@mui/material';
 import { FinancialLoading } from '../components/FinancialLoading';
 import { format } from 'date-fns';
@@ -83,10 +84,7 @@ const STATUS_CONFIG = {
 const PlanningTab = () => {
   const { plannings, fetchPlannings, createPlanning, updatePlanning, deletePlanning, refreshAllPlannings, loading } = usePlanning();
 
-  // Loading state para carregamento inicial
-  if (loading && plannings.length === 0) {
-    return <FinancialLoading cardCount={4} gridSize={{ xs: 12, sm: 6, md: 3 }} />;
-  }
+  // Hooks devem vir ANTES de qualquer return condicional
   const [openModal, setOpenModal] = useState(false);
   const [openEditModal, setOpenEditModal] = useState(false);
   const [openDeleteModal, setOpenDeleteModal] = useState(false);
@@ -238,6 +236,18 @@ const PlanningTab = () => {
   // Calcular totais do formulário
   const totalSpecialtySessions = formData.bySpecialty.reduce((sum, s) => sum + s.sessions, 0);
   const totalSpecialtyRevenue = formData.bySpecialty.reduce((sum, s) => sum + s.revenue, 0);
+
+  // Loading state para carregamento inicial
+  if (loading && plannings.length === 0) {
+    return (
+      <Box sx={{ p: { xs: 2, md: 4 } }}>
+        <Typography variant="h5" fontWeight="bold" sx={{ mb: 3 }}>
+          📅 Planejamento Anual
+        </Typography>
+        <FinancialLoading cardCount={4} gridSize={{ xs: 12, sm: 6, md: 3 }} />
+      </Box>
+    );
+  }
 
   return (
     <Box>
