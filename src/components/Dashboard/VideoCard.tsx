@@ -57,6 +57,9 @@ export function VideoCard({ video, onPublish, onDelete, onEditar, publishing }: 
   const isProcessing = video.status === 'processing';
   const posProducaoStatus = (video as any).posProducaoStatus;
   const videoEditadoUrl = (video as any).videoEditadoUrl;
+  
+  // Usar vídeo editado no player se disponível
+  const videoUrlParaPlayer = videoEditadoUrl || video.videoUrl;
 
   const handlePublishClick = () => {
     if (selectedChannels.length === 0) return;
@@ -70,8 +73,8 @@ export function VideoCard({ video, onPublish, onDelete, onEditar, publishing }: 
       <div className="relative aspect-video bg-gray-900">
         {video.thumbnailUrl && !showPlayer ? (
           <img src={video.thumbnailUrl} alt={video.title} className="w-full h-full object-cover" />
-        ) : showPlayer && video.videoUrl ? (
-          <video src={video.videoUrl} controls autoPlay className="w-full h-full" />
+        ) : showPlayer && videoUrlParaPlayer ? (
+          <video src={videoUrlParaPlayer} controls autoPlay className="w-full h-full" />
         ) : video.status === 'failed' ? (
           <div className="w-full h-full flex items-center justify-center bg-red-900/20">
             <div className="text-center p-4">
@@ -101,6 +104,15 @@ export function VideoCard({ video, onPublish, onDelete, onEditar, publishing }: 
           {status.icon}
           <span>{status.label}</span>
         </div>
+        
+        {videoEditadoUrl && (
+          <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-600 text-white text-xs font-semibold shadow-lg">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            <span>Editado</span>
+          </div>
+        )}
       </div>
       
       <div className="p-4">
@@ -155,12 +167,12 @@ export function VideoCard({ video, onPublish, onDelete, onEditar, publishing }: 
             href={videoEditadoUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-2 flex items-center gap-1.5 text-xs text-indigo-600 hover:underline"
+            className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:underline"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            Baixar versão editada
+            Baixar vídeo com legendas, música e CTA
           </a>
         )}
       </div>
