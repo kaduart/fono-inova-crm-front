@@ -31,6 +31,18 @@ export interface Post {
   aiGenerated?: boolean;
 }
 
+export interface CTAConfig {
+  texto: string;
+  subtexto: string;
+  cor: string;
+}
+
+export interface EditOptions {
+  legendas: boolean;
+  musica: 'calma' | 'esperancosa' | 'emocional' | null;
+  cta: CTAConfig | null;
+}
+
 export interface Video {
   _id: string;
   title: string;
@@ -41,8 +53,12 @@ export interface Video {
   status: VideoStatus;
   videoUrl?: string;
   thumbnailUrl?: string;
+  videoEditadoUrl?: string;
+  posProducaoStatus?: 'idle' | 'processing' | 'ready' | 'failed';
+  posProducaoConfig?: { legendas?: boolean; musica?: string | null; cta?: CTAConfig | null };
   createdAt: string;
   publishedChannels?: Channel[];
+  provider?: string;
 }
 
 export interface Stats {
@@ -128,9 +144,10 @@ export interface UseMarketingReturn {
     update: (postId: string, data: Partial<Post>) => Promise<void>;
   };
   videos: VideoData & {
-    generate: (data: { especialidadeId: string; roteiro: string; duration: number; modo?: 'avatar' | 'ilustrativo' }) => Promise<void>;
+    generate: (data: { especialidadeId: string; roteiro: string; duration: number; modo?: 'avatar' | 'ilustrativo' | 'veo'; tone?: 'emotional' | 'educativo' | 'inspiracional' | 'bastidores' }) => Promise<void>;
     publish: (videoId: string, channels: Channel[]) => Promise<void>;
     delete: (videoId: string) => Promise<void>;
+    editar: (videoId: string, options: EditOptions) => Promise<void>;
   };
   spy: SpyData & {
     search: (keyword: string, especialidade?: string) => Promise<void>;
@@ -281,6 +298,16 @@ export function useMarketing(): UseMarketingReturn {
     fetchVideosData();
   }, [refreshKey, fetchGmbData, fetchInstagramData, fetchFacebookData, fetchVideosData]);
 
+  // Polling automático enquanto houver vídeos em processamento (geração ou pós-produção)
+  useEffect(() => {
+    const hasProcessing = videosData.videos.some(
+      v => v.status === 'processing' || v.posProducaoStatus === 'processing'
+    );
+    if (!hasProcessing) return;
+    const interval = setInterval(fetchVideosData, 8000);
+    return () => clearInterval(interval);
+  }, [videosData.videos, fetchVideosData]);
+
   // GMB Actions
   const gmbPublish = async (postId: string) => {
     await API.post(`/gmb/posts/${postId}/publish`);
@@ -387,6 +414,12 @@ export function useMarketing(): UseMarketingReturn {
     await fetchVideosData();
   };
 
+  const videoEditar = async (videoId: string, options: EditOptions) => {
+    await API.post(`/videos/${videoId}/pos-producao`, options);
+    // Refresh após 2s para mostrar estado "processing"
+    setTimeout(fetchVideosData, 2000);
+  };
+
   // Spy Actions
   const spySearch = async (keyword: string, especialidade?: string) => {
     setSpyData(prev => ({ ...prev, loading: true, error: null }));
@@ -457,7 +490,8 @@ export function useMarketing(): UseMarketingReturn {
       ...videosData,
       generate: videoGenerate,
       publish: videoPublish,
-      delete: videoDelete
+      delete: videoDelete,
+      editar: videoEditar
     },
     spy: {
       ...spyData,

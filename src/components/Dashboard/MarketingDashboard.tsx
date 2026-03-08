@@ -9,6 +9,8 @@ import API from '../../services/api';
 import { useMarketing, type FunnelStage, type AdSpy } from '../../hooks/useMarketing';
 
 import { VideoCard } from './VideoCard';
+import { VideoEditModal } from './VideoEditModal';
+import type { EditOptions, Video as VideoType } from '../../hooks/useMarketing';
 import InstagramIcon from "@mui/icons-material/Instagram";
 import FacebookIcon from "@mui/icons-material/Facebook";
 import GoogleIcon from "@mui/icons-material/Google";
@@ -182,6 +184,8 @@ export default function MarketingDashboard() {
   const [layoutSelecionado, setLayoutSelecionado] = useState<string | null>(null);
   const [carregandoLayouts, setCarregandoLayouts] = useState(false);
 
+  const [videoEditModal, setVideoEditModal] = useState<{ open: boolean; video: VideoType | null }>({ open: false, video: null });
+  const [applyingEdit, setApplyingEdit] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [publishingPost, setPublishingPost] = useState<string | null>(null);
   const [republishingPost, setRepublishingPost] = useState<string | null>(null);
@@ -516,10 +520,12 @@ export default function MarketingDashboard() {
         especialidadeId: selectedEspecialidade,
         roteiro: videoRoteiro,
         duration: videoDuration,
-        modo: videoMode
+        modo: videoMode,
+        tone: selectedTone
       });
-      const modoLabel = videoMode === 'veo' ? '🎬 Veo 3.1 cinematográfico (3-5 min)' : videoMode === 'avatar' ? '🎭 com avatar' : '🖼️ ilustrativo';
-      toast.info(`Vídeo ${modoLabel} em processamento!`);
+      const modoLabel = videoMode === 'veo' ? '🎬 Veo 2.0 cinematográfico (3-5 min)' : videoMode === 'avatar' ? '🎭 com avatar' : '🖼️ ilustrativo';
+      const toneEmoji = selectedTone === 'educativo' ? '📚' : selectedTone === 'emotional' ? '💔' : selectedTone === 'inspiracional' ? '✨' : '🏥';
+      toast.info(`${toneEmoji} Vídeo ${modoLabel} em processamento!`);
       setVideoRoteiro('');
       refresh();
     } catch (err: any) {
@@ -1138,6 +1144,29 @@ export default function MarketingDashboard() {
                 <option value="avatar">🎭 Avatar (HeyGen)</option>
               </select>
             </div>
+
+            {/* Tom de Voz */}
+            <div className="mb-4">
+              <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">Tom do roteiro</p>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { key: 'emotional', emoji: '💔', label: 'Emocional', desc: 'Dor/urgência' },
+                  { key: 'educativo', emoji: '📚', label: 'Educativo', desc: 'Dicas/fatos' },
+                  { key: 'inspiracional', emoji: '✨', label: 'Inspiração', desc: 'Transformação' },
+                  { key: 'bastidores', emoji: '🏥', label: 'Bastidores', desc: 'Da clínica' },
+                ].map(({ key, emoji, label, desc }) => (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedTone(key as any)}
+                    className={`px-2 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedTone === key ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                  >
+                    <span className="text-base">{emoji}</span>
+                    <span className="text-[11px] font-semibold">{label}</span>
+                    <span className="text-[9px] opacity-60">{desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
             {videoMode === 'veo' && (
               <div className="mb-3 p-3 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 text-xs text-blue-700">
                 <strong>🎬 Google Veo 3.1</strong> — Gera vídeo cinematográfico real (8s, 9:16 para Reels).
@@ -1221,6 +1250,7 @@ export default function MarketingDashboard() {
                   video={video}
                   onPublish={(id, channels) => videos.publish(id, channels)}
                   onDelete={(id) => videos.delete(id)}
+                  onEditar={(v) => setVideoEditModal({ open: true, video: v })}
                 />
               ))
             )}
@@ -2237,6 +2267,27 @@ export default function MarketingDashboard() {
           </div>
         )
       }
+
+      {/* Modal de Edição de Vídeo (Pós-produção) */}
+      {videoEditModal.open && videoEditModal.video && (
+        <VideoEditModal
+          video={videoEditModal.video}
+          onClose={() => setVideoEditModal({ open: false, video: null })}
+          applying={applyingEdit}
+          onApply={async (videoId, options: EditOptions) => {
+            setApplyingEdit(true);
+            try {
+              await videos.editar(videoId, options);
+              setVideoEditModal({ open: false, video: null });
+              toast.success('Edições enviadas! O vídeo será processado em alguns minutos.');
+            } catch (err: any) {
+              toast.error(err?.response?.data?.error || 'Erro ao aplicar edições');
+            } finally {
+              setApplyingEdit(false);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
