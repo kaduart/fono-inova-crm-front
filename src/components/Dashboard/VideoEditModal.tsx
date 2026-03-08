@@ -40,8 +40,8 @@ export function VideoEditModal({ video, onClose, onApply, applying }: VideoEditM
   const [legendas, setLegendas] = useState(true);
   const [musica, setMusica]     = useState<EditOptions['musica']>(null);
   const [ctaAtivo, setCtaAtivo] = useState(false);
-  const [ctaTexto, setCtaTexto]     = useState('Agende sua consulta agora');
-  const [ctaSubtexto, setCtaSubtexto] = useState('Clique no link da bio 💚');
+  const [ctaTexto, setCtaTexto]     = useState('Agende uma consulta');
+  const [ctaSubtexto, setCtaSubtexto] = useState('Link na bio 💚');
   const [ctaCor, setCtaCor]     = useState('#ef4444');
 
   const handleApply = async () => {
