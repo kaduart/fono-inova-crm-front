@@ -76,6 +76,13 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
 
     // 🎯 USA O CONTEXTO GLOBAL DE MÉDICOS
     const { doctors: allDoctors, activeDoctors, inactiveDoctors, loading: isLoadingDoctors, refreshDoctors } = useDoctorsContext();
+    
+    // 🔄 Força re-render quando doctors mudam (fix para carregamento inicial)
+    const [localDoctors, setLocalDoctors] = useState<IDoctor[]>([]);
+    
+    useEffect(() => {
+        setLocalDoctors(allDoctors);
+    }, [allDoctors]);
 
     useEffect(() => {
         if (modalShouldClose) {
@@ -95,9 +102,13 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
         setshowAgendaModal(true);
     };
 
+    const [selectedDate, setSelectedDate] = useState<string>('');
+
     const handleDaySlotsChange = (slots: { date: string; slots: string[] }[]) => {
-        setSelectedDate(slots[0].date);
-        setAllDaySlots(slots);
+        if (slots && slots.length > 0) {
+            setSelectedDate(slots[0].date);
+            setAllDaySlots(slots);
+        }
     };
 
     const handleAddOrEditDoctor = (doctor: IDoctor | null) => {
@@ -261,7 +272,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
             </Paper>
 
             <DoctorList 
-                doctors={allDoctors}
+                doctors={localDoctors}
                 onEdit={handleAddOrEditDoctor} 
                 onViewAgenda={handleViewAgenda}
                 onDeactivate={handleDeactivateDoctor}
@@ -271,7 +282,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
             {showAgendaModal && selectedDoctor && (
                 <DoctorAgenda
                     selectedDoctor={selectedDoctor}
-                    doctors={allDoctors}
+                    doctors={localDoctors}
                     patients={patients}
                     onDaySlotsChange={handleDaySlotsChange}
                     onSubmitSlotBooking={onOpenCloseModals}
@@ -299,7 +310,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
                 <ScheduleAppointmentModal
                     isOpen={showScheduleModal}
                     initialData={scheduleAppointmentData}
-                    doctors={allDoctors}
+                    doctors={localDoctors}
                     patients={patients}
                     onClose={() => setShowScheduleModal(false)}
                     onSave={(data) => { handleBookingComplete(data) }}

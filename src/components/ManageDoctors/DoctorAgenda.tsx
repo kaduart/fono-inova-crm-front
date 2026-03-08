@@ -48,9 +48,10 @@ const DoctorAgenda = ({ doctors = [], updateSlots, patients, onDaySlotsChange, s
 useEffect(() => {
     if (selectedDoctor && selectedDoctor._id) {
         setSelectedDoctorId(selectedDoctor._id);
-        const today = dayjs(); // objeto dayjs, não string
-        setSelectedDate(today); // sincroniza estado do calendário
-        fetchSlotsForDate(today.format('YYYY-MM-DD')); // busca slots
+        const today = dayjs();
+        setSelectedDate(today);
+        // 🔄 Busca slots diretamente com o ID do selectedDoctor
+        fetchSlotsForDate(today.format('YYYY-MM-DD'), selectedDoctor._id);
     }
 }, [selectedDoctor]);
 
@@ -58,21 +59,25 @@ useEffect(() => {
         setSelectedDate(date);
     };
 
-    const fetchSlotsForDate = async (date: string) => {
-
-        if (!selectedDoctorId) return;
+    const fetchSlotsForDate = async (date: string, doctorId?: string) => {
+        const targetDoctorId = doctorId || selectedDoctorId;
+        if (!targetDoctorId) {
+            console.warn('🚨 fetchSlotsForDate: sem doctorId');
+            return;
+        }
         try {
             const payload: AvailableSlotsParams = {
-                doctorId: selectedDoctorId,
+                doctorId: targetDoctorId,
                 date: date
             };
-            const response = await appointmentService.getAvailableSlots(payload)
-            const slots = await response.data;
+            console.log('🔄 Buscando slots:', payload);
+            const response = await appointmentService.getAvailableSlots(payload);
+            const slots = response.data;
+            console.log('✅ Slots recebidos:', slots);
             setDaySlots([{ date, slots }]);
             onDaySlotsChange?.([{ date, slots }]);
-
         } catch (error) {
-            console.error(error);
+            console.error('❌ Erro ao buscar slots:', error);
             setDaySlots([]);
         }
     };

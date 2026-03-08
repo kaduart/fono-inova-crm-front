@@ -52,13 +52,13 @@ export const FinancialLoading = ({
             {showProgress && (
                 <LinearProgress sx={{ mb: 3, borderRadius: 1 }} />
             )}
-            <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
+            <Grid container spacing={2}>
                 {Array.from({ length: cardCount }, (_, i) => (
                     <Grid 
-                        item 
-                        xs={gridSize.xs} 
-                        sm={gridSize.sm} 
-                        md={gridSize.md} 
+                        item
+                        xs={gridSize.xs || 12}
+                        sm={gridSize.sm || 6}
+                        md={gridSize.md || 3}
                         lg={gridSize.lg}
                         key={i}
                     >

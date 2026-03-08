@@ -60,16 +60,20 @@ export const DoctorSlotBookingModal = ({
     };
     useEffect(() => {
         if (isOpen && selectedBookingData?.time) {
-            // Assumindo que availableTimes tem objetos com `date` e `slots`
-            const matched = availableTimes
-                .flatMap(({ date, slots }) =>
-                    slots.map((slot) => `${date} ${slot}`)
-                )
-                .find((t) => t.includes(selectedBookingData.time)); // ajusta conforme a formatação
-
-            if (matched) setSelectedTime(matched);
+            // availableTimes é um array de strings simples ["14:00", "14:40", ...]
+            // selectedBookingData.time pode ser "14:00" ou "2026-03-08 14:00"
+            const timePart = selectedBookingData.time.includes(' ') 
+                ? selectedBookingData.time.split(' ')[1] 
+                : selectedBookingData.time;
+            
+            // Procura o horário que corresponde ao timePart
+            const matched = availableTimes.find((t) => t === timePart);
+            
+            if (matched) {
+                setSelectedTime(`${selectedDate} ${matched}`);
+            }
         }
-    }, [isOpen, selectedBookingData, availableTimes]);
+    }, [isOpen, selectedBookingData, availableTimes, selectedDate]);
 
     return (
         <Modal open={isOpen} onClose={onClose}>
@@ -89,21 +93,19 @@ export const DoctorSlotBookingModal = ({
 
                         <Select value={selectedTime} onChange={(e) => setSelectedTime(e.target.value)}>
                             <option value="">Selecione o horário</option>
-                            {availableTimes.flatMap(({ date, slots }) =>
-                                slots.map((t: string) => {
-                                    const rawDate = new Date(`${date}T${t}`); // Garante parse válido
-                                    const formatted = `${rawDate.getDate().toString().padStart(2, '0')}/${(rawDate.getMonth() + 1).toString().padStart(2, '0')
-                                        }/${rawDate.getFullYear()} - ${t}`;
+                            {/* availableTimes é array de strings simples ["14:00", "14:40", ...] */}
+                            {availableTimes.map((time: string) => {
+                                const rawDate = new Date(`${selectedDate}T${time}`);
+                                const formatted = `${rawDate.getDate().toString().padStart(2, '0')}/${(rawDate.getMonth() + 1).toString().padStart(2, '0')
+                                    }/${rawDate.getFullYear()} - ${time}`;
 
-                                    const value = `${date} ${t}`;
-                                    return (
-                                        <option key={value} value={value}>
-                                            {formatted}
-                                        </option>
-                                    );
-                                })
-                            )}
-
+                                const value = `${selectedDate} ${time}`;
+                                return (
+                                    <option key={value} value={value}>
+                                        {formatted}
+                                    </option>
+                                );
+                            })}
                         </Select>
                     </div>
 

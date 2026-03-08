@@ -19,10 +19,31 @@ interface DoctorAgendaCalendarProps {
   selectedDate?: dayjs.Dayjs | null;
   onDateChange: (date: dayjs.Dayjs) => void;
   onDaySelect: (date: string) => void;
-
   onSubmitSlotBooking?: (data: SlotBookingPayload) => void;
 }
 
+// Componente de mensagem quando não há horários disponíveis
+const EmptyAgendaMessage = ({ selectedDate, hasAvailability }: { selectedDate?: Date; hasAvailability?: boolean }) => (
+  <div className="mt-6 bg-amber-50 rounded-xl border border-amber-200 p-6 text-center">
+    <Calendar className="mx-auto h-10 w-10 text-amber-500" />
+    <h3 className="mt-3 text-lg font-medium text-amber-900">
+      {hasAvailability === false 
+        ? 'Profissional sem disponibilidade configurada'
+        : 'Sem horários disponíveis'
+      }
+    </h3>
+    <p className="mt-1 text-amber-700">
+      {selectedDate 
+        ? `Não existem horários disponíveis para ${format(selectedDate, 'dd/MM/yyyy')}. ${
+            hasAvailability === false 
+              ? 'Este profissional não possui disponibilidade semanal configurada no sistema.'
+              : 'Todos os horários podem estar ocupados ou não há configuração para este dia da semana.'
+          }`
+        : 'Não há horários disponíveis para agendamento nesta data.'
+      }
+    </p>
+  </div>
+);
 
 const DoctorAgendaCalendar = ({
   daySlots = [],
@@ -68,9 +89,10 @@ const DoctorAgendaCalendar = ({
     }
 
     const slotData = daySlots.find((d) => d.date === formatted);
-    if (slotData && slotData.slots.length > 0) {
+    // 🔄 Sempre expande o painel quando há dados para a data (mesmo que slots vazio)
+    // para mostrar a mensagem "Sem horários disponíveis"
+    if (slotData) {
       setExpandedDate(formatted);
-
     } else {
       setExpandedDate(null);
     }
@@ -208,7 +230,10 @@ const DoctorAgendaCalendar = ({
                 onSubmit={(data) => onSubmitSlotBooking?.(data)}
               />
             ) : (
-              <EmptyAgendaMessage />
+              <EmptyAgendaMessage 
+                selectedDate={expandedDate ? new Date(expandedDate) : undefined} 
+                hasAvailability={false}
+              />
             )}
           </div>
         </motion.div>
@@ -216,20 +241,11 @@ const DoctorAgendaCalendar = ({
 
       {/* Adicione esta verificação para quando não há slots na semana */}
       {daySlots.length === 0 && !expandedDate && (
-        <EmptyAgendaMessage />
+        <EmptyAgendaMessage selectedDate={selectedDate?.toDate()} hasAvailability={false} />
       )}
     </div>
   );
 
 };
-const EmptyAgendaMessage = () => (
-  <div className="mt-6 bg-white rounded-xl border border-gray-200 p-6 text-center">
-    <Calendar className="mx-auto h-10 w-10 text-gray-400" />
-    <h3 className="mt-3 text-lg font-medium text-gray-900">Nenhuma disponibilidade</h3>
-    <p className="mt-1 text-gray-500">
-      Não há horários disponíveis para agendamento nesta data
-    </p>
-  </div>
-);
 
 export default DoctorAgendaCalendar;

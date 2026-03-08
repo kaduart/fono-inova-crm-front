@@ -372,7 +372,7 @@ export function useMarketing(): UseMarketingReturn {
   };
 
   // Video Actions
-  const videoGenerate = async (data: { especialidadeId: string; roteiro: string; duration: number; modo?: 'avatar' | 'ilustrativo' }) => {
+  const videoGenerate = async (data: { especialidadeId: string; roteiro: string; duration: number; modo?: 'avatar' | 'ilustrativo' | 'veo' }) => {
     await API.post('/videos', data);
     await fetchVideosData();
   };

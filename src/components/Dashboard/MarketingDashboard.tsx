@@ -138,8 +138,21 @@ export default function MarketingDashboard() {
   const [funnelFilter, setFunnelFilter] = useState<'all' | 'top' | 'middle' | 'bottom'>('all');
   const [selectedEspecialidade, setSelectedEspecialidade] = useState('');
   const [selectedFunnelStage, setSelectedFunnelStage] = useState<FunnelStage>('top');
-  const [selectedProvider, setSelectedProvider] = useState<'auto' | 'fal' | 'together' | 'replicate' | 'pollinations' | 'gemini-nano'>('auto');
+  const [selectedProvider, setSelectedProvider] = useState<'auto' | 'fal' | 'together' | 'replicate' | 'pollinations'>('auto');
+  const [selectedTone, setSelectedTone] = useState<'emotional' | 'educativo' | 'inspiracional' | 'bastidores'>('emotional');
   const [customTheme, setCustomTheme] = useState('');
+
+  // A/B Variações
+  const [variationsModal, setVariationsModal] = useState<{ open: boolean; variations: any[] } | null>(null);
+  const [loadingVariations, setLoadingVariations] = useState(false);
+
+  // Score de qualidade
+  const [scoringPostId, setScoringPostId] = useState<string | null>(null);
+  const [scoreModal, setScoreModal] = useState<{ open: boolean; score: any; postContent: string } | null>(null);
+
+  // Planejar semana
+  const [weeklyPlanLoading, setWeeklyPlanLoading] = useState(false);
+  const [weeklyPlanResult, setWeeklyPlanResult] = useState<any[] | null>(null);
 
   // 🧠 Cálculo da fila automática (sincronizado entre card e botão)
   const automaticConfig = useMemo(() => {
@@ -207,7 +220,7 @@ export default function MarketingDashboard() {
   const [pendingImages, setPendingImages] = useState<Record<string, string>>({});
   const [videoDuration, setVideoDuration] = useState<30 | 45 | 60>(30);
   const [videoRoteiro, setVideoRoteiro] = useState('');
-  const [videoMode, setVideoMode] = useState<'avatar' | 'ilustrativo'>('avatar');
+  const [videoMode, setVideoMode] = useState<'avatar' | 'ilustrativo' | 'veo'>('veo');
   const [generatingVideo, setGeneratingVideo] = useState(false);
 
   // Spy states
@@ -276,7 +289,8 @@ export default function MarketingDashboard() {
             generateImage: true,
             scheduledAt,
             funnelStage: funnel,
-            provider: selectedProvider
+            provider: selectedProvider,
+            tone: selectedTone
           });
           const postId = res.data.postId;
           toast.info(scheduledAt ? '📅 Post GMB agendado! Aguarde o briefing...' : '✨ Post sendo gerado... o briefing abrirá automaticamente!');
@@ -311,36 +325,72 @@ export default function MarketingDashboard() {
         setScheduleTime('');
 
       } else if (activeTab === 'instagram') {
+        let scheduledAt: string | undefined;
+        if (schedulePost && scheduleDate && scheduleTime) {
+          scheduledAt = `${scheduleDate}T${scheduleTime}:00`;
+        }
+
         if (layoutSelecionado && mode === 'full') {
           // 🎨 Layout profissional selecionado: usa o novo endpoint
           await API.post('/instagram/generate-with-layout', {
             especialidadeId: espId,
             funnelStage: funnel,
             customTheme: customTheme || undefined,
-            layoutId: layoutSelecionado
+            layoutId: layoutSelecionado,
+            tone: selectedTone,
+            scheduledAt
           });
           const layoutNome = layoutsDisponiveis.find(l => l.id === layoutSelecionado)?.nome || layoutSelecionado;
           toast.success(`🎨 Post profissional em geração! (${layoutNome})`);
         } else {
-          // 📸 Instagram: passa o modo — worker usa a estratégia certa
-          instagram.generate(espId, customTheme, funnel, selectedProvider, mode);
+          // 📸 Instagram: passa o modo, tom e agendamento
+          await API.post('/instagram/generate', {
+            especialidadeId: espId,
+            customTheme: customTheme || undefined,
+            funnelStage: funnel,
+            provider: selectedProvider,
+            mode,
+            tone: selectedTone,
+            scheduledAt
+          });
           const modeLabel = mode === 'hooks'
             ? '🎣 Gerando post com ganchos virais para Reels!'
             : mode === 'caption'
               ? '📝 Gerando post com legenda SEO otimizada!'
-              : `📸 Post Instagram em processamento! (${selectedProvider === 'auto' ? 'IA automática' : selectedProvider})`;
+              : scheduledAt ? `📅 Post Instagram agendado!` : `📸 Post Instagram em processamento!`;
           toast.success(modeLabel);
         }
 
+        setSchedulePost(false);
+        setScheduleDate('');
+        setScheduleTime('');
+
       } else if (activeTab === 'facebook') {
-        // 📘 Facebook: passa o modo — worker usa a estratégia certa
-        facebook.generate(espId, customTheme, funnel, selectedProvider, mode);
+        let scheduledAt: string | undefined;
+        if (schedulePost && scheduleDate && scheduleTime) {
+          scheduledAt = `${scheduleDate}T${scheduleTime}:00`;
+        }
+
+        // 📘 Facebook: passa modo, tom e agendamento
+        await API.post('/facebook/generate', {
+          especialidadeId: espId,
+          customTheme: customTheme || undefined,
+          funnelStage: funnel,
+          provider: selectedProvider,
+          mode,
+          tone: selectedTone,
+          scheduledAt
+        });
         const modeLabel = mode === 'hooks'
           ? '🎣 Gerando post com ganchos virais!'
           : mode === 'caption'
             ? '📝 Gerando post com legenda SEO otimizada!'
-            : `📘 Post Facebook em processamento! (${selectedProvider === 'auto' ? 'IA automática' : selectedProvider})`;
+            : scheduledAt ? '📅 Post Facebook agendado!' : `📘 Post Facebook em processamento!`;
         toast.success(modeLabel);
+
+        setSchedulePost(false);
+        setScheduleDate('');
+        setScheduleTime('');
       }
 
       setCustomTheme('');
@@ -468,7 +518,8 @@ export default function MarketingDashboard() {
         duration: videoDuration,
         modo: videoMode
       });
-      toast.info(`Vídeo ${videoMode === 'avatar' ? 'com avatar' : 'ilustrativo'} em processamento!`);
+      const modoLabel = videoMode === 'veo' ? '🎬 Veo 3.1 cinematográfico (3-5 min)' : videoMode === 'avatar' ? '🎭 com avatar' : '🖼️ ilustrativo';
+      toast.info(`Vídeo ${modoLabel} em processamento!`);
       setVideoRoteiro('');
       refresh();
     } catch (err: any) {
@@ -531,6 +582,64 @@ export default function MarketingDashboard() {
     setAdaptedPost(null);
     setAnalysisResult(null);
     setSelectedAdForAnalysis(null);
+  };
+
+  const handleGenerateVariations = async () => {
+    const espId = selectedEspecialidade || automaticConfig.especialidade;
+    const funnel = selectedEspecialidade ? selectedFunnelStage : automaticConfig.funnel;
+    const endpoint = activeTab === 'gmb' ? '/gmb' : activeTab === 'instagram' ? '/instagram' : '/facebook';
+    setLoadingVariations(true);
+    try {
+      const res = await API.post(`${endpoint}/generate-variations`, {
+        especialidadeId: espId,
+        funnelStage: funnel,
+        tone: selectedTone,
+        customTheme: customTheme || undefined
+      });
+      if (res.data.success) {
+        setVariationsModal({ open: true, variations: res.data.variations || [] });
+      }
+    } catch (err: any) {
+      toast.error('Erro ao gerar variações');
+    } finally {
+      setLoadingVariations(false);
+    }
+  };
+
+  const handleScorePost = async (post: any) => {
+    setScoringPostId(post._id);
+    try {
+      const endpoint = activeTab === 'gmb' ? '/gmb' : activeTab === 'instagram' ? '/instagram' : '/facebook';
+      const res = await API.post(`${endpoint}/score`, {
+        content: post.content,
+        funnelStage: post.funnelStage || 'top'
+      });
+      if (res.data.success) {
+        setScoreModal({ open: true, score: res.data.score, postContent: post.content });
+      }
+    } catch (err: any) {
+      toast.error('Erro ao avaliar post');
+    } finally {
+      setScoringPostId(null);
+    }
+  };
+
+  const handleWeeklyPlan = async () => {
+    if (!confirm('Gerar posts para toda a semana? Isso criará posts automáticos para todas as especialidades.')) return;
+    setWeeklyPlanLoading(true);
+    setWeeklyPlanResult(null);
+    try {
+      const res = await API.post('/gmb/admin/trigger-weekly');
+      if (res.data.success) {
+        setWeeklyPlanResult(res.data.data || res.data.results || []);
+        toast.success(`Semana planejada! ${res.data.results?.filter((r: any) => r.success).length} posts criados.`);
+        setTimeout(() => refresh(), 2000);
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Erro ao planejar semana');
+    } finally {
+      setWeeklyPlanLoading(false);
+    }
   };
 
   const StatusBadge = ({ status }: { status: string }) => {
@@ -737,24 +846,22 @@ export default function MarketingDashboard() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  {/* Checkbox Agendar (GMB apenas) */}
-                  {activeTab === 'gmb' && (
-                    <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={schedulePost}
-                        onChange={(e) => {
-                          setSchedulePost(e.target.checked);
-                          if (e.target.checked) {
-                            setScheduleDate(new Date().toISOString().split('T')[0]);
-                            setScheduleTime('08:00');
-                          }
-                        }}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span>📅 Agendar</span>
-                    </label>
-                  )}
+                  {/* Checkbox Agendar (GMB, Instagram e Facebook) */}
+                  <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={schedulePost}
+                      onChange={(e) => {
+                        setSchedulePost(e.target.checked);
+                        if (e.target.checked) {
+                          setScheduleDate(new Date().toISOString().split('T')[0]);
+                          setScheduleTime('08:00');
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>📅 Agendar</span>
+                  </label>
                   {/* Botão Gerar - sempre no topo direito */}
                   <button
                     onClick={() => handleGenerate('full')}
@@ -783,7 +890,7 @@ export default function MarketingDashboard() {
               </div>
               
               {/* Campos de agendamento (aparecem abaixo quando checkbox marcado) */}
-              {activeTab === 'gmb' && schedulePost && (
+              {schedulePost && (
                 <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-blue-200">
                   <select
                     value={scheduleDate}
@@ -840,7 +947,6 @@ export default function MarketingDashboard() {
                 <option value="together">🔗 Together.ai</option>
                 <option value="replicate">💾 Replicate</option>
                 <option value="pollinations">🍁 Pollinations</option>
-                <option value="gemini-nano">🤖 Gemini Nano</option>
               </select>
             </div>
 
@@ -854,16 +960,17 @@ export default function MarketingDashboard() {
             />
 
             {/* Layouts Instagram (apenas modo full) */}
-            {/* {activeTab === 'instagram' && selectedMode === 'full' && (
+            {activeTab === 'instagram' && selectedMode === 'full' && (
               <div className="mb-3 border border-pink-200 rounded-lg overflow-hidden">
                 <div className="bg-pink-50 px-3 py-2 flex items-center justify-between">
                   <p className="text-xs font-semibold text-gray-700">
-                    🎨 Layout
+                    🎨 Layout Profissional
                     {layoutSelecionado && (
                       <span className="ml-2 text-xs text-pink-600 font-normal">
                         ✓ {(layoutsDisponiveis || []).find(l => l.id === layoutSelecionado)?.nome}
                       </span>
                     )}
+                    {!layoutSelecionado && <span className="ml-2 text-xs text-gray-400 font-normal">(opcional)</span>}
                   </p>
                   {layoutSelecionado && (
                     <button
@@ -880,7 +987,7 @@ export default function MarketingDashboard() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
-                    Carregando...
+                    Carregando layouts...
                   </div>
                 ) : (
                   <div className="grid grid-cols-3 sm:grid-cols-5 gap-1 p-2 bg-white">
@@ -889,19 +996,19 @@ export default function MarketingDashboard() {
                         key={layout.id}
                         onClick={() => setLayoutSelecionado(layoutSelecionado === layout.id ? null : layout.id)}
                         className={`rounded border p-1.5 text-left transition-all ${layoutSelecionado === layout.id
-                            ? 'border-pink-500 bg-pink-50 shadow-sm'
-                            : 'border-gray-200 hover:border-pink-300'
+                          ? 'border-pink-500 bg-pink-50 shadow-sm'
+                          : 'border-gray-200 hover:border-pink-300'
                           }`}
                       >
                         <div
                           className="w-full h-12 rounded mb-1"
                           style={{
-                            background: `linear-gradient(135deg, ${layout.cores.primaria} 0%, ${layout.cores.secundaria || layout.cores.destaque} 100%)`
+                            background: `linear-gradient(135deg, ${layout.cores?.primaria || '#e91e8c'} 0%, ${layout.cores?.secundaria || layout.cores?.destaque || '#764ba2'} 100%)`
                           }}
                         />
                         <p className="text-xs font-medium text-gray-800 truncate">{layout.nome}</p>
                         <div className="flex gap-0.5 mt-0.5">
-                          {Object.values(layout.cores).slice(0, 3).map((cor: any, idx) => (
+                          {Object.values(layout.cores || {}).slice(0, 3).map((cor: any, idx) => (
                             <div key={idx} className="w-2 h-2 rounded-full border border-white" style={{ backgroundColor: cor }} />
                           ))}
                         </div>
@@ -911,44 +1018,90 @@ export default function MarketingDashboard() {
                 )}
               </div>
             )}
- */}
-            {/* Modo de geração - cards menores */}
-
-            {/* Seleção de modo de geração - cards menores */}
+            {/* Seleção de modo de geração */}
             <div className="mt-3 pt-3 border-t border-gray-100">
               <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">Modo de geração</p>
               <div className="grid grid-cols-3 gap-1.5">
                 <button
                   onClick={() => setSelectedMode('full')}
-                  className={`px-2 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedMode === 'full' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
-                    }`}
+                  className={`px-2 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedMode === 'full' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
                 >
                   <span className="text-base">✨</span>
                   <span>Completo</span>
                   <span className="text-[10px] opacity-70">Imagem + Copy</span>
-                  <span className="text-[9px] mt-0.5 px-1 py-0.5 rounded bg-pink-100 text-pink-600">📸 Insta</span>
                 </button>
                 <button
                   onClick={() => setSelectedMode('caption')}
-                  className={`px-2 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedMode === 'caption' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
-                    }`}
+                  className={`px-2 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedMode === 'caption' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
                 >
                   <span className="text-base">📝</span>
                   <span>Só Legenda</span>
                   <span className="text-[10px] opacity-70">Texto SEO</span>
-                  <span className="text-[9px] mt-0.5 px-1 py-0.5 rounded bg-blue-100 text-blue-600">🔵 Google</span>
                 </button>
                 <button
                   onClick={() => setSelectedMode('hooks')}
-                  className={`px-2 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedMode === 'hooks' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
-                    }`}
+                  className={`px-2 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedMode === 'hooks' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
                 >
                   <span className="text-base">🎣</span>
                   <span>10 Ganchos</span>
-                  <span className="text-[10px] opacity-70">Virais</span>
-                  <span className="text-[9px] mt-0.5 px-1 py-0.5 rounded bg-purple-100 text-purple-600">📸 Reels</span>
+                  <span className="text-[10px] opacity-70">Virais Reels</span>
                 </button>
               </div>
+            </div>
+
+            {/* Tom de Voz */}
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">Tom de voz</p>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[
+                  { key: 'emotional', emoji: '💔', label: 'Emocional', desc: 'Dor/urgência' },
+                  { key: 'educativo', emoji: '📚', label: 'Educativo', desc: 'Dicas/fatos' },
+                  { key: 'inspiracional', emoji: '✨', label: 'Inspiração', desc: 'Transformação' },
+                  { key: 'bastidores', emoji: '🏥', label: 'Bastidores', desc: 'Da clínica' },
+                ].map(({ key, emoji, label, desc }) => (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedTone(key as any)}
+                    className={`px-1.5 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedTone === key ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                  >
+                    <span className="text-base">{emoji}</span>
+                    <span className="text-[11px] font-semibold">{label}</span>
+                    <span className="text-[9px] opacity-60">{desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Botões de ação extras: Variações A/B e Planejar Semana */}
+            <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap gap-2">
+              <button
+                onClick={handleGenerateVariations}
+                disabled={loadingVariations}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-violet-700 border border-violet-200 bg-violet-50 hover:bg-violet-100 rounded-lg transition-all disabled:opacity-50"
+              >
+                {loadingVariations ? (
+                  <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                ) : <span>🎯</span>}
+                Variações A/B
+              </button>
+              {activeTab === 'gmb' && (
+                <button
+                  onClick={handleWeeklyPlan}
+                  disabled={weeklyPlanLoading}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-blue-700 border border-blue-200 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all disabled:opacity-50"
+                >
+                  {weeklyPlanLoading ? (
+                    <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  ) : <span>📅</span>}
+                  Planejar Semana
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -977,26 +1130,49 @@ export default function MarketingDashboard() {
               </select>
               <select
                 value={videoMode}
-                onChange={(e) => setVideoMode(e.target.value as 'avatar' | 'ilustrativo')}
+                onChange={(e) => setVideoMode(e.target.value as 'avatar' | 'ilustrativo' | 'veo')}
                 className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
               >
+                <option value="veo">🎬 Cinematográfico (Google Veo 3.1) ⭐</option>
+                <option value="ilustrativo">🖼️ Ilustrativo (Imagens + TTS)</option>
                 <option value="avatar">🎭 Avatar (HeyGen)</option>
-                <option value="ilustrativo">🖼️ Ilustrativo (Imagens)</option>
               </select>
             </div>
+            {videoMode === 'veo' && (
+              <div className="mb-3 p-3 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 text-xs text-blue-700">
+                <strong>🎬 Google Veo 3.1</strong> — Gera vídeo cinematográfico real (8s, 9:16 para Reels).
+                Deixe o campo abaixo vazio para usar o prompt otimizado da especialidade, ou descreva uma cena específica.
+                <span className="ml-2 text-blue-500">Tempo estimado: 3-5 min</span>
+              </div>
+            )}
             <textarea
               value={videoRoteiro}
               onChange={(e) => setVideoRoteiro(e.target.value)}
-              placeholder="Roteiro personalizado (opcional) - ou deixe em branco para gerar automaticamente..."
+              placeholder={
+                videoMode === 'veo'
+                  ? 'Cena personalizada (opcional) — ex: "terapeuta e criança sorrindo juntos durante atividade"'
+                  : 'Roteiro personalizado (opcional) - ou deixe em branco para gerar automaticamente...'
+              }
               className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors mb-4"
               rows={3}
             />
             <button
               onClick={handleGenerateVideo}
               disabled={generatingVideo || !selectedEspecialidade}
-              className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 disabled:opacity-50 transition-all shadow-sm text-sm font-medium"
+              className={`px-5 py-2.5 text-white rounded-lg disabled:opacity-50 transition-all shadow-sm text-sm font-medium ${
+                videoMode === 'veo'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
+                  : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800'
+              }`}
             >
-              {generatingVideo ? 'Gerando...' : `🎬 Gerar Vídeo ${videoMode === 'avatar' ? 'com Avatar' : 'Ilustrativo'}`}
+              {generatingVideo
+                ? 'Gerando...'
+                : videoMode === 'veo'
+                  ? '🎬 Gerar Vídeo Cinematográfico (Veo 3.1)'
+                  : videoMode === 'avatar'
+                    ? '🎭 Gerar Vídeo com Avatar'
+                    : '🖼️ Gerar Vídeo Ilustrativo'
+              }
             </button>
           </div>
         )}
@@ -1193,6 +1369,23 @@ export default function MarketingDashboard() {
                             </svg>
                             <span>Copiar</span>
                           </button> */}
+                          {/* Score de qualidade */}
+                          {post.status !== 'processing' && post.content && (
+                            <button
+                              onClick={() => handleScorePost(post)}
+                              disabled={scoringPostId === post._id}
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs text-amber-600 hover:bg-amber-50 rounded-lg transition-colors border border-amber-200 disabled:opacity-50"
+                              title="Avaliar qualidade"
+                            >
+                              {scoringPostId === post._id ? (
+                                <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                </svg>
+                              ) : <span>📊</span>}
+                              <span>Score</span>
+                            </button>
+                          )}
                           {/* Ver - todos os posts */}
                           <button
                             onClick={() => setPreviewModal({ open: true, post })}
@@ -1820,6 +2013,154 @@ export default function MarketingDashboard() {
         </div>
       )
       }
+
+      {/* Modal de Variações A/B */}
+      {variationsModal?.open && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={() => setVariationsModal(null)}>
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-violet-100 bg-violet-50/30">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">🎯 Variações A/B</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Escolha o ângulo que mais converte — use o tema no campo "Tema personalizado" ao gerar</p>
+              </div>
+              <button onClick={() => setVariationsModal(null)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="p-6 space-y-3 overflow-y-auto max-h-[65vh]">
+              {variationsModal.variations.map((v: any, i: number) => (
+                <div key={i} className="rounded-xl border border-gray-200 p-4 hover:border-violet-300 hover:bg-violet-50/20 transition-all">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-6 h-6 rounded-full bg-violet-100 text-violet-700 text-xs font-bold flex items-center justify-center">{i + 1}</span>
+                    <span className="text-xs font-semibold text-violet-700 px-2 py-0.5 bg-violet-100 rounded-full">{v.gatilho}</span>
+                    <span className="text-xs text-gray-500">{v.angulo}</span>
+                  </div>
+                  <p className="text-sm text-gray-800 leading-relaxed">{v.hook}</p>
+                  <button
+                    onClick={() => {
+                      setCustomTheme(v.hook);
+                      setVariationsModal(null);
+                      toast.info('Variação aplicada ao tema! Clique em Gerar para criar o post.');
+                    }}
+                    className="mt-3 text-xs text-violet-600 hover:text-violet-800 font-medium flex items-center gap-1"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                    Usar essa variação
+                  </button>
+                </div>
+              ))}
+              {variationsModal.variations.length === 0 && (
+                <p className="text-sm text-gray-500 text-center py-8">Nenhuma variação gerada</p>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+              <button onClick={() => setVariationsModal(null)} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Score de Qualidade */}
+      {scoreModal?.open && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={() => setScoreModal(null)}>
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-amber-100 bg-amber-50/30">
+              <h3 className="text-base font-semibold text-gray-900">📊 Score de Qualidade</h3>
+              <button onClick={() => setScoreModal(null)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {/* Score geral */}
+              <div className="flex items-center justify-center">
+                <div className={`w-20 h-20 rounded-full flex flex-col items-center justify-center border-4 ${(scoreModal.score?.score_geral || 0) >= 8 ? 'border-green-400 bg-green-50 text-green-700' : (scoreModal.score?.score_geral || 0) >= 6 ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-red-400 bg-red-50 text-red-700'}`}>
+                  <span className="text-2xl font-bold">{scoreModal.score?.score_geral ?? '–'}</span>
+                  <span className="text-[10px] font-medium">/ 10</span>
+                </div>
+              </div>
+              {/* Dimensões */}
+              <div className="space-y-2">
+                {[
+                  { key: 'clareza', label: 'Clareza', desc: 'Entendimento em 3 segundos' },
+                  { key: 'impacto_emocional', label: 'Impacto Emocional', desc: 'Identificação do público' },
+                  { key: 'cta', label: 'Call-to-Action', desc: 'Força do CTA' },
+                ].map(({ key, label, desc }) => {
+                  const val = scoreModal.score?.[key] ?? 0;
+                  return (
+                    <div key={key}>
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="font-medium text-gray-700">{label}</span>
+                        <span className="text-gray-500">{val}/10 — {desc}</span>
+                      </div>
+                      <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${val >= 8 ? 'bg-green-400' : val >= 6 ? 'bg-amber-400' : 'bg-red-400'}`}
+                          style={{ width: `${val * 10}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Feedback */}
+              {scoreModal.score?.ponto_forte && (
+                <div className="bg-green-50 border border-green-100 rounded-lg p-3">
+                  <p className="text-xs text-green-700"><span className="font-semibold">Ponto forte:</span> {scoreModal.score.ponto_forte}</p>
+                </div>
+              )}
+              {scoreModal.score?.sugestao && (
+                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+                  <p className="text-xs text-blue-700"><span className="font-semibold">Melhoria:</span> {scoreModal.score.sugestao}</p>
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+              <button onClick={() => setScoreModal(null)} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Resultado do Planejar Semana */}
+      {weeklyPlanResult && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={() => setWeeklyPlanResult(null)}>
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[85vh] overflow-hidden shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-blue-100 bg-blue-50/30">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">📅 Semana Planejada!</h3>
+                <p className="text-xs text-gray-500 mt-0.5">{weeklyPlanResult.filter(r => r.success).length} posts criados / {weeklyPlanResult.length} especialidades</p>
+              </div>
+              <button onClick={() => setWeeklyPlanResult(null)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto max-h-[60vh] space-y-2">
+              {weeklyPlanResult.map((r: any, i: number) => (
+                <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border ${r.success ? 'border-green-100 bg-green-50' : 'border-red-100 bg-red-50'}`}>
+                  <span className="text-lg">{r.success ? '✅' : '❌'}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{r.especialidade || r.error}</p>
+                    {r.success && <p className="text-xs text-gray-500">{r.horario || (r.scheduledAt ? new Date(r.scheduledAt).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Agendado')} {r.funil ? `— ${r.funil}` : ''}</p>}
+                    {!r.success && <p className="text-xs text-red-500">{r.error}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex justify-end">
+              <button
+                onClick={() => { setWeeklyPlanResult(null); refresh(); }}
+                className="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              >
+                Ver posts criados
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Adaptação */}
       {

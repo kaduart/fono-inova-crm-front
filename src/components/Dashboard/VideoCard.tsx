@@ -101,7 +101,12 @@ export function VideoCard({ video, onPublish, onDelete, publishing }: VideoCardP
       </div>
       
       <div className="p-4">
-        <h3 className="font-semibold text-gray-900 mb-1">{video.title}</h3>
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <h3 className="font-semibold text-gray-900">{video.title}</h3>
+          {(video as any).provider === 'veo-3.1' && (
+            <span className="flex-shrink-0 text-[10px] font-semibold px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full">Veo 3.1</span>
+          )}
+        </div>
         <p className="text-sm text-gray-600 line-clamp-2 mb-3">{video.roteiro}</p>
         
         <div className="flex gap-2">
