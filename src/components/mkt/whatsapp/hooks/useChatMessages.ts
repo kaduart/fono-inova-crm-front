@@ -47,10 +47,15 @@ export function useChatMessages(contact: Contact | null, leadId?: string) {
             const isSameContactById = payloadContactId && contact._id === payloadContactId;
             
             // Fallback: comparação por telefone
-            const messagePhone = (payload.from || payload.to || '').replace(/\D/g, '');
+            // BUG FIX: para mensagens outbound (Amanda → cliente), o telefone do contato está em 'to',
+            // não em 'from'. Usar 'from' causava mismatch e mensagens enviadas não apareciam no chat.
+            const isOutbound = String(payload.direction || '').toLowerCase() === 'outbound';
+            const messagePhone = isOutbound
+                ? (payload.to || payload.from || '').replace(/\D/g, '')
+                : (payload.from || payload.to || '').replace(/\D/g, '');
             const contactPhone = (contact.phone || '').replace(/\D/g, '');
             const isMatchByPhone = messagePhone && contactPhone && (
-                messagePhone.includes(contactPhone) || 
+                messagePhone.includes(contactPhone) ||
                 contactPhone.includes(messagePhone) ||
                 messagePhone.replace(/^55/, '').includes(contactPhone.replace(/^55/, '')) ||
                 contactPhone.replace(/^55/, '').includes(messagePhone.replace(/^55/, ''))
