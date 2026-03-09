@@ -6,10 +6,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import API from '../../services/api';
-import { useMarketing, type FunnelStage, type AdSpy } from '../../hooks/useMarketing';
+import { useMarketing, type FunnelStage, type AdSpy, type Post, type PublishTarget, type CampaignConfig } from '../../hooks/useMarketing';
 
 import { VideoCard } from './VideoCard';
 import { VideoEditModal } from './VideoEditModal';
+import { PublishModal } from './PublishModal';
 import type { EditOptions, Video as VideoType } from '../../hooks/useMarketing';
 import InstagramIcon from "@mui/icons-material/Instagram";
 import FacebookIcon from "@mui/icons-material/Facebook";
@@ -143,6 +144,9 @@ export default function MarketingDashboard() {
   const [selectedProvider, setSelectedProvider] = useState<'auto' | 'fal' | 'together' | 'replicate' | 'pollinations'>('auto');
   const [selectedTone, setSelectedTone] = useState<'emotional' | 'educativo' | 'inspiracional' | 'bastidores'>('emotional');
   const [customTheme, setCustomTheme] = useState('');
+
+  // PublishModal (Instagram / Facebook)
+  const [publishModal, setPublishModal] = useState<{ post: Post; channel: 'instagram' | 'facebook' } | null>(null);
 
   // A/B Variações
   const [variationsModal, setVariationsModal] = useState<{ open: boolean; variations: any[] } | null>(null);
@@ -651,6 +655,7 @@ export default function MarketingDashboard() {
   const StatusBadge = ({ status }: { status: string }) => {
     const config: Record<string, { color: string; bg: string; label: string; animate?: boolean }> = {
       draft: { color: 'gray', bg: 'bg-gray-100', label: 'Rascunho' },
+      approved: { color: 'emerald', bg: 'bg-emerald-100', label: 'Aprovado' },
       scheduled: { color: 'blue', bg: 'bg-blue-100', label: 'Agendado' },
       published: { color: 'green', bg: 'bg-green-100', label: 'Publicado' },
       failed: { color: 'red', bg: 'bg-red-100', label: 'Falhou' },
@@ -745,6 +750,31 @@ export default function MarketingDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+
+      {/* PublishModal — Instagram / Facebook */}
+      {publishModal && (
+        <PublishModal
+          post={publishModal.post}
+          channel={publishModal.channel}
+          onApprove={async () => {
+            if (publishModal.channel === 'instagram') await instagram.approve(publishModal.post._id);
+            else await facebook.approve(publishModal.post._id);
+            setPublishModal(prev => prev ? { ...prev, post: { ...prev.post, status: 'approved' } } : null);
+          }}
+          onPublish={async (target: PublishTarget, campaign?: CampaignConfig) => {
+            if (publishModal.channel === 'instagram') await instagram.publish(publishModal.post._id, target, campaign);
+            else await facebook.publish(publishModal.post._id, target, campaign);
+            setPublishModal(null);
+            refresh();
+          }}
+          onUploadMedia={async (file: File) => {
+            if (publishModal.channel === 'instagram') return await instagram.uploadMedia(publishModal.post._id, file);
+            return await facebook.uploadMedia(publishModal.post._id, file);
+          }}
+          onClose={() => setPublishModal(null)}
+        />
+      )}
+
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1355,7 +1385,8 @@ export default function MarketingDashboard() {
                         </div>
 
                         <div className="flex items-center gap-2">
-                          {(post.status === 'draft' || post.status === 'scheduled') && (
+                          {/* GMB: fluxo antigo */}
+                          {activeTab === 'gmb' && (post.status === 'draft' || post.status === 'scheduled') && (
                             <>
                               <button
                                 onClick={() => setEditModal({ open: true, post })}
@@ -1372,6 +1403,33 @@ export default function MarketingDashboard() {
                                 <PublishIcon />
                                 <span>{publishingPost === post._id ? '...' : 'Publicar'}</span>
                               </button>
+                            </>
+                          )}
+                          {/* Instagram / Facebook: novo fluxo com aprovação */}
+                          {(activeTab === 'instagram' || activeTab === 'facebook') && (
+                            <>
+                              {(post.status === 'draft' || post.status === 'failed') && (
+                                <button
+                                  onClick={() => setPublishModal({ post, channel: activeTab as 'instagram' | 'facebook' })}
+                                  className="flex items-center gap-1 px-3 py-1.5 text-xs text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors border border-emerald-200"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  <span>Revisar</span>
+                                </button>
+                              )}
+                              {post.status === 'approved' && (
+                                <button
+                                  onClick={() => setPublishModal({ post, channel: activeTab as 'instagram' | 'facebook' })}
+                                  className="flex items-center gap-1 px-3 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-indigo-200"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                  </svg>
+                                  <span>Publicar</span>
+                                </button>
+                              )}
                             </>
                           )}
                           {/* Republicar - para posts já publicados ou falhos (apenas GMB) */}

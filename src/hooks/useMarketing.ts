@@ -14,10 +14,13 @@ export type FunnelStage = 'top' | 'middle' | 'bottom';
 export interface Post {
   _id: string;
   title: string;
+  headline?: string;
+  subheadline?: string;
+  caption?: string;
   content: string;
   mediaUrl?: string;
   mediaType?: string;
-  status: 'draft' | 'scheduled' | 'published' | 'failed';
+  status: 'draft' | 'approved' | 'scheduled' | 'published' | 'failed' | 'processing';
   scheduledAt?: string;
   publishedAt?: string;
   theme?: string;
@@ -29,6 +32,18 @@ export interface Post {
   createdAt: string;
   ctaUrl?: string;
   aiGenerated?: boolean;
+  errorMessage?: string;
+}
+
+export type PublishTarget = 'organic' | 'paid' | 'both';
+
+export interface CampaignConfig {
+  name?: string;
+  targeting?: {
+    age_min?: number;
+    age_max?: number;
+    city?: string;
+  };
 }
 
 export interface CTAConfig {
@@ -132,13 +147,17 @@ export interface UseMarketingReturn {
     generateImage: (postId: string, content: string) => Promise<string | null>;
   };
   instagram: ChannelData & {
-    publish: (postId: string) => Promise<void>;
+    approve: (postId: string) => Promise<void>;
+    publish: (postId: string, target?: PublishTarget, campaign?: CampaignConfig) => Promise<void>;
+    uploadMedia: (postId: string, file: File) => Promise<string>;
     generate: (especialidadeId?: string, customTheme?: string, funnelStage?: FunnelStage, provider?: ImageProvider, mode?: 'full' | 'caption' | 'hooks') => Promise<void>;
     delete: (postId: string) => Promise<void>;
     update: (postId: string, data: Partial<Post>) => Promise<void>;
   };
   facebook: ChannelData & {
-    publish: (postId: string) => Promise<void>;
+    approve: (postId: string) => Promise<void>;
+    publish: (postId: string, target?: PublishTarget, campaign?: CampaignConfig) => Promise<void>;
+    uploadMedia: (postId: string, file: File) => Promise<string>;
     generate: (especialidadeId?: string, customTheme?: string, funnelStage?: FunnelStage, provider?: ImageProvider, mode?: 'full' | 'caption' | 'hooks') => Promise<void>;
     delete: (postId: string) => Promise<void>;
     update: (postId: string, data: Partial<Post>) => Promise<void>;
@@ -343,21 +362,28 @@ export function useMarketing(): UseMarketingReturn {
   };
 
   // Instagram Actions
-  const instagramPublish = async (postId: string) => {
-    await API.post(`/instagram/posts/${postId}/publish`);
+  const instagramApprove = async (postId: string) => {
+    await API.post(`/instagram/posts/${postId}/approve`);
     await fetchInstagramData();
   };
 
-  const instagramGenerate = async (especialidadeId?: string, customTheme?: string, funnelStage?: FunnelStage, provider?: ImageProvider, mode: 'full' | 'caption' | 'hooks' = 'full') => {
-    // 🚀 ASYNC: Não espera resposta completa
-    await API.post('/instagram/generate', {
-      especialidadeId,
-      customTheme,
-      funnelStage,
-      provider,
-      mode
+  const instagramPublish = async (postId: string, target: PublishTarget = 'organic', campaign?: CampaignConfig) => {
+    await API.post(`/instagram/posts/${postId}/publish`, { target, campaign });
+    await fetchInstagramData();
+  };
+
+  const instagramUploadMedia = async (postId: string, file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await API.post(`/instagram/posts/${postId}/upload-media`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     });
-    // Não faz await fetchInstagramData() aqui
+    await fetchInstagramData();
+    return res.data.data.mediaUrl;
+  };
+
+  const instagramGenerate = async (especialidadeId?: string, customTheme?: string, funnelStage?: FunnelStage, provider?: ImageProvider, mode: 'full' | 'caption' | 'hooks' = 'full') => {
+    await API.post('/instagram/generate', { especialidadeId, customTheme, funnelStage, provider, mode });
   };
 
   const instagramDelete = async (postId: string) => {
@@ -371,21 +397,28 @@ export function useMarketing(): UseMarketingReturn {
   };
 
   // Facebook Actions
-  const facebookPublish = async (postId: string) => {
-    await API.post(`/facebook/posts/${postId}/publish`);
+  const facebookApprove = async (postId: string) => {
+    await API.post(`/facebook/posts/${postId}/approve`);
     await fetchFacebookData();
   };
 
-  const facebookGenerate = async (especialidadeId?: string, customTheme?: string, funnelStage?: FunnelStage, provider?: ImageProvider, mode: 'full' | 'caption' | 'hooks' = 'full') => {
-    // 🚀 ASYNC: Não espera resposta completa
-    await API.post('/facebook/generate', {
-      especialidadeId,
-      customTheme,
-      funnelStage,
-      provider,
-      mode
+  const facebookPublish = async (postId: string, target: PublishTarget = 'organic', campaign?: CampaignConfig) => {
+    await API.post(`/facebook/posts/${postId}/publish`, { target, campaign });
+    await fetchFacebookData();
+  };
+
+  const facebookUploadMedia = async (postId: string, file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await API.post(`/facebook/posts/${postId}/upload-media`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     });
-    // Não faz await fetchFacebookData() aqui
+    await fetchFacebookData();
+    return res.data.data.mediaUrl;
+  };
+
+  const facebookGenerate = async (especialidadeId?: string, customTheme?: string, funnelStage?: FunnelStage, provider?: ImageProvider, mode: 'full' | 'caption' | 'hooks' = 'full') => {
+    await API.post('/facebook/generate', { especialidadeId, customTheme, funnelStage, provider, mode });
   };
 
   const facebookDelete = async (postId: string) => {
@@ -474,14 +507,18 @@ export function useMarketing(): UseMarketingReturn {
     },
     instagram: {
       ...instagramData,
+      approve: instagramApprove,
       publish: instagramPublish,
+      uploadMedia: instagramUploadMedia,
       generate: instagramGenerate,
       delete: instagramDelete,
       update: instagramUpdate
     },
     facebook: {
       ...facebookData,
+      approve: facebookApprove,
       publish: facebookPublish,
+      uploadMedia: facebookUploadMedia,
       generate: facebookGenerate,
       delete: facebookDelete,
       update: facebookUpdate
