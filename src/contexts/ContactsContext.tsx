@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { fetchContacts, type Contact } from "../services/whatsappService";
 import { logger } from "../utils/logger";
 import { normalizeE164BR } from "../utils/phone";
@@ -93,7 +93,7 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
         });
     };
 
-    const refreshContacts = async () => {
+    const refreshContacts = useCallback(async () => {
         setLoading(true);
         try {
             const res = await fetchContacts({ page: 1, limit: LIMIT });
@@ -107,9 +107,9 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const loadMoreContacts = async () => {
+    const loadMoreContacts = useCallback(async () => {
         if (loadingMore || loading || !hasMore) return;
         setLoadingMore(true);
         try {
@@ -130,25 +130,25 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
         } finally {
             setLoadingMore(false);
         }
-    };
+    }, [loadingMore, loading, hasMore, page]);
 
-    const updateContact = (id: string, updates: Partial<Contact>) => {
+    const updateContact = useCallback((id: string, updates: Partial<Contact>) => {
         setContacts((prev) => {
             const next = prev.map((c) => (c._id === id ? { ...c, ...updates } : c));
             if (updates.phone) rebuildIndex(next);
             return next;
         });
-    };
+    }, []);
 
-    const markAsRead = (id: string) => {
+    const markAsRead = useCallback((id: string) => {
         updateContact(id, { unreadCount: 0, hasNewMessage: false });
-    };
+    }, [updateContact]);
 
-    const markAllAsRead = () => {
+    const markAllAsRead = useCallback(() => {
         setContacts((prev) =>
             prev.map((c) => ({ ...c, unreadCount: 0, hasNewMessage: false }))
         );
-    };
+    }, []);
 
     useEffect(() => {
         activeContactIdRef.current = activeContactId;
@@ -306,7 +306,8 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
             markAllAsRead,
             setActiveContactId,
         }),
-        [contacts, loading, loadingMore, hasMore, activeContactId]
+        // Todas as funções são estáveis (useCallback)
+        [contacts, loading, loadingMore, hasMore, activeContactId, loadMoreContacts, refreshContacts, updateContact, markAsRead, markAllAsRead]
     );
 
     return <ContactsContext.Provider value={value}>{children}</ContactsContext.Provider>;
