@@ -22,6 +22,7 @@ const statusColors: Record<string, any> = {
   em_analise: { color: 'warning', label: 'Em Análise' },
   contatado: { color: 'primary', label: 'Contatado' },
   confirmado: { color: 'success', label: 'Confirmado' },
+  agendado: { color: 'success', label: 'Agendado' },
   importado: { color: 'default', label: 'Importado' },
   descartado: { color: 'error', label: 'Descartado' }
 };
@@ -422,6 +423,7 @@ const PreAgendamentosPage = () => {
           <Tab value="em_analise" label="Em Análise" />
           <Tab value="contatado" label="Contatados" />
           <Tab value="confirmado" label="Confirmados" />
+          <Tab value="agendado" label="Agendados" />
           <Tab value="importado" label="Importados" />
         </Tabs>
       </Paper>

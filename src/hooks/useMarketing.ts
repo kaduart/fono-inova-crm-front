@@ -3,7 +3,7 @@
  * Gerencia GMB, Instagram, Facebook e Vídeos
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import API from '../services/api';
 
 // Types
@@ -242,14 +242,13 @@ export function useMarketing(): UseMarketingReturn {
   }, []);
 
   // Fetch Instagram data
-  const fetchInstagramData = useCallback(async () => {
+  const fetchInstagramData = useCallback(async (isPolling = false) => {
     try {
-      setInstagramData(prev => ({ ...prev, loading: true, error: null }));
+      if (!isPolling) setInstagramData(prev => ({ ...prev, loading: true, error: null }));
       const [postsRes, statsRes] = await Promise.all([
         API.get('/instagram/posts'),
         API.get('/instagram/posts/stats')
       ]);
-      
       setInstagramData({
         posts: postsRes.data.data || [],
         stats: statsRes.data.data || null,
@@ -266,14 +265,13 @@ export function useMarketing(): UseMarketingReturn {
   }, []);
 
   // Fetch Facebook data
-  const fetchFacebookData = useCallback(async () => {
+  const fetchFacebookData = useCallback(async (isPolling = false) => {
     try {
-      setFacebookData(prev => ({ ...prev, loading: true, error: null }));
+      if (!isPolling) setFacebookData(prev => ({ ...prev, loading: true, error: null }));
       const [postsRes, statsRes] = await Promise.all([
         API.get('/facebook/posts'),
         API.get('/facebook/posts/stats')
       ]);
-      
       setFacebookData({
         posts: postsRes.data.data || [],
         stats: statsRes.data.data || null,
@@ -290,16 +288,19 @@ export function useMarketing(): UseMarketingReturn {
   }, []);
 
   // Fetch Videos data
-  const fetchVideosData = useCallback(async () => {
+  const fetchVideosData = useCallback(async (isPolling = false) => {
     try {
-      setVideosData(prev => ({ ...prev, loading: true, error: null }));
+      // Não atualizar loading durante polling automático (evita flickering)
+      if (!isPolling) {
+        setVideosData(prev => ({ ...prev, loading: true, error: null }));
+      }
       const res = await API.get('/videos');
       
-      setVideosData({
+      setVideosData(prev => ({
         videos: res.data.data || [],
         loading: false,
         error: null
-      });
+      }));
     } catch (err: any) {
       setVideosData(prev => ({
         ...prev,
@@ -317,15 +318,32 @@ export function useMarketing(): UseMarketingReturn {
     fetchVideosData();
   }, [refreshKey, fetchGmbData, fetchInstagramData, fetchFacebookData, fetchVideosData]);
 
-  // Polling automático enquanto houver vídeos em processamento (geração ou pós-produção)
+  // Refs estáveis — evitam recriar o interval a cada atualização de state
+  const processingRef = useRef({ videos: false, instagram: false, facebook: false });
+
   useEffect(() => {
-    const hasProcessing = videosData.videos.some(
+    processingRef.current.videos = videosData.videos.some(
       v => v.status === 'processing' || v.posProducaoStatus === 'processing'
     );
-    if (!hasProcessing) return;
-    const interval = setInterval(fetchVideosData, 8000);
+  }, [videosData.videos]);
+
+  useEffect(() => {
+    processingRef.current.instagram = instagramData.posts.some(p => p.status === 'processing');
+  }, [instagramData.posts]);
+
+  useEffect(() => {
+    processingRef.current.facebook = facebookData.posts.some(p => p.status === 'processing');
+  }, [facebookData.posts]);
+
+  // Único interval estável — não recria ao mudar state, apenas checa os refs
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (processingRef.current.videos) fetchVideosData(true);
+      if (processingRef.current.instagram) fetchInstagramData(true);
+      if (processingRef.current.facebook) fetchFacebookData(true);
+    }, 8000);
     return () => clearInterval(interval);
-  }, [videosData.videos, fetchVideosData]);
+  }, [fetchVideosData, fetchInstagramData, fetchFacebookData]); // estáveis (useCallback sem deps)
 
   // GMB Actions
   const gmbPublish = async (postId: string) => {

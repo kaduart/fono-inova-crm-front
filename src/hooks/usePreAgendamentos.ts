@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import api from '../services/api';
+import { socketManager } from '../utils/socketManager';
 
 interface PatientInfo {
   fullName: string;
@@ -30,7 +31,7 @@ export interface PreAgendamento {
   professionalName?: string;
   professionalId?: { _id: string; fullName: string };
   serviceType: string;
-  status: 'novo' | 'em_analise' | 'contatado' | 'confirmado' | 'importado' | 'descartado' | 'expirado';
+  status: 'novo' | 'em_analise' | 'contatado' | 'confirmado' | 'agendado' | 'importado' | 'descartado' | 'expirado';
   suggestedValue: number;
   secretaryNotes?: string;
   contactAttempts: ContactAttempt[];
@@ -143,6 +144,31 @@ export const usePreAgendamentos = (): UsePreAgendamentosReturn => {
     const response = await api.post(`/pre-agendamento/${id}/assign`, { userId });
     return response.data;
   }, []);
+
+  // Socket para atualização em tempo real
+  useEffect(() => {
+    const handleNew = (data: any) => {
+      console.log('📡 Novo pré-agendamento via socket:', data);
+      fetchPreAgendamentos(); // Recarrega a lista
+    };
+    
+    const handleUpdate = (data: any) => {
+      console.log('📡 Pré-agendamento atualizado via socket:', data);
+      fetchPreAgendamentos(); // Recarrega a lista
+    };
+    
+    socketManager.on('preagendamento:new', handleNew);
+    socketManager.on('preagendamento:imported', handleUpdate);
+    socketManager.on('preagendamento:discarded', handleUpdate);
+    socketManager.on('preagendamento:updated', handleUpdate);
+    
+    return () => {
+      socketManager.off('preagendamento:new', handleNew);
+      socketManager.off('preagendamento:imported', handleUpdate);
+      socketManager.off('preagendamento:discarded', handleUpdate);
+      socketManager.off('preagendamento:updated', handleUpdate);
+    };
+  }, [fetchPreAgendamentos]);
 
   return {
     preAgendamentos,

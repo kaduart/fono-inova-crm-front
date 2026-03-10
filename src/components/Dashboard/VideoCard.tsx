@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Video, Channel } from '../../hooks/useMarketing';
 import { ChannelToggle } from './ChannelToggle';
+import API from '../../services/api';
 
 interface VideoCardProps {
   video: Video;
@@ -55,11 +56,18 @@ export function VideoCard({ video, onPublish, onDelete, onEditar, publishing }: 
   const status = statusConfig[video.status];
   const isReady = video.status === 'ready';
   const isProcessing = video.status === 'processing';
+  const isFailed = video.status === 'failed';
   const posProducaoStatus = (video as any).posProducaoStatus;
   const videoEditadoUrl = (video as any).videoEditadoUrl;
   
   // Usar vídeo editado no player se disponível
   const videoUrlParaPlayer = videoEditadoUrl || video.videoUrl;
+  
+  // Detectar vídeos "stale" (processando há mais de 30 minutos)
+  const createdAt = new Date(video.createdAt);
+  const now = new Date();
+  const processingTimeMinutes = isProcessing ? Math.floor((now.getTime() - createdAt.getTime()) / 60000) : 0;
+  const isStale = isProcessing && processingTimeMinutes > 30;
 
   const handlePublishClick = () => {
     if (selectedChannels.length === 0) return;
@@ -86,7 +94,18 @@ export function VideoCard({ video, onPublish, onDelete, onEditar, publishing }: 
           </div>
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
-            <span className="text-gray-500">{isProcessing ? 'Gerando...' : 'Sem preview'}</span>
+            {isProcessing ? (
+              <div className="text-center">
+                <span className="text-gray-400 block">Gerando...</span>
+                {processingTimeMinutes > 0 && (
+                  <span className={`text-xs ${isStale ? 'text-orange-400' : 'text-gray-500'}`}>
+                    {isStale ? '⏱️ Parece travado (' : '('}{processingTimeMinutes} min)
+                  </span>
+                )}
+              </div>
+            ) : (
+              <span className="text-gray-500">Sem preview</span>
+            )}
           </div>
         )}
         
@@ -104,6 +123,13 @@ export function VideoCard({ video, onPublish, onDelete, onEditar, publishing }: 
           {status.icon}
           <span>{status.label}</span>
         </div>
+        
+        {/* Warning para vídeos travados */}
+        {isStale && (
+          <div className="absolute top-12 left-3 right-3 bg-orange-600/90 text-white text-xs px-2 py-1.5 rounded-lg text-center">
+            ⚠️ Parece travado ({processingTimeMinutes} min)
+          </div>
+        )}
         
         {videoEditadoUrl && (
           <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-600 text-white text-xs font-semibold shadow-lg">
@@ -158,6 +184,24 @@ export function VideoCard({ video, onPublish, onDelete, onEditar, publishing }: 
                 </button>
               )}
             </>
+          )}
+          {/* Botão para cancelar vídeo travado */}
+          {isStale && (
+            <button
+              onClick={async () => {
+                if (!confirm('Marcar este vídeo como falho? Ele está travado há mais de 30 minutos.')) return;
+                try {
+                  await API.post(`/videos/${video._id}/force-fail`);
+                  window.location.reload();
+                } catch (err: any) {
+                  alert(err.response?.data?.error || 'Erro ao atualizar status');
+                }
+              }}
+              className="flex-1 px-3 py-2 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700"
+              title="Marcar como falho (vídeo travado)"
+            >
+              ⚠️ Cancelar
+            </button>
           )}
           <button onClick={() => onDelete(video._id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">🗑️</button>
         </div>
