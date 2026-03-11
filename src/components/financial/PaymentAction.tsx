@@ -81,10 +81,10 @@ export const PaymentActionIcons = ({
                     onMouseLeave={() => setOpen(false)}
                 >
                     {/* ✅ BOTÃO ADICIONAR PAGAMENTO AO PACOTE */}
-                    {payment.serviceType === 'package_session' && payment.package && (
+                    {payment.serviceType === 'package_session' && payment.packageId && (
                         <button
                             onClick={() => {
-                                onAddPaymentToPackage(payment.package);
+                                onAddPaymentToPackage(payment.packageId);
                                 setOpen(false);
                             }}
                             className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-emerald-50 text-emerald-700 transition-colors"

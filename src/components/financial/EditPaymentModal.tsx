@@ -79,9 +79,14 @@ console.log('paymentiiiii', payment)
         }
     };
 
-    const handleChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name, value } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: value }));
+    const handleChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement | HTMLTextAreaElement> | { target: { name: string; value: number | string; type?: string } }) => {
+        const { name, value, type } = e.target;
+        // Se for o campo amount (número), garante que seja tratado como número
+        if (name === 'amount') {
+            setFormData((prev) => ({ ...prev, [name]: typeof value === 'number' ? value : Number(value) || 0 }));
+        } else {
+            setFormData((prev) => ({ ...prev, [name]: value }));
+        }
     };
 
     if (!isOpen || !payment) return null;

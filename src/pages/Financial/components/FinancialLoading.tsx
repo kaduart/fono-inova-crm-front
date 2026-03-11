@@ -55,11 +55,7 @@ export const FinancialLoading = ({
             <Grid container spacing={2}>
                 {Array.from({ length: cardCount }, (_, i) => (
                     <Grid 
-                        item
-                        xs={gridSize.xs || 12}
-                        sm={gridSize.sm || 6}
-                        md={gridSize.md || 3}
-                        lg={gridSize.lg}
+                        size={{ xs: gridSize.xs || 12, sm: gridSize.sm || 6, md: gridSize.md || 3, lg: gridSize.lg }}
                         key={i}
                     >
                         <Skeleton 

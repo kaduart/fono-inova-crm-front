@@ -16,6 +16,7 @@ export interface FinancialRecord {
     paymentMethod: string;
     notes: string;
     packageId: string;
+    package?: { _id: string; name?: string };
     advanceSessions?: any[];
     sessionId: string;
     advancedSessions: string[]

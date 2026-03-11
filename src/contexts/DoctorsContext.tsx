@@ -52,6 +52,13 @@ export const DoctorsProvider: React.FC<{ children: React.ReactNode }> = ({ child
    * 🔄 Carrega médicos do servidor
    */
   const loadDoctors = useCallback(async (forceRefresh = false) => {
+    // Verificar se usuário está autenticado antes de carregar
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('⏳ DoctorsContext: Token não disponível, aguardando autenticação...');
+      return;
+    }
+
     // Verificar cache
     if (!forceRefresh && isCacheValid('doctors')) {
       const cached = getCache<Doctor[]>('doctors');

@@ -16,7 +16,7 @@ import InstagramIcon from "@mui/icons-material/Instagram";
 import FacebookIcon from "@mui/icons-material/Facebook";
 import GoogleIcon from "@mui/icons-material/Google";
 import { Facebook, Google, Instagram, Search, VideoCall } from '@mui/icons-material';
-import { Video } from 'lucide-react';
+import { Video, TrendingUp } from 'lucide-react';
 
 // Ícones
 const RefreshIcon = () => (
@@ -102,6 +102,8 @@ const getProximosDias = () => {
   return dias;
 };
 
+import MetaAdsTab from './MetaAdsTab';
+
 const TAB_CONFIG = {
   gmb: {
     label: 'Google Meu Negócio',
@@ -121,6 +123,12 @@ const TAB_CONFIG = {
     color: 'indigo',
     shortLabel: 'FB'
   },
+  metaads: {
+    label: 'Tráfego Pago',
+    icon: TrendingUp,
+    color: 'emerald',
+    shortLabel: 'Ads'
+  },
   videos: {
     label: 'Vídeos com IA',
     icon: Video,
@@ -136,7 +144,7 @@ const TAB_CONFIG = {
 };
 
 export default function MarketingDashboard() {
-  const [activeTab, setActiveTab] = useState<'gmb' | 'instagram' | 'facebook' | 'videos' | 'spy'>('gmb');
+  const [activeTab, setActiveTab] = useState<'gmb' | 'instagram' | 'facebook' | 'metaads' | 'videos' | 'spy'>('gmb');
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'published'>('all');
   const [funnelFilter, setFunnelFilter] = useState<'all' | 'top' | 'middle' | 'bottom'>('all');
   const [selectedEspecialidade, setSelectedEspecialidade] = useState('');
@@ -252,6 +260,7 @@ export default function MarketingDashboard() {
   const currentData = activeTab === 'gmb' ? gmb
     : activeTab === 'instagram' ? instagram
       : activeTab === 'facebook' ? facebook
+        : activeTab === 'metaads' ? null  // MetaAds usa seu próprio hook
         : null;
 
   const posts = currentData?.posts || [];
@@ -1141,6 +1150,9 @@ export default function MarketingDashboard() {
             </div>
           </div>
         )}
+
+        {/* 💰 META ADS - Tráfego Pago */}
+        {activeTab === 'metaads' && <MetaAdsTab />}
 
         {/* Área de Geração - Vídeos */}
         {activeTab === 'videos' && (
