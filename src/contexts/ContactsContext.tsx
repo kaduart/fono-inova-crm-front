@@ -94,6 +94,13 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
     };
 
     const refreshContacts = useCallback(async () => {
+        // Verificar se tem token antes de carregar
+        const token = localStorage.getItem('token');
+        if (!token) {
+            console.log('⏳ ContactsContext: Token não disponível, skip load');
+            return;
+        }
+
         setLoading(true);
         try {
             const res = await fetchContacts({ page: 1, limit: LIMIT });
@@ -178,10 +185,9 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
         window.addEventListener('authReady', handleAuthReady);
         window.addEventListener('authLogout', handleAuthLogout);
 
-        // 🔄 FALLBACK: Polling a cada 10 segundos para garantir atualização
-        // (caso o socket falhe, os contatos ainda serão atualizados)
+        // 🔄 FALLBACK: Polling a cada 10 segundos apenas se tiver token
         const pollInterval = setInterval(() => {
-            if (document.visibilityState === 'visible') {
+            if (document.visibilityState === 'visible' && localStorage.getItem('token')) {
                 console.log('[ContactsContext] Polling: atualizando contatos...');
                 refreshContacts();
             }

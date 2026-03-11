@@ -20,6 +20,7 @@ interface EditPaymentModalProps {
         status: string;
         paymentMethod: string;
         serviceType: string;
+        specialty: string;
     }) => Promise<void>;
 }
 
@@ -63,7 +64,7 @@ export const EditPaymentModal = ({
         try {
             // Converte dd/MM/yyyy para ISO
             const isoDate = parse(formData.date, 'dd/MM/yyyy', new Date()).toISOString();
-console.log('paymentiiiii', payment)
+
             await onSave({
                 id: payment._id,
                 amount: formData.amount,
@@ -71,6 +72,7 @@ console.log('paymentiiiii', payment)
                 status: formData.status,
                 paymentMethod: formData.paymentMethod,
                 serviceType: formData.serviceType,
+                specialty: payment.specialty || payment.doctor?.specialty || '',
             });
         } catch (error) {
             console.error('Erro ao salvar:', error);

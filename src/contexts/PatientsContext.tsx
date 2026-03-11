@@ -71,6 +71,13 @@ export const PatientsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
    * 🔄 Carrega pacientes do servidor
    */
   const loadPatients = useCallback(async (forceRefresh = false) => {
+    // Verificar se tem token antes de carregar
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('⏳ PatientsContext: Token não disponível, skip load');
+      return;
+    }
+
     // Verificar cache
     if (!forceRefresh && isCacheValid('patients')) {
       const cached = getCache<{
@@ -276,17 +283,38 @@ export const PatientsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   }, [loadPatients]);
 
-  // 🚀 Carregamento inicial
+  // 🚀 Carregamento inicial - só carrega se tiver token
   useEffect(() => {
     isMounted.current = true;
 
-    if (isInitialLoad.current) {
+    const handleAuthReady = () => {
+      console.log('🔄 PatientsContext: Auth ready, loading patients...');
+      loadPatients(true);
+    };
+
+    const handleAuthLogout = () => {
+      console.log('[PatientsContext] Logout detected, clearing patients...');
+      setPatients([]);
+      setTotalPatients(0);
+      setPatientOverview(null);
+      invalidateCache('patients');
+    };
+
+    // Só carrega se tiver token
+    const token = localStorage.getItem('token');
+    if (token && isInitialLoad.current) {
       isInitialLoad.current = false;
       loadPatients();
     }
 
+    // Escuta eventos de auth
+    window.addEventListener('authReady', handleAuthReady);
+    window.addEventListener('authLogout', handleAuthLogout);
+
     return () => {
       isMounted.current = false;
+      window.removeEventListener('authReady', handleAuthReady);
+      window.removeEventListener('authLogout', handleAuthLogout);
     };
   }, [loadPatients]);
 

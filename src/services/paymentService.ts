@@ -10,8 +10,9 @@ export interface FinancialRecord {
     status: string;
     specialty: string;
     createdAt: string;
-    patientId: string,
+    patientId: string;
     doctorId: string;
+    doctor?: { _id: string; fullName?: string; specialty?: string };
     serviceType: string;
     paymentMethod: string;
     notes: string;
@@ -19,7 +20,9 @@ export interface FinancialRecord {
     package?: { _id: string; name?: string };
     advanceSessions?: any[];
     sessionId: string;
-    advancedSessions: string[]
+    advancedSessions: string[];
+    patient?: { _id: string; fullName?: string; email?: string; phoneNumber?: string };
+    appointment?: { date: string; time: string; status: string };
 }
 
 export interface Summary {

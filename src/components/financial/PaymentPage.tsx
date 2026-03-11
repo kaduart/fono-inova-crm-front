@@ -165,17 +165,19 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
         id: string;
         amount: number;
         date: string;
-        specialty: string;
+        status: string;
         paymentMethod: string;
         serviceType: string;
+        specialty: string;
     }) => {
         try {
             const response = await updatePayment(data.id, {
                 amount: data.amount,
                 date: data.date,
-                specialty: data.specialty,
+                status: data.status,
                 serviceType: data.serviceType,
-                paymentMethod: data.paymentMethod
+                paymentMethod: data.paymentMethod,
+                specialty: data.specialty,
             });
 
             // ✅ Normaliza a resposta (mesmo padrão do usePayment)

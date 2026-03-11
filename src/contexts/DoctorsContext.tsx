@@ -52,10 +52,10 @@ export const DoctorsProvider: React.FC<{ children: React.ReactNode }> = ({ child
    * 🔄 Carrega médicos do servidor
    */
   const loadDoctors = useCallback(async (forceRefresh = false) => {
-    // Verificar se usuário está autenticado antes de carregar
+    // Verificar se tem token antes de carregar
     const token = localStorage.getItem('token');
     if (!token) {
-      console.log('⏳ DoctorsContext: Token não disponível, aguardando autenticação...');
+      console.log('⏳ DoctorsContext: Token não disponível, skip load');
       return;
     }
 
@@ -156,17 +156,36 @@ export const DoctorsProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   }, [loadDoctors]);
 
-  // 🚀 Carregamento inicial
+  // 🚀 Carregamento inicial - só carrega se tiver token
   useEffect(() => {
     isMounted.current = true;
 
-    if (isInitialLoad.current) {
+    const handleAuthReady = () => {
+      console.log('🔄 DoctorsContext: Auth ready, loading doctors...');
+      loadDoctors(true);
+    };
+
+    const handleAuthLogout = () => {
+      console.log('[DoctorsContext] Logout detected, clearing doctors...');
+      setDoctors([]);
+      invalidateCache('doctors');
+    };
+
+    // Só carrega se tiver token
+    const token = localStorage.getItem('token');
+    if (token && isInitialLoad.current) {
       isInitialLoad.current = false;
       loadDoctors();
     }
 
+    // Escuta eventos de auth
+    window.addEventListener('authReady', handleAuthReady);
+    window.addEventListener('authLogout', handleAuthLogout);
+
     return () => {
       isMounted.current = false;
+      window.removeEventListener('authReady', handleAuthReady);
+      window.removeEventListener('authLogout', handleAuthLogout);
     };
   }, [loadDoctors]);
 
