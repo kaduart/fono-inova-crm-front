@@ -2,10 +2,10 @@
 // Modal para visualizar e gerenciar a conta corrente do paciente
 
 import { ptBR } from 'date-fns/locale';
-import { ArrowDownCircle, ArrowUpCircle, CheckCircle, DollarSign, History, Plus, Trash2, Wallet, X, CheckSquare, Square, Calculator } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, CheckCircle, DollarSign, History, Plus, Trash2, Wallet, X, CheckSquare, Square, Calculator, Pencil, AlertTriangle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import DatePicker from 'react-datepicker';
-import { getPatientBalance, addBalanceDebit, addBalancePayment, addBalancePaymentMulti } from '../../services/paymentService';
+import { getPatientBalance, addBalanceDebit, addBalancePayment, addBalancePaymentMulti, deleteBalanceTransaction, editBalanceTransaction } from '../../services/paymentService';
 import { appointmentService } from '../../services/appointmentService';
 import { InputCurrency } from '../ui/InputCurrency';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
@@ -96,6 +96,17 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
     const [quickPaymentMethod, setQuickPaymentMethod] = useState('dinheiro');
     const [showQuickPaymentForm, setShowQuickPaymentForm] = useState(false);
 
+    // ✏️ Editar transação
+    const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+    const [editAmount, setEditAmount] = useState(0);
+    const [editDescription, setEditDescription] = useState('');
+    const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+
+    // 🗑️ Excluir transação
+    const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null);
+    const [deleteReason, setDeleteReason] = useState('');
+    const [isDeleteSubmitting, setIsDeleteSubmitting] = useState(false);
+
     useEffect(() => {
         if (isOpen && patientId) {
             loadBalance();
@@ -166,6 +177,53 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
             setSelectedDebits(new Set());
         } else {
             setSelectedDebits(new Set(pendingDebits.map((t: Transaction) => t._id || '')));
+        }
+    };
+
+    // ✏️ Abrir edição
+    const openEdit = (t: Transaction) => {
+        setEditingTransaction(t);
+        setEditAmount(t.amount);
+        setEditDescription(t.description);
+    };
+
+    // ✏️ Salvar edição
+    const handleEditSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingTransaction?._id) return;
+        setIsEditSubmitting(true);
+        try {
+            await editBalanceTransaction(patientId, editingTransaction._id, {
+                amount: editAmount,
+                description: editDescription
+            });
+            setEditingTransaction(null);
+            await loadBalance();
+        } catch (err: any) {
+            alert(err?.response?.data?.message || 'Erro ao editar transação');
+        } finally {
+            setIsEditSubmitting(false);
+        }
+    };
+
+    // 🗑️ Confirmar exclusão
+    const handleDeleteSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!deletingTransaction?._id) return;
+        if (deleteReason.trim().length < 5) {
+            alert('Informe o motivo da exclusão (mínimo 5 caracteres)');
+            return;
+        }
+        setIsDeleteSubmitting(true);
+        try {
+            await deleteBalanceTransaction(patientId, deletingTransaction._id, deleteReason.trim());
+            setDeletingTransaction(null);
+            setDeleteReason('');
+            await loadBalance();
+        } catch (err: any) {
+            alert(err?.response?.data?.message || 'Erro ao excluir transação');
+        } finally {
+            setIsDeleteSubmitting(false);
         }
     };
 
@@ -439,6 +497,7 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
     if (!isOpen) return null;
 
     return (
+        <>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
                 {/* Header */}
@@ -510,7 +569,7 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                         <CheckCircle className="w-4 h-4" />
                         Quitados
                     </button>
-                    <button
+                   {/*  <button
                         onClick={() => setActiveTab('add')}
                         className={`flex-1 py-3 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
                             activeTab === 'add'
@@ -520,7 +579,7 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                     >
                         <Plus className="w-4 h-4" />
                         Registrar
-                    </button>
+                    </button> */}
                 </div>
 
                 {/* Content */}
@@ -689,8 +748,24 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                                                     </div>
                                                 </div>
                                                 
-                                                {/* Botão pagar individual */}
-                                                <div className="mt-3 flex justify-end">
+                                                {/* Ações */}
+                                                <div className="mt-3 flex justify-end gap-2">
+                                                    <button
+                                                        onClick={() => openEdit(transaction)}
+                                                        className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                                                        title="Editar valor ou descrição"
+                                                    >
+                                                        <Pencil className="w-3 h-3" />
+                                                        Editar
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { setDeletingTransaction(transaction); setDeleteReason(''); }}
+                                                        className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                                                        title="Excluir por erro operacional"
+                                                    >
+                                                        <Trash2 className="w-3 h-3" />
+                                                        Excluir
+                                                    </button>
                                                     <button
                                                         onClick={() => {
                                                             setPayingTransaction(transaction);
@@ -1246,6 +1321,104 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                 )}
             </div>
         </div>
+
+        {/* ✏️ Modal de Edição */}
+        {editingTransaction && (
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[70] p-4">
+                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm">
+                    <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <Pencil className="w-5 h-5 text-gray-500" />
+                            Editar Transação
+                        </h3>
+                        <button onClick={() => setEditingTransaction(null)} className="text-gray-400 hover:text-gray-600">
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+                    <form onSubmit={handleEditSubmit} className="p-5 space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor (R$)</label>
+                            <InputCurrency
+                                name="editAmount"
+                                value={editAmount}
+                                onChange={(e) => setEditAmount(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descrição</label>
+                            <input
+                                type="text"
+                                value={editDescription}
+                                onChange={e => setEditDescription(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white text-sm"
+                            />
+                        </div>
+                        <div className="flex gap-3 pt-2">
+                            <button type="button" onClick={() => setEditingTransaction(null)}
+                                className="flex-1 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                Cancelar
+                            </button>
+                            <button type="submit" disabled={isEditSubmitting}
+                                className="flex-1 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded-lg text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+                                {isEditSubmitting ? <LoadingSpinner size="small" color="border-white" /> : <><Pencil className="w-4 h-4" />Salvar</>}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )}
+
+        {/* 🗑️ Modal de Exclusão */}
+        {deletingTransaction && (
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[70] p-4">
+                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm">
+                    <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                        <h3 className="text-lg font-bold text-red-600 flex items-center gap-2">
+                            <AlertTriangle className="w-5 h-5" />
+                            Excluir Transação
+                        </h3>
+                        <button onClick={() => setDeletingTransaction(null)} className="text-gray-400 hover:text-gray-600">
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+                    <form onSubmit={handleDeleteSubmit} className="p-5 space-y-4">
+                        <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 text-sm text-gray-700 dark:text-gray-300">
+                            <p className="font-semibold">{deletingTransaction.description}</p>
+                            <p className="text-red-600 font-bold mt-1">
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(deletingTransaction.amount)}
+                            </p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Motivo da exclusão <span className="text-red-500">*</span>
+                            </label>
+                            <textarea
+                                value={deleteReason}
+                                onChange={e => setDeleteReason(e.target.value)}
+                                placeholder="Ex: Registro duplicado por erro operacional"
+                                rows={3}
+                                required
+                                minLength={5}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white text-sm resize-none"
+                            />
+                            <p className="text-xs text-gray-400 mt-1">{deleteReason.length}/5 caracteres mínimos</p>
+                        </div>
+                        <div className="flex gap-3 pt-2">
+                            <button type="button" onClick={() => setDeletingTransaction(null)}
+                                className="flex-1 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                Cancelar
+                            </button>
+                            <button type="submit" disabled={isDeleteSubmitting || deleteReason.trim().length < 5}
+                                className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+                                {isDeleteSubmitting ? <LoadingSpinner size="small" color="border-white" /> : <><Trash2 className="w-4 h-4" />Excluir</>}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )}
+        </>
     );
 };
 

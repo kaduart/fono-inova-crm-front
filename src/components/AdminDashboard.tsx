@@ -187,6 +187,7 @@ export default function AdminDashboard() {
         refresh: refreshDashboard
     } = useDashboard();
 
+
     // 🎯 USA O CONTEXTO GLOBAL DE PACIENTES
     const { patients, totalPatients, refreshPatients, updatePatient, createPatient } = usePatientsContext();
     
@@ -602,7 +603,7 @@ export default function AdminDashboard() {
         setPaymentContext,
         setPaymentModalOpen,
         onDeletePatient: handleDeletePatient,
-    }), [stats, doctorsOverview, upcomingAppts, patients, dashboardLoading, refreshDashboard, 
+    }), [stats, doctorsOverview, upcomingAppts, patients, dashboardLoading, refreshDashboard,
         handleAddProfessional, handleAddPatient, handleDeletePatient]);
 
     const manageDoctorsProps = useMemo(() => ({

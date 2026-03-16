@@ -5,7 +5,7 @@
  * Mantém cache local para evitar recarregamentos desnecessários.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useDashboard } from '../../../hooks/useDashboard';
 import { usePatientsContext } from '../../../contexts/PatientsContext';
 import DashboardContentOptimized from '../DashboardContentOptimized';

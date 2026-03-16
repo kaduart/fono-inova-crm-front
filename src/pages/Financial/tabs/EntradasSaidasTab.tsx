@@ -1,911 +1,714 @@
 // src/pages/Financial/tabs/EntradasSaidasTab.tsx
-// Design: Dashboard com Selector + Lógica Caixa vs A Receber (funcional)
+// Fechamento Mensal - Visão Completa do Período
 
-import { useEffect, useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
     Box,
-    Button,
     Card,
     CardContent,
-    Chip,
     Grid,
-    IconButton,
-    Paper,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    TextField,
-    MenuItem,
     Typography,
-    Tooltip,
+    Paper,
+    Chip,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
     Alert,
-    Avatar,
-    LinearProgress,
     Divider,
-    List,
-    ListItem,
-    ListItemText
+    LinearProgress,
+    Tooltip
 } from '@mui/material';
 import {
-    Plus,
-    Edit2,
-    Trash2,
     TrendingUp,
     TrendingDown,
     Wallet,
-    CreditCard,
     Receipt,
-    Calendar,
-    ChevronDown,
-    ChevronUp,
-    Landmark,
-    Banknote,
-} from 'lucide-react';
-import { format, parseISO, isValid } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+    AccountBalance,
+    AttachMoney,
+    LocalHospital,
+    Group,
+    MedicalServices,
+    CalendarToday,
+    Warning,
+    CheckCircle
+} from '@mui/icons-material';
+import { usePaymentTotals } from '../../../hooks/usePaymentTotals';
 import { useExpenses } from '../../../hooks/useExpenses';
-import ExpenseModal from '../components/ExpenseModal';
-import api from '../../../services/api';
 import { FinancialLoading } from '../components/FinancialLoading';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
-import { AccountBalance, ArrowUpward, AttachMoney, LocalAtm, Schedule } from '@mui/icons-material';
+import { FinancialDetailsModal } from '../components/FinancialDetailsModal';
+import moment from 'moment-timezone';
 
-// ==================== TIPOS ====================
-interface Payment {
-    _id: string;
-    patient?: { fullName?: string };
-    patientName?: string;
-    sessionType?: string;
-    sessionValue?: number;
-    amount?: number;
-    date?: string;
-    paymentDate?: string;
-    createdAt?: string;
-    status: string;
-    paymentMethod?: string;
-    bandeiraCartao?: string;
-    parcelas?: number;
-    billingType?: string;
-    insurance?: {
-        provider?: string;
-        status?: string;
-        grossAmount?: number;
-    } | null;
-}
+const TIMEZONE = 'America/Sao_Paulo';
 
-interface SummaryData {
-    receitas: {
-        total: number;
-        caixa: { total: number; count: number };
-        aReceber: { total: number; count: number };
-        porMetodo: Record<string, number>;
-    };
-    despesas: {
-        total: number;
-        count: number;
-        porCategoria: Record<string, number>;
-    };
-    lucroCaixa: number;
-    lucroTotal: number;
-    taxasCartao: { total: number; count: number };
-    margemLucro: number;
-}
-
-interface FluxoHistorico {
-    mes: string;
-    caixa: number;
-    aReceber: number;
-}
-
-// ==================== HELPERS ====================
 const formatCurrency = (value: number) =>
     `R$ ${(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const formatCurrencyCompact = (value: number) => {
-    if (value >= 1000000) return `R$ ${(value / 1000000).toFixed(1)}M`;
-    if (value >= 1000) return `R$ ${(value / 1000).toFixed(1)}k`;
-    return `R$ ${value.toFixed(0)}`;
-};
+const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+];
 
-const safeFormatDate = (dateValue?: string): string => {
-    if (!dateValue) return '-';
-    try {
-        const date = parseISO(dateValue);
-        if (!isValid(date)) return '-';
-        return format(date, "dd/MM 'às' HH:mm", { locale: ptBR });
-    } catch {
-        return '-';
-    }
-};
-
-const getPaymentMethodLabel = (method?: string): string => {
-    const labels: Record<string, string> = {
-        dinheiro: 'Dinheiro',
-        pix: 'PIX',
-        cartao_credito: 'Cartão Créd',
-        cartao_debito: 'Cartão Déb',
-        transferencia_bancaria: 'Transfer',
-        convenio: 'Convênio',
-        outro: 'Outro'
-    };
-    return labels[method || ''] || method || '-';
-};
-
-const getCategoryLabel = (cat?: string): string => {
-    const labels: Record<string, string> = {
-        payroll: 'Folha',
-        commission: 'Comissão',
-        benefit: 'Benefício',
-        operational: 'Operacional',
-        equipment: 'Equipamento',
-        marketing: 'Marketing',
-        other: 'Outro',
-        taxa_cartao: 'Taxa Cartão'
-    };
-    return labels[cat || ''] || cat || '-';
-};
-
-const isCardPayment = (method?: string): boolean => {
-    return ['cartao_credito', 'cartao_debito', 'cartão', 'debito', 'credito'].includes(method || '');
-};
-
-// ==================== COMPONENTE ====================
 const EntradasSaidasTab = () => {
-    const [filters, setFilters] = useState({
-        month: new Date().getMonth() + 1,
-        year: new Date().getFullYear()
-    });
+    // Estado para seleção de mês/ano
+    const [selectedMonth, setSelectedMonth] = useState<number>(moment().tz(TIMEZONE).month());
+    const [selectedYear, setSelectedYear] = useState<number>(moment().tz(TIMEZONE).year());
 
-    const [payments, setPayments] = useState<Payment[]>([]);
-    const [summary, setSummary] = useState<SummaryData | null>(null);
-    const [historico, setHistorico] = useState<FluxoHistorico[]>([]);
-    const [showDetails, setShowDetails] = useState(false);
+    // Estado para modal de detalhes
     const [modalOpen, setModalOpen] = useState(false);
-    const [editingExpense, setEditingExpense] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
-    const [meta, setMeta] = useState<any>(null);
-    const [loadingMeta, setLoadingMeta] = useState(false);
+    const [modalType, setModalType] = useState<'producao' | 'faturado' | 'caixa' | 'receber' | 'despesas' | 'resultado' | null>(null);
 
-    const { expenses, loading: loadingExpenses, fetchExpenses, cancelExpense } = useExpenses();
-
-    // Buscar meta do planejamento
-    useEffect(() => {
-        const fetchMeta = async () => {
-            setLoadingMeta(true);
-            try {
-                const res = await api.get('/planning', { 
-                    params: { 
-                        type: 'monthly', 
-                        month: filters.month,
-                        year: filters.year 
-                    } 
-                });
-                if (res.data?.data && res.data.data.length > 0) {
-                    setMeta(res.data.data[0]);
-                } else {
-                    setMeta(null);
-                }
-            } catch (error) {
-                console.error('Erro ao buscar meta:', error);
-                setMeta(null);
-            } finally {
-                setLoadingMeta(false);
-            }
-        };
-        fetchMeta();
-    }, [filters]);
-
-    // Buscar dados
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            const start = `${filters.year}-${String(filters.month).padStart(2, '0')}-01`;
-            const lastDay = new Date(filters.year, filters.month, 0).getDate();
-            const end = `${filters.year}-${String(filters.month).padStart(2, '0')}-${lastDay}`;
-
-            const [paymentsRes, historicoRes] = await Promise.all([
-                api.get('/payments', { params: { status: 'paid', startDate: start, endDate: end, limit: 1000 } }),
-                api.get('/cashflow/historico', { params: { meses: 6 } }).catch(() => ({ data: { data: [] } }))
-            ]);
-
-            setPayments(paymentsRes.data.data || []);
-            setHistorico(historicoRes.data.data || []);
-        } catch (error) {
-            console.error('Erro ao buscar dados:', error);
-        } finally {
-            setLoading(false);
-        }
+    const handleOpenModal = (type: typeof modalType) => {
+        setModalType(type);
+        setModalOpen(true);
     };
 
-    // Calcular resumo
+    // Calcula datas do período selecionado
+    const startDate = useMemo(() => {
+        return moment().tz(TIMEZONE).year(selectedYear).month(selectedMonth).startOf('month').toISOString();
+    }, [selectedMonth, selectedYear]);
+
+    const endDate = useMemo(() => {
+        return moment().tz(TIMEZONE).year(selectedYear).month(selectedMonth).endOf('month').toISOString();
+    }, [selectedMonth, selectedYear]);
+
+    // 🆕 HOOK - Dados financeiros do período
+    const { 
+        paymentTotals, 
+        convenioFaturamentos,
+        isLoading: financialLoading,
+        fetchPaymentTotals 
+    } = usePaymentTotals();
+
+    // Busca dados quando muda o período
     useEffect(() => {
-        let caixaTotal = 0, caixaCount = 0;
-        let aReceberTotal = 0, aReceberCount = 0;
-        let taxasTotal = 0, taxasCount = 0;
-        const porMetodo: Record<string, number> = {};
-        const porCategoria: Record<string, number> = {};
+        const month = selectedMonth + 1; // API espera 1-12
+        console.log('[EntradasSaidasTab] Buscando dados para:', { month, selectedYear });
+        fetchPaymentTotals(month, selectedYear);
+    }, [selectedMonth, selectedYear]);
+    
+    // Hook de despesas - com busca filtrada por período
+    const { expenses, isLoading: expensesLoading, fetchExpenses } = useExpenses();
 
-        payments.forEach(payment => {
-            const isConvenio = payment.billingType === 'convenio' || payment.paymentMethod === 'convenio';
-            const valor = payment.insurance?.grossAmount || payment.sessionValue || payment.amount || 0;
-            
-            const metodo = payment.paymentMethod || 'outro';
-            porMetodo[metodo] = (porMetodo[metodo] || 0) + valor;
-
-            if (isConvenio) {
-                aReceberTotal += valor;
-                aReceberCount++;
-            } else {
-                caixaTotal += valor;
-                caixaCount++;
-                
-                if (isCardPayment(payment.paymentMethod)) {
-                    const taxaEstimada = valor * 0.02;
-                    taxasTotal += taxaEstimada;
-                    taxasCount++;
-                }
-            }
-        });
-
-        expenses.forEach((expense: any) => {
-            if (expense.status !== 'canceled') {
-                const cat = expense.category || 'other';
-                porCategoria[cat] = (porCategoria[cat] || 0) + expense.amount;
-            }
-        });
-
-        const despesasTotal = Object.values(porCategoria).reduce((a, b) => a + b, 0);
-        const totalReceitas = caixaTotal + aReceberTotal;
-        const lucroCaixa = caixaTotal - despesasTotal - taxasTotal;
-        const lucroTotal = totalReceitas - despesasTotal - taxasTotal;
-        const margemLucro = totalReceitas > 0 ? (lucroTotal / totalReceitas) * 100 : 0;
-
-        setSummary({
-            receitas: {
-                total: totalReceitas,
-                caixa: { total: caixaTotal, count: caixaCount },
-                aReceber: { total: aReceberTotal, count: aReceberCount },
-                porMetodo
-            },
-            despesas: {
-                total: despesasTotal,
-                count: expenses.filter((e: any) => e.status !== 'canceled').length,
-                porCategoria
-            },
-            lucroCaixa,
-            lucroTotal,
-            taxasCartao: { total: taxasTotal, count: taxasCount },
-            margemLucro
-        });
-    }, [payments, expenses]);
-
+    // Busca despesas quando muda o período
     useEffect(() => {
-        fetchData();
-        fetchExpenses(filters);
-    }, [filters]);
+        fetchExpenses({
+            startDate: moment(startDate).format('YYYY-MM-DD'),
+            endDate: moment(endDate).format('YYYY-MM-DD'),
+            limit: 1000  // Garante que traga todas do período
+        });
+    }, [startDate, endDate, fetchExpenses]);
 
-    if (loading || !summary) {
-        return (
-            <Box sx={{ p: { xs: 2, md: 4 } }}>
-                <Typography variant="h5" fontWeight="bold" sx={{ mb: 3, color: 'primary.main' }}>
-                    📈 Extrato Financeiro
-                </Typography>
-                <FinancialLoading cardCount={6} gridSize={{ xs: 12, sm: 6, md: 4 }} />
-            </Box>
-        );
+    // Total de despesas do período (já vem filtrado da API)
+    const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+
+    // Métricas calculadas do paymentTotals (dados reais da API)
+    const metrics = useMemo(() => {
+        if (!paymentTotals) {
+            return {
+                producao: 0,
+                producaoCount: 0,
+                faturado: 0,
+                caixa: 0,
+                aReceber: 0,
+                particular: 0,
+                convenioAvulso: 0,
+                convenioPacote: 0,
+                convenioAtendido: 0,
+                convenioFaturado: 0,
+                convenioRecebido: 0,
+                convenioAReceber: 0,
+            };
+        }
+
+        // Dados do endpoint /payments/totals
+        const caixa = paymentTotals.totalReceived || 0;
+        const aReceberParticular = paymentTotals.totalPending || 0;
+        const particular = paymentTotals.particularReceived || 0;
+        
+        // Convênio: produção vs recebido
+        const convenioProducao = paymentTotals.totalInsuranceProduction || 0;
+        const convenioRecebido = paymentTotals.totalInsuranceReceived || 0;
+        const convenioPendente = paymentTotals.totalInsurancePending || 0;
+        
+        // Faturamento do mês (vindo do endpoint /financial/convenio/faturamentos)
+        // Se não tiver dados, usa a produção como fallback
+        const faturadoNoMes = convenioFaturamentos?.total ?? convenioProducao;
+        
+        // Cálculos de faturamento
+        const pendenteFaturamento = Math.max(0, convenioProducao - faturadoNoMes);
+        const percentualFaturado = convenioProducao > 0 ? (faturadoNoMes / convenioProducao) * 100 : 0;
+
+        return {
+            // Produção = Particular (recebido + pendente) + Convênio (produção total)
+            producao: particular + aReceberParticular + convenioProducao,
+            producaoCount: (paymentTotals.countInsuranceTotal || 0),
+            faturado: faturadoNoMes,
+            faturadoCount: convenioFaturamentos?.quantidade || 0,
+            pendenteFaturamento,
+            percentualFaturado,
+            caixa: caixa,
+            aReceber: aReceberParticular + convenioPendente,
+            particular: particular,
+            convenioAvulso: convenioRecebido,
+            convenioPacote: convenioProducao,
+            // Detalhamento convênio
+            convenioAtendido: convenioProducao,
+            convenioAtendidoCount: paymentTotals.countInsuranceTotal || 0,
+            convenioFaturado: faturadoNoMes,
+            convenioRecebido: convenioRecebido,
+            convenioAReceber: convenioPendente,
+        };
+    }, [paymentTotals, convenioFaturamentos]);
+
+    // Cálculos derivados
+    const saldo = metrics.caixa - totalExpenses;
+    const margemLucro = metrics.producao > 0 ? (saldo / metrics.producao) * 100 : 0;
+
+    // Gera lista de meses/anos para seleção
+    const generateMonthOptions = () => {
+        const options = [];
+        const currentDate = moment();
+        
+        for (let i = 0; i < 24; i++) {
+            const d = moment(currentDate).subtract(i, 'months');
+            options.push({
+                value: d.month(),
+                year: d.year(),
+                label: `${monthNames[d.month()]} ${d.year()}`
+            });
+        }
+        return options;
+    };
+
+    const monthOptions = generateMonthOptions();
+
+    if (financialLoading || expensesLoading) {
+        return <FinancialLoading />;
     }
 
-    const statusPositivo = summary.lucroTotal >= 0;
+    const periodoLabel = `${monthNames[selectedMonth]} ${selectedYear}`;
 
     return (
-        <Box>
-            {/* HEADER COM FILTRO */}
-            <Paper sx={{ p: { xs: 2, sm: 3 }, mb: { xs: 2, sm: 3 }, borderRadius: 3, boxShadow: 2 }}>
-                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: { xs: 'flex-start', md: 'space-between' }, alignItems: { xs: 'stretch', md: 'center' }, gap: 2 }}>
-                    <Box>
-                        <Typography variant="h5" fontWeight="bold" gutterBottom>
-                            📊 Entradas e Saídas
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            Fluxo de caixa e projeções financeiras
-                        </Typography>
-                    </Box>
-
-                    <Box sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, alignItems: 'center', flexWrap: 'wrap', width: { xs: '100%', md: 'auto' } }}>
-                        <TextField
-                            select
-                            size="small"
-                            sx={{ flex: { xs: 1, md: 'none' }, minWidth: { xs: 100, sm: 180 } }}
-                            value={`${filters.month}-${filters.year}`}
+        <Box sx={{ p: { xs: 1, sm: 2 } }}>
+            {/* Header com Seletor de Período */}
+            <Paper sx={{ p: 3, mb: 3, bgcolor: 'primary.main', color: 'white' }}>
+                <Typography variant="h5" fontWeight="bold" gutterBottom>
+                    📊 Fechamento Mensal
+                </Typography>
+                
+                <Box display="flex" flexWrap="wrap" gap={2} alignItems="center" mt={2}>
+                    <Typography variant="body1">
+                        Período:
+                    </Typography>
+                    <FormControl sx={{ minWidth: 200, bgcolor: 'white', borderRadius: 1 }}>
+                        <Select
+                            value={`${selectedMonth}-${selectedYear}`}
                             onChange={(e) => {
-                                const [m, y] = e.target.value.split('-').map(Number);
-                                setFilters({ month: m, year: y });
+                                const [month, year] = e.target.value.split('-').map(Number);
+                                setSelectedMonth(month);
+                                setSelectedYear(year);
                             }}
+                            displayEmpty
+                            sx={{ color: 'black' }}
                         >
-                            {Array.from({ length: 12 }, (_, i) => (
-                                <MenuItem key={i} value={`${i + 1}-${filters.year}`}>
-                                    {format(new Date(filters.year, i), 'MMMM/yyyy', { locale: ptBR })}
+                            {monthOptions.map((opt) => (
+                                <MenuItem key={`${opt.value}-${opt.year}`} value={`${opt.value}-${opt.year}`}>
+                                    {opt.label}
                                 </MenuItem>
                             ))}
-                        </TextField>
+                        </Select>
+                    </FormControl>
+                    
+                    <Chip 
+                        icon={<CalendarToday />}
+                        label={periodoLabel}
+                        color="secondary"
+                        sx={{ fontWeight: 'bold', fontSize: '1rem' }}
+                    />
+                </Box>
+            </Paper>
 
-                        <Chip 
-                            icon={<Calendar size={16} />} 
-                            label="Atualizado"
-                            size="small"
-                            variant="outlined"
-                            color="success"
-                        />
+            {/* Cards das 4 Camadas Financeiras */}
+            <Grid container spacing={3} sx={{ mb: 3 }}>
+                {/* PRODUÇÃO */}
+                <Grid item xs={12} sm={6} lg={3}>
+                    <Card 
+                        onClick={() => handleOpenModal('producao')}
+                        sx={{ 
+                            height: '100%', 
+                            borderLeft: '4px solid #3B82F6', 
+                            borderTop: '3px solid #3B82F6',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            '&:hover': { transform: 'translateY(-4px)', boxShadow: 4 }
+                        }}
+                    >
+                        <CardContent>
+                            <Box display="flex" alignItems="center" gap={1} mb={2}>
+                                <MedicalServices color="primary" />
+                                <Typography variant="h6" fontWeight="bold" color="primary.main">
+                                    PRODUÇÃO
+                                </Typography>
+                            </Box>
+                            <Typography variant="h4" fontWeight="bold">
+                                {formatCurrency(metrics.producao)}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                Particular + Convênio ({metrics.producaoCount} conv.)
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" display="block" mt={1}>
+                                Sessões realizadas em {periodoLabel}
+                            </Typography>
+                        </CardContent>
+                    </Card>
+                </Grid>
 
-                        <Button
-                            variant="contained"
-                            startIcon={<Plus size={18} />}
-                            onClick={() => { setEditingExpense(null); setModalOpen(true); }}
-                            sx={{ borderRadius: 2, textTransform: 'none', flex: { xs: 1, md: 'none' } }}
+                {/* FATURAMENTO */}
+                <Grid item xs={12} sm={6} lg={3}>
+                    <Tooltip 
+                        title={
+                            <Box>
+                                <Typography variant="body2" fontWeight="bold">Faturamento do Mês</Typography>
+                                <Typography variant="caption">
+                                    • Atendido: {formatCurrency(metrics.convenioAtendido)}<br/>
+                                    • Faturado: {formatCurrency(metrics.faturado)}<br/>
+                                    • A Faturar: {formatCurrency(metrics.pendenteFaturamento)}<br/>
+                                    <br/>
+                                    O faturamento pode ocorrer em mês diferente do atendimento.
+                                </Typography>
+                            </Box>
+                        }
+                        arrow
+                    >
+                        <Card 
+                            onClick={() => handleOpenModal('faturado')}
+                            sx={{ 
+                                height: '100%', 
+                                borderLeft: '4px solid #8B5CF6', 
+                                borderTop: '3px solid #8B5CF6',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                '&:hover': { transform: 'translateY(-4px)', boxShadow: 4 }
+                            }}
                         >
-                            Nova Despesa
-                        </Button>
-                    </Box>
-                </Box>
-            </Paper>
-
-            {/* CARDS PRINCIPAIS - CAIXA vs A RECEBER vs RESULTADO */}
-            <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ width: '100%', mb: { xs: 3, sm: 4 } }}>
-                {/* CARD CAIXA (REALIZADO) */}
-                <Grid item xs={12} md={4}>
-                    <Card sx={{ width: "100%", 
-                        height: '100%',
-                        background: 'linear-gradient(135deg, #10B98115, #10B98105)',
-                        border: '1px solid',
-                        borderColor: '#10B98140',
-                        borderRadius: 3,
-                        boxShadow: '0 4px 20px rgba(16, 185, 129, 0.1)'
-                    }}>
-                        <CardContent sx={{ p: 3 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                                <Avatar sx={{ bgcolor: '#10B981', width: 52, height: 52 }}>
-                                    <LocalAtm size={28} color="white" />
-                                </Avatar>
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary" fontWeight="500">
-                                        CAIXA (Realizado)
-                                    </Typography>
-                                    <Typography variant="h4" fontWeight="700" color="#059669">
-                                        {formatCurrencyCompact(summary.receitas.caixa.total)}
+                            <CardContent>
+                                <Box display="flex" alignItems="center" gap={1} mb={2}>
+                                    <Receipt sx={{ color: '#8B5CF6' }} />
+                                    <Typography variant="h6" fontWeight="bold" sx={{ color: '#8B5CF6' }}>
+                                        FATURADO
                                     </Typography>
                                 </Box>
-                            </Box>
-
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary">Pagamentos</Typography>
-                                    <Typography variant="body1" fontWeight="600">{summary.receitas.caixa.count}</Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary">Convênios</Typography>
-                                    <Typography variant="body1" fontWeight="600">{summary.receitas.aReceber.count}</Typography>
-                                </Box>
-                                <Box sx={{ textAlign: 'right' }}>
-                                    <Typography variant="caption" color="text.secondary">Ticket Médio</Typography>
-                                    <Typography variant="body1" fontWeight="600">
-                                        {formatCurrencyCompact(summary.receitas.caixa.count > 0 ? summary.receitas.caixa.total / summary.receitas.caixa.count : 0)}
-                                    </Typography>
-                                </Box>
-                            </Box>
-
-                            <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <ArrowUpward size={16} color="#10B981" />
-                                <Typography variant="body2" color="success.main" fontWeight="500">
-                                    Dinheiro na conta
+                                <Typography variant="h4" fontWeight="bold">
+                                    {formatCurrency(metrics.faturado)}
                                 </Typography>
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                {/* CARD A RECEBER (FUTURO) */}
-                <Grid item xs={12} sm={6} md={4}>
-                    <Card sx={{ width: "100%", 
-                        height: '100%',
-                        background: 'linear-gradient(135deg, #0EA5E915, #0EA5E905)',
-                        border: '1px solid',
-                        borderColor: '#0EA5E940',
-                        borderRadius: 3,
-                        boxShadow: '0 4px 20px rgba(14, 165, 233, 0.1)'
-                    }}>
-                        <CardContent sx={{ p: 3 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                                <Avatar sx={{ bgcolor: '#0EA5E9', width: 52, height: 52 }}>
-                                    <Schedule size={28} color="white" />
-                                </Avatar>
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary" fontWeight="500">
-                                        A RECEBER (Convênios)
-                                    </Typography>
-                                    <Typography variant="h4" fontWeight="700" color="#0284C7">
-                                        {formatCurrencyCompact(summary.receitas.aReceber.total)}
-                                    </Typography>
-                                </Box>
-                            </Box>
-
-                            <Box sx={{ mt: 2 }}>
-                                <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                                    Previsão de recebimento
-                                </Typography>
-                                <LinearProgress 
-                                    variant="determinate" 
-                                    value={65} 
-                                    sx={{ height: 8, borderRadius: 4, bgcolor: '#0EA5E920' }}
-                                />
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-                                    <Typography variant="caption" color="text.secondary">30 dias</Typography>
-                                    <Typography variant="caption" color="info.main" fontWeight="500">65% processado</Typography>
-                                    <Typography variant="caption" color="text.secondary">90+ dias</Typography>
-                                </Box>
-                            </Box>
-
-                            <Box sx={{ mt: 2, pt: 2, borderTop: '1px dashed', borderColor: '#0EA5E930' }}>
                                 <Typography variant="body2" color="text.secondary">
-                                    {summary.receitas.aReceber.count} atendimentos a faturar
+                                    {metrics.faturadoCount} guias enviadas
                                 </Typography>
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                {/* CARD RESULTADO (LUCRO) */}
-                <Grid item xs={12} md={4}>
-                    <Card sx={{ width: "100%", 
-                        height: '100%',
-                        background: statusPositivo 
-                            ? 'linear-gradient(135deg, #8B5CF615, #8B5CF605)'
-                            : 'linear-gradient(135deg, #EF444415, #EF444405)',
-                        border: '1px solid',
-                        borderColor: statusPositivo ? '#8B5CF640' : '#EF444640',
-                        borderRadius: 3,
-                        boxShadow: statusPositivo 
-                            ? '0 4px 20px rgba(139, 92, 246, 0.1)'
-                            : '0 4px 20px rgba(239, 68, 68, 0.1)'
-                    }}>
-                        <CardContent sx={{ p: 3 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                                <Avatar sx={{ 
-                                    bgcolor: statusPositivo ? '#8B5CF6' : '#EF4444', 
-                                    width: 52, 
-                                    height: 52 
-                                }}>
-                                    <AccountBalance size={28} color="white" />
-                                </Avatar>
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary" fontWeight="500">
-                                        RESULTADO LÍQUIDO
-                                    </Typography>
-                                    <Typography variant="h4" fontWeight="700" color={statusPositivo ? '#7C3AED' : '#DC2626'}>
-                                        {formatCurrencyCompact(summary.lucroTotal)}
-                                    </Typography>
-                                </Box>
-                            </Box>
-
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary">Receitas</Typography>
-                                    <Typography variant="body1" fontWeight="600" color="#10B981">
-                                        {formatCurrencyCompact(summary.receitas.total)}
-                                    </Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary">Despesas</Typography>
-                                    <Typography variant="body1" fontWeight="600" color="#EF4444">
-                                        {formatCurrencyCompact(summary.despesas.total)}
-                                    </Typography>
-                                </Box>
-                            </Box>
-
-                            <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Chip 
-                                    size="small"
-                                    label={statusPositivo ? '✓ Lucro' : '✗ Prejuízo'}
-                                    color={statusPositivo ? 'success' : 'error'}
-                                    sx={{ fontWeight: 600 }}
-                                />
-                                <Typography variant="body2" color="text.secondary">
-                                    Margem: {summary.margemLucro.toFixed(1)}%
-                                </Typography>
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-            </Grid>
-
-            {/* PROJEÇÃO vs META */}
-            {meta && (
-                <Card sx={{ width: "100%", mb: 4, borderRadius: 3, boxShadow: 2, overflow: 'visible' }}>
-                    <CardContent sx={{ p: 3 }}>
-                        <Typography variant="h6" fontWeight="bold" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            📊 PROJEÇÃO vs META
-                        </Typography>
-                        
-                        {(() => {
-                            const hoje = new Date();
-                            const diasPassados = hoje.getDate();
-                            const diasTotais = new Date(filters.year, filters.month, 0).getDate();
-                            const diasRestantes = diasTotais - diasPassados;
-                            const mediaDiaria = summary.receitas.caixa.total / (diasPassados || 1);
-                            const projecaoFinal = mediaDiaria * diasTotais;
-                            const metaEsperada = meta.targets?.expectedRevenue || 0;
-                            const percentualMeta = metaEsperada > 0 ? (projecaoFinal / metaEsperada) * 100 : 0;
-                            const valorRestante = metaEsperada - summary.receitas.caixa.total;
-                            const valorDiarioNecessario = diasRestantes > 0 ? valorRestante / diasRestantes : 0;
-                            
-                            // Definir cor do status
-                            let statusColor = '#EF4444'; // Vermelho
-                            let statusBg = '#FEE2E2';
-                            let statusIcon = '⚠️';
-                            let statusText = 'Abaixo da meta';
-                            
-                            if (percentualMeta >= 100) {
-                                statusColor = '#10B981'; // Verde
-                                statusBg = '#D1FAE5';
-                                statusIcon = '✅';
-                                statusText = 'Meta atingida!';
-                            } else if (percentualMeta >= 80) {
-                                statusColor = '#F59E0B'; // Amarelo
-                                statusBg = '#FEF3C7';
-                                statusIcon = '⚡';
-                                statusText = 'Próximo da meta';
-                            }
-                            
-                            const diferenca = percentualMeta - 100;
-                            
-                            return (
-                                <Grid container spacing={3} alignItems="center">
-                                    <Grid item xs={12} md={6}>
-                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <Typography variant="body2" color="text.secondary">
-                                                    Meta do Mês:
-                                                </Typography>
-                                                <Typography variant="h6" fontWeight="600">
-                                                    {formatCurrency(metaEsperada)}
-                                                </Typography>
-                                            </Box>
-                                            
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <Typography variant="body2" color="text.secondary">
-                                                    Projeção Atual:
-                                                </Typography>
-                                                <Typography variant="h6" fontWeight="600" color={statusColor}>
-                                                    {formatCurrency(projecaoFinal)}
-                                                </Typography>
-                                            </Box>
-                                            
-                                            <Box sx={{ 
-                                                display: 'flex', 
-                                                alignItems: 'center', 
-                                                gap: 1,
-                                                p: 1.5,
-                                                borderRadius: 2,
-                                                bgcolor: statusBg,
-                                                width: 'fit-content'
-                                            }}>
-                                                <Typography variant="body1" fontWeight="600" sx={{ color: statusColor }}>
-                                                    {statusIcon} Status: {statusText} ({diferenca > 0 ? '+' : ''}{diferenca.toFixed(1)}%)
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                    </Grid>
-                                    
-                                    <Grid item xs={12} md={6}>
-                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                            {/* Barra de progresso */}
-                                            <Box>
-                                                <LinearProgress 
-                                                    variant="determinate" 
-                                                    value={Math.min(percentualMeta, 100)}
-                                                    sx={{ 
-                                                        height: 12, 
-                                                        borderRadius: 6, 
-                                                        bgcolor: '#E5E7EB',
-                                                        '& .MuiLinearProgress-bar': {
-                                                            bgcolor: statusColor,
-                                                            borderRadius: 6,
-                                                        }
-                                                    }}
-                                                />
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        0%
-                                                    </Typography>
-                                                    <Typography variant="caption" fontWeight="600" sx={{ color: statusColor }}>
-                                                        {percentualMeta.toFixed(1)}%
-                                                    </Typography>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        100%
-                                                    </Typography>
-                                                </Box>
-                                            </Box>
-                                            
-                                            {/* Dicas */}
-                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
-                                                <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    💡 Com este ritmo, você atingirá <strong>{formatCurrency(projecaoFinal)}</strong>
-                                                </Typography>
-                                                
-                                                {diasRestantes > 0 && percentualMeta < 100 && (
-                                                    <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                        📈 Faltam <strong>{diasRestantes} dias</strong>. 
-                                                        Precisa faturar <strong>{formatCurrency(valorDiarioNecessario)}/dia</strong> para bater a meta
-                                                    </Typography>
-                                                )}
-                                                
-                                                {diasRestantes > 0 && percentualMeta >= 100 && (
-                                                    <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#10B981' }}>
-                                                        🎉 Parabéns! No ritmo atual, você superará a meta em <strong>{formatCurrency(projecaoFinal - metaEsperada)}</strong>
-                                                    </Typography>
-                                                )}
-                                                
-                                                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-                                                    📅 Dia {diasPassados} de {diasTotais} ({((diasPassados/diasTotais)*100).toFixed(0)}% do mês)
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                    </Grid>
-                                </Grid>
-                            );
-                        })()}
-                    </CardContent>
-                </Card>
-            )}
-
-            {/* GRÁFICO DE FLUXO */}
-            <Paper sx={{ p: 3, mb: 4, borderRadius: 3, boxShadow: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                    <Typography variant="h6" fontWeight="600">
-                        📈 Histórico de Fluxo (últimos 6 meses)
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <Box sx={{ width: 12, height: 12, bgcolor: '#10B981', borderRadius: 1 }} />
-                            <Typography variant="caption">Caixa</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <Box sx={{ width: 12, height: 12, bgcolor: '#0EA5E9', borderRadius: 1 }} />
-                            <Typography variant="caption">A Receber</Typography>
-                        </Box>
-                    </Box>
-                </Box>
-
-                <Box sx={{ height: 280 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={historico.length > 0 ? historico : [
-                            { mes: 'Jan', caixa: summary.receitas.caixa.total * 0.9, aReceber: summary.receitas.aReceber.total * 0.8 },
-                            { mes: 'Fev', caixa: summary.receitas.caixa.total * 0.95, aReceber: summary.receitas.aReceber.total * 0.9 },
-                            { mes: 'Mar', caixa: summary.receitas.caixa.total, aReceber: summary.receitas.aReceber.total },
-                        ]}>
-                            <defs>
-                                <linearGradient id="colorCaixa" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
-                                    <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
-                                </linearGradient>
-                                <linearGradient id="colorAReceber" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#0EA5E9" stopOpacity={0.3}/>
-                                    <stop offset="95%" stopColor="#0EA5E9" stopOpacity={0}/>
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                            <XAxis dataKey="mes" axisLine={false} tickLine={false} />
-                            <YAxis 
-                                tickFormatter={(value) => `R$ ${value/1000}k`} 
-                                axisLine={false} 
-                                tickLine={false}
-                            />
-                            <RechartsTooltip 
-                                formatter={(value: any) => formatCurrency(value)}
-                                contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}
-                            />
-                            <Area 
-                                type="monotone" 
-                                dataKey="caixa" 
-                                stroke="#10B981" 
-                                strokeWidth={3}
-                                fill="url(#colorCaixa)" 
-                                name="Caixa"
-                            />
-                            <Area 
-                                type="monotone" 
-                                dataKey="aReceber" 
-                                stroke="#0EA5E9" 
-                                strokeWidth={3}
-                                fill="url(#colorAReceber)" 
-                                name="A Receber"
-                            />
-                        </AreaChart>
-                    </ResponsiveContainer>
-                </Box>
-            </Paper>
-
-            {/* DISTRIBUIÇÃO E ÚLTIMAS TRANSAÇÕES */}
-            <Grid container spacing={3}>
-                {/* DISTRIBUIÇÃO POR CATEGORIA */}
-                <Grid item xs={12} md={4}>
-                    <Paper sx={{ p: 3, borderRadius: 3, height: '100%', boxShadow: 2 }}>
-                        <Typography variant="h6" fontWeight="600" gutterBottom>
-                            📊 Distribuição
-                        </Typography>
-                        
-                        <Typography variant="subtitle2" color="success.main" gutterBottom sx={{ mt: 2 }}>
-                            Entradas por forma
-                        </Typography>
-                        <List dense>
-                            {Object.entries(summary.receitas.porMetodo)
-                                .sort(([,a], [,b]) => (b as number) - (a as number))
-                                .slice(0, 4)
-                                .map(([metodo, valor]) => (
-                                <ListItem key={metodo} sx={{ px: 0 }}>
-                                    <ListItemText
-                                        primary={getPaymentMethodLabel(metodo)}
-                                        secondary={`${((valor as number) / summary.receitas.total * 100).toFixed(0)}%`}
+                                
+                                {/* Indicador de progresso */}
+                                <Box mt={1.5} mb={1}>
+                                    <LinearProgress 
+                                        variant="determinate" 
+                                        value={Math.min(metrics.percentualFaturado, 100)}
+                                        sx={{ 
+                                            height: 6, 
+                                            borderRadius: 3,
+                                            bgcolor: '#E0E0E0',
+                                            '& .MuiLinearProgress-bar': { bgcolor: '#8B5CF6' }
+                                        }}
                                     />
-                                    <Typography fontWeight="500">{formatCurrencyCompact(valor as number)}</Typography>
-                                </ListItem>
-                            ))}
-                        </List>
-
-                        <Divider sx={{ my: 2 }} />
-
-                        <Typography variant="subtitle2" color="error.main" gutterBottom>
-                            Saídas por categoria
-                        </Typography>
-                        <List dense>
-                            {Object.keys(summary.despesas.porCategoria).length === 0 ? (
-                                <Typography variant="body2" color="text.secondary">Nenhuma despesa</Typography>
-                            ) : (
-                                Object.entries(summary.despesas.porCategoria)
-                                    .sort(([,a], [,b]) => (b as number) - (a as number))
-                                    .slice(0, 3)
-                                    .map(([cat, valor]) => (
-                                    <ListItem key={cat} sx={{ px: 0 }}>
-                                        <ListItemText
-                                            primary={getCategoryLabel(cat)}
-                                            secondary={`${((valor as number) / summary.despesas.total * 100).toFixed(0)}%`}
+                                </Box>
+                                
+                                <Box display="flex" justifyContent="space-between" alignItems="center">
+                                    <Typography variant="caption" color="text.secondary">
+                                        {((metrics.percentualFaturado || 0)).toFixed(0)}% do atendido
+                                    </Typography>
+                                    {(metrics.pendenteFaturamento || 0) > 0 && (
+                                        <Chip 
+                                            label={`-${formatCurrency(metrics.pendenteFaturamento)}`}
+                                            size="small"
+                                            color="warning"
+                                            variant="outlined"
+                                            sx={{ fontSize: '0.7rem', height: 20 }}
                                         />
-                                        <Typography fontWeight="500" color="error.main">{formatCurrencyCompact(valor as number)}</Typography>
-                                    </ListItem>
-                                ))
-                            )}
-                        </List>
+                                    )}
+                                </Box>
+                                
+                                {metrics.pendenteFaturamento > 0 && (
+                                    <Typography variant="caption" color="warning.main" display="block" mt={0.5}>
+                                        ⚠️ {formatCurrency(metrics.pendenteFaturamento)} a faturar
+                                    </Typography>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </Tooltip>
+                </Grid>
+
+                {/* CAIXA */}
+                <Grid item xs={12} sm={6} lg={3}>
+                    <Card 
+                        onClick={() => handleOpenModal('caixa')}
+                        sx={{ 
+                            height: '100%', 
+                            borderLeft: '4px solid #10B981', 
+                            borderTop: '3px solid #10B981',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            '&:hover': { transform: 'translateY(-4px)', boxShadow: 4 }
+                        }}
+                    >
+                        <CardContent>
+                            <Box display="flex" alignItems="center" gap={1} mb={2}>
+                                <Wallet color="success" />
+                                <Typography variant="h6" fontWeight="bold" color="success.main">
+                                    CAIXA
+                                </Typography>
+                            </Box>
+                            <Typography variant="h4" fontWeight="bold" color="success.main">
+                                {formatCurrency(metrics.caixa)}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                Dinheiro recebido
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" display="block" mt={1}>
+                                Data: pagamentos em {periodoLabel}
+                            </Typography>
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                {/* A RECEBER */}
+                <Grid item xs={12} sm={6} lg={3}>
+                    <Tooltip 
+                        title={
+                            <Box>
+                                <Typography variant="body2" fontWeight="bold">Composição do A Receber</Typography>
+                                <Typography variant="caption">
+                                    • Convênios: {formatCurrency(metrics.convenioAReceber || 0)}<br/>
+                                    • Particular Pendente: {formatCurrency((metrics.aReceber || 0) - (metrics.convenioAReceber || 0))}<br/>
+                                    <br/>
+                                    Total de clientes/devedores que ainda não pagaram.
+                                </Typography>
+                            </Box>
+                        }
+                        arrow
+                    >
+                        <Card 
+                            onClick={() => handleOpenModal('receber')}
+                            sx={{ 
+                                height: '100%', 
+                                borderLeft: '4px solid #F59E0B', 
+                                borderTop: '3px solid #F59E0B',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                '&:hover': { transform: 'translateY(-4px)', boxShadow: 4 }
+                            }}
+                        >
+                            <CardContent>
+                                <Box display="flex" alignItems="center" gap={1} mb={2}>
+                                    <AccountBalance sx={{ color: '#F59E0B' }} />
+                                    <Typography variant="h6" fontWeight="bold" color="warning.main">
+                                        A RECEBER
+                                    </Typography>
+                                </Box>
+                                <Typography variant="h4" fontWeight="bold" color="warning.main">
+                                    {formatCurrency(metrics.aReceber)}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    Convênios + Particular Pendente
+                                </Typography>
+                                
+                                {/* Composição do A Receber */}
+                                <Box mt={1.5}>
+                                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                                        <Typography variant="caption" color="text.secondary">
+                                            Convênios:
+                                        </Typography>
+                                        <Typography variant="caption" fontWeight="medium" color="warning.main">
+                                            {formatCurrency(metrics.convenioAReceber || 0)}
+                                        </Typography>
+                                    </Box>
+                                    <Box display="flex" justifyContent="space-between" alignItems="center">
+                                        <Typography variant="caption" color="text.secondary">
+                                            Particular:
+                                        </Typography>
+                                        <Typography variant="caption" fontWeight="medium" color="info.main">
+                                            {formatCurrency((metrics.aReceber || 0) - (metrics.convenioAReceber || 0))}
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    </Tooltip>
+                </Grid>
+            </Grid>
+
+            {/* Composição da Produção */}
+            <Paper sx={{ p: 3, mb: 3 }}>
+                <Typography variant="h6" fontWeight="bold" gutterBottom display="flex" alignItems="center" gap={1}>
+                    <AttachMoney />
+                    Composição da Produção ({periodoLabel})
+                </Typography>
+
+                <Grid container spacing={2} mt={1}>
+                    <Grid item xs={12} md={4}>
+                        <Box p={2} bgcolor="#E3F2FD" borderRadius={2}>
+                            <Box display="flex" alignItems="center" gap={1} mb={1}>
+                                <AttachMoney color="primary" />
+                                <Typography variant="body2" color="text.secondary">Particular Recebido</Typography>
+                            </Box>
+                            <Typography variant="h5" fontWeight="bold" color="primary.main">
+                                {formatCurrency(metrics.particular)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">No caixa</Typography>
+                        </Box>
+                    </Grid>
+
+                    <Grid item xs={12} md={4}>
+                        <Box p={2} bgcolor="#E8F5E9" borderRadius={2}>
+                            <Box display="flex" alignItems="center" gap={1} mb={1}>
+                                <LocalHospital color="success" />
+                                <Typography variant="body2" color="text.secondary">Convênio Avulso Recebido</Typography>
+                            </Box>
+                            <Typography variant="h5" fontWeight="bold" color="success.main">
+                                {formatCurrency(metrics.convenioAvulso)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">Repasse já creditado</Typography>
+                        </Box>
+                    </Grid>
+
+                    <Grid item xs={12} md={4}>
+                        <Box p={2} bgcolor="#FFF3E0" borderRadius={2}>
+                            <Box display="flex" alignItems="center" gap={1} mb={1}>
+                                <Group color="warning" />
+                                <Typography variant="body2" color="text.secondary">Convênio Pacote Produzido</Typography>
+                            </Box>
+                            <Typography variant="h5" fontWeight="bold" color="warning.main">
+                                {formatCurrency(metrics.convenioPacote)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">A receber do plano</Typography>
+                        </Box>
+                    </Grid>
+                </Grid>
+            </Paper>
+
+            {/* Fluxo de Convênios */}
+            <Paper sx={{ p: 3, mb: 3 }}>
+                <Typography variant="h6" fontWeight="bold" gutterBottom display="flex" alignItems="center" gap={1}>
+                    <LocalHospital color="primary" />
+                    Fluxo de Convênios ({periodoLabel})
+                </Typography>
+                
+                <Grid container spacing={2} mt={1}>
+                    <Grid item xs={6} md={3}>
+                        <Box textAlign="center" p={2}>
+                            <Typography variant="body2" color="text.secondary">ATENDIDO</Typography>
+                            <Typography variant="h6" fontWeight="bold" color="primary.main">
+                                {formatCurrency(metrics.convenioAtendido)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                {metrics.convenioAtendidoCount} sessões
+                            </Typography>
+                        </Box>
+                    </Grid>
+                    
+                    <Grid item xs={6} md={3}>
+                        <Box textAlign="center" p={2}>
+                            <Typography variant="body2" color="text.secondary">FATURADO</Typography>
+                            <Typography variant="h6" fontWeight="bold" sx={{ color: '#8B5CF6' }}>
+                                {formatCurrency(metrics.convenioFaturado)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                Guias enviadas
+                            </Typography>
+                        </Box>
+                    </Grid>
+                    
+                    <Grid item xs={6} md={3}>
+                        <Box textAlign="center" p={2}>
+                            <Typography variant="body2" color="text.secondary">RECEBIDO</Typography>
+                            <Typography variant="h6" fontWeight="bold" color="success.main">
+                                {formatCurrency(metrics.convenioRecebido)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                Em {periodoLabel}
+                            </Typography>
+                        </Box>
+                    </Grid>
+                    
+                    <Grid item xs={6} md={3}>
+                        <Box textAlign="center" p={2}>
+                            <Typography variant="body2" color="text.secondary">A RECEBER</Typography>
+                            <Typography variant="h6" fontWeight="bold" color="warning.main">
+                                {formatCurrency(metrics.convenioAReceber)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                Pendente
+                            </Typography>
+                        </Box>
+                    </Grid>
+                </Grid>
+
+                {/* Barra de progresso do faturamento */}
+                {metrics.convenioAtendido > 0 && (
+                    <Box mt={2}>
+                        <Box display="flex" justifyContent="space-between" mb={1}>
+                            <Typography variant="body2">
+                                Taxa de Faturamento: {metrics.convenioAtendido > 0 ? (((metrics.convenioFaturado || 0) / metrics.convenioAtendido) * 100).toFixed(1) : '0.0'}%
+                            </Typography>
+                            <Typography variant="body2">
+                                Taxa de Recebimento: {metrics.convenioFaturado > 0 ? (((metrics.convenioRecebido || 0) / metrics.convenioFaturado) * 100).toFixed(1) : '0.0'}%
+                            </Typography>
+                        </Box>
+                        <LinearProgress 
+                            variant="determinate" 
+                            value={Math.min((metrics.convenioFaturado / metrics.convenioAtendido) * 100, 100)}
+                            sx={{ height: 10, borderRadius: 5 }}
+                        />
+                    </Box>
+                )}
+            </Paper>
+
+            {/* Despesas e Resultado */}
+            <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
+                    <Paper 
+                        onClick={() => handleOpenModal('despesas')}
+                        sx={{ 
+                            p: 3, 
+                            height: '100%',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            '&:hover': { boxShadow: 4, bgcolor: '#FFEBEE' }
+                        }}
+                    >
+                        <Typography variant="h6" fontWeight="bold" gutterBottom display="flex" alignItems="center" gap={1}>
+                            <TrendingDown color="error" />
+                            Despesas ({periodoLabel})
+                        </Typography>
+                        
+                        <Typography variant="h4" fontWeight="bold" color="error.main">
+                            {formatCurrency(totalExpenses)}
+                        </Typography>
+                        
+                        <Typography variant="body2" color="text.secondary" mt={1}>
+                            {expenses.length} despesas registradas
+                        </Typography>
+
+                        {expenses.slice(0, 5).map((expense, idx) => (
+                            <Box key={idx} display="flex" justifyContent="space-between" mt={1} p={1} bgcolor="grey.50" borderRadius={1}>
+                                <Typography variant="body2">{expense.description || expense.category}</Typography>
+                                <Typography variant="body2" fontWeight="medium">
+                                    {formatCurrency(expense.amount)}
+                                </Typography>
+                            </Box>
+                        ))}
+                        
+                        {expenses.length > 5 && (
+                            <Typography variant="caption" color="text.secondary" display="block" mt={1} textAlign="center">
+                                + {expenses.length - 5} despesas...
+                            </Typography>
+                        )}
                     </Paper>
                 </Grid>
 
-                {/* ÚLTIMAS ENTRADAS */}
-                <Grid item xs={12} md={4}>
-                    <Paper sx={{ p: 3, borderRadius: 3, height: '100%', boxShadow: 2 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                            <Typography variant="h6" fontWeight="600" color="success.main">
-                                💚 Últimas Entradas
+                <Grid item xs={12} md={6}>
+                    <Paper 
+                        onClick={() => handleOpenModal('resultado')}
+                        sx={{ 
+                            p: 3, 
+                            height: '100%', 
+                            bgcolor: saldo >= 0 ? '#E8F5E9' : '#FFEBEE',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            '&:hover': { boxShadow: 4 }
+                        }}
+                    >
+                        <Typography variant="h6" fontWeight="bold" gutterBottom display="flex" alignItems="center" gap={1}>
+                            {saldo >= 0 ? <CheckCircle color="success" /> : <Warning color="error" />}
+                            Resultado do Mês
+                        </Typography>
+                        
+                        <Typography variant="h3" fontWeight="bold" color={saldo >= 0 ? "success.main" : "error.main"}>
+                            {formatCurrency(saldo)}
+                        </Typography>
+                        
+                        <Typography variant="body1" mt={2}>
+                            Caixa: {formatCurrency(metrics.caixa)}
+                        </Typography>
+                        <Typography variant="body1">
+                            Despesas: {formatCurrency(totalExpenses)}
+                        </Typography>
+                        
+                        <Divider sx={{ my: 2 }} />
+                        
+                        <Box display="flex" justifyContent="space-between" alignItems="center">
+                            <Typography variant="body2" color="text.secondary">
+                                Margem sobre Produção:
                             </Typography>
+                            <Chip 
+                                label={`${(margemLucro || 0).toFixed(1)}%`}
+                                color={margemLucro > 20 ? "success" : margemLucro > 0 ? "warning" : "error"}
+                                size="small"
+                            />
                         </Box>
-
-                        <TableContainer>
-                            <Table size="small">
-                                <TableBody>
-                                    {payments.slice(0, 5).map((p) => (
-                                        <TableRow key={p._id} hover>
-                                            <TableCell width={40} sx={{ pl: 0 }}>
-                                                <Avatar sx={{ width: 36, height: 36, bgcolor: '#10B98120' }}>
-                                                    <AttachMoney size={18} color="#10B981" />
-                                                </Avatar>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography variant="body2" fontWeight="500">
-                                                    {p.patient?.fullName || p.patientName || 'Paciente'}
-                                                </Typography>
-                                                <Typography variant="caption" color="text.secondary">
-                                                    {safeFormatDate(p.paymentDate || p.date)}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                <Typography variant="body2" fontWeight="600" color="#10B981">
-                                                    +{formatCurrencyCompact(p.sessionValue || p.amount || 0)}
-                                                </Typography>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                    {payments.length === 0 && (
-                                        <TableRow>
-                                            <TableCell colSpan={3}>
-                                                <Alert severity="info">Nenhuma entrada no período</Alert>
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    </Paper>
-                </Grid>
-
-                {/* ÚLTIMAS SAÍDAS */}
-                <Grid item xs={12} md={4}>
-                    <Paper sx={{ p: 3, borderRadius: 3, height: '100%', boxShadow: 2 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                            <Typography variant="h6" fontWeight="600" color="error.main">
-                                ❤️‍🩹 Últimas Saídas
-                            </Typography>
-                        </Box>
-
-                        <TableContainer>
-                            <Table size="small">
-                                <TableBody>
-                                    {expenses.slice(0, 5).map((e: any) => (
-                                        <TableRow key={e._id} hover>
-                                            <TableCell width={40} sx={{ pl: 0 }}>
-                                                <Avatar sx={{ width: 36, height: 36, bgcolor: '#EF444420' }}>
-                                                    <Receipt size={18} color="#EF4444" />
-                                                </Avatar>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography variant="body2" fontWeight="500">
-                                                    {e.description}
-                                                </Typography>
-                                                <Typography variant="caption" color="text.secondary">
-                                                    {getCategoryLabel(e.category)} • {safeFormatDate(e.date)}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                <Typography variant="body2" fontWeight="600" color="#EF4444">
-                                                    -{formatCurrencyCompact(e.amount)}
-                                                </Typography>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                    {expenses.length === 0 && (
-                                        <TableRow>
-                                            <TableCell colSpan={3}>
-                                                <Alert severity="info">Nenhuma despesa no período</Alert>
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
+                        
+                        <LinearProgress 
+                            variant="determinate" 
+                            value={Math.max(0, Math.min(margemLucro, 100))}
+                            color={margemLucro > 20 ? "success" : margemLucro > 0 ? "warning" : "error"}
+                            sx={{ mt: 1, height: 8, borderRadius: 4 }}
+                        />
                     </Paper>
                 </Grid>
             </Grid>
 
-            {/* BOTÃO VER MAIS DETALHES */}
-            <Box sx={{ textAlign: 'center', mt: 4 }}>
-                <Button
-                    variant="outlined"
-                    onClick={() => setShowDetails(!showDetails)}
-                    endIcon={showDetails ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                    size="large"
-                    sx={{ borderRadius: 3, px: 4 }}
-                >
-                    {showDetails ? 'Ocultar detalhes completos' : 'Ver detalhes completos'}
-                </Button>
+            {/* Alertas e Resumo */}
+            <Box mt={3}>
+                {metrics.aReceber > metrics.caixa && (
+                    <Alert severity="warning" sx={{ mb: 2 }}>
+                        <Typography variant="body1" fontWeight="bold">
+                            ⚠️ A Receber maior que Caixa
+                        </Typography>
+                        <Typography variant="body2">
+                            Você tem {formatCurrency(metrics.aReceber)} a receber contra {formatCurrency(metrics.caixa)} em caixa. 
+                            Faça acompanhamento de convênios.
+                        </Typography>
+                    </Alert>
+                )}
+
+                {metrics.convenioFaturado < metrics.convenioAtendido && (
+                    <Alert severity="info" sx={{ mb: 2 }}>
+                        <Typography variant="body1" fontWeight="bold">
+                            📋 Guias pendentes de envio
+                        </Typography>
+                        <Typography variant="body2">
+                            {formatCurrency(metrics.convenioAtendido - metrics.convenioFaturado)} em sessões atendidas mas não faturadas. 
+                            Envie as guias para não perder o prazo.
+                        </Typography>
+                    </Alert>
+                )}
+
+                {saldo < 0 && (
+                    <Alert severity="error">
+                        <Typography variant="body1" fontWeight="bold">
+                            🚨 Saldo Negativo
+                        </Typography>
+                        <Typography variant="body2">
+                            O mês fechou com prejuízo de {formatCurrency(Math.abs(saldo))}. 
+                            Revise despesas e acompanhe pagamentos pendentes.
+                        </Typography>
+                    </Alert>
+                )}
             </Box>
 
-            {/* SEÇÃO EXPANSÍVEL */}
-            {showDetails && (
-                <Paper sx={{ p: 4, mt: 3, borderRadius: 3 }}>
-                    <Typography variant="h6" fontWeight="bold" gutterBottom>
-                        Detalhamento Completo
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                        Use as sub-abas acima para ver mais detalhes
-                    </Typography>
-                </Paper>
-            )}
-
-            {/* MODAL DE DESPESA */}
-            <ExpenseModal
+            {/* Modal de Detalhes */}
+            <FinancialDetailsModal
                 open={modalOpen}
-                onClose={() => { setModalOpen(false); setEditingExpense(null); }}
-                expense={editingExpense}
-                onSaved={() => { fetchExpenses(filters); setModalOpen(false); setEditingExpense(null); }}
+                onClose={() => setModalOpen(false)}
+                type={modalType}
+                period={{ month: selectedMonth, year: selectedYear }}
             />
         </Box>
     );

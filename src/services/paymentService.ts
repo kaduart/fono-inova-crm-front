@@ -381,3 +381,11 @@ export const addBalancePaymentMulti = (patientId: string, data: {
 export const getBalanceDebtors = () => {
     return API.get('/payments/balance/debtors');
 };
+
+export const deleteBalanceTransaction = (patientId: string, transactionId: string, reason: string) => {
+    return API.delete(`/payments/balance/${patientId}/transaction/${transactionId}`, { data: { reason } });
+};
+
+export const editBalanceTransaction = (patientId: string, transactionId: string, data: { amount?: number; description?: string }) => {
+    return API.patch(`/payments/balance/${patientId}/transaction/${transactionId}`, data);
+};

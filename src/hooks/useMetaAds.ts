@@ -20,6 +20,16 @@ export interface UseMetaAdsReturn {
   loading: boolean;
   syncing: boolean;
   error: string | null;
+  hasLoaded: boolean;
+  
+  // Paginação
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
   
   // Filtros
   selectedSpecialty: string;
@@ -28,6 +38,8 @@ export interface UseMetaAdsReturn {
   setSelectedPeriod: (period: FilterPeriod) => void;
   
   // Ações
+  load: (page?: number) => Promise<void>;
+  loadMore: () => Promise<void>;
   refresh: () => Promise<void>;
   sync: () => Promise<void>;
   
@@ -54,7 +66,9 @@ const PERIODS = [
   { value: 'all', label: 'Todo período' },
 ];
 
-export function useMetaAds(): UseMetaAdsReturn {
+export function useMetaAds(options?: { lazy?: boolean }): UseMetaAdsReturn {
+  const lazy = options?.lazy ?? true; // Por padrão, lazy loading ativado
+  
   // Estados
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [metrics, setMetrics] = useState<AggregatedMetrics | null>(null);
@@ -64,14 +78,24 @@ export function useMetaAds(): UseMetaAdsReturn {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasLoaded, setHasLoaded] = useState(false); // Controle de lazy loading
   
   const [selectedSpecialty, setSelectedSpecialty] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState<FilterPeriod>('30d');
 
+  // Estados de paginação
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 1,
+    hasMore: false
+  });
+
   /**
-   * Busca dados iniciais
+   * Busca dados com paginação
    */
-  const fetchData = useCallback(async (forceRefresh = false) => {
+  const fetchData = useCallback(async (forceRefresh = false, page = 1, limit = 20) => {
     setLoading(true);
     setError(null);
     
@@ -79,15 +103,19 @@ export function useMetaAds(): UseMetaAdsReturn {
       const [campaignsData, metricsData, specialtiesData] = await Promise.all([
         metaAdsApi.getCampaigns({ 
           specialty: selectedSpecialty,
-          refresh: forceRefresh 
+          refresh: forceRefresh,
+          page,
+          limit
         }),
         metaAdsApi.getInsights(),
         metaAdsApi.getBySpecialty()
       ]);
       
-      setCampaigns(campaignsData);
+      setCampaigns(campaignsData.campaigns || campaignsData);
       setMetrics(metricsData);
       setSpecialties(specialtiesData);
+      setPagination(campaignsData.pagination || { page: 1, limit: 20, total: campaignsData.length || 0, totalPages: 1, hasMore: false });
+      setHasLoaded(true);
       
     } catch (err: any) {
       console.error('Erro ao buscar dados Meta Ads:', err);
@@ -97,6 +125,24 @@ export function useMetaAds(): UseMetaAdsReturn {
       setLoading(false);
     }
   }, [selectedSpecialty]);
+  
+  /**
+   * Carrega dados manualmente (para lazy loading)
+   */
+  const load = useCallback(async (page = 1) => {
+    if (!hasLoaded || campaigns.length === 0 || page > 1) {
+      await fetchData(false, page);
+    }
+  }, [fetchData, hasLoaded, campaigns.length]);
+
+  /**
+   * Carrega mais dados (próxima página)
+   */
+  const loadMore = useCallback(async () => {
+    if (pagination.hasMore && !loading) {
+      await fetchData(false, pagination.page + 1);
+    }
+  }, [fetchData, pagination.hasMore, pagination.page, loading]);
 
   /**
    * Sincroniza com Meta API
@@ -129,10 +175,12 @@ export function useMetaAds(): UseMetaAdsReturn {
     await fetchData(true);
   }, [fetchData]);
 
-  // Carrega dados iniciais
+  // Carrega dados iniciais apenas se não estiver em modo lazy
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (!lazy) {
+      fetchData();
+    }
+  }, [fetchData, lazy]);
 
   /**
    * Campanhas filtradas por período
@@ -169,6 +217,10 @@ export function useMetaAds(): UseMetaAdsReturn {
     loading,
     syncing,
     error,
+    hasLoaded,
+    
+    // Paginação
+    pagination,
     
     // Filtros
     selectedSpecialty,
@@ -177,6 +229,8 @@ export function useMetaAds(): UseMetaAdsReturn {
     setSelectedPeriod,
     
     // Ações
+    load,
+    loadMore,
     refresh,
     sync,
     

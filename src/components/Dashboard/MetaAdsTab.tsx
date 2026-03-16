@@ -4,7 +4,7 @@
  * Integrado ao MarketingDashboard - aba "Tráfego Pago"
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { useMetaAds, SPECIALTIES, PERIODS } from '../../hooks/useMetaAds';
 import { Campaign, SpecialtyMetrics } from '../../services/metaAdsApi';
@@ -135,18 +135,28 @@ export default function MetaAdsTab() {
     specialties,
     loading,
     syncing,
+    hasLoaded,
+    pagination,
     selectedSpecialty,
     selectedPeriod,
     setSelectedSpecialty,
     setSelectedPeriod,
+    load,
+    loadMore,
     refresh,
     sync,
     totalSpend,
     totalLeads,
     avgCPL,
-  } = useMetaAds();
+  } = useMetaAds({ lazy: true }); // Lazy loading ativado
 
   const [showDetails, setShowDetails] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused'>('all');
+
+  // Carrega dados automaticamente quando a aba é aberta (lazy)
+  useEffect(() => {
+    load();
+  }, [load]);
 
   // Formata moeda
   const formatCurrency = (value: number) => {
@@ -159,6 +169,13 @@ export default function MetaAdsTab() {
   // Formata número
   const formatNumber = (value: number) => {
     return new Intl.NumberFormat('pt-BR').format(value);
+  };
+
+  // Formata spend de forma segura
+  const getFormattedSpend = (campaign: any) => {
+    if (campaign.formattedSpend) return campaign.formattedSpend;
+    if (campaign.insights?.spend) return formatCurrency(campaign.insights.spend);
+    return 'R$ 0,00';
   };
 
   return (
@@ -242,6 +259,21 @@ export default function MetaAdsTab() {
         
         <div className="flex-1">
           <label className="block text-sm font-medium text-gray-700 mb-1">
+            Status
+          </label>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="all">Todas</option>
+            <option value="active">🟢 Ativas</option>
+            <option value="paused">⏸️ Pausadas</option>
+          </select>
+        </div>
+        
+        <div className="flex-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             Período
           </label>
           <select
@@ -300,50 +332,124 @@ export default function MetaAdsTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {campaigns.map((campaign) => (
-                  <tr key={campaign.campaignId} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-gray-900">
-                          {campaign.name}
-                        </span>
-                        <span className={`text-xs mt-1 inline-flex items-center px-2 py-0.5 rounded border w-fit ${SPECIALTY_COLORS[campaign.specialty] || SPECIALTY_COLORS.geral}`}>
-                          {campaign.specialty === 'psicologia' && 'Psicologia'}
-                          {campaign.specialty === 'fono' && 'Fono'}
-                          {campaign.specialty === 'fisio' && 'Fisio'}
-                          {campaign.specialty === 'neuropsicologia' && 'Neuro'}
-                          {campaign.specialty === 'geral' && 'Geral'}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <StatusBadge status={campaign.status} />
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <span className="text-sm font-medium text-gray-900">
-                        {campaign.formattedSpend}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <span className="text-sm font-medium text-gray-900">
-                        {campaign.leadsCount}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <CPLBadge cpl={campaign.cpl} specialty={campaign.specialty} />
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <button
-                        onClick={() => setShowDetails(showDetails === campaign.campaignId ? null : campaign.campaignId)}
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                      >
-                        {showDetails === campaign.campaignId ? 'Ocultar' : 'Detalhes'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {campaigns
+                  .filter(c => {
+                    if (statusFilter === 'active') return c.status === 'ACTIVE';
+                    if (statusFilter === 'paused') return c.status === 'PAUSED';
+                    return true;
+                  })
+                  .map((campaign) => (
+                    <>
+                      <tr key={campaign.campaignId} className="hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-gray-900">
+                              {campaign.name}
+                            </span>
+                            <span className={`text-xs mt-1 inline-flex items-center px-2 py-0.5 rounded border w-fit ${SPECIALTY_COLORS[campaign.specialty] || SPECIALTY_COLORS.geral}`}>
+                              {campaign.specialty === 'psicologia' && 'Psicologia'}
+                              {campaign.specialty === 'fono' && 'Fono'}
+                              {campaign.specialty === 'fisio' && 'Fisio'}
+                              {campaign.specialty === 'neuropsicologia' && 'Neuro'}
+                              {campaign.specialty === 'geral' && 'Geral'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <StatusBadge status={campaign.status} />
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-sm font-medium text-gray-900">
+                            {getFormattedSpend(campaign)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-sm font-medium text-gray-900">
+                            {campaign.leadsCount}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <CPLBadge cpl={campaign.cpl} specialty={campaign.specialty} />
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <button
+                            onClick={() => setShowDetails(showDetails === campaign.campaignId ? null : campaign.campaignId)}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          >
+                            {showDetails === campaign.campaignId ? 'Ocultar' : 'Detalhes'}
+                          </button>
+                        </td>
+                      </tr>
+                      
+                      {/* Linha de detalhes expandida */}
+                      {showDetails === campaign.campaignId && (
+                        <tr className="bg-blue-50">
+                          <td colSpan={6} className="px-6 py-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div>
+                                <h4 className="text-sm font-semibold text-gray-700 mb-2">Informações da Campanha</h4>
+                                <div className="space-y-1 text-sm">
+                                  <p><span className="text-gray-500">ID:</span> {campaign.campaignId}</p>
+                                  <p><span className="text-gray-500">Status:</span> {campaign.status === 'ACTIVE' ? '🟢 Ativa' : '⏸️ Pausada'}</p>
+                                  <p><span className="text-gray-500">Objetivo:</span> {campaign.objective || 'N/A'}</p>
+                                </div>
+                              </div>
+                              <div>
+                                <h4 className="text-sm font-semibold text-gray-700 mb-2">Métricas</h4>
+                                <div className="space-y-1 text-sm">
+                                  <p><span className="text-gray-500">Impressões:</span> {campaign.insights?.impressions ? formatNumber(campaign.insights.impressions) : '-'}</p>
+                                  <p><span className="text-gray-500">Cliques:</span> {campaign.insights?.clicks ? formatNumber(campaign.insights.clicks) : '-'}</p>
+                                  <p><span className="text-gray-500">CTR:</span> {campaign.insights?.ctr ? `${campaign.insights.ctr.toFixed(2)}%` : '-'}</p>
+                                </div>
+                              </div>
+                              <div>
+                                <h4 className="text-sm font-semibold text-gray-700 mb-2">Conversões</h4>
+                                <div className="space-y-1 text-sm">
+                                  <p><span className="text-gray-500">Leads:</span> {campaign.leadsCount || 0}</p>
+                                  <p><span className="text-gray-500">Pacientes:</span> {campaign.patientsCount || 0}</p>
+                                  <p><span className="text-gray-500">CPA:</span> {campaign.patientsCount && campaign.insights?.spend ? formatCurrency(campaign.insights.spend / campaign.patientsCount) : '-'}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  ))}
               </tbody>
             </table>
+            
+            {/* Paginação */}
+            {pagination.hasMore && (
+              <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-center">
+                <button
+                  onClick={loadMore}
+                  disabled={loading}
+                  className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors flex items-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+                      Carregando...
+                    </>
+                  ) : (
+                    <>
+                      <span>+</span>
+                      Carregar mais campanhas 
+                      <span className="text-gray-500">
+                        ({campaigns.length} de {pagination.total})
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+            
+            {!pagination.hasMore && campaigns.length > 0 && (
+              <div className="px-6 py-3 border-t border-gray-200 bg-gray-50 text-center text-sm text-gray-500">
+                Mostrando {campaigns.length} de {pagination.total} campanhas
+              </div>
+            )}
           </div>
         )}
       </div>

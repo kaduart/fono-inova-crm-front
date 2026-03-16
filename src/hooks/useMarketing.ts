@@ -97,6 +97,13 @@ interface ChannelData {
   stats: Stats | null;
   loading: boolean;
   error: string | null;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
 }
 
 interface VideoData {
@@ -136,7 +143,7 @@ interface SpyData {
   error: string | null;
 }
 
-export type ImageProvider = 'auto' | 'freepik' | 'fal' | 'together' | 'replicate' | 'pollinations' | 'gemini-nano';
+export type ImageProvider = 'auto' | 'google' | 'veo' | 'freepik' | 'fal' | 'together' | 'replicate' | 'pollinations' | 'gemini-nano';
 
 export interface UseMarketingReturn {
   gmb: ChannelData & {
@@ -145,6 +152,7 @@ export interface UseMarketingReturn {
     delete: (postId: string) => Promise<void>;
     update: (postId: string, data: Partial<Post>) => Promise<void>;
     generateImage: (postId: string, content: string) => Promise<string | null>;
+    loadMore: () => Promise<void>;
   };
   instagram: ChannelData & {
     approve: (postId: string) => Promise<void>;
@@ -153,6 +161,7 @@ export interface UseMarketingReturn {
     generate: (especialidadeId?: string, customTheme?: string, funnelStage?: FunnelStage, provider?: ImageProvider, mode?: 'full' | 'caption' | 'hooks') => Promise<void>;
     delete: (postId: string) => Promise<void>;
     update: (postId: string, data: Partial<Post>) => Promise<void>;
+    loadMore: () => Promise<void>;
   };
   facebook: ChannelData & {
     approve: (postId: string) => Promise<void>;
@@ -161,10 +170,12 @@ export interface UseMarketingReturn {
     generate: (especialidadeId?: string, customTheme?: string, funnelStage?: FunnelStage, provider?: ImageProvider, mode?: 'full' | 'caption' | 'hooks') => Promise<void>;
     delete: (postId: string) => Promise<void>;
     update: (postId: string, data: Partial<Post>) => Promise<void>;
+    loadMore: () => Promise<void>;
   };
   videos: VideoData & {
     generate: (data: { especialidadeId: string; roteiro: string; duration: number; modo?: 'avatar' | 'ilustrativo' | 'veo'; tone?: 'emotional' | 'educativo' | 'inspiracional' | 'bastidores' }) => Promise<void>;
     publish: (videoId: string, channels: Channel[]) => Promise<void>;
+    publishMeta: (videoId: string, data: { nomeCampanha?: string; copy?: any; targeting?: any }) => Promise<any>;
     delete: (videoId: string) => Promise<void>;
     editar: (videoId: string, options: EditOptions) => Promise<void>;
   };
@@ -185,21 +196,24 @@ export function useMarketing(): UseMarketingReturn {
     posts: [],
     stats: null,
     loading: true,
-    error: null
+    error: null,
+    pagination: { page: 1, limit: 20, total: 0, totalPages: 1, hasMore: false }
   });
   
   const [instagramData, setInstagramData] = useState<ChannelData>({
     posts: [],
     stats: null,
     loading: true,
-    error: null
+    error: null,
+    pagination: { page: 1, limit: 20, total: 0, totalPages: 1, hasMore: false }
   });
   
   const [facebookData, setFacebookData] = useState<ChannelData>({
     posts: [],
     stats: null,
     loading: true,
-    error: null
+    error: null,
+    pagination: { page: 1, limit: 20, total: 0, totalPages: 1, hasMore: false }
   });
   
   const [videosData, setVideosData] = useState<VideoData>({
@@ -217,44 +231,56 @@ export function useMarketing(): UseMarketingReturn {
 
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Fetch GMB data
-  const fetchGmbData = useCallback(async () => {
+  // Fetch GMB data com paginação
+  const fetchGmbData = useCallback(async (page = 1, limit = 20, append = false) => {
     try {
       setGmbData(prev => ({ ...prev, loading: true, error: null }));
       const [postsRes, statsRes] = await Promise.all([
-        API.get('/gmb/posts'),
+        API.get(`/gmb/posts?page=${page}&limit=${limit}`),
         API.get('/gmb/posts/stats')
       ]);
       
-      setGmbData({
-        posts: postsRes.data.data || [],
+      const newPosts = postsRes.data.data || [];
+      const pagination = postsRes.data.pagination || { page, limit, total: newPosts.length, totalPages: 1, hasMore: false };
+      
+      setGmbData(prev => ({
+        posts: append ? [...prev.posts, ...newPosts] : newPosts,
         stats: statsRes.data.data || null,
         loading: false,
-        error: null
-      });
+        error: null,
+        pagination
+      }));
+      
+      return pagination;
     } catch (err: any) {
       setGmbData(prev => ({
         ...prev,
         loading: false,
         error: err.response?.data?.error || 'Erro ao carregar GMB'
       }));
+      return null;
     }
   }, []);
 
-  // Fetch Instagram data
-  const fetchInstagramData = useCallback(async (isPolling = false) => {
+  // Fetch Instagram data com paginação
+  const fetchInstagramData = useCallback(async (page = 1, limit = 20, append = false) => {
     try {
-      if (!isPolling) setInstagramData(prev => ({ ...prev, loading: true, error: null }));
+      setInstagramData(prev => ({ ...prev, loading: true, error: null }));
       const [postsRes, statsRes] = await Promise.all([
-        API.get('/instagram/posts'),
+        API.get(`/instagram/posts?page=${page}&limit=${limit}`),
         API.get('/instagram/posts/stats')
       ]);
-      setInstagramData({
-        posts: postsRes.data.data || [],
+      
+      const newPosts = postsRes.data.data || [];
+      const pagination = postsRes.data.pagination || { page, limit, total: newPosts.length, totalPages: 1, hasMore: false };
+      
+      setInstagramData(prev => ({
+        posts: append ? [...prev.posts, ...newPosts] : newPosts,
         stats: statsRes.data.data || null,
         loading: false,
-        error: null
-      });
+        error: null,
+        pagination
+      }));
     } catch (err: any) {
       setInstagramData(prev => ({
         ...prev,
@@ -264,20 +290,25 @@ export function useMarketing(): UseMarketingReturn {
     }
   }, []);
 
-  // Fetch Facebook data
-  const fetchFacebookData = useCallback(async (isPolling = false) => {
+  // Fetch Facebook data com paginação
+  const fetchFacebookData = useCallback(async (page = 1, limit = 20, append = false) => {
     try {
-      if (!isPolling) setFacebookData(prev => ({ ...prev, loading: true, error: null }));
+      setFacebookData(prev => ({ ...prev, loading: true, error: null }));
       const [postsRes, statsRes] = await Promise.all([
-        API.get('/facebook/posts'),
+        API.get(`/facebook/posts?page=${page}&limit=${limit}`),
         API.get('/facebook/posts/stats')
       ]);
-      setFacebookData({
-        posts: postsRes.data.data || [],
+      
+      const newPosts = postsRes.data.data || [];
+      const pagination = postsRes.data.pagination || { page, limit, total: newPosts.length, totalPages: 1, hasMore: false };
+      
+      setFacebookData(prev => ({
+        posts: append ? [...prev.posts, ...newPosts] : newPosts,
         stats: statsRes.data.data || null,
         loading: false,
-        error: null
-      });
+        error: null,
+        pagination
+      }));
     } catch (err: any) {
       setFacebookData(prev => ({
         ...prev,
@@ -338,12 +369,12 @@ export function useMarketing(): UseMarketingReturn {
   // Único interval estável — não recria ao mudar state, apenas checa os refs
   useEffect(() => {
     const interval = setInterval(() => {
-      if (processingRef.current.videos) fetchVideosData(true);
-      if (processingRef.current.instagram) fetchInstagramData(true);
-      if (processingRef.current.facebook) fetchFacebookData(true);
+      if (processingRef.current.videos) fetchVideosData();
+      if (processingRef.current.instagram) fetchInstagramData(1, 20, false);
+      if (processingRef.current.facebook) fetchFacebookData(1, 20, false);
     }, 8000);
     return () => clearInterval(interval);
-  }, [fetchVideosData, fetchInstagramData, fetchFacebookData]); // estáveis (useCallback sem deps)
+  }, [fetchVideosData, fetchInstagramData, fetchFacebookData]);
 
   // GMB Actions
   const gmbPublish = async (postId: string) => {
@@ -460,6 +491,12 @@ export function useMarketing(): UseMarketingReturn {
     await fetchVideosData();
   };
 
+  const videoPublishMeta = async (videoId: string, data: { nomeCampanha?: string; copy?: any; targeting?: any }) => {
+    const res = await API.post(`/videos/${videoId}/publish-meta`, data);
+    await fetchVideosData();
+    return res.data;
+  };
+
   const videoDelete = async (videoId: string) => {
     await API.delete(`/videos/${videoId}`);
     await fetchVideosData();
@@ -514,6 +551,25 @@ export function useMarketing(): UseMarketingReturn {
   // Refresh all
   const refresh = () => setRefreshKey(k => k + 1);
 
+  // Funções loadMore
+  const gmbLoadMore = useCallback(async () => {
+    if (gmbData.pagination.hasMore && !gmbData.loading) {
+      await fetchGmbData(gmbData.pagination.page + 1, gmbData.pagination.limit, true);
+    }
+  }, [fetchGmbData, gmbData.pagination.hasMore, gmbData.pagination.page, gmbData.loading]);
+
+  const instagramLoadMore = useCallback(async () => {
+    if (instagramData.pagination.hasMore && !instagramData.loading) {
+      await fetchInstagramData(instagramData.pagination.page + 1, instagramData.pagination.limit, true);
+    }
+  }, [fetchInstagramData, instagramData.pagination.hasMore, instagramData.pagination.page, instagramData.loading]);
+
+  const facebookLoadMore = useCallback(async () => {
+    if (facebookData.pagination.hasMore && !facebookData.loading) {
+      await fetchFacebookData(facebookData.pagination.page + 1, facebookData.pagination.limit, true);
+    }
+  }, [fetchFacebookData, facebookData.pagination.hasMore, facebookData.pagination.page, facebookData.loading]);
+
   return {
     gmb: {
       ...gmbData,
@@ -521,7 +577,8 @@ export function useMarketing(): UseMarketingReturn {
       generate: gmbGenerate,
       delete: gmbDelete,
       update: gmbUpdate,
-      generateImage: gmbGenerateImage
+      generateImage: gmbGenerateImage,
+      loadMore: gmbLoadMore
     },
     instagram: {
       ...instagramData,
@@ -530,7 +587,8 @@ export function useMarketing(): UseMarketingReturn {
       uploadMedia: instagramUploadMedia,
       generate: instagramGenerate,
       delete: instagramDelete,
-      update: instagramUpdate
+      update: instagramUpdate,
+      loadMore: instagramLoadMore
     },
     facebook: {
       ...facebookData,
@@ -539,12 +597,14 @@ export function useMarketing(): UseMarketingReturn {
       uploadMedia: facebookUploadMedia,
       generate: facebookGenerate,
       delete: facebookDelete,
-      update: facebookUpdate
+      update: facebookUpdate,
+      loadMore: facebookLoadMore
     },
     videos: {
       ...videosData,
       generate: videoGenerate,
       publish: videoPublish,
+      publishMeta: videoPublishMeta,
       delete: videoDelete,
       editar: videoEditar
     },

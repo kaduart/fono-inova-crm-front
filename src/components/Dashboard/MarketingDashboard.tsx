@@ -103,6 +103,9 @@ const getProximosDias = () => {
 };
 
 import MetaAdsTab from './MetaAdsTab';
+import LandingPagesTab from './LandingPagesTab';
+import LandingPageSuggestion from './LandingPageSuggestion';
+import { FileText } from 'lucide-react';
 
 const TAB_CONFIG = {
   gmb: {
@@ -122,6 +125,12 @@ const TAB_CONFIG = {
     icon: Facebook,
     color: 'indigo',
     shortLabel: 'FB'
+  },
+  landingpages: {
+    label: 'Landing Pages',
+    icon: FileText,
+    color: 'cyan',
+    shortLabel: 'LPs'
   },
   metaads: {
     label: 'Tráfego Pago',
@@ -144,12 +153,12 @@ const TAB_CONFIG = {
 };
 
 export default function MarketingDashboard() {
-  const [activeTab, setActiveTab] = useState<'gmb' | 'instagram' | 'facebook' | 'metaads' | 'videos' | 'spy'>('gmb');
+  const [activeTab, setActiveTab] = useState<'gmb' | 'instagram' | 'facebook' | 'landingpages' | 'metaads' | 'videos' | 'spy'>('gmb');
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'published'>('all');
   const [funnelFilter, setFunnelFilter] = useState<'all' | 'top' | 'middle' | 'bottom'>('all');
   const [selectedEspecialidade, setSelectedEspecialidade] = useState('');
   const [selectedFunnelStage, setSelectedFunnelStage] = useState<FunnelStage>('top');
-  const [selectedProvider, setSelectedProvider] = useState<'auto' | 'fal' | 'together' | 'replicate' | 'pollinations'>('auto');
+  const [selectedProvider, setSelectedProvider] = useState<'auto' | 'google' | 'veo' | 'fal' | 'freepik' | 'together' | 'replicate' | 'pollinations'>('auto');
   const [selectedTone, setSelectedTone] = useState<'emotional' | 'educativo' | 'inspiracional' | 'bastidores'>('emotional');
   const [customTheme, setCustomTheme] = useState('');
 
@@ -261,6 +270,7 @@ export default function MarketingDashboard() {
     : activeTab === 'instagram' ? instagram
       : activeTab === 'facebook' ? facebook
         : activeTab === 'metaads' ? null  // MetaAds usa seu próprio hook
+        : activeTab === 'landingpages' ? null  // LandingPages usa seu próprio hook
         : null;
 
   const posts = currentData?.posts || [];
@@ -835,10 +845,10 @@ export default function MarketingDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
         {/* Stats Cards - apenas para abas de posts */}
-        {activeTab !== 'videos' && activeTab !== 'spy' && <StatsCards />}
+        {activeTab !== 'videos' && activeTab !== 'spy' && activeTab !== 'landingpages' && <StatsCards />}
 
         {/* Área de Geração - Posts */}
-        {activeTab !== 'videos' && activeTab !== 'spy' && (
+        {activeTab !== 'videos' && activeTab !== 'spy' && activeTab !== 'landingpages' && (
           <div className="bg-white rounded-xl border border-gray-200 p-5 mb-5 shadow-sm">
             {/* Cabeçalho com ícone e título */}
             <div className="flex items-center gap-2 mb-3">
@@ -987,7 +997,9 @@ export default function MarketingDashboard() {
                 title="IA para gerar imagem"
               >
                 <option value="auto">🤖 Auto (melhor)</option>
-                <option value="freepik">🎨 Freepik AI (Recomendado)</option>
+                <option value="google">🎬 Google Imagen 3 (Veo) 🥇</option>
+                <option value="veo">🎥 Veo 2 (Google)</option>
+                <option value="freepik">🎨 Freepik AI</option>
                 <option value="fal">⚡ fal.ai FLUX</option>
                 <option value="together">🔗 Together.ai</option>
                 <option value="replicate">💾 Replicate</option>
@@ -1148,11 +1160,23 @@ export default function MarketingDashboard() {
                 </button>
               )}
             </div>
+
+            {/* 🔗 Sugestão de Landing Page - Apenas GMB */}
+            {activeTab === 'gmb' && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <LandingPageSuggestion 
+                  especialidadeId={selectedEspecialidade || automaticConfig.especialidade}
+                />
+              </div>
+            )}
           </div>
         )}
 
         {/* 💰 META ADS - Tráfego Pago */}
         {activeTab === 'metaads' && <MetaAdsTab />}
+
+        {/* 🎯 LANDING PAGES */}
+        {activeTab === 'landingpages' && <LandingPagesTab />}
 
         {/* Área de Geração - Vídeos */}
         {activeTab === 'videos' && (
@@ -1249,7 +1273,7 @@ export default function MarketingDashboard() {
         )}
 
         {/* Filtros */}
-        {activeTab !== 'videos' && activeTab !== 'spy' && (
+        {activeTab !== 'videos' && activeTab !== 'spy' && activeTab !== 'landingpages' && (
           <div className="flex flex-wrap gap-3 mb-6">
             <select
               value={statusFilter}
@@ -1291,6 +1315,7 @@ export default function MarketingDashboard() {
                   key={video._id}
                   video={video}
                   onPublish={(id, channels) => videos.publish(id, channels)}
+                  onPublishMeta={videos.publishMeta}
                   onDelete={(id) => videos.delete(id)}
                   onEditar={(v) => setVideoEditModal({ open: true, video: v })}
                 />
@@ -1300,7 +1325,7 @@ export default function MarketingDashboard() {
         )}
 
         {/* Lista de Posts */}
-        {activeTab !== 'videos' && activeTab !== 'spy' && (
+        {activeTab !== 'videos' && activeTab !== 'spy' && activeTab !== 'landingpages' && (
           <div className="space-y-4">
             {currentData?.loading ? (
               <div className="flex justify-center py-12">
@@ -1512,6 +1537,42 @@ export default function MarketingDashboard() {
                   </div>
                 </div>
               ))
+            )}
+            
+            {/* Paginação - Botão Carregar Mais */}
+            {activeTab !== 'videos' && activeTab !== 'spy' && currentData?.pagination?.hasMore && (
+              <div className="flex justify-center py-6">
+                <button
+                  onClick={() => {
+                    if (activeTab === 'gmb') gmb.loadMore();
+                    else if (activeTab === 'instagram') instagram.loadMore();
+                    else if (activeTab === 'facebook') facebook.loadMore();
+                  }}
+                  disabled={currentData?.loading}
+                  className="px-6 py-3 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-all flex items-center gap-2 shadow-sm"
+                >
+                  {currentData?.loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+                      Carregando...
+                    </>
+                  ) : (
+                    <>
+                      <span>+</span>
+                      Carregar mais posts
+                      <span className="text-gray-500">
+                        ({currentData?.posts?.length} de {currentData?.pagination?.total})
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+            
+            {activeTab !== 'videos' && activeTab !== 'spy' && !currentData?.pagination?.hasMore && currentData?.posts?.length > 0 && (
+              <div className="text-center py-4 text-sm text-gray-500">
+                Mostrando {currentData?.posts?.length} posts
+              </div>
             )}
           </div>
         )}

@@ -9,7 +9,8 @@
  */
 
 import { Activity, ChevronDown, ChevronUp, Clock, Stethoscope, UserPlus, Users, RefreshCw } from 'lucide-react';
-import React, { memo, useMemo, useState } from 'react';
+import React, { memo, useMemo, useState, useEffect, useCallback, useRef } from 'react';
+import API from '../../services/api';
 import {
     DashboardStats,
     DoctorOverview,
@@ -31,16 +32,6 @@ interface DashboardContentOptimizedProps {
     patients: any[];
     loading: boolean;
     onRefresh: () => Promise<void>;
-
-    // 🎉 NOVOS: Aniversariantes e faturamento do dia
-    aniversariantes?: Array<{
-        _id: string;
-        fullName: string;
-        dateOfBirth: string;
-        phone?: string;
-        daysUntil: number;
-    }>;
-    todayRevenue?: number;
 
     // Handlers
     handleAddProfessional: () => void;
@@ -169,8 +160,6 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     patients,
     loading,
     onRefresh,
-    aniversariantes = [],
-    todayRevenue = 0,
     handleAddProfessional,
     handleAddPatient,
     setPatientToEdit,
@@ -187,6 +176,31 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     const [metricsSectionOpen, setMetricsSectionOpen] = useState(true);
     const [overviewSectionOpen, setOverviewSectionOpen] = useState(true);
     const [showAllDoctors, setShowAllDoctors] = useState(false);
+
+    // Aniversariantes — carregados só ao abrir o accordion
+    const [aniversariantes, setAniversariantes] = useState<Array<{
+        _id: string; fullName: string; dateOfBirth: string; phone?: string; daysUntil: number;
+    }>>([]);
+    const [aniversariantesLoading, setAniversariantesLoading] = useState(false);
+    const aniversariantesFetched = useRef(false);
+
+    const fetchAniversariantes = useCallback(async () => {
+        if (aniversariantesFetched.current) return;
+        aniversariantesFetched.current = true;
+        setAniversariantesLoading(true);
+        try {
+            const res = await API.get('/patients/aniversariantes');
+            setAniversariantes(res.data?.data || []);
+        } catch {
+            setAniversariantes([]);
+        } finally {
+            setAniversariantesLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (birthdaySectionOpen) fetchAniversariantes();
+    }, [birthdaySectionOpen, fetchAniversariantes]);
 
     // Memoizar cálculos
     const occupancyRate = useMemo(() => {
@@ -274,7 +288,10 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                     : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                 }
             >
-                <BirthdayCard patients={aniversariantes} />
+                {aniversariantesLoading
+                    ? <Skeleton className="h-32 w-full" />
+                    : <BirthdayCard patients={aniversariantes} />
+                }
             </AccordionSection>
 
             {/* 🔹 SEÇÃO LISTA DE PACIENTES */}

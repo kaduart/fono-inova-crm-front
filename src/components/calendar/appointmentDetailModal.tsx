@@ -1056,8 +1056,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             <>
                                 <CheckCircle size={18} />
                                 <span>
-                                    {addToBalance 
-                                        ? `Concluir e Adicionar R$ ${debitAmount.toFixed(0)} ao Saldo` 
+                                    {addToBalance
+                                        ? `Concluir e Adicionar R$ ${debitAmount % 1 === 0 ? debitAmount.toFixed(0) : debitAmount.toFixed(2).replace('.', ',')} ao Saldo`
                                         : 'Concluir Agendamento'
                                     }
                                 </span>

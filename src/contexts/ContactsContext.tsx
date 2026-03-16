@@ -19,7 +19,7 @@ interface ContactsContextType {
     setActiveContactId: (id: string | null) => void;
 }
 
-const ContactsContext = createContext<ContactsContextType | null>(null);
+export const ContactsContext = createContext<ContactsContextType | null>(null);
 
 const LIMIT = 50;
 

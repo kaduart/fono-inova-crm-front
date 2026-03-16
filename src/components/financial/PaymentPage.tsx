@@ -43,7 +43,9 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
     const [financialControlOpen, setFinancialControlOpen] = useState<boolean>(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
-    const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month' | 'year' | 'all'>('month');
+    const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month' | 'year' | 'all' | 'last_week' | 'last_month' | 'custom'>('month');
+    const [customStartDate, setCustomStartDate] = useState<string>('');
+    const [customEndDate, setCustomEndDate] = useState<string>('');
 
     const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -307,6 +309,61 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                             <div className="mb-6">
                                 <div className="flex items-center gap-3 mb-4">
                                     <label className="text-sm font-medium text-gray-700">Período:</label>
+                                    
+                                    {/* 🔹 CHIPS DE FILTRO RÁPIDO */}
+                                    <div className="flex flex-wrap gap-2">
+                                        {[
+                                            { key: 'day', label: 'Hoje', color: 'bg-blue-100 text-blue-800 hover:bg-blue-200' },
+                                            { key: 'week', label: 'Esta Semana', color: 'bg-green-100 text-green-800 hover:bg-green-200' },
+                                            { key: 'month', label: 'Este Mês', color: 'bg-purple-100 text-purple-800 hover:bg-purple-200' },
+                                            { key: 'last_week', label: 'Semana Passada', color: 'bg-orange-100 text-orange-800 hover:bg-orange-200' },
+                                            { key: 'last_month', label: 'Mês Passado', color: 'bg-pink-100 text-pink-800 hover:bg-pink-200' },
+                                        ].map((chip) => (
+                                            <button
+                                                key={chip.key}
+                                                onClick={() => {
+                                                    setSelectedPeriod(chip.key as any);
+                                                    // Trigger the same logic as select onChange
+                                                    if (chip.key === 'last_week') {
+                                                        const now = new Date();
+                                                        const dayOfWeek = now.getDay();
+                                                        const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                                                        const lastMonday = new Date(now);
+                                                        lastMonday.setDate(now.getDate() - diffToMonday - 7);
+                                                        lastMonday.setHours(0, 0, 0, 0);
+                                                        const lastSunday = new Date(lastMonday);
+                                                        lastSunday.setDate(lastMonday.getDate() + 6);
+                                                        lastSunday.setHours(23, 59, 59, 999);
+                                                        fetchPaymentTotals({
+                                                            period: 'custom',
+                                                            startDate: lastMonday.toISOString(),
+                                                            endDate: lastSunday.toISOString()
+                                                        });
+                                                    } else if (chip.key === 'last_month') {
+                                                        const now = new Date();
+                                                        const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                                                        const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+                                                        lastDayLastMonth.setHours(23, 59, 59, 999);
+                                                        fetchPaymentTotals({
+                                                            period: 'custom',
+                                                            startDate: firstDayLastMonth.toISOString(),
+                                                            endDate: lastDayLastMonth.toISOString()
+                                                        });
+                                                    } else {
+                                                        fetchPaymentTotals({ period: chip.key as any });
+                                                    }
+                                                }}
+                                                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                                                    selectedPeriod === chip.key 
+                                                        ? 'ring-2 ring-offset-1 ring-green-500 ' + chip.color 
+                                                        : chip.color
+                                                }`}
+                                            >
+                                                {chip.label}
+                                            </button>
+                                        ))}
+                                    </div>
+
                                     <select
                                         className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                         value={selectedPeriod}
@@ -325,6 +382,38 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                                     startDate,
                                                     endDate
                                                 });
+                                            } else if (value === 'last_week') {
+                                                // 🔹 Semana Passada
+                                                const now = new Date();
+                                                const dayOfWeek = now.getDay();
+                                                const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                                                const lastMonday = new Date(now);
+                                                lastMonday.setDate(now.getDate() - diffToMonday - 7);
+                                                lastMonday.setHours(0, 0, 0, 0);
+                                                const lastSunday = new Date(lastMonday);
+                                                lastSunday.setDate(lastMonday.getDate() + 6);
+                                                lastSunday.setHours(23, 59, 59, 999);
+                                                
+                                                fetchPaymentTotals({
+                                                    period: 'custom',
+                                                    startDate: lastMonday.toISOString(),
+                                                    endDate: lastSunday.toISOString()
+                                                });
+                                            } else if (value === 'last_month') {
+                                                // 🔹 Mês Passado
+                                                const now = new Date();
+                                                const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                                                const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+                                                lastDayLastMonth.setHours(23, 59, 59, 999);
+                                                
+                                                fetchPaymentTotals({
+                                                    period: 'custom',
+                                                    startDate: firstDayLastMonth.toISOString(),
+                                                    endDate: lastDayLastMonth.toISOString()
+                                                });
+                                            } else if (value === 'custom') {
+                                                // 🔹 Período Customizado - não faz nada até preencher datas
+                                                return;
                                             } else {
                                                 // 🔹 Filtros padrão (day, week, month, year, all)
                                                 fetchPaymentTotals({ period: value as 'day' | 'week' | 'month' | 'year' | 'all' });
@@ -335,8 +424,11 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                             <option value="day">Hoje</option>
                                             <option value="week">Esta Semana</option>
                                             <option value="month">Este Mês</option>
+                                            <option value="last_week">📅 Semana Passada</option>
+                                            <option value="last_month">📅 Mês Passado</option>
                                             <option value="year">Este Ano</option>
                                             <option value="all">Todo Período</option>
+                                            <option value="custom">📆 Período Customizado</option>
                                         </optgroup>
                                         <optgroup label="Últimos 12 Meses">
                                             {(() => {
@@ -365,6 +457,48 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                             })()}
                                         </optgroup>
                                     </select>
+
+                                    {/* 🔹 Inputs de Período Customizado */}
+                                    {selectedPeriod === 'custom' && (
+                                        <div className="flex items-center gap-2 ml-2">
+                                            <input
+                                                type="date"
+                                                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                                                value={customStartDate}
+                                                onChange={(e) => setCustomStartDate(e.target.value)}
+                                                placeholder="Data Inicial"
+                                            />
+                                            <span className="text-gray-500">até</span>
+                                            <input
+                                                type="date"
+                                                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                                                value={customEndDate}
+                                                onChange={(e) => setCustomEndDate(e.target.value)}
+                                                placeholder="Data Final"
+                                            />
+                                            <button
+                                                onClick={() => {
+                                                    if (customStartDate && customEndDate) {
+                                                        const start = new Date(customStartDate);
+                                                        start.setHours(0, 0, 0, 0);
+                                                        const end = new Date(customEndDate);
+                                                        end.setHours(23, 59, 59, 999);
+                                                        fetchPaymentTotals({
+                                                            period: 'custom',
+                                                            startDate: start.toISOString(),
+                                                            endDate: end.toISOString()
+                                                        });
+                                                    } else {
+                                                        toast.warning('Selecione as datas inicial e final');
+                                                    }
+                                                }}
+                                                disabled={!customStartDate || !customEndDate}
+                                                className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                                            >
+                                                Aplicar
+                                            </button>
+                                        </div>
+                                    )}
 
                                     {loading && (
                                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>

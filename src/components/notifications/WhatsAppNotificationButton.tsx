@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useContext } from 'react';
 import { MessageCircle } from 'lucide-react';
-import { useContacts } from '../../contexts/ContactsContext';
+import { ContactsContext } from '../../contexts/ContactsContext';
 import { socketManager } from '../../utils/socketManager';
 
 interface WhatsAppNotificationButtonProps {
@@ -12,8 +12,24 @@ export const WhatsAppNotificationButton: React.FC<WhatsAppNotificationButtonProp
   onClick,
   className = ""
 }) => {
-  const { contacts, refreshContacts } = useContacts();
+  // Usa useContext diretamente para ter controle sobre o erro
+  const contactsContext = useContext(ContactsContext);
   const [socketNotifications, setSocketNotifications] = useState(0);
+  
+  // Se contexto não estiver disponível, renderiza botão sem funcionalidade
+  if (!contactsContext) {
+    return (
+      <button
+        onClick={onClick}
+        className={`relative p-2 rounded-lg transition-all duration-200 hover:bg-emerald-600 text-white ${className}`}
+        title="WhatsApp"
+      >
+        <MessageCircle className="h-5 w-5" />
+      </button>
+    );
+  }
+  
+  const { contacts, refreshContacts } = contactsContext;
 
   // Calcula total de mensagens não lidas do contexto
   const contextUnreadCount = useMemo(() => {

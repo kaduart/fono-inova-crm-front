@@ -38,7 +38,7 @@ const BirthdayCard = ({ patients = [] }) => {
         return (
             <Box sx={{ textAlign: 'center', p: 4, color: 'text.secondary' }}>
                 <Cake size={48} style={{ opacity: 0.3, marginBottom: 16 }} />
-                <Typography variant="body1">Carregando aniversariantes...</Typography>
+                <Typography variant="body1">Nenhum aniversariante este mês</Typography>
             </Box>
         );
     }

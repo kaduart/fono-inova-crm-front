@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'react-toastify';
 import type { Video, Channel } from '../../hooks/useMarketing';
 import { ChannelToggle } from './ChannelToggle';
 import API from '../../services/api';
@@ -6,6 +7,7 @@ import API from '../../services/api';
 interface VideoCardProps {
   video: Video;
   onPublish: (videoId: string, channels: Channel[]) => void;
+  onPublishMeta?: (videoId: string, data: any) => Promise<any>;
   onDelete: (videoId: string) => void;
   onEditar?: (video: Video) => void;
   publishing?: boolean;
@@ -48,10 +50,13 @@ const statusConfig = {
   }
 };
 
-export function VideoCard({ video, onPublish, onDelete, onEditar, publishing }: VideoCardProps) {
+export function VideoCard({ video, onPublish, onPublishMeta, onDelete, onEditar, publishing }: VideoCardProps) {
   const [showPlayer, setShowPlayer] = useState(false);
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>([]);
   const [showPublishModal, setShowPublishModal] = useState(false);
+  const [showMetaModal, setShowMetaModal] = useState(false);
+  const [metaLoading, setMetaLoading] = useState(false);
+  const [nomeCampanha, setNomeCampanha] = useState(`[VIDEO] ${video.especialidadeId || 'Campanha'}_${Date.now()}`);
   
   const status = statusConfig[video.status];
   const isReady = video.status === 'ready';
@@ -165,12 +170,21 @@ export function VideoCard({ video, onPublish, onDelete, onEditar, publishing }: 
           </div>
         )}
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {isReady && (
             <>
-              <button onClick={() => setShowPublishModal(true)} className="flex-1 px-3 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700">
+              <button onClick={() => setShowPublishModal(true)} className="flex-1 px-3 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 min-w-[100px]">
                 Publicar
               </button>
+              {onPublishMeta && (
+                <button 
+                  onClick={() => setShowMetaModal(true)} 
+                  className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 min-w-[120px]"
+                  title="Criar campanha no Meta Ads"
+                >
+                  💰 Tráfego Pago
+                </button>
+              )}
               {onEditar && (
                 <button
                   onClick={() => onEditar(video)}
@@ -229,6 +243,86 @@ export function VideoCard({ video, onPublish, onDelete, onEditar, publishing }: 
             <div className="flex gap-3 justify-end mt-6">
               <button onClick={() => setShowPublishModal(false)} className="px-4 py-2 text-gray-700">Cancelar</button>
               <button onClick={handlePublishClick} disabled={selectedChannels.length === 0} className="px-4 py-2 bg-red-600 text-white rounded-lg">Publicar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMetaModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowMetaModal(false)}>
+          <div className="bg-white rounded-xl max-w-lg w-full p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-2">💰 Publicar no Meta Ads (Tráfego Pago)</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Isso criará uma campanha completa no Meta Ads com o vídeo, pronta para veiculação paga.
+            </p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Campanha</label>
+                <input
+                  type="text"
+                  value={nomeCampanha}
+                  onChange={(e) => setNomeCampanha(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  placeholder="[VIDEO] Fonoaudiologia_123"
+                />
+              </div>
+              
+              <div className="bg-blue-50 p-3 rounded-lg text-sm">
+                <p className="font-medium text-blue-800">📋 O que será criado:</p>
+                <ul className="mt-1 space-y-1 text-blue-700">
+                  <li>• Campanha no Meta Ads (PAUSADA)</li>
+                  <li>• Upload do vídeo</li>
+                  <li>• Conjunto de anúncios (targeting padrão)</li>
+                  <li>• Anúncio com Click-to-WhatsApp</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div className="flex gap-3 justify-end mt-6">
+              <button 
+                onClick={() => setShowMetaModal(false)} 
+                className="px-4 py-2 text-gray-700"
+                disabled={metaLoading}
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={async () => {
+                  if (!onPublishMeta) return;
+                  setMetaLoading(true);
+                  try {
+                    const result = await onPublishMeta(video._id, {
+                      nomeCampanha,
+                      copy: {
+                        texto_primario: video.roteiro?.substring(0, 500),
+                        headline: video.title || nomeCampanha,
+                        descricao: 'Clique para saber mais no WhatsApp'
+                      }
+                    });
+                    toast.success('✅ Campanha criada no Meta Ads!');
+                    setShowMetaModal(false);
+                  } catch (err: any) {
+                    toast.error(err.response?.data?.error || 'Erro ao criar campanha');
+                  } finally {
+                    setMetaLoading(false);
+                  }
+                }} 
+                disabled={metaLoading || !nomeCampanha}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2"
+              >
+                {metaLoading ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Criando...
+                  </>
+                ) : (
+                  '💰 Criar Campanha'
+                )}
+              </button>
             </div>
           </div>
         </div>

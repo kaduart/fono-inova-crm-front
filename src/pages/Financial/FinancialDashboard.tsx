@@ -29,6 +29,8 @@ import PlanningTab from './tabs/PlanningTab';
 import { AnalyticsTab } from './tabs/AnalyticsTab';
 import InteligenciaFinanceiraTab from './tabs/InteligenciaFinanceiraTab';
 import VisaoGeralEstrategicaTab from './tabs/VisaoGeralEstrategicaTab';
+import ProjecaoMensalTab from './tabs/ProjecaoMensalTab';
+
 
 interface FinancialDashboardProps {
     patients: IPatient[];
@@ -87,22 +89,18 @@ const FinancialDashboard = ({
         },
         {
             label: '🧾 Despesas',
-            icon: <Receipt size={18} />,
             component: <ExpensesTab />
         },
         {
             label: '💳 Convênios',
-            icon: <Building2 size={18} />,
             component: <InsuranceTab />
         },
         {
             label: '📊 Fluxo de Caixa',
-            icon: <ArrowLeftRight size={18} />,
             component: <CashflowTab />
         },
         {
             label: '📈 Extrato',
-            icon: <TrendingUp size={18} />,
             component: <EntradasSaidasTab />
         },
     ];
@@ -138,6 +136,11 @@ const FinancialDashboard = ({
             label: '📅 Planejamento Anual',
             icon: <Calendar size={18} />,
             component: <PlanningTab />
+        },
+        {
+            label: '📈 Projeção Mensal',
+            icon: <TrendingUp size={18} />,
+            component: <ProjecaoMensalTab />
         },
     ];
 
