@@ -17,6 +17,7 @@ import usePayment from '../hooks/usePayment';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
 import { CreateDoctorParams, doctorService } from '../services/doctorService';
 import { createPayment, FinancialRecord, getPayments, updatePayment } from '../services/paymentService';
+import { usePixSocket } from '../hooks/usePixSocket';
 import AddAdminContent from './admin/AddAdminContent';
 import AdminHeader from './admin/AdminHeader';
 import DashboardContentOptimized from './admin/DashboardContentOptimized';
@@ -215,6 +216,15 @@ export default function AdminDashboard() {
             fetchAppointments(calendarDateRange);
         }
     }, [fetchAppointments, calendarDateRange.startDate, calendarDateRange.endDate]);
+
+    // 🔄 Atualizar calendário em tempo real quando agenda externa fizer alterações
+    usePixSocket({
+        onCalendarRefresh: useCallback(() => {
+            if (calendarDateRange.startDate && calendarDateRange.endDate) {
+                fetchAppointments(calendarDateRange);
+            }
+        }, [fetchAppointments, calendarDateRange]),
+    });
 
     // 🎯 Pacientes já são carregados pelo contexto global
     // Não precisa chamar refreshPatients no mount

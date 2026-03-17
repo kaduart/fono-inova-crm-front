@@ -113,6 +113,25 @@ export const usePixSocket = ({
             notifRef.current.onPreAgendamentoRefresh?.();
         };
 
+        // 📅 AGENDAMENTOS (criados/atualizados/deletados pela agenda externa ou CRM)
+        const onAppointmentCreated = (data: any) => {
+            logger.info("📅 [SOCKET] appointmentCreated", data);
+            notifRef.current.onCalendarRefresh?.();
+            notifRef.current.onPaymentRefresh?.();
+        };
+
+        const onAppointmentUpdated = (data: any) => {
+            logger.info("✏️ [SOCKET] appointmentUpdated", data);
+            notifRef.current.onCalendarRefresh?.();
+            notifRef.current.onPaymentRefresh?.();
+        };
+
+        const onAppointmentDeleted = (data: any) => {
+            logger.info("🗑️ [SOCKET] appointmentDeleted", data);
+            notifRef.current.onCalendarRefresh?.();
+            notifRef.current.onPaymentRefresh?.();
+        };
+
         // 💬 WHATSAPP — notificação para secretaria
         const onAnyMessage = (data: any) => {
             const type = (data?.type || "text").toLowerCase();
@@ -169,6 +188,9 @@ export const usePixSocket = ({
         const unsubPreUpd    = socketManager.on("preagendamento:updated", onPreAgendamentoUpdated);
         const unsubPreCan    = socketManager.on("preagendamento:canceled", onPreAgendamentoCanceled);
         const unsubPreDel    = socketManager.on("preagendamento:deleted", onPreAgendamentoDeleted);
+        const unsubAptCrt    = socketManager.on("appointmentCreated", onAppointmentCreated);
+        const unsubAptUpd    = socketManager.on("appointmentUpdated", onAppointmentUpdated);
+        const unsubAptDel    = socketManager.on("appointmentDeleted", onAppointmentDeleted);
 
         logger.info("✅ [usePixSocket] Todos os listeners registrados");
 
@@ -187,6 +209,9 @@ export const usePixSocket = ({
             unsubPreUpd();
             unsubPreCan();
             unsubPreDel();
+            unsubAptCrt();
+            unsubAptUpd();
+            unsubAptDel();
         };
     }, []);
 
