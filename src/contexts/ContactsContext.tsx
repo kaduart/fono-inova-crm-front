@@ -93,7 +93,12 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
         });
     };
 
-    const refreshContacts = useCallback(async () => {
+    // 🆕 Flags para controle de carga
+    const isInitialLoadRef = useRef(true);
+    const lastRefreshRef = useRef(0);
+    const MIN_REFRESH_INTERVAL = 5000; // Mínimo 5s entre chamadas
+
+    const refreshContacts = useCallback(async (force = false) => {
         // Verificar se tem token antes de carregar
         const token = localStorage.getItem('token');
         if (!token) {
@@ -101,18 +106,55 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        setLoading(true);
+        // 🛡️ Proteção contra chamadas muito frequentes
+        const now = Date.now();
+        if (!force && !isInitialLoadRef.current && (now - lastRefreshRef.current) < MIN_REFRESH_INTERVAL) {
+            console.log(`[ContactsContext] Chamada ignorada (muito frequente - última há ${now - lastRefreshRef.current}ms)`);
+            return;
+        }
+        lastRefreshRef.current = now;
+
+        // Só mostra loading na carga inicial ou quando forçado
+        if (isInitialLoadRef.current || force) {
+            setLoading(true);
+        }
+        
         try {
             const res = await fetchContacts({ page: 1, limit: LIMIT });
             const list = res.data;
-            setContacts(sortByLastMessage(list));
-            rebuildIndex(list);
+            
+            // 🛡️ Só atualiza se os dados realmente mudaram (compara por ID e lastMessageAt)
+            setContacts((prev) => {
+                const hasChanged = 
+                    prev.length !== list.length ||
+                    list.some((newContact: Contact, idx: number) => {
+                        const oldContact = prev[idx];
+                        return (
+                            !oldContact ||
+                            oldContact._id !== newContact._id ||
+                            oldContact.lastMessageAt !== newContact.lastMessageAt ||
+                            oldContact.unreadCount !== newContact.unreadCount
+                        );
+                    });
+                
+                if (!hasChanged && !isInitialLoadRef.current) {
+                    return prev; // Dados iguais, mantém referência anterior
+                }
+                
+                console.log('[ContactsContext] Dados mudaram, atualizando...');
+                rebuildIndex(list);
+                return sortByLastMessage(list);
+            });
+            
             setPage(1);
             setHasMore(res.pagination?.hasMore ?? list.length === LIMIT);
         } catch (err) {
             logger.error("[ContactsContext] Erro ao buscar contatos:", err);
         } finally {
-            setLoading(false);
+            if (isInitialLoadRef.current || force) {
+                setLoading(false);
+                isInitialLoadRef.current = false;
+            }
         }
     }, []);
 
@@ -185,13 +227,14 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
         window.addEventListener('authReady', handleAuthReady);
         window.addEventListener('authLogout', handleAuthLogout);
 
-        // 🔄 FALLBACK: Polling a cada 10 segundos apenas se tiver token
+        // 🔄 FALLBACK: Polling a cada 30 segundos (aumentado de 10s)
+        // Socket já atualiza em tempo real, polling é só fallback
         const pollInterval = setInterval(() => {
             if (document.visibilityState === 'visible' && localStorage.getItem('token')) {
-                console.log('[ContactsContext] Polling: atualizando contatos...');
-                refreshContacts();
+                console.log('[ContactsContext] Polling 30s: verificando atualizações...', new Date().toISOString());
+                refreshContacts(false); // false = não força loading
             }
-        }, 10000);
+        }, 30000);
 
         return () => {
             window.removeEventListener('authReady', handleAuthReady);

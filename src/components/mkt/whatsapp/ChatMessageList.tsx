@@ -16,6 +16,7 @@ interface ChatMessageListProps {
     onRetry: (messageId: string, text: string) => void;
     messagesEndRef?: React.RefObject<HTMLDivElement>;
     messagesContainerRef?: React.RefObject<HTMLDivElement>;
+    isInitialLoad?: boolean; // 🆕 Diferencia primeira carga de recargas
 }
 
 export const ChatMessageList: React.FC<ChatMessageListProps> = ({
@@ -29,13 +30,16 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
     onRetry,
     messagesEndRef: externalEndRef,
     messagesContainerRef: externalContainerRef,
+    isInitialLoad = false,
 }) => {
     const internalEndRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = externalEndRef || internalEndRef;
     const internalContainerRef = useRef<HTMLDivElement>(null);
     const containerRef = externalContainerRef || internalContainerRef;
 
-    if (loading) {
+    // 🛡️ Só mostra loading spinner na CARGA INICIAL
+    // Recargas (ex: após reconexão do socket) atualizam em background sem piscar
+    if (loading && isInitialLoad) {
         return (
             <div className="flex-1 flex items-center justify-center bg-gray-50">
                 <div className="text-center">

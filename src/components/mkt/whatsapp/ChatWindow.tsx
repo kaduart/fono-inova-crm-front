@@ -56,6 +56,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
     const [socketConnected, setSocketConnected] = useState(true);
     const [preAgendamentos, setPreAgendamentos] = useState<PreAgendamentoChat[]>([]);
     const [loadingPreAgendamentos, setLoadingPreAgendamentos] = useState(false);
+    const [isInitialLoad, setIsInitialLoad] = useState(true); // 🆕 Controla se é primeira carga
     
     const { updateContact } = useContacts();
     const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -92,20 +93,50 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
         };
     }, []);
 
-    // ✅ Recarregar mensagens imediatamente quando socket reconecta (busca gap)
+    // ✅ Recarregar mensagens quando socket reconecta (busca gap)
+    // 🛡️ DEBOUNCE: Evita reloads constantes se o socket estiver instável
     useEffect(() => {
         if (!contact?.phone) return;
+        
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+        let lastReload = 0;
+        const MIN_RELOAD_INTERVAL = 30000; // Máximo 1 reload a cada 30 segundos
+        
         const unsub = socketManager.onReconnect(() => {
-            logger.info("[ChatWindow] Socket reconectado — recarregando mensagens para buscar gap");
-            loadMessages(contact.phone);
+            const now = Date.now();
+            const timeSinceLastReload = now - lastReload;
+            
+            // Se já recarregou recentemente, ignora
+            if (timeSinceLastReload < MIN_RELOAD_INTERVAL) {
+                logger.info(`[ChatWindow] Socket reconectado, mas ignorado (último reload há ${Math.round(timeSinceLastReload/1000)}s)`);
+                return;
+            }
+            
+            // Limpa timer anterior se existir
+            if (debounceTimer) clearTimeout(debounceTimer);
+            
+            // Agenda reload com debounce de 2s (evita múltiplas reconexões seguidas)
+            debounceTimer = setTimeout(() => {
+                logger.info("[ChatWindow] Socket reconectado — recarregando mensagens para buscar gap");
+                lastReload = Date.now();
+                // 🔄 Recarrega SEM mostrar loading spinner (isInitialLoad = false)
+                loadMessages(contact.phone);
+            }, 2000);
         });
-        return unsub;
+        
+        return () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            unsub();
+        };
     }, [contact?.phone, loadMessages]);
 
     // Carregar mensagens quando muda de contato
     useEffect(() => {
         if (contact?.phone) {
-            loadMessages(contact.phone);
+            setIsInitialLoad(true); // Marca como carga inicial
+            loadMessages(contact.phone).then(() => {
+                setIsInitialLoad(false); // Após carregar, marca como não-inicial
+            });
             setDraft('');
         }
     }, [contact?.phone, loadMessages]);
@@ -446,6 +477,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                 onRetry={handleRetry}
                 messagesEndRef={messagesEndRef}
                 messagesContainerRef={messagesContainerRef}
+                isInitialLoad={isInitialLoad}
             />
 
             {/* Input Area */}

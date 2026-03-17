@@ -26,7 +26,7 @@ interface ManageDoctorsProps {
     patients: IPatient[],
     loading: boolean,
     appointments: IAppointment,
-    onSubmitDoctor: () => Promise<void>;
+    onSubmitDoctor: (doctor?: IDoctor) => Promise<void>;
     modalShouldClose: boolean;
     closeModalSignal: number;
     setOpenModal: () => Promise<void>;
@@ -297,7 +297,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
                     loading={isLoadingDoctors || propLoading}
                     onClose={() => setShowModal(false)}
                     onSubmitDoctor={async (doctor) => {
-                        await onSubmitDoctor();
+                        await onSubmitDoctor(doctor); // 🐛 FIX: Passando o doctor que estava faltando!
                         await refreshDoctors(); // 🎯 Atualiza lista após salvar
                     }}
                     modalShouldClose={modalShouldClose}

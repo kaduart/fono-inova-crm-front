@@ -79,17 +79,35 @@ const AppChat: React.FC = () => {
     }, [pendingContactPhone, contacts, setPendingContactPhone]);
 
     // 🔔 Atualizar lista de contatos quando chegar mensagem nova via socket
-    // NOTA: refreshContacts é memoizado no ContactsContext, então este useEffect
-    // só roda uma vez na montagem do componente (não causa re-renders em loop)
+    // 🛡️ DEBOUNCE: Evita múltiplas atualizações rápidas
     useEffect(() => {
         if (!refreshContacts) return;
         
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+        let lastUpdate = 0;
+        const MIN_UPDATE_INTERVAL = 5000; // Máximo 1 atualização a cada 5s
+        
         const unsubscribe = socketManager.onMessageNew((payload) => {
-            console.log('[AppChat] Socket message:new recebido, atualizando contatos...');
-            refreshContacts();
+            const now = Date.now();
+            const timeSinceLastUpdate = now - lastUpdate;
+            
+            // Se já atualizou recentemente, agenda para depois
+            if (timeSinceLastUpdate < MIN_UPDATE_INTERVAL) {
+                console.log(`[AppChat] Socket message:new ignorado (última atualização há ${Math.round(timeSinceLastUpdate/1000)}s)`);
+                return;
+            }
+            
+            if (debounceTimer) clearTimeout(debounceTimer);
+            
+            debounceTimer = setTimeout(() => {
+                console.log('[AppChat] Socket message:new recebido, atualizando contatos...');
+                lastUpdate = Date.now();
+                refreshContacts();
+            }, 500); // Debounce de 500ms
         });
         
         return () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
             unsubscribe();
         };
     }, [refreshContacts]);

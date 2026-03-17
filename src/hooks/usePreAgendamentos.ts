@@ -95,11 +95,18 @@ export const usePreAgendamentos = (): UsePreAgendamentosReturn => {
     pages: 0
   });
 
-  const fetchPreAgendamentos = useCallback(async (filters: Record<string, any> = {}) => {
+  // Guarda os últimos filtros usados para que os socket handlers recarreguem com o mesmo filtro
+  const lastFiltersRef = useRef<Record<string, any>>({});
+
+  const fetchPreAgendamentos = useCallback(async (filters?: Record<string, any>) => {
+    // Se não passou filtros novos, reutiliza os últimos (chamada via socket)
+    const activeFilters = filters !== undefined ? filters : lastFiltersRef.current;
+    lastFiltersRef.current = activeFilters;
+
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
+      Object.entries(activeFilters).forEach(([key, value]) => {
         if (value) params.append(key, String(value));
       });
 
