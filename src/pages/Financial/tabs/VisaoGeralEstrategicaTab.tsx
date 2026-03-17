@@ -1,7 +1,7 @@
 // pages/Financial/tabs/VisaoGeralEstrategicaTab.tsx
 // Visão Geral Estratégica - Painel Executivo da Clínica (CONSOLIDADO V2)
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     Box,
     Card,
@@ -15,7 +15,11 @@ import {
     Paper,
     LinearProgress,
     Tabs,
-    Tab
+    Tab,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem
 } from '@mui/material';
 import {
     TrendingUp,
@@ -37,22 +41,43 @@ import {
     AccountBalance
 } from '@mui/icons-material';
 import { useFinancialMetrics } from '../../../hooks/useFinancialMetrics';
+import { useExpenses } from '../../../hooks/useExpenses';
 import { FinancialLoadingDashboard } from '../components/FinancialLoading';
+import { FinancialDetailsModal } from '../components/FinancialDetailsModal';
 import moment from 'moment-timezone';
 
 const TIMEZONE = 'America/Sao_Paulo';
 
-const formatCurrency = (value: number) => 
+const formatCurrency = (value: number) =>
     `R$ ${(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+];
 
 const VisaoGeralEstrategicaTab = () => {
     const [activeTab, setActiveTab] = useState(0);
-    
-    // 🆕 HOOK ÚNICO - Mesma fonte das outras tabs
-    const startDate = moment().tz(TIMEZONE).startOf('month').toISOString();
-    const endDate = moment().tz(TIMEZONE).endOf('month').toISOString();
-    
+    const [selectedMonth, setSelectedMonth] = useState<number>(moment().tz(TIMEZONE).month());
+    const [selectedYear, setSelectedYear] = useState<number>(moment().tz(TIMEZONE).year());
+    const [modalOpen, setModalOpen] = useState(false);
+    const [modalType, setModalType] = useState<'producao' | 'faturado' | 'caixa' | 'receber' | 'despesas' | 'resultado' | 'devedores' | 'conv_receber' | null>(null);
+
+    const openModal = (type: typeof modalType) => { setModalType(type); setModalOpen(true); };
+
+    const startDate = moment().tz(TIMEZONE).year(selectedYear).month(selectedMonth).startOf('month').toISOString();
+    const endDate = moment().tz(TIMEZONE).year(selectedYear).month(selectedMonth).endOf('month').toISOString();
+
+    const years = Array.from({ length: 3 }, (_, i) => moment().tz(TIMEZONE).year() - i);
+
     const { data, isLoading, error } = useFinancialMetrics(startDate, endDate);
+
+    const { totals: expenseTotals, loading: expensesLoading, fetchExpenses } = useExpenses();
+
+    // Busca despesas do mês selecionado
+    useEffect(() => {
+        fetchExpenses({ month: selectedMonth + 1, year: selectedYear });
+    }, [selectedMonth, selectedYear, fetchExpenses]);
 
     // Métricas calculadas dos dados unificados
     const metrics = useMemo(() => {
@@ -62,12 +87,18 @@ const VisaoGeralEstrategicaTab = () => {
                 producao: 0,
                 faturado: 0,
                 aReceber: 0,
+                aReceberConvenio: 0,
+                aReceberParticularDoMes: 0,
+                aReceberParticularCount: 0,
+                saldoDevedorTotal: 0,
+                saldoDevedorCount: 0,
                 particular: 0,
                 convenioAvulso: 0,
                 convenioPacote: 0,
                 sessoes: 0,
                 // Convênio detalhado
                 convenioAtendido: 0,
+                convenioAtendidoCount: 0,
                 convenioFaturado: 0,
                 convenioRecebido: 0,
                 convenioAReceber: 0,
@@ -75,12 +106,18 @@ const VisaoGeralEstrategicaTab = () => {
         }
 
         const convenioDetail = data.convenioDetail || {};
+        const receivable = data.receivable || {};
 
         return {
             caixa: data.cash?.total || 0,
             producao: data.production?.total || 0,
             faturado: data.billing?.total || 0,
-            aReceber: data.receivable?.total || 0,
+            aReceber: receivable.total || 0,
+            aReceberConvenio: receivable.convenio?.total || 0,
+            aReceberParticularDoMes: receivable.particular?.doMes?.total || 0,
+            aReceberParticularCount: receivable.particular?.doMes?.count || 0,
+            saldoDevedorTotal: receivable.saldoDevedorTotal?.total || 0,
+            saldoDevedorCount: receivable.saldoDevedorTotal?.count || 0,
             particular: data.cash?.breakdown?.particular || 0,
             convenioAvulso: data.cash?.breakdown?.convenioAvulso || 0,
             convenioPacote: data.cash?.breakdown?.convenioPacote || 0,
@@ -112,22 +149,53 @@ const VisaoGeralEstrategicaTab = () => {
         );
     }
 
-    if (isLoading) {
+    if (isLoading || expensesLoading) {
         return <FinancialLoadingDashboard />;
     }
 
-    const periodoAtual = moment().tz(TIMEZONE).format('MMMM YYYY');
+    const totalDespesas = expenseTotals.totalPaid;
+    const saldoMes = metrics.caixa - totalDespesas;
+
+    const periodoAtual = `${monthNames[selectedMonth]} ${selectedYear}`;
 
     return (
         <Box sx={{ p: { xs: 1, sm: 2 } }}>
             {/* Header */}
-            <Box sx={{ mb: 3 }}>
-                <Typography variant="h5" fontWeight="bold" gutterBottom>
-                    📊 Dashboard Executivo
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                    Visão consolidada do mês: {periodoAtual}
-                </Typography>
+            <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                <Box>
+                    <Typography variant="h5" fontWeight="bold" gutterBottom>
+                        📊 Dashboard Executivo
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                        Visão consolidada do mês: {periodoAtual}
+                    </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                    <FormControl size="small" sx={{ minWidth: 140 }}>
+                        <InputLabel>Mês</InputLabel>
+                        <Select
+                            value={selectedMonth}
+                            label="Mês"
+                            onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                        >
+                            {monthNames.map((name, idx) => (
+                                <MenuItem key={idx} value={idx}>{name}</MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    <FormControl size="small" sx={{ minWidth: 100 }}>
+                        <InputLabel>Ano</InputLabel>
+                        <Select
+                            value={selectedYear}
+                            label="Ano"
+                            onChange={(e) => setSelectedYear(Number(e.target.value))}
+                        >
+                            {years.map(y => (
+                                <MenuItem key={y} value={y}>{y}</MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                </Box>
             </Box>
 
             {/* Tabs de Navegação */}
@@ -142,16 +210,58 @@ const VisaoGeralEstrategicaTab = () => {
 
             {activeTab === 0 && (
                 <>
-                    {/* 📊 Painel Estratégico - Indicadores de Performance */}
-                    <Alert severity="info" sx={{ mb: 3 }}>
-                        <AlertTitle>Visão Estratégica</AlertTitle>
-                        Para valores detalhados do mês (produção, caixa, a receber), use a aba <strong>Extrato</strong> no modo Operacional.
-                    </Alert>
+                    {/* 💰 Cards Principais: Recebido / Despesas / Saldo */}
+                    <Grid container spacing={2} sx={{ mb: 2 }}>
+                        <Grid item xs={12} md={4}>
+                            <Card onClick={() => openModal('caixa')} sx={{ borderLeft: '4px solid #10B981', cursor: 'pointer', '&:hover': { boxShadow: 4 } }}>
+                                <CardContent>
+                                    <Box display="flex" alignItems="center" gap={1} mb={1}>
+                                        <AttachMoney color="success" />
+                                        <Typography variant="body2" color="text.secondary">Total Recebido</Typography>
+                                    </Box>
+                                    <Typography variant="h5" fontWeight="bold" color="success.main">
+                                        {formatCurrency(metrics.caixa)}
+                                    </Typography>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                        <Grid item xs={12} md={4}>
+                            <Card onClick={() => openModal('despesas')} sx={{ borderLeft: '4px solid #EF4444', cursor: 'pointer', '&:hover': { boxShadow: 4 } }}>
+                                <CardContent>
+                                    <Box display="flex" alignItems="center" gap={1} mb={1}>
+                                        <TrendingDown color="error" />
+                                        <Typography variant="body2" color="text.secondary">Total Despesas</Typography>
+                                    </Box>
+                                    <Typography variant="h5" fontWeight="bold" color="error.main">
+                                        {formatCurrency(totalDespesas)}
+                                    </Typography>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                        <Grid item xs={12} md={4}>
+                            <Card onClick={() => openModal('resultado')} sx={{ borderLeft: `4px solid ${saldoMes >= 0 ? '#3B82F6' : '#F59E0B'}`, cursor: 'pointer', '&:hover': { boxShadow: 4 } }}>
+                                <CardContent>
+                                    <Box display="flex" alignItems="center" gap={1} mb={1}>
+                                        <AccountBalanceWallet sx={{ color: saldoMes >= 0 ? '#3B82F6' : '#F59E0B' }} />
+                                        <Typography variant="body2" color="text.secondary">
+                                            {saldoMes >= 0 ? 'Saldo do Mês' : 'Devedor do Mês'}
+                                        </Typography>
+                                    </Box>
+                                    <Typography variant="h5" fontWeight="bold" color={saldoMes >= 0 ? 'primary.main' : 'warning.main'}>
+                                        {formatCurrency(Math.abs(saldoMes))}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        Recebido − Despesas
+                                    </Typography>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    </Grid>
 
-                    {/* Cards Resumidos - Versão Compacta */}
+                    {/* Cards Secundários: Produção / Faturado / Caixa / A Receber */}
                     <Grid container spacing={2} sx={{ mb: 3 }}>
                         <Grid item xs={6} md={3}>
-                            <Card>
+                            <Card onClick={() => openModal('producao')} sx={{ cursor: 'pointer', '&:hover': { boxShadow: 3 } }}>
                                 <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
                                     <Typography variant="body2" color="text.secondary">Produção</Typography>
                                     <Typography variant="h6" fontWeight="bold">{formatCurrency(metrics.producao)}</Typography>
@@ -159,7 +269,7 @@ const VisaoGeralEstrategicaTab = () => {
                             </Card>
                         </Grid>
                         <Grid item xs={6} md={3}>
-                            <Card>
+                            <Card onClick={() => openModal('faturado')} sx={{ cursor: 'pointer', '&:hover': { boxShadow: 3 } }}>
                                 <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
                                     <Typography variant="body2" color="text.secondary">Faturado</Typography>
                                     <Typography variant="h6" fontWeight="bold">{formatCurrency(metrics.faturado)}</Typography>
@@ -167,18 +277,28 @@ const VisaoGeralEstrategicaTab = () => {
                             </Card>
                         </Grid>
                         <Grid item xs={6} md={3}>
-                            <Card>
+                            <Card onClick={() => openModal('conv_receber')} sx={{ cursor: 'pointer', '&:hover': { boxShadow: 3 } }}>
                                 <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
-                                    <Typography variant="body2" color="text.secondary">Caixa</Typography>
-                                    <Typography variant="h6" fontWeight="bold" color="success.main">{formatCurrency(metrics.caixa)}</Typography>
+                                    <Typography variant="body2" color="text.secondary">Conv. A Receber</Typography>
+                                    <Typography variant="h6" fontWeight="bold" color="warning.main">
+                                        {formatCurrency(metrics.aReceberConvenio)}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        Guias faturadas não recebidas
+                                    </Typography>
                                 </CardContent>
                             </Card>
                         </Grid>
                         <Grid item xs={6} md={3}>
-                            <Card>
+                            <Card onClick={() => openModal('devedores')} sx={{ borderLeft: metrics.saldoDevedorTotal > 0 ? '3px solid #EF4444' : undefined, cursor: 'pointer', '&:hover': { boxShadow: 3 } }}>
                                 <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
-                                    <Typography variant="body2" color="text.secondary">A Receber</Typography>
-                                    <Typography variant="h6" fontWeight="bold" color="warning.main">{formatCurrency(metrics.aReceber)}</Typography>
+                                    <Typography variant="body2" color="text.secondary">Pacientes Devedores</Typography>
+                                    <Typography variant="h6" fontWeight="bold" color={metrics.saldoDevedorTotal > 0 ? 'error.main' : 'text.secondary'}>
+                                        {formatCurrency(metrics.saldoDevedorTotal)}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        {metrics.saldoDevedorCount} paciente(s) — saldo atual
+                                    </Typography>
                                 </CardContent>
                             </Card>
                         </Grid>
@@ -484,6 +604,12 @@ const VisaoGeralEstrategicaTab = () => {
                     )}
                 </Box>
             </Paper>
+            <FinancialDetailsModal
+                open={modalOpen}
+                onClose={() => setModalOpen(false)}
+                type={modalType}
+                period={{ month: selectedMonth, year: selectedYear }}
+            />
         </Box>
     );
 };

@@ -24,7 +24,9 @@ const statusColors: Record<string, any> = {
   confirmado: { color: 'success', label: 'Confirmado' },
   agendado: { color: 'success', label: 'Agendado' },
   importado: { color: 'default', label: 'Importado' },
-  descartado: { color: 'error', label: 'Descartado' }
+  descartado: { color: 'error', label: 'Descartado' },
+  cancelado: { color: 'error', label: 'Cancelado' },
+  desistiu: { color: 'default', label: 'Desistiu' }
 };
 
 const urgencyColors: Record<string, any> = {
@@ -69,7 +71,7 @@ const ImportarModal = ({ open, onClose, pre, onImport, doctors }: any) => {
     doctorId: '',
     date: pre?.preferredDate || '',
     time: pre?.preferredTime || '09:00',
-    sessionValue: pre?.suggestedValue || '',
+    sessionValue: pre?.suggestedValue ?? 0,
     notes: ''
   });
   const [whatsappLinks, setWhatsappLinks] = useState<{confirmacao: string, lembrete: string} | null>(null);
@@ -80,7 +82,7 @@ const ImportarModal = ({ open, onClose, pre, onImport, doctors }: any) => {
         doctorId: pre.professionalId?._id || '',
         date: pre.preferredDate,
         time: pre.preferredTime || '09:00',
-        sessionValue: pre.suggestedValue || '',
+        sessionValue: pre.suggestedValue ?? 0,
         notes: ''
       });
       setWhatsappLinks(null); // Reseta links ao abrir
@@ -425,6 +427,8 @@ const PreAgendamentosPage = () => {
           <Tab value="confirmado" label="Confirmados" />
           <Tab value="agendado" label="Agendados" />
           <Tab value="importado" label="Importados" />
+          <Tab value="cancelado" label="Cancelados" />
+          <Tab value="desistiu" label="Desistiu" />
         </Tabs>
       </Paper>
 

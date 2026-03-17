@@ -34,6 +34,7 @@ import {
     CheckCircle
 } from '@mui/icons-material';
 import { usePaymentTotals } from '../../../hooks/usePaymentTotals';
+import { useFinancialMetrics } from '../../../hooks/useFinancialMetrics';
 import { useExpenses } from '../../../hooks/useExpenses';
 import { FinancialLoading } from '../components/FinancialLoading';
 import { FinancialDetailsModal } from '../components/FinancialDetailsModal';
@@ -73,12 +74,15 @@ const EntradasSaidasTab = () => {
     }, [selectedMonth, selectedYear]);
 
     // 🆕 HOOK - Dados financeiros do período
-    const { 
-        paymentTotals, 
+    const {
+        paymentTotals,
         convenioFaturamentos,
         isLoading: financialLoading,
-        fetchPaymentTotals 
+        fetchPaymentTotals
     } = usePaymentTotals();
+
+    // Hook de produção baseado em sessões (Session model — correto)
+    const { data: financialData, isLoading: metricsLoading } = useFinancialMetrics(startDate, endDate);
 
     // Busca dados quando muda o período
     useEffect(() => {
@@ -99,8 +103,10 @@ const EntradasSaidasTab = () => {
         });
     }, [startDate, endDate, fetchExpenses]);
 
-    // Total de despesas do período (já vem filtrado da API)
-    const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+    // Total de despesas pagas do período (exclui canceladas)
+    const totalExpenses = expenses
+        .filter(e => e.status !== 'canceled')
+        .reduce((sum, e) => sum + (e.amount || 0), 0);
 
     // Métricas calculadas do paymentTotals (dados reais da API)
     const metrics = useMemo(() => {
@@ -118,48 +124,65 @@ const EntradasSaidasTab = () => {
                 convenioFaturado: 0,
                 convenioRecebido: 0,
                 convenioAReceber: 0,
+                pendenteFaturamento: 0,
+                percentualFaturado: 0,
+                faturadoCount: 0,
+                convenioAtendidoCount: 0,
             };
         }
 
         // Dados do endpoint /payments/totals
         const caixa = paymentTotals.totalReceived || 0;
-        const aReceberParticular = paymentTotals.totalPending || 0;
         const particular = paymentTotals.particularReceived || 0;
-        
+
         // Convênio: produção vs recebido
         const convenioProducao = paymentTotals.totalInsuranceProduction || 0;
         const convenioRecebido = paymentTotals.totalInsuranceReceived || 0;
         const convenioPendente = paymentTotals.totalInsurancePending || 0;
-        
-        // Faturamento do mês (vindo do endpoint /financial/convenio/faturamentos)
-        // Se não tiver dados, usa a produção como fallback
+
+        // ✅ PRODUÇÃO: vem do financialMetrics (Session model — sessões realizadas no período)
+        const producaoSessoes = financialData?.production?.total ?? (particular + convenioProducao);
+        const producaoCount = financialData?.production?.count ?? (paymentTotals.countInsuranceTotal || 0);
+        // Convênio atendido (sessões convênio realizadas)
+        const convenioAtendido = financialData?.convenioDetail?.atendido?.total ?? convenioProducao;
+        const convenioAtendidoCount = financialData?.convenioDetail?.atendido?.count ?? (paymentTotals.countInsuranceTotal || 0);
+
+        // ✅ A RECEBER PARTICULAR: vem do financialMetrics (Session model — sessões do mês não pagas)
+        const aReceberParticularDoMes = financialData?.receivable?.particular?.doMes?.total ?? (paymentTotals.totalPending || 0);
+        const aReceberParticularCount = financialData?.receivable?.particular?.doMes?.count ?? 0;
+
+        // ✅ SALDO DEVEDOR ACUMULADO: soma histórica de PatientBalance
+        const saldoDevedorTotal = financialData?.receivable?.saldoDevedorTotal?.total ?? 0;
+        const saldoDevedorCount = financialData?.receivable?.saldoDevedorTotal?.count ?? 0;
+
+        // Faturamento do mês
         const faturadoNoMes = convenioFaturamentos?.total ?? convenioProducao;
-        
-        // Cálculos de faturamento
-        const pendenteFaturamento = Math.max(0, convenioProducao - faturadoNoMes);
-        const percentualFaturado = convenioProducao > 0 ? (faturadoNoMes / convenioProducao) * 100 : 0;
+        const pendenteFaturamento = Math.max(0, convenioAtendido - faturadoNoMes);
+        const percentualFaturado = convenioAtendido > 0 ? (faturadoNoMes / convenioAtendido) * 100 : 0;
 
         return {
-            // Produção = Particular (recebido + pendente) + Convênio (produção total)
-            producao: particular + aReceberParticular + convenioProducao,
-            producaoCount: (paymentTotals.countInsuranceTotal || 0),
+            producao: producaoSessoes,
+            producaoCount,
             faturado: faturadoNoMes,
             faturadoCount: convenioFaturamentos?.quantidade || 0,
             pendenteFaturamento,
             percentualFaturado,
-            caixa: caixa,
-            aReceber: aReceberParticular + convenioPendente,
-            particular: particular,
+            caixa,
+            aReceber: aReceberParticularDoMes + convenioPendente,
+            aReceberParticularDoMes,
+            aReceberParticularCount,
+            saldoDevedorTotal,
+            saldoDevedorCount,
+            particular,
             convenioAvulso: convenioRecebido,
             convenioPacote: convenioProducao,
-            // Detalhamento convênio
-            convenioAtendido: convenioProducao,
-            convenioAtendidoCount: paymentTotals.countInsuranceTotal || 0,
+            convenioAtendido,
+            convenioAtendidoCount,
             convenioFaturado: faturadoNoMes,
-            convenioRecebido: convenioRecebido,
+            convenioRecebido,
             convenioAReceber: convenioPendente,
         };
-    }, [paymentTotals, convenioFaturamentos]);
+    }, [paymentTotals, convenioFaturamentos, financialData]);
 
     // Cálculos derivados
     const saldo = metrics.caixa - totalExpenses;
@@ -183,7 +206,7 @@ const EntradasSaidasTab = () => {
 
     const monthOptions = generateMonthOptions();
 
-    if (financialLoading || expensesLoading) {
+    if (financialLoading || metricsLoading || expensesLoading) {
         return <FinancialLoading />;
     }
 
@@ -380,67 +403,63 @@ const EntradasSaidasTab = () => {
 
                 {/* A RECEBER */}
                 <Grid item xs={12} sm={6} lg={3}>
-                    <Tooltip 
-                        title={
-                            <Box>
-                                <Typography variant="body2" fontWeight="bold">Composição do A Receber</Typography>
-                                <Typography variant="caption">
-                                    • Convênios: {formatCurrency(metrics.convenioAReceber || 0)}<br/>
-                                    • Particular Pendente: {formatCurrency((metrics.aReceber || 0) - (metrics.convenioAReceber || 0))}<br/>
-                                    <br/>
-                                    Total de clientes/devedores que ainda não pagaram.
+                    <Card
+                        onClick={() => handleOpenModal('receber')}
+                        sx={{
+                            height: '100%',
+                            borderLeft: '4px solid #F59E0B',
+                            borderTop: '3px solid #F59E0B',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            '&:hover': { transform: 'translateY(-4px)', boxShadow: 4 }
+                        }}
+                    >
+                        <CardContent>
+                            <Box display="flex" alignItems="center" gap={1} mb={2}>
+                                <AccountBalance sx={{ color: '#F59E0B' }} />
+                                <Typography variant="h6" fontWeight="bold" color="warning.main">
+                                    A RECEBER
                                 </Typography>
                             </Box>
-                        }
-                        arrow
-                    >
-                        <Card 
-                            onClick={() => handleOpenModal('receber')}
-                            sx={{ 
-                                height: '100%', 
-                                borderLeft: '4px solid #F59E0B', 
-                                borderTop: '3px solid #F59E0B',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                '&:hover': { transform: 'translateY(-4px)', boxShadow: 4 }
-                            }}
-                        >
-                            <CardContent>
-                                <Box display="flex" alignItems="center" gap={1} mb={2}>
-                                    <AccountBalance sx={{ color: '#F59E0B' }} />
-                                    <Typography variant="h6" fontWeight="bold" color="warning.main">
-                                        A RECEBER
+                            <Typography variant="h4" fontWeight="bold" color="warning.main">
+                                {formatCurrency(metrics.aReceber)}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                Sessões de {periodoLabel} não pagas
+                            </Typography>
+
+                            {/* Breakdown do mês */}
+                            <Box mt={1.5}>
+                                <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                                    <Typography variant="caption" color="text.secondary">Convênios:</Typography>
+                                    <Typography variant="caption" fontWeight="medium" color="warning.main">
+                                        {formatCurrency(metrics.convenioAReceber || 0)}
                                     </Typography>
                                 </Box>
-                                <Typography variant="h4" fontWeight="bold" color="warning.main">
-                                    {formatCurrency(metrics.aReceber)}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                    Convênios + Particular Pendente
-                                </Typography>
-                                
-                                {/* Composição do A Receber */}
-                                <Box mt={1.5}>
-                                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
-                                        <Typography variant="caption" color="text.secondary">
-                                            Convênios:
-                                        </Typography>
-                                        <Typography variant="caption" fontWeight="medium" color="warning.main">
-                                            {formatCurrency(metrics.convenioAReceber || 0)}
-                                        </Typography>
-                                    </Box>
-                                    <Box display="flex" justifyContent="space-between" alignItems="center">
-                                        <Typography variant="caption" color="text.secondary">
-                                            Particular:
-                                        </Typography>
-                                        <Typography variant="caption" fontWeight="medium" color="info.main">
-                                            {formatCurrency((metrics.aReceber || 0) - (metrics.convenioAReceber || 0))}
-                                        </Typography>
-                                    </Box>
+                                <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                                    <Typography variant="caption" color="text.secondary">
+                                        Particular ({metrics.aReceberParticularCount || 0} sess.):
+                                    </Typography>
+                                    <Typography variant="caption" fontWeight="medium" color="info.main">
+                                        {formatCurrency(metrics.aReceberParticularDoMes || 0)}
+                                    </Typography>
                                 </Box>
-                            </CardContent>
-                        </Card>
-                    </Tooltip>
+                                {/* Saldo devedor acumulado — info extra */}
+                                {(metrics.saldoDevedorTotal || 0) > 0 && (
+                                    <Box mt={1} pt={1} sx={{ borderTop: '1px dashed rgba(245,158,11,0.3)' }}>
+                                        <Box display="flex" justifyContent="space-between" alignItems="center">
+                                            <Typography variant="caption" color="text.secondary">
+                                                Devedor acumulado ({metrics.saldoDevedorCount} pac.):
+                                            </Typography>
+                                            <Typography variant="caption" fontWeight="bold" color="error.main">
+                                                {formatCurrency(metrics.saldoDevedorTotal || 0)}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                )}
+                            </Box>
+                        </CardContent>
+                    </Card>
                 </Grid>
             </Grid>
 
@@ -452,7 +471,7 @@ const EntradasSaidasTab = () => {
                 </Typography>
 
                 <Grid container spacing={2} mt={1}>
-                    <Grid item xs={12} md={4}>
+                    <Grid item xs={12} md={3}>
                         <Box p={2} bgcolor="#E3F2FD" borderRadius={2}>
                             <Box display="flex" alignItems="center" gap={1} mb={1}>
                                 <AttachMoney color="primary" />
@@ -465,7 +484,7 @@ const EntradasSaidasTab = () => {
                         </Box>
                     </Grid>
 
-                    <Grid item xs={12} md={4}>
+                    <Grid item xs={12} md={3}>
                         <Box p={2} bgcolor="#E8F5E9" borderRadius={2}>
                             <Box display="flex" alignItems="center" gap={1} mb={1}>
                                 <LocalHospital color="success" />
@@ -478,7 +497,7 @@ const EntradasSaidasTab = () => {
                         </Box>
                     </Grid>
 
-                    <Grid item xs={12} md={4}>
+                    <Grid item xs={12} md={3}>
                         <Box p={2} bgcolor="#FFF3E0" borderRadius={2}>
                             <Box display="flex" alignItems="center" gap={1} mb={1}>
                                 <Group color="warning" />
@@ -488,6 +507,21 @@ const EntradasSaidasTab = () => {
                                 {formatCurrency(metrics.convenioPacote)}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">A receber do plano</Typography>
+                        </Box>
+                    </Grid>
+
+                    <Grid item xs={12} md={3}>
+                        <Box p={2} bgcolor="#FCE4EC" borderRadius={2}>
+                            <Box display="flex" alignItems="center" gap={1} mb={1}>
+                                <AccountBalance sx={{ color: '#E53935' }} />
+                                <Typography variant="body2" color="text.secondary">Devedor do Mês</Typography>
+                            </Box>
+                            <Typography variant="h5" fontWeight="bold" color="error.main">
+                                {formatCurrency(metrics.aReceberParticularDoMes || 0)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                {metrics.aReceberParticularCount || 0} sessão(ões) não pagas
+                            </Typography>
                         </Box>
                     </Grid>
                 </Grid>

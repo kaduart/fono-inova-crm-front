@@ -47,13 +47,15 @@ import {
   FormControl,
   InputLabel,
   Select,
-  LinearProgress
+  LinearProgress,
 } from '@mui/material';
 import { FinancialLoading } from '../components/FinancialLoading';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useEffect, useState } from 'react';
 import { usePlanning } from '../../../hooks/usePlanning';
+import { planningService } from '../../../services/planningService';
+import { toast } from 'react-toastify';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
 interface PlanningFormData {
@@ -204,7 +206,19 @@ const PlanningTab = () => {
   };
 
   const handleSave = async () => {
-    await createPlanning(formData);
+    if (formData.type === 'weekly') {
+      // Gera todas as semanas do mês automaticamente
+      await planningService.generateWeeklyForMonth({
+        month: formData.month,
+        year: formData.year,
+        monthlyRevenue: formData.targets.expectedRevenue,
+        totalSessions: formData.targets.totalSessions,
+        workHours: formData.targets.workHours
+      });
+      toast.success('Semanas do mês geradas com sucesso!');
+    } else {
+      await createPlanning(formData);
+    }
     setOpenModal(false);
     fetchPlannings({});
   };
@@ -351,7 +365,7 @@ const PlanningTab = () => {
                       {formatCurrency(monthlyPlannings[0]?.actual?.actualRevenue || 0)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      0% da meta
+                      {(monthlyPlannings[0]?.progress?.revenuePercentage || 0).toFixed(0)}% da meta
                     </Typography>
                   </Box>
                 </Box>
@@ -524,16 +538,30 @@ const PlanningTab = () => {
               </TextField>
             </Grid>
 
+            {/* Explicação para tipo semanal */}
+            {formData.type === 'weekly' && (
+              <Grid item xs={12}>
+                <Alert severity="info" sx={{ mt: 1 }}>
+                  <strong>Geração automática de semanas</strong><br />
+                  Informe a <strong>meta mensal total</strong>. O sistema cria <strong>4 semanas</strong> para {format(new Date(formData.year, formData.month - 1), 'MMMM/yyyy', { locale: ptBR })}, dividindo proporcionalmente:<br />
+                  S1: 01–07 &nbsp;|&nbsp; S2: 08–14 &nbsp;|&nbsp; S3: 15–21 &nbsp;|&nbsp; S4: 22–último dia
+                  {formData.targets.expectedRevenue > 0 && (
+                    <span><br />→ Cada semana ≈ <strong>R$ {(formData.targets.expectedRevenue / 4).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> (valor exato proporcional aos dias)</span>
+                  )}
+                </Alert>
+              </Grid>
+            )}
+
             {/* Metas Principais */}
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom sx={{ mt: 2, color: '#8B5CF6', fontWeight: 600 }}>
-                Metas Principais
+                {formData.type === 'weekly' ? 'Meta Mensal Total (dividida automaticamente)' : 'Metas Principais'}
               </Typography>
             </Grid>
 
             <Grid item xs={12} md={4}>
               <TextField
-                label="Meta de Receita (R$)"
+                label={formData.type === 'weekly' ? 'Meta Mensal Total (R$)' : 'Meta de Receita (R$)'}
                 type="number"
                 fullWidth
                 value={formData.targets.expectedRevenue}
@@ -569,73 +597,40 @@ const PlanningTab = () => {
               />
             </Grid>
 
-            {/* Especialidades */}
-            <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom sx={{ mt: 2, color: '#8B5CF6', fontWeight: 600 }}>
-                Distribuição por Especialidade
-              </Typography>
-              <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                Total: {totalSpecialtySessions} sessões / {formatCurrency(totalSpecialtyRevenue)}
-              </Typography>
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <TextField
-                label="Especialidade"
-                value={newSpecialty.specialty}
-                onChange={(e) => setNewSpecialty(prev => ({ ...prev, specialty: e.target.value }))}
-                placeholder="Ex: Fonoaudiologia"
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Sessões"
-                type="number"
-                value={newSpecialty.sessions}
-                onChange={(e) => setNewSpecialty(prev => ({ ...prev, sessions: Number(e.target.value) }))}
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Receita Esperada"
-                type="number"
-                value={newSpecialty.revenue}
-                onChange={(e) => setNewSpecialty(prev => ({ ...prev, revenue: Number(e.target.value) }))}
-                InputProps={{ startAdornment: 'R$' }}
-              />
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <Button
-                variant="outlined"
-                onClick={handleAddSpecialty}
-                fullWidth
-                sx={{ height: '100%', borderColor: '#8B5CF6', color: '#8B5CF6' }}
-              >
-                Adicionar
-              </Button>
-            </Grid>
-
-            {/* Lista de Especialidades Adicionadas */}
-            {formData.bySpecialty.length > 0 && (
+            {/* Especialidades (apenas para mensal/diário) */}
+            {formData.type !== 'weekly' && (<>
               <Grid item xs={12}>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {formData.bySpecialty.map((spec, idx) => (
-                    <Chip
-                      key={idx}
-                      label={`${spec.specialty}: ${spec.sessions} sessões (${formatCurrency(spec.revenue)})`}
-                      onDelete={() => {
-                        setFormData(prev => ({
-                          ...prev,
-                          bySpecialty: prev.bySpecialty.filter((_, i) => i !== idx)
-                        }));
-                      }}
-                      sx={{ bgcolor: '#8B5CF610', color: '#8B5CF6', borderColor: '#8B5CF6' }}
-                      variant="outlined"
-                    />
-                  ))}
-                </Box>
+                <Typography variant="h6" gutterBottom sx={{ mt: 2, color: '#8B5CF6', fontWeight: 600 }}>
+                  Distribuição por Especialidade
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+                  Total: {totalSpecialtySessions} sessões / {formatCurrency(totalSpecialtyRevenue)}
+                </Typography>
               </Grid>
-            )}
+              <Grid item xs={12} md={4}>
+                <TextField label="Especialidade" value={newSpecialty.specialty} onChange={(e) => setNewSpecialty(prev => ({ ...prev, specialty: e.target.value }))} placeholder="Ex: Fonoaudiologia" />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField label="Sessões" type="number" value={newSpecialty.sessions} onChange={(e) => setNewSpecialty(prev => ({ ...prev, sessions: Number(e.target.value) }))} />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField label="Receita Esperada" type="number" value={newSpecialty.revenue} onChange={(e) => setNewSpecialty(prev => ({ ...prev, revenue: Number(e.target.value) }))} InputProps={{ startAdornment: 'R$' }} />
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <Button variant="outlined" onClick={handleAddSpecialty} fullWidth sx={{ height: '100%', borderColor: '#8B5CF6', color: '#8B5CF6' }}>Adicionar</Button>
+              </Grid>
+              {formData.bySpecialty.length > 0 && (
+                <Grid item xs={12}>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {formData.bySpecialty.map((spec, idx) => (
+                      <Chip key={idx} label={`${spec.specialty}: ${spec.sessions} sessões (${formatCurrency(spec.revenue)})`}
+                        onDelete={() => setFormData(prev => ({ ...prev, bySpecialty: prev.bySpecialty.filter((_, i) => i !== idx) }))}
+                        sx={{ bgcolor: '#8B5CF610', color: '#8B5CF6', borderColor: '#8B5CF6' }} variant="outlined" />
+                    ))}
+                  </Box>
+                </Grid>
+              )}
+            </>)}
 
             {/* Notas */}
             <Grid item xs={12}>

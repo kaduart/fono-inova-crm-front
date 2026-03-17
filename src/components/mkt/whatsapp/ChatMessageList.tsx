@@ -118,6 +118,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, contact, isPending, 
                         mediaId={message.mediaId}
                         caption={message.caption}
                         timestamp={message.timestamp}
+                        status={message.status}
                     />
                 </div>
             </div>
@@ -141,7 +142,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, contact, isPending, 
                             {message.status === 'sent' && (
                                 <IoCheckmark className="w-4 h-4 text-gray-400" aria-label="Enviada" />
                             )}
-                            {message.status === 'error' && (
+                            {(message.status === 'error' || message.status === 'failed') && (
                                 <button
                                     onClick={() => onRetry(message.id, message.text)}
                                     className="text-red-500 hover:text-red-700 p-0.5 rounded hover:bg-red-50 transition-colors flex items-center gap-1"

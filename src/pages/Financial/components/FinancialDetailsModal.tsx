@@ -37,19 +37,19 @@ import moment from 'moment-timezone';
 
 const TIMEZONE = 'America/Sao_Paulo';
 
-interface FinancialDetailsModalProps {
-    open: boolean;
-    onClose: () => void;
-    type: 'producao' | 'faturado' | 'caixa' | 'receber' | 'despesas' | 'resultado' | null;
-    period: { month: number; year: number };
-    summaryData?: any;
-}
-
 const formatCurrency = (value: number) =>
     `R$ ${(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const formatDate = (date: string) =>
     moment(date).tz(TIMEZONE).format('DD/MM/YYYY');
+
+interface FinancialDetailsModalProps {
+    open: boolean;
+    onClose: () => void;
+    type: 'producao' | 'faturado' | 'caixa' | 'receber' | 'despesas' | 'resultado' | 'devedores' | 'conv_receber' | null;
+    period: { month: number; year: number };
+    summaryData?: any;
+}
 
 export const FinancialDetailsModal = ({ open, onClose, type, period, summaryData }: FinancialDetailsModalProps) => {
     const [loading, setLoading] = useState(false);
@@ -129,6 +129,16 @@ export const FinancialDetailsModal = ({ open, onClose, type, period, summaryData
                     });
                     break;
 
+                case 'devedores':
+                    response = await api.get('/payments/balance/debtors');
+                    setDetails({ devedores: response.data.data });
+                    break;
+
+                case 'conv_receber':
+                    response = await api.get('/financial/v2/receivable-detail');
+                    setDetails({ conv_receber: response.data.data });
+                    break;
+
                 default:
                     setDetails(null);
             }
@@ -146,7 +156,9 @@ export const FinancialDetailsModal = ({ open, onClose, type, period, summaryData
             caixa: 'Detalhamento do Caixa',
             receber: 'Contas a Receber',
             despesas: 'Detalhamento de Despesas',
-            resultado: 'Composição do Resultado'
+            resultado: 'Composição do Resultado',
+            devedores: 'Pacientes Devedores',
+            conv_receber: 'Convênios a Receber (Guias em Aberto)'
         }[type || 'producao'];
         return `${baseTitle} - ${monthNames[period.month]} ${period.year}`;
     };
@@ -159,6 +171,8 @@ export const FinancialDetailsModal = ({ open, onClose, type, period, summaryData
             case 'receber': return <AccountBalance color="warning" />;
             case 'despesas': return <TrendingDown color="error" />;
             case 'resultado': return <TrendingDown color="error" />;
+            case 'devedores': return <Warning color="error" />;
+            case 'conv_receber': return <AccountBalance color="warning" />;
             default: return null;
         }
     };
@@ -506,6 +520,86 @@ export const FinancialDetailsModal = ({ open, onClose, type, period, summaryData
         );
     };
 
+    const renderDevedoresContent = () => {
+        const devedores = details?.devedores || [];
+        if (!devedores.length) return <Alert severity="success">Nenhum paciente com saldo devedor</Alert>;
+
+        const total = devedores.reduce((s: number, d: any) => s + (d.currentBalance || 0), 0);
+        return (
+            <>
+                <Box sx={{ mb: 2, p: 2, bgcolor: '#FFEBEE', borderRadius: 2 }}>
+                    <Typography variant="h6" fontWeight="bold" color="error.main">
+                        Total Devedor: {formatCurrency(total)}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">{devedores.length} paciente(s)</Typography>
+                </Box>
+                <TableContainer>
+                    <Table size="small">
+                        <TableHead>
+                            <TableRow sx={{ bgcolor: '#FFEBEE' }}>
+                                <TableCell>Paciente</TableCell>
+                                <TableCell align="right">Saldo Devedor</TableCell>
+                                <TableCell align="right">Sessões Pendentes</TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {devedores.map((d: any) => {
+                                const pendentes = (d.transactions || []).filter((t: any) => t.type === 'debit' && !t.isPaid).length;
+                                return (
+                                    <TableRow key={d._id}>
+                                        <TableCell>{d.patient?.fullName || '—'}</TableCell>
+                                        <TableCell align="right">
+                                            <Typography fontWeight="bold" color="error.main">{formatCurrency(d.currentBalance)}</Typography>
+                                        </TableCell>
+                                        <TableCell align="right">{pendentes}</TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+            </>
+        );
+    };
+
+    const renderConvReceberContent = () => {
+        const data = details?.conv_receber;
+        if (!data?.items?.length) return <Alert severity="success">Nenhuma guia convênio pendente de recebimento</Alert>;
+
+        return (
+            <>
+                <Box sx={{ mb: 2, p: 2, bgcolor: '#FFF8E1', borderRadius: 2 }}>
+                    <Typography variant="h6" fontWeight="bold" color="warning.main">
+                        Total a Receber: {formatCurrency(data.total)}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">{data.count} guia(s) faturada(s) aguardando repasse</Typography>
+                </Box>
+                <TableContainer>
+                    <Table size="small">
+                        <TableHead>
+                            <TableRow sx={{ bgcolor: '#FFF8E1' }}>
+                                <TableCell>Paciente</TableCell>
+                                <TableCell>Convênio</TableCell>
+                                <TableCell align="right">Valor</TableCell>
+                                <TableCell align="right">Faturado em</TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {data.items.map((item: any) => (
+                                <TableRow key={item._id}>
+                                    <TableCell>{item.patientName}</TableCell>
+                                    <TableCell>{item.convenio}</TableCell>
+                                    <TableCell align="right">{formatCurrency(item.grossAmount)}</TableCell>
+                                    <TableCell align="right">{item.billedAt ? formatDate(item.billedAt) : '—'}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+            </>
+        );
+    };
+
     const renderContent = () => {
         if (loading) return <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>;
         if (error) return <Alert severity="error">{error}</Alert>;
@@ -516,6 +610,8 @@ export const FinancialDetailsModal = ({ open, onClose, type, period, summaryData
             case 'caixa': return renderCaixaContent();
             case 'despesas': return renderDespesasContent();
             case 'resultado': return renderResultadoContent();
+            case 'devedores': return renderDevedoresContent();
+            case 'conv_receber': return renderConvReceberContent();
             default: return <Alert severity="info">Detalhes não disponíveis para este tipo</Alert>;
         }
     };

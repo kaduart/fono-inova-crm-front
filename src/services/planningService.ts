@@ -99,5 +99,11 @@ export const planningService = {
     getDetails: async (id: string) => {
         const response = await api.get(`/planning/${id}/details`);
         return response.data;
+    },
+
+    // Gerar todas as semanas de um mês dividindo a meta mensal proporcionalmente
+    generateWeeklyForMonth: async (params: { month: number; year: number; monthlyRevenue: number; totalSessions?: number; workHours?: number }) => {
+        const response = await api.post('/planning/generate-weekly-for-month', params);
+        return response.data;
     }
 };

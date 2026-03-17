@@ -15,9 +15,9 @@ export interface Message {
     id: string;
     text: string;
     timestamp: Date;
-    status: 'sent' | 'delivered' | 'read' | 'received' | 'error';
+    status: 'sent' | 'delivered' | 'read' | 'received' | 'error' | 'failed' | 'pending';
     fromMe?: boolean;
-    type?: 'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker';
+    type?: 'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker' | 'template';
     mediaUrl?: string;
     mediaId?: string;
     caption: string;

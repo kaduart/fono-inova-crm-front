@@ -1,33 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import {
-    Box,
-    Card,
-    CardContent,
-    Typography,
-    Grid,
-    LinearProgress,
-    Paper,
-    Chip,
-    Button,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
-    Stack,
-    Divider,
-    IconButton
+    Box, Card, CardContent, Typography, Grid, LinearProgress,
+    Paper, Chip, Button, FormControl, Select, MenuItem,
+    Stack, IconButton, Table, TableBody, TableCell, TableHead, TableRow, Divider
 } from '@mui/material';
 import { FinancialLoading } from '../components/FinancialLoading';
-import {
-    TrendingUp,
-    Target,
-    Zap,
-    Calendar,
-    ChevronRight,
-    Download,
-    RefreshCcw,
-    AlertCircle
-} from 'lucide-react';
+import { CheckCircle, NavigateBefore, NavigateNext } from '@mui/icons-material';
+import { TrendingUp, Target, Zap, Calendar, ChevronRight, RefreshCcw, AlertCircle } from 'lucide-react';
 import { useProvisionamento } from '../../../hooks/useProvisionamento';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -35,28 +14,36 @@ import { ptBR } from 'date-fns/locale';
 const formatCurrency = (val: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 
+const PAGE_SIZE = 10;
+
+function Pagination({ total, page, onPage }: { total: number; page: number; onPage: (p: number) => void }) {
+    const pages = Math.ceil(total / PAGE_SIZE);
+    if (pages <= 1) return null;
+    return (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1, px: 1, pb: 1 }}>
+            <Typography variant="caption" color="text.secondary">
+                {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} de {total}
+            </Typography>
+            <IconButton size="small" onClick={() => onPage(page - 1)} disabled={page === 0}>
+                <NavigateBefore fontSize="small" />
+            </IconButton>
+            <IconButton size="small" onClick={() => onPage(page + 1)} disabled={page >= pages - 1}>
+                <NavigateNext fontSize="small" />
+            </IconButton>
+        </Box>
+    );
+}
+
 const MetricCard = ({ title, value, subtitle, icon, color, trend }: any) => (
-    <Card variant="outlined" sx={{ width: "100%", borderRadius: 3, border: '1px solid #edf2f7', transition: 'transform 0.2s', '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' } }}>
+    <Card variant="outlined" sx={{ width: '100%', borderRadius: 3, border: '1px solid #edf2f7' }}>
         <CardContent sx={{ p: 2.5 }}>
             <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
-                <Box sx={{ p: 1, borderRadius: 2, bgcolor: `${color}15`, color: color }}>
-                    {icon}
-                </Box>
-                {trend && (
-                    <Chip label={trend} size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 'bold', bgcolor: '#e6fffa', color: '#285e61' }} />
-                )}
+                <Box sx={{ p: 1, borderRadius: 2, bgcolor: `${color}15`, color: color }}>{icon}</Box>
+                {trend && <Chip label={trend} size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: '#e6fffa', color: '#285e61' }} />}
             </Box>
-            <Typography variant="body2" color="text.secondary" fontWeight="500">
-                {title}
-            </Typography>
-            <Typography variant="h5" fontWeight="bold" sx={{ my: 0.5 }}>
-                {value}
-            </Typography>
-            {subtitle && (
-                <Typography variant="caption" color="text.secondary">
-                    {subtitle}
-                </Typography>
-            )}
+            <Typography variant="body2" color="text.secondary">{title}</Typography>
+            <Typography variant="h5" fontWeight="bold" sx={{ my: 0.5 }}>{value}</Typography>
+            {subtitle && <Typography variant="caption" color="text.secondary">{subtitle}</Typography>}
         </CardContent>
     </Card>
 );
@@ -64,52 +51,43 @@ const MetricCard = ({ title, value, subtitle, icon, color, trend }: any) => (
 const InteligenciaFinanceiraTab = () => {
     const [mes, setMes] = useState(new Date().getMonth() + 1);
     const [ano, setAno] = useState(new Date().getFullYear());
-    const {
-        data: provisaoData,
-        projecaoMes,
-        fetchProjecaoMes,
-        calcular: calcularProvisao,
-        loading
-    } = useProvisionamento();
+    const [pageRealizados, setPageRealizados] = useState(0);
+    const [pageAgendados, setPageAgendados] = useState(0);
+    const [pagePendentes, setPagePendentes] = useState(0);
+
+    const { projecaoMes, fetchProjecaoMes, loading } = useProvisionamento();
 
     useEffect(() => {
-        refreshData();
-    }, [mes, ano]);
-
-    const refreshData = () => {
         fetchProjecaoMes(mes, ano);
-        calcularProvisao(mes, ano);
-    };
+        setPageRealizados(0);
+        setPageAgendados(0);
+        setPagePendentes(0);
+    }, [mes, ano]);
 
     const metaAlcancada = (projecaoMes?.metas?.percentualAtual || 0) >= 100;
 
-    if (loading) {
-        return <FinancialLoading cardCount={3} gridSize={{ xs: 12, sm: 4 }} />;
-    }
+    const realizados = projecaoMes?.detalhes?.realizados || [];
+    const agendados = projecaoMes?.detalhes?.agendados || [];
+    const pendentes = projecaoMes?.detalhes?.pendentes || [];
+
+    const realizadosPage = realizados.slice(pageRealizados * PAGE_SIZE, (pageRealizados + 1) * PAGE_SIZE);
+    const agendadosPage = agendados.slice(pageAgendados * PAGE_SIZE, (pageAgendados + 1) * PAGE_SIZE);
+    const pendentesPage = pendentes.slice(pagePendentes * PAGE_SIZE, (pagePendentes + 1) * PAGE_SIZE);
+
+    if (loading) return <FinancialLoading cardCount={3} />;
 
     return (
         <Box sx={{ width: '100%' }}>
-            {/* Header Estratégico */}
-            <Box display="flex" justifyContent="space-between" alignItems="flex-end" mb={4}>
+            <Box display="flex" justifyContent="space-between" alignItems="flex-end" mb={4} flexWrap="wrap" gap={2}>
                 <Box>
-                    <Typography variant="caption" fontWeight="bold" color="primary" sx={{ letterSpacing: 1.5, textTransform: 'uppercase' }}>
-                        Dashboard Estratégico
-                    </Typography>
-                    <Typography variant="h4" fontWeight="bold" sx={{ color: '#1a202c', mt: 0.5 }}>
-                        🧠 Inteligência Financeira
-                    </Typography>
+                    <Typography variant="h4" fontWeight="bold">🧠 Inteligência Financeira</Typography>
                     <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-                        Provisão de receitas, projeções e análise de cenários
+                        Provisão e projeções de {format(new Date(ano, mes - 1), 'MMMM/yyyy', { locale: ptBR })}
                     </Typography>
                 </Box>
-
-                <Stack direction="row" spacing={2} alignItems="center">
-                    <FormControl size="small" variant="outlined" sx={{ minWidth: 120 }}>
-                        <Select
-                            value={mes}
-                            onChange={(e) => setMes(Number(e.target.value))}
-                            sx={{ borderRadius: 2, bgcolor: 'white' }}
-                        >
+                <Stack direction="row" spacing={2}>
+                    <FormControl size="small" sx={{ minWidth: 120 }}>
+                        <Select value={mes} onChange={(e) => setMes(Number(e.target.value))}>
                             {Array.from({ length: 12 }, (_, i) => (
                                 <MenuItem key={i + 1} value={i + 1}>
                                     {format(new Date(2024, i), 'MMMM', { locale: ptBR })}
@@ -118,141 +96,102 @@ const InteligenciaFinanceiraTab = () => {
                         </Select>
                     </FormControl>
                     <FormControl size="small" sx={{ minWidth: 100 }}>
-                        <Select
-                            value={ano}
-                            onChange={(e) => setAno(Number(e.target.value))}
-                            sx={{ borderRadius: 2, bgcolor: 'white' }}
-                        >
+                        <Select value={ano} onChange={(e) => setAno(Number(e.target.value))}>
                             <MenuItem value={2025}>2025</MenuItem>
                             <MenuItem value={2026}>2026</MenuItem>
                         </Select>
                     </FormControl>
-                    <IconButton onClick={refreshData} sx={{ bgcolor: 'white', border: '1px solid #e2e8f0' }}>
+                    <IconButton onClick={() => fetchProjecaoMes(mes, ano)}>
                         <RefreshCcw size={18} />
                     </IconButton>
                 </Stack>
             </Box>
 
             <Grid container spacing={3}>
-                {/* Coluna 1: Indicadores Imediatos (Provisionamento) */}
-                <Grid item xs={12} lg={8}>
-                    <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 2, color: '#4a5568', display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Zap size={16} /> SAÚDE DO CAIXA ATUAL
-                    </Typography>
+                <Grid size={{ xs: 12, lg: 8 }}>
                     <Grid container spacing={3}>
-                        <Grid item xs={12} sm={4}>
-                            <MetricCard
-                                title="Líquido Garantido"
-                                value={formatCurrency(provisaoData?.camadas?.garantido.valor)}
-                                subtitle="Já faturado e confirmado"
-                                icon={<TrendingUp size={20} />}
-                                color="#2d3748"
-                            />
+                        <Grid size={{ xs: 12, sm: 4 }}>
+                            <MetricCard title="Recebido" value={formatCurrency(projecaoMes?.resumo?.jaRecebido)} icon={<TrendingUp size={20} />} color="#2d3748" />
                         </Grid>
-                        <Grid item xs={12} sm={4}>
-                            <MetricCard
-                                title="Em Processamento"
-                                value={formatCurrency(provisaoData?.camadas?.agendadoConfirmado.valor)}
-                                subtitle="Agendamentos confirmados"
-                                icon={<Calendar size={20} />}
-                                color="#3182ce"
-                            />
+                        <Grid size={{ xs: 12, sm: 4 }}>
+                            <MetricCard title="Agendado" value={formatCurrency(projecaoMes?.resumo?.agendadoConfirmado)} icon={<Calendar size={20} />} color="#3182ce" />
                         </Grid>
-                        <Grid item xs={12} sm={4}>
-                            <MetricCard
-                                title="Pipeline Pendente"
-                                value={formatCurrency(provisaoData?.camadas?.agendadoPendente.valor)}
-                                subtitle="Fila de confirmação"
-                                icon={<Target size={20} />}
-                                color="#e53e3e"
-                            />
+                        <Grid size={{ xs: 12, sm: 4 }}>
+                            <MetricCard title="Crédito Pacotes" value={formatCurrency(projecaoMes?.resumo?.creditoPacotes)} icon={<Target size={20} />} color="#38a169" />
                         </Grid>
                     </Grid>
 
-                    {/* Meta e Projeção de Fechamento */}
-                    <Paper sx={{ p: 4, mt: 3, borderRadius: 4, border: '1px solid #edf2f7', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+                    <Paper sx={{ p: 4, mt: 3 }}>
                         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
                             <Box>
-                                <Typography variant="subtitle1" fontWeight="bold">Projeção de Fechamento</Typography>
-                                <Typography variant="caption" color="text.secondary">Expectativa realista baseada em comportamento histórico</Typography>
+                                <Typography variant="h6">Projeção de Fechamento</Typography>
                             </Box>
                             <Box textAlign="right">
-                                <Typography variant="h4" fontWeight="900" color="primary.main">
+                                <Typography variant="h4" fontWeight="bold" color="primary.main">
                                     {formatCurrency(projecaoMes?.cenarios?.realista?.valor)}
                                 </Typography>
-                                <Typography variant="caption" fontWeight="bold" sx={{ color: metaAlcancada ? 'success.main' : 'warning.main' }}>
-                                    {metaAlcancada ? 'CONFORME META' : `Faltam ${formatCurrency(projecaoMes?.metas?.gapParaMeta)} para meta`}
-                                </Typography>
                             </Box>
                         </Box>
-
-                        <Box mb={1}>
-                            <Box display="flex" justifyContent="space-between" mb={1}>
-                                <Typography variant="body2" fontWeight="bold">{projecaoMes?.metas?.percentualAtual.toFixed(1)}% atingido</Typography>
-                                <Typography variant="body2" color="text.secondary">Meta: {formatCurrency(projecaoMes?.metas?.sugerida)}</Typography>
-                            </Box>
-                            <LinearProgress
-                                variant="determinate"
-                                value={Math.min(projecaoMes?.metas?.percentualAtual || 0, 100)}
-                                sx={{ height: 12, borderRadius: 6, bgcolor: '#f1f5f9', '& .MuiLinearProgress-bar': { borderRadius: 6, background: metaAlcancada ? 'linear-gradient(90deg, #48bb78, #38a169)' : 'linear-gradient(90deg, #667eea, #764ba2)' } }}
-                            />
-                        </Box>
+                        <LinearProgress variant="determinate" value={Math.min(projecaoMes?.metas?.percentualAtual || 0, 100)} sx={{ height: 12, borderRadius: 6 }} />
                     </Paper>
                 </Grid>
 
-                {/* Coluna 2: Ações Sugeridas (Amanda Intelligence) */}
-                <Grid item xs={12} lg={4}>
-                    <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 2, color: '#4a5568', display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Zap size={16} /> AMANDA INTELLIGENCE
-                    </Typography>
-                    <Paper sx={{ borderRadius: 4, overflow: 'hidden', border: '1px solid #edf2f7' }}>
-                        <Box sx={{ p: 3, bgcolor: '#f8fafc', borderBottom: '1px solid #edf2f7' }}>
-                            <Typography variant="subtitle2" fontWeight="bold" sx={{ color: '#64748b' }}>Ações de Curto Prazo</Typography>
-                        </Box>
-                        <Box sx={{ p: 1 }}>
-                            {projecaoMes?.insights?.map((insight: any, idx: number) => (
-                                <Box key={idx} sx={{
-                                    p: 2,
-                                    m: 1,
-                                    borderRadius: 3,
-                                    display: 'flex',
-                                    gap: 2,
-                                    alignItems: 'flex-start',
-                                    bgcolor: insight.tipo === 'error' ? '#fff5f5' : insight.tipo === 'warning' ? '#fffaf0' : '#ebf8ff',
-                                    border: '1px solid',
-                                    borderColor: insight.tipo === 'error' ? '#feb2b2' : insight.tipo === 'warning' ? '#fbd38d' : '#bee3f8'
-                                }}>
-                                    <AlertCircle size={20} color={insight.tipo === 'error' ? '#c53030' : insight.tipo === 'warning' ? '#c05621' : '#2b6cb0'} />
-                                    <Box>
-                                        <Typography variant="body2" fontWeight="bold" sx={{ lineHeight: 1.2 }}>{insight.titulo}</Typography>
-                                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>{insight.mensagem}</Typography>
-                                        {insight.acao && (
-                                            <Button variant="text" size="small" endIcon={<ChevronRight size={14} />} sx={{ p: 0, mt: 1, minWidth: 0, textTransform: 'none', fontWeight: 'bold' }}>
-                                                {insight.acao}
-                                            </Button>
-                                        )}
-                                    </Box>
-                                </Box>
-                            ))}
-
-                            {!projecaoMes?.insights?.length && (
-                                <Box p={4} textAlign="center">
-                                    <Typography color="text.secondary" variant="body2">Tudo em dia! Nenhuma ação urgente necessária.</Typography>
-                                </Box>
-                            )}
-                        </Box>
+                <Grid size={{ xs: 12, lg: 4 }}>
+                    <Paper sx={{ p: 2 }}>
+                        <Typography variant="h6" gutterBottom>Insights</Typography>
+                        {projecaoMes?.insights?.map((insight: any, idx: number) => (
+                            <Box key={idx} sx={{ p: 2, mb: 1, bgcolor: insight.tipo === 'error' ? '#fff5f5' : '#ebf8ff', borderRadius: 2 }}>
+                                <Typography variant="body2" fontWeight="bold">{insight.titulo}</Typography>
+                                <Typography variant="caption">{insight.mensagem}</Typography>
+                            </Box>
+                        ))}
                     </Paper>
-
-                    <Button
-                        fullWidth
-                        variant="soft"
-                        startIcon={<Download size={18} />}
-                        sx={{ mt: 2, borderRadius: 3, py: 1.5, textTransform: 'none', color: '#4a5568', bgcolor: '#f1f5f9', '&:hover': { bgcolor: '#e2e8f0' } }}
-                    >
-                        Exportar Relatórios Detalhados
-                    </Button>
                 </Grid>
             </Grid>
+
+            <Divider sx={{ my: 4 }} />
+
+            <Typography variant="h6" gutterBottom>Cenários</Typography>
+            <Grid container spacing={3} sx={{ mb: 4 }}>
+                <Grid size={{ xs: 12, md: 4 }}>
+                    <Card><CardContent>
+                        <Typography color="error" fontWeight="bold">PESSIMISTA</Typography>
+                        <Typography variant="h4">{formatCurrency(projecaoMes?.cenarios?.pessimista?.valor)}</Typography>
+                    </CardContent></Card>
+                </Grid>
+                <Grid size={{ xs: 12, md: 4 }}>
+                    <Card sx={{ bgcolor: 'primary.main', color: 'white' }}><CardContent>
+                        <Typography fontWeight="bold">ESPERADO ⭐</Typography>
+                        <Typography variant="h4">{formatCurrency(projecaoMes?.cenarios?.realista?.valor)}</Typography>
+                    </CardContent></Card>
+                </Grid>
+                <Grid size={{ xs: 12, md: 4 }}>
+                    <Card><CardContent>
+                        <Typography color="success" fontWeight="bold">OTIMISTA</Typography>
+                        <Typography variant="h4">{formatCurrency(projecaoMes?.cenarios?.otimista?.valor)}</Typography>
+                    </CardContent></Card>
+                </Grid>
+            </Grid>
+
+            <Paper sx={{ p: 3, mb: 4 }}>
+                <Typography variant="h6" gutterBottom>Realizados ({realizados.length})</Typography>
+                <Table size="small">
+                    <TableHead>
+                        <TableRow><TableCell>Data</TableCell><TableCell>Paciente</TableCell><TableCell>Tipo</TableCell><TableCell align="right">Valor</TableCell></TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {realizadosPage.map((apt: any) => (
+                            <TableRow key={apt._id}>
+                                <TableCell>{format(new Date(apt.data), 'dd/MM')}</TableCell>
+                                <TableCell>{apt.paciente}</TableCell>
+                                <TableCell>{apt.tipo}</TableCell>
+                                <TableCell align="right">{formatCurrency(apt.valor)}</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+                <Pagination total={realizados.length} page={pageRealizados} onPage={setPageRealizados} />
+            </Paper>
         </Box>
     );
 };

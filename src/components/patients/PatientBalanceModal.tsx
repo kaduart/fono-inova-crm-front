@@ -528,13 +528,13 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                                     ? 'text-green-200' 
                                     : 'text-white'
                         }`}>
-                            {formatCurrency(balance?.totalDebited || 0)}
+                            {formatCurrency(balance?.currentBalance || 0)}
                         </p>
                         <p className="text-xs text-amber-100 mt-1">
-                            {(balance?.totalDebited || 0) > 0 
-                                ? '⚠️ Paciente deve este valor' 
-                                : (balance?.totalDebited || 0) < 0 
-                                    ? '✅ Paciente tem crédito' 
+                            {(balance?.currentBalance || 0) > 0
+                                ? '⚠️ Paciente deve este valor'
+                                : (balance?.currentBalance || 0) < 0
+                                    ? '✅ Paciente tem crédito'
                                     : 'Sem saldo pendente'}
                         </p>
                     </div>

@@ -6,7 +6,7 @@ import { FiAlertCircle, FiExternalLink } from 'react-icons/fi';
 interface MessageProps {
   text?: string;
   isMine: boolean;
-  type?: "text" | "audio" | "image" | "video" | "document" | "sticker";
+  type?: "text" | "audio" | "image" | "video" | "document" | "sticker" | "template";
   mediaUrl?: string;
   mediaId?: string;
   caption?: string;
@@ -85,8 +85,8 @@ export default function MessageBubble({
           </div>
         )}
 
-        {/* TEXTO */}
-        {type === "text" && (
+        {/* TEXTO ou TEMPLATE */}
+        {(type === "text" || type === "template") && (
           <div>
             <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
               {text}

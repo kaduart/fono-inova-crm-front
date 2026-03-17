@@ -1,35 +1,27 @@
 // src/pages/Financial/FinancialDashboard.tsx (VERSÃO COM SEPARAÇÃO OPERACIONAL/ESTRATÉGICO)
 
-import { Box, Button, Paper, Tab, Tabs, Typography, useTheme, ToggleButton, ToggleButtonGroup } from '@mui/material';
-import { 
-    Building2, 
-    Calendar, 
-    DollarSign, 
-    PieChart, 
-    Plus, 
-    Target, 
-    TrendingUp, 
-    Receipt, 
-    ArrowLeftRight,
+import { Box, Paper, Tab, Tabs, Typography, useTheme, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import {
+    Calendar,
+    DollarSign,
+    PieChart,
+    Target,
     BarChart3,
     ClipboardList,
-    TrendingDown
+
 } from 'lucide-react';
 import { useState } from 'react';
 import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
-import CashflowTab from '../Financial/CashflowTab';
 import PaymentPage from '../../components/financial/PaymentPage';
 import ExpensesTab from './tabs/ExpensesTab';
 import EntradasSaidasTab from './tabs/EntradasSaidasTab';
-import RevenueTab from './tabs/RevenueTab';
 import GoalsTab from './tabs/GoalsTab';
 import InsuranceTab from './tabs/InsuranceTab';
 import PlanningTab from './tabs/PlanningTab';
-import { AnalyticsTab } from './tabs/AnalyticsTab';
-import InteligenciaFinanceiraTab from './tabs/InteligenciaFinanceiraTab';
+
 import VisaoGeralEstrategicaTab from './tabs/VisaoGeralEstrategicaTab';
-import ProjecaoMensalTab from './tabs/ProjecaoMensalTab';
+import AnaliseProjecaoTab from './tabs/AnaliseProjecaoTab';
 
 
 interface FinancialDashboardProps {
@@ -67,10 +59,6 @@ const FinancialDashboard = ({
         }
     };
 
-    const handleOpenPayment = () => {
-        // Implementar abertura do modal de pagamento
-    };
-
     // Tabs do modo OPERACIONAL (Gestão do Dia a Dia)
     const operacionalTabs = [
         {
@@ -96,52 +84,17 @@ const FinancialDashboard = ({
             component: <InsuranceTab />
         },
         {
-            label: '📊 Fluxo de Caixa',
-            component: <CashflowTab />
-        },
-        {
             label: '📈 Extrato',
             component: <EntradasSaidasTab />
         },
     ];
 
-    // Tabs do modo ESTRATÉGICO (Gestão de Crescimento)
+    // Tabs do modo ESTRATÉGICO
     const estrategicoTabs = [
-        {
-            label: '📊 Dashboard Executivo',
-            icon: <BarChart3 size={18} />,
-            component: <VisaoGeralEstrategicaTab />
-        },
-        {
-            label: '💵 Receitas & Análise',
-            icon: <TrendingUp size={18} />,
-            component: <RevenueTab />
-        },
-        {
-            label: '🎯 Metas & Provisão',
-            icon: <Target size={18} />,
-            component: <GoalsTab />
-        },
-        {
-            label: '🧠 Inteligência Financeira',
-            icon: <PieChart size={18} />,
-            component: <InteligenciaFinanceiraTab />
-        },
-        {
-            label: '📈 Business Intelligence',
-            icon: <TrendingDown size={18} />,
-            component: <AnalyticsTab />
-        },
-        {
-            label: '📅 Planejamento Anual',
-            icon: <Calendar size={18} />,
-            component: <PlanningTab />
-        },
-        {
-            label: '📈 Projeção Mensal',
-            icon: <TrendingUp size={18} />,
-            component: <ProjecaoMensalTab />
-        },
+        { label: '📊 Dashboard Executivo', icon: <BarChart3 size={18} />, component: <VisaoGeralEstrategicaTab /> },
+        { label: '🎯 Metas & Provisão', icon: <Target size={18} />, component: <GoalsTab /> },
+        { label: '📈 Análise & Projeção', icon: <PieChart size={18} />, component: <AnaliseProjecaoTab /> },
+        { label: '📅 Planejamento Anual', icon: <Calendar size={18} />, component: <PlanningTab /> },
     ];
 
     const currentTabs = viewMode === 'operacional' ? operacionalTabs : estrategicoTabs;
@@ -189,9 +142,9 @@ const FinancialDashboard = ({
                                 color="grey.600"
                                 sx={{ opacity: 0.8 }}
                             >
-                                {viewMode === 'operacional' 
-                                    ? '💰 Dia a dia: lançamentos, despesas, convênios e fluxo de caixa' 
-                                    : '📊 Estratégia: dashboard, receitas, metas, BI e planejamento'}
+                                {viewMode === 'operacional'
+                                    ? '💰 Dia a dia: lançamentos, despesas, convênios e extrato'
+                                    : '📊 Estratégia: dashboard executivo, metas, inteligência financeira, BI e planejamento'}
                             </Typography>
                         </div>
                     </div>
@@ -239,30 +192,6 @@ const FinancialDashboard = ({
                             </ToggleButton>
                         </ToggleButtonGroup>
 
-                       {/*  {viewMode === 'operacional' && (
-                            <Button
-                                variant="contained"
-                                startIcon={<Plus size={20} />}
-                                onClick={handleOpenPayment}
-                                fullWidth
-                                sx={{
-                                    borderRadius: 3,
-                                    px: 4,
-                                    py: 1.5,
-                                    fontWeight: 'bold',
-                                    fontSize: '1rem',
-                                    background: `linear-gradient(135deg, rgb(55,171,135), rgb(40,130,100))`,
-                                    '&:hover': {
-                                        background: `linear-gradient(135deg, rgb(60,180,140), rgb(35,115,90))`,
-                                        transform: 'translateY(-2px)',
-                                        boxShadow: 6,
-                                    },
-                                    transition: 'all 0.3s ease-in-out',
-                                }}
-                            >
-                                Novo Registro
-                            </Button>
-                        )} */}
                     </Box>
                 </div>
             </Paper>

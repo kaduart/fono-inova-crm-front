@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
     Box,
     Card,
@@ -7,6 +7,10 @@ import {
     Typography,
     Paper,
     Chip,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
 } from '@mui/material';
 import {
     AttachMoney,
@@ -19,11 +23,19 @@ import moment from 'moment-timezone';
 
 const TIMEZONE = 'America/Sao_Paulo';
 
+const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+];
+
 const RevenueTab: React.FC = () => {
-    // 🆕 HOOK ÚNICO - Mesma fonte de dados para todas as tabs
-    const startDate = moment().tz(TIMEZONE).startOf('month').toISOString();
-    const endDate = moment().tz(TIMEZONE).endOf('month').toISOString();
-    
+    const [selectedMonth, setSelectedMonth] = useState<number>(moment().tz(TIMEZONE).month());
+    const [selectedYear, setSelectedYear] = useState<number>(moment().tz(TIMEZONE).year());
+
+    const startDate = moment().tz(TIMEZONE).year(selectedYear).month(selectedMonth).startOf('month').toISOString();
+    const endDate = moment().tz(TIMEZONE).year(selectedYear).month(selectedMonth).endOf('month').toISOString();
+    const years = Array.from({ length: 3 }, (_, i) => moment().tz(TIMEZONE).year() - i);
+
     const { data, isLoading } = useFinancialMetrics(startDate, endDate);
 
     // Métricas calculadas dos dados unificados
@@ -58,11 +70,31 @@ const RevenueTab: React.FC = () => {
 
     if (isLoading) return <FinancialLoading />;
 
+    const periodoLabel = `${monthNames[selectedMonth]} ${selectedYear}`;
+
     return (
         <Box>
-            <Typography variant="h5" fontWeight="bold" mb={3}>
-                💵 Análise de Receitas
-            </Typography>
+            <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                <Typography variant="h5" fontWeight="bold">
+                    💵 Análise de Receitas — {periodoLabel}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                    <FormControl size="small" sx={{ minWidth: 140 }}>
+                        <InputLabel>Mês</InputLabel>
+                        <Select value={selectedMonth} label="Mês" onChange={(e) => setSelectedMonth(Number(e.target.value))}>
+                            {monthNames.map((name, idx) => (
+                                <MenuItem key={idx} value={idx}>{name}</MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    <FormControl size="small" sx={{ minWidth: 100 }}>
+                        <InputLabel>Ano</InputLabel>
+                        <Select value={selectedYear} label="Ano" onChange={(e) => setSelectedYear(Number(e.target.value))}>
+                            {years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
+                        </Select>
+                    </FormControl>
+                </Box>
+            </Box>
 
             <Grid container spacing={3}>
                 {/* Card: Total Recebido */}
