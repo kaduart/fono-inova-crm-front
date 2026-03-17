@@ -29,15 +29,11 @@ const DoctorFormModal = ({
     // Sincroniza o estado aberto/fechado
     useEffect(() => {
         if (modalShouldClose) {
-            // Se o pai pediu para fechar, fecha o modal
             setLocalOpen(false);
-            setShouldClose(true);
         } else if (open) {
-            // Se abriu o modal, garante que está aberto
             setLocalOpen(true);
             setShouldClose(false);
         } else if (shouldClose) {
-            // Se foi solicitado fechamento local, fecha
             setLocalOpen(false);
         }
     }, [open, modalShouldClose]);
