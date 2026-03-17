@@ -130,7 +130,13 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
 
     // 🔹 Socket para atualizações em tempo real
     usePixSocket({
-        onPaymentRefresh: () => fetchPaymentTotals({ period: 'month' }),
+        onPaymentRefresh: () => {
+            fetchPaymentTotals({ period: 'month' });
+            getPayments().then(res => {
+                const data = res.data?.data || res.data;
+                if (data) setAllPayments(data);
+            }).catch(() => {});
+        },
     });
 
     // 🔹 Carregar todos os pagamentos - apenas se não tiver initialPayments

@@ -92,6 +92,7 @@ export const usePixSocket = ({
                 preferredDate: new Date().toLocaleDateString(),
             });
             notifRef.current.onPreAgendamentoRefresh?.();
+            notifRef.current.onPaymentRefresh?.(); // atualiza lista de pagamentos
         };
 
         const onPreAgendamentoCanceled = (data: any) => {

@@ -46,7 +46,8 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
                 const searchTerm = filters.patientId.toLowerCase();
                 const patientMatch =
                     payment.patient?._id?.toLowerCase().includes(searchTerm) ||
-                    payment.patient?.fullName?.toLowerCase().includes(searchTerm);
+                    payment.patient?.fullName?.toLowerCase().includes(searchTerm) ||
+                    (payment as any).patientName?.toLowerCase().includes(searchTerm);
 
                 if (!patientMatch) return false;
             }
