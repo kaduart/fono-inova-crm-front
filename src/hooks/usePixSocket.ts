@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { toast } from "react-toastify";
 import { useNotification } from "../contexts/NotificationContext";
 import { logger } from "../utils/logger";
+import { invalidateCache } from "../utils/cacheManager";
 import { socketManager } from "../utils/socketManager";
 
 interface PixSocketOptions {
@@ -122,6 +123,7 @@ export const usePixSocket = ({
 
         const onAppointmentUpdated = (data: any) => {
             logger.info("✏️ [SOCKET] appointmentUpdated", data);
+            invalidateCache('payments');
             notifRef.current.onCalendarRefresh?.();
             notifRef.current.onPaymentRefresh?.();
         };

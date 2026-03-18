@@ -23,7 +23,7 @@ import {
 } from '../services/paymentService';
 import { DailyClosingData } from '../utils/types/daily-closing-model';
 import { PaymentTotals } from '../utils/types/types';
-import { invalidateCache } from '../utils/cacheManager';
+import { invalidateCache, subscribeToCacheInvalidation } from '../utils/cacheManager';
 
 type PaymentFilters = Record<string, any>;
 
@@ -45,6 +45,13 @@ const cache: {
   paymentTotals: null,
   totalsTimestamp: null
 };
+
+// Quando o cacheManager invalida 'payments' (ex: socket appointmentUpdated),
+// resetamos o cache local para que o próximo fetchPayments busque dados frescos
+subscribeToCacheInvalidation('payments', () => {
+  cache.payments = null;
+  cache.timestamp = null;
+});
 
 const usePayment = () => {
   const [payments, setPayments] = useState<FinancialRecord[]>(cache.payments || []);

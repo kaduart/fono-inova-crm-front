@@ -20,27 +20,33 @@ interface ContactAttempt {
 
 export interface PreAgendamento {
   _id: string;
-  source: string;
-  externalId?: string;
+  operationalStatus: string;
+  // aliases de compatibilidade (adicionados pelo backend)
+  status: string;
   patientInfo: PatientInfo;
-  patientId?: { _id: string; fullName: string; phone: string };
+  patient?: { _id: string; fullName: string; phone: string };
+  patientId?: { _id: string; fullName: string; phone: string }; // alias
   specialty: string;
-  preferredDate: string;
-  preferredTime?: string;
+  date: string;
+  time?: string;
+  preferredDate: string; // alias para date
+  preferredTime?: string; // alias para time
   preferredPeriod?: 'manha' | 'tarde' | 'noite';
   professionalName?: string;
-  professionalId?: { _id: string; fullName: string };
-  serviceType: string;
-  status: 'novo' | 'em_analise' | 'contatado' | 'confirmado' | 'agendado' | 'importado' | 'descartado' | 'expirado';
-  suggestedValue: number;
+  doctor?: { _id: string; fullName: string };
+  professionalId?: { _id: string; fullName: string }; // alias
+  serviceType?: string;
+  sessionValue: number;
+  suggestedValue: number; // alias
   secretaryNotes?: string;
+  notes?: string;
   contactAttempts: ContactAttempt[];
   assignedTo?: { _id: string; fullName: string };
   urgency: 'baixa' | 'media' | 'alta' | 'critica';
   attemptCount: number;
-  daysUntilPreferred?: number;
   createdAt: string;
   updatedAt: string;
+  metadata?: { origin?: { source?: string } };
 }
 
 interface DashboardStats {
@@ -156,25 +162,24 @@ export const usePreAgendamentos = (): UsePreAgendamentosReturn => {
   useEffect(() => {
     const handleNew = (data: any) => {
       console.log('📡 Novo pré-agendamento via socket:', data);
-      fetchPreAgendamentos(); // Recarrega a lista
+      fetchPreAgendamentos();
     };
-    
+
     const handleUpdate = (data: any) => {
       console.log('📡 Pré-agendamento atualizado via socket:', data);
-      fetchPreAgendamentos(); // Recarrega a lista
+      fetchPreAgendamentos();
     };
-    
-    socketManager.on('preagendamento:new', handleNew);
-    socketManager.on('preagendamento:imported', handleUpdate);
-    socketManager.on('preagendamento:discarded', handleUpdate);
-    socketManager.on('preagendamento:updated', handleUpdate);
-    
-    return () => {
-      socketManager.off('preagendamento:new', handleNew);
-      socketManager.off('preagendamento:imported', handleUpdate);
-      socketManager.off('preagendamento:discarded', handleUpdate);
-      socketManager.off('preagendamento:updated', handleUpdate);
-    };
+
+    const unsubs = [
+      socketManager.on('preagendamento:new', handleNew),
+      socketManager.on('appointmentCreated', handleNew),
+      socketManager.on('preagendamento:imported', handleUpdate),
+      socketManager.on('preagendamento:discarded', handleUpdate),
+      socketManager.on('preagendamento:updated', handleUpdate),
+      socketManager.on('appointmentUpdated', handleUpdate),
+    ];
+
+    return () => unsubs.forEach(u => u());
   }, [fetchPreAgendamentos]);
 
   return {

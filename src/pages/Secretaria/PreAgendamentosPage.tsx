@@ -5,8 +5,10 @@ import {
   Table, TableBody, TableCell, TableHead, TableRow, IconButton,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
   Select, MenuItem, FormControl, InputLabel, Tabs, Tab, Badge,
-  Tooltip, Avatar, Divider, Stack, Alert, useTheme
+  Tooltip, Divider, Stack, Alert, useTheme,
+  TablePagination, InputAdornment
 } from '@mui/material';
+import { Search } from '@mui/icons-material';
 import {
   Phone, WhatsApp, Email, CheckCircle, Delete, AssignmentInd,
   Warning, Error as ErrorIcon, Schedule, TrendingUp, PersonAdd,
@@ -279,6 +281,9 @@ const PreAgendamentosPage = () => {
   const { activeDoctors: doctors, refreshDoctors: fetchDoctors } = useDoctorsContext();
 
   const [activeTab, setActiveTab] = useState('todos');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [search, setSearch] = useState('');
   const [selectedPre, setSelectedPre] = useState<PreAgendamento | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
@@ -286,12 +291,31 @@ const PreAgendamentosPage = () => {
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [contactForm, setContactForm] = useState({ channel: 'whatsapp', success: false, notes: '' });
 
+  const buildFilters = (overrides: Record<string, any> = {}) => ({
+    status: activeTab === 'todos' ? undefined : activeTab,
+    page: page + 1,
+    limit: rowsPerPage,
+    search: search || undefined,
+    ...overrides
+  });
+
   useEffect(() => {
-    fetchPreAgendamentos({ status: activeTab === 'todos' ? undefined : activeTab });
+    setPage(0);
+    fetchPreAgendamentos(buildFilters({ page: 1 }));
     fetchStats();
     fetchDoctors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
+
+  useEffect(() => {
+    fetchPreAgendamentos(buildFilters());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, rowsPerPage]);
+
+  const handleSearch = () => {
+    setPage(0);
+    fetchPreAgendamentos(buildFilters({ page: 1 }));
+  };
 
   const handleImport = async (formData: any) => {
     if (!selectedPre) return;
@@ -411,6 +435,27 @@ const PreAgendamentosPage = () => {
           <strong>⚠️ Atenção!</strong> Você tem {stats.urgentes} pré-agendamento(s) com data para os próximos 2 dias que precisam de atenção!
         </Alert>
       )}
+
+      {/* Busca */}
+      <Box display="flex" gap={1} mb={2}>
+        <TextField
+          size="small"
+          placeholder="Buscar por paciente ou telefone..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+          InputProps={{
+            startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment>
+          }}
+          sx={{ width: 320 }}
+        />
+        <Button variant="outlined" size="small" onClick={handleSearch}>Buscar</Button>
+        {search && (
+          <Button size="small" onClick={() => { setSearch(''); setPage(0); fetchPreAgendamentos(buildFilters({ page: 1, search: undefined })); }}>
+            Limpar
+          </Button>
+        )}
+      </Box>
 
       {/* Tabs */}
       <Paper sx={{ mb: 2 }}>
@@ -564,6 +609,17 @@ const PreAgendamentosPage = () => {
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          component="div"
+          count={pagination.total}
+          page={page}
+          onPageChange={(_, newPage) => setPage(newPage)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(e) => { setRowsPerPage(Number(e.target.value)); setPage(0); }}
+          rowsPerPageOptions={[10, 20, 50]}
+          labelRowsPerPage="Por página:"
+          labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count}`}
+        />
       </Paper>
 
       {/* Modal de Importação */}
