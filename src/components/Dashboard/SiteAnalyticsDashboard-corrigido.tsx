@@ -90,7 +90,7 @@ const SiteAnalyticsDashboard = () => {
     // ============================================
     
     const [activeTab, setActiveTab] = useState<'overview' | 'daily' | 'landing-pages'>('overview');
-    const [datePreset, setDatePreset] = useState<'today' | '7d' | '30d' | 'custom'>('7d');
+    const [datePreset, setDatePreset] = useState<'7d' | '30d' | 'custom'>('7d');
     const [showCustomDate, setShowCustomDate] = useState(false);
     
     // Datas calculadas
@@ -144,27 +144,19 @@ const SiteAnalyticsDashboard = () => {
     // HANDLERS DE DATA
     // ============================================
     
-    const handleDatePreset = useCallback((preset: 'today' | '7d' | '30d' | 'custom') => {
+    const handleDatePreset = useCallback((preset: '7d' | '30d' | 'custom') => {
         setDatePreset(preset);
         
-        const todayStr = today.toISOString().split('T')[0];
-        
-        if (preset === 'today') {
-            setDateRange({
-                startDate: todayStr,
-                endDate: todayStr
-            });
-            setShowCustomDate(false);
-        } else if (preset === '7d') {
+        if (preset === '7d') {
             setDateRange({
                 startDate: daysAgo7.toISOString().split('T')[0],
-                endDate: todayStr
+                endDate: today.toISOString().split('T')[0]
             });
             setShowCustomDate(false);
         } else if (preset === '30d') {
             setDateRange({
                 startDate: daysAgo30.toISOString().split('T')[0],
-                endDate: todayStr
+                endDate: today.toISOString().split('T')[0]
             });
             setShowCustomDate(false);
         } else {
@@ -357,16 +349,6 @@ const SiteAnalyticsDashboard = () => {
                 </div>
                 
                 <div className="flex gap-2">
-                    <button
-                        onClick={() => handleDatePreset('today')}
-                        className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-                            datePreset === 'today'
-                                ? 'bg-blue-50 border-blue-300 text-blue-700'
-                                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                        }`}
-                    >
-                        Hoje
-                    </button>
                     <button
                         onClick={() => handleDatePreset('7d')}
                         className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
