@@ -289,13 +289,20 @@ const SiteAnalyticsDashboard = () => {
             
             <div className="flex items-center gap-3">
                 {/* Usuários em tempo real */}
-                <div className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-full">
-                    <span className="relative flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                    </span>
-                    <span className="text-sm font-medium">{realtime?.activeUsers || 0} online</span>
-                </div>
+                {realtime?.activeUsers !== null && realtime?.activeUsers !== undefined ? (
+                    <div className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-full">
+                        <span className="relative flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                        </span>
+                        <span className="text-sm font-medium">{realtime.activeUsers} online</span>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-full" title="Dados realtime requerem configuração da GA4 Realtime API">
+                        <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                        <span className="text-sm font-medium">Realtime não disponível</span>
+                    </div>
+                )}
                 
                 <button
                     onClick={refetch}
@@ -356,47 +363,73 @@ const SiteAnalyticsDashboard = () => {
                     <span className="text-sm font-medium text-gray-700">Período:</span>
                 </div>
                 
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                     <button
                         onClick={() => handleDatePreset('today')}
-                        className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                        disabled={loading}
+                        className={`px-3 py-1.5 text-sm rounded-lg border transition-colors relative ${
                             datePreset === 'today'
                                 ? 'bg-blue-50 border-blue-300 text-blue-700'
                                 : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                        }`}
+                        } ${loading ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
-                        Hoje
+                        {loading && datePreset === 'today' && (
+                            <span className="absolute left-1 top-1/2 -translate-y-1/2">
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                            </span>
+                        )}
+                        <span className={loading && datePreset === 'today' ? 'pl-4' : ''}>Hoje</span>
                     </button>
                     <button
                         onClick={() => handleDatePreset('7d')}
-                        className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                        disabled={loading}
+                        className={`px-3 py-1.5 text-sm rounded-lg border transition-colors relative ${
                             datePreset === '7d'
                                 ? 'bg-blue-50 border-blue-300 text-blue-700'
                                 : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                        }`}
+                        } ${loading ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
-                        7 dias
+                        {loading && datePreset === '7d' && (
+                            <span className="absolute left-1 top-1/2 -translate-y-1/2">
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                            </span>
+                        )}
+                        <span className={loading && datePreset === '7d' ? 'pl-4' : ''}>7 dias</span>
                     </button>
                     <button
                         onClick={() => handleDatePreset('30d')}
-                        className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                        disabled={loading}
+                        className={`px-3 py-1.5 text-sm rounded-lg border transition-colors relative ${
                             datePreset === '30d'
                                 ? 'bg-blue-50 border-blue-300 text-blue-700'
                                 : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                        }`}
+                        } ${loading ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
-                        30 dias
+                        {loading && datePreset === '30d' && (
+                            <span className="absolute left-1 top-1/2 -translate-y-1/2">
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                            </span>
+                        )}
+                        <span className={loading && datePreset === '30d' ? 'pl-4' : ''}>30 dias</span>
                     </button>
                     <button
                         onClick={() => handleDatePreset('custom')}
-                        className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                        disabled={loading}
+                        className={`px-3 py-1.5 text-sm rounded-lg border transition-colors relative ${
                             datePreset === 'custom'
                                 ? 'bg-blue-50 border-blue-300 text-blue-700'
                                 : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                        }`}
+                        } ${loading ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
                         Personalizado
                     </button>
+                    {/* 🆕 Loading global indicator */}
+                    {loading && (
+                        <span className="ml-2 text-xs text-blue-600 flex items-center gap-1 animate-pulse">
+                            <RefreshCw className="w-3 h-3 animate-spin" />
+                            Atualizando...
+                        </span>
+                    )}
                 </div>
 
                 {showCustomDate && (
@@ -425,26 +458,44 @@ const SiteAnalyticsDashboard = () => {
     // ============================================
     
     const renderMetrics = () => (
+        <>
+        {/* 🆕 Alerta de delay do GA4 */}
+        {(metrics as any)?._isDelayed && (
+            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
+                <svg className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div className="text-sm text-yellow-800">
+                    <strong>Dados de hoje ainda não disponíveis.</strong> O Google Analytics 4 tem delay de 24-48h para processar dados. 
+                    Os dados do dia atual aparecerão amanhã. Métricas de leads do CRM são atualizadas em tempo real.
+                </div>
+            </div>
+        )}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
             {[
                 { label: 'Usuários', value: metrics?.totalUsers, icon: Users, color: 'blue' },
                 { label: 'Ativos', value: metrics?.activeUsers, icon: Users, color: 'green' },
                 { label: 'Sessões', value: metrics?.sessions, icon: MousePointer, color: 'purple' },
-                { label: 'Page Views', value: metrics?.pageViews, icon: TrendingUp, color: 'orange' },
+                { label: 'Page Views', value: metrics?.pageViews ?? 0, icon: TrendingUp, color: 'orange' },
                 { label: 'Conv.', value: metrics?.conversions, icon: TrendingUp, color: 'red' },
                 { label: 'Taxa Conv.', value: `${conversionRate}%`, icon: TrendingUp, color: 'teal' },
                 { label: 'Leads Período', value: metrics?.leadsThisWeek, icon: Users, color: 'indigo' },
                 { label: 'Leads Hoje', value: metrics?.leadsToday, icon: Users, color: 'pink' },
             ].map((metric, idx) => (
-                <div key={idx} className="bg-white rounded-xl border border-gray-200 p-3">
+                <div key={idx} className={`bg-white rounded-xl border border-gray-200 p-3 relative ${loading ? 'opacity-70' : ''}`}>
                     <div className={`text-${metric.color}-600 mb-1`}>
                         <metric.icon className="w-4 h-4" />
                     </div>
                     <div className="text-xs text-gray-500">{metric.label}</div>
-                    <div className="text-lg font-bold text-gray-900">{metric.value ?? '-'}</div>
+                    {loading ? (
+                        <div className="h-6 w-16 bg-gray-200 rounded animate-pulse mt-1"></div>
+                    ) : (
+                        <div className="text-lg font-bold text-gray-900">{metric.value ?? '-'}</div>
+                    )}
                 </div>
             ))}
         </div>
+        </>
     );
 
     // ============================================
@@ -456,11 +507,19 @@ const SiteAnalyticsDashboard = () => {
             {/* Gráficos principais */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                 {/* Evolução Temporal */}
-                <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-4">
+                <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-4 relative">
                     <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                         <TrendingUp className="w-5 h-5 text-blue-500" />
                         Evolução de Eventos
                     </h2>
+                    {loading && (
+                        <div className="absolute inset-0 bg-white/70 z-10 flex items-center justify-center rounded-xl">
+                            <div className="flex flex-col items-center gap-2">
+                                <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
+                                <span className="text-sm text-gray-600">Carregando dados...</span>
+                            </div>
+                        </div>
+                    )}
                     <ResponsiveContainer width="100%" height={250}>
                         <AreaChart data={lineChartData}>
                             <defs>
@@ -478,28 +537,79 @@ const SiteAnalyticsDashboard = () => {
                     </ResponsiveContainer>
                 </div>
 
-                {/* Distribuição de Eventos */}
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <h2 className="text-lg font-semibold text-gray-800 mb-4">Eventos</h2>
-                    <ResponsiveContainer width="100%" height={250}>
-                        <PieChart>
-                            <Pie
-                                data={pieChartData}
-                                cx="50%"
-                                cy="50%"
-                                outerRadius={80}
-                                fill="#8884d8"
-                                dataKey="value"
-                                label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
-                            >
-                                {pieChartData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                ))}
-                            </Pie>
-                            <Tooltip />
-                            <Legend />
-                        </PieChart>
-                    </ResponsiveContainer>
+                {/* Distribuição de Eventos - Gráfico de Pizza Melhorado */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4 relative">
+                    <h2 className="text-lg font-semibold text-gray-800 mb-2">Distribuição de Eventos</h2>
+                    {loading && (
+                        <div className="absolute inset-0 bg-white/70 z-10 flex items-center justify-center rounded-xl">
+                            <div className="flex flex-col items-center gap-2">
+                                <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
+                                <span className="text-sm text-gray-600">Carregando...</span>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {pieChartData.length === 0 ? (
+                        <div className="h-[250px] flex items-center justify-center text-gray-400">
+                            Nenhum evento no período
+                        </div>
+                    ) : (
+                        <ResponsiveContainer width="100%" height={280}>
+                            <PieChart>
+                                <Pie
+                                    data={pieChartData}
+                                    cx="45%"
+                                    cy="50%"
+                                    innerRadius={50}
+                                    outerRadius={90}
+                                    paddingAngle={3}
+                                    dataKey="value"
+                                    nameKey="name"
+                                    label={({ name, percent, value }) => 
+                                        `${(percent * 100).toFixed(0)}%`
+                                    }
+                                    labelLine={true}
+                                >
+                                    {pieChartData.map((entry, index) => (
+                                        <Cell 
+                                            key={`cell-${index}`} 
+                                            fill={COLORS[index % COLORS.length]} 
+                                            stroke="#fff"
+                                            strokeWidth={2}
+                                        />
+                                    ))}
+                                </Pie>
+                                <Tooltip 
+                                    formatter={(value: number, name: string) => [
+                                        `${value.toLocaleString()} eventos`, 
+                                        name
+                                    ]}
+                                    contentStyle={{ 
+                                        borderRadius: '8px', 
+                                        border: 'none', 
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)' 
+                                    }}
+                                />
+                                <Legend 
+                                    layout="vertical" 
+                                    verticalAlign="middle" 
+                                    align="right"
+                                    iconType="circle"
+                                    iconSize={10}
+                                    wrapperStyle={{ fontSize: '12px', paddingLeft: '10px' }}
+                                />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    )}
+                    
+                    {/* Resumo abaixo do gráfico */}
+                    {pieChartData.length > 0 && (
+                        <div className="mt-2 pt-3 border-t border-gray-100">
+                            <div className="text-xs text-gray-500 text-center">
+                                Total: <strong>{pieChartData.reduce((sum, item) => sum + item.value, 0).toLocaleString()}</strong> eventos
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -562,7 +672,7 @@ const SiteAnalyticsDashboard = () => {
                                 </div>
                                 <div className="text-right">
                                     <div className="font-bold text-gray-900">{page.views?.toLocaleString()}</div>
-                                    <div className="text-xs text-gray-500">{page.bounceRate?.toFixed(0)}% bounce</div>
+                                    <div className="text-xs text-gray-500">{page.bounceRate ? `${page.bounceRate.toFixed(0)}% bounce` : '-'}</div>
                                 </div>
                             </div>
                         ))}
@@ -594,8 +704,8 @@ const SiteAnalyticsDashboard = () => {
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-gray-500">Bounce:</span>
-                                    <span className={`font-semibold ${service.bounceRate > 50 ? 'text-red-500' : 'text-green-500'}`}>
-                                        {service.bounceRate?.toFixed(0)}%
+                                    <span className={`font-semibold ${service.bounceRate && service.bounceRate > 50 ? 'text-red-500' : service.bounceRate ? 'text-green-500' : 'text-gray-400'}`}>
+                                        {service.bounceRate ? `${service.bounceRate.toFixed(0)}%` : '-'}
                                     </span>
                                 </div>
                                 {service.leads > 0 && (
