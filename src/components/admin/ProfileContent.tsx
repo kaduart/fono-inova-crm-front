@@ -23,7 +23,7 @@ const ProfileContent: React.FC<ProfileContentProps> = ({
     updateAdminProfile
 }) => {
     if (!adminInfo) {
-        return <div><LoadingSpinner /></div>;
+        return <div><LoadingSpinner fullPage={true} /></div>;
     }
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -65,7 +65,7 @@ export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentM
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transition-all duration-300">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto transition-all duration-300">
                 {/* Header com Gradiente */}
                 <div className="bg-gradient-to-r from-green-600 to-emerald-700 p-6 text-white relative">
                     <button

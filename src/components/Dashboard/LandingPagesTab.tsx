@@ -30,6 +30,7 @@ export default function LandingPagesTab() {
     fetchStats,
     suggestForPost,
     getPostSuggestion,
+    createFullPost,
     markAsUsed,
     seedLandingPages,
     getCategoryLabel,
@@ -107,21 +108,30 @@ export default function LandingPagesTab() {
   const handleCreatePost = async (page: LandingPage) => {
     setGeneratingPost(page.slug);
     try {
-      const suggestion = await getPostSuggestion(page.slug);
+      // 🎯 Cria post COMPLETO com imagem via ImageBank
+      const result = await createFullPost(page.slug);
       
-      // Copia o conteúdo sugerido
-      const fullContent = `${suggestion.title}\n\n${suggestion.content}`;
-      navigator.clipboard.writeText(fullContent);
-      
-      // Marca como usada
-      await markAsUsed(page.slug);
-      
-      toast.success('Conteúdo para post copiado! Cole no Google Business.');
+      if (result.hasImage) {
+        toast.success(
+          <div>
+            <strong>Post criado com sucesso!</strong>
+            <div className="text-sm mt-1">
+              ✅ Imagem: {result.imageProvider === 'imagebank-reused' ? 'Reutilizada do banco' : 'Gerada nova'}
+            </div>
+            <div className="text-xs text-gray-400 mt-1">
+              ID: {result.postId.substring(0, 8)}...
+            </div>
+          </div>,
+          { autoClose: 4000 }
+        );
+      } else {
+        toast.success('Post criado! (sem imagem)');
+      }
       
       // Recarrega sugestões
       loadSuggestions();
-    } catch (err) {
-      toast.error('Erro ao gerar sugestão');
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Erro ao criar post');
     } finally {
       setGeneratingPost(null);
     }

@@ -53,8 +53,8 @@ export function LeadFormModal({ isOpen, onClose, onSave, editing }: LeadFormModa
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <form onSubmit={handleSubmit} className="bg-white p-6 rounded shadow w-96 space-y-4">
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
+            <form onSubmit={handleSubmit} className="bg-white p-6 rounded shadow w-full max-w-sm max-h-[90vh] overflow-y-auto space-y-4">
                 <h3 className="text-lg font-bold">{editing ? 'Editar Lead' : 'Novo Lead'}</h3>
 
                 <input

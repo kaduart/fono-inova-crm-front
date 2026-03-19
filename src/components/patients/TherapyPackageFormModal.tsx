@@ -730,7 +730,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl overflow-hidden transition-all duration-300">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden transition-all duration-300">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-emerald-600 to-green-700 p-6 text-white relative">
                     <button

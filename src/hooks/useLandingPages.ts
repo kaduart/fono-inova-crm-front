@@ -99,6 +99,13 @@ export interface UseLandingPagesReturn {
   fetchStats: () => Promise<void>;
   suggestForPost: (category?: string) => Promise<LandingPage[]>;
   getPostSuggestion: (slug: string) => Promise<PostSuggestion>;
+  createFullPost: (slug: string, options?: { scheduledAt?: string }) => Promise<{
+    postId: string;
+    title: string;
+    hasImage: boolean;
+    imageProvider?: string;
+    status: string;
+  }>;
   markAsUsed: (slug: string) => Promise<void>;
   seedLandingPages: () => Promise<{ created: number; skipped: number; total: number }>;
   
@@ -216,6 +223,36 @@ export function useLandingPages(): UseLandingPagesReturn {
     }
   }, []);
 
+  /**
+   * 🎯 Cria post COMPLETO no GMB a partir de uma landing page
+   * Busca imagem no ImageBank ou gera nova
+   */
+  const createFullPost = useCallback(async (slug: string, options?: { scheduledAt?: string }): Promise<{
+    postId: string;
+    title: string;
+    hasImage: boolean;
+    imageProvider?: string;
+    status: string;
+  }> => {
+    try {
+      const response = await API.post(`/landing-pages/${slug}/create-post`, {
+        scheduledAt: options?.scheduledAt
+      });
+      
+      // Atualiza lista local
+      setLandingPages(prev => prev.map(lp => 
+        lp.slug === slug 
+          ? { ...lp, postCount: lp.postCount + 1, lastUsedInPost: new Date().toISOString() }
+          : lp
+      ));
+      
+      return response.data?.data;
+    } catch (err: any) {
+      console.error('Erro ao criar post:', err);
+      throw err;
+    }
+  }, []);
+
   const markAsUsed = useCallback(async (slug: string) => {
     try {
       await API.post(`/landing-pages/${slug}/use`);
@@ -275,6 +312,7 @@ export function useLandingPages(): UseLandingPagesReturn {
     fetchStats,
     suggestForPost,
     getPostSuggestion,
+    createFullPost,
     markAsUsed,
     seedLandingPages,
     

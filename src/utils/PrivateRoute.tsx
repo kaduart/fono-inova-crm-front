@@ -14,7 +14,7 @@ export const PrivateRoute = ({ children, allowedRoles }: PrivateRouteProps) => {
 
     if (isLoading) {
         // opcional: pode renderizar um loading enquanto verifica
-        return <LoadingSpinner />;
+        return <LoadingSpinner fullPage={true} />;
     }
 
     if (!user) {

@@ -3,24 +3,23 @@ import { Box, LinearProgress, Skeleton } from '@mui/material';
 interface LoadingSpinnerProps {
     size?: 'small' | 'medium' | 'large';
     className?: string;
-    color?: string; // cor da borda
+    color?: string;
     fullPage?: boolean;
+    centered?: boolean;
 }
 
-/**
- * LoadingSpinner padronizado com FinancialDashboard
- * Exibe LinearProgress + Skeleton cards
- */
-export const LoadingSpinner = ({ 
-    size = 'medium', 
-    className = '', 
+// Spinner simples girando — para botões e inline
+export const LoadingSpinner = ({
+    size = 'medium',
+    className = '',
     color = 'border-blue-600',
-    fullPage = true 
+    fullPage = false,
+    centered = false,
 }: LoadingSpinnerProps) => {
     if (fullPage) {
         return (
-            <Box sx={{ 
-                p: { xs: 2, md: 4 }, 
+            <Box sx={{
+                p: { xs: 2, md: 4 },
                 minHeight: '60vh',
                 display: 'flex',
                 flexDirection: 'column',
@@ -29,12 +28,12 @@ export const LoadingSpinner = ({
                 <LinearProgress sx={{ mb: 3, borderRadius: 1 }} />
                 <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, flexWrap: 'wrap' }}>
                     {[1, 2, 3, 4].map((i) => (
-                        <Skeleton 
+                        <Skeleton
                             key={i}
-                            variant="rectangular" 
-                            height={120} 
+                            variant="rectangular"
+                            height={120}
                             width={280}
-                            sx={{ borderRadius: 2 }} 
+                            sx={{ borderRadius: 2 }}
                         />
                     ))}
                 </Box>
@@ -42,15 +41,31 @@ export const LoadingSpinner = ({
         );
     }
 
-    // Versão compacta (circular) para casos específicos
-    const sizeClasses =
-        size === 'small' ? 'h-4 w-4' :
-            size === 'large' ? 'h-6 w-6' :
-                'h-5 w-5';
+    const sizeClass =
+        size === 'small' ? 'h-4 w-4 border-2' :
+        size === 'large' ? 'h-8 w-8 border-4' :
+                           'h-5 w-5 border-2';
 
-    return (
-        <div className={`inline-block animate-spin rounded-full border-b-2 ${sizeClasses} ${color} ${className}`} />
+    const spinner = (
+        <div className={`animate-spin rounded-full border-t-transparent ${sizeClass} ${color} ${centered ? '' : className}`} />
     );
+
+    if (centered) {
+        return (
+            <div className={`flex items-center justify-center ${className}`}>
+                {spinner}
+            </div>
+        );
+    }
+
+    return spinner;
 };
+
+// Spinner de modal — centralizado na área de conteúdo, sem padding excessivo
+export const ModalSpinner = ({ color = 'border-blue-500' }: { color?: string }) => (
+    <div className="flex items-center justify-center w-full h-full min-h-[80px]">
+        <div className={`animate-spin rounded-full h-7 w-7 border-4 border-t-transparent ${color}`} />
+    </div>
+);
 
 export default LoadingSpinner;

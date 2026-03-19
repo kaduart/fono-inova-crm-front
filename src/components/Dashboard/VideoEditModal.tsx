@@ -59,7 +59,7 @@ export function VideoEditModal({ video, onClose, onApply, applying }: VideoEditM
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden"
+        className="bg-white rounded-2xl max-w-lg w-full shadow-2xl max-h-[90vh] overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}

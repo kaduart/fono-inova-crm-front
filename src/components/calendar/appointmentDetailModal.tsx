@@ -1023,7 +1023,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         >
                             {isConverting ? (
                                 <>
-                                    <LoadingSpinner size="small" color="border-white" />
+                                    <LoadingSpinner size="small" color="border-white" fullPage={false} />
                                     <span>Convertendo...</span>
                                 </>
                             ) : (
@@ -1047,7 +1047,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                     >
                         {isCompleting || isAddingDebit ? (
                             <>
-                                <LoadingSpinner size="small" color="border-white" />
+                                <LoadingSpinner size="small" color="border-white" fullPage={false} />
                                 <span>
                                     {isAddingDebit ? 'Registrando débito...' : 'Registrando...'}
                                 </span>
@@ -1075,7 +1075,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                     >
                         {isCancelling ? (
                             <>
-                                <LoadingSpinner size="small" color="border-white" />
+                                <LoadingSpinner size="small" color="border-white" fullPage={false} />
                                 <span>Cancelando...</span>
                             </>
                         ) : (
@@ -1096,7 +1096,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                     >
                         {isEditing ? (
                             <>
-                                <LoadingSpinner size="small" color="border-white" />
+                                <LoadingSpinner size="small" color="border-white" fullPage={false} />
                                 <span>Salvando...</span>
                             </>
                         ) : (
@@ -1127,7 +1127,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full flex flex-col md:flex-row min-h-[600px] max-h-[90vh] border-2 border-gray-200">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full flex flex-col md:flex-row md:min-h-[600px] max-h-[90vh] overflow-hidden border-2 border-gray-200">
                 {/* Header Mobile */}
                 <div className="md:hidden bg-gradient-to-r from-green-600 via-green-500 to-cyan-500 p-6 text-white rounded-t-3xl">
                     <div className="flex items-center justify-between mb-4">
@@ -1196,7 +1196,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 </div>
 
                 {/* Conteúdo principal */}
-                <div className="flex-1 p-8 flex flex-col">
+                <div className="flex-1 p-4 md:p-8 flex flex-col overflow-hidden">
                     {/* Header Desktop */}
                     <div className="hidden md:flex items-center gap-4 mb-6 pb-6 border-b-2 border-gray-200">
                         <div className="p-3 bg-gradient-to-br from-green-100 to-cyan-100 rounded-2xl shadow-lg">

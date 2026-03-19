@@ -40,7 +40,7 @@ const EditAgendaModal = ({ open, onClose, doctor,selectedDoctorId, selectedDate,
         onSave(formData);
     };
     return (
-        <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+        <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" disableScrollLock>
             <CardHeader>
                 <DialogTitle>Editar Horários</DialogTitle>
             </CardHeader>

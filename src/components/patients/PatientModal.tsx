@@ -36,6 +36,7 @@ export const PatientModal = ({
       TransitionComponent={Transition}
       fullWidth
       maxWidth="md"
+      disableScrollLock
       PaperProps={{
         className:
           'rounded-2xl shadow-xl border border-gray-100 backdrop-blur-sm bg-white/90 overflow-hidden transition-all',

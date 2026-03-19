@@ -47,7 +47,7 @@ export default function ProfessionalProfilePage() {
         }
     };
 
-    if (!user) return <div><LoadingSpinner /></div>;
+    if (!user) return <div><LoadingSpinner fullPage={true} /></div>;
 
     return (
         <div className="container mx-auto p-4">

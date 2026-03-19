@@ -95,8 +95,8 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999]">
-            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-xl shadow-2xl w-full max-w-md z-[1000]">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+            <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md z-[1000] max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-start mb-4">
                     <h2 className="text-xl font-semibold text-gray-800">
                         {mode === 'edit' ? 'Editar Agendamento' : 'Novo Agendamento'}

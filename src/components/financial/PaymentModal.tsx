@@ -612,7 +612,7 @@ export const PaymentModal = ({
                 >
                     {isLoading ? (
                         <>
-                            <LoadingSpinner />
+                            <LoadingSpinner size="small" color="border-white" />
                             Registrando...
                         </>
                     ) : (

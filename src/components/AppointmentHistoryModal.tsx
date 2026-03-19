@@ -69,6 +69,7 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
             onClose={onClose}
             maxWidth="md"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
                     borderRadius: '12px',

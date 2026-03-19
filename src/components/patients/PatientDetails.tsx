@@ -93,7 +93,7 @@ const PatientDetails = ({ patients }: PatientDetailsProps) => {
     }, [id]);
 
     if (loading) {
-        return <LoadingSpinner />;
+        return <LoadingSpinner fullPage={true} />;
     }
 
     return (

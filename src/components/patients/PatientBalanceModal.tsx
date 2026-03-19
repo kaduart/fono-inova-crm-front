@@ -8,7 +8,7 @@ import DatePicker from 'react-datepicker';
 import { getPatientBalance, addBalanceDebit, addBalancePayment, addBalancePaymentMulti, deleteBalanceTransaction, editBalanceTransaction } from '../../services/paymentService';
 import { appointmentService } from '../../services/appointmentService';
 import { InputCurrency } from '../ui/InputCurrency';
-import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { LoadingSpinner, ModalSpinner } from '../ui/LoadingSpinner';
 
 interface PatientBalanceModalProps {
     isOpen: boolean;
@@ -585,9 +585,7 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                 {/* Content */}
                 <div className="p-3 sm:p-6 max-h-[50vh] overflow-y-auto">
                     {loading ? (
-                        <div className="flex justify-center py-8">
-                            <LoadingSpinner size="large" />
-                        </div>
+                        <ModalSpinner />
                     ) : activeTab === 'pending' ? (
                         <div className="space-y-4">
                             {/* Barra de ações */}

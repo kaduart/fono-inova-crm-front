@@ -176,7 +176,7 @@ const PatientForm = ({ patient, isLoading, onSuccess }: PatientFormProps) => {
         >
           {isLoading ? (
             <span className="flex items-center">
-              <LoadingSpinner className="mr-2 h-4 w-4 animate-spin" />
+              <LoadingSpinner size="small" color="border-white" className="mr-2" />
               Salvando...
             </span>
           ) : (

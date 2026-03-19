@@ -17,5 +17,5 @@ export default function ProfessionalHomePage() {
         }
     }, [user, navigate]);
 
-    return <div><LoadingSpinner /></div>;
+    return <div><LoadingSpinner fullPage={true} /></div>;
 }

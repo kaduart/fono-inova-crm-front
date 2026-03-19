@@ -10,7 +10,7 @@ const ClientDialog = ({ open, onClose, children }) => {
 
     if (!mounted) return null;
 
-    return <Dialog open={open} onClose={onClose}>{children}</Dialog>;
+    return <Dialog open={open} onClose={onClose} disableScrollLock>{children}</Dialog>;
 };
 
 export default ClientDialog;
