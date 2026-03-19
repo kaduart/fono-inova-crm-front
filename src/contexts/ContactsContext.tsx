@@ -96,6 +96,7 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
     // 🆕 Flags para controle de carga
     const isInitialLoadRef = useRef(true);
     const lastRefreshRef = useRef(0);
+    const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const MIN_REFRESH_INTERVAL = 5000; // Mínimo 5s entre chamadas
 
     const refreshContacts = useCallback(async (force = false) => {
@@ -205,6 +206,11 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
 
     // 🔄 Escuta mudanças de autenticação para recarregar quando fizer login
     useEffect(() => {
+        // 🛡️ Proteção contra múltiplos intervals (React StrictMode, remounts, etc)
+        if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+        }
+
         const handleAuthReady = () => {
             console.log('[ContactsContext] Auth ready, loading contacts...');
             refreshContacts();
@@ -217,19 +223,31 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
             setHasMore(true);
         };
 
+        const handleVisibilityChange = () => {
+            // Quando a aba volta a ficar visível, faz um refresh se passou tempo suficiente
+            if (document.visibilityState === 'visible' && localStorage.getItem('token')) {
+                const now = Date.now();
+                if (now - lastRefreshRef.current > MIN_REFRESH_INTERVAL) {
+                    console.log('[ContactsContext] Tab visible, refreshing contacts...');
+                    refreshContacts(false);
+                }
+            }
+        };
+
         // Verifica se já tem token no mount
         const token = localStorage.getItem('token');
-        if (token) {
+        if (token && isInitialLoadRef.current) {
             refreshContacts();
         }
 
         // Escuta eventos de auth
         window.addEventListener('authReady', handleAuthReady);
         window.addEventListener('authLogout', handleAuthLogout);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
-        // 🔄 FALLBACK: Polling a cada 30 segundos (aumentado de 10s)
+        // 🔄 FALLBACK: Polling a cada 30 segundos (apenas quando visível)
         // Socket já atualiza em tempo real, polling é só fallback
-        const pollInterval = setInterval(() => {
+        pollingIntervalRef.current = setInterval(() => {
             if (document.visibilityState === 'visible' && localStorage.getItem('token')) {
                 console.log('[ContactsContext] Polling 30s: verificando atualizações...', new Date().toISOString());
                 refreshContacts(false); // false = não força loading
@@ -239,15 +257,23 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
         return () => {
             window.removeEventListener('authReady', handleAuthReady);
             window.removeEventListener('authLogout', handleAuthLogout);
-            clearInterval(pollInterval);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            if (pollingIntervalRef.current) {
+                clearInterval(pollingIntervalRef.current);
+                pollingIntervalRef.current = null;
+            }
         };
-    }, []);
+    }, [refreshContacts]);
 
     // socket listener
     useEffect(() => {
         console.log('[ContactsContext] 🔌 Registrando listener de socket...');
         isMountedRef.current = true;
         socketManager.initialize();
+        
+        // 🛡️ Rate limiting para refreshContacts quando contato não encontrado
+        let lastSocketRefresh = 0;
+        const SOCKET_REFRESH_COOLDOWN = 10000; // Mínimo 10s entre refreshes de socket
 
         const unsub = socketManager.onMessageNew((payload) => {
             console.log('[ContactsContext] ⭐⭐⭐ SOCKET EVENTO RECEBIDO:', {
@@ -288,10 +314,16 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
                     contactId = phoneIndexRef.current.get(phone);
                 }
                 
-                // Se não encontrou contato, faz refresh para buscar do servidor
+                // Se não encontrou contato, faz refresh para buscar do servidor (com rate limit)
                 if (!contactId) {
-                    console.warn('[ContactsContext] Contato não encontrado, fazendo refresh... Phone:', phone);
-                    refreshContacts();
+                    const now = Date.now();
+                    if (now - lastSocketRefresh > SOCKET_REFRESH_COOLDOWN) {
+                        lastSocketRefresh = now;
+                        console.warn('[ContactsContext] Contato não encontrado, fazendo refresh... Phone:', phone);
+                        refreshContacts();
+                    } else {
+                        console.log('[ContactsContext] Refresh ignorado (cooldown ativo)');
+                    }
                     return;
                 }
 
@@ -339,7 +371,7 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
             isMountedRef.current = false;
             unsub?.();
         };
-    }, []);
+    }, [refreshContacts]);
 
     const value = useMemo<ContactsContextType>(
         () => ({

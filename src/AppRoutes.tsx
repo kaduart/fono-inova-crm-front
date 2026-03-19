@@ -19,23 +19,42 @@ import ResetPassword from './components/ResetPassword';
 import SignUp from './components/SignUp';
 
 // 🔧 Helper para lazy loading com retry em caso de falha de chunk
-const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1000) => {
-  return lazy(() => 
-    importFn().catch((error: any) => {
-      // Se for erro de chunk não encontrado (atualização de build), recarrega a página
-      if (error?.name === 'TypeError' || error?.message?.includes('Failed to fetch dynamically imported module')) {
-        console.warn('[AppRoutes] Chunk load failed, attempting retry...');
+const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) => {
+  return lazy(() => {
+    let attempts = 0;
+    
+    const tryLoad = (): Promise<any> => {
+      attempts++;
+      return importFn().catch((error: any) => {
+        // Se for erro de chunk não encontrado (atualização de build)
+        const isChunkError = error?.name === 'TypeError' || 
+                           error?.message?.includes('Failed to fetch dynamically imported module') ||
+                           error?.message?.includes('load failed');
         
-        // Tenta novamente após delay
-        return new Promise((resolve) => {
-          setTimeout(() => {
-            resolve(importFn());
-          }, delay);
-        });
-      }
-      throw error;
-    })
-  );
+        if (isChunkError) {
+          console.warn(`[AppRoutes] Chunk load failed (attempt ${attempts}/${retries})`);
+          
+          // Se ainda tem tentativas, aguarda e tenta novamente
+          if (attempts < retries) {
+            return new Promise((resolve) => {
+              setTimeout(() => {
+                resolve(tryLoad());
+              }, delay * attempts); // Backoff exponencial simples
+            });
+          }
+          
+          // Última tentativa falhou - provavelmente novo deploy, recarrega a página
+          console.error('[AppRoutes] Chunk failed after all retries. Reloading page...');
+          window.location.reload();
+          return new Promise(() => {}); // Nunca resolve, aguarda o reload
+        }
+        
+        throw error;
+      });
+    };
+    
+    return tryLoad();
+  });
 };
 
 // 🎯 Lazy loading de componentes pesados (com retry automático)

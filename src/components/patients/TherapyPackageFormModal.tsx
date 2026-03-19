@@ -729,33 +729,33 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     ]);
 
     return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden transition-all duration-300">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden transition-all duration-300 flex flex-col">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-emerald-600 to-green-700 p-6 text-white relative">
+                <div className="bg-gradient-to-r from-emerald-600 to-green-700 p-4 sm:p-6 text-white relative flex-shrink-0">
                     <button
                         onClick={onClose}
-                        className="absolute top-4 right-4 text-white hover:text-gray-200 transition-colors p-1"
+                        className="absolute top-3 right-3 sm:top-4 sm:right-4 text-white hover:text-gray-200 transition-colors p-1"
                     >
-                        <X className="w-6 h-6" />
+                        <X className="w-5 h-5 sm:w-6 sm:h-6" />
                     </button>
 
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-white bg-opacity-20 rounded-xl">
-                            {initialData ? <Save className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
+                    <div className="flex items-center gap-3 sm:gap-4">
+                        <div className="p-2 sm:p-3 bg-white bg-opacity-20 rounded-xl flex-shrink-0">
+                            {initialData ? <Save className="w-5 h-5 sm:w-6 sm:h-6" /> : <Plus className="w-5 h-5 sm:w-6 sm:h-6" />}
                         </div>
-                        <div>
-                            <h2 className="text-2xl font-bold">
+                        <div className="min-w-0">
+                            <h2 className="text-lg sm:text-2xl font-bold truncate">
                                 {initialData ? 'Editar Pacote' : 'Criar Novo Pacote'}
                             </h2>
-                            <p className="text-emerald-100 mt-1">
-                                {initialData ? 'Atualize as informações do pacote' : `Criar pacote de terapia para ${patient.fullName}`}
+                            <p className="text-emerald-100 mt-0.5 sm:mt-1 text-sm sm:text-base truncate">
+                                {initialData ? 'Atualize as informações do pacote' : `Criar pacote para ${patient.fullName}`}
                             </p>
                         </div>
                     </div>
                 </div>
 
-                <div className="p-6 max-h-[80vh] overflow-y-auto">
+                <div className="p-4 sm:p-6 flex-1 overflow-y-auto min-h-0">
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                         {/* Coluna 1 - Configuração do Pacote */}
                         <div className="xl:col-span-2 space-y-6">
@@ -1467,7 +1467,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 </div>
 
                 {/* Footer */}
-                <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-t border-gray-200">
+                <div className="bg-gray-50 px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center border-t border-gray-200 flex-shrink-0">
                     <div className="text-sm text-gray-500">
                         {!isFormValid && "Preencha todos os campos obrigatórios (*)"}
                     </div>
