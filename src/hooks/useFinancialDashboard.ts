@@ -5,7 +5,7 @@
  * API única para todas as abas financeiras
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../services/api';
 import moment from 'moment-timezone';
 
@@ -51,13 +51,17 @@ interface Especialidade {
   producao: number;
   sessoes: number;
   ticketMedio: number;
+  pacientesUnicos: number;
 }
 
 interface Profissional {
   id: string;
   nome: string;
+  especialidade: string;
   producao: number;
   sessoes: number;
+  ticketMedio: number;
+  pacientesUnicos: number;
 }
 
 interface Insight {
@@ -82,8 +86,6 @@ interface DashboardData {
   };
   detalhes: {
     realizados: any[];
-    creditoPacotes: any[];
-    convenioAgendado: any[];
     agendados: any[];
     pendentes: any[];
   };
@@ -125,13 +127,22 @@ export const useFinancialDashboard = () => {
 };
 
 /**
- * Hook com período atual (mês)
+ * Hook com período atual (mês) — carrega automaticamente ao montar
  */
 export const useCurrentMonthDashboard = () => {
   const month = moment().tz(TIMEZONE).month() + 1;
   const year = moment().tz(TIMEZONE).year();
-  
-  return useFinancialDashboard();
+  const hook = useFinancialDashboard();
+  const fetched = useRef(false);
+
+  useEffect(() => {
+    if (!fetched.current) {
+      fetched.current = true;
+      hook.fetchDashboard(month, year);
+    }
+  }, [month, year, hook.fetchDashboard]);
+
+  return hook;
 };
 
 export default useFinancialDashboard;

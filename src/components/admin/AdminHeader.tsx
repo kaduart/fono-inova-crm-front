@@ -46,7 +46,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const isVendasMarketingActive =
-        activeTab === "Leads" || activeTab === "Analytics" || activeTab === "SocialMedia";
+        activeTab === "Leads" || activeTab === "Analytics" || activeTab === "SocialMedia" || activeTab === "ROI";
 
     const handleLogout = async () => {
         await authLogout();
@@ -201,6 +201,16 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         <div className="flex flex-col">
                                             <span className="text-sm font-medium text-gray-800">Analytics do Site</span>
                                             <span className="text-xs text-gray-500">Métricas GA4 e conversões</span>
+                                        </div>
+                                    </NavDropdownItem>
+                                    <NavDropdownItem
+                                        active={activeTab === "ROI"}
+                                        onClick={() => handleTabChange("ROI")}
+                                        icon={<DollarSign className="h-4 w-4 text-green-500" />}
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-gray-800">ROI & Atribuição</span>
+                                            <span className="text-xs text-gray-500">Receita por campanha e origem</span>
                                         </div>
                                     </NavDropdownItem>
                                 </div>
@@ -370,6 +380,15 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                     }`}
                             >
                                 <Activity size={18} className="text-indigo-400" /> Analytics do Site
+                            </button>
+                            <button
+                                onClick={() => handleMobileTabChange("ROI")}
+                                className={`flex items-center gap-3 w-full px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "ROI"
+                                        ? "bg-emerald-600 text-white"
+                                        : "text-emerald-100 hover:bg-emerald-700"
+                                    }`}
+                            >
+                                <DollarSign size={18} className="text-green-400" /> ROI & Atribuição
                             </button>
                             <button
                                 onClick={() => handleMobileTabChange("Mensagens")}

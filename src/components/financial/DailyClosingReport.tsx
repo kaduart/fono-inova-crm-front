@@ -25,6 +25,7 @@ import {
 import { TbCalendarStats } from "react-icons/tb";
 import usePayment from "../../hooks/usePayment";
 import { getPaymentTotals } from "../../services/paymentService";
+import api from "../../services/api";
 import { formatDateBrazilian } from "../../utils/dateFormat";
 import { LoadingSpinner } from "../ui/LoadingSpinner";
 import SummaryCard from "./SummaryCard";
@@ -159,6 +160,7 @@ const DailyClosingReport = () => {
             professionals: professionals.sort((a: any, b: any) => b.sessionCount - a.sessionCount),
             payments,
             financial,
+            newAppointments: (report.timelines?.appointments || []).filter((a: any) => a.patientType === 'novo' && a.operationalStatus !== 'canceled'),
             summary: {
                 totalAppointments: summary.appointments?.total || 0,
                 totalConfirmed: summary.appointments?.attended || 0, // 🔹 'attended' = confirmados
@@ -242,16 +244,37 @@ const DailyClosingReport = () => {
                         Painel Diário
                     </h1>
                     <p className="text-sm text-gray-600">
-                        {formatDateBrazilian(dateFilter)} • {processedData.summary.totalAppointments} sessões
+                        {dayjs(dateFilter).format('DD/MM/YYYY')} • {processedData.summary.totalAppointments} sessões
                     </p>
                 </div>
-                <div className="w-full sm:w-auto">
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                     <input
                         type="date"
                         value={dateFilter}
                         onChange={(e) => setDateFilter(e.target.value)}
-                        className="w-full sm:w-auto border border-gray-300 rounded-lg px-3 py-2 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                     />
+                    <select
+                        value={filters.professional}
+                        onChange={(e) => setFilters(f => ({ ...f, professional: e.target.value }))}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    >
+                        <option value="all">Todos profissionais</option>
+                        {(processedData?.professionals || []).map((p: any) => (
+                            <option key={p.name} value={p.name}>{p.name}</option>
+                        ))}
+                    </select>
+                    <select
+                        value={filters.status}
+                        onChange={(e) => setFilters(f => ({ ...f, status: e.target.value }))}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    >
+                        <option value="all">Todos os status</option>
+                        <option value="confirmed">Confirmado</option>
+                        <option value="scheduled">Agendado</option>
+                        <option value="canceled">Cancelado</option>
+                        <option value="missed">Faltou</option>
+                    </select>
                 </div>
             </div>
 
@@ -323,6 +346,8 @@ const DailyClosingReport = () => {
                     onTimeSlotClick={handleTimeSlotClick}
                     insuranceData={insuranceData}
                     loadingInsurance={loadingInsurance}
+                    filters={filters}
+                    dateFilter={dateFilter}
                 />
             )}
 
@@ -370,8 +395,84 @@ const DailyClosingReport = () => {
     );
 };
 
+// 🆕 Card de agendamentos criados no dia
+const NewAppointmentsCard = ({ appointments }: { appointments: any[] }) => {
+    const [modalOpen, setModalOpen] = useState(false);
+
+    return (
+        <>
+            <button
+                onClick={() => appointments.length > 0 && setModalOpen(true)}
+                className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col text-left hover:border-blue-300 hover:shadow-md transition-all w-full"
+            >
+                <div className="flex items-center justify-between mb-3">
+                    <span className="font-bold text-gray-900">Agendamentos do Dia</span>
+                    <span className={`text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full ${appointments.length > 0 ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                        {appointments.length}
+                    </span>
+                </div>
+                <div className="space-y-1 mt-1">
+                    <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Agendados:</span>
+                        <span className="font-medium text-blue-600">{appointments.filter((a: any) => a.operationalStatus === 'scheduled').length}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Pré-agendados:</span>
+                        <span className="font-medium text-yellow-600">{appointments.filter((a: any) => a.operationalStatus === 'pre_agendado').length}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Novos pacientes:</span>
+                        <span className="font-medium text-emerald-600">{appointments.filter((a: any) => a.patientType === 'novo').length}</span>
+                    </div>
+                </div>
+                {appointments.length > 0 && (
+                    <p className="text-xs text-blue-500 mt-3 text-center">Clique para ver lista</p>
+                )}
+            </button>
+
+            {modalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setModalOpen(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-4">
+                            <h4 className="font-bold text-gray-800 text-lg">Agendamentos do Dia ({appointments.length})</h4>
+                            <button onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+                        </div>
+                        <div className="overflow-y-auto space-y-2">
+                            {appointments.map((appt: any) => (
+                                <div key={appt.id} className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
+                                    <div className="flex items-center justify-between">
+                                        <p className="font-semibold text-gray-800 text-sm">{appt.patient}</p>
+                                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                            appt.operationalStatus === 'scheduled' ? 'bg-blue-100 text-blue-700' :
+                                            appt.operationalStatus === 'pre_agendado' ? 'bg-yellow-100 text-yellow-700' :
+                                            'bg-gray-100 text-gray-600'
+                                        }`}>
+                                            {appt.operationalStatus === 'scheduled' ? 'Agendado' :
+                                             appt.operationalStatus === 'pre_agendado' ? 'Pré-agendado' :
+                                             appt.operationalStatus}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        {appt.phone || 'Sem telefone'} · {appt.date}{appt.time ? ` às ${appt.time}` : ''}
+                                    </p>
+                                    {appt.doctor && appt.doctor !== 'Não informado' && (
+                                        <p className="text-xs text-gray-400 mt-0.5">{appt.doctor}</p>
+                                    )}
+                                    {appt.service && appt.service !== 'package_session' && (
+                                        <p className="text-xs text-gray-400 mt-0.5">{appt.service}</p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
+    );
+};
+
 // 🎨 COMPONENTE DE VISÃO GERAL
-const OverviewView = ({ data, formatCurrency, onTimeSlotClick, insuranceData, loadingInsurance }: any) => {
+const OverviewView = ({ data, formatCurrency, onTimeSlotClick, insuranceData, loadingInsurance, filters, dateFilter }: any) => {
     const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
 
     // ==========================================================
@@ -554,6 +655,7 @@ const OverviewView = ({ data, formatCurrency, onTimeSlotClick, insuranceData, lo
                         formatCurrency={formatCurrency}
                     />
                 ))}
+                <NewAppointmentsCard appointments={data.newAppointments || []} />
             </div>
 
             {/* GRADE DE HORÁRIOS RÁPIDOS */}
@@ -583,6 +685,12 @@ const OverviewView = ({ data, formatCurrency, onTimeSlotClick, insuranceData, lo
                 )}
             </div>
 
+            {/* PRÉ-AGENDAMENTOS DO DIA */}
+            <PreAgendamentosCard
+                date={dateFilter}
+                formatCurrency={formatCurrency}
+            />
+
             {/* VISÃO RÁPIDA DOS PROFISSIONAIS */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {data.professionals.slice(0, 4).map((professional: any) => (
@@ -597,6 +705,91 @@ const OverviewView = ({ data, formatCurrency, onTimeSlotClick, insuranceData, lo
     );
 };
 
+
+// 🎨 CARD DE PRÉ-AGENDAMENTOS DO DIA
+const urgencyBadge: Record<string, string> = {
+    critica: 'bg-red-100 text-red-700',
+    alta:    'bg-orange-100 text-orange-700',
+    media:   'bg-yellow-100 text-yellow-700',
+    baixa:   'bg-green-100 text-green-700',
+};
+
+const PreAgendamentosCard = ({ date, formatCurrency }: { date: string; formatCurrency: (v: number) => string }) => {
+    const [expanded, setExpanded] = useState(false);
+    const [items, setItems] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (!date) return;
+        setLoading(true);
+        api.get(`/pre-agendamento?from=${date}&to=${date}&limit=50`)
+            .then(r => setItems(r.data?.data || []))
+            .catch(() => setItems([]))
+            .finally(() => setLoading(false));
+    }, [date]);
+
+    if (!loading && items.length === 0) return null;
+
+    return (
+        <div className="bg-white rounded-xl shadow-sm border border-amber-200">
+            <button
+                className="w-full flex items-center justify-between p-5 text-left hover:bg-amber-50 transition-colors rounded-xl"
+                onClick={() => setExpanded(v => !v)}
+            >
+                <div className="flex items-center gap-3">
+                    <BsClockHistory className="text-amber-500 w-5 h-5" />
+                    <div>
+                        <h3 className="font-semibold text-gray-900">Pré-agendamentos do Dia</h3>
+                        <p className="text-sm text-gray-500">
+                            {loading ? 'Carregando...' : `${items.length} aguardando confirmação`}
+                        </p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-3">
+                    {items.length > 0 && (
+                        <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm font-semibold">
+                            {items.length}
+                        </span>
+                    )}
+                    <BsArrowRight className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`} />
+                </div>
+            </button>
+
+            {expanded && (
+                <div className="border-t border-amber-100 p-5 space-y-2 max-h-80 overflow-y-auto">
+                    {items.map((pre: any) => (
+                        <div
+                            key={pre._id}
+                            className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors"
+                        >
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <span className="text-sm font-medium text-gray-500 w-12 shrink-0">
+                                    {pre.time || pre.preferredTime || '—'}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-gray-900 truncate">
+                                        {pre.patientInfo?.fullName || '—'}
+                                    </p>
+                                    <p className="text-xs text-gray-500 truncate">
+                                        {pre.professionalName || pre.doctor?.fullName || '—'} · {pre.specialty}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 ml-3 shrink-0">
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${urgencyBadge[pre.urgency] || 'bg-gray-100 text-gray-600'}`}>
+                                    {pre.urgency || '—'}
+                                </span>
+                                <span className="text-sm font-semibold text-gray-700">
+                                    {formatCurrency(pre.sessionValue ?? pre.suggestedValue ?? 0)}
+                                </span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
 
 // 🎨 CARD DE PERÍODO DO DIA
 const TimePeriodCard = ({ period, isSelected, onSelect, onTimeSlotClick, formatCurrency }: any) => {

@@ -82,7 +82,11 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     const [isLoading, setIsLoading] = useState(false);
 
     // 🏥 Estados para pacotes de convênio
-    const [packageType, setPackageType] = useState<'therapy' | 'convenio'>('therapy');
+    const [packageType, setPackageType] = useState<'therapy' | 'convenio' | 'liminar'>('therapy');
+    
+    // ⚖️ Estados para pacotes liminar
+    const [liminarProcessNumber, setLiminarProcessNumber] = useState('');
+    const [liminarCourt, setLiminarCourt] = useState('');
     const [availableGuides, setAvailableGuides] = useState<InsuranceGuide[]>([]);
     const [selectedGuide, setSelectedGuide] = useState<string>('');
     const [loadingGuides, setLoadingGuides] = useState(false);
@@ -134,6 +138,14 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         if (packageType === 'convenio') {
             if (!selectedGuide) {
                 baseErrors.selectedGuide = "Selecione uma guia de convênio.";
+            }
+        }
+
+        // Regras específicas para LIMINAR (valor é obrigatório, mas pagamentos não)
+        if (packageType === 'liminar') {
+            const sessionValue = Number(formData.sessionValue);
+            if (!sessionValue || sessionValue < 0.01) {
+                baseErrors.sessionValue = "Valor por sessão deve ser maior que zero";
             }
         }
 
@@ -537,7 +549,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
             console.log("📤 Enviando pacote:", packageData);
 
-            // 🏥 Lógica condicional: Therapy vs Convenio
+            // 🏥 Lógica condicional: Therapy vs Convenio vs Liminar
             if (packageType === 'convenio') {
                 // Validar guia selecionada
                 if (!selectedGuide) {
@@ -557,6 +569,21 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 console.log("📤 Enviando pacote de convênio:", convenioData);
                 await packageService.createConvenioPackage(convenioData);
                 toast.success(`Pacote de convênio criado com sucesso! 💚`);
+            } else if (packageType === 'liminar') {
+                // ⚖️ Payload para liminar
+                const liminarData = {
+                    ...packageData,
+                    patientId: patient._id,
+                    sessionType: formData.sessionType as any,
+                    type: 'liminar',
+                    liminarProcessNumber: liminarProcessNumber || undefined,
+                    liminarCourt: liminarCourt || undefined,
+                    liminarMode: 'hybrid'
+                };
+
+                console.log("📤 Enviando pacote liminar:", liminarData);
+                await packageService.createPackage(liminarData);
+                toast.success(`Pacote liminar criado com sucesso! ⚖️`);
             } else {
                 // Fluxo normal (therapy)
                 const therapyData = {
@@ -689,6 +716,19 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 ? formData.totalSessions > 0
                 : (formData.durationMonths > 0 && formData.sessionsPerWeek > 0))
         )
+        : packageType === 'liminar'
+        ? !!(
+            // Campos obrigatórios para LIMINAR (sem pagamentos - receita por sessão)
+            formData.patientId &&
+            formData.doctorId &&
+            formData.sessionType &&
+            formData.sessionValue > 0 &&
+            formData.date &&
+            formData.time &&
+            (calculationMode === 'sessions'
+                ? formData.totalSessions > 0
+                : (formData.durationMonths > 0 && formData.sessionsPerWeek > 0))
+        )
         : !!(
             // Campos obrigatórios para THERAPY
             formData.patientId &&
@@ -783,6 +823,17 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     <Building2 className="w-4 h-4" />
                                     Convênio
                                 </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setPackageType('liminar')}
+                                    className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${packageType === 'liminar'
+                                        ? 'bg-white shadow-md text-amber-700'
+                                        : 'text-gray-600 hover:text-gray-800'
+                                        }`}
+                                >
+                                    <Package className="w-4 h-4" />
+                                    Liminar
+                                </button>
                             </div>
 
                             {/* 🏥 Select de Guia (só se convenio) */}
@@ -838,6 +889,49 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             )}
                                         </>
                                     )}
+                                </div>
+                            )}
+
+                            {/* ⚖️ Campos para pacotes Liminar */}
+                            {packageType === 'liminar' && (
+                                <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-5 rounded-xl border border-amber-100">
+                                    <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                        <Package className="w-5 h-5 text-amber-600" />
+                                        Dados da Liminar (Opcional)
+                                    </h3>
+                                    
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Número do Processo
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={liminarProcessNumber}
+                                                onChange={(e) => setLiminarProcessNumber(e.target.value)}
+                                                placeholder="Ex: 1234567-89.2026.8.01.0000"
+                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                                            />
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Vara / Cartório
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={liminarCourt}
+                                                onChange={(e) => setLiminarCourt(e.target.value)}
+                                                placeholder="Ex: 1ª Vara Cível de Anápolis"
+                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="mt-4 p-3 bg-amber-100 rounded-lg text-sm text-amber-900">
+                                        <p className="font-medium">ℹ️ Sobre o crédito:</p>
+                                        <p>O valor será consumido à medida que as sessões forem realizadas. Se alterar o status de uma sessão de &quot;concluída&quot; para outro, o crédito volta automaticamente. Não precisa cancelar!</p>
+                                    </div>
                                 </div>
                             )}
 
@@ -1276,12 +1370,12 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 </div>
                             </div>
 
-                            {/* Informações Financeiras - Apenas para Therapy */}
-                            {packageType === 'therapy' && (
-                                <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl border border-green-100">
+                            {/* Informações Financeiras - Therapy e Liminar */}
+                            {(packageType === 'therapy' || packageType === 'liminar') && (
+                                <div className={`p-5 rounded-xl border ${packageType === 'liminar' ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100' : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-100'}`}>
                                     <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                        <DollarSign className="w-5 h-5 text-green-600" />
-                                        Informações Financeiras
+                                        <DollarSign className={`w-5 h-5 ${packageType === 'liminar' ? 'text-amber-600' : 'text-green-600'}`} />
+                                        {packageType === 'liminar' ? 'Valor da Sessão' : 'Informações Financeiras'}
                                     </h3>
                                     <div className="space-y-4">
                                         <div>
@@ -1292,11 +1386,17 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                 onChange={handleChange}
                                                 min="0"
                                                 step="0.01"
-                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
+                                                className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-green-500 bg-white ${packageType === 'liminar' ? 'focus:ring-amber-500' : 'focus:ring-green-500'}`}
                                             />
+                                            {packageType === 'liminar' && (
+                                                <p className="text-xs text-amber-600 mt-2">
+                                                    💡 Este valor será consumido do crédito à medida que as sessões forem realizadas.
+                                                </p>
+                                            )}
                                         </div>
 
-                                        {/* Múltiplos Pagamentos */}
+                                        {/* Múltiplos Pagamentos - APENAS para Therapy */}
+                                        {packageType === 'therapy' && (
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-center">
                                                 <label className="block text-sm font-medium text-gray-700">
@@ -1387,19 +1487,20 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                     </div>
                                                 </div>
                                             ))}
-                                        </div>
-
-                                        {/* Total Pago */}
-                                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm font-medium text-blue-800">Total Pago:</span>
-                                                <span className="text-lg font-bold text-blue-800">
-                                                    R$ {getTotalPaid().toFixed(2)}
-                                                </span>
+                                            
+                                            {/* Total Pago */}
+                                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm font-medium text-blue-800">Total Pago:</span>
+                                                    <span className="text-lg font-bold text-blue-800">
+                                                        R$ {getTotalPaid().toFixed(2)}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
+                            </div>
                             )}
 
                             {/* Resumo do Pacote */}

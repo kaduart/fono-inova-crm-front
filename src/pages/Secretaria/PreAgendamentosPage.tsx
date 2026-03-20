@@ -19,16 +19,15 @@ import { ptBR } from 'date-fns/locale';
 import usePreAgendamentos, { PreAgendamento } from '../../hooks/usePreAgendamentos';
 import { useDoctorsContext } from '../../contexts/DoctorsContext';
 
-const statusColors: Record<string, any> = {
-  novo: { color: 'info', label: 'Novo' },
-  em_analise: { color: 'warning', label: 'Em Análise' },
-  contatado: { color: 'primary', label: 'Contatado' },
-  confirmado: { color: 'success', label: 'Confirmado' },
-  agendado: { color: 'success', label: 'Agendado' },
-  importado: { color: 'default', label: 'Importado' },
-  descartado: { color: 'error', label: 'Descartado' },
-  cancelado: { color: 'error', label: 'Cancelado' },
-  desistiu: { color: 'default', label: 'Desistiu' }
+const urgencyChipColors: Record<string, { color: any; label: string }> = {
+  critica:    { color: 'error',   label: 'Crítica' },
+  alta:       { color: 'warning', label: 'Alta' },
+  media:      { color: 'info',    label: 'Média' },
+  baixa:      { color: 'success', label: 'Baixa' },
+  pre_agendado: { color: 'default', label: 'Pendente' },
+  scheduled:    { color: 'success', label: 'Agendado' },
+  confirmed:    { color: 'success', label: 'Confirmado' },
+  canceled:     { color: 'error',   label: 'Cancelado' },
 };
 
 const urgencyColors: Record<string, any> = {
@@ -71,9 +70,9 @@ const StatCard = ({ title, value, subtitle, color, icon: Icon }: any) => (
 const ImportarModal = ({ open, onClose, pre, onImport, doctors }: any) => {
   const [form, setForm] = useState({
     doctorId: '',
-    date: pre?.preferredDate || '',
-    time: pre?.preferredTime || '09:00',
-    sessionValue: pre?.suggestedValue ?? 0,
+    date: pre?.date || pre?.preferredDate || '',
+    time: pre?.time || pre?.preferredTime || '09:00',
+    sessionValue: pre?.sessionValue ?? pre?.suggestedValue ?? 0,
     notes: ''
   });
   const [whatsappLinks, setWhatsappLinks] = useState<{confirmacao: string, lembrete: string} | null>(null);
@@ -81,10 +80,10 @@ const ImportarModal = ({ open, onClose, pre, onImport, doctors }: any) => {
   useEffect(() => {
     if (pre) {
       setForm({
-        doctorId: pre.professionalId?._id || '',
-        date: pre.preferredDate,
-        time: pre.preferredTime || '09:00',
-        sessionValue: pre.suggestedValue ?? 0,
+        doctorId: pre.professionalId?._id || pre.doctor?._id || '',
+        date: pre.date || pre.preferredDate,
+        time: pre.time || pre.preferredTime || '09:00',
+        sessionValue: pre.sessionValue ?? pre.suggestedValue ?? 0,
         notes: ''
       });
       setWhatsappLinks(null); // Reseta links ao abrir
@@ -291,13 +290,22 @@ const PreAgendamentosPage = () => {
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [contactForm, setContactForm] = useState({ channel: 'whatsapp', success: false, notes: '' });
 
-  const buildFilters = (overrides: Record<string, any> = {}) => ({
-    status: activeTab === 'todos' ? undefined : activeTab,
-    page: page + 1,
-    limit: rowsPerPage,
-    search: search || undefined,
-    ...overrides
-  });
+  const buildFilters = (overrides: Record<string, any> = {}) => {
+    const base: Record<string, any> = {
+      page: page + 1,
+      limit: rowsPerPage,
+      search: search || undefined,
+    };
+    if (activeTab === 'sem_contato') {
+      base.semContato = '1';
+    } else if (activeTab === 'urgentes') {
+      base.urgency = 'alta,critica';
+    } else if (activeTab === 'importados' || activeTab === 'cancelado') {
+      base.status = activeTab;
+    }
+    // 'todos' → sem filtro extra (backend usa pre_agendado por padrão)
+    return { ...base, ...overrides };
+  };
 
   useEffect(() => {
     setPage(0);
@@ -355,7 +363,9 @@ const PreAgendamentosPage = () => {
   };
 
   const getUrgencyInfo = (pre: PreAgendamento) => {
-    const days = differenceInDays(parseISO(pre.preferredDate), new Date());
+    const dateStr = pre.date || pre.preferredDate;
+    if (!dateStr) return { text: '—', color: 'default' };
+    const days = differenceInDays(parseISO(dateStr), new Date());
     if (days < 0) return { text: 'Atrasado', color: 'error' };
     if (days === 0) return { text: 'Hoje', color: 'error' };
     if (days === 1) return { text: 'Amanhã', color: 'warning' };
@@ -384,27 +394,29 @@ const PreAgendamentosPage = () => {
         <Grid container spacing={2} mb={3}>
           <Grid item xs={12} sm={6} md={2.4}>
             <StatCard
-              title="Novos"
-              value={stats.porStatus.novo || 0}
-              color="info"
-              icon={PersonAdd}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={2.4}>
-            <StatCard
-              title="Em Análise"
-              value={stats.porStatus.em_analise || 0}
-              color="warning"
-              icon={AssignmentInd}
+              title="Críticos"
+              value={stats.porUrgencia?.critica || 0}
+              subtitle="Urgência crítica"
+              color="error"
+              icon={ErrorIcon}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={2.4}>
             <StatCard
               title="Urgentes"
               value={stats.urgentes || 0}
-              subtitle="Próximos 2 dias"
-              color="error"
+              subtitle="Urgência alta + crítica"
+              color="warning"
               icon={Warning}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={2.4}>
+            <StatCard
+              title="Sem Contato"
+              value={stats.semContato || 0}
+              subtitle="Nenhuma tentativa ainda"
+              color="info"
+              icon={Phone}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={2.4}>
@@ -419,13 +431,51 @@ const PreAgendamentosPage = () => {
           <Grid item xs={12} sm={6} md={2.4}>
             <Card sx={{ height: '100%', bgcolor: 'primary.main', color: 'primary.contrastText' }}>
               <CardContent>
-                <Typography variant="body2" opacity={0.8}>Total Ativos</Typography>
+                <Typography variant="body2" sx={{ opacity: 0.8 }}>Total Pendentes</Typography>
                 <Typography variant="h4" fontWeight="bold">
-                  {Object.values(stats.porStatus).reduce((a: any, b: any) => a + b, 0)}
+                  {stats.total || 0}
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
+
+          {/* Tipos de paciente — últimos 30 dias (só aparece se tiver dados) */}
+          {(stats.novos > 0 || stats.retornos > 0 || stats.recorrentes > 0) && (
+            <>
+              <Grid item xs={12}>
+                <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+                  Últimos 30 dias (importados)
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <StatCard
+                  title="Novos Pacientes"
+                  value={stats.novos || 0}
+                  subtitle="Primeiro contato ever"
+                  color="success"
+                  icon={TrendingUp}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <StatCard
+                  title="Retornos"
+                  value={stats.retornos || 0}
+                  subtitle="Voltaram após 6+ meses"
+                  color="info"
+                  icon={Phone}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <StatCard
+                  title="Recorrentes"
+                  value={stats.recorrentes || 0}
+                  subtitle="Pacientes ativos"
+                  color="warning"
+                  icon={Warning}
+                />
+              </Grid>
+            </>
+          )}
         </Grid>
       )}
 
@@ -465,15 +515,11 @@ const PreAgendamentosPage = () => {
           variant="scrollable"
           scrollButtons="auto"
         >
-          <Tab value="todos" label="Pendentes" />
-          <Tab value="novo" label={`Novos (${stats?.porStatus?.novo || 0})`} />
-          <Tab value="em_analise" label="Em Análise" />
-          <Tab value="contatado" label="Contatados" />
-          <Tab value="confirmado" label="Confirmados" />
-          <Tab value="agendado" label="Agendados" />
-          <Tab value="importado" label="Importados" />
+          <Tab value="todos" label={`Todos (${stats?.total || 0})`} />
+          <Tab value="sem_contato" label={`Sem Contato (${stats?.semContato || 0})`} />
+          <Tab value="urgentes" label={`Urgentes (${stats?.urgentes || 0})`} />
+          <Tab value="importados" label="Importados" />
           <Tab value="cancelado" label="Cancelados" />
-          <Tab value="desistiu" label="Desistiu" />
         </Tabs>
       </Paper>
 
@@ -482,12 +528,12 @@ const PreAgendamentosPage = () => {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Urgência</TableCell>
+              <TableCell>Prazo</TableCell>
               <TableCell>Paciente</TableCell>
               <TableCell>Especialidade</TableCell>
-              <TableCell>Data Preferida</TableCell>
+              <TableCell>Data</TableCell>
               <TableCell>Valor Sug.</TableCell>
-              <TableCell>Status</TableCell>
+              <TableCell>Urgência</TableCell>
               <TableCell>Tentativas</TableCell>
               <TableCell>Ações</TableCell>
             </TableRow>
@@ -533,14 +579,15 @@ const PreAgendamentosPage = () => {
                     </TableCell>
                     <TableCell>{pre.specialty}</TableCell>
                     <TableCell>
-                      {format(parseISO(pre.preferredDate), 'dd/MM/yyyy')}
-                      {pre.preferredTime && ` às ${pre.preferredTime}`}
+                      {format(parseISO(pre.date || pre.preferredDate), 'dd/MM/yyyy')}
+                      {(pre.time || pre.preferredTime) && ` às ${pre.time || pre.preferredTime}`}
                     </TableCell>
-                    <TableCell>{formatCurrency(pre.suggestedValue)}</TableCell>
+                    <TableCell>{formatCurrency(pre.suggestedValue ?? pre.sessionValue)}</TableCell>
                     <TableCell>
                       <Chip
                         size="small"
-                        {...statusColors[pre.status]}
+                        color={(urgencyChipColors[pre.urgency]?.color ?? 'default') as any}
+                        label={urgencyChipColors[pre.urgency]?.label ?? pre.urgency ?? '—'}
                       />
                     </TableCell>
                     <TableCell align="center">

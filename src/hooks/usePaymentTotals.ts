@@ -15,6 +15,12 @@ export interface PaymentTotals {
   countInsurancePending: number;
 }
 
+export interface PatientTypes {
+  novos: number;
+  retornos: number;
+  recorrentes: number;
+}
+
 export interface ConvenioFaturamentos {
   total: number;
   quantidade: number;
@@ -22,6 +28,7 @@ export interface ConvenioFaturamentos {
 
 interface UsePaymentTotalsReturn {
   paymentTotals: PaymentTotals | null;
+  patientTypes: PatientTypes | null;
   convenioFaturamentos: ConvenioFaturamentos | null;
   isLoading: boolean;
   error: string | null;
@@ -30,6 +37,7 @@ interface UsePaymentTotalsReturn {
 
 export function usePaymentTotals(): UsePaymentTotalsReturn {
   const [paymentTotals, setPaymentTotals] = useState<PaymentTotals | null>(null);
+  const [patientTypes, setPatientTypes] = useState<PatientTypes | null>(null);
   const [convenioFaturamentos, setConvenioFaturamentos] = useState<ConvenioFaturamentos | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +87,9 @@ export function usePaymentTotals(): UsePaymentTotalsReturn {
           countInsuranceReceived: totals.countInsuranceReceived || 0,
           countInsurancePending: totals.countInsurancePending || 0,
         });
+
+        const pt = response.data.data?.patientTypes;
+        if (pt) setPatientTypes({ novos: pt.novos || 0, retornos: pt.retornos || 0, recorrentes: pt.recorrentes || 0 });
         
         // Buscar faturamentos de convênio
         try {
@@ -108,6 +119,7 @@ export function usePaymentTotals(): UsePaymentTotalsReturn {
 
   return {
     paymentTotals,
+    patientTypes,
     convenioFaturamentos,
     isLoading,
     error,

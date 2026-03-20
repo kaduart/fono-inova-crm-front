@@ -116,11 +116,21 @@ export interface ITherapyPackage {
     updatedAt?: string;
 
     // 🏥 Campos de convênio
-    type?: 'therapy' | 'convenio';
+    type?: 'therapy' | 'convenio' | 'liminar';
     insuranceGuide?: string;
     insuranceProvider?: string;
     insuranceGrossAmount?: number;
     insuranceBillingStatus?: 'pending_batch' | 'in_batch' | 'billed' | 'received' | null;
+    
+    // ⚖️ Campos de liminar
+    liminarProcessNumber?: string;
+    liminarCourt?: string;
+    liminarExpirationDate?: string;
+    liminarMode?: 'deferred' | 'immediate' | 'hybrid';
+    liminarAuthorized?: boolean;
+    liminarCreditBalance?: number;
+    liminarTotalCredit?: number;
+    recognizedRevenue?: number;
 }
 
 // export Interface da resposta paginada

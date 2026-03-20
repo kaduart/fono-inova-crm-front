@@ -16,7 +16,7 @@ export type CreatePackageParams = {
   sessionType: TherapyType; // fonoaudiologia, psicologia, etc.
   specialty: string;
   sessionValue: number;
-  paymentType: string; // full, parcial, etc.
+  paymentType?: string; // full, parcial, etc. (opcional para liminar)
   sessionsPerWeek: number;
   durationMonths: number;
   totalSessions: number;
@@ -27,12 +27,17 @@ export type CreatePackageParams = {
     date: string;
     time: string;
   }[];
-  payments: {
+  payments?: {
     amount: number;
     method: string;
     date: string;
     description?: string;
   }[];
+  // ⚖️ Campos para pacotes liminar
+  type?: 'therapy' | 'liminar';
+  liminarProcessNumber?: string;
+  liminarCourt?: string;
+  liminarMode?: 'deferred' | 'immediate' | 'hybrid';
 };
 
 export type CreateConvenioPackageParams = {

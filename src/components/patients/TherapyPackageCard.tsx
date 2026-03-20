@@ -1,4 +1,4 @@
-import { Building2, Calendar, CheckCircle2, ChevronDown, Clock, DollarSign, Sprout, TrendingUp } from 'lucide-react';
+import { Building2, Calendar, CheckCircle2, ChevronDown, Clock, DollarSign, Scale, Gavel, Sprout, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { IDoctors, IPatient, ISession, ITherapyPackage } from '../../utils/types/types';
@@ -129,19 +129,27 @@ export default function TherapyPackageCard({
       className="bg-white rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer"
       onClick={() => onCardClick && onCardClick(pack)}
     >
-      {/* Header com gradiente - verde para therapy, azul para convenio */}
+      {/* Header com gradiente - verde para therapy, azul para convenio, âmbar para liminar */}
       <div className={`p-6 border-b ${
         pack.type === 'convenio'
           ? 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-100'
+          : pack.type === 'liminar'
+          ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-100'
           : 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-100'
       }`}>
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center gap-3">
             <div className={`p-2 rounded-lg ${
-              pack.type === 'convenio' ? 'bg-blue-100' : 'bg-emerald-100'
+              pack.type === 'convenio' 
+                ? 'bg-blue-100' 
+                : pack.type === 'liminar'
+                ? 'bg-amber-100'
+                : 'bg-emerald-100'
             }`}>
               {pack.type === 'convenio' ? (
                 <Building2 className="h-5 w-5 text-blue-600" />
+              ) : pack.type === 'liminar' ? (
+                <Gavel className="h-5 w-5 text-amber-600" />
               ) : (
                 <Sprout className="h-5 w-5 text-emerald-600" />
               )}
@@ -154,11 +162,21 @@ export default function TherapyPackageCard({
                     CONVÊNIO
                   </span>
                 )}
+                {pack.type === 'liminar' && (
+                  <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">
+                    LIMINAR
+                  </span>
+                )}
               </div>
               <p className="text-sm text-gray-500 capitalize">{pack.sessionType?.toLowerCase()}</p>
               {pack.type === 'convenio' && pack.insuranceProvider && (
                 <p className="text-xs text-blue-600 font-medium mt-1">
                   {pack.insuranceProvider.replace(/-/g, ' ').toUpperCase()}
+                </p>
+              )}
+              {pack.type === 'liminar' && pack.liminarProcessNumber && (
+                <p className="text-xs text-amber-600 font-medium mt-1">
+                  Processo: {pack.liminarProcessNumber}
                 </p>
               )}
             </div>
@@ -174,7 +192,11 @@ export default function TherapyPackageCard({
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium text-gray-700">Progresso do Pacote</span>
             <span className={`text-base font-bold ${
-              pack.type === 'convenio' ? 'text-blue-600' : 'text-emerald-600'
+              pack.type === 'convenio' 
+                ? 'text-blue-600' 
+                : pack.type === 'liminar'
+                ? 'text-amber-600'
+                : 'text-emerald-600'
             }`}>
               {pack.sessionsDone || 0}/{pack.totalSessions}
             </span>
@@ -184,6 +206,8 @@ export default function TherapyPackageCard({
               className={`h-2.5 rounded-full transition-all duration-1000 ease-out relative overflow-hidden ${
                 pack.type === 'convenio'
                   ? 'bg-gradient-to-r from-blue-500 to-cyan-600'
+                  : pack.type === 'liminar'
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-600'
                   : 'bg-gradient-to-r from-emerald-500 to-green-600'
               }`}
               style={{ width: `${((pack.sessionsDone || 0) / pack.totalSessions) * 100}%` }}
@@ -298,6 +322,53 @@ export default function TherapyPackageCard({
             </div>
           )}
         </div>
+
+        {/* ⚖️ Métricas de Crédito - Só para Liminar */}
+        {pack.type === 'liminar' && (
+          <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-100">
+            <div className="flex items-center gap-2 mb-3">
+              <Gavel className="h-4 w-4 text-amber-600" />
+              <span className="text-sm font-medium text-gray-700">Crédito da Liminar</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <span className="text-xs text-gray-500">Total</span>
+                <div className="text-base font-bold text-amber-900">
+                  {new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
+                  }).format(pack.liminarTotalCredit || 0)}
+                </div>
+              </div>
+              <div>
+                <span className="text-xs text-gray-500">Disponível</span>
+                <div className="text-base font-bold text-amber-600">
+                  {new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
+                  }).format(pack.liminarCreditBalance || 0)}
+                </div>
+              </div>
+              <div>
+                <span className="text-xs text-gray-500">Reconhecido</span>
+                <div className="text-base font-bold text-green-600">
+                  {new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
+                  }).format(pack.recognizedRevenue || 0)}
+                </div>
+              </div>
+              <div>
+                <span className="text-xs text-gray-500">Executado</span>
+                <div className="text-base font-bold text-blue-600">
+                  {pack.totalSessions > 0 
+                    ? Math.round(((pack.recognizedRevenue || 0) / (pack.liminarTotalCredit || 1)) * 100)
+                    : 0}%
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Detalhes Financeiros */}
         <div className="grid grid-cols-2 gap-4 text-sm">

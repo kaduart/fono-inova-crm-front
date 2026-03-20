@@ -429,9 +429,13 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             ? INSURANCE_PROVIDERS.find(p => p.id === insuranceProvider)?.name || insuranceProvider
             : '';
 
-        const financialStatus = hasPackage
-            ? packageData.financialStatus
-            : arg.event.extendedProps.paymentStatus;
+        // Status financeiro: prioriza o status do agendamento, depois do pacote
+        const appointmentPaymentStatus = arg.event.extendedProps.paymentStatus;
+        const financialStatus = appointmentPaymentStatus === 'package_paid' || appointmentPaymentStatus === 'paid'
+            ? 'paid'  // Se o agendamento está pago, mostra pago
+            : hasPackage
+                ? packageData.financialStatus  // Senão, usa do pacote
+                : appointmentPaymentStatus || 'pending';
 
         const PAYMENT_BADGE: Record<string, { label: string; icon: string; bg: string; text: string }> = {
             paid: { label: 'Pago', icon: '$', bg: 'bg-green-600', text: 'text-white' },
@@ -442,6 +446,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             open: { label: 'Aberto', icon: '❌', bg: 'bg-red-600', text: 'text-white' },
             overdue: { label: 'Vencido', icon: '🔴', bg: 'bg-rose-700', text: 'text-white' },
             canceled: { label: 'Cancel.', icon: '⛔', bg: 'bg-gray-500', text: 'text-white' },
+            
         };
 
         const OPERATIONAL_BADGE: Record<string, { label: string; bg: string; text: string }> = {
@@ -509,17 +514,28 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         </div>
 
                         {hasPackage && (
-                            <div className="mb-3 p-2 bg-slate-700/50 rounded-lg">
+                            <div className={`mb-3 p-2 rounded-lg ${packageData.type === 'liminar' ? 'bg-amber-700/30 border border-amber-500/30' : 'bg-slate-700/50'}`}>
                                 <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs font-medium text-slate-300">📦 Pacote</span>
+                                    <span className={`text-xs font-medium ${packageData.type === 'liminar' ? 'text-amber-300' : 'text-slate-300'}`}>
+                                        {packageData.type === 'liminar' ? '⚖️ Liminar' : '📦 Pacote'}
+                                    </span>
                                     <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${paymentBadge.bg} ${paymentBadge.text}`}>
-                                        {paymentBadge.label}
+                                        {packageData.type === 'liminar' ? 'Crédito' : paymentBadge.label}
                                     </span>
                                 </div>
                                 <div className="text-[10px] text-slate-400 space-y-1">
                                     <div>💰 Valor/sessão: R$ {packageData.sessionValue?.toFixed(2)}</div>
-                                    <div>📊 Saldo: {packageData.balance} sessões</div>
-                                    <div>✅ Pago: R$ {packageData.totalPaid?.toFixed(2)}</div>
+                                    {packageData.type === 'liminar' ? (
+                                        <>
+                                            <div>⚖️ Crédito disp: R$ {packageData.liminarCreditBalance?.toFixed(2)}</div>
+                                            <div>✅ Reconhecido: R$ {packageData.recognizedRevenue?.toFixed(2)}</div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div>📊 Saldo: {packageData.balance} sessões</div>
+                                            <div>✅ Pago: R$ {packageData.totalPaid?.toFixed(2)}</div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -656,8 +672,13 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 📦 Convênio
                             </div>
                         )}
-                        {hasPackage && !isConvenio && (
-                            <div className="bg-purple-600 text-white px-2 py-0.5 rounded text-[9px] font-bold">
+                        {hasPackage && !isConvenio && packageData?.type === 'liminar' && (
+                            <div className="bg-amber-500 text-white px-2 py-0.5 rounded text-[9px] font-bold">
+                                ⚖️ Liminar
+                            </div>
+                        )}
+                        {hasPackage && !isConvenio && packageData?.type !== 'liminar' && (
+                            <div className="bg-green-600 text-white px-2 py-0.5 rounded text-[9px] font-bold">
                                 📦 Pacote
                             </div>
                         )}

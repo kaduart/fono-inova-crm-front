@@ -33,6 +33,7 @@ const PreAgendamentosPage = lazy(() => import('../pages/Secretaria/PreAgendament
 const EnhancedCalendar = lazy(() => import('./calendar/EnhancedCalendar'));
 const SiteAnalyticsDashboard = lazy(() => import('./Dashboard/SiteAnalyticsDashboard'));
 const MarketingDashboard = lazy(() => import('./Dashboard/MarketingDashboard'));
+const RevenueTab = lazy(() => import('./Dashboard/RevenueTab'));
 const AppChat = lazy(() => import('./mkt/whatsapp/AppChat'));
 
 
@@ -731,6 +732,14 @@ export default function AdminDashboard() {
                     <TabErrorBoundary tabName="Analytics">
                         <Suspense fallback={<TabSkeleton />}>
                             <SiteAnalyticsDashboard {...analyticsProps} />
+                        </Suspense>
+                    </TabErrorBoundary>
+                );
+            case 'ROI':
+                return (
+                    <TabErrorBoundary tabName="ROI & Atribuição">
+                        <Suspense fallback={<TabSkeleton />}>
+                            <RevenueTab />
                         </Suspense>
                     </TabErrorBoundary>
                 );

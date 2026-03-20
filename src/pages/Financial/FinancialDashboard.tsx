@@ -8,7 +8,9 @@ import {
     Target,
     BarChart3,
     ClipboardList,
-
+    Receipt,
+    CreditCard,
+    ArrowLeftRight,
 } from 'lucide-react';
 import { useState } from 'react';
 import { FinancialRecord } from '../../services/paymentService';
@@ -77,14 +79,17 @@ const FinancialDashboard = ({
         },
         {
             label: '🧾 Despesas',
+            icon: <Receipt size={18} />,
             component: <ExpensesTab />
         },
         {
             label: '💳 Convênios',
+            icon: <CreditCard size={18} />,
             component: <InsuranceTab />
         },
         {
             label: '📈 Extrato',
+            icon: <ArrowLeftRight size={18} />,
             component: <EntradasSaidasTab />
         },
     ];
@@ -242,7 +247,11 @@ const FinancialDashboard = ({
                 </Tabs>
 
                 <Box sx={{ p: { xs: 0.5, sm: 1, md: 2 } }}>
-                    {currentTabs[currentTab]?.component}
+                    {currentTabs.map((tab, index) => (
+                        <Box key={index} sx={{ display: currentTab === index ? 'block' : 'none' }}>
+                            {tab.component}
+                        </Box>
+                    ))}
                 </Box>
             </Paper>
         </Box>

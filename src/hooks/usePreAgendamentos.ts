@@ -50,14 +50,20 @@ export interface PreAgendamento {
 }
 
 interface DashboardStats {
-  porStatus: Record<string, number>;
+  porUrgencia: Record<string, number>;
+  porStatus: Record<string, number>; // compat alias de porUrgencia
   urgentes: number;
+  semContato: number;
+  total: number;
   porEspecialidade: Array<{ _id: string; count: number }>;
   conversao: {
     taxa: number;
     total: number;
     importados: number;
   };
+  novos: number;
+  retornos: number;
+  recorrentes: number;
 }
 
 interface UsePreAgendamentosReturn {

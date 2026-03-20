@@ -1,6 +1,6 @@
 import { Button, Paper, Typography } from '@mui/material';
 import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import usePayment from '../../hooks/usePayment';
@@ -22,6 +22,152 @@ import { PaymentsFilters } from './PaymentsFilters';
 import FinancialSummaryCard from './PaymentsSummary';
 import { Patient360Modal } from '../../pages/Financial/components/Patient360Modal';
 import { FinancialTableLoading } from '../../pages/Financial/components/FinancialLoading';
+import api from '../../services/api';
+
+// ─── Appointments card that reacts to the active period filter ───────────────
+const STATUS_MAP: Record<string, { label: string; color: string }> = {
+    confirmed: { label: 'Confirmado', color: 'bg-green-100 text-green-800' },
+    scheduled: { label: 'Agendado', color: 'bg-blue-100 text-blue-800' },
+    canceled:  { label: 'Cancelado',  color: 'bg-red-100 text-red-800' },
+    missed:    { label: 'Faltou',     color: 'bg-orange-100 text-orange-800' },
+    completed: { label: 'Realizado',  color: 'bg-purple-100 text-purple-800' },
+};
+
+function computeDateRange(period: string, customStart: string, customEnd: string): { start: string; end: string } | null {
+    const now = new Date();
+    const fmt = (d: Date) => d.toISOString().split('T')[0];
+
+    if (period === 'day') {
+        return { start: fmt(now), end: fmt(now) };
+    }
+    if (period === 'week') {
+        const day = now.getDay();
+        const monday = new Date(now);
+        monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        return { start: fmt(monday), end: fmt(sunday) };
+    }
+    if (period === 'month') {
+        const s = new Date(now.getFullYear(), now.getMonth(), 1);
+        const e = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        return { start: fmt(s), end: fmt(e) };
+    }
+    if (period === 'last_week') {
+        const day = now.getDay();
+        const lastMonday = new Date(now);
+        lastMonday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) - 7);
+        const lastSunday = new Date(lastMonday);
+        lastSunday.setDate(lastMonday.getDate() + 6);
+        return { start: fmt(lastMonday), end: fmt(lastSunday) };
+    }
+    if (period === 'last_month') {
+        const s = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const e = new Date(now.getFullYear(), now.getMonth(), 0);
+        return { start: fmt(s), end: fmt(e) };
+    }
+    if (/^\d{4}-\d{2}$/.test(period)) {
+        const [y, m] = period.split('-').map(Number);
+        return { start: fmt(new Date(y, m - 1, 1)), end: fmt(new Date(y, m, 0)) };
+    }
+    if (period === 'custom' && customStart && customEnd) {
+        return { start: customStart, end: customEnd };
+    }
+    return null;
+}
+
+const AppointmentsPeriodCard = ({
+    selectedPeriod,
+    customStartDate,
+    customEndDate,
+}: {
+    selectedPeriod: string;
+    customStartDate: string;
+    customEndDate: string;
+}) => {
+    const [appointments, setAppointments] = useState<any[]>([]);
+    const [loadingAppts, setLoadingAppts] = useState(false);
+
+    const dateRange = useMemo(
+        () => computeDateRange(selectedPeriod, customStartDate, customEndDate),
+        [selectedPeriod, customStartDate, customEndDate]
+    );
+
+    useEffect(() => {
+        if (!dateRange) return;
+        setLoadingAppts(true);
+        api.get('/appointments', { params: { startDate: dateRange.start, endDate: dateRange.end } })
+            .then(res => {
+                const data = res.data?.data || res.data || [];
+                setAppointments(Array.isArray(data) ? data.filter((a: any) => a.operationalStatus !== 'pre_agendado') : []);
+            })
+            .catch(() => setAppointments([]))
+            .finally(() => setLoadingAppts(false));
+    }, [dateRange]);
+
+    if (!dateRange) return null;
+
+    const counts = appointments.reduce((acc, a) => {
+        const s = a.operationalStatus || 'scheduled';
+        acc[s] = (acc[s] || 0) + 1;
+        return acc;
+    }, {} as Record<string, number>);
+
+    return (
+        <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-100">
+            <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-blue-800 text-sm">Agendamentos do Período</h3>
+                <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                    {appointments.length} agendamento{appointments.length !== 1 ? 's' : ''}
+                </span>
+            </div>
+
+            {loadingAppts ? (
+                <div className="flex justify-center py-4">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500" />
+                </div>
+            ) : appointments.length === 0 ? (
+                <p className="text-xs text-blue-600 text-center py-2">Nenhum agendamento no período</p>
+            ) : (
+                <>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                        {Object.entries(counts).map(([status, count]) => (
+                            <span
+                                key={status}
+                                className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_MAP[status]?.color || 'bg-gray-100 text-gray-700'}`}
+                            >
+                                {STATUS_MAP[status]?.label || status}: {count as number}
+                            </span>
+                        ))}
+                    </div>
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                        {appointments.slice(0, 8).map((a: any) => (
+                            <div key={a._id} className="flex items-center justify-between text-xs bg-white rounded-lg px-3 py-2 border border-blue-100">
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-gray-500 shrink-0">{a.date} {a.time}</span>
+                                    <span className="font-medium text-gray-800 truncate">
+                                        {a.patient?.fullName || 'Paciente'}
+                                    </span>
+                                </div>
+                                <span className={`ml-2 shrink-0 text-xs px-2 py-0.5 rounded-full ${STATUS_MAP[a.operationalStatus]?.color || 'bg-gray-100 text-gray-700'}`}>
+                                    {STATUS_MAP[a.operationalStatus]?.label || a.operationalStatus}
+                                </span>
+                            </div>
+                        ))}
+                        {appointments.length > 8 && (
+                            <p className="text-xs text-center text-blue-500 pt-1">
+                                +{appointments.length - 8} mais
+                            </p>
+                        )}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface PaymentPageProps {
     patients?: IPatient[];
@@ -534,6 +680,12 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                         }}
                                     />
                                 )}
+
+                                <AppointmentsPeriodCard
+                                    selectedPeriod={selectedPeriod}
+                                    customStartDate={customStartDate}
+                                    customEndDate={customEndDate}
+                                />
 
                                 {!paymentTotals && !loading && (
                                     <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl">

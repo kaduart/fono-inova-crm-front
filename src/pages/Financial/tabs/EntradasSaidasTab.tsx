@@ -76,6 +76,7 @@ const EntradasSaidasTab = () => {
     // 🆕 HOOK - Dados financeiros do período
     const {
         paymentTotals,
+        patientTypes,
         convenioFaturamentos,
         isLoading: financialLoading,
         fetchPaymentTotals
@@ -462,6 +463,44 @@ const EntradasSaidasTab = () => {
                     </Card>
                 </Grid>
             </Grid>
+
+            {/* Perfil de Pacientes do Período */}
+            {patientTypes && (patientTypes.novos > 0 || patientTypes.retornos > 0 || patientTypes.recorrentes > 0) && (
+                <Paper sx={{ p: 3, mb: 3 }}>
+                    <Typography variant="h6" fontWeight="bold" gutterBottom>
+                        Perfil de Pacientes — {periodoLabel}
+                    </Typography>
+                    <Grid container spacing={2}>
+                        <Grid item xs={12} sm={4}>
+                            <Box p={2} bgcolor="#E8F5E9" borderRadius={2} textAlign="center">
+                                <Typography variant="h4" fontWeight="bold" color="success.main">
+                                    {patientTypes.novos}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">Novos Pacientes</Typography>
+                                <Typography variant="caption" color="text.secondary">Primeiro contato</Typography>
+                            </Box>
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                            <Box p={2} bgcolor="#E3F2FD" borderRadius={2} textAlign="center">
+                                <Typography variant="h4" fontWeight="bold" color="primary.main">
+                                    {patientTypes.retornos}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">Retornos</Typography>
+                                <Typography variant="caption" color="text.secondary">Voltaram após 6+ meses</Typography>
+                            </Box>
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                            <Box p={2} bgcolor="#FFF3E0" borderRadius={2} textAlign="center">
+                                <Typography variant="h4" fontWeight="bold" color="warning.main">
+                                    {patientTypes.recorrentes}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">Recorrentes</Typography>
+                                <Typography variant="caption" color="text.secondary">Pacientes ativos</Typography>
+                            </Box>
+                        </Grid>
+                    </Grid>
+                </Paper>
+            )}
 
             {/* Composição da Produção */}
             <Paper sx={{ p: 3, mb: 3 }}>
