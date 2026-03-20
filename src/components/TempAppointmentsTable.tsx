@@ -8,6 +8,7 @@ type Props = {
 };
 
 export const TempAppointmentsTable = ({ appointments, onEdit, onDelete }: Props) => {
+  const appointmentsList = appointments ?? [];
   return (
     <div className="mt-6">
       <h3 className="text-lg font-semibold mb-3">Agendamentos Temporários</h3>
@@ -24,7 +25,7 @@ export const TempAppointmentsTable = ({ appointments, onEdit, onDelete }: Props)
             </tr>
           </thead>
           <tbody>
-            {appointments.map((appt) => (
+            {appointmentsList.map((appt) => (
               <tr key={appt.id} className="border-t hover:bg-gray-50">
                 <td className="px-4 py-2">{appt.profissional}</td>
                 <td className="px-4 py-2">

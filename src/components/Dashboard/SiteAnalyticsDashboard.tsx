@@ -84,7 +84,17 @@ interface LandingPage {
 // COMPONENTE PRINCIPAL
 // ============================================
 
-const SiteAnalyticsDashboard = () => {
+// Props para compatibilidade com AnalyticsTab (não usadas - componente usa hook interno)
+interface SiteAnalyticsDashboardProps {
+    patients?: any[];
+    doctors?: any[];
+    payments?: any[];
+    onMarkAsPaid?: (payment: any) => void;
+    registerAppointmentAndPayemntFuture?: (payment: any) => void;
+    onCancelPayment?: (paymentId: string) => void;
+}
+
+const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
     // ============================================
     // ESTADOS
     // ============================================

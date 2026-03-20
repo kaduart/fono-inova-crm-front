@@ -72,7 +72,7 @@ const EvolutionForm: React.FC<EvolutionFormProps> = ({
                 <label className="block text-sm font-medium text-gray-700">Sessão (opcional)</label>
                 <select {...register('appointmentId')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
                     <option value="">Nenhuma</option>
-                    {appointments.map((a) => (
+                    {(appointments ?? []).map((a) => (
                         <option key={a._id} value={a._id}>{new Date(a.date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</option>
                     ))}
                 </select>

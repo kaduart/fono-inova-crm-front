@@ -34,18 +34,27 @@ const localCache = {
  * @see useDoctorList - Para lista de médicos
  * @see useDoctorStats - Para estatísticas
  */
-export default function useDoctorDashboard() {
+interface UseDoctorDashboardOptions {
+  skipCache?: boolean;
+}
+
+export default function useDoctorDashboard(options: UseDoctorDashboardOptions = {}) {
   // 🎯 Verifica se o usuário é médico antes de carregar qualquer coisa
   const [userRole, setUserRole] = useState<string | null>(null);
   
   useEffect(() => {
     const storedRole = localStorage.getItem('userRole');
+    console.log('👤 useDoctorDashboard: Role lido do localStorage:', storedRole);
     if (storedRole) {
       try {
         setUserRole(JSON.parse(storedRole));
       } catch {
         setUserRole(storedRole);
       }
+    } else {
+      // Se não tiver role, tenta usar 'doctor' como fallback
+      console.log('⚠️ useDoctorDashboard: Role não encontrado, usando fallback');
+      setUserRole('doctor');
     }
   }, []);
   
@@ -77,9 +86,11 @@ export default function useDoctorDashboard() {
   const isDoctorRef = useRef(isDoctor);
   isDoctorRef.current = isDoctor;
   
+  const { skipCache = false } = options;
+
   const loadData = useCallback(async (forceRefresh = false) => {
-    // 🚀 Verifica cache
-    if (!forceRefresh && isCacheValid('doctors')) {
+    // 🚀 Verifica cache (se skipCache for true, ignora)
+    if (!skipCache && !forceRefresh && isCacheValid('doctors')) {
       const cached = getCache<any>('doctors');
       if (cached) {
         console.log('📦 useDoctorDashboard: Usando cache');
@@ -111,6 +122,8 @@ export default function useDoctorDashboard() {
 
     const loadPromise = (async () => {
       try {
+        console.log('🔄 useDoctorDashboard: Iniciando carregamento de dados...');
+        
         // ✅ Otimizado: Primeira leva de chamadas (COMUNS a todos os usuários)
         const [doctorRes, patientsRes, appointmentsRes, sessionsRes, statsRes] = await Promise.all([
           API.get('/users/me'),
@@ -120,12 +133,20 @@ export default function useDoctorDashboard() {
           fetchStats()
         ]);
 
+        console.log('✅ useDoctorDashboard: Dados carregados:', {
+          doctor: doctorRes.data?._id,
+          patientsCount: patientsRes?.length,
+          appointmentsCount: appointmentsRes?.length,
+          sessionsCount: sessionsRes?.length,
+          stats: statsRes
+        });
+
         if (isMounted.current) {
           setDoctorData(doctorRes.data);
-          setPatients(patientsRes);
-          setAppointments(appointmentsRes);
-          setTherapySessions(sessionsRes);
-          setStats(statsRes);
+          setPatients(patientsRes || []);
+          setAppointments(appointmentsRes || []);
+          setTherapySessions(sessionsRes || []);
+          setStats(statsRes || {});
         }
 
         let extendedData = {};
@@ -194,25 +215,31 @@ export default function useDoctorDashboard() {
     localCache.promise = loadPromise;
     await loadPromise;
     localCache.promise = null;
-  }, []); // ✅ CORREÇÃO: Sem deps para evitar re-carregamento quando isDoctor muda
+  }, [skipCache]); // 🔄 Inclui skipCache nas deps
 
-  // ✅ CORREÇÃO: Controle de carregamento único
+  // ✅ CORREÇÃO: Controle de carregamento único (respeita skipCache)
   const hasLoadedRef = useRef(false);
   
   useEffect(() => {
     isMounted.current = true;
     
-    // 🚀 Só carrega uma vez quando o role estiver definido
-    if (userRole !== null && !hasLoadedRef.current) {
+    // 🚀 Reseta o localCache se estiver preso (prevenção de deadlock)
+    if (skipCache) {
+      localCache.isLoading = false;
+      localCache.promise = null;
+    }
+    
+    // 🚀 Carrega quando o role estiver definido (ou se skipCache for true, sempre recarrega)
+    if (userRole !== null && (!hasLoadedRef.current || skipCache)) {
       hasLoadedRef.current = true;
-      console.log('🚀 useDoctorDashboard: Primeiro carregamento (role:', userRole + ')');
-      loadData();
+      console.log('🚀 useDoctorDashboard: Carregando dados (role:', userRole + ', skipCache:', skipCache + ')');
+      loadData(skipCache);
     }
     
     return () => {
       isMounted.current = false;
     };
-  }, [loadData, userRole]);
+  }, [loadData, userRole, skipCache]);
 
   // 🔔 Subscribe para invalidação de cache externa
   useEffect(() => {

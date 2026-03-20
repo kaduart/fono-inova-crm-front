@@ -85,7 +85,17 @@ export default function DoctorDashboard() {
     futureAppointments,
     calendarEvents,
     handleUpdateStatus
-  } = useDoctorDashboard();
+  } = useDoctorDashboard({ skipCache: true });
+
+  // 🐛 Debug logs
+  console.log('🩺 DoctorDashboard:', {
+    loading,
+    doctorDataId: doctorData?._id,
+    patientsCount: patients?.length,
+    appointmentsCount: appointments?.length,
+    stats
+  });
+
   // Função para abrir modal do paciente (clique rápido no nome/avatar)
   const handleOpenPatientModal = (patient: IPatient) => {
     setSelectedPatient(patient);
@@ -185,19 +195,21 @@ export default function DoctorDashboard() {
 
   const calculateKPIs = () => {
     const today = new Date().toISOString().split('T')[0];
-    const todayAppointments = appointments.filter(
+    const appointmentsList = appointments ?? [];
+    const todayAppointments = appointmentsList.filter(
       apt => apt.date.split('T')[0] === today
     );
 
     // Total de pacientes ativos
-    const activePatients = patients.filter(p =>
+    const patientsList = patients ?? [];
+    const activePatients = patientsList.filter(p =>
       p.appointments && p.appointments.length > 0
     ).length;
 
     // Consultas do mês
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
-    const monthAppointments = appointments.filter(apt => {
+    const monthAppointments = appointmentsList.filter(apt => {
       const aptDate = new Date(apt.date);
       return aptDate.getMonth() === currentMonth &&
         aptDate.getFullYear() === currentYear &&
@@ -205,16 +217,16 @@ export default function DoctorDashboard() {
     }).length;
 
     // Taxa de comparecimento
-    const completedAppointments = appointments.filter(
+    const completedAppointments = appointmentsList.filter(
       apt => apt.status === 'completed'
     ).length;
-    const totalScheduled = appointments.length;
+    const totalScheduled = appointmentsList.length;
     const attendanceRate = totalScheduled > 0
       ? Math.round((completedAppointments / totalScheduled) * 100)
       : 0;
 
     // Próxima consulta
-    const nextAppointment = futureAppointments[0];
+    const nextAppointment = (futureAppointments ?? [])[0];
     const nextAppointmentTime = nextAppointment
       ? `${nextAppointment.time}`
       : 'Nenhuma';
@@ -230,9 +242,11 @@ export default function DoctorDashboard() {
 
   const generateAlerts = () => {
     const alerts: any[] = [];
+    const patientsList = patients ?? [];
+    const appointmentsList = appointments ?? [];
 
     // Pacientes sem evolução há 30+ dias
-    const patientsWithoutEvolution = patients.filter(p => {
+    const patientsWithoutEvolution = patientsList.filter(p => {
       if (!p.lastAppointment) return false;
       const daysSinceLastAppointment = Math.floor(
         (Date.now() - new Date(p.lastAppointment).getTime()) / (1000 * 60 * 60 * 24)
@@ -253,7 +267,7 @@ export default function DoctorDashboard() {
 
     // Consultas de hoje
     const today = new Date().toISOString().split('T')[0];
-    const todayPending = appointments.filter(
+    const todayPending = appointmentsList.filter(
       apt => apt.date.split('T')[0] === today && apt.status === 'scheduled'
     );
 
@@ -342,7 +356,7 @@ export default function DoctorDashboard() {
               <AlertsPanel alerts={alerts} />
 
               <TodayAppointmentsCard
-                appointments={appointments}
+                appointments={appointments ?? []}
                 showAll={showTodayAppointments}
                 onToggleShow={() => setShowTodayAppointments(!showTodayAppointments)}
                 onUpdateStatus={handleUpdateStatus}
@@ -384,7 +398,7 @@ export default function DoctorDashboard() {
         return (
           <div className="p-6">
             <PatientsTable
-              patients={patients}
+              patients={patients ?? []}
               onPatientClick={handleOpenPatientModal}
               onViewPatientDetails={handleViewPatientDetails}
               onCreateAnamnesis={handleCreateAnamnesis}
@@ -399,7 +413,7 @@ export default function DoctorDashboard() {
         return (
           <div className="p-6">
             <TherapyEvolution
-              patients={patients}
+              patients={patients ?? []}
               selectedPatient={selectedPatient}
               onSelectPatient={setSelectedPatient}
               // opcional: se quiser abrir o prontuário completo a partir da aba Terapia
@@ -413,9 +427,9 @@ export default function DoctorDashboard() {
         return (
           <div className="p-6">
             <AppointmentsSection
-              futureAppointments={futureAppointments}
-              calendarEvents={calendarEvents}
-              patients={patients}
+              futureAppointments={futureAppointments ?? []}
+              calendarEvents={calendarEvents ?? []}
+              patients={patients ?? []}
               doctorData={doctorData}
               onUpdateStatus={handleUpdateStatus}
               onPatientClick={handleOpenPatientModal}
@@ -474,6 +488,15 @@ export default function DoctorDashboard() {
         );
     }
   };
+
+  // 🔄 Mostra loading enquanto carrega dados
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

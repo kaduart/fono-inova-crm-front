@@ -20,7 +20,7 @@ export default function PatientSelection() {
         <div className="p-8">
             <h1 className="text-3xl font-bold mb-4">Selecione um Paciente</h1>
             <ul className="space-y-4">
-                {patients.map((patient) => (
+                {(patients ?? []).map((patient) => (
                     <li key={patient._id} className="p-4 bg-white rounded shadow flex justify-between items-center">
                         <div>
                             <p className="font-semibold">{patient.fullName}</p>

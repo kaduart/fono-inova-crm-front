@@ -16,13 +16,15 @@ export default function AppointmentList({
     onPatientClick,
     compact = false
 }: AppointmentListProps) {
-    if (appointments.length === 0) {
+    const appointmentsList = appointments ?? [];
+    
+    if (appointmentsList.length === 0) {
         return <p className="text-gray-500 text-center py-4">Nenhum agendamento encontrado</p>;
     }
     
     return (
         <div className="space-y-2">
-            {appointments.map((appointment, index) => (
+            {appointmentsList.map((appointment, index) => (
                 <div 
                     key={appointment._id} 
                     className={`
@@ -32,7 +34,7 @@ export default function AppointmentList({
                         cursor-pointer
                         group
                         ${index === 0 ? 'rounded-t-lg' : ''}
-                        ${index === appointments.length - 1 ? 'rounded-b-lg border-b-0' : ''}
+                        ${index === appointmentsList.length - 1 ? 'rounded-b-lg border-b-0' : ''}
                     `}
                     onClick={() => onPatientClick?.(appointment.patient)}
                 >

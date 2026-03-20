@@ -106,7 +106,9 @@ export const doctorService = {
 // 🔹 Funções auxiliares de dados
 // ==========================================================
 export const fetchPatients = async (): Promise<any[]> => {
+  console.log('📡 doctorService: Buscando pacientes...');
   const response = await API.get("/doctors/patients");
+  console.log('✅ doctorService: Pacientes recebidos:', response.data?.length);
   return response.data;
 };
 

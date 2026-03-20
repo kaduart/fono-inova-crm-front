@@ -188,12 +188,10 @@ const FinancialDashboard = ({
                             }}
                         >
                             <ToggleButton value="operacional">
-                                <ClipboardList size={16} style={{ marginRight: 8 }} />
-                                💰 Operacional
+                             Operacional
                             </ToggleButton>
                             <ToggleButton value="estrategico">
-                                <BarChart3 size={16} style={{ marginRight: 8 }} />
-                                📊 Estratégico
+                                Estratégico
                             </ToggleButton>
                         </ToggleButtonGroup>
 

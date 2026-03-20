@@ -25,7 +25,8 @@ export default function TodayAppointmentsCard({
     onPatientClick?: (patient: any) => void; // ✅ NOVO
 }) {
     const theme = useTheme();
-    const displayedAppointments = showAll ? appointments : appointments.slice(0, 3);
+    const appointmentsList = appointments ?? [];
+    const displayedAppointments = showAll ? appointmentsList : appointmentsList.slice(0, 3);
 
     return (
         <Card
@@ -76,7 +77,7 @@ export default function TodayAppointmentsCard({
                 }
             />
             <CardContent sx={{ p: 0 }}>
-                {appointments.length === 0 ? (
+                {appointments?.length === 0 ? (
                     <Box sx={{
                         textAlign: 'center',
                         py: 6,
