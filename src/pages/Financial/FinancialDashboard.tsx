@@ -246,9 +246,9 @@ const FinancialDashboard = ({
 
                 <Box sx={{ p: { xs: 0.5, sm: 1, md: 2 } }}>
                     {currentTabs.map((tab, index) => (
-                        <Box key={index} sx={{ display: currentTab === index ? 'block' : 'none' }}>
-                            {tab.component}
-                        </Box>
+                        currentTab === index ? (
+                            <Box key={index}>{tab.component}</Box>
+                        ) : null
                     ))}
                 </Box>
             </Paper>

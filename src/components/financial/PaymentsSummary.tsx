@@ -399,7 +399,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
                     mr: 1.5
                   }} />
                   <Typography variant="body2" sx={{ color: 'grey.600', fontWeight: 500 }}>
-                    {hasInsuranceData ? 'Total Esperado' : 'Saldo Total'}
+                    {hasInsuranceData ? 'Receita Esperada do Mês' : 'Saldo Total'}
                   </Typography>
                 </Box>
                 <Typography
@@ -417,7 +417,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
                 </Typography>
               </Box>
               <Typography variant="caption" sx={{ color: 'grey.600', fontWeight: 500, display: 'block', mt: 2 }}>
-                {hasInsuranceData ? 'Caixa + Pendentes' : 'Total geral'}
+                {hasInsuranceData ? 'Recebido + Particular Pendente + Convênios Pendentes' : 'Total geral'}
               </Typography>
             </Box>
           </Grid>
@@ -547,6 +547,33 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
               </Grid>
             )}
           </Grid>
+
+          {/* Total Recebido em Caixa */}
+          <Box sx={{
+            mt: 2,
+            p: 2,
+            bgcolor: '#F0FDF4',
+            borderRadius: 2,
+            border: '1.5px solid #16A34A',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}>
+            <Box display="flex" alignItems="center" gap={1.5}>
+              <Box sx={{ width: 10, height: 10, bgcolor: '#16A34A', borderRadius: '50%' }} />
+              <Box>
+                <Typography variant="body2" sx={{ color: 'grey.700', fontWeight: 600 }}>
+                  Total Recebido (Particular + Convênios)
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'grey.500' }}>
+                  Valor efetivamente em caixa no período
+                </Typography>
+              </Box>
+            </Box>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#16A34A' }}>
+              {formatCurrency((data.particularReceived || 0) + (data.totalInsuranceReceived || 0))}
+            </Typography>
+          </Box>
         </Box>
       </Box>
     </Box>

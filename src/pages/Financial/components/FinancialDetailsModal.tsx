@@ -95,8 +95,8 @@ export const FinancialDetailsModal = ({ open, onClose, type, period, summaryData
                     break;
 
                 case 'caixa':
-                    response = await api.get('/payments/totals', {
-                        params: { startDate, endDate, period: 'custom' }
+                    response = await api.get('/financial/v2/cash', {
+                        params: { startDate, endDate }
                     });
                     setDetails({ caixa: response.data.data });
                     break;
@@ -114,7 +114,7 @@ export const FinancialDetailsModal = ({ open, onClose, type, period, summaryData
 
                 case 'resultado':
                     const [paymentsRes, expensesRes] = await Promise.all([
-                        api.get('/payments/totals', { params: { startDate, endDate, period: 'custom' } }),
+                        api.get('/financial/v2/cash', { params: { startDate, endDate } }),
                         api.get('/expenses', {
                             params: {
                                 startDate: moment(startDate).format('YYYY-MM-DD'),
@@ -322,48 +322,52 @@ export const FinancialDetailsModal = ({ open, onClose, type, period, summaryData
     };
 
     const renderCaixaContent = () => {
-        if (!details?.caixa?.totals) return <Alert severity="info">Nenhum pagamento encontrado</Alert>;
+        if (!details?.caixa) return <Alert severity="info">Nenhum pagamento encontrado</Alert>;
 
-        const totals = details.caixa.totals;
-        const byMethod = details.caixa.byMethod || [];
+        const caixa = details.caixa;
+        const breakdown = caixa.breakdown || {};
 
         return (
             <>
                 <Box sx={{ mb: 2, p: 2, bgcolor: '#E8F5E9', borderRadius: 2 }}>
                     <Typography variant="h6" fontWeight="bold" color="success.main">
-                        Total Recebido: {formatCurrency(totals.totalReceived)}
+                        Total Recebido: {formatCurrency(caixa.total)}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                        {totals.countReceived} pagamentos
+                        {((caixa.bySource?.payments?.count || 0) + (caixa.bySource?.sessions?.count || 0))} pagamentos
                     </Typography>
                 </Box>
                 
                 <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                    Por Método de Pagamento
+                    Composição do Caixa
                 </Typography>
                 <TableContainer>
                     <Table size="small">
                         <TableHead>
                             <TableRow sx={{ bgcolor: '#E8F5E9' }}>
-                                <TableCell>Método</TableCell>
-                                <TableCell align="right">Qtd</TableCell>
+                                <TableCell>Origem</TableCell>
                                 <TableCell align="right">Valor</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {byMethod.map((m: any) => (
-                                <TableRow key={m._id}>
-                                    <TableCell>
-                                        <Chip
-                                            label={m._id}
-                                            size="small"
-                                            color={m._id === 'pix' ? 'success' : 'default'}
-                                        />
-                                    </TableCell>
-                                    <TableCell align="right">{m.count}</TableCell>
-                                    <TableCell align="right">{formatCurrency(m.total)}</TableCell>
-                                </TableRow>
-                            ))}
+                            <TableRow>
+                                <TableCell>
+                                    <Chip label="Particular" size="small" color="primary" variant="outlined" />
+                                </TableCell>
+                                <TableCell align="right">{formatCurrency(breakdown.particular || 0)}</TableCell>
+                            </TableRow>
+                            <TableRow>
+                                <TableCell>
+                                    <Chip label="Convênio Avulso" size="small" color="success" variant="outlined" />
+                                </TableCell>
+                                <TableCell align="right">{formatCurrency(breakdown.convenioAvulso || 0)}</TableCell>
+                            </TableRow>
+                            <TableRow>
+                                <TableCell>
+                                    <Chip label="Convênio Pacote" size="small" color="warning" variant="outlined" />
+                                </TableCell>
+                                <TableCell align="right">{formatCurrency(breakdown.convenioPacote || 0)}</TableCell>
+                            </TableRow>
                         </TableBody>
                     </Table>
                 </TableContainer>
@@ -444,9 +448,11 @@ export const FinancialDetailsModal = ({ open, onClose, type, period, summaryData
     const renderResultadoContent = () => {
         if (!details) return <Alert severity="info">Dados não disponíveis</Alert>;
 
-        const caixa = details.payments?.totals?.totalReceived || 0;
+        const caixa = details.payments?.total || 0;
         const despesas = details.expenses?.reduce((sum: number, e: any) => sum + (e.amount || 0), 0) || 0;
         const resultado = caixa - despesas;
+        const particularRecebido = details.payments?.breakdown?.particular || 0;
+        const convenioRecebido = (details.payments?.breakdown?.convenioAvulso || 0) + (details.payments?.breakdown?.convenioPacote || 0);
 
         return (
             <Box>
@@ -471,11 +477,11 @@ export const FinancialDetailsModal = ({ open, onClose, type, period, summaryData
                         <TableBody>
                             <TableRow>
                                 <TableCell>Particular Recebido</TableCell>
-                                <TableCell align="right">{formatCurrency(details.payments?.totals?.particularReceived || 0)}</TableCell>
+                                <TableCell align="right">{formatCurrency(particularRecebido)}</TableCell>
                             </TableRow>
                             <TableRow>
                                 <TableCell>Convênio Recebido</TableCell>
-                                <TableCell align="right">{formatCurrency(details.payments?.totals?.totalInsuranceReceived || 0)}</TableCell>
+                                <TableCell align="right">{formatCurrency(convenioRecebido)}</TableCell>
                             </TableRow>
                             <TableRow sx={{ fontWeight: 'bold', bgcolor: '#E8F5E9' }}>
                                 <TableCell><strong>Total Caixa</strong></TableCell>
@@ -564,7 +570,10 @@ export const FinancialDetailsModal = ({ open, onClose, type, period, summaryData
 
     const renderConvReceberContent = () => {
         const data = details?.conv_receber;
-        if (!data?.items?.length) return <Alert severity="success">Nenhuma guia convênio pendente de recebimento</Alert>;
+        if (!data?.items?.length) return <Alert severity="success">Nenhuma pendência de convênio encontrada</Alert>;
+
+        const paymentItems = data.items.filter((i: any) => i.source === 'payment');
+        const sessionItems = data.items.filter((i: any) => i.source === 'session');
 
         return (
             <>
@@ -572,7 +581,9 @@ export const FinancialDetailsModal = ({ open, onClose, type, period, summaryData
                     <Typography variant="h6" fontWeight="bold" color="warning.main">
                         Total a Receber: {formatCurrency(data.total)}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">{data.count} guia(s) faturada(s) aguardando repasse</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                        {paymentItems.length} guia(s) faturada(s) · {sessionItems.length} sessão(ões) de pacote não pagas
+                    </Typography>
                 </Box>
                 <TableContainer>
                     <Table size="small">
@@ -581,16 +592,27 @@ export const FinancialDetailsModal = ({ open, onClose, type, period, summaryData
                                 <TableCell>Paciente</TableCell>
                                 <TableCell>Convênio</TableCell>
                                 <TableCell align="right">Valor</TableCell>
-                                <TableCell align="right">Faturado em</TableCell>
+                                <TableCell align="right">Data</TableCell>
+                                <TableCell>Tipo</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {data.items.map((item: any) => (
-                                <TableRow key={item._id}>
+                            {data.items.map((item: any, idx: number) => (
+                                <TableRow key={item._id || idx}>
                                     <TableCell>{item.patientName}</TableCell>
                                     <TableCell>{item.convenio}</TableCell>
                                     <TableCell align="right">{formatCurrency(item.grossAmount)}</TableCell>
-                                    <TableCell align="right">{item.billedAt ? formatDate(item.billedAt) : '—'}</TableCell>
+                                    <TableCell align="right">
+                                        {item.billedAt ? formatDate(item.billedAt) : item.date ? formatDate(item.date) : '—'}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Chip
+                                            label={item.source === 'payment' ? 'Guia faturada' : 'Sessão pacote'}
+                                            size="small"
+                                            color={item.source === 'payment' ? 'warning' : 'info'}
+                                            variant="outlined"
+                                        />
+                                    </TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>

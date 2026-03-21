@@ -62,7 +62,7 @@ const GoalsTab: React.FC = () => {
 
     const years = Array.from({ length: 3 }, (_, i) => moment().tz(TIMEZONE).year() - i);
 
-    const { plannings, fetchPlannings, loading: planningLoading } = usePlanning();
+    const { plannings, fetchPlannings, refreshAllPlannings, loading: planningLoading } = usePlanning();
     const { data: dashboardData, loading: dashboardLoading, fetchDashboard } = useFinancialDashboard();
 
     useEffect(() => {
@@ -95,6 +95,9 @@ const GoalsTab: React.FC = () => {
     const resumo = dashboardData?.resumo;
     const producao = resumo?.producao || 0;
     const recebido = resumo?.caixa || 0;
+    const aReceber = resumo?.aReceber?.total || 0;
+    const aReceberConvenio = resumo?.aReceber?.convenio || 0;
+    const aReceberParticular = resumo?.aReceber?.particular || 0;
     const agendadoConfirmado = resumo?.agendadoConfirmado || 0;
     const agendadoPendente = resumo?.pendenteConfirmacao || 0;
     const creditoPacotes = resumo?.creditoPacotes || 0;
@@ -103,11 +106,12 @@ const GoalsTab: React.FC = () => {
     const cenarioRealista = dashboardData?.cenarios?.realista?.valor || 0;
 
     const metrics = useMemo(() => {
-        const totalAgendadoConfirmado = agendadoConfirmado + creditoPacotes + convenioAgendado;
+        // creditoPacotes é informativo — não entra no totalAgendado nem na projeção
+        const totalAgendadoConfirmado = agendadoConfirmado + convenioAgendado;
         const totalComissionado = producao + totalAgendadoConfirmado;
 
         const projecaoRealista = cenarioRealista > 0 ? cenarioRealista :
-            producao + (agendadoConfirmado * 0.85) + (creditoPacotes * 0.90) +
+            producao + (agendadoConfirmado * 0.85) +
             (convenioAgendado * 0.85) + (agendadoPendente * 0.40);
 
         if (metaMensal === 0) {
@@ -143,7 +147,7 @@ const GoalsTab: React.FC = () => {
             percentualProjecao: Math.min((projecaoRealista / metaMensal) * 100, 100),
             totalComissionado,
         };
-    }, [producao, recebido, metaMensal, agendadoConfirmado, agendadoPendente, creditoPacotes, convenioAgendado, cenarioRealista]);
+    }, [producao, recebido, metaMensal, agendadoConfirmado, agendadoPendente, convenioAgendado, cenarioRealista]);
 
     if (dashboardLoading || planningLoading) return <FinancialLoading />;
 
@@ -209,7 +213,7 @@ const GoalsTab: React.FC = () => {
                     </Grid>
                     <Grid item xs={12} sm={6}>
                         <Typography variant="caption" display="block" color="text.secondary">
-                            <strong>Provisionamento</strong> — produção + agendamentos confirmados.
+                            <strong>Provisionamento</strong> — caixa + a receber + todos os agendamentos do mês.
                         </Typography>
                     </Grid>
                     <Grid item xs={12} sm={6}>
@@ -356,21 +360,26 @@ const GoalsTab: React.FC = () => {
                 </Grid>
             </Grid>
 
-            {/* Detalhamento do Provisionamento (igual ao antigo) */}
+            {/* Detalhamento do Provisionamento */}
             <Paper variant="outlined" sx={{ p: 2, mb: 3, borderRadius: 2 }}>
                 <Typography variant="subtitle2" fontWeight="600" gutterBottom>📦 Composição do Provisionamento</Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 1 }}>
                     <Typography variant="body2" color="text.secondary">
-                        ✅ Realizado: <strong>{formatCurrency(metrics.producao)}</strong>
+                        💰 Caixa recebido: <strong>{formatCurrency(recebido)}</strong>
                     </Typography>
-                    {agendadoConfirmado > 0 && (
+                    {aReceber > 0 && (
                         <Typography variant="body2" color="text.secondary">
-                            📅 Avulso confirmado: <strong>{formatCurrency(agendadoConfirmado)}</strong>
+                            📋 A receber: <strong>{formatCurrency(aReceber)}</strong>
+                            {aReceberConvenio > 0 && aReceberParticular > 0 && (
+                                <span style={{ fontSize: '0.75rem', marginLeft: 4 }}>
+                                    (conv. {formatCurrency(aReceberConvenio)} + part. {formatCurrency(aReceberParticular)})
+                                </span>
+                            )}
                         </Typography>
                     )}
-                    {creditoPacotes > 0 && (
+                    {agendadoConfirmado > 0 && (
                         <Typography variant="body2" color="text.secondary">
-                            💳 Crédito pacotes: <strong>{formatCurrency(creditoPacotes)}</strong>
+                            📅 Agendados confirmados: <strong>{formatCurrency(agendadoConfirmado)}</strong>
                         </Typography>
                     )}
                     {convenioAgendado > 0 && (
@@ -380,7 +389,7 @@ const GoalsTab: React.FC = () => {
                     )}
                     {agendadoPendente > 0 && (
                         <Typography variant="body2" color="text.secondary">
-                            ⏳ Pendente confirmação: <strong>{formatCurrency(agendadoPendente)}</strong>
+                            ⏳ Pendentes: <strong>{formatCurrency(agendadoPendente)}</strong>
                         </Typography>
                     )}
                 </Box>
@@ -391,20 +400,15 @@ const GoalsTab: React.FC = () => {
                 <Paper variant="outlined" sx={{ p: 2, mb: 3, borderRadius: 2, bgcolor: '#8B5CF605' }}>
                     <Typography variant="subtitle2" fontWeight="600" gutterBottom>🔮 Cálculo da Projeção</Typography>
                     <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                        Realizado + 85% avulsos + 90% pacotes pagos + 85% convênios + 40% pendentes
+                        Base garantida (caixa + a receber) + 85% avulsos confirmados + 85% convênios + 40% pendentes
                     </Typography>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
                         <Typography variant="body2" color="text.secondary">
-                            ✅ Realizado: <strong>{formatCurrency(metrics.producao)}</strong>
+                            💰 Base garantida: <strong>{formatCurrency(recebido + aReceber)}</strong>
                         </Typography>
                         {agendadoConfirmado > 0 && (
                             <Typography variant="body2" color="text.secondary">
                                 📅 +85% avulsos = <strong>{formatCurrency(agendadoConfirmado * 0.85)}</strong>
-                            </Typography>
-                        )}
-                        {creditoPacotes > 0 && (
-                            <Typography variant="body2" color="text.secondary">
-                                💳 +90% pacotes pagos = <strong>{formatCurrency(creditoPacotes * 0.90)}</strong>
                             </Typography>
                         )}
                         {convenioAgendado > 0 && (
@@ -421,22 +425,26 @@ const GoalsTab: React.FC = () => {
                 </Paper>
             )}
 
-            {/* Metas Semanais ativas */}
-            {planningSemanais.length > 0 && (
+            {/* Metas Mensal e Semanal lado a lado */}
+            {(planningDoMes || planningSemanais.length > 0) && (
                 <Box sx={{ mb: 3 }}>
                     <Typography variant="subtitle1" fontWeight="600" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <CalendarToday fontSize="small" sx={{ color: '#6B7280' }} />
-                        Metas Semanais (semana atual)
+                        Metas do Período
                     </Typography>
                     <Grid container spacing={2}>
+                        {/* Metas Semanais - PRIMEIRO */}
                         {planningSemanais.map((pw: any) => {
                             const pct = pw.progress?.revenuePercentage || 0;
                             return (
-                                <Grid item xs={12} sm={6} key={pw._id}>
-                                    <Card variant="outlined" sx={{ borderRadius: 2 }}>
+                                <Grid item xs={12} sm={planningDoMes ? 6 : 6} key={pw._id}>
+                                    <Card variant="outlined" sx={{ borderRadius: 2, borderColor: '#F59E0B80', bgcolor: '#F59E0B05' }}>
                                         <CardContent sx={{ py: 2 }}>
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                                                <Typography variant="body2" fontWeight="600">Meta Semanal</Typography>
+                                                <Typography variant="body2" fontWeight="600" color="#F59E0B">
+                                                    <CalendarToday fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />
+                                                    Meta Semanal
+                                                </Typography>
                                                 <Chip
                                                     size="small"
                                                     label={pw.progress?.overallStatus === 'achieved' ? 'Atingido' : pct >= 80 ? 'No caminho' : 'Em risco'}
@@ -464,9 +472,48 @@ const GoalsTab: React.FC = () => {
                                 </Grid>
                             );
                         })}
+                        
+                        {/* Meta Mensal - DEPOIS */}
+                        {planningDoMes && (
+                            <Grid item xs={12} sm={planningSemanais.length > 0 ? 6 : 12}>
+                                <Card variant="outlined" sx={{ borderRadius: 2, borderColor: '#8B5CF680', bgcolor: '#8B5CF605' }}>
+                                    <CardContent sx={{ py: 2 }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                                            <Typography variant="body2" fontWeight="600" color="#8B5CF6">
+                                                <Schedule fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />
+                                                Meta Mensal
+                                            </Typography>
+                                            <Chip
+                                                size="small"
+                                                label={planningDoMes.progress?.overallStatus === 'achieved' ? 'Atingido' : planningDoMes.progress?.revenuePercentage >= 80 ? 'No caminho' : 'Em risco'}
+                                                color={planningDoMes.progress?.overallStatus === 'achieved' ? 'success' : planningDoMes.progress?.revenuePercentage >= 80 ? 'primary' : 'warning'}
+                                                sx={{ height: 20, fontSize: '0.65rem' }}
+                                            />
+                                        </Box>
+                                        <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+                                            {moment(planningDoMes.period.start).format('DD/MM')} – {moment(planningDoMes.period.end).format('DD/MM/YYYY')}
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                            <Typography variant="body2">
+                                                Meta: <strong>{formatCurrency(planningDoMes.targets?.expectedRevenue || 0)}</strong>
+                                            </Typography>
+                                            <Typography variant="body2">
+                                                Real: <strong>{formatCurrency(recebido)}</strong>
+                                            </Typography>
+                                        </Box>
+                                        <ProgressBar value={metrics.percentualRecebido} color={metrics.percentualRecebido >= 100 ? 'success' : 'primary'} />
+                                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                                            {metrics.percentualRecebido.toFixed(0)}% da meta mensal
+                                        </Typography>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        )}
                     </Grid>
                 </Box>
             )}
+
+            
 
             {/* Rodapé informativo */}
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'grey.50' }}>

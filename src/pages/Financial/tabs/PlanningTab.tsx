@@ -1,5 +1,3 @@
-// src/pages/Financial/tabs/PlanningTab.tsx
-
 import {
   Add,
   AttachMoney,
@@ -15,7 +13,6 @@ import {
   EventSeat,
   AccessTime,
   Assessment,
-  FilterList
 } from '@mui/icons-material';
 import {
   Alert,
@@ -44,15 +41,16 @@ import {
   Tooltip,
   Typography,
   Collapse,
-  FormControl,
-  InputLabel,
-  Select,
   LinearProgress,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import { FinancialLoading } from '../components/FinancialLoading';
-import { format } from 'date-fns';
+import { format, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { usePlanning } from '../../../hooks/usePlanning';
 import { planningService } from '../../../services/planningService';
 import { toast } from 'react-toastify';
@@ -75,6 +73,13 @@ interface PlanningFormData {
   notes: string;
 }
 
+interface MonthData {
+  month: number;
+  year: number;
+  label: string;
+  fullLabel: string;
+}
+
 // Configuração de status
 const STATUS_CONFIG = {
   achieved: { color: '#10B981', bgColor: '#10B98110', label: 'Atingido', icon: CheckCircle },
@@ -86,12 +91,19 @@ const STATUS_CONFIG = {
 const PlanningTab = () => {
   const { plannings, fetchPlannings, createPlanning, updatePlanning, deletePlanning, refreshAllPlannings, loading } = usePlanning();
 
-  // Hooks devem vir ANTES de qualquer return condicional
   const [openModal, setOpenModal] = useState(false);
   const [openEditModal, setOpenEditModal] = useState(false);
   const [openDeleteModal, setOpenDeleteModal] = useState(false);
-  const [filterType, setFilterType] = useState<string>('all');
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+  
+  const [selectedTab, setSelectedTab] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
+  
+  const getCurrentMonthKey = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${d.getMonth() + 1}`;
+  };
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string>(getCurrentMonthKey());
+  
   const [formData, setFormData] = useState<PlanningFormData>({
     type: 'monthly',
     month: new Date().getMonth() + 1,
@@ -111,13 +123,62 @@ const PlanningTab = () => {
   const [editingPlanning, setEditingPlanning] = useState<any>(null);
   const [deletingPlanning, setDeletingPlanning] = useState<any>(null);
 
-  // Função para abrir detalhes
+  // Gerar os últimos 3 meses para navegação
+  const last3Months: MonthData[] = useMemo(() => {
+    const months: MonthData[] = [];
+    const today = new Date();
+    for (let i = 0; i < 3; i++) {
+      const d = subMonths(today, i);
+      months.push({
+        month: d.getMonth() + 1,
+        year: d.getFullYear(),
+        label: format(d, 'MMM', { locale: ptBR }).toUpperCase(),
+        fullLabel: format(d, 'MMMM/yyyy', { locale: ptBR }).toUpperCase()
+      });
+    }
+    return months;
+  }, []);
+
+  const getPlanningMonthYear = (planning: any) => {
+    const startStr = planning.period.start;
+    if (typeof startStr === 'string' && startStr.includes('-')) {
+      const parts = startStr.split('-');
+      if (parts.length >= 2) {
+        return { 
+          year: parseInt(parts[0], 10), 
+          month: parseInt(parts[1], 10) 
+        };
+      }
+    }
+    const startDate = new Date(startStr);
+    return { month: startDate.getMonth() + 1, year: startDate.getFullYear() };
+  };
+
+  const selectedMonthData = useMemo(() => {
+    const [year, month] = selectedMonthKey.split('-').map(Number);
+    return { year, month };
+  }, [selectedMonthKey]);
+
+  const planningsOfSelectedMonth = useMemo(() => {
+    return plannings.filter(p => {
+      const { month, year } = getPlanningMonthYear(p);
+      return month === selectedMonthData.month && year === selectedMonthData.year;
+    });
+  }, [plannings, selectedMonthData]);
+
+  const monthlyOfMonth = planningsOfSelectedMonth.find(p => p.type === 'monthly');
+  const weeklyOfMonth = planningsOfSelectedMonth
+    .filter(p => p.type === 'weekly')
+    .sort((a, b) => new Date(a.period.start).getTime() - new Date(b.period.start).getTime());
+  const dailyOfMonth = planningsOfSelectedMonth
+    .filter(p => p.type === 'daily')
+    .sort((a, b) => new Date(a.period.start).getTime() - new Date(b.period.start).getTime());
+
   const handleViewDetails = async (planning: any) => {
     setSelectedPlanning(planning);
     setOpenDetailsModal(true);
   };
 
-  // Função para abrir modal de edição
   const handleEdit = (planning: any) => {
     setEditingPlanning(planning);
     setFormData({
@@ -135,7 +196,6 @@ const PlanningTab = () => {
     setOpenEditModal(true);
   };
 
-  // Função para salvar edição
   const handleSaveEdit = async () => {
     if (!editingPlanning) return;
     
@@ -159,16 +219,13 @@ const PlanningTab = () => {
     fetchPlannings({});
   };
 
-  // Função para confirmar exclusão
   const handleDeleteClick = (planning: any) => {
     setDeletingPlanning(planning);
     setOpenDeleteModal(true);
   };
 
-  // Função para executar exclusão
   const handleConfirmDelete = async () => {
     if (!deletingPlanning) return;
-    
     await deletePlanning(deletingPlanning._id);
     setOpenDeleteModal(false);
     setDeletingPlanning(null);
@@ -207,7 +264,6 @@ const PlanningTab = () => {
 
   const handleSave = async () => {
     if (formData.type === 'weekly') {
-      // Gera todas as semanas do mês automaticamente
       await planningService.generateWeeklyForMonth({
         month: formData.month,
         year: formData.year,
@@ -237,21 +293,12 @@ const PlanningTab = () => {
     }));
   };
 
-  // Filtrar plannings por tipo
-  const filteredPlannings = filterType === 'all' 
-    ? plannings 
-    : plannings.filter(p => p.type === filterType);
-
-  // Agrupar por tipo para melhor visualização
-  const monthlyPlannings = filteredPlannings.filter(p => p.type === 'monthly');
-  const weeklyPlannings = filteredPlannings.filter(p => p.type === 'weekly');
-  const dailyPlannings = filteredPlannings.filter(p => p.type === 'daily');
-
-  // Calcular totais do formulário
   const totalSpecialtySessions = formData.bySpecialty.reduce((sum, s) => sum + s.sessions, 0);
   const totalSpecialtyRevenue = formData.bySpecialty.reduce((sum, s) => sum + s.revenue, 0);
 
-  // Loading state para carregamento inicial
+  const isCurrentMonth = selectedMonthKey === getCurrentMonthKey();
+  const selectedMonthLabel = last3Months.find(m => `${m.year}-${m.month}` === selectedMonthKey)?.fullLabel || '';
+
   if (loading && plannings.length === 0) {
     return (
       <Box sx={{ p: { xs: 2, md: 4 } }}>
@@ -264,226 +311,427 @@ const PlanningTab = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
       {/* Header */}
-      <Paper elevation={0} sx={{ p: 2.5, mb: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Avatar sx={{ bgcolor: '#8B5CF6', width: 48, height: 48 }}>
-              <Assessment sx={{ fontSize: 24 }} />
-            </Avatar>
-            <Box>
-              <Typography variant="h5" fontWeight="bold">
-                📅 Planejamento Anual
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Defina metas de receita, sessões e acompanhe o progresso
-              </Typography>
-            </Box>
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2,
+          mb: 3,
+          border: '1px solid',
+          borderColor: 'grey.200',
+          borderRadius: 2,
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 2,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Avatar sx={{ bgcolor: '#8B5CF6', width: 44, height: 44 }}>
+            <Assessment sx={{ fontSize: 22 }} />
+          </Avatar>
+          <Box>
+            <Typography variant="h6" fontWeight="bold">
+              Planejamento Anual
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Defina metas de receita, sessões e acompanhe o progresso
+            </Typography>
           </Box>
+        </Box>
 
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Tooltip title="Atualizar dados reais (sessões e pagamentos)">
-              <IconButton
-                onClick={async () => {
-                  await refreshAllPlannings();
-                }}
-                sx={{ 
-                  border: '1px solid',
-                  borderColor: '#8B5CF650',
-                  color: '#8B5CF6',
-                  '&:hover': { bgcolor: '#8B5CF610' }
-                }}
-              >
-                <Refresh />
-              </IconButton>
-            </Tooltip>
-
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Filtrar por tipo</InputLabel>
-              <Select
-                value={filterType}
-                label="Filtrar por tipo"
-                onChange={(e) => setFilterType(e.target.value)}
-              >
-                <MenuItem value="all">Todos</MenuItem>
-                <MenuItem value="monthly">Mensal</MenuItem>
-                <MenuItem value="weekly">Semanal</MenuItem>
-                <MenuItem value="daily">Diário</MenuItem>
-              </Select>
-            </FormControl>
-
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={handleOpenModal}
-              sx={{
-                borderRadius: 2,
-                background: 'linear-gradient(135deg, #8B5CF6, #7C3AED)',
-                '&:hover': { background: 'linear-gradient(135deg, #7C3AED, #6D28D9)' }
-              }}
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Tooltip title="Atualizar dados reais">
+            <IconButton
+              onClick={async () => await refreshAllPlannings()}
+              sx={{ border: '1px solid', borderColor: '#8B5CF650', color: '#8B5CF6' }}
+              size="small"
             >
-              Nova Meta
-            </Button>
-          </Box>
+              <Refresh fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={handleOpenModal}
+            sx={{
+              borderRadius: 1.5,
+              background: 'linear-gradient(135deg, #8B5CF6, #7C3AED)',
+              textTransform: 'none',
+              px: 2,
+              py: 0.75,
+              fontSize: '0.875rem',
+            }}
+          >
+            Nova Meta
+          </Button>
         </Box>
       </Paper>
 
-      {/* Cards de Resumo - com dados reais da API */}
-      {filteredPlannings.length > 0 && (
-        <Grid container spacing={2.5} sx={{ mb: 4 }}>
-          <Grid item xs={12} md={3}>
-            <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#8B5CF630', borderRadius: 2 }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <Avatar sx={{ bgcolor: '#8B5CF6', width: 40, height: 40 }}>
-                    <AttachMoney sx={{ fontSize: 20 }} />
-                  </Avatar>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Meta Total (Mês)</Typography>
-                    <Typography variant="h5" fontWeight="bold" color="#8B5CF6">
-                      {formatCurrency(monthlyPlannings[0]?.targets?.expectedRevenue || 32000)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {monthlyPlannings.length} metas mensais
-                    </Typography>
+      {/* NAVEGAÇÃO: Seletor de Meses (últimos 3 meses) */}
+      <Paper
+        elevation={0}
+        sx={{ p: 1.5, mb: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}
+      >
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          Selecione o período:
+        </Typography>
+        <ToggleButtonGroup
+          value={selectedMonthKey}
+          exclusive
+          onChange={(e, value) => value && setSelectedMonthKey(value)}
+          sx={{
+            width: '100%',
+            '& .MuiToggleButton-root': {
+              flex: 1,
+              py: 1,
+              borderRadius: '8px !important',
+              mx: 0.5,
+              border: '2px solid transparent !important',
+              '&.Mui-selected': {
+                bgcolor: '#8B5CF6',
+                color: 'white',
+                borderColor: '#8B5CF6 !important',
+              },
+              '&:not(.Mui-selected)': {
+                bgcolor: '#F3F4F6',
+                color: '#6B7280',
+              },
+            },
+          }}
+        >
+          {last3Months.map((m) => (
+            <ToggleButton key={`${m.year}-${m.month}`} value={`${m.year}-${m.month}`}>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="body2" fontWeight="600">
+                  {m.label}
+                </Typography>
+                <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                  {m.year}
+                </Typography>
+                {`${m.year}-${m.month}` === getCurrentMonthKey() && (
+                  <Chip
+                    size="small"
+                    label="ATUAL"
+                    sx={{
+                      height: 16,
+                      fontSize: '8px',
+                      fontWeight: 'bold',
+                      ml: 1,
+                      bgcolor: 'rgba(255,255,255,0.3)',
+                      color: 'inherit',
+                    }}
+                  />
+                )}
+              </Box>
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+      </Paper>
+
+      {/* KPIs do MÊS SELECIONADO */}
+      {monthlyOfMonth && (
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+            <CalendarToday sx={{ color: '#8B5CF6', fontSize: 20 }} />
+            <Typography variant="subtitle1" fontWeight="700" sx={{ color: '#8B5CF6' }}>
+              {selectedMonthLabel}
+            </Typography>
+            {isCurrentMonth && (
+              <Chip size="small" label="Em andamento" sx={{ bgcolor: '#8B5CF620', color: '#8B5CF6', fontSize: '0.7rem' }} />
+            )}
+          </Box>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card variant="outlined" sx={{ borderRadius: 2, height: '100%' }}>
+                <CardContent sx={{ p: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Avatar sx={{ bgcolor: '#8B5CF6', width: 36, height: 36 }}>
+                      <AttachMoney sx={{ fontSize: 18 }} />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                        Meta do Mês
+                      </Typography>
+                      <Typography variant="h6" fontWeight="bold" color="#8B5CF6">
+                        {formatCurrency(monthlyOfMonth?.targets?.expectedRevenue || 0)}
+                      </Typography>
+                    </Box>
                   </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#10B98130', borderRadius: 2 }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <Avatar sx={{ bgcolor: '#10B981', width: 40, height: 40 }}>
-                    <CheckCircle sx={{ fontSize: 20 }} />
-                  </Avatar>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Realizado</Typography>
-                    <Typography variant="h5" fontWeight="bold" color="#10B981">
-                      {formatCurrency(monthlyPlannings[0]?.actual?.actualRevenue || 0)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {(monthlyPlannings[0]?.progress?.revenuePercentage || 0).toFixed(0)}% da meta
-                    </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card variant="outlined" sx={{ borderRadius: 2, height: '100%' }}>
+                <CardContent sx={{ p: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Avatar sx={{ bgcolor: '#10B981', width: 36, height: 36 }}>
+                      <CheckCircle sx={{ fontSize: 18 }} />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                        Realizado
+                      </Typography>
+                      <Typography variant="h6" fontWeight="bold" color="#10B981">
+                        {formatCurrency(monthlyOfMonth?.actual?.actualRevenue || 0)}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {(monthlyOfMonth?.progress?.revenuePercentage || 0).toFixed(0)}% da meta
+                      </Typography>
+                    </Box>
                   </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#F59E0B30', borderRadius: 2 }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <Avatar sx={{ bgcolor: '#F59E0B', width: 40, height: 40 }}>
-                    <EventSeat sx={{ fontSize: 20 }} />
-                  </Avatar>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Sessões Previstas</Typography>
-                    <Typography variant="h5" fontWeight="bold" color="#F59E0B">
-                      {monthlyPlannings[0]?.targets?.totalSessions || 160}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Realizadas: {monthlyPlannings[0]?.actual?.completedSessions || 0}
-                    </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card variant="outlined" sx={{ borderRadius: 2, height: '100%' }}>
+                <CardContent sx={{ p: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Avatar sx={{ bgcolor: '#F59E0B', width: 36, height: 36 }}>
+                      <EventSeat sx={{ fontSize: 18 }} />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                        Sessões
+                      </Typography>
+                      <Typography variant="h6" fontWeight="bold" color="#F59E0B">
+                        {monthlyOfMonth?.actual?.completedSessions || 0} / {monthlyOfMonth?.targets?.totalSessions || 0}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {(monthlyOfMonth?.progress?.sessionsPercentage || 0).toFixed(0)}% realizadas
+                      </Typography>
+                    </Box>
                   </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#3B82F630', borderRadius: 2 }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <Avatar sx={{ bgcolor: '#3B82F6', width: 40, height: 40 }}>
-                    <AccessTime sx={{ fontSize: 20 }} />
-                  </Avatar>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Horas Previstas</Typography>
-                    <Typography variant="h5" fontWeight="bold" color="#3B82F6">
-                      {monthlyPlannings[0]?.targets?.workHours || 107}h
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Trabalhadas: {monthlyPlannings[0]?.actual?.workedHours?.toFixed(1) || 0}h
-                    </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card variant="outlined" sx={{ borderRadius: 2, height: '100%' }}>
+                <CardContent sx={{ p: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Avatar sx={{ bgcolor: '#3B82F6', width: 36, height: 36 }}>
+                      <AccessTime sx={{ fontSize: 18 }} />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                        Horas
+                      </Typography>
+                      <Typography variant="h6" fontWeight="bold" color="#3B82F6">
+                        {monthlyOfMonth?.actual?.workedHours?.toFixed(0) || 0}h / {monthlyOfMonth?.targets?.workHours || 0}h
+                      </Typography>
+                    </Box>
                   </Box>
-                </Box>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Grid>
           </Grid>
-        </Grid>
+        </Box>
       )}
 
-      {/* Lista de Planejamentos por Tipo */}
-      <Box sx={{ mb: 4 }}>
-        {/* Metas Mensais */}
-        {monthlyPlannings.length > 0 && (
-          <Box sx={{ mb: 4 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <Timeline sx={{ color: '#8B5CF6' }} />
-              <Typography variant="h6" fontWeight="600">Metas Mensais</Typography>
-              <Chip size="small" label={`${monthlyPlannings.length} metas`} />
-            </Box>
-            <Grid container spacing={2.5}>
-              {monthlyPlannings.map((p) => (
+      {/* TABS: DIA | SEMANA | MENSAL */}
+      <Paper
+        elevation={0}
+        sx={{ border: '1px solid', borderColor: isCurrentMonth ? '#8B5CF630' : 'grey.200', borderRadius: 2, overflow: 'hidden' }}
+      >
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: '#FAFAFF' }}>
+          <Tabs
+            value={selectedTab}
+            onChange={(e, v) => setSelectedTab(v)}
+            variant="fullWidth"
+            sx={{
+              '& .MuiTab-root': {
+                py: 1.5,
+                fontWeight: 600,
+                textTransform: 'none',
+                fontSize: '0.875rem',
+                color: '#6B7280',
+                '&.Mui-selected': {
+                  color: selectedTab === 'daily' ? '#3B82F6' : selectedTab === 'weekly' ? '#F59E0B' : '#8B5CF6',
+                  bgcolor: 'white',
+                },
+              },
+              '& .MuiTabs-indicator': {
+                height: 3,
+                bgcolor: selectedTab === 'daily' ? '#3B82F6' : selectedTab === 'weekly' ? '#F59E0B' : '#8B5CF6',
+              },
+            }}
+          >
+            <Tab
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <CalendarToday sx={{ fontSize: 16 }} />
+                  <span>Diário</span>
+                  {dailyOfMonth.length > 0 && (
+                    <Chip size="small" label={dailyOfMonth.length} sx={{ height: 18, fontSize: '0.6rem', bgcolor: '#3B82F620' }} />
+                  )}
+                </Box>
+              }
+              value="daily"
+            />
+            <Tab
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Schedule sx={{ fontSize: 16 }} />
+                  <span>Semanal</span>
+                  {weeklyOfMonth.length > 0 && (
+                    <Chip size="small" label={weeklyOfMonth.length} sx={{ height: 18, fontSize: '0.6rem', bgcolor: '#F59E0B20' }} />
+                  )}
+                </Box>
+              }
+              value="weekly"
+            />
+            <Tab
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Timeline sx={{ fontSize: 16 }} />
+                  <span>Mensal</span>
+                  {monthlyOfMonth && (
+                    <Chip size="small" label="1" sx={{ height: 18, fontSize: '0.6rem', bgcolor: '#8B5CF620' }} />
+                  )}
+                </Box>
+              }
+              value="monthly"
+            />
+          </Tabs>
+        </Box>
+
+        <Box sx={{ p: 2.5, bgcolor: 'white' }}>
+          {/* TAB: MENSAL */}
+          {selectedTab === 'monthly' && (
+            <Box>
+              {monthlyOfMonth ? (
                 <PlanningCard
-                  key={p._id}
-                  planning={p}
+                  planning={monthlyOfMonth}
                   formatCurrency={formatCurrency}
                   getStatusConfig={getStatusConfig}
                   onViewDetails={handleViewDetails}
                   onEdit={handleEdit}
                   onDelete={handleDeleteClick}
-                  expanded={expandedCards[p._id]}
-                  onToggle={() => toggleCard(p._id)}
+                  expanded={expandedCards[monthlyOfMonth._id]}
+                  onToggle={() => toggleCard(monthlyOfMonth._id)}
+                  isMonthly
                 />
-              ))}
-            </Grid>
-          </Box>
-        )}
-
-        {/* Metas Semanais */}
-        {weeklyPlannings.length > 0 && (
-          <Box sx={{ mb: 4 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <Schedule sx={{ color: '#F59E0B' }} />
-              <Typography variant="h6" fontWeight="600">Metas Semanais</Typography>
-              <Chip size="small" label={`${weeklyPlannings.length} metas`} />
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                  <Timeline sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    Nenhuma meta mensal
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    {selectedMonthLabel} não possui uma meta mensal definida
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={<Add />}
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, type: 'monthly' }));
+                      setOpenModal(true);
+                    }}
+                    sx={{ borderRadius: 1.5, bgcolor: '#8B5CF6' }}
+                  >
+                    Criar Meta Mensal
+                  </Button>
+                </Box>
+              )}
             </Box>
-            <Grid container spacing={2.5}>
-              {weeklyPlannings.map((p) => (
-                <PlanningCard
-                  key={p._id}
-                  planning={p}
-                  formatCurrency={formatCurrency}
-                  getStatusConfig={getStatusConfig}
-                  onViewDetails={handleViewDetails}
-                  onEdit={handleEdit}
-                  onDelete={handleDeleteClick}
-                  expanded={expandedCards[p._id]}
-                  onToggle={() => toggleCard(p._id)}
-                />
-              ))}
-            </Grid>
-          </Box>
-        )}
+          )}
 
-        {/* Sem resultados */}
-        {filteredPlannings.length === 0 && (
-          <Paper elevation={0} sx={{ p: 4, border: '1px solid', borderColor: 'grey.200', borderRadius: 2, textAlign: 'center' }}>
-            <Assessment sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              Nenhuma meta encontrada
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Clique em "Nova Meta" para criar seu primeiro planejamento de receita e sessões
-            </Typography>
-          </Paper>
-        )}
-      </Box>
+          {/* TAB: SEMANAL */}
+          {selectedTab === 'weekly' && (
+            <Box>
+              {weeklyOfMonth.length > 0 ? (
+                <Grid container spacing={2}>
+                  {weeklyOfMonth.map((p, idx) => (
+                    <PlanningCard
+                      key={p._id}
+                      planning={p}
+                      formatCurrency={formatCurrency}
+                      getStatusConfig={getStatusConfig}
+                      onViewDetails={handleViewDetails}
+                      onEdit={handleEdit}
+                      onDelete={handleDeleteClick}
+                      expanded={expandedCards[p._id]}
+                      onToggle={() => toggleCard(p._id)}
+                      weekNumber={idx + 1}
+                    />
+                  ))}
+                </Grid>
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                  <Schedule sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    Nenhuma meta semanal
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    {selectedMonthLabel} não possui metas semanais definidas
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={<Add />}
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, type: 'weekly' }));
+                      setOpenModal(true);
+                    }}
+                    sx={{ borderRadius: 1.5, bgcolor: '#F59E0B' }}
+                  >
+                    Criar Metas Semanais
+                  </Button>
+                </Box>
+              )}
+            </Box>
+          )}
 
-      {/* MODAL DE CRIAÇÃO - mantido igual mas com melhorias visuais */}
+          {/* TAB: DIÁRIA */}
+          {selectedTab === 'daily' && (
+            <Box>
+              {dailyOfMonth.length > 0 ? (
+                <Grid container spacing={2}>
+                  {dailyOfMonth.map((p) => (
+                    <PlanningCard
+                      key={p._id}
+                      planning={p}
+                      formatCurrency={formatCurrency}
+                      getStatusConfig={getStatusConfig}
+                      onViewDetails={handleViewDetails}
+                      onEdit={handleEdit}
+                      onDelete={handleDeleteClick}
+                      expanded={expandedCards[p._id]}
+                      onToggle={() => toggleCard(p._id)}
+                      isDaily
+                    />
+                  ))}
+                </Grid>
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                  <CalendarToday sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    Nenhuma meta diária
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    {selectedMonthLabel} não possui metas diárias definidas
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={<Add />}
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, type: 'daily' }));
+                      setOpenModal(true);
+                    }}
+                    sx={{ borderRadius: 1.5, bgcolor: '#3B82F6' }}
+                  >
+                    Criar Meta Diária
+                  </Button>
+                </Box>
+              )}
+            </Box>
+          )}
+        </Box>
+      </Paper>
+
+
+      {/* MODAL DE CRIAÇÃO */}
       <Dialog open={openModal} onClose={() => setOpenModal(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#8B5CF6', color: 'white' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -495,7 +743,6 @@ const PlanningTab = () => {
         </DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={3}>
-            {/* Tipo e Período */}
             <Grid item xs={12} md={4}>
               <TextField
                 select
@@ -538,21 +785,15 @@ const PlanningTab = () => {
               </TextField>
             </Grid>
 
-            {/* Explicação para tipo semanal */}
             {formData.type === 'weekly' && (
               <Grid item xs={12}>
                 <Alert severity="info" sx={{ mt: 1 }}>
                   <strong>Geração automática de semanas</strong><br />
-                  Informe a <strong>meta mensal total</strong>. O sistema cria <strong>4 semanas</strong> para {format(new Date(formData.year, formData.month - 1), 'MMMM/yyyy', { locale: ptBR })}, dividindo proporcionalmente:<br />
-                  S1: 01–07 &nbsp;|&nbsp; S2: 08–14 &nbsp;|&nbsp; S3: 15–21 &nbsp;|&nbsp; S4: 22–último dia
-                  {formData.targets.expectedRevenue > 0 && (
-                    <span><br />→ Cada semana ≈ <strong>R$ {(formData.targets.expectedRevenue / 4).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> (valor exato proporcional aos dias)</span>
-                  )}
+                  Informe a <strong>meta mensal total</strong>. O sistema cria <strong>4 semanas</strong> automaticamente.
                 </Alert>
               </Grid>
             )}
 
-            {/* Metas Principais */}
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom sx={{ mt: 2, color: '#8B5CF6', fontWeight: 600 }}>
                 {formData.type === 'weekly' ? 'Meta Mensal Total (dividida automaticamente)' : 'Metas Principais'}
@@ -597,7 +838,6 @@ const PlanningTab = () => {
               />
             </Grid>
 
-            {/* Especialidades (apenas para mensal/diário) */}
             {formData.type !== 'weekly' && (<>
               <Grid item xs={12}>
                 <Typography variant="h6" gutterBottom sx={{ mt: 2, color: '#8B5CF6', fontWeight: 600 }}>
@@ -632,7 +872,6 @@ const PlanningTab = () => {
               )}
             </>)}
 
-            {/* Notas */}
             <Grid item xs={12}>
               <TextField
                 label="Observações"
@@ -663,12 +902,7 @@ const PlanningTab = () => {
       </Dialog>
 
       {/* MODAL DE DETALHES */}
-      <Dialog
-        open={openDetailsModal}
-        onClose={() => setOpenDetailsModal(false)}
-        maxWidth="lg"
-        fullWidth
-      >
+      <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="lg" fullWidth>
         <DialogTitle>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6">
@@ -682,7 +916,6 @@ const PlanningTab = () => {
         </DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={3}>
-            {/* Resumo */}
             <Grid item xs={12} md={4}>
               <Card sx={{ width: '100%', bgcolor: '#10B98110', border: '1px solid #10B98130' }}>
                 <CardContent>
@@ -720,7 +953,6 @@ const PlanningTab = () => {
               </Card>
             </Grid>
 
-            {/* Lista de Pacientes */}
             <Grid item xs={12} md={6}>
               <Typography variant="h6" gutterBottom sx={{ mt: 2, color: '#10B981', fontWeight: 600 }}>
                 💰 Receita por Paciente
@@ -769,7 +1001,6 @@ const PlanningTab = () => {
               </TableContainer>
             </Grid>
 
-            {/* Lista de Pacotes */}
             <Grid item xs={12} md={6}>
               <Typography variant="h6" gutterBottom sx={{ mt: 2, color: '#F59E0B', fontWeight: 600 }}>
                 📦 Pacotes Fechados
@@ -804,11 +1035,6 @@ const PlanningTab = () => {
                             size="small"
                             label={pkg.status === 'paid' ? 'Pago' : pkg.status === 'partially_paid' ? 'Parcial' : 'Pendente'}
                             color={pkg.status === 'paid' ? 'success' : pkg.status === 'partially_paid' ? 'warning' : 'default'}
-                            sx={{ 
-                              bgcolor: pkg.status === 'paid' ? '#10B98110' : pkg.status === 'partially_paid' ? '#F59E0B10' : '#F3F4F6',
-                              color: pkg.status === 'paid' ? '#10B981' : pkg.status === 'partially_paid' ? '#F59E0B' : '#6B7280',
-                              borderColor: pkg.status === 'paid' ? '#10B981' : pkg.status === 'partially_paid' ? '#F59E0B' : '#E5E7EB'
-                            }}
                             variant="outlined"
                           />
                         </TableCell>
@@ -833,14 +1059,6 @@ const PlanningTab = () => {
           <Button onClick={() => setOpenDetailsModal(false)} variant="outlined">
             Fechar
           </Button>
-          <Button
-            variant="contained"
-            startIcon={<Refresh />}
-            onClick={() => setOpenDetailsModal(false)}
-            sx={{ bgcolor: '#8B5CF6', '&:hover': { bgcolor: '#7C3AED' } }}
-          >
-            Atualizar Dados
-          </Button>
         </DialogActions>
       </Dialog>
 
@@ -856,28 +1074,15 @@ const PlanningTab = () => {
         </DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={3}>
-            {/* Tipo e Período */}
             <Grid item xs={12} md={4}>
-              <TextField
-                select
-                label="Tipo de Meta"
-                fullWidth
-                value={formData.type}
-                onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as any }))}
-              >
+              <TextField select label="Tipo de Meta" fullWidth value={formData.type} disabled>
                 <MenuItem value="daily">Diária</MenuItem>
                 <MenuItem value="weekly">Semanal</MenuItem>
                 <MenuItem value="monthly">Mensal</MenuItem>
               </TextField>
             </Grid>
             <Grid item xs={12} md={4}>
-              <TextField
-                select
-                label="Mês"
-                fullWidth
-                value={formData.month}
-                onChange={(e) => setFormData(prev => ({ ...prev, month: Number(e.target.value) }))}
-              >
+              <TextField select label="Mês" fullWidth value={formData.month} disabled>
                 {Array.from({ length: 12 }, (_, i) => (
                   <MenuItem key={i + 1} value={i + 1}>
                     {format(new Date(2024, i), 'MMMM', { locale: ptBR })}
@@ -886,20 +1091,13 @@ const PlanningTab = () => {
               </TextField>
             </Grid>
             <Grid item xs={12} md={4}>
-              <TextField
-                select
-                label="Ano"
-                fullWidth
-                value={formData.year}
-                onChange={(e) => setFormData(prev => ({ ...prev, year: Number(e.target.value) }))}
-              >
+              <TextField select label="Ano" fullWidth value={formData.year} disabled>
                 {[2025, 2026, 2027].map(y => (
                   <MenuItem key={y} value={y}>{y}</MenuItem>
                 ))}
               </TextField>
             </Grid>
 
-            {/* Metas Principais */}
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom sx={{ mt: 2, color: '#8B5CF6', fontWeight: 600 }}>
                 Metas Principais
@@ -944,7 +1142,6 @@ const PlanningTab = () => {
               />
             </Grid>
 
-            {/* Notas */}
             <Grid item xs={12}>
               <TextField
                 label="Observações"
@@ -953,7 +1150,6 @@ const PlanningTab = () => {
                 fullWidth
                 value={formData.notes}
                 onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder="Detalhes adicionais sobre o planejamento..."
               />
             </Grid>
           </Grid>
@@ -1026,68 +1222,86 @@ interface PlanningCardProps {
   onDelete: (planning: any) => void;
   expanded: boolean;
   onToggle: () => void;
+  isMonthly?: boolean;
+  isDaily?: boolean;
+  weekNumber?: number;
 }
 
-const PlanningCard = ({ planning, formatCurrency, getStatusConfig, onViewDetails, onEdit, onDelete, expanded, onToggle }: PlanningCardProps) => {
+const PlanningCard = ({
+  planning,
+  formatCurrency,
+  getStatusConfig,
+  onViewDetails,
+  onEdit,
+  onDelete,
+  expanded,
+  onToggle,
+  isMonthly,
+  isDaily,
+  weekNumber,
+}: PlanningCardProps) => {
   const statusConfig = getStatusConfig(planning.progress?.overallStatus);
   const StatusIcon = statusConfig.icon;
 
+  const typeColors = isMonthly
+    ? { main: '#8B5CF6', bg: '#8B5CF610', border: '#8B5CF650' }
+    : weekNumber
+      ? { main: '#F59E0B', bg: '#F59E0B10', border: '#F59E0B50' }
+      : isDaily
+        ? { main: '#3B82F6', bg: '#3B82F610', border: '#3B82F650' }
+        : { main: '#6B7280', bg: '#F3F4F6', border: '#E5E7EB' };
+
   return (
-    <Grid item xs={12} md={6} lg={4}>
-      <Card elevation={0} sx={{ 
-        width: '100%',
-        border: '1px solid', 
-        borderColor: 'grey.200', 
-        borderRadius: 2,
-        transition: 'all 0.2s',
-        '&:hover': {
-          boxShadow: `0 4px 12px ${statusConfig.color}20`,
-          borderColor: statusConfig.color
-        }
-      }}>
-        <CardContent sx={{ p: 3 }}>
-          {/* Header do Card */}
+    <Grid item xs={12} md={isMonthly ? 12 : 6} lg={isMonthly ? 12 : 4}>
+      <Card
+        elevation={0}
+        sx={{
+          border: '2px solid',
+          borderColor: typeColors.border,
+          borderRadius: 2,
+          bgcolor: isMonthly ? 'white' : typeColors.bg,
+          transition: 'all 0.2s',
+          '&:hover': {
+            boxShadow: `0 4px 12px ${typeColors.main}20`,
+            borderColor: typeColors.main,
+          },
+        }}
+      >
+        <CardContent sx={{ p: isMonthly ? 2.5 : 2 }}>
+          {/* Header */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Avatar sx={{ bgcolor: statusConfig.bgColor, color: statusConfig.color, width: 40, height: 40 }}>
-                {planning.type === 'monthly' ? <CalendarToday /> : planning.type === 'weekly' ? <Schedule /> : <TrendingUp />}
+              <Avatar sx={{ bgcolor: typeColors.main, width: isMonthly ? 40 : 32, height: isMonthly ? 40 : 32 }}>
+                {isMonthly ? <Timeline sx={{ fontSize: 20 }} /> : weekNumber ? <Schedule sx={{ fontSize: 16 }} /> : <CalendarToday sx={{ fontSize: 16 }} />}
               </Avatar>
               <Box>
-                <Typography variant="subtitle1" fontWeight="600">
-                  {planning.type === 'monthly' ? 'Meta Mensal' : planning.type === 'weekly' ? 'Meta Semanal' : 'Meta Diária'}
+                <Typography variant={isMonthly ? 'subtitle1' : 'body2'} fontWeight="bold">
+                  {isMonthly ? 'Meta Mensal' : weekNumber ? `Semana ${weekNumber}` : 'Meta Diária'}
                 </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CalendarToday sx={{ fontSize: 12, color: 'text.secondary' }} />
-                  <Typography variant="caption" color="text.secondary">
-                    {format(new Date(planning.period.start), 'dd/MM')} - {format(new Date(planning.period.end), 'dd/MM/yyyy')}
-                  </Typography>
-                </Box>
+                <Typography variant="caption" color="text.secondary">
+                  {format(new Date(planning.period.start), 'dd/MM')} - {format(new Date(planning.period.end), 'dd/MM/yyyy')}
+                </Typography>
               </Box>
             </Box>
             <Chip
               size="small"
               icon={<StatusIcon sx={{ fontSize: 14 }} />}
               label={statusConfig.label}
-              sx={{ 
-                bgcolor: statusConfig.bgColor,
-                color: statusConfig.color,
-                borderColor: statusConfig.color,
-                fontWeight: 500
-              }}
+              sx={{ bgcolor: statusConfig.bgColor, color: statusConfig.color, fontWeight: 500 }}
               variant="outlined"
             />
           </Box>
 
-          <Divider sx={{ my: 2 }} />
+          <Divider sx={{ my: 1.5 }} />
 
-          {/* Métricas em grid */}
+          {/* Métricas */}
           <Grid container spacing={1.5} sx={{ mb: 2 }}>
             <Grid item xs={6}>
               <Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#F9FAFB' }}>
                 <Typography variant="caption" color="text.secondary" display="block">
                   Meta Receita
                 </Typography>
-                <Typography variant="body1" fontWeight="600" color="#8B5CF6">
+                <Typography variant={isMonthly ? 'h6' : 'body1'} fontWeight="bold" color={typeColors.main}>
                   {formatCurrency(planning.targets?.expectedRevenue || 0)}
                 </Typography>
               </Paper>
@@ -1097,17 +1311,19 @@ const PlanningCard = ({ planning, formatCurrency, getStatusConfig, onViewDetails
                 <Typography variant="caption" color="text.secondary" display="block">
                   Realizado
                 </Typography>
-                <Typography variant="body1" fontWeight="600" color="#10B981">
+                <Typography variant={isMonthly ? 'h6' : 'body1'} fontWeight="bold" color="#10B981">
                   {formatCurrency(planning.actual?.actualRevenue || 0)}
                 </Typography>
               </Paper>
             </Grid>
           </Grid>
 
-          {/* Barras de Progresso */}
-          <Box sx={{ mb: 2 }}>
+          {/* Progresso */}
+          <Box sx={{ mb: 1.5 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-              <Typography variant="caption" color="text.secondary">Receita</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Receita
+              </Typography>
               <Typography variant="caption" fontWeight="600">
                 {planning.progress?.revenuePercentage || 0}%
               </Typography>
@@ -1115,22 +1331,19 @@ const PlanningCard = ({ planning, formatCurrency, getStatusConfig, onViewDetails
             <LinearProgress
               variant="determinate"
               value={Math.min(planning.progress?.revenuePercentage || 0, 100)}
-              sx={{ 
-                height: 6, 
+              sx={{
+                height: 6,
                 borderRadius: 3,
                 bgcolor: '#E5E7EB',
-                '& .MuiLinearProgress-bar': {
-                  bgcolor: planning.progress?.revenuePercentage >= 100 ? '#10B981' : 
-                         planning.progress?.revenuePercentage >= 70 ? '#3B82F6' : 
-                         planning.progress?.revenuePercentage >= 40 ? '#F59E0B' : '#EF4444'
-                }
+                '& .MuiLinearProgress-bar': { bgcolor: planning.progress?.revenuePercentage >= 100 ? '#10B981' : typeColors.main },
               }}
             />
           </Box>
-
-          <Box sx={{ mb: 2 }}>
+          <Box sx={{ mb: 1.5 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-              <Typography variant="caption" color="text.secondary">Sessões</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Sessões
+              </Typography>
               <Typography variant="caption" fontWeight="600">
                 {planning.progress?.sessionsPercentage || 0}%
               </Typography>
@@ -1138,56 +1351,61 @@ const PlanningCard = ({ planning, formatCurrency, getStatusConfig, onViewDetails
             <LinearProgress
               variant="determinate"
               value={Math.min(planning.progress?.sessionsPercentage || 0, 100)}
-              sx={{ 
-                height: 6, 
+              sx={{
+                height: 6,
                 borderRadius: 3,
                 bgcolor: '#E5E7EB',
-                '& .MuiLinearProgress-bar': {
-                  bgcolor: planning.progress?.sessionsPercentage >= 100 ? '#10B981' : 
-                         planning.progress?.sessionsPercentage >= 70 ? '#3B82F6' : 
-                         planning.progress?.sessionsPercentage >= 40 ? '#F59E0B' : '#EF4444'
-                }
+                '& .MuiLinearProgress-bar': { bgcolor: planning.progress?.sessionsPercentage >= 100 ? '#10B981' : '#3B82F6' },
               }}
             />
           </Box>
 
-          {/* Seção expansível com mais detalhes */}
+          {/* Expandir detalhes */}
           <Collapse in={expanded}>
-            <Box sx={{ mt: 2, p: 2, bgcolor: '#F9FAFB', borderRadius: 1 }}>
+            <Box sx={{ mt: 2, p: 1.5, bgcolor: '#F9FAFB', borderRadius: 1 }}>
               <Typography variant="subtitle2" gutterBottom fontWeight="600">
-                Detalhes Adicionais
+                Detalhes
               </Typography>
-              
-              <Grid container spacing={1} sx={{ mb: 1 }}>
+              <Grid container spacing={1}>
                 <Grid item xs={6}>
-                  <Typography variant="caption" color="text.secondary">Horas Previstas</Typography>
-                  <Typography variant="body2" fontWeight="500">{planning.targets?.workHours || 0}h</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Horas Previstas
+                  </Typography>
+                  <Typography variant="body2" fontWeight="500">
+                    {planning.targets?.workHours || 0}h
+                  </Typography>
                 </Grid>
                 <Grid item xs={6}>
-                  <Typography variant="caption" color="text.secondary">Horas Trabalhadas</Typography>
-                  <Typography variant="body2" fontWeight="500">{planning.actual?.workedHours?.toFixed(1) || 0}h</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Horas Trabalhadas
+                  </Typography>
+                  <Typography variant="body2" fontWeight="500">
+                    {planning.actual?.workedHours?.toFixed(1) || 0}h
+                  </Typography>
                 </Grid>
                 <Grid item xs={6}>
-                  <Typography variant="caption" color="text.secondary">Slots Disponíveis</Typography>
-                  <Typography variant="body2" fontWeight="500">{planning.targets?.availableSlots || 0}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Sessões Previstas
+                  </Typography>
+                  <Typography variant="body2" fontWeight="500">
+                    {planning.targets?.totalSessions || 0}
+                  </Typography>
                 </Grid>
                 <Grid item xs={6}>
-                  <Typography variant="caption" color="text.secondary">Slots Utilizados</Typography>
-                  <Typography variant="body2" fontWeight="500">{planning.actual?.usedSlots || 0}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Sessões Realizadas
+                  </Typography>
+                  <Typography variant="body2" fontWeight="500">
+                    {planning.actual?.completedSessions || 0}
+                  </Typography>
                 </Grid>
               </Grid>
-
-              {planning.notes && (
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', fontStyle: 'italic' }}>
-                  Obs: {planning.notes}
-                </Typography>
-              )}
             </Box>
           </Collapse>
 
-          {/* Gap para meta */}
+          {/* Gap de meta */}
           {planning.progress?.gapRevenue > 0 && (
-            <Alert severity="warning" sx={{ mt: 2, py: 0, borderRadius: 1 }} icon={<Warning fontSize="small" />}>
+            <Alert severity="warning" sx={{ mt: 2, py: 0, borderRadius: 1 }}>
               <Typography variant="caption">
                 Falta {formatCurrency(planning.progress.gapRevenue)} para atingir a meta
               </Typography>
@@ -1196,14 +1414,9 @@ const PlanningCard = ({ planning, formatCurrency, getStatusConfig, onViewDetails
 
           {/* Ações */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-            <Button
-              size="small"
-              onClick={onToggle}
-              startIcon={expanded ? <ChevronUp /> : <ChevronDown />}
-            >
-              {expanded ? 'Menos detalhes' : 'Mais detalhes'}
+            <Button size="small" onClick={onToggle} startIcon={expanded ? <ChevronUp /> : <ChevronDown />} sx={{ color: 'text.secondary' }}>
+              {expanded ? 'Menos' : 'Mais'}
             </Button>
-            
             <Box>
               <Tooltip title="Editar">
                 <IconButton size="small" sx={{ color: '#8B5CF6' }} onClick={() => onEdit(planning)}>

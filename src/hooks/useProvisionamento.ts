@@ -73,14 +73,11 @@ export const useProvisionamento = () => {
   const [analiticoData, setAnaliticoData] = useState<any>(null);
   const [pacotesAndamento, setPacotesAndamento] = useState<any[]>([]);
   const [fechamentoData, setFechamentoData] = useState<any>(null);
-  const [atividadeHoje, setAtividadeHoje] = useState<any>(null);
-  const [loadingAtividade, setLoadingAtividade] = useState(false);
   const [projecaoMes, setProjecaoMes] = useState<any>(null);
   const [metricasMes, setMetricasMes] = useState<any>(null);
   const [loadingMetricas, setLoadingMetricas] = useState(false);
   const [pacotesConcluidos, setPacotesConcluidos] = useState<any[]>([]);
-  const [resumoPaciente, setResumoPaciente] = useState<any>(null);
-  const [loadingResumo, setLoadingResumo] = useState(false);
+  const [taxasCartao, setTaxasCartao] = useState<any[]>([]);
 
   const fetchMetricasMes = useCallback(async (mes: number, ano: number) => {
     setLoadingMetricas(true);
@@ -104,21 +101,6 @@ export const useProvisionamento = () => {
     } catch (err) {
       console.error('Erro projeção:', err);
       return null;
-    }
-  }, []);
-
-  // Adicione a função:
-  const fetchAtividadeHoje = useCallback(async () => {
-    setLoadingAtividade(true);
-    try {
-      const response = await api.get('/provisionamento/atividade-hoje');
-      setAtividadeHoje(response.data.data);
-      return response.data.data;
-    } catch (err: any) {
-      console.error('Erro ao carregar atividade de hoje:', err);
-      return null;
-    } finally {
-      setLoadingAtividade(false);
     }
   }, []);
 
@@ -151,16 +133,6 @@ export const useProvisionamento = () => {
     }
   }, []);
 
-  const confirmarAgendamentos = useCallback(async (ids: string[]) => {
-    const response = await api.post('/provisionamento/confirmar-massa', { ids });
-    return response.data;
-  }, []);
-
-  const liberarVagas = useCallback(async (ids: string[], motivo?: string) => {
-    const response = await api.post('/provisionamento/liberar-vagas', { ids, motivo });
-    return response.data;
-  }, []);
-
   // Busca dados analíticos completos (planilha detalhada)
   const fetchAnalitico = useCallback(async (mes: number, ano: number) => {
     const response = await api.get(`/provisionamento/analitico?month=${mes}&year=${ano}`);
@@ -188,14 +160,14 @@ export const useProvisionamento = () => {
     return response.data.data;
   }, []);
 
-  const fetchResumoPaciente = useCallback(async (patientId: string) => {
-    setLoadingResumo(true);
+  const fetchTaxasCartao = useCallback(async () => {
     try {
-      const response = await api.get(`/provisionamento/paciente/${patientId}/resumo`);
-      setResumoPaciente(response.data.data);
-      return response.data.data;
-    } finally {
-      setLoadingResumo(false);
+      const response = await api.get('/provisionamento/taxas-cartao');
+      setTaxasCartao(response.data.data || []);
+      return response.data.data || [];
+    } catch (err) {
+      console.error('Erro ao carregar taxas de cartão:', err);
+      return [];
     }
   }, []);
 
@@ -209,8 +181,6 @@ export const useProvisionamento = () => {
     error,
     calcular,
     carregarPendentes,
-    confirmarAgendamentos,
-    liberarVagas,
 
     analiticoData,
     pacotesAndamento,
@@ -218,9 +188,6 @@ export const useProvisionamento = () => {
     fetchAnalitico,
     fetchPacotesAndamento,
     fetchFechamento,
-    atividadeHoje,
-    loadingAtividade,
-    fetchAtividadeHoje,
     projecaoMes,
     fetchProjecaoMes,
     metricasMes,
@@ -228,18 +195,8 @@ export const useProvisionamento = () => {
     fetchMetricasMes,
     pacotesConcluidos,
     fetchPacotesConcluidos,
-    resumoPaciente,
-    fetchResumoPaciente,
-    loadingResumo,
-
-    refreshAll: async (mes: number, ano: number) => {
-      await Promise.all([
-        calcular(mes, ano),
-        carregarPendentes(),
-        fetchAtividadeHoje()
-      ]);
-    }
-
+    taxasCartao,
+    fetchTaxasCartao,
   };
 };
 

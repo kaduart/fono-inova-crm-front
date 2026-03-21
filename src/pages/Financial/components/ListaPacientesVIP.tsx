@@ -58,7 +58,7 @@ export const ListaPacientesVIP: React.FC = () => {
                             <TableRow key={patient.patientId} hover>
                                 <TableCell>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                        <Avatar sx={{ bgcolor: 'secondary.light' }}>{patient.name[0]}</Avatar>
+                                        <Avatar sx={{ bgcolor: 'secondary.light' }}>{patient.name?.[0] || '?'}</Avatar>
                                         <Box>
                                             <Typography fontWeight="bold">{patient.name}</Typography>
                                             <Typography variant="caption" color="textSecondary">{patient.phone}</Typography>
@@ -88,9 +88,11 @@ export const ListaPacientesVIP: React.FC = () => {
                                         >
                                             <Eye size={18} />
                                         </IconButton>
-                                        <IconButton size="small" component="a" href={`https://wa.me/${patient.phone.replace(/\D/g, '')}`} target="_blank">
-                                            <Phone size={18} color="#25D366" />
-                                        </IconButton>
+                                        {patient.phone && (
+                                            <IconButton size="small" component="a" href={`https://wa.me/${patient.phone.replace(/\D/g, '')}`} target="_blank">
+                                                <Phone size={18} color="#25D366" />
+                                            </IconButton>
+                                        )}
                                     </Box>
                                 </TableCell>
                             </TableRow>

@@ -30,18 +30,26 @@ import {
     CheckCircle,
     Error,
     Info,
-    ArrowUpward,
-    ArrowDownward,
-    CalendarToday,
     Assessment,
     AccountBalanceWallet,
     LocalHospital,
     Group,
     MedicalServices,
-    AccountBalance
+    AccountBalance,
+    CreditCard,
+    Payments,
 } from '@mui/icons-material';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+} from '@mui/material';
 import { useFinancialMetrics } from '../../../hooks/useFinancialMetrics';
 import { useExpenses } from '../../../hooks/useExpenses';
+import { useProvisionamento } from '../../../hooks/useProvisionamento';
 import { FinancialLoadingDashboard } from '../components/FinancialLoading';
 import { FinancialDetailsModal } from '../components/FinancialDetailsModal';
 import moment from 'moment-timezone';
@@ -73,11 +81,16 @@ const VisaoGeralEstrategicaTab = () => {
     const { data, isLoading, error } = useFinancialMetrics(startDate, endDate);
 
     const { totals: expenseTotals, loading: expensesLoading, fetchExpenses } = useExpenses();
+    const { taxasCartao, fetchTaxasCartao } = useProvisionamento();
+
+    useEffect(() => {
+        fetchTaxasCartao();
+    }, [fetchTaxasCartao]);
 
     // Busca despesas do mês selecionado
     useEffect(() => {
-        fetchExpenses({ month: selectedMonth + 1, year: selectedYear });
-    }, [selectedMonth, selectedYear, fetchExpenses]);
+        fetchExpenses({ startDate, endDate, limit: 1000 });
+    }, [startDate, endDate, fetchExpenses]);
 
     // Métricas calculadas dos dados unificados
     const metrics = useMemo(() => {
@@ -102,19 +115,25 @@ const VisaoGeralEstrategicaTab = () => {
                 convenioFaturado: 0,
                 convenioRecebido: 0,
                 convenioAReceber: 0,
+                receitaMes: 0,
             };
         }
 
         const convenioDetail = data.convenioDetail || {};
         const receivable = data.receivable || {};
 
+        const caixa = data.cash?.total || 0;
+        const aReceberParticularDoMes = receivable.particular?.doMes?.total || 0;
+        const convenioAReceber = convenioDetail.aReceber?.total || 0;
+        const receitaMes = caixa + aReceberParticularDoMes + convenioAReceber;
+
         return {
-            caixa: data.cash?.total || 0,
+            caixa,
             producao: data.production?.total || 0,
             faturado: data.billing?.total || 0,
             aReceber: receivable.total || 0,
             aReceberConvenio: receivable.convenio?.total || 0,
-            aReceberParticularDoMes: receivable.particular?.doMes?.total || 0,
+            aReceberParticularDoMes,
             aReceberParticularCount: receivable.particular?.doMes?.count || 0,
             saldoDevedorTotal: receivable.saldoDevedorTotal?.total || 0,
             saldoDevedorCount: receivable.saldoDevedorTotal?.count || 0,
@@ -127,7 +146,8 @@ const VisaoGeralEstrategicaTab = () => {
             convenioAtendidoCount: convenioDetail.atendido?.count || 0,
             convenioFaturado: convenioDetail.faturado?.total || 0,
             convenioRecebido: convenioDetail.recebido?.total || 0,
-            convenioAReceber: convenioDetail.aReceber?.total || 0,
+            convenioAReceber,
+            receitaMes,
         };
     }, [data]);
 
@@ -206,13 +226,30 @@ const VisaoGeralEstrategicaTab = () => {
             >
                 <Tab label="Visão Geral" icon={<Assessment />} iconPosition="start" />
                 <Tab label="Convênios" icon={<LocalHospital />} iconPosition="start" />
+                <Tab label="Taxas Cartão" icon={<CreditCard />} iconPosition="start" />
             </Tabs>
 
             {activeTab === 0 && (
                 <>
-                    {/* 💰 Cards Principais: Recebido / Despesas / Saldo */}
+                    {/* 💰 Cards Principais: Receita / Recebido / Despesas / Saldo */}
                     <Grid container spacing={2} sx={{ mb: 2 }}>
-                        <Grid item xs={12} md={4}>
+                        <Grid item xs={12} md={3}>
+                            <Card sx={{ borderLeft: '4px solid #8B5CF6', background: 'linear-gradient(135deg, rgba(139,92,246,0.08) 0%, transparent 100%)' }}>
+                                <CardContent>
+                                    <Box display="flex" alignItems="center" gap={1} mb={1}>
+                                        <Payments sx={{ color: '#8B5CF6' }} />
+                                        <Typography variant="body2" color="text.secondary">Receita do Mês</Typography>
+                                    </Box>
+                                    <Typography variant="h5" fontWeight="bold" sx={{ color: '#8B5CF6' }}>
+                                        {formatCurrency(metrics.receitaMes)}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        Recebido + A Receber do período
+                                    </Typography>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                        <Grid item xs={12} md={3}>
                             <Card onClick={() => openModal('caixa')} sx={{ borderLeft: '4px solid #10B981', cursor: 'pointer', '&:hover': { boxShadow: 4 } }}>
                                 <CardContent>
                                     <Box display="flex" alignItems="center" gap={1} mb={1}>
@@ -225,7 +262,7 @@ const VisaoGeralEstrategicaTab = () => {
                                 </CardContent>
                             </Card>
                         </Grid>
-                        <Grid item xs={12} md={4}>
+                        <Grid item xs={12} md={3}>
                             <Card onClick={() => openModal('despesas')} sx={{ borderLeft: '4px solid #EF4444', cursor: 'pointer', '&:hover': { boxShadow: 4 } }}>
                                 <CardContent>
                                     <Box display="flex" alignItems="center" gap={1} mb={1}>
@@ -238,7 +275,7 @@ const VisaoGeralEstrategicaTab = () => {
                                 </CardContent>
                             </Card>
                         </Grid>
-                        <Grid item xs={12} md={4}>
+                        <Grid item xs={12} md={3}>
                             <Card onClick={() => openModal('resultado')} sx={{ borderLeft: `4px solid ${saldoMes >= 0 ? '#3B82F6' : '#F59E0B'}`, cursor: 'pointer', '&:hover': { boxShadow: 4 } }}>
                                 <CardContent>
                                     <Box display="flex" alignItems="center" gap={1} mb={1}>
@@ -562,6 +599,75 @@ const VisaoGeralEstrategicaTab = () => {
                         )}
                     </Paper>
                 </>
+            )}
+
+            {activeTab === 2 && (
+                <Paper sx={{ p: 3, mb: 3 }}>
+                    <Box display="flex" alignItems="center" gap={1} mb={1}>
+                        <CreditCard color="primary" />
+                        <Typography variant="h6" fontWeight="bold">
+                            Taxas por Bandeira
+                        </Typography>
+                    </Box>
+                    <Typography variant="body2" color="text.secondary" mb={3}>
+                        Custo de processamento por forma de pagamento. Configure em Ajustes.
+                    </Typography>
+
+                    {taxasCartao.length === 0 ? (
+                        <Alert severity="info">
+                            Nenhuma taxa cadastrada. Configure as bandeiras em Ajustes → Taxas de Cartão.
+                        </Alert>
+                    ) : (
+                        <TableContainer>
+                            <Table size="small">
+                                <TableHead>
+                                    <TableRow sx={{ bgcolor: 'grey.50' }}>
+                                        <TableCell><strong>Bandeira</strong></TableCell>
+                                        <TableCell align="center"><strong>Débito</strong></TableCell>
+                                        <TableCell align="center"><strong>Crédito 1x</strong></TableCell>
+                                        <TableCell align="center"><strong>Crédito até 6x</strong></TableCell>
+                                        <TableCell align="center"><strong>Crédito até 12x</strong></TableCell>
+                                        <TableCell align="center"><strong>Prazo Débito</strong></TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {taxasCartao.map((t: any) => {
+                                        const getTaxaCredito = (maxParcelas: number) => {
+                                            if (!t.credito?.length) return '—';
+                                            const sorted = [...t.credito].sort((a: any, b: any) => a.ateParcelas - b.ateParcelas);
+                                            const faixa = sorted.find((f: any) => maxParcelas <= f.ateParcelas);
+                                            const taxa = faixa ? faixa.taxaPercentual : sorted[sorted.length - 1]?.taxaPercentual;
+                                            return taxa != null ? `${taxa.toFixed(2)}%` : '—';
+                                        };
+                                        return (
+                                            <TableRow key={t._id} hover>
+                                                <TableCell>
+                                                    <Box display="flex" alignItems="center" gap={1}>
+                                                        {t.cor && (
+                                                            <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: t.cor, flexShrink: 0 }} />
+                                                        )}
+                                                        <Typography fontWeight="medium">{t.nomeExibicao}</Typography>
+                                                    </Box>
+                                                </TableCell>
+                                                <TableCell align="center">
+                                                    <Chip label={`${t.debito?.taxa?.toFixed(2)}%`} size="small" color="primary" variant="outlined" />
+                                                </TableCell>
+                                                <TableCell align="center">{getTaxaCredito(1)}</TableCell>
+                                                <TableCell align="center">{getTaxaCredito(6)}</TableCell>
+                                                <TableCell align="center">{getTaxaCredito(12)}</TableCell>
+                                                <TableCell align="center">
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        {t.debito?.prazoRecebimento ?? 1}d
+                                                    </Typography>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    )}
+                </Paper>
             )}
 
             {/* Alertas e Insights Gerais */}
