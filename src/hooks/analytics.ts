@@ -156,4 +156,12 @@ export const SERVICE_PAGES = [
     { id: 'tea', title: 'Autismo (TEA)', path: '/avaliacao-autismo-infantil', icon: '🧩' },
     { id: 'fala-tardia', title: 'Fala Tardia', path: '/fala-tardia', icon: '💬' },
     { id: 'dificuldade-escolar', title: 'Dificuldade Escolar', path: '/avaliacao-neuropsicologica-dificuldade-escolar', icon: '📝' },
+    // 🎯 NOVAS Páginas SEO Local - Anápolis (Mar/2026)
+    { id: 'fonoaudiologia-anapolis', title: 'Fonoaudiologia Anápolis', path: '/fonoaudiologia-anapolis', icon: '🗣️📍' },
+    { id: 'psicologia-infantil-anapolis', title: 'Psicologia Infantil Anápolis', path: '/psicologia-infantil-anapolis', icon: '🧠👶' },
+    { id: 'terapia-ocupacional-anapolis', title: 'Terapia Ocupacional Anápolis', path: '/terapia-ocupacional-anapolis', icon: '🤲📍' },
+    { id: 'psicomotricidade-anapolis', title: 'Psicomotricidade Anápolis', path: '/psicomotricidade-anapolis', icon: '🏃‍♀️📍' },
+    { id: 'teste-da-linguinha-anapolis', title: 'Teste da Linguinha Anápolis', path: '/teste-da-linguinha-anapolis', icon: '👅📍' },
+    { id: 'fisioterapia-infantil-anapolis', title: 'Fisioterapia Infantil Anápolis', path: '/fisioterapia-infantil-anapolis', icon: '🏃👶' },
+    { id: 'avaliacao-neuropsicologica-anapolis', title: 'Avaliação Neuropsicológica Anápolis', path: '/avaliacao-neuropsicologica-anapolis', icon: '🧩📍' },
 ];
