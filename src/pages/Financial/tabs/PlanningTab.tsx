@@ -52,6 +52,7 @@ import { format, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useEffect, useState, useMemo } from 'react';
 import { usePlanning } from '../../../hooks/usePlanning';
+import { useFinancialDashboard } from '../../../hooks/useFinancialDashboard';
 import { planningService } from '../../../services/planningService';
 import { toast } from 'react-toastify';
 import { ChevronDown, ChevronUp } from 'lucide-react';
@@ -90,6 +91,7 @@ const STATUS_CONFIG = {
 
 const PlanningTab = () => {
   const { plannings, fetchPlannings, createPlanning, updatePlanning, deletePlanning, refreshAllPlannings, loading } = usePlanning();
+  const { data: dashData, fetchDashboard } = useFinancialDashboard();
 
   const [openModal, setOpenModal] = useState(false);
   const [openEditModal, setOpenEditModal] = useState(false);
@@ -235,6 +237,11 @@ const PlanningTab = () => {
   useEffect(() => {
     fetchPlannings({});
   }, [fetchPlannings]);
+
+  useEffect(() => {
+    const { year, month } = selectedMonthData;
+    fetchDashboard(month, year);
+  }, [selectedMonthData]);
 
   const handleOpenModal = () => {
     setFormData({
@@ -475,10 +482,12 @@ const PlanningTab = () => {
                         Realizado
                       </Typography>
                       <Typography variant="h6" fontWeight="bold" color="#10B981">
-                        {formatCurrency(monthlyOfMonth?.actual?.actualRevenue || 0)}
+                        {formatCurrency(dashData?.resumo?.caixa || monthlyOfMonth?.actual?.actualRevenue || 0)}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {(monthlyOfMonth?.progress?.revenuePercentage || 0).toFixed(0)}% da meta
+                        {monthlyOfMonth?.targets?.expectedRevenue > 0
+                          ? (((dashData?.resumo?.caixa || 0) / monthlyOfMonth.targets.expectedRevenue) * 100).toFixed(0)
+                          : (monthlyOfMonth?.progress?.revenuePercentage || 0).toFixed(0)}% da meta
                       </Typography>
                     </Box>
                   </Box>
