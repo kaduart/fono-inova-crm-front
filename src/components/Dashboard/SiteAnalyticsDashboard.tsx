@@ -33,10 +33,13 @@ import {
     SERVICE_PAGES 
 } from '../../hooks/analytics';
 import { translateEvent } from '../../services/analytics';
+import API from '../../services/api';
+import AnapolisSEOPagesCard from './AnapolisSEOPagesCard';
 import { 
     RefreshCw, Users, MousePointer, TrendingUp, Globe, 
     Clock, Smartphone, MapPin, Calendar, Filter, 
-    ChevronDown, ChevronUp, ExternalLink
+    ChevronDown, ChevronUp, ExternalLink, AlertTriangle, 
+    Lightbulb, Zap, Award, AlertCircle, ChevronRight
 } from 'lucide-react';
 
 // Cores para os gráficos
@@ -99,7 +102,7 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
     // ESTADOS
     // ============================================
     
-    const [activeTab, setActiveTab] = useState<'overview' | 'daily' | 'landing-pages'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'daily' | 'landing-pages' | 'anapolis-seo' | 'insights'>('overview');
     const [datePreset, setDatePreset] = useState<'today' | '7d' | '30d' | 'custom'>('7d');
     const [showCustomDate, setShowCustomDate] = useState(false);
     
@@ -124,26 +127,87 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
     const [selectedEventType, setSelectedEventType] = useState('Todos');
 
     // ============================================
+    // ESTADOS - INSIGHTS & ALERTAS
+    // ============================================
+    const [alertsData, setAlertsData] = useState<any>(null);
+    const [scoringData, setScoringData] = useState<any[]>([]);
+    const [prioritiesData, setPrioritiesData] = useState<any>(null);
+    const [insightsLoading, setInsightsLoading] = useState(false);
+    const [recalculating, setRecalculating] = useState(false);
+
+    // Fetch dados de insights quando a aba é ativada ou período muda
+    useEffect(() => {
+        if (activeTab === 'insights') {
+            fetchInsightsData(dateRange);
+        }
+    }, [activeTab, dateRange]);
+
+    const fetchInsightsData = async (range = dateRange) => {
+        setInsightsLoading(true);
+        const start = new Date(range.startDate + 'T12:00:00');
+        const end = new Date(range.endDate + 'T12:00:00');
+        const periodDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+        try {
+            const [alertsRes, scoringRes, prioritiesRes] = await Promise.all([
+                API.get('/alerts/dashboard').then(r => r.data),
+                API.get('/scoring/ranking', { params: { period: periodDays } }).then(r => r.data),
+                API.get('/scoring/priorities').then(r => r.data)
+            ]);
+
+            if (alertsRes.success) setAlertsData(alertsRes.data);
+            if (scoringRes.success) setScoringData(scoringRes.data?.results || []);
+            if (prioritiesRes.success) setPrioritiesData(prioritiesRes.data);
+        } catch (error) {
+            toast.error('Erro ao carregar dados de insights');
+        } finally {
+            setInsightsLoading(false);
+        }
+    };
+
+    const handleRecalculateScores = async () => {
+        setRecalculating(true);
+        try {
+            const start = new Date(dateRange.startDate + 'T12:00:00');
+            const end = new Date(dateRange.endDate + 'T12:00:00');
+            const periodDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+            const res = await API.post('/scoring/calculate', { period: periodDays });
+            const data = res.data;
+            if (data.success) {
+                toast.success(`Scores recalculados: ${data.data.successful} LPs atualizadas`);
+                fetchInsightsData();
+            } else {
+                toast.error('Erro ao recalcular scores');
+            }
+        } catch (error) {
+            toast.error('Erro ao recalcular scores');
+        } finally {
+            setRecalculating(false);
+        }
+    };
+
+    // ============================================
     // DADOS
     // ============================================
     
-    const { 
-        data, 
-        metrics, 
-        events, 
-        sources, 
-        pages, 
-        conversions, 
+    const {
+        data,
+        metrics,
+        events,
+        sources,
+        pages,
+        landingPages: landingPagesRaw,
+        anapolisPages,
+        conversions,
         realtime,
-        loading, 
+        loading,
         error,
-        refetch 
+        refetch
     } = useAnalyticsDashboard(dateRange);
 
-    // 🆕 Extrair dados específicos das LPs
+    // LPs vêm do hook (já com leads filtrados por período)
     const landingPages: LandingPage[] = useMemo(() => {
-        return (data?.landingPages || pages?.filter(p => p.isLandingPage) || []);
-    }, [data, pages]);
+        return (landingPagesRaw?.length ? landingPagesRaw : data?.landingPages || pages?.filter(p => p.isLandingPage) || []);
+    }, [landingPagesRaw, data, pages]);
 
     // 🆕 Relatório diário
     const dailyReport: DailyReport[] = useMemo(() => {
@@ -214,14 +278,18 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
 
     // Dados para gráficos
     const lineChartData = useMemo(() => {
-        return dailyReport.map(day => ({
-            date: new Date(day.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-            fullDate: day.date,
-            views: day.pageViews,
-            events: day.events,
-            leads: day.leads,
-            conversions: day.conversions
-        }));
+        return dailyReport.map(day => {
+            // Adiciona T12:00:00 para evitar bug de timezone (UTC vs local)
+            const [, mm, dd] = day.date.split('-');
+            return {
+                date: `${dd}/${mm}`,
+                fullDate: day.date,
+                views: day.pageViews,
+                events: day.events,
+                leads: day.leads,
+                conversions: day.conversions
+            };
+        });
     }, [dailyReport]);
 
     const pieChartData = useMemo(() => {
@@ -364,6 +432,28 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
                 >
                     Landing Pages ({landingPages.length})
                 </button>
+                <button
+                    onClick={() => setActiveTab('anapolis-seo')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                        activeTab === 'anapolis-seo' 
+                            ? 'bg-blue-50 text-blue-700' 
+                            : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                >
+                    <MapPin className="w-4 h-4" />
+                    Anápolis SEO
+                </button>
+                <button
+                    onClick={() => setActiveTab('insights')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                        activeTab === 'insights' 
+                            ? 'bg-blue-50 text-blue-700' 
+                            : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                >
+                    <Lightbulb className="w-4 h-4" />
+                    Insights & Alertas
+                </button>
             </div>
 
             {/* Filtro de data */}
@@ -489,7 +579,7 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
                 { label: 'Page Views', value: metrics?.pageViews ?? 0, icon: TrendingUp, color: 'orange' },
                 { label: 'Conv.', value: metrics?.conversions, icon: TrendingUp, color: 'red' },
                 { label: 'Taxa Conv.', value: `${conversionRate}%`, icon: TrendingUp, color: 'teal' },
-                { label: 'Leads Período', value: metrics?.leadsThisWeek, icon: Users, color: 'indigo' },
+                { label: 'Leads Período', value: metrics?.leadsPeriod ?? metrics?.leadsThisWeek, icon: Users, color: 'indigo' },
                 { label: 'Leads Hoje', value: metrics?.leadsToday, icon: Users, color: 'pink' },
             ].map((metric, idx) => (
                 <div key={idx} className={`bg-white rounded-xl border border-gray-200 p-3 relative ${loading ? 'opacity-70' : ''}`}>
@@ -514,6 +604,21 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
     
     const renderOverview = () => (
         <>
+            {/* Info sobre filtro de data */}
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3 mb-6">
+                <div className="p-1 bg-green-100 rounded">
+                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <div>
+                    <p className="text-sm font-medium text-green-800">Dados filtrados por período</p>
+                    <p className="text-xs text-green-700 mt-1">
+                        Todos os dados desta aba respeitam o filtro de data selecionado (Google Analytics 4).
+                    </p>
+                </div>
+            </div>
+
             {/* Gráficos principais */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                 {/* Evolução Temporal */}
@@ -738,6 +843,21 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
     
     const renderDailyReport = () => (
         <div className="space-y-6">
+            {/* Info sobre filtro de data */}
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
+                <div className="p-1 bg-green-100 rounded">
+                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <div>
+                    <p className="text-sm font-medium text-green-800">Dados filtrados por período</p>
+                    <p className="text-xs text-green-700 mt-1">
+                        Todos os dados desta aba respeitam o filtro de data selecionado (Google Analytics 4).
+                    </p>
+                </div>
+            </div>
+
             {/* Gráfico diário */}
             <div className="bg-white rounded-xl border border-gray-200 p-4">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
@@ -777,10 +897,10 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
                             {dailyReport.map((day, idx) => (
                                 <tr key={idx} className="hover:bg-gray-50">
                                     <td className="py-3 px-4 text-sm font-medium text-gray-900">
-                                        {new Date(day.date).toLocaleDateString('pt-BR', { 
-                                            weekday: 'short', 
-                                            day: '2-digit', 
-                                            month: '2-digit' 
+                                        {new Date(day.date + 'T12:00:00').toLocaleDateString('pt-BR', {
+                                            weekday: 'short',
+                                            day: '2-digit',
+                                            month: '2-digit'
                                         })}
                                     </td>
                                     <td className="py-3 px-4 text-right text-sm text-gray-600">
@@ -839,10 +959,142 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
                 </div>
             </div>
 
+            {/* Gráficos de Performance */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Top 10 LPs por Views */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4">
+                    <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <TrendingUp className="w-5 h-5 text-blue-500" />
+                        Top 10 LPs por Views
+                    </h2>
+                    <ResponsiveContainer width="100%" height={250}>
+                        <BarChart data={landingPages.slice(0, 10).sort((a, b) => (b.views || 0) - (a.views || 0))} layout="vertical">
+                            <CartesianGrid stroke="#f0f0f0" horizontal={false} />
+                            <XAxis type="number" tick={{ fontSize: 11 }} />
+                            <YAxis dataKey="slug" type="category" width={150} tick={{ fontSize: 10 }} />
+                            <Tooltip formatter={(value) => [`${value.toLocaleString()} views`, 'Views']} />
+                            <Bar dataKey="views" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+
+                {/* Top 10 LPs por Leads */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4">
+                    <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <Users className="w-5 h-5 text-green-500" />
+                        Top 10 LPs por Leads
+                    </h2>
+                    <ResponsiveContainer width="100%" height={250}>
+                        <BarChart data={landingPages.slice(0, 10).sort((a, b) => (b.leads || 0) - (a.leads || 0))} layout="vertical">
+                            <CartesianGrid stroke="#f0f0f0" horizontal={false} />
+                            <XAxis type="number" tick={{ fontSize: 11 }} />
+                            <YAxis dataKey="slug" type="category" width={150} tick={{ fontSize: 10 }} />
+                            <Tooltip formatter={(value) => [`${value.toLocaleString()} leads`, 'Leads']} />
+                            <Bar dataKey="leads" fill="#10b981" radius={[0, 4, 4, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            {/* Distribuição por Categoria */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Distribuição por Categoria</h2>
+                {(() => {
+                    const byCategory = landingPages.reduce((acc, lp) => {
+                        acc[lp.category] = (acc[lp.category] || 0) + 1;
+                        return acc;
+                    }, {} as Record<string, number>);
+                    const data = Object.entries(byCategory).map(([name, value]) => ({ name, value }));
+                    return (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <ResponsiveContainer width="100%" height={200}>
+                                <PieChart>
+                                    <Pie data={data} cx="50%" cy="50%" innerRadius={40} outerRadius={80} paddingAngle={3} dataKey="value">
+                                        {data.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip />
+                                    <Legend />
+                                </PieChart>
+                            </ResponsiveContainer>
+                            <div className="flex flex-col justify-center space-y-2">
+                                {data.sort((a, b) => b.value - a.value).map((item, idx) => (
+                                    <div key={item.name} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                        <span className="text-sm font-medium capitalize">{item.name}</span>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                                            <span className="text-sm font-bold">{item.value} LPs</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })()}
+            </div>
+
+            {/* Insights & Recomendações */}
+            {(() => {
+                const topLp = landingPages.sort((a, b) => (b.views || 0) - (a.views || 0))[0];
+                const topConverter = landingPages.filter(lp => lp.views > 10).sort((a, b) => ((b.leads/b.views) || 0) - ((a.leads/a.views) || 0))[0];
+                const needsAttention = landingPages.filter(lp => lp.views > 50 && lp.leads === 0);
+                
+                return (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Award className="w-5 h-5 text-green-600" />
+                                <span className="font-semibold text-green-800">Mais Acessada</span>
+                            </div>
+                            {topLp ? (
+                                <div>
+                                    <p className="text-sm font-medium text-gray-900 truncate">{topLp.title}</p>
+                                    <p className="text-xs text-gray-500">/{topLp.slug}</p>
+                                    <p className="text-lg font-bold text-green-600 mt-1">{topLp.views?.toLocaleString()} views</p>
+                                </div>
+                            ) : <p className="text-sm text-gray-500">Sem dados</p>}
+                        </div>
+                        
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                                <TrendingUp className="w-5 h-5 text-blue-600" />
+                                <span className="font-semibold text-blue-800">Maior Conversão</span>
+                            </div>
+                            {topConverter ? (
+                                <div>
+                                    <p className="text-sm font-medium text-gray-900 truncate">{topConverter.title}</p>
+                                    <p className="text-xs text-gray-500">/{topConverter.slug}</p>
+                                    <p className="text-lg font-bold text-blue-600 mt-1">
+                                        {((topConverter.leads / topConverter.views) * 100).toFixed(1)}% conv.
+                                    </p>
+                                </div>
+                            ) : <p className="text-sm text-gray-500">Sem dados suficientes</p>}
+                        </div>
+                        
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                                <AlertTriangle className="w-5 h-5 text-red-600" />
+                                <span className="font-semibold text-red-800">Precisa Atenção</span>
+                            </div>
+                            {needsAttention.length > 0 ? (
+                                <div>
+                                    <p className="text-sm text-gray-700">{needsAttention.length} LPs com tráfego mas sem leads</p>
+                                    <p className="text-xs text-gray-500 mt-1">Revisar CTA e copy</p>
+                                </div>
+                            ) : (
+                                <p className="text-sm text-gray-500">Todas as LPs com tráfego estão convertendo! 🎉</p>
+                            )}
+                        </div>
+                    </div>
+                );
+            })()}
+
             {/* Lista de LPs */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
                     <h2 className="text-lg font-semibold text-gray-800">Landing Pages ({landingPages.length})</h2>
+                    <p className="text-xs text-gray-500 mt-0.5">Páginas de problema específico usadas em tráfego pago e CTAs do WhatsApp</p>
                 </div>
                 <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                     <table className="w-full">
@@ -948,6 +1200,326 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
     );
 
     // ============================================
+    // RENDER - TAB: INSIGHTS & ALERTAS
+    // ============================================
+    const renderInsights = () => (
+        <div className="space-y-6">
+            {/* Alerta sobre dados */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                <div className="p-1 bg-blue-100 rounded">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <div>
+                    <p className="text-sm font-medium text-blue-800">Scores baseados no período selecionado: {dateRange.startDate} até {dateRange.endDate}</p>
+                    <p className="text-xs text-blue-700 mt-1">
+                        Alertas e recomendações são calculados automaticamente com base no período selecionado no filtro.
+                    </p>
+                </div>
+            </div>
+
+            {/* Header com botão de recalcular */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                        <Lightbulb className="w-5 h-5 text-purple-500" />
+                        Insights & Alertas Inteligentes
+                    </h2>
+                    <p className="text-sm text-gray-500">
+                        Análise automática de performance e recomendações
+                    </p>
+                </div>
+                <button
+                    onClick={handleRecalculateScores}
+                    disabled={recalculating}
+                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    <RefreshCw className={`w-4 h-4 ${recalculating ? 'animate-spin' : ''}`} />
+                    {recalculating ? 'Recalculando...' : 'Recalcular Scores'}
+                </button>
+            </div>
+
+            {/* Gráfico de Scores */}
+            {scoringData.length > 0 && (
+                <div className="bg-white rounded-xl border border-gray-200 p-4">
+                    <h2 className="text-lg font-semibold text-gray-800 mb-4">📊 Ranking de Performance</h2>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <ResponsiveContainer width="100%" height={250}>
+                            <BarChart data={scoringData.slice(0, 10)} layout="vertical">
+                                <CartesianGrid stroke="#f0f0f0" horizontal={false} />
+                                <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} />
+                                <YAxis dataKey="slug" type="category" width={120} tick={{ fontSize: 10 }} />
+                                <Tooltip formatter={(value) => [`Score: ${value}`, 'Performance']} />
+                                <Bar dataKey="score" fill="#8b5cf6" radius={[0, 4, 4, 0]} name="Score" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                        <div className="space-y-2">
+                            <h3 className="font-medium text-gray-700 mb-3">Distribuição de Scores</h3>
+                            {scoringData.slice(0, 5).map((lp, idx) => (
+                                <div key={lp.slug} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                    <div className="flex items-center gap-2">
+                                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                                            lp.grade === 'A' ? 'bg-green-100 text-green-700' :
+                                            lp.grade === 'B' ? 'bg-blue-100 text-blue-700' :
+                                            lp.grade === 'C' ? 'bg-yellow-100 text-yellow-700' :
+                                            'bg-red-100 text-red-700'
+                                        }`}>
+                                            {lp.grade}
+                                        </span>
+                                        <span className="text-sm truncate max-w-[150px]">{lp.slug}</span>
+                                    </div>
+                                    <span className="font-bold text-purple-600">{lp.score}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Cards de Alertas por Prioridade */}
+            {alertsData?.summary && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-white rounded-xl border border-gray-200 p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                            <AlertCircle className="w-5 h-5 text-red-500" />
+                            <span className="text-sm font-medium text-gray-600">Crítico</span>
+                        </div>
+                        <div className="text-2xl font-bold text-red-600">{alertsData.summary.critical || 0}</div>
+                        <div className="text-xs text-gray-500">alertas ativos</div>
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-200 p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                            <AlertTriangle className="w-5 h-5 text-orange-500" />
+                            <span className="text-sm font-medium text-gray-600">Alto</span>
+                        </div>
+                        <div className="text-2xl font-bold text-orange-600">{alertsData.summary.high || 0}</div>
+                        <div className="text-xs text-gray-500">alertas ativos</div>
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-200 p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                            <AlertTriangle className="w-5 h-5 text-yellow-500" />
+                            <span className="text-sm font-medium text-gray-600">Médio</span>
+                        </div>
+                        <div className="text-2xl font-bold text-yellow-600">{alertsData.summary.medium || 0}</div>
+                        <div className="text-xs text-gray-500">alertas ativos</div>
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-200 p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Award className="w-5 h-5 text-blue-500" />
+                            <span className="text-sm font-medium text-gray-600">Baixo</span>
+                        </div>
+                        <div className="text-2xl font-bold text-blue-600">{alertsData.summary.low || 0}</div>
+                        <div className="text-xs text-gray-500">alertas ativos</div>
+                    </div>
+                </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Tabela de Landing Pages com Score */}
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                            <Award className="w-5 h-5 text-purple-500" />
+                            Ranking de Landing Pages
+                        </h3>
+                        <span className="text-xs text-gray-500">Score Inteligente</span>
+                    </div>
+                    <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+                        {insightsLoading ? (
+                            <div className="p-8 flex items-center justify-center">
+                                <RefreshCw className="w-8 h-8 text-purple-500 animate-spin" />
+                            </div>
+                        ) : scoringData.length === 0 ? (
+                            <div className="p-8 text-center text-gray-500">
+                                Nenhuma landing page encontrada
+                            </div>
+                        ) : (
+                            <table className="w-full">
+                                <thead className="bg-gray-50 sticky top-0">
+                                    <tr>
+                                        <th className="text-left text-xs font-medium text-gray-500 uppercase py-3 px-4">#</th>
+                                        <th className="text-left text-xs font-medium text-gray-500 uppercase py-3 px-4">Landing Page</th>
+                                        <th className="text-center text-xs font-medium text-gray-500 uppercase py-3 px-4">Nota</th>
+                                        <th className="text-right text-xs font-medium text-gray-500 uppercase py-3 px-4">Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {scoringData
+                                        .sort((a, b) => (b.score || 0) - (a.score || 0))
+                                        .map((lp, idx) => (
+                                        <tr key={lp.slug} className="hover:bg-gray-50">
+                                            <td className="py-3 px-4 text-sm text-gray-500">{idx + 1}</td>
+                                            <td className="py-3 px-4">
+                                                <div className="font-medium text-gray-900 text-sm">{lp.title || lp.slug}</div>
+                                                <div className="text-xs text-gray-500">{lp.slug}</div>
+                                            </td>
+                                            <td className="py-3 px-4 text-center">
+                                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold ${
+                                                    lp.grade === 'A' ? 'bg-green-100 text-green-700' :
+                                                    lp.grade === 'B' ? 'bg-blue-100 text-blue-700' :
+                                                    lp.grade === 'C' ? 'bg-yellow-100 text-yellow-700' :
+                                                    'bg-red-100 text-red-700'
+                                                }`}>
+                                                    {lp.grade || '-'}
+                                                </span>
+                                            </td>
+                                            <td className="py-3 px-4 text-right">
+                                                <div className="text-sm font-bold text-gray-900">{lp.score || 0}</div>
+                                                <div className="text-xs text-gray-500">/ 100</div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </div>
+
+                {/* Lista de Prioridades e Quick Wins */}
+                <div className="space-y-4">
+                    {insightsLoading ? (
+                        <div className="bg-white rounded-xl border border-gray-200 p-8 flex items-center justify-center">
+                            <RefreshCw className="w-8 h-8 text-purple-500 animate-spin" />
+                        </div>
+                    ) : prioritiesData?.priorities ? (
+                        prioritiesData.priorities.map((priority: any, idx: number) => (
+                            <div key={idx} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                                    <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                                        {idx === 0 ? <AlertCircle className="w-4 h-4 text-red-500" /> :
+                                         idx === 1 ? <Zap className="w-4 h-4 text-yellow-500" /> :
+                                         <TrendingUp className="w-4 h-4 text-blue-500" />}
+                                        {priority.title}
+                                    </h3>
+                                </div>
+                                <div className="divide-y divide-gray-100">
+                                    {priority.items?.length > 0 ? (
+                                        priority.items.map((item: any, itemIdx: number) => (
+                                            <div key={itemIdx} className="p-4 hover:bg-gray-50">
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="text-sm font-medium text-gray-900">{item.action}</span>
+                                                            <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                                                item.severity === 'critical' ? 'bg-red-100 text-red-700' :
+                                                                item.severity === 'high' ? 'bg-orange-100 text-orange-700' :
+                                                                'bg-yellow-100 text-yellow-700'
+                                                            }`}>
+                                                                {item.severity}
+                                                            </span>
+                                                        </div>
+                                                        <div className="text-xs text-gray-500 mb-1">
+                                                            LP: <span className="font-medium">{item.landingPage}</span>
+                                                        </div>
+                                                        <p className="text-xs text-gray-600">{item.description}</p>
+                                                        {item.expectedResult && (
+                                                            <div className="mt-2 flex items-center gap-2">
+                                                                <span className="text-xs text-green-600 font-medium">
+                                                                    {item.expectedResult}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-1 text-xs text-gray-400 ml-2">
+                                                        <span className={`w-2 h-2 rounded-full ${
+                                                            item.effort === 'low' ? 'bg-green-400' :
+                                                            item.effort === 'medium' ? 'bg-yellow-400' :
+                                                            'bg-red-400'
+                                                        }`} />
+                                                        {item.effort}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="p-4 text-sm text-gray-500 text-center">
+                                            Nenhuma prioridade nesta categoria
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500">
+                            Nenhuma prioridade encontrada
+                        </div>
+                    )}
+
+                    {/* Resumo de Quick Wins */}
+                    {prioritiesData?.summary && (
+                        <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border border-purple-200 p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Zap className="w-5 h-5 text-purple-500" />
+                                <span className="font-semibold text-purple-900">Resumo de Oportunidades</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                                <div>
+                                    <div className="text-2xl font-bold text-purple-600">{prioritiesData.summary.quickWins || 0}</div>
+                                    <div className="text-xs text-purple-700">Quick Wins</div>
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-bold text-red-600">{prioritiesData.summary.critical || 0}</div>
+                                    <div className="text-xs text-purple-700">Críticos</div>
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-bold text-orange-600">{prioritiesData.summary.high || 0}</div>
+                                    <div className="text-xs text-purple-700">Alta Prioridade</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Alertas Recentes */}
+            {alertsData?.recent && alertsData.recent.length > 0 && (
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                        <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                            <AlertTriangle className="w-5 h-5 text-orange-500" />
+                            Alertas Recentes
+                        </h3>
+                    </div>
+                    <div className="divide-y divide-gray-100 max-h-[300px] overflow-y-auto">
+                        {alertsData.recent.map((alert: any, idx: number) => (
+                            <div key={idx} className="p-4 hover:bg-gray-50">
+                                <div className="flex items-start gap-3">
+                                    <span className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
+                                        alert.level === 'critical' ? 'bg-red-500' :
+                                        alert.level === 'high' ? 'bg-orange-500' :
+                                        alert.level === 'medium' ? 'bg-yellow-500' :
+                                        'bg-blue-500'
+                                    }`} />
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="font-medium text-gray-900">{alert.title}</span>
+                                            <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                                alert.level === 'critical' ? 'bg-red-100 text-red-700' :
+                                                alert.level === 'high' ? 'bg-orange-100 text-orange-700' :
+                                                alert.level === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                                'bg-blue-100 text-blue-700'
+                                            }`}>
+                                                {alert.level}
+                                            </span>
+                                        </div>
+                                        <p className="text-sm text-gray-600 mb-2">{alert.message}</p>
+                                        {alert.recommendation && (
+                                            <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                                                💡 {alert.recommendation}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+
+    // ============================================
     // RENDER PRINCIPAL
     // ============================================
     
@@ -960,6 +1532,12 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
             {activeTab === 'overview' && renderOverview()}
             {activeTab === 'daily' && renderDailyReport()}
             {activeTab === 'landing-pages' && renderLandingPages()}
+            {activeTab === 'anapolis-seo' && (
+                <div className="space-y-6">
+                    <AnapolisSEOPagesCard pages={anapolisPages} loading={loading} />
+                </div>
+            )}
+            {activeTab === 'insights' && renderInsights()}
             
             {renderEvents()}
 

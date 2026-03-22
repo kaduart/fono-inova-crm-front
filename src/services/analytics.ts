@@ -63,6 +63,7 @@ export interface GAMetrics {
   conversions?: number;
   eventCount?: number;
   // Dados de leads do CRM
+  leadsPeriod?: number;
   leadsToday?: number;
   leadsThisWeek?: number;
   leadsThisMonth?: number;
@@ -99,11 +100,23 @@ export interface RealtimeData {
   events: number;
 }
 
+export interface AnapolisPageData {
+  path: string;
+  title: string;
+  views: number;
+  users: number;
+  bounceRate: number;
+  avgEngagementTime: number;
+  leads: number;
+}
+
 export interface DashboardData {
   metrics: GAMetrics;
   events: GAEvent[];
   sources: TrafficSource[];
   pages: PageData[];
+  landingPages: PageData[];
+  anapolisPages: AnapolisPageData[];
   conversions: ConversionEvent[];
   realtime: RealtimeData;
   lastUpdated: string;

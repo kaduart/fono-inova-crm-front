@@ -16,7 +16,9 @@ const CATEGORY_CONFIG = {
   psicologia: { label: '🧠 Psicologia', color: 'pink', bg: 'bg-pink-50', border: 'border-pink-200', text: 'text-pink-700' },
   aprendizagem: { label: '📚 Aprendizagem', color: 'amber', bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700' },
   terapia_ocupacional: { label: '🤲 Terapia Ocupacional', color: 'emerald', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700' },
-  geografica: { label: '📍 Geográfica', color: 'gray', bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700' }
+  geografica: { label: '📍 Geográfica', color: 'gray', bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700' },
+  neuropsicologia: { label: '🧩 Neuropsicologia', color: 'indigo', bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-700' },
+  desenvolvimento: { label: '🌱 Desenvolvimento', color: 'teal', bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-700' }
 };
 
 export default function LandingPagesTab() {
@@ -217,7 +219,8 @@ export default function LandingPagesTab() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {Object.entries(dailyPages).map(([category, page]) => {
               if (!page) return null;
-              const config = CATEGORY_CONFIG[category as keyof typeof CATEGORY_CONFIG];
+              const config = CATEGORY_CONFIG[category as keyof typeof CATEGORY_CONFIG]
+                ?? { label: category, color: 'gray', bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700' };
               return (
                 <div 
                   key={category} 
@@ -269,7 +272,8 @@ export default function LandingPagesTab() {
           
           <div className="flex flex-wrap gap-2">
             {suggestedPages.map(page => {
-              const config = CATEGORY_CONFIG[page.category as keyof typeof CATEGORY_CONFIG];
+              const config = CATEGORY_CONFIG[page.category as keyof typeof CATEGORY_CONFIG]
+                ?? { label: page.category, color: 'gray', bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700' };
               return (
                 <button
                   key={page.slug}
@@ -339,7 +343,8 @@ export default function LandingPagesTab() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {sortedPages.map(page => {
-                const config = CATEGORY_CONFIG[page.category as keyof typeof CATEGORY_CONFIG];
+                const config = CATEGORY_CONFIG[page.category as keyof typeof CATEGORY_CONFIG]
+                  ?? { label: page.category, color: 'gray', bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700' };
                 return (
                   <tr key={page.slug} className="hover:bg-gray-50">
                     <td className="px-4 py-3">

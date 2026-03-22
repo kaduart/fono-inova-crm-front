@@ -72,6 +72,7 @@ const ContactsPage = lazyWithRetry(() => import('./components/mkt/whatsapp/Conta
 // Lazy loading de sub-features do Admin
 const SiteAnalyticsDashboard = lazyWithRetry(() => import('./components/Dashboard/SiteAnalyticsDashboard'));
 const MarketingDashboard = lazyWithRetry(() => import('./components/Dashboard/MarketingDashboard'));
+
 const FollowupDashboard = lazyWithRetry(() => import('./components/Dashboard/FollowupDashboard'));
 const AppChat = lazyWithRetry(() => import('./components/mkt/whatsapp/AppChat'));
 const FinancialDashboard = lazyWithRetry(() => import('./pages/Financial/FinancialDashboard'));
@@ -184,6 +185,7 @@ const AppRoutes: React.FC = () => {
                         <MarketingDashboard />
                     </PrivateRoute>
                 } />
+
                 <Route path="/admin/followup" element={
                     <PrivateRoute allowedRoles={['admin']}>
                         <FollowupDashboard />

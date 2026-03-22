@@ -104,6 +104,8 @@ export const useAnalyticsDashboard = ({ startDate, endDate }: UseAnalyticsProps 
         events: data?.events || [],
         sources: data?.sources || [],
         pages: data?.pages || [],
+        landingPages: data?.landingPages || [],
+        anapolisPages: data?.anapolisPages || [],
         conversions: data?.conversions || [],
         realtime: data?.realtime || { activeUsers: 0, pageViews: 0, events: 0 },
     };

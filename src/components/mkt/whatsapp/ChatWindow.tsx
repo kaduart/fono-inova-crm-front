@@ -17,6 +17,7 @@ import { useAmandaControl } from './hooks/useAmandaControl';
 import { isGenericName } from './utils/messageHelpers';
 import type { Contact, ChatWindowProps } from './types/chat.types';
 import { enviarViaExtensao, type PreAgendamentoChat } from './extensionHelper';
+import LeadJourneyPanel from './LeadJourneyPanel';
 
 // Interface local (já importamos do helper)
 type PreAgendamentoLocal = PreAgendamentoChat;
@@ -464,6 +465,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                     })}
                 </div>
             )}
+
+            {/* Jornada do lead no site */}
+            <LeadJourneyPanel leadId={leadId} />
 
             {/* Messages */}
             <ChatMessageList
