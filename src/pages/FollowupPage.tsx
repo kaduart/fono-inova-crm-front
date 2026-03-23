@@ -251,6 +251,8 @@ const FollowupPage = () => {
 
   const theme = useTheme();
 
+  const [leadFilters, setLeadFilters] = useState({ status: '', origin: '' });
+
   const {
     leads,
     loading: leadsLoading,
@@ -264,7 +266,9 @@ const FollowupPage = () => {
   } = useLeads({
     search,
     page: 1,
-    limit: 20
+    limit: 20,
+    status: leadFilters.status,
+    origin: leadFilters.origin
   });
 
   const {
@@ -320,20 +324,14 @@ const FollowupPage = () => {
     }
   };
 
-  // ✅ SUBSTITUÍDO: agora usa followupService
-  const handleFilter = async (filters: any) => {
-    try {
-      const result = await followupService.filter(filters);
-
-      if (result.success) {
-        const uniqueLeads = Array.from(
-          new Map(result.data.map((f: any) => [f.lead._id, f.lead])).values()
-        );
-        console.log("Leads filtrados:", uniqueLeads);
-      }
-    } catch (error: any) {
-      toast.error("Erro ao filtrar follow-ups");
-    }
+  // ✅ CORRIGIDO: atualiza filtros e recarrega leads
+  const handleFilter = (filters: any) => {
+    setLeadFilters({
+      status: filters.status,
+      origin: filters.origin
+    });
+    // O useEffect do hook vai recarregar automaticamente
+    toast.success("Filtros aplicados!");
   };
 
   useEffect(() => {

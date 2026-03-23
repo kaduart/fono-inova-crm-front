@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import API from '../services/api';
+import { socketManager } from '../utils/socketManager';
 
 // Types
 export type Channel = 'gmb' | 'instagram' | 'facebook';
@@ -173,7 +174,7 @@ export interface UseMarketingReturn {
     loadMore: () => Promise<void>;
   };
   videos: VideoData & {
-    generate: (data: { especialidadeId: string; roteiro: string; duration: number; modo?: 'avatar' | 'ilustrativo' | 'veo'; tone?: 'emotional' | 'educativo' | 'inspiracional' | 'bastidores' }) => Promise<void>;
+    generate: (data: { especialidadeId: string; roteiro: string; duration: number; modo?: 'avatar' | 'ilustrativo' | 'veo' | 'runway'; tone?: 'emotional' | 'educativo' | 'inspiracional' | 'bastidores'; platform?: 'instagram' | 'meta_ads'; subTema?: string; hookStyle?: string; objetivo?: string; intensidade?: string }) => Promise<void>;
     publish: (videoId: string, channels: Channel[]) => Promise<void>;
     publishMeta: (videoId: string, data: { nomeCampanha?: string; copy?: any; targeting?: any }) => Promise<any>;
     delete: (videoId: string) => Promise<void>;
@@ -366,15 +367,22 @@ export function useMarketing(): UseMarketingReturn {
     processingRef.current.facebook = facebookData.posts.some(p => p.status === 'processing');
   }, [facebookData.posts]);
 
-  // Único interval estável — não recria ao mudar state, apenas checa os refs
+  // Polling apenas para Instagram/Facebook (sem vídeos — vídeos usam socket)
   useEffect(() => {
     const interval = setInterval(() => {
-      if (processingRef.current.videos) fetchVideosData();
       if (processingRef.current.instagram) fetchInstagramData(1, 20, false);
       if (processingRef.current.facebook) fetchFacebookData(1, 20, false);
     }, 8000);
     return () => clearInterval(interval);
-  }, [fetchVideosData, fetchInstagramData, fetchFacebookData]);
+  }, [fetchInstagramData, fetchFacebookData]);
+
+  // Socket: atualiza lista de vídeos só quando um vídeo conclui ou falha
+  useEffect(() => {
+    const unsub = socketManager.on('video:status', () => {
+      fetchVideosData(true);
+    });
+    return unsub;
+  }, [fetchVideosData]);
 
   // GMB Actions
   const gmbPublish = async (postId: string) => {
@@ -481,7 +489,7 @@ export function useMarketing(): UseMarketingReturn {
   };
 
   // Video Actions
-  const videoGenerate = async (data: { especialidadeId: string; roteiro: string; duration: number; modo?: 'avatar' | 'ilustrativo' | 'veo' }) => {
+  const videoGenerate = async (data: { especialidadeId: string; roteiro: string; duration: number; modo?: 'avatar' | 'ilustrativo' | 'veo' | 'runway'; tone?: string; platform?: string; subTema?: string; hookStyle?: string; objetivo?: string; intensidade?: string }) => {
     await API.post('/videos', data);
     await fetchVideosData();
   };

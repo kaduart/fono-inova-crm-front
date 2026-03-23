@@ -64,7 +64,7 @@ const FinancialDashboard = ({
     // Tabs do modo OPERACIONAL (Gestão do Dia a Dia)
     const operacionalTabs = [
         {
-            label: '💰 Lançamentos',
+            label: 'Lançamentos',
             icon: <DollarSign size={18} />,
             component: (
                 <PaymentPage
@@ -78,17 +78,17 @@ const FinancialDashboard = ({
             )
         },
         {
-            label: '🧾 Despesas',
+            label: 'Despesas',
             icon: <Receipt size={18} />,
             component: <ExpensesTab />
         },
         {
-            label: '💳 Convênios',
+            label: 'Convênios',
             icon: <CreditCard size={18} />,
             component: <InsuranceTab />
         },
         {
-            label: '📈 Extrato',
+            label: 'Extrato',
             icon: <ArrowLeftRight size={18} />,
             component: <EntradasSaidasTab />
         },
@@ -96,10 +96,10 @@ const FinancialDashboard = ({
 
     // Tabs do modo ESTRATÉGICO
     const estrategicoTabs = [
-        { label: '📊 Dashboard Executivo', icon: <BarChart3 size={18} />, component: <VisaoGeralEstrategicaTab /> },
-        { label: '🎯 Metas & Provisão', icon: <Target size={18} />, component: <GoalsTab /> },
-        { label: '📈 Análise & Projeção', icon: <PieChart size={18} />, component: <AnaliseProjecaoTab /> },
-        { label: '📅 Planejamento Anual', icon: <Calendar size={18} />, component: <PlanningTab /> },
+        { label: 'Dashboard Executivo', icon: <BarChart3 size={18} />, component: <VisaoGeralEstrategicaTab /> },
+        { label: 'Metas & Provisão', icon: <Target size={18} />, component: <GoalsTab /> },
+        { label: 'Análise & Projeção', icon: <PieChart size={18} />, component: <AnaliseProjecaoTab /> },
+        { label: 'Planejamento Anual', icon: <Calendar size={18} />, component: <PlanningTab /> },
     ];
 
     const currentTabs = viewMode === 'operacional' ? operacionalTabs : estrategicoTabs;

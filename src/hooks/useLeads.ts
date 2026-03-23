@@ -1,5 +1,5 @@
 // src/hooks/useLeads.ts
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { leadService } from "../services/leadService";
 
 interface UseLeadsProps {
@@ -21,14 +21,17 @@ export const useLeads = (filters: UseLeadsProps = {}) => {
     pages: 0
   });
 
-  // ✅ CORREÇÃO: fetchLeads com dependências estáveis
+  // ✅ CORREÇÃO: fetchLeads com dependências estáveis - USA REF PARA PAGINAÇÃO
+  const paginationRef = useRef(pagination);
+  paginationRef.current = pagination;
+
   const fetchLeads = useCallback(async (currentPage?: number, currentLimit?: number) => {
     try {
       setLoading(true);
       setError(null);
 
-      const pageToUse = currentPage !== undefined ? currentPage : pagination.page;
-      const limitToUse = currentLimit !== undefined ? currentLimit : pagination.limit;
+      const pageToUse = currentPage !== undefined ? currentPage : paginationRef.current.page;
+      const limitToUse = currentLimit !== undefined ? currentLimit : paginationRef.current.limit;
 
       const requestFilters = {
         ...filters,
@@ -64,12 +67,10 @@ export const useLeads = (filters: UseLeadsProps = {}) => {
       setLoading(false);
     }
   }, [
-    // ✅ DEPENDÊNCIAS: apenas valores primitivos específicos
+    // ✅ DEPENDÊNCIAS: apenas filtros - NÃO incluir pagination para evitar loop
     filters.search,
     filters.status,
-    filters.origin,
-    pagination.page,
-    pagination.limit
+    filters.origin
   ]);
 
   const goToPage = useCallback((newPage: number) => {
@@ -116,17 +117,23 @@ export const useLeads = (filters: UseLeadsProps = {}) => {
     }
   }, []);
 
-  // ✅ CORREÇÃO: Efeito para buscar dados quando paginação ou filtros mudam
+  // ✅ CORREÇÃO: Efeito para buscar dados quando filtros mudam
   useEffect(() => {
     fetchLeads();
   }, [
-    // ✅ DEPENDÊNCIAS ESPECÍFICAS que devem disparar nova busca
+    // ✅ DEPENDÊNCIAS: apenas filtros - paginação é gerenciada separadamente
     filters.search,
     filters.status,
-    filters.origin,
-    pagination.page,
-    pagination.limit
+    filters.origin
   ]);
+
+  // ✅ NOVO: Efeito separado para quando a página ou limite mudar manualmente
+  useEffect(() => {
+    // Só busca se não for a primeira render (evita duplicação)
+    if (!loading) {
+      fetchLeads(pagination.page, pagination.limit);
+    }
+  }, [pagination.page, pagination.limit]);
 
   return {
     leads,

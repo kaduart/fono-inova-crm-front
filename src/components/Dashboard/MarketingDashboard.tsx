@@ -245,8 +245,13 @@ export default function MarketingDashboard() {
   const [pendingImages, setPendingImages] = useState<Record<string, string>>({});
   const [videoDuration, setVideoDuration] = useState<30 | 45 | 60>(30);
   const [videoRoteiro, setVideoRoteiro] = useState('');
-  const [videoMode, setVideoMode] = useState<'avatar' | 'ilustrativo' | 'veo'>('veo');
+  const [videoMode, setVideoMode] = useState<'avatar' | 'ilustrativo' | 'veo' | 'runway'>('veo');
   const [generatingVideo, setGeneratingVideo] = useState(false);
+  // 🧠 Campos de inteligência de conteúdo
+  const [videoPlatform, setVideoPlatform] = useState<'instagram' | 'meta_ads'>('instagram');
+  const [videoSubTema, setVideoSubTema] = useState('');
+  const [videoHookStyle, setVideoHookStyle] = useState<'dor' | 'alerta' | 'curiosidade' | 'erro_comum' | 'autoridade'>('alerta');
+  const [videoObjetivo, setVideoObjetivo] = useState<'salvar' | 'compartilhar' | 'comentar' | 'agendar'>('salvar');
 
   // Spy states
   const [spyKeyword, setSpyKeyword] = useState('');
@@ -537,6 +542,9 @@ export default function MarketingDashboard() {
       toast.error('Selecione uma especialidade');
       return;
     }
+    if ((videoMode === 'veo' || videoMode === 'runway') && !window.confirm('⚠️ Gerar este vídeo custa ~R$56–70 (Veo 2).\n\nConfirmar geração?')) {
+      return;
+    }
     setGeneratingVideo(true);
     try {
       await videos.generate({
@@ -544,9 +552,14 @@ export default function MarketingDashboard() {
         roteiro: videoRoteiro,
         duration: videoDuration,
         modo: videoMode,
-        tone: selectedTone
+        tone: selectedTone,
+        platform: videoPlatform,
+        subTema: videoSubTema || undefined,
+        hookStyle: videoHookStyle,
+        objetivo: videoObjetivo,
+        intensidade: 'viral'
       });
-      const modoLabel = videoMode === 'veo' ? '🎬 Veo 2.0 cinematográfico (3-5 min)' : videoMode === 'avatar' ? '🎭 com avatar' : '🖼️ ilustrativo';
+      const modoLabel = videoMode === 'runway' ? '🎬 Runway Gen-3 cinematográfico (2-4 min)' : videoMode === 'veo' ? '🎬 Veo 2.0 cinematográfico (3-5 min)' : videoMode === 'avatar' ? '🎭 com avatar' : '🖼️ ilustrativo';
       const toneEmoji = selectedTone === 'educativo' ? '📚' : selectedTone === 'emotional' ? '💔' : selectedTone === 'inspiracional' ? '✨' : '🏥';
       toast.info(`${toneEmoji} Vídeo ${modoLabel} em processamento!`);
       setVideoRoteiro('');
@@ -1182,6 +1195,8 @@ export default function MarketingDashboard() {
         {activeTab === 'videos' && (
           <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
             <h2 className="font-semibold text-gray-900 mb-4">🎬 Gerar Vídeo com IA</h2>
+
+            {/* Linha 1: Especialidade + Duração + Modo */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <select
                 value={selectedEspecialidade}
@@ -1202,18 +1217,106 @@ export default function MarketingDashboard() {
               </select>
               <select
                 value={videoMode}
-                onChange={(e) => setVideoMode(e.target.value as 'avatar' | 'ilustrativo' | 'veo')}
+                onChange={(e) => setVideoMode(e.target.value as 'avatar' | 'ilustrativo' | 'veo' | 'runway')}
                 className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
               >
                 <option value="veo">🎬 Cinematográfico (Google Veo 3.1) ⭐</option>
+                <option value="runway">🎬 Cinematográfico (Runway Gen-3) 💰</option>
                 <option value="ilustrativo">🖼️ Ilustrativo (Imagens + TTS)</option>
                 <option value="avatar">🎭 Avatar (HeyGen)</option>
               </select>
             </div>
 
+            {/* Linha 2: Plataforma + SubTema */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <p className="text-xs text-gray-400 mb-1.5 font-medium uppercase tracking-wide">Destino</p>
+                <div className="flex gap-2">
+                  {([
+                    { key: 'instagram', emoji: '📱', label: 'Instagram Orgânico', desc: 'Viral · 20-35s' },
+                    { key: 'meta_ads', emoji: '💰', label: 'Meta Ads', desc: 'Conversão · CTA WhatsApp' },
+                  ] as const).map(({ key, emoji, label, desc }) => (
+                    <button
+                      key={key}
+                      onClick={() => setVideoPlatform(key)}
+                      className={`flex-1 px-3 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${videoPlatform === key ? 'border-pink-500 bg-pink-50 text-pink-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                    >
+                      <span className="text-base">{emoji}</span>
+                      <span className="text-[11px] font-semibold">{label}</span>
+                      <span className="text-[9px] opacity-60">{desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 mb-1.5 font-medium uppercase tracking-wide">SubTema (nicho)</p>
+                <select
+                  value={videoSubTema}
+                  onChange={(e) => setVideoSubTema(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
+                >
+                  <option value="">Automático (pelo especialidade)</option>
+                  <option value="atraso_fala">🗣️ Atraso de fala</option>
+                  <option value="autismo">🧩 Autismo / TEA</option>
+                  <option value="comportamento">😤 Comportamento / Birra</option>
+                  <option value="teste_linguinha">👅 Teste da Linguinha</option>
+                  <option value="avaliacao_neuropsicologica">🧠 Avaliação Neuropsicológica</option>
+                  <option value="coordenacao_motora">🏃 Coordenação Motora</option>
+                  <option value="terapia_ocupacional">🤲 Terapia Ocupacional</option>
+                  <option value="fisioterapia_infantil">🏥 Fisioterapia Infantil</option>
+                  <option value="psicomotricidade">🤸 Psicomotricidade</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Linha 3: Estilo do Gancho + Objetivo */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <p className="text-xs text-gray-400 mb-1.5 font-medium uppercase tracking-wide">Estilo do gancho</p>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {([
+                    { key: 'alerta', emoji: '🚨', label: 'Alerta' },
+                    { key: 'dor', emoji: '💔', label: 'Dor' },
+                    { key: 'curiosidade', emoji: '🤔', label: 'Curiosidade' },
+                    { key: 'erro_comum', emoji: '❌', label: 'Erro' },
+                    { key: 'autoridade', emoji: '🎓', label: 'Autoridade' },
+                  ] as const).map(({ key, emoji, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => setVideoHookStyle(key)}
+                      className={`px-1 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${videoHookStyle === key ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                    >
+                      <span className="text-base">{emoji}</span>
+                      <span className="text-[9px] font-semibold">{label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 mb-1.5 font-medium uppercase tracking-wide">Objetivo do vídeo</p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {([
+                    { key: 'salvar', emoji: '🔖', label: 'Salvar' },
+                    { key: 'compartilhar', emoji: '📤', label: 'Compartilhar' },
+                    { key: 'comentar', emoji: '💬', label: 'Comentar' },
+                    { key: 'agendar', emoji: '📅', label: 'Agendar' },
+                  ] as const).map(({ key, emoji, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => setVideoObjetivo(key)}
+                      className={`px-1 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${videoObjetivo === key ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                    >
+                      <span className="text-base">{emoji}</span>
+                      <span className="text-[9px] font-semibold">{label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             {/* Tom de Voz */}
             <div className="mb-4">
-              <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">Tom do roteiro</p>
+              <p className="text-xs text-gray-400 mb-1.5 font-medium uppercase tracking-wide">Tom do roteiro</p>
               <div className="grid grid-cols-4 gap-2">
                 {[
                   { key: 'emotional', emoji: '💔', label: 'Emocional', desc: 'Dor/urgência' },
@@ -1233,6 +1336,14 @@ export default function MarketingDashboard() {
                 ))}
               </div>
             </div>
+
+            {videoMode === 'runway' && (
+              <div className="mb-3 p-3 rounded-lg bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 text-xs text-emerald-700">
+                <strong>🎬 Runway Gen-3 Turbo</strong> — Vídeo cinematográfico 10s/clip, 9:16 para Reels. Custo menor que Veo.
+                Deixe o campo abaixo vazio para usar o prompt da especialidade, ou descreva uma cena específica.
+                <span className="ml-2 text-emerald-500">Tempo estimado: 2-4 min</span>
+              </div>
+            )}
             {videoMode === 'veo' && (
               <div className="mb-3 p-3 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 text-xs text-blue-700">
                 <strong>🎬 Google Veo 3.1</strong> — Gera vídeo cinematográfico real (8s, 9:16 para Reels).
@@ -1246,27 +1357,44 @@ export default function MarketingDashboard() {
               placeholder={
                 videoMode === 'veo'
                   ? 'Cena personalizada (opcional) — ex: "terapeuta e criança sorrindo juntos durante atividade"'
-                  : 'Roteiro personalizado (opcional) - ou deixe em branco para gerar automaticamente...'
+                  : 'Tema personalizado (opcional) — ou deixe em branco para gerar automaticamente pelo subTema...'
               }
               className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors mb-4"
-              rows={3}
+              rows={2}
             />
+            {(videoMode === 'veo' || videoMode === 'runway') && (
+              <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                <span className="text-base">⚠️</span>
+                <span>
+                  <strong>Custo estimado: ~R$56–70 por vídeo</strong> (Veo 2 cobra R$2/s de vídeo gerado).
+                  Use só para publicar — não para testar.
+                </span>
+              </div>
+            )}
             <button
               onClick={handleGenerateVideo}
               disabled={generatingVideo || !selectedEspecialidade}
               className={`px-5 py-2.5 text-white rounded-lg disabled:opacity-50 transition-all shadow-sm text-sm font-medium ${
-                videoMode === 'veo'
+                videoPlatform === 'meta_ads'
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
-                  : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800'
+                  : videoMode === 'runway'
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700'
+                    : videoMode === 'veo'
+                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'
+                      : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800'
               }`}
             >
               {generatingVideo
                 ? 'Gerando...'
-                : videoMode === 'veo'
-                  ? '🎬 Gerar Vídeo Cinematográfico (Veo 3.1)'
-                  : videoMode === 'avatar'
-                    ? '🎭 Gerar Vídeo com Avatar'
-                    : '🖼️ Gerar Vídeo Ilustrativo'
+                : videoPlatform === 'meta_ads'
+                  ? '💰 Gerar Vídeo para Tráfego Pago'
+                  : videoMode === 'runway'
+                    ? '🎬 Gerar Reel Viral (Runway Gen-3)'
+                    : videoMode === 'veo'
+                      ? '📱 Gerar Reel Viral (Veo 3.1)'
+                      : videoMode === 'avatar'
+                        ? '📱 Gerar Reel com Avatar'
+                        : '📱 Gerar Reel Ilustrativo'
               }
             </button>
           </div>
