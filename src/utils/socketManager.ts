@@ -289,6 +289,11 @@ class SocketManager {
         return this.on("whatsapp:message:failed", handler);
     }
 
+    // 🆕 Escuta alertas do sistema (silêncio, anomalia, erros)
+    onSystemAlert(handler: AnyHandler<{ type: 'silence' | 'anomaly' | 'error'; message: string; details?: any; timestamp: string }>): Unsubscribe {
+        return this.on("system:alert", handler);
+    }
+
     // ✅ Registra callback para evento de (re)conexão
     onReconnect(callback: () => void): Unsubscribe {
         return this.on("connect", callback);

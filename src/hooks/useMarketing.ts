@@ -174,7 +174,8 @@ export interface UseMarketingReturn {
     loadMore: () => Promise<void>;
   };
   videos: VideoData & {
-    generate: (data: { especialidadeId: string; roteiro: string; duration: number; modo?: 'avatar' | 'ilustrativo' | 'veo' | 'runway'; tone?: 'emotional' | 'educativo' | 'inspiracional' | 'bastidores'; platform?: 'instagram' | 'meta_ads'; subTema?: string; hookStyle?: string; objetivo?: string; intensidade?: string }) => Promise<void>;
+    generate: (data: { especialidadeId: string; roteiro: string; duration: number; modo?: 'avatar' | 'ilustrativo' | 'veo' | 'runway' | 'economico'; tone?: 'emotional' | 'educativo' | 'inspiracional' | 'bastidores'; platform?: 'instagram' | 'meta_ads'; subTema?: string; hookStyle?: string; objetivo?: string; intensidade?: string; roteiroEditado?: any }) => Promise<void>;
+    previewRoteiro: (data: { especialidadeId: string; tema?: string; duration?: number; modo?: string; tone?: string; platform?: string; subTema?: string; hookStyle?: string; objetivo?: string; intensidade?: string }) => Promise<any>;
     publish: (videoId: string, channels: Channel[]) => Promise<void>;
     publishMeta: (videoId: string, data: { nomeCampanha?: string; copy?: any; targeting?: any }) => Promise<any>;
     delete: (videoId: string) => Promise<void>;
@@ -489,9 +490,25 @@ export function useMarketing(): UseMarketingReturn {
   };
 
   // Video Actions
-  const videoGenerate = async (data: { especialidadeId: string; roteiro: string; duration: number; modo?: 'avatar' | 'ilustrativo' | 'veo' | 'runway'; tone?: string; platform?: string; subTema?: string; hookStyle?: string; objetivo?: string; intensidade?: string }) => {
+  const videoGenerate = async (data: { especialidadeId: string; roteiro: string; duration: number; modo?: string; tone?: string; platform?: string; subTema?: string; hookStyle?: string; objetivo?: string; intensidade?: string; roteiroEditado?: any }) => {
     await API.post('/videos', data);
     await fetchVideosData();
+  };
+
+  const videoPreviewRoteiro = async (data: { especialidadeId: string; tema?: string; duration?: number; modo?: string; tone?: string; platform?: string; subTema?: string; hookStyle?: string; objetivo?: string; intensidade?: string }) => {
+    const res = await API.post('/videos/preview-roteiro', {
+      tema: data.tema || '',
+      especialidadeId: data.especialidadeId,
+      funil: 'TOPO',
+      duracao: data.duration || 30,
+      tone: data.tone || 'educativo',
+      platform: data.platform || 'instagram',
+      subTema: data.subTema,
+      hookStyle: data.hookStyle || 'dor',
+      objetivo: data.objetivo || 'salvar',
+      intensidade: data.intensidade || 'viral'
+    });
+    return res.data.roteiro;
   };
 
   const videoPublish = async (videoId: string, channels: Channel[]) => {
@@ -611,6 +628,7 @@ export function useMarketing(): UseMarketingReturn {
     videos: {
       ...videosData,
       generate: videoGenerate,
+      previewRoteiro: videoPreviewRoteiro,
       publish: videoPublish,
       publishMeta: videoPublishMeta,
       delete: videoDelete,

@@ -6,6 +6,7 @@ import { Box } from "@mui/material";
 import "./App.css";
 import AppRoutes from "./AppRoutes";
 import { useWhatsAppDeliveryError } from "./hooks/useWhatsAppDeliveryError";
+import { useSystemAlerts } from "./hooks/useSystemAlerts";
 import PixNotificationPopup from "./components/financial/PixNotificationPopup";
 import { ChatNotificationPopup } from "./components/mkt/whatsapp/ChatNotificationPopup";
 import { MediaNotificationPopup } from "./components/mkt/whatsapp/MediaNotificationPopup";
@@ -18,6 +19,7 @@ import { PatientsProvider } from "./contexts/PatientsContext";
 import { useAuth } from "./contexts/AuthContext";
 import { ChatNavigationProvider } from "./contexts/ChatNavigationContext";
 import { PreAgendamentoNotificationPopup } from "./components/patients/PreAgendamentoNotificationPopup";
+import { WhatsAppMessagePopup } from "./components/notifications/WhatsAppMessagePopup";
 
 const App: React.FC = () => {
   const { isLoading } = useAuth();
@@ -25,6 +27,9 @@ const App: React.FC = () => {
 
   // 🆕 Inicializa listener de falhas de entrega WhatsApp
   useWhatsAppDeliveryError();
+  
+  // 🆕 Inicializa listener de alertas do sistema (silêncio, anomalia)
+  useSystemAlerts();
 
   return (
     <ChatNavigationProvider>
@@ -69,6 +74,7 @@ const App: React.FC = () => {
       <MediaNotificationPopup />
       <ChatNotificationPopup />
       <PreAgendamentoNotificationPopup />
+      <WhatsAppMessagePopup />
     </ChatNavigationProvider>
   );
 };

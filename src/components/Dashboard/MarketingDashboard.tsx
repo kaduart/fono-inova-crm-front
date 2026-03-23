@@ -11,6 +11,7 @@ import { useMarketing, type FunnelStage, type AdSpy, type Post, type PublishTarg
 import { VideoCard } from './VideoCard';
 import { VideoEditModal } from './VideoEditModal';
 import { PublishModal } from './PublishModal';
+import { RoteiroPreviewModal, type RoteiroPreview } from './RoteiroPreviewModal';
 import type { EditOptions, Video as VideoType } from '../../hooks/useMarketing';
 import InstagramIcon from "@mui/icons-material/Instagram";
 import FacebookIcon from "@mui/icons-material/Facebook";
@@ -245,7 +246,9 @@ export default function MarketingDashboard() {
   const [pendingImages, setPendingImages] = useState<Record<string, string>>({});
   const [videoDuration, setVideoDuration] = useState<30 | 45 | 60>(30);
   const [videoRoteiro, setVideoRoteiro] = useState('');
-  const [videoMode, setVideoMode] = useState<'avatar' | 'ilustrativo' | 'veo' | 'runway'>('veo');
+  const [videoMode, setVideoMode] = useState<'avatar' | 'ilustrativo' | 'veo' | 'runway' | 'economico'>('veo');
+  const [roteiroPreview, setRoteiroPreview] = useState<RoteiroPreview | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
   const [generatingVideo, setGeneratingVideo] = useState(false);
   // 🧠 Campos de inteligência de conteúdo
   const [videoPlatform, setVideoPlatform] = useState<'instagram' | 'meta_ads'>('instagram');
@@ -537,14 +540,39 @@ export default function MarketingDashboard() {
     }
   };
 
+  // Passo 1: gera o roteiro via ZEUS e abre o modal de preview
   const handleGenerateVideo = async () => {
     if (!selectedEspecialidade) {
       toast.error('Selecione uma especialidade');
       return;
     }
+    setLoadingPreview(true);
+    try {
+      const roteiro = await videos.previewRoteiro({
+        especialidadeId: selectedEspecialidade,
+        tema: videoRoteiro || undefined,
+        duration: videoDuration,
+        tone: selectedTone,
+        platform: videoPlatform,
+        subTema: videoSubTema || undefined,
+        hookStyle: videoHookStyle,
+        objetivo: videoObjetivo,
+        intensidade: 'viral'
+      });
+      setRoteiroPreview(roteiro);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Erro ao gerar roteiro');
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
+  // Passo 2: usuário confirmou (com ou sem edição) → dispara o pipeline de vídeo
+  const handleConfirmRoteiro = async (roteiroEditado: RoteiroPreview) => {
     if ((videoMode === 'veo' || videoMode === 'runway') && !window.confirm('⚠️ Gerar este vídeo custa ~R$56–70 (Veo 2).\n\nConfirmar geração?')) {
       return;
     }
+    setRoteiroPreview(null);
     setGeneratingVideo(true);
     try {
       await videos.generate({
@@ -557,15 +585,16 @@ export default function MarketingDashboard() {
         subTema: videoSubTema || undefined,
         hookStyle: videoHookStyle,
         objetivo: videoObjetivo,
-        intensidade: 'viral'
+        intensidade: 'viral',
+        roteiroEditado
       });
-      const modoLabel = videoMode === 'runway' ? '🎬 Runway Gen-3 cinematográfico (2-4 min)' : videoMode === 'veo' ? '🎬 Veo 2.0 cinematográfico (3-5 min)' : videoMode === 'avatar' ? '🎭 com avatar' : '🖼️ ilustrativo';
+      const modoLabel = videoMode === 'runway' ? 'Runway Gen-3 (2-4 min)' : videoMode === 'veo' ? 'Veo 2.0 (3-5 min)' : videoMode === 'economico' ? 'Economico (1-2 min)' : videoMode === 'avatar' ? 'com avatar' : 'ilustrativo';
       const toneEmoji = selectedTone === 'educativo' ? '📚' : selectedTone === 'emotional' ? '💔' : selectedTone === 'inspiracional' ? '✨' : '🏥';
-      toast.info(`${toneEmoji} Vídeo ${modoLabel} em processamento!`);
+      toast.info(`${toneEmoji} Video ${modoLabel} em processamento!`);
       setVideoRoteiro('');
       refresh();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Erro ao gerar vídeo');
+      toast.error(err.response?.data?.error || 'Erro ao gerar video');
     } finally {
       setGeneratingVideo(false);
     }
@@ -1217,12 +1246,13 @@ export default function MarketingDashboard() {
               </select>
               <select
                 value={videoMode}
-                onChange={(e) => setVideoMode(e.target.value as 'avatar' | 'ilustrativo' | 'veo' | 'runway')}
+                onChange={(e) => setVideoMode(e.target.value as 'avatar' | 'ilustrativo' | 'veo' | 'runway' | 'economico')}
                 className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
               >
-                <option value="veo">🎬 Cinematográfico (Google Veo 3.1) ⭐</option>
-                <option value="runway">🎬 Cinematográfico (Runway Gen-3) 💰</option>
-                <option value="ilustrativo">🖼️ Ilustrativo (Imagens + TTS)</option>
+                <option value="economico">💰 Economico (Imagens + TTS) ~R$0,20</option>
+                <option value="veo">🎬 Cinematografico (Google Veo 3.1) ~R$64</option>
+                <option value="runway">🎬 Cinematografico (Runway Gen-3) 💰</option>
+                <option value="ilustrativo">🖼️ Ilustrativo (Imagens basico)</option>
                 <option value="avatar">🎭 Avatar (HeyGen)</option>
               </select>
             </div>
@@ -1373,7 +1403,7 @@ export default function MarketingDashboard() {
             )}
             <button
               onClick={handleGenerateVideo}
-              disabled={generatingVideo || !selectedEspecialidade}
+              disabled={generatingVideo || loadingPreview || !selectedEspecialidade}
               className={`px-5 py-2.5 text-white rounded-lg disabled:opacity-50 transition-all shadow-sm text-sm font-medium ${
                 videoPlatform === 'meta_ads'
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
@@ -1381,20 +1411,26 @@ export default function MarketingDashboard() {
                     ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700'
                     : videoMode === 'veo'
                       ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'
-                      : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800'
+                      : videoMode === 'economico'
+                        ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
+                        : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800'
               }`}
             >
-              {generatingVideo
-                ? 'Gerando...'
-                : videoPlatform === 'meta_ads'
-                  ? '💰 Gerar Vídeo para Tráfego Pago'
-                  : videoMode === 'runway'
-                    ? '🎬 Gerar Reel Viral (Runway Gen-3)'
-                    : videoMode === 'veo'
-                      ? '📱 Gerar Reel Viral (Veo 3.1)'
-                      : videoMode === 'avatar'
-                        ? '📱 Gerar Reel com Avatar'
-                        : '📱 Gerar Reel Ilustrativo'
+              {loadingPreview
+                ? 'Gerando roteiro...'
+                : generatingVideo
+                  ? 'Gerando video...'
+                  : videoPlatform === 'meta_ads'
+                    ? 'Gerar Video para Trafego Pago'
+                    : videoMode === 'runway'
+                      ? 'Gerar Reel (Runway Gen-3)'
+                      : videoMode === 'veo'
+                        ? 'Gerar Reel Viral (Veo 3.1)'
+                        : videoMode === 'economico'
+                          ? 'Gerar Reel Economico'
+                          : videoMode === 'avatar'
+                            ? 'Gerar Reel com Avatar'
+                            : 'Gerar Reel Ilustrativo'
               }
             </button>
           </div>
@@ -2526,6 +2562,15 @@ export default function MarketingDashboard() {
           </div>
         )
       }
+
+      {/* Modal de Preview/Edição do Roteiro (antes de gerar) */}
+      {roteiroPreview && (
+        <RoteiroPreviewModal
+          roteiro={roteiroPreview}
+          onConfirm={handleConfirmRoteiro}
+          onCancel={() => setRoteiroPreview(null)}
+        />
+      )}
 
       {/* Modal de Edição de Vídeo (Pós-produção) */}
       {videoEditModal.open && videoEditModal.video && (
