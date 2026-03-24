@@ -52,7 +52,7 @@ export function VideoEditModal({ video, onClose, onApply, applying }: VideoEditM
 
   // Musica
   const [musica, setMusica]           = useState<EditOptions['musica']>(null);
-  const [musicVolume, setMusicVolume] = useState(0.20);
+  const [musicVolume, setMusicVolume] = useState(0.05);  // ← Era 0.20, agora 5% padrão
 
   // CTA
   const [ctaAtivo, setCtaAtivo]         = useState(false);
@@ -203,7 +203,7 @@ export function VideoEditModal({ video, onClose, onApply, applying }: VideoEditM
                 </div>
                 <input
                   type="range"
-                  min={1} max={80} step={1}
+                  min={0} max={100} step={1}  // ← Era 1-80, agora 0-100 (permite silenciar)
                   value={Math.round(musicVolume * 100)}
                   onChange={e => setMusicVolume(Number(e.target.value) / 100)}
                   className="w-full accent-indigo-600"
