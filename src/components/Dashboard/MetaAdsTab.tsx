@@ -37,10 +37,12 @@ const TrendDownIcon = () => (
 // Cores por especialidade
 const SPECIALTY_COLORS: Record<string, string> = {
   psicologia: 'bg-pink-100 text-pink-800 border-pink-200',
-  fono: 'bg-purple-100 text-purple-800 border-purple-200',
-  fisio: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  fonoaudiologia: 'bg-purple-100 text-purple-800 border-purple-200',
+  fisioterapia: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  terapia_ocupacional: 'bg-amber-100 text-amber-800 border-amber-200',
   neuropsicologia: 'bg-violet-100 text-violet-800 border-violet-200',
   psicopedagogia: 'bg-cyan-100 text-cyan-800 border-cyan-200',
+  musicoterapia: 'bg-green-100 text-green-800 border-green-200',
   geral: 'bg-gray-100 text-gray-800 border-gray-200',
 };
 
@@ -74,9 +76,12 @@ const CPLBadge = ({ cpl, specialty }: { cpl: number | null; specialty: string })
   // Benchmarks por especialidade
   const benchmarks: Record<string, { good: number; warning: number }> = {
     psicologia: { good: 25, warning: 40 },
-    fono: { good: 15, warning: 25 },
-    fisio: { good: 20, warning: 35 },
+    fonoaudiologia: { good: 15, warning: 25 },
+    fisioterapia: { good: 20, warning: 35 },
+    terapia_ocupacional: { good: 18, warning: 30 },
     neuropsicologia: { good: 30, warning: 50 },
+    psicopedagogia: { good: 22, warning: 38 },
+    musicoterapia: { good: 20, warning: 35 },
     default: { good: 20, warning: 35 },
   };
   
@@ -348,9 +353,12 @@ export default function MetaAdsTab() {
                             </span>
                             <span className={`text-xs mt-1 inline-flex items-center px-2 py-0.5 rounded border w-fit ${SPECIALTY_COLORS[campaign.specialty] || SPECIALTY_COLORS.geral}`}>
                               {campaign.specialty === 'psicologia' && 'Psicologia'}
-                              {campaign.specialty === 'fono' && 'Fono'}
-                              {campaign.specialty === 'fisio' && 'Fisio'}
+                              {campaign.specialty === 'fonoaudiologia' && 'Fono'}
+                              {campaign.specialty === 'fisioterapia' && 'Fisio'}
+                              {campaign.specialty === 'terapia_ocupacional' && 'TO'}
                               {campaign.specialty === 'neuropsicologia' && 'Neuro'}
+                              {campaign.specialty === 'psicopedagogia' && 'Psicoped'}
+                              {campaign.specialty === 'musicoterapia' && 'Musicoterapia'}
                               {campaign.specialty === 'geral' && 'Geral'}
                             </span>
                           </div>
@@ -493,8 +501,10 @@ export default function MetaAdsTab() {
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${SPECIALTY_COLORS[spec.specialty] || SPECIALTY_COLORS.geral}`}>
                           {spec.specialty === 'psicologia' && 'Psicologia'}
-                          {spec.specialty === 'fono' && 'Fonoaudiologia'}
-                          {spec.specialty === 'fisio' && 'Fisioterapia'}
+                          {spec.specialty === 'fonoaudiologia' && 'Fonoaudiologia'}
+                          {spec.specialty === 'fisioterapia' && 'Fisioterapia'}
+                          {spec.specialty === 'terapia_ocupacional' && 'Terapia Ocupacional'}
+                          {spec.specialty === 'musicoterapia' && 'Musicoterapia'}
                           {spec.specialty === 'neuropsicologia' && 'Neuropsicologia'}
                           {spec.specialty === 'psicopedagogia' && 'Psicopedagogia'}
                           {spec.specialty === 'geral' && 'Geral'}

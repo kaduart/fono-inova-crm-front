@@ -6,6 +6,7 @@ import { Box } from "@mui/material";
 import "./App.css";
 import AppRoutes from "./AppRoutes";
 import { useWhatsAppDeliveryError } from "./hooks/useWhatsAppDeliveryError";
+// 🆕 Novo popup de alertas de sistema no canto inferior direito
 import { SystemAlertPopup } from "./components/notifications/SystemAlertPopup";
 import PixNotificationPopup from "./components/financial/PixNotificationPopup";
 import { ChatNotificationPopup } from "./components/mkt/whatsapp/ChatNotificationPopup";
@@ -28,8 +29,8 @@ const App: React.FC = () => {
   // 🆕 Inicializa listener de falhas de entrega WhatsApp
   useWhatsAppDeliveryError();
   
-  // 🆕 Alertas de sistema agora usam popup no canto inferior direito
-  // Removido useSystemAlerts() - substituído por SystemAlertPopup component
+  // 🆕 Alertas de sistema (silence/anomaly) usam popup no canto inferior direito
+  // SystemAlertPopup component escuta o socket 'system:alert'
 
   return (
     <ChatNavigationProvider>

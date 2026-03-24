@@ -56,7 +56,28 @@ export function VideoCard({ video, onPublish, onPublishMeta, onDelete, onEditar,
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [showMetaModal, setShowMetaModal] = useState(false);
   const [metaLoading, setMetaLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [nomeCampanha, setNomeCampanha] = useState(`[VIDEO] ${video.especialidadeId || 'Campanha'}_${Date.now()}`);
+
+  const handleDownload = async (url: string, filename: string) => {
+    setDownloading(true);
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+    } catch {
+      window.open(url, '_blank');
+    } finally {
+      setDownloading(false);
+    }
+  };
   
   const status = statusConfig[video.status];
   const isReady = video.status === 'ready';
@@ -197,7 +218,60 @@ export function VideoCard({ video, onPublish, onPublishMeta, onDelete, onEditar,
                   <span className="hidden sm:inline">Editar</span>
                 </button>
               )}
+              <button
+                onClick={() => handleDownload(
+                  videoEditadoUrl || video.videoUrl || '',
+                  `${video.especialidadeId || 'video'}_${video._id.slice(-6)}.mp4`
+                )}
+                disabled={downloading || !(videoEditadoUrl || video.videoUrl)}
+                title={videoEditadoUrl ? 'Baixar vídeo editado' : 'Baixar vídeo'}
+                className="px-3 py-2 bg-gray-700 text-white text-sm rounded-lg hover:bg-gray-800 flex items-center gap-1 disabled:opacity-50"
+              >
+                {downloading ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                )}
+                <span className="hidden sm:inline">Baixar</span>
+              </button>
             </>
+          )}
+          {/* Botão retry para vídeos que falharam */}
+          {isFailed && (
+            <button
+              onClick={async () => {
+                setRetrying(true);
+                try {
+                  const res = await API.post(`/videos/${video._id}/retry`);
+                  toast.success(res.data.message || 'Geração retomada!');
+                  setTimeout(() => window.location.reload(), 1500);
+                } catch (err: any) {
+                  toast.error(err.response?.data?.error || 'Erro ao retentar');
+                } finally {
+                  setRetrying(false);
+                }
+              }}
+              disabled={retrying}
+              className="flex-1 px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 flex items-center justify-center gap-1.5 disabled:opacity-50"
+              title="Continuar geração de onde parou"
+            >
+              {retrying ? (
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              )}
+              {retrying ? 'Retomando...' : 'Tentar novamente'}
+            </button>
           )}
           {/* Botão para cancelar vídeo travado */}
           {isStale && (
@@ -221,17 +295,15 @@ export function VideoCard({ video, onPublish, onPublishMeta, onDelete, onEditar,
         </div>
 
         {videoEditadoUrl && (
-          <a
-            href={videoEditadoUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            onClick={() => handleDownload(videoEditadoUrl, `${video.especialidadeId || 'video'}_editado_${video._id.slice(-6)}.mp4`)}
             className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:underline"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
             Baixar vídeo com legendas, música e CTA
-          </a>
+          </button>
         )}
       </div>
       

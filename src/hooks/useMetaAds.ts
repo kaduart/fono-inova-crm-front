@@ -53,10 +53,12 @@ export interface UseMetaAdsReturn {
 const SPECIALTIES = [
   { value: '', label: 'Todas Especialidades' },
   { value: 'psicologia', label: 'Psicologia' },
-  { value: 'fono', label: 'Fonoaudiologia' },
-  { value: 'fisio', label: 'Fisioterapia' },
+  { value: 'fonoaudiologia', label: 'Fonoaudiologia' },
+  { value: 'fisioterapia', label: 'Fisioterapia' },
+  { value: 'terapia_ocupacional', label: 'Terapia Ocupacional' },
   { value: 'neuropsicologia', label: 'Neuropsicologia' },
   { value: 'psicopedagogia', label: 'Psicopedagogia' },
+  { value: 'musicoterapia', label: 'Musicoterapia' },
 ];
 
 const PERIODS = [

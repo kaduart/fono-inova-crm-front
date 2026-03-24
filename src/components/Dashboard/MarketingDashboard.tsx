@@ -80,6 +80,94 @@ const ESPECIALIDADES = [
   { id: 'musicoterapia', nome: 'Musicoterapia', cor: 'fuchsia' },
 ];
 
+// 🎯 Temas de conteúdo para vídeos — Área → Subtemas em cascata
+// Cada subtema tem gancho, tom e emoji sugeridos → auto-preenchidos ao selecionar
+type Subtema = { id: string; label: string; gancho: 'dor' | 'alerta' | 'curiosidade' | 'erro_comum' | 'autoridade'; tom: 'emotional' | 'educativo' | 'inspiracional' | 'bastidores'; emoji: string };
+const TEMAS_VIDEO: Record<string, { label: string; subtemas: Subtema[] }> = {
+  fono_fala: {
+    label: '🗣️ Fono / Fala',
+    subtemas: [
+      { id: 'atraso_fala',           label: 'Atraso de fala',                      gancho: 'dor',        tom: 'emotional',     emoji: '💔' },
+      { id: 'apraxia_infantil',      label: 'Apraxia infantil',                    gancho: 'curiosidade', tom: 'educativo',     emoji: '🤔' },
+      { id: 'dislalia',              label: 'Dislalia / Troca de sons',             gancho: 'erro_comum', tom: 'educativo',     emoji: '❌' },
+      { id: 'disturbios_linguagem',  label: 'Distúrbios de linguagem',              gancho: 'alerta',     tom: 'emotional',     emoji: '🚨' },
+      { id: 'estimulacao_fala',      label: 'Estimulação da fala em casa',          gancho: 'curiosidade', tom: 'educativo',    emoji: '💡' },
+      { id: 'leitura_comunicacao',   label: 'Leitura e comunicação precoce',        gancho: 'autoridade', tom: 'educativo',     emoji: '📚' },
+    ],
+  },
+  tea: {
+    label: '🧩 Autismo / TEA',
+    subtemas: [
+      { id: 'autismo',               label: 'Autismo / TEA (geral)',                gancho: 'alerta',     tom: 'emotional',     emoji: '💔' },
+      { id: 'comportamento',         label: 'Comportamento e birra',                gancho: 'dor',        tom: 'emotional',     emoji: '💔' },
+      { id: 'interacao_social',      label: 'Interação social',                    gancho: 'autoridade', tom: 'inspiracional', emoji: '💚' },
+      { id: 'comunicacao_nao_verbal',label: 'Comunicação não-verbal',               gancho: 'curiosidade', tom: 'educativo',    emoji: '🤔' },
+      { id: 'rotinas_adaptacao',     label: 'Rotinas e adaptação',                  gancho: 'curiosidade', tom: 'educativo',    emoji: '🗓️' },
+    ],
+  },
+  avaliacoes: {
+    label: '🧠 Avaliações',
+    subtemas: [
+      { id: 'avaliacao_neuropsicologica', label: 'Avaliação neuropsicológica',      gancho: 'autoridade', tom: 'educativo',     emoji: '👩‍⚕️' },
+      { id: 'teste_linguinha',            label: 'Teste da linguinha',              gancho: 'curiosidade', tom: 'educativo',    emoji: '👅' },
+      { id: 'teste_cognitivo',            label: 'Teste de desenvolvimento cognitivo', gancho: 'autoridade', tom: 'educativo',  emoji: '🧠' },
+      { id: 'triagem_fala',               label: 'Triagem de fala e linguagem',     gancho: 'alerta',     tom: 'emotional',     emoji: '🚨' },
+    ],
+  },
+  terapias: {
+    label: '🤲 Terapias',
+    subtemas: [
+      { id: 'musicoterapia',         label: 'Musicoterapia',                        gancho: 'curiosidade', tom: 'inspiracional', emoji: '🎵' },
+      { id: 'coordenacao_motora',    label: 'Coordenação motora fina e grossa',     gancho: 'curiosidade', tom: 'educativo',    emoji: '🤹' },
+      { id: 'terapia_ocupacional',   label: 'Terapia ocupacional infantil',         gancho: 'autoridade', tom: 'educativo',     emoji: '🤲' },
+      { id: 'psicomotricidade',      label: 'Psicomotricidade',                     gancho: 'curiosidade', tom: 'educativo',    emoji: '🤸' },
+      { id: 'fisioterapia_infantil', label: 'Fisioterapia infantil',                gancho: 'autoridade', tom: 'educativo',     emoji: '💪' },
+      { id: 'estimulacao_sensorial', label: 'Estimulação sensorial',                gancho: 'curiosidade', tom: 'educativo',    emoji: '✨' },
+    ],
+  },
+  dicas_pais: {
+    label: '👨‍👩‍👧 Dicas para Pais',
+    subtemas: [
+      { id: 'estimular_fala_casa',    label: 'Como estimular a fala em casa',       gancho: 'curiosidade', tom: 'educativo',    emoji: '💡' },
+      { id: 'brincadeiras_linguagem', label: 'Brincadeiras que desenvolvem linguagem', gancho: 'curiosidade', tom: 'educativo', emoji: '🎮' },
+      { id: 'alimentacao_fala',       label: 'Alimentação e fala',                  gancho: 'erro_comum', tom: 'educativo',     emoji: '❌' },
+      { id: 'lidar_birras',           label: 'Como lidar com birras',               gancho: 'dor',        tom: 'educativo',     emoji: '😤' },
+      { id: 'rotina_aprendizado',     label: 'Estratégias para rotina e aprendizado', gancho: 'autoridade', tom: 'educativo',   emoji: '📋' },
+    ],
+  },
+  publico: {
+    label: '👶 Público / Situação',
+    subtemas: [
+      { id: 'primeira_avaliacao',       label: 'Primeira avaliação',               gancho: 'alerta',     tom: 'emotional',     emoji: '🚨' },
+      { id: 'pos_diagnostico',          label: 'Pós-diagnóstico',                  gancho: 'autoridade', tom: 'inspiracional', emoji: '💚' },
+      { id: 'acompanhamento_progresso', label: 'Acompanhamento de progresso',      gancho: 'autoridade', tom: 'inspiracional', emoji: '✨' },
+      { id: 'criancas_2_3',             label: 'Crianças 2-3 anos',               gancho: 'dor',        tom: 'emotional',     emoji: '💔' },
+      { id: 'criancas_4_5',             label: 'Crianças 4-5 anos',               gancho: 'curiosidade', tom: 'educativo',    emoji: '🤔' },
+    ],
+  },
+  cta_extras: {
+    label: '📣 CTA / Extras',
+    subtemas: [
+      { id: 'mensagem_educativa',   label: 'Mensagem educativa com emoji',          gancho: 'curiosidade', tom: 'educativo',    emoji: '💡' },
+      { id: 'convite_consulta',     label: 'Convite para avaliação ou consulta',    gancho: 'autoridade', tom: 'inspiracional', emoji: '💚' },
+      { id: 'conteudo_interativo',  label: 'Conteúdo divertido / interativo',       gancho: 'curiosidade', tom: 'inspiracional', emoji: '🎯' },
+    ],
+  },
+};
+
+// Mapeamento: qual especialidade exibe quais áreas de tema
+const ESPECIALIDADE_AREAS: Record<string, string[]> = {
+  fonoaudiologia:      ['fono_fala', 'tea', 'avaliacoes', 'dicas_pais', 'publico', 'cta_extras'],
+  psicologia:          ['tea', 'dicas_pais', 'publico', 'cta_extras'],              // comportamento, emoções, dicas família
+  terapia_ocupacional: ['terapias', 'tea', 'dicas_pais', 'publico', 'cta_extras'],
+  fisioterapia:        ['terapias', 'publico', 'cta_extras'],                        // foco em motricidade/reabilitação
+  psicomotricidade:    ['terapias', 'dicas_pais', 'publico', 'cta_extras'],
+  freio_lingual:       ['fono_fala', 'avaliacoes', 'cta_extras'],                    // foco em avaliação e fala
+  neuropsicologia:     ['avaliacoes', 'tea', 'publico', 'cta_extras'],               // foco em avaliação e TEA
+  psicopedagogia:      ['dicas_pais', 'publico', 'cta_extras'],                      // foco em aprendizagem e família
+  musicoterapia:       ['terapias', 'tea', 'cta_extras'],
+};
+
 // 🕐 Horários estratégicos para publicação no GMB
 const HORARIOS_ESTRATEGICOS = [
   { value: '08:00', label: '🌅 08:00 - Início do dia' },
@@ -246,15 +334,101 @@ export default function MarketingDashboard() {
   const [pendingImages, setPendingImages] = useState<Record<string, string>>({});
   const [videoDuration, setVideoDuration] = useState<30 | 45 | 60>(30);
   const [videoRoteiro, setVideoRoteiro] = useState('');
-  const [videoMode, setVideoMode] = useState<'avatar' | 'ilustrativo' | 'veo' | 'runway' | 'economico'>('veo');
+  const [videoMode, setVideoMode] = useState<'avatar' | 'ilustrativo' | 'veo' | 'runway' | 'economico' | 'teste'>('teste');
   const [roteiroPreview, setRoteiroPreview] = useState<RoteiroPreview | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [generatingVideo, setGeneratingVideo] = useState(false);
   // 🧠 Campos de inteligência de conteúdo
   const [videoPlatform, setVideoPlatform] = useState<'instagram' | 'meta_ads'>('instagram');
+  const [videoArea, setVideoArea] = useState('');
   const [videoSubTema, setVideoSubTema] = useState('');
   const [videoHookStyle, setVideoHookStyle] = useState<'dor' | 'alerta' | 'curiosidade' | 'erro_comum' | 'autoridade'>('alerta');
   const [videoObjetivo, setVideoObjetivo] = useState<'salvar' | 'compartilhar' | 'comentar' | 'agendar'>('salvar');
+  const [videoBordao, setVideoBordao] = useState('');
+  // 🎬 Preset Premium - configurações otimizadas
+  const [selectedPreset, setSelectedPreset] = useState<string>('');
+  
+  // Configurações de cada preset
+  const VIDEO_PRESETS = {
+    // 🎯 PRESETS PARA META ADS (Tráfego Pago)
+    meta_autoridade: {
+      nome: '👨‍⚕️ Meta Ads - Autoridade',
+      desc: 'Tom profissional, converte em leads WhatsApp',
+      hookStyle: 'autoridade' as const,
+      tone: 'educativo' as const,
+      objetivo: 'agendar' as const,
+      intensidade: 'moderado',
+      config: { voz: 'alloy', velocidade: 1.0, volumeMusica: 0.04 }  // Profissional, música sutil
+    },
+    meta_urgencia: {
+      nome: '🚨 Meta Ads - Urgência',
+      desc: 'Alerta médico, conversão rápida',
+      hookStyle: 'alerta' as const,
+      tone: 'emotional' as const,
+      objetivo: 'agendar' as const,
+      intensidade: 'forte',
+      config: { voz: 'alloy', velocidade: 1.02, volumeMusica: 0.05 }  // Firme mas empático
+    },
+    
+    // 🎯 PRESETS PARA ORGÂNICO (Instagram/TikTok)
+    explosao_viral: {
+      nome: '🔥 Explosão Viral',
+      desc: 'Máximo engajamento nos primeiros 3s',
+      hookStyle: 'curiosidade' as const,
+      tone: 'emotional' as const,
+      objetivo: 'compartilhar' as const,
+      intensidade: 'viral',
+      config: { voz: 'shimmer', velocidade: 1.05, volumeMusica: 0.06 }  // ← Abaixado de 0.12
+    },
+    autoridade_inspiradora: {
+      nome: '👑 Autoridade Inspiradora',
+      desc: 'Construir credibilidade e confiança',
+      hookStyle: 'autoridade' as const,
+      tone: 'inspiracional' as const,
+      objetivo: 'agendar' as const,
+      intensidade: 'viral',
+      config: { voz: 'alloy', velocidade: 1.05, volumeMusica: 0.05 }  // ← Abaixado de 0.12
+    },
+    empatia_emocional: {
+      nome: '💝 Empatia Emocional',
+      desc: 'Conexão genuína com pais',
+      hookStyle: 'dor' as const,
+      tone: 'emotional' as const,
+      objetivo: 'comentar' as const,
+      intensidade: 'forte',
+      config: { voz: 'shimmer', velocidade: 1.0, volumeMusica: 0.05 }  // ← Abaixado de 0.10
+    },
+    alerta_urgencia: {
+      nome: '⚡ Alerta & Urgência',
+      desc: 'Chamar atenção imediata',
+      hookStyle: 'alerta' as const,
+      tone: 'inspiracional' as const,
+      objetivo: 'agendar' as const,
+      intensidade: 'forte',
+      config: { voz: 'alloy', velocidade: 1.02, volumeMusica: 0.05 }  // ← Abaixado de 0.10
+    },
+    erro_correcao: {
+      nome: '📚 Erro + Correção',
+      desc: 'Educativo que gera salvamentos',
+      hookStyle: 'erro_comum' as const,
+      tone: 'educativo' as const,
+      objetivo: 'salvar' as const,
+      intensidade: 'moderado',
+      config: { voz: 'nova', velocidade: 1.0, volumeMusica: 0.04 }  // ← Abaixado de 0.08
+    }
+  };
+
+  // Auto-preenche gancho, tom e bordão ao selecionar subtema
+  useEffect(() => {
+    if (!videoArea || !videoSubTema) return;
+    const sub = TEMAS_VIDEO[videoArea]?.subtemas.find(s => s.id === videoSubTema);
+    if (sub) {
+      setVideoHookStyle(sub.gancho);
+      setSelectedTone(sub.tom);
+      // Bordão automático para temas educativos
+      setVideoBordao(sub.tom === 'educativo' ? 'Você sabia' : '');
+    }
+  }, [videoSubTema]);
 
   // Spy states
   const [spyKeyword, setSpyKeyword] = useState('');
@@ -557,7 +731,8 @@ export default function MarketingDashboard() {
         subTema: videoSubTema || undefined,
         hookStyle: videoHookStyle,
         objetivo: videoObjetivo,
-        intensidade: 'viral'
+        intensidade: 'viral',
+        bordao: videoBordao || undefined
       });
       setRoteiroPreview(roteiro);
     } catch (err: any) {
@@ -585,7 +760,8 @@ export default function MarketingDashboard() {
         subTema: videoSubTema || undefined,
         hookStyle: videoHookStyle,
         objetivo: videoObjetivo,
-        intensidade: 'viral',
+        intensidade: selectedPreset ? VIDEO_PRESETS[selectedPreset as keyof typeof VIDEO_PRESETS]?.intensidade || 'viral' : 'viral',
+        preset: selectedPreset || undefined,  // 🎬 Envia o preset para o backend
         roteiroEditado
       });
       const modoLabel = videoMode === 'runway' ? 'Runway Gen-3 (2-4 min)' : videoMode === 'veo' ? 'Veo 2.0 (3-5 min)' : videoMode === 'economico' ? 'Economico (1-2 min)' : videoMode === 'avatar' ? 'com avatar' : 'ilustrativo';
@@ -1221,220 +1397,358 @@ export default function MarketingDashboard() {
         {activeTab === 'landingpages' && <LandingPagesTab />}
 
         {/* Área de Geração - Vídeos */}
-        {activeTab === 'videos' && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
-            <h2 className="font-semibold text-gray-900 mb-4">🎬 Gerar Vídeo com IA</h2>
+       {activeTab === 'videos' && (
+  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    {/* Cabeçalho com título e descrição */}
+    <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+      <h2 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+        <span className="text-lg">🎬</span> Gerar Vídeo com IA
+      </h2>
+      <p className="text-xs text-gray-500 mt-0.5">Crie vídeos otimizados para redes sociais com um clique</p>
+    </div>
 
-            {/* Linha 1: Especialidade + Duração + Modo */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <select
-                value={selectedEspecialidade}
-                onChange={(e) => setSelectedEspecialidade(e.target.value)}
-                className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
-              >
-                <option value="">Selecione uma especialidade...</option>
-                {ESPECIALIDADES.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
-              </select>
-              <select
-                value={videoDuration}
-                onChange={(e) => setVideoDuration(Number(e.target.value) as 30 | 45 | 60)}
-                className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
-              >
-                <option value={30}>⏱️ 30 segundos</option>
-                <option value={45}>⏱️ 45 segundos</option>
-                <option value={60}>⏱️ 60 segundos</option>
-              </select>
-              <select
-                value={videoMode}
-                onChange={(e) => setVideoMode(e.target.value as 'avatar' | 'ilustrativo' | 'veo' | 'runway' | 'economico')}
-                className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
-              >
-                <option value="economico">💰 Economico (Imagens + TTS) ~R$0,20</option>
-                <option value="veo">🎬 Cinematografico (Google Veo 3.1) ~R$64</option>
-                <option value="runway">🎬 Cinematografico (Runway Gen-3) 💰</option>
-                <option value="ilustrativo">🖼️ Ilustrativo (Imagens basico)</option>
-                <option value="avatar">🎭 Avatar (HeyGen)</option>
-              </select>
-            </div>
+    <div className="p-5 space-y-5">
+      {/* Preset Premium (opcional) */}
+      <div className="bg-gradient-to-r from-violet-50 to-pink-50 rounded-lg border border-violet-200 p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-base">🚀</span>
+          <label className="text-sm font-semibold text-violet-800">Preset Premium (opcional)</label>
+          <span className="text-[10px] font-medium text-violet-600 bg-violet-100 px-2 py-0.5 rounded-full">NOVO</span>
+        </div>
+        <select
+          value={selectedPreset}
+          onChange={(e) => {
+            const presetKey = e.target.value;
+            setSelectedPreset(presetKey);
+            if (presetKey && VIDEO_PRESETS[presetKey as keyof typeof VIDEO_PRESETS]) {
+              const preset = VIDEO_PRESETS[presetKey as keyof typeof VIDEO_PRESETS];
+              setVideoHookStyle(preset.hookStyle);
+              setSelectedTone(preset.tone);
+              setVideoObjetivo(preset.objetivo);
+              toast.success(`✅ Preset "${preset.nome}" aplicado!`);
+            }
+          }}
+          className="w-full px-3 py-2 border border-violet-300 rounded-lg text-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500 bg-white"
+        >
+          <option value="">🎯 Configurar manualmente (sem preset)</option>
+          
+          <optgroup label="💰 META ADS (Tráfego Pago)">
+            <option value="meta_autoridade">👨‍⚕️ Autoridade — Tom profissional, converte leads</option>
+            <option value="meta_urgencia">🚨 Urgência — Alerta médico, conversão rápida</option>
+          </optgroup>
+          
+          <optgroup label="📱 INSTAGRAM ORGÂNICO (Reels/Stories)">
+            <option value="explosao_viral">🔥 Explosão Viral — Máximo engajamento</option>
+            <option value="autoridade_inspiradora">👑 Autoridade Inspiradora — Credibilidade</option>
+            <option value="empatia_emocional">💝 Empatia Emocional — Conexão genuína</option>
+            <option value="alerta_urgencia">⚡ Alerta & Urgência — Chamar atenção</option>
+            <option value="erro_correcao">📚 Erro + Correção — Educativo viral</option>
+          </optgroup>
+        </select>
 
-            {/* Linha 2: Plataforma + SubTema */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <p className="text-xs text-gray-400 mb-1.5 font-medium uppercase tracking-wide">Destino</p>
-                <div className="flex gap-2">
-                  {([
-                    { key: 'instagram', emoji: '📱', label: 'Instagram Orgânico', desc: 'Viral · 20-35s' },
-                    { key: 'meta_ads', emoji: '💰', label: 'Meta Ads', desc: 'Conversão · CTA WhatsApp' },
-                  ] as const).map(({ key, emoji, label, desc }) => (
-                    <button
-                      key={key}
-                      onClick={() => setVideoPlatform(key)}
-                      className={`flex-1 px-3 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${videoPlatform === key ? 'border-pink-500 bg-pink-50 text-pink-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
-                    >
-                      <span className="text-base">{emoji}</span>
-                      <span className="text-[11px] font-semibold">{label}</span>
-                      <span className="text-[9px] opacity-60">{desc}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 mb-1.5 font-medium uppercase tracking-wide">SubTema (nicho)</p>
-                <select
-                  value={videoSubTema}
-                  onChange={(e) => setVideoSubTema(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
-                >
-                  <option value="">Automático (pelo especialidade)</option>
-                  <option value="atraso_fala">🗣️ Atraso de fala</option>
-                  <option value="autismo">🧩 Autismo / TEA</option>
-                  <option value="comportamento">😤 Comportamento / Birra</option>
-                  <option value="teste_linguinha">👅 Teste da Linguinha</option>
-                  <option value="avaliacao_neuropsicologica">🧠 Avaliação Neuropsicológica</option>
-                  <option value="coordenacao_motora">🏃 Coordenação Motora</option>
-                  <option value="terapia_ocupacional">🤲 Terapia Ocupacional</option>
-                  <option value="fisioterapia_infantil">🏥 Fisioterapia Infantil</option>
-                  <option value="psicomotricidade">🤸 Psicomotricidade</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Linha 3: Estilo do Gancho + Objetivo */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <p className="text-xs text-gray-400 mb-1.5 font-medium uppercase tracking-wide">Estilo do gancho</p>
-                <div className="grid grid-cols-5 gap-1.5">
-                  {([
-                    { key: 'alerta', emoji: '🚨', label: 'Alerta' },
-                    { key: 'dor', emoji: '💔', label: 'Dor' },
-                    { key: 'curiosidade', emoji: '🤔', label: 'Curiosidade' },
-                    { key: 'erro_comum', emoji: '❌', label: 'Erro' },
-                    { key: 'autoridade', emoji: '🎓', label: 'Autoridade' },
-                  ] as const).map(({ key, emoji, label }) => (
-                    <button
-                      key={key}
-                      onClick={() => setVideoHookStyle(key)}
-                      className={`px-1 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${videoHookStyle === key ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
-                    >
-                      <span className="text-base">{emoji}</span>
-                      <span className="text-[9px] font-semibold">{label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 mb-1.5 font-medium uppercase tracking-wide">Objetivo do vídeo</p>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {([
-                    { key: 'salvar', emoji: '🔖', label: 'Salvar' },
-                    { key: 'compartilhar', emoji: '📤', label: 'Compartilhar' },
-                    { key: 'comentar', emoji: '💬', label: 'Comentar' },
-                    { key: 'agendar', emoji: '📅', label: 'Agendar' },
-                  ] as const).map(({ key, emoji, label }) => (
-                    <button
-                      key={key}
-                      onClick={() => setVideoObjetivo(key)}
-                      className={`px-1 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${videoObjetivo === key ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
-                    >
-                      <span className="text-base">{emoji}</span>
-                      <span className="text-[9px] font-semibold">{label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Tom de Voz */}
-            <div className="mb-4">
-              <p className="text-xs text-gray-400 mb-1.5 font-medium uppercase tracking-wide">Tom do roteiro</p>
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { key: 'emotional', emoji: '💔', label: 'Emocional', desc: 'Dor/urgência' },
-                  { key: 'educativo', emoji: '📚', label: 'Educativo', desc: 'Dicas/fatos' },
-                  { key: 'inspiracional', emoji: '✨', label: 'Inspiração', desc: 'Transformação' },
-                  { key: 'bastidores', emoji: '🏥', label: 'Bastidores', desc: 'Da clínica' },
-                ].map(({ key, emoji, label, desc }) => (
-                  <button
-                    key={key}
-                    onClick={() => setSelectedTone(key as any)}
-                    className={`px-2 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedTone === key ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
-                  >
-                    <span className="text-base">{emoji}</span>
-                    <span className="text-[11px] font-semibold">{label}</span>
-                    <span className="text-[9px] opacity-60">{desc}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {videoMode === 'runway' && (
-              <div className="mb-3 p-3 rounded-lg bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 text-xs text-emerald-700">
-                <strong>🎬 Runway Gen-3 Turbo</strong> — Vídeo cinematográfico 10s/clip, 9:16 para Reels. Custo menor que Veo.
-                Deixe o campo abaixo vazio para usar o prompt da especialidade, ou descreva uma cena específica.
-                <span className="ml-2 text-emerald-500">Tempo estimado: 2-4 min</span>
-              </div>
-            )}
-            {videoMode === 'veo' && (
-              <div className="mb-3 p-3 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 text-xs text-blue-700">
-                <strong>🎬 Google Veo 3.1</strong> — Gera vídeo cinematográfico real (8s, 9:16 para Reels).
-                Deixe o campo abaixo vazio para usar o prompt otimizado da especialidade, ou descreva uma cena específica.
-                <span className="ml-2 text-blue-500">Tempo estimado: 3-5 min</span>
-              </div>
-            )}
-            <textarea
-              value={videoRoteiro}
-              onChange={(e) => setVideoRoteiro(e.target.value)}
-              placeholder={
-                videoMode === 'veo'
-                  ? 'Cena personalizada (opcional) — ex: "terapeuta e criança sorrindo juntos durante atividade"'
-                  : 'Tema personalizado (opcional) — ou deixe em branco para gerar automaticamente pelo subTema...'
-              }
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors mb-4"
-              rows={2}
-            />
-            {(videoMode === 'veo' || videoMode === 'runway') && (
-              <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
-                <span className="text-base">⚠️</span>
-                <span>
-                  <strong>Custo estimado: ~R$56–70 por vídeo</strong> (Veo 2 cobra R$2/s de vídeo gerado).
-                  Use só para publicar — não para testar.
-                </span>
-              </div>
-            )}
-            <button
-              onClick={handleGenerateVideo}
-              disabled={generatingVideo || loadingPreview || !selectedEspecialidade}
-              className={`px-5 py-2.5 text-white rounded-lg disabled:opacity-50 transition-all shadow-sm text-sm font-medium ${
-                videoPlatform === 'meta_ads'
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
-                  : videoMode === 'runway'
-                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700'
-                    : videoMode === 'veo'
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'
-                      : videoMode === 'economico'
-                        ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
-                        : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800'
-              }`}
-            >
-              {loadingPreview
-                ? 'Gerando roteiro...'
-                : generatingVideo
-                  ? 'Gerando video...'
-                  : videoPlatform === 'meta_ads'
-                    ? 'Gerar Video para Trafego Pago'
-                    : videoMode === 'runway'
-                      ? 'Gerar Reel (Runway Gen-3)'
-                      : videoMode === 'veo'
-                        ? 'Gerar Reel Viral (Veo 3.1)'
-                        : videoMode === 'economico'
-                          ? 'Gerar Reel Economico'
-                          : videoMode === 'avatar'
-                            ? 'Gerar Reel com Avatar'
-                            : 'Gerar Reel Ilustrativo'
-              }
-            </button>
+        {selectedPreset && VIDEO_PRESETS[selectedPreset as keyof typeof VIDEO_PRESETS] && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {(() => {
+              const preset = VIDEO_PRESETS[selectedPreset as keyof typeof VIDEO_PRESETS];
+              return (
+                <>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-white rounded-full border border-violet-200 text-xs text-violet-700">
+                    <span>🎙️</span> {preset.config.voz}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-white rounded-full border border-violet-200 text-xs text-violet-700">
+                    <span>⚡</span> {preset.config.velocidade}x
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-white rounded-full border border-violet-200 text-xs text-violet-700">
+                    <span>🔊</span> {preset.config.volumeMusica}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-white rounded-full border border-violet-200 text-xs text-violet-700">
+                    <span>🎨</span> {preset.hookStyle}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-white rounded-full border border-violet-200 text-xs text-violet-700">
+                    <span>💭</span> {preset.tone}
+                  </span>
+                </>
+              );
+            })()}
           </div>
         )}
+      </div>
+
+      {/* Linha 1: Especialidade + Duração + Modo */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <select
+          value={selectedEspecialidade}
+          onChange={(e) => { setSelectedEspecialidade(e.target.value); setVideoArea(''); setVideoSubTema(''); }}
+          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+        >
+          <option value="">Selecione uma especialidade...</option>
+          {ESPECIALIDADES.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+        </select>
+        <select
+          value={videoDuration}
+          onChange={(e) => setVideoDuration(Number(e.target.value) as 30 | 45 | 60)}
+          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+        >
+          <option value={30}>⏱️ 30 segundos</option>
+          <option value={45}>⏱️ 45 segundos</option>
+          <option value={60}>⏱️ 60 segundos</option>
+        </select>
+        <select
+          value={videoMode}
+          onChange={(e) => setVideoMode(e.target.value as 'avatar' | 'ilustrativo' | 'veo' | 'runway' | 'economico' | 'teste')}
+          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+        >
+          <option value="teste">🧪 MODO TESTE (Grátis - Testar flow sem custo)</option>
+          <option value="economico">💰 Econômico (Imagens + TTS) ~R$0,20</option>
+          <option value="veo">🎬 Cinematográfico (Google Veo 3.1) ~R$64 ⚠️ CARO</option>
+          <option value="runway">🎬 Cinematográfico (Runway Gen-3) 💰</option>
+          <option value="ilustrativo">🖼️ Ilustrativo (Imagens básico)</option>
+          <option value="avatar">🎭 Avatar (HeyGen)</option>
+        </select>
+        
+        {/* 🧪 Alerta Modo Teste */}
+        {videoMode === 'teste' && (
+          <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-xs text-green-700 flex items-center gap-1">
+              <span>✅</span>
+              <strong>Modo Teste ativo:</strong> Custo GRATUITO. Use para testar narração, música e presets sem gastar R$64 do VEO.
+            </p>
+          </div>
+        )}
+        
+        {/* ⚠️ Alerta VEO Caro */}
+        {videoMode === 'veo' && (
+          <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-xs text-red-700 flex items-center gap-1">
+              <span>💸</span>
+              <strong>Custo alto:</strong> ~R$64 por vídeo. Use modo Teste primeiro para validar!
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* 🎨 DESTINO - Fundo Rosa */}
+      <div className="p-4 bg-pink-50/50 rounded-xl border border-pink-100">
+        <p className="text-xs text-pink-700 mb-3 font-semibold uppercase tracking-wider flex items-center gap-1">
+          <span>📍</span> Destino
+        </p>
+        <div className="flex gap-2">
+          {([
+            { key: 'instagram', emoji: '📱', label: 'Instagram Orgânico', desc: 'Viral · 20-35s' },
+            { key: 'meta_ads', emoji: '💰', label: 'Meta Ads', desc: 'Conversão · CTA WhatsApp' },
+          ]).map(({ key, emoji, label, desc }) => (
+            <button
+              key={key}
+              onClick={() => setVideoPlatform(key)}
+              className={`flex-1 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${
+                videoPlatform === key
+                  ? 'border-pink-400 bg-pink-100 text-pink-800 shadow-sm'
+                  : 'border-pink-200 bg-white text-gray-600 hover:bg-pink-50'
+              }`}
+            >
+              <span className="text-base">{emoji}</span>
+              <span className="text-[11px] font-semibold">{label}</span>
+              <span className="text-[9px] text-gray-400">{desc}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 🎨 TEMA DO CONTEÚDO - Fundo Azul */}
+      <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100">
+        <p className="text-xs text-blue-700 mb-3 font-semibold uppercase tracking-wider flex items-center gap-1">
+          <span>📚</span> Tema do Conteúdo
+        </p>
+        <div className="space-y-2">
+          <select
+            value={videoArea}
+            onChange={(e) => { setVideoArea(e.target.value); setVideoSubTema(''); }}
+            className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+          >
+            <option value="">Área (automático)</option>
+            {Object.entries(TEMAS_VIDEO)
+              .filter(([key]) =>
+                !selectedEspecialidade ||
+                !ESPECIALIDADE_AREAS[selectedEspecialidade] ||
+                ESPECIALIDADE_AREAS[selectedEspecialidade].includes(key)
+              )
+              .map(([key, area]) => (
+                <option key={key} value={key}>{area.label}</option>
+              ))}
+          </select>
+          {videoArea && (
+            <select
+              value={videoSubTema}
+              onChange={(e) => setVideoSubTema(e.target.value)}
+              className="w-full px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-blue-50 text-blue-900"
+            >
+              <option value="">Subtema (qualquer)</option>
+              {TEMAS_VIDEO[videoArea].subtemas.map(s => (
+                <option key={s.id} value={s.id}>{s.emoji} {s.label}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      </div>
+
+      {/* 🎨 Linha 3: Estilo do Gancho + Objetivo */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* 🎨 ESTILO DO GANCHO - Fundo Laranja */}
+        <div className="p-4 bg-orange-50/50 rounded-xl border border-orange-100">
+        <p className="text-xs text-orange-700 mb-3 font-semibold uppercase tracking-wider flex items-center gap-1">
+          <span>🎣</span> Estilo do Gancho
+        </p>
+        <div className="grid grid-cols-5 gap-1.5">
+          {[
+            { key: 'alerta', emoji: '🚨', label: 'Alerta' },
+            { key: 'dor', emoji: '💔', label: 'Dor' },
+            { key: 'curiosidade', emoji: '🤔', label: 'Curiosidade' },
+            { key: 'erro_comum', emoji: '❌', label: 'Erro' },
+            { key: 'autoridade', emoji: '🎓', label: 'Autoridade' },
+          ].map(({ key, emoji, label }) => (
+            <button
+              key={key}
+              onClick={() => setVideoHookStyle(key)}
+              className={`py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${
+                videoHookStyle === key
+                  ? 'border-orange-400 bg-orange-100 text-orange-800 shadow-sm'
+                  : 'border-orange-200 bg-white text-gray-600 hover:bg-orange-50'
+              }`}
+              >
+                <span className="text-base">{emoji}</span>
+                <span className="text-[9px] font-semibold">{label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        {/* 🎨 OBJETIVO DO VÍDEO - Fundo Verde */}
+        <div className="p-4 bg-green-50/50 rounded-xl border border-green-100">
+          <p className="text-xs text-green-700 mb-3 font-semibold uppercase tracking-wider flex items-center gap-1">
+            <span>🎯</span> Objetivo do Vídeo
+          </p>
+          <div className="grid grid-cols-4 gap-1.5">
+            {[
+              { key: 'salvar', emoji: '🔖', label: 'Salvar' },
+              { key: 'compartilhar', emoji: '📤', label: 'Compartilhar' },
+              { key: 'comentar', emoji: '💬', label: 'Comentar' },
+              { key: 'agendar', emoji: '📅', label: 'Agendar' },
+            ].map(({ key, emoji, label }) => (
+              <button
+                key={key}
+                onClick={() => setVideoObjetivo(key)}
+                className={`py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${
+                  videoObjetivo === key
+                    ? 'border-green-400 bg-green-100 text-green-800 shadow-sm'
+                    : 'border-green-200 bg-white text-gray-600 hover:bg-green-50'
+                }`}
+              >
+                <span className="text-base">{emoji}</span>
+                <span className="text-[9px] font-semibold">{label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 🎨 TOM DO ROTEIRO - Fundo Violeta */}
+      <div className="p-4 bg-violet-50/50 rounded-xl border border-violet-100">
+        <p className="text-xs text-violet-700 mb-3 font-semibold uppercase tracking-wider flex items-center gap-1">
+          <span>🎭</span> Tom do Roteiro
+        </p>
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { key: 'emotional', emoji: '💔', label: 'Emocional', desc: 'Dor/urgência' },
+            { key: 'educativo', emoji: '📚', label: 'Educativo', desc: 'Dicas/fatos' },
+            { key: 'inspiracional', emoji: '✨', label: 'Inspiração', desc: 'Transformação' },
+            { key: 'bastidores', emoji: '🏥', label: 'Bastidores', desc: 'Da clínica' },
+          ].map(({ key, emoji, label, desc }) => (
+            <button
+              key={key}
+              onClick={() => setSelectedTone(key as any)}
+              className={`py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${
+                selectedTone === key
+                  ? 'border-violet-400 bg-violet-100 text-violet-800 shadow-sm'
+                  : 'border-violet-200 bg-white text-gray-600 hover:bg-violet-50'
+              }`}
+            >
+              <span className="text-base">{emoji}</span>
+              <span className="text-[11px] font-semibold">{label}</span>
+              <span className="text-[9px] text-gray-400">{desc}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Avisos e campos extras */}
+      {(videoMode === 'runway' || videoMode === 'veo') && (
+        <div className={`p-3 rounded-lg text-xs border ${
+          videoMode === 'runway' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-blue-50 border-blue-200 text-blue-700'
+        }`}>
+          <strong>
+            {videoMode === 'runway' ? '🎬 Runway Gen-3 Turbo' : '🎬 Google Veo 3.1'}
+          </strong> — {videoMode === 'runway'
+            ? 'Vídeo cinematográfico 10s/clip, 9:16 para Reels. Custo menor que Veo.'
+            : 'Gera vídeo cinematográfico real (8s, 9:16 para Reels).'}
+          Deixe o campo abaixo vazio para usar o prompt da especialidade, ou descreva uma cena específica.
+          <span className="ml-2 text-blue-500">Tempo estimado: {videoMode === 'runway' ? '2-4 min' : '3-5 min'}</span>
+        </div>
+      )}
+
+      <textarea
+        value={videoRoteiro}
+        onChange={(e) => setVideoRoteiro(e.target.value)}
+        placeholder={
+          videoMode === 'veo'
+            ? 'Cena personalizada (opcional) — ex: "terapeuta e criança sorrindo juntos durante atividade"'
+            : 'Tema personalizado (opcional) — ou deixe em branco para gerar automaticamente pelo subTema...'
+        }
+        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+        rows={2}
+      />
+
+      {videoMode === 'veo' && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+          <span>⚠️</span>
+          <span><strong>Custo estimado: ~R$56–70 por vídeo</strong> (Veo 2 cobra R$2/s de vídeo gerado). Use só para publicar — não para testar.</span>
+        </div>
+      )}
+
+      <button
+        onClick={handleGenerateVideo}
+        disabled={generatingVideo || loadingPreview || !selectedEspecialidade}
+        className={`w-full py-2.5 text-white rounded-lg disabled:opacity-50 transition-all text-sm font-medium ${
+          videoPlatform === 'meta_ads'
+            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
+            : videoMode === 'runway'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700'
+              : videoMode === 'veo'
+                ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'
+                : videoMode === 'economico'
+                  ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
+                  : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800'
+        }`}
+      >
+        {loadingPreview
+          ? 'Gerando roteiro...'
+          : generatingVideo
+            ? 'Gerando vídeo...'
+            : videoPlatform === 'meta_ads'
+              ? 'Gerar Vídeo para Tráfego Pago'
+              : videoMode === 'runway'
+                ? 'Gerar Reel (Runway Gen-3)'
+                : videoMode === 'veo'
+                  ? 'Gerar Reel Viral (Veo 3.1)'
+                  : videoMode === 'economico'
+                    ? 'Gerar Reel Econômico'
+                    : videoMode === 'avatar'
+                      ? 'Gerar Reel com Avatar'
+                      : 'Gerar Reel Ilustrativo'
+        }
+      </button>
+    </div>
+  </div>
+)}
 
         {/* Filtros */}
         {activeTab !== 'videos' && activeTab !== 'spy' && activeTab !== 'landingpages' && (

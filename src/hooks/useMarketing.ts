@@ -55,8 +55,16 @@ export interface CTAConfig {
 
 export interface EditOptions {
   legendas: boolean;
+  subtitleFontSize: number;
+  subtitleFontColor: string;
   musica: 'calma' | 'esperancosa' | 'emocional' | null;
+  musicVolume: number;
   cta: CTAConfig | null;
+  logo: { usarPadrao?: boolean; url?: string } | null;
+  logoPosition: string;
+  watermarkText: string | null;
+  trimStart: number;
+  trimEnd: number;
 }
 
 export interface Video {
@@ -174,7 +182,7 @@ export interface UseMarketingReturn {
     loadMore: () => Promise<void>;
   };
   videos: VideoData & {
-    generate: (data: { especialidadeId: string; roteiro: string; duration: number; modo?: 'avatar' | 'ilustrativo' | 'veo' | 'runway' | 'economico'; tone?: 'emotional' | 'educativo' | 'inspiracional' | 'bastidores'; platform?: 'instagram' | 'meta_ads'; subTema?: string; hookStyle?: string; objetivo?: string; intensidade?: string; roteiroEditado?: any }) => Promise<void>;
+    generate: (data: { especialidadeId: string; roteiro: string; duration: number; modo?: 'avatar' | 'ilustrativo' | 'veo' | 'runway' | 'economico'; tone?: 'emotional' | 'educativo' | 'inspiracional' | 'bastidores'; platform?: 'instagram' | 'meta_ads'; subTema?: string; hookStyle?: string; objetivo?: string; intensidade?: string; preset?: string; roteiroEditado?: any }) => Promise<void>;
     previewRoteiro: (data: { especialidadeId: string; tema?: string; duration?: number; modo?: string; tone?: string; platform?: string; subTema?: string; hookStyle?: string; objetivo?: string; intensidade?: string }) => Promise<any>;
     publish: (videoId: string, channels: Channel[]) => Promise<void>;
     publishMeta: (videoId: string, data: { nomeCampanha?: string; copy?: any; targeting?: any }) => Promise<any>;
