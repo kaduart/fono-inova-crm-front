@@ -22,7 +22,8 @@ import {
     CardContent,
     Grid,
     Collapse,
-    Checkbox
+    Checkbox,
+    CircularProgress
 } from '@mui/material';
 import { FinancialLoading, FinancialTableLoading } from '../components/FinancialLoading';
 import { Patient360Modal } from '../components/Patient360Modal';
@@ -114,9 +115,17 @@ const InsuranceTab = () => {
 
     // Estados para modal de faturamento em lote
     const [faturarLoteModalOpen, setFaturarLoteModalOpen] = useState(false);
+    const [faturarLoteLoading, setFaturarLoteLoading] = useState(false);
     const [faturarLoteData, setFaturarLoteData] = useState({
         dataFaturamento: new Date().toISOString().split('T')[0],
         notaFiscal: ''
+    });
+
+    // Estados para modal de recebimento em lote
+    const [receberLoteModalOpen, setReceberLoteModalOpen] = useState(false);
+    const [receberLoteLoading, setReceberLoteLoading] = useState(false);
+    const [receberLoteData, setReceberLoteData] = useState({
+        dataRecebimento: new Date().toISOString().split('T')[0]
     });
 
     const getMonthLabel = () => {
@@ -143,9 +152,14 @@ const InsuranceTab = () => {
                 .filter(g => (g.patients || []).some((p: any) => (p.payments || []).some(paymentMatchesMonth)))
                 .map(g => g._id)
         ).size;
+        const pendingPayments = allPayments.filter((p: any) => p.status === 'pending_billing');
+        const billedPayments = allPayments.filter((p: any) => p.status === 'billed');
+        const receivedPayments = allPayments.filter((p: any) => p.status === 'received');
         return {
-            grandTotal: allPayments.reduce((s: number, p: any) => s + (p.grossAmount || 0), 0),
-            pendingCount: allPayments.filter((p: any) => p.status !== 'received').length,
+            totalAFaturar: pendingPayments.reduce((s: number, p: any) => s + (p.grossAmount || 0), 0),
+            totalFaturado: billedPayments.reduce((s: number, p: any) => s + (p.grossAmount || 0), 0),
+            totalRecebido: receivedPayments.reduce((s: number, p: any) => s + (p.grossAmount || 0), 0),
+            pendingCount: pendingPayments.length + billedPayments.length,
             totalProviders: activeProviders
         };
     };
@@ -318,15 +332,19 @@ const InsuranceTab = () => {
     };
 
     const filteredPatients = (patients: any[]) => {
-        return patients.map(patient => ({
-            ...patient,
-            payments: (patient.payments || []).filter((p: any) => {
+        return patients.map(patient => {
+            const filteredPayments = (patient.payments || []).filter((p: any) => {
                 if (!paymentMatchesMonth(p)) return false;
                 if (subTab === 0) return p.status === 'pending_billing';
                 if (subTab === 1) return p.status === 'billed';
                 return ['received', 'partial', 'glosa'].includes(p.status);
-            })
-        })).filter((patient: any) => patient.payments.length > 0);
+            });
+            return {
+                ...patient,
+                payments: filteredPayments,
+                total: filteredPayments.reduce((sum: number, p: any) => sum + (p.grossAmount || 0), 0)
+            };
+        }).filter((patient: any) => patient.payments.length > 0);
     };
 
     const toggleGroup = (groupId: string) => {
@@ -369,6 +387,8 @@ const InsuranceTab = () => {
                 newSelected.add(p.paymentId);
             } else if (subTab === 1 && p.status === 'billed') {
                 newSelected.add(p.paymentId);
+            } else if (subTab === 2 && ['received', 'partial', 'glosa'].includes(p.status)) {
+                newSelected.add(p.paymentId);
             }
         });
         setSelectedPayments(newSelected);
@@ -399,13 +419,14 @@ const InsuranceTab = () => {
     };
 
     const handleFaturarLote = async () => {
+        setFaturarLoteLoading(true);
         try {
             const result = await faturarConvenioLote({
                 paymentIds: Array.from(selectedPayments),
                 dataFaturamento: faturarLoteData.dataFaturamento,
                 notaFiscal: faturarLoteData.notaFiscal || undefined
             });
-            
+
             if (result.data.success) {
                 toast.success(`${result.data.data.faturados} atendimentos faturados!`);
                 setFaturarLoteModalOpen(false);
@@ -416,27 +437,31 @@ const InsuranceTab = () => {
             }
         } catch (error: any) {
             toast.error(error.response?.data?.error || 'Erro ao faturar em lote');
+        } finally {
+            setFaturarLoteLoading(false);
         }
     };
 
-    const handleReceberLote = async () => {
+    const handleOpenReceberLoteModal = () => {
         if (selectedPayments.size === 0) {
             toast.warn('Selecione pelo menos um atendimento');
             return;
         }
+        setReceberLoteData({ dataRecebimento: new Date().toISOString().split('T')[0] });
+        setReceberLoteModalOpen(true);
+    };
 
-        const dataRecebimento = prompt('Data do recebimento (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
-        
-        if (!dataRecebimento) return;
-
+    const handleReceberLote = async () => {
+        setReceberLoteLoading(true);
         try {
             const result = await receberConvenioLote({
                 paymentIds: Array.from(selectedPayments),
-                dataRecebimento
+                dataRecebimento: receberLoteData.dataRecebimento
             });
             
             if (result.data.success) {
-                toast.success(`${result.data.data.recebidos} recebimentos registrados no caixa de ${dataRecebimento}! 💰`);
+                toast.success(`${result.data.data.recebidos} recebimento(s) registrado(s) com sucesso!`);
+                setReceberLoteModalOpen(false);
                 clearAllSelection();
                 loadReceivables(selectedMonthYear);
             } else {
@@ -444,6 +469,8 @@ const InsuranceTab = () => {
             }
         } catch (error: any) {
             toast.error(error.response?.data?.error || 'Erro ao receber em lote');
+        } finally {
+            setReceberLoteLoading(false);
         }
     };
 
@@ -509,18 +536,18 @@ const InsuranceTab = () => {
                     return (
                         <>
                             <Grid item xs={12} md={4}>
-                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#3B82F620', borderRadius: 2 }}>
+                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#F59E0B20', borderRadius: 2 }}>
                                     <CardContent>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                            <Avatar sx={{ bgcolor: '#3B82F6', width: 40, height: 40 }}>
-                                                <DollarSign className="w-5 h-5 text-white" />
+                                            <Avatar sx={{ bgcolor: '#F59E0B', width: 40, height: 40 }}>
+                                                <Clock className="w-5 h-5 text-white" />
                                             </Avatar>
                                             <Box sx={{ flex: 1 }}>
                                                 <Typography variant="body2" color="text.secondary">
-                                                    Total Faturado no Mês
+                                                    A Faturar no Mês
                                                 </Typography>
-                                                <Typography variant="h5" fontWeight="bold" color="#3B82F6">
-                                                    {ms.grandTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                <Typography variant="h5" fontWeight="bold" color="#F59E0B">
+                                                    {ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                                 </Typography>
                                             </Box>
                                         </Box>
@@ -529,18 +556,18 @@ const InsuranceTab = () => {
                             </Grid>
 
                             <Grid item xs={12} md={4}>
-                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#F59E0B20', borderRadius: 2 }}>
+                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#3B82F620', borderRadius: 2 }}>
                                     <CardContent>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                            <Avatar sx={{ bgcolor: '#F59E0B', width: 40, height: 40 }}>
-                                                <Building2 className="w-5 h-5 text-white" />
+                                            <Avatar sx={{ bgcolor: '#3B82F6', width: 40, height: 40 }}>
+                                                <Send className="w-5 h-5 text-white" />
                                             </Avatar>
                                             <Box sx={{ flex: 1 }}>
                                                 <Typography variant="body2" color="text.secondary">
-                                                    Convênios no Mês
+                                                    Faturado (Aguardando Pagto.)
                                                 </Typography>
-                                                <Typography variant="h5" fontWeight="bold" color="#F59E0B">
-                                                    {ms.totalProviders}
+                                                <Typography variant="h5" fontWeight="bold" color="#3B82F6">
+                                                    {ms.totalFaturado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                                 </Typography>
                                             </Box>
                                         </Box>
@@ -553,14 +580,14 @@ const InsuranceTab = () => {
                                     <CardContent>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                             <Avatar sx={{ bgcolor: '#10B981', width: 40, height: 40 }}>
-                                                <Clock className="w-5 h-5 text-white" />
+                                                <DollarSign className="w-5 h-5 text-white" />
                                             </Avatar>
                                             <Box sx={{ flex: 1 }}>
                                                 <Typography variant="body2" color="text.secondary">
-                                                    Pendentes no Mês
+                                                    Recebido no Mês
                                                 </Typography>
                                                 <Typography variant="h5" fontWeight="bold" color="#10B981">
-                                                    {ms.pendingCount} atendimentos
+                                                    {ms.totalRecebido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                                 </Typography>
                                             </Box>
                                         </Box>
@@ -592,7 +619,7 @@ const InsuranceTab = () => {
                     <Tab 
                         icon={<CheckCircle size={16} />} 
                         iconPosition="start" 
-                        label="Finalizados" 
+                        label={`Recebidos (${countByStatus(receivables, 'received')})`} 
                     />
                 </Tabs>
 
@@ -612,22 +639,33 @@ const InsuranceTab = () => {
                                     Limpar
                                 </Button>
                                 {subTab === 0 && (
-                                    <Button 
-                                        variant="contained" 
-                                        size="small"
-                                        startIcon={<Send size={16} />}
-                                        onClick={handleOpenFaturarLoteModal}
-                                        sx={{ bgcolor: '#F59E0B', '&:hover': { bgcolor: '#D97706' } }}
-                                    >
-                                        Faturar Selecionados
-                                    </Button>
+                                    <>
+                                        <Button
+                                            variant="contained"
+                                            size="small"
+                                            startIcon={<Send size={16} />}
+                                            onClick={handleOpenFaturarLoteModal}
+                                            sx={{ bgcolor: '#F59E0B', '&:hover': { bgcolor: '#D97706' } }}
+                                        >
+                                            Faturar Selecionados
+                                        </Button>
+                                        <Button
+                                            variant="contained"
+                                            size="small"
+                                            startIcon={<CheckCircle size={16} />}
+                                            onClick={handleOpenReceberLoteModal}
+                                            sx={{ bgcolor: '#10B981', '&:hover': { bgcolor: '#059669' } }}
+                                        >
+                                            Receber Selecionados
+                                        </Button>
+                                    </>
                                 )}
                                 {subTab === 1 && (
-                                    <Button 
-                                        variant="contained" 
+                                    <Button
+                                        variant="contained"
                                         size="small"
                                         startIcon={<CheckCircle size={16} />}
-                                        onClick={handleReceberLote}
+                                        onClick={handleOpenReceberLoteModal}
                                         sx={{ bgcolor: '#10B981', '&:hover': { bgcolor: '#059669' } }}
                                     >
                                         Receber Selecionados
@@ -731,7 +769,7 @@ const InsuranceTab = () => {
             </Paper>
 
             {/* Modal: Faturar em Lote */}
-            <Dialog open={faturarLoteModalOpen} onClose={() => setFaturarLoteModalOpen(false)} maxWidth="sm" fullWidth>
+            <Dialog open={faturarLoteModalOpen} onClose={() => !faturarLoteLoading && setFaturarLoteModalOpen(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Avatar sx={{ bgcolor: '#F59E0B', width: 32, height: 32 }}>
@@ -766,15 +804,60 @@ const InsuranceTab = () => {
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => setFaturarLoteModalOpen(false)}>
+                    <Button onClick={() => setFaturarLoteModalOpen(false)} disabled={faturarLoteLoading}>
                         Cancelar
                     </Button>
-                    <Button 
+                    <Button
                         variant="contained"
                         onClick={handleFaturarLote}
+                        disabled={faturarLoteLoading}
+                        startIcon={faturarLoteLoading ? <CircularProgress size={16} color="inherit" /> : undefined}
                         sx={{ bgcolor: '#F59E0B', '&:hover': { bgcolor: '#D97706' } }}
                     >
-                        Confirmar Faturamento
+                        {faturarLoteLoading ? 'Faturando...' : 'Confirmar Faturamento'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Modal: Receber em Lote */}
+            <Dialog open={receberLoteModalOpen} onClose={() => !receberLoteLoading && setReceberLoteModalOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Avatar sx={{ bgcolor: '#10B981', width: 32, height: 32 }}>
+                            <CheckCircle className="w-4 h-4 text-white" />
+                        </Avatar>
+                        <Typography variant="h6">Registrar Recebimento</Typography>
+                    </Box>
+                </DialogTitle>
+                <DialogContent dividers>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
+                        <Typography variant="body2" color="text.secondary">
+                            {selectedPayments.size} atendimento(s) serão marcados como recebidos.
+                            O valor entra no caixa na data informada abaixo.
+                        </Typography>
+                        <TextField
+                            fullWidth
+                            type="date"
+                            label="Data do Recebimento *"
+                            value={receberLoteData.dataRecebimento}
+                            onChange={(e) => setReceberLoteData({ dataRecebimento: e.target.value })}
+                            InputLabelProps={{ shrink: true }}
+                            required
+                        />
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button onClick={() => setReceberLoteModalOpen(false)} disabled={receberLoteLoading}>
+                        Cancelar
+                    </Button>
+                    <Button
+                        variant="contained"
+                        onClick={handleReceberLote}
+                        disabled={receberLoteLoading}
+                        startIcon={receberLoteLoading ? <CircularProgress size={16} color="inherit" /> : undefined}
+                        sx={{ bgcolor: '#10B981', '&:hover': { bgcolor: '#059669' } }}
+                    >
+                        {receberLoteLoading ? 'Registrando...' : 'Confirmar Recebimento'}
                     </Button>
                 </DialogActions>
             </Dialog>

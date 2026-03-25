@@ -146,6 +146,9 @@ const VisaoGeralEstrategicaTab = () => {
             convenioAtendidoCount: convenioDetail.atendido?.count || 0,
             convenioFaturado: convenioDetail.faturado?.total || 0,
             convenioRecebido: convenioDetail.recebido?.total || 0,
+            convenioRecebidoMesAtual: convenioDetail.recebido?.mesAtual || 0,
+            convenioRecebidoMesesAnteriores: convenioDetail.recebido?.mesesAnteriores || 0,
+            convenioRecebidoPorMes: convenioDetail.recebido?.porMesReferencia || [],
             convenioAReceber,
             receitaMes,
         };
@@ -579,6 +582,87 @@ const VisaoGeralEstrategicaTab = () => {
                                 </Grid>
                             </Grid>
                         </Box>
+
+                        {/* 🆕 Tabela de Recebimento por Mês de Referência */}
+                        {metrics.convenioRecebidoPorMes.length > 0 && (
+                            <Box mt={4} p={3} bgcolor="#F0F9FF" borderRadius={2}>
+                                <Typography variant="subtitle1" fontWeight="bold" mb={2} display="flex" alignItems="center" gap={1}>
+                                    📅 Recebimentos Detalhados por Mês de Referência
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" mb={2}>
+                                    Valores recebidos neste período, separados por mês da sessão atendida:
+                                </Typography>
+                                
+                                <TableContainer component={Paper} variant="outlined">
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow sx={{ bgcolor: 'grey.50' }}>
+                                                <TableCell><strong>Mês de Referência</strong></TableCell>
+                                                <TableCell align="right"><strong>Valor Recebido</strong></TableCell>
+                                                <TableCell align="right"><strong>Qtd. Pagamentos</strong></TableCell>
+                                                <TableCell align="center"><strong>Tipo</strong></TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {metrics.convenioRecebidoPorMes.map((item: any) => {
+                                                const [ano, mes] = item.mes.split('-');
+                                                const mesNome = monthNames[parseInt(mes) - 1];
+                                                const isMesAtual = item.mes === `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+                                                return (
+                                                    <TableRow 
+                                                        key={item.mes}
+                                                        sx={{ 
+                                                            bgcolor: isMesAtual ? '#10B98110' : 'inherit',
+                                                            '&:hover': { bgcolor: isMesAtual ? '#10B98120' : 'grey.50' }
+                                                        }}
+                                                    >
+                                                        <TableCell>
+                                                            {mesNome} {ano}
+                                                            {isMesAtual && (
+                                                                <Chip 
+                                                                    label="Mês Atual" 
+                                                                    size="small" 
+                                                                    color="success" 
+                                                                    sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
+                                                                />
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell align="right" sx={{ fontWeight: 'bold', color: isMesAtual ? '#10B981' : 'inherit' }}>
+                                                            {formatCurrency(item.total)}
+                                                        </TableCell>
+                                                        <TableCell align="right">{item.count}</TableCell>
+                                                        <TableCell align="center">
+                                                            <Chip 
+                                                                label={isMesAtual ? 'Produção do Mês' : 'Recebimento Atrasado'} 
+                                                                size="small" 
+                                                                color={isMesAtual ? 'success' : 'default'}
+                                                                variant={isMesAtual ? 'filled' : 'outlined'}
+                                                            />
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })}
+                                            <TableRow sx={{ bgcolor: 'grey.100', fontWeight: 'bold' }}>
+                                                <TableCell><strong>TOTAL RECEBIDO NO PERÍODO</strong></TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold', color: '#10B981' }}>
+                                                    {formatCurrency(metrics.convenioRecebido)}
+                                                </TableCell>
+                                                <TableCell align="right">-</TableCell>
+                                                <TableCell></TableCell>
+                                            </TableRow>
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                                
+                                {metrics.convenioRecebidoMesesAnteriores > 0 && (
+                                    <Alert severity="info" sx={{ mt: 2 }}>
+                                        <strong>Nota:</strong> {formatCurrency(metrics.convenioRecebidoMesesAnteriores)} 
+                                        ({((metrics.convenioRecebidoMesesAnteriores / metrics.convenioRecebido) * 100).toFixed(1)}%) 
+                                        do total recebido refere-se a sessões realizadas em meses anteriores.
+                                    </Alert>
+                                )}
+                            </Box>
+                        )}
 
                         {/* Alertas */}
                         {metrics.convenioAReceber > metrics.convenioRecebido && (

@@ -98,17 +98,32 @@ const GoalsTab: React.FC = () => {
     const aReceber = resumo?.aReceber?.total || 0;
     const aReceberConvenio = resumo?.aReceber?.convenio || 0;
     const aReceberParticular = resumo?.aReceber?.particular || 0;
+    
+    // 🆕 Detalhamento do recebimento por mês de referência (convênios)
+    const convenioDetail = dashboardData?.convenioDetail;
+    const recebidoConvenioMesAtual = convenioDetail?.recebido?.mesAtual || 0;
+    const recebidoConvenioMesesAnteriores = convenioDetail?.recebido?.mesesAnteriores || 0;
+    const recebidoConvenioPorMes = convenioDetail?.recebido?.porMesReferencia || [];
     const agendadoConfirmado = resumo?.agendadoConfirmado || 0;
     const agendadoPendente = resumo?.pendenteConfirmacao || 0;
     const creditoPacotes = resumo?.creditoPacotes || 0;
     const convenioAgendado = resumo?.convenioAgendado || 0;
 
+    // Particular-only dos agendados (evita dupla contagem com convenioAgendado)
+    const agendadoParticularBruto = dashboardData?.camadas?.agendadoConfirmado?.detalhe?.particular
+        ?? agendadoConfirmado;
+
+    const aReceberHistorico = resumo?.aReceberHistorico?.total || 0;
+    const aReceberHistoricoConvenio = resumo?.aReceberHistorico?.convenioAvulso || 0;
+    const aReceberHistoricoSessoes = resumo?.aReceberHistorico?.sessoes || 0;
+
     const cenarioRealista = dashboardData?.cenarios?.realista?.valor || 0;
 
     const metrics = useMemo(() => {
-        // creditoPacotes é informativo — não entra no totalAgendado nem na projeção
-        const totalAgendadoConfirmado = agendadoConfirmado + convenioAgendado;
-        const totalComissionado = producao + totalAgendadoConfirmado;
+        // Provisionamento = caixa + a receber + agendados particulares confirmados + convênios agendados (pacotes)
+        // Usa particular-only de agendadoConfirmado para não duplicar convênio que já está em convenioAgendado
+        const totalAgendadoConfirmado = agendadoParticularBruto + convenioAgendado;
+        const totalComissionado = recebido + aReceber + totalAgendadoConfirmado;
 
         const projecaoRealista = cenarioRealista > 0 ? cenarioRealista :
             producao + (agendadoConfirmado * 0.85) +
@@ -147,7 +162,7 @@ const GoalsTab: React.FC = () => {
             percentualProjecao: Math.min((projecaoRealista / metaMensal) * 100, 100),
             totalComissionado,
         };
-    }, [producao, recebido, metaMensal, agendadoConfirmado, agendadoPendente, convenioAgendado, cenarioRealista]);
+    }, [producao, recebido, aReceber, metaMensal, agendadoConfirmado, agendadoParticularBruto, agendadoPendente, convenioAgendado, cenarioRealista]);
 
     if (dashboardLoading || planningLoading) return <FinancialLoading />;
 
@@ -208,22 +223,22 @@ const GoalsTab: React.FC = () => {
                 <Grid container spacing={1}>
                     <Grid item xs={12} sm={6}>
                         <Typography variant="caption" display="block" color="text.secondary">
-                            <strong>Produção Clínica</strong> — sessões já realizadas no mês.
+                            <strong>Produção Clínica</strong> — valor de todas as sessões realizadas no mês (independente de pagamento).
                         </Typography>
                     </Grid>
                     <Grid item xs={12} sm={6}>
                         <Typography variant="caption" display="block" color="text.secondary">
-                            <strong>Provisionamento</strong> — caixa + a receber + todos os agendamentos do mês.
+                            <strong>Provisionamento</strong> — caixa recebido + a receber (convênio atendido + particular) + agendamentos confirmados até fim do mês. Representa o total previsto de entrar.
                         </Typography>
                     </Grid>
                     <Grid item xs={12} sm={6}>
                         <Typography variant="caption" display="block" color="text.secondary">
-                            <strong>Recebido (Caixa)</strong> — valores efetivamente pagos.
+                            <strong>Recebido (Caixa)</strong> — dinheiro que efetivamente entrou na conta (pagamentos confirmados).
                         </Typography>
                     </Grid>
                     <Grid item xs={12} sm={6}>
                         <Typography variant="caption" display="block" color="text.secondary">
-                            <strong>Projeção</strong> — estimativa com base em taxas de conversão.
+                            <strong>Projeção de Fechamento</strong> — estimativa aplicando taxas de conversão: 85% dos confirmados + 40% dos pendentes.
                         </Typography>
                     </Grid>
                 </Grid>
@@ -313,13 +328,26 @@ const GoalsTab: React.FC = () => {
                                     </Typography>
                                 </Box>
                             </Box>
+                            
+                            {/* 🆕 Detalhamento do recebimento */}
+                            {recebidoConvenioMesesAnteriores > 0 && (
+                                <Box sx={{ mb: 1.5, p: 1, bgcolor: '#FEF3C7', borderRadius: 1 }}>
+                                    <Typography variant="caption" color="text.secondary" display="block">
+                                        ⚠️ Inclui {formatCurrency(recebidoConvenioMesesAnteriores)} de meses anteriores
+                                    </Typography>
+                                </Box>
+                            )}
+                            
                             {metaMensal > 0 && (
                                 <>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                                        <Typography variant="caption" color="text.secondary">Progresso</Typography>
+                                        <Typography variant="caption" color="text.secondary">vs Meta</Typography>
                                         <Typography variant="caption" fontWeight="600">{metrics.percentualRecebido.toFixed(1)}%</Typography>
                                     </Box>
                                     <ProgressBar value={metrics.percentualRecebido} color="info" />
+                                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', fontStyle: 'italic' }}>
+                                        *Base: Produção do mês (não recebimento)
+                                    </Typography>
                                 </>
                             )}
                         </CardContent>
@@ -360,38 +388,157 @@ const GoalsTab: React.FC = () => {
                 </Grid>
             </Grid>
 
+            {/* Card A Receber Total (histórico — todos os meses) */}
+            {aReceberHistorico > 0 && (
+                <Card elevation={0} sx={{ border: '2px solid', borderColor: '#EF444440', borderRadius: 2, mb: 3, bgcolor: '#EF444405' }}>
+                    <CardContent>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                <Avatar sx={{ bgcolor: '#EF444415', width: 40, height: 40 }}>
+                                    <AccountBalanceWallet sx={{ color: '#EF4444' }} />
+                                </Avatar>
+                                <Box>
+                                    <Typography variant="body2" color="text.secondary">A Receber — Total Acumulado</Typography>
+                                    <Typography variant="h5" fontWeight="bold" color="#EF4444">
+                                        {formatCurrency(aReceberHistorico)}
+                                    </Typography>
+                                </Box>
+                            </Box>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                Todos os meses em aberto
+                            </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                            {aReceberHistoricoConvenio > 0 && (
+                                <Typography variant="body2" color="text.secondary">
+                                    🏥 Convênio (guias faturadas não recebidas): <strong>{formatCurrency(aReceberHistoricoConvenio)}</strong>
+                                </Typography>
+                            )}
+                            {aReceberHistoricoSessoes > 0 && (
+                                <Typography variant="body2" color="text.secondary">
+                                    📋 Sessões não pagas (pacotes + particular): <strong>{formatCurrency(aReceberHistoricoSessoes)}</strong>
+                                </Typography>
+                            )}
+                        </Box>
+                        <Typography variant="caption" color="error.main" sx={{ mt: 1, display: 'block' }}>
+                            ⚠️ Este valor não entra no Provisionamento mensal — é um indicador de inadimplência/pendência acumulada.
+                        </Typography>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* 🆕 Tabela de Recebimento por Mês de Referência */}
+            {recebidoConvenioPorMes.length > 0 && (
+                <Paper variant="outlined" sx={{ p: 2, mb: 3, borderRadius: 2, bgcolor: '#F0F9FF' }}>
+                    <Typography variant="subtitle2" fontWeight="600" gutterBottom display="flex" alignItems="center" gap={1}>
+                        📊 Recebimento de Convênios — Detalhado por Mês de Referência
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
+                        Mostra de qual mês veio cada recebimento recebido neste período
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+                        {recebidoConvenioPorMes.map((item: any) => {
+                            const [ano, mes] = item.mes.split('-');
+                            const mesNome = monthNames[parseInt(mes) - 1];
+                            const isMesAtual = item.mes === `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+                            return (
+                                <Box 
+                                    key={item.mes}
+                                    sx={{ 
+                                        p: 1.5, 
+                                        bgcolor: isMesAtual ? '#10B98120' : 'white', 
+                                        border: '1px solid',
+                                        borderColor: isMesAtual ? '#10B981' : 'grey.200',
+                                        borderRadius: 1.5,
+                                        minWidth: 140
+                                    }}
+                                >
+                                    <Typography variant="caption" color="text.secondary" display="block">
+                                        {mesNome} {ano} {isMesAtual && '✓'}
+                                    </Typography>
+                                    <Typography variant="body1" fontWeight="bold" color={isMesAtual ? 'success.main' : 'text.primary'}>
+                                        {formatCurrency(item.total)}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        {item.count} pagamento(s)
+                                    </Typography>
+                                </Box>
+                            );
+                        })}
+                    </Box>
+                    {recebidoConvenioMesesAnteriores > 0 && (
+                        <Alert severity="info" sx={{ mt: 2 }}>
+                            <strong>Dica:</strong> Você recebeu {formatCurrency(recebidoConvenioMesesAnteriores)} referente a meses anteriores. 
+                            A meta do mês deve ser comparada com a <strong>Produção Clínica</strong>, não com o Recebido.
+                        </Alert>
+                    )}
+                </Paper>
+            )}
+
             {/* Detalhamento do Provisionamento */}
             <Paper variant="outlined" sx={{ p: 2, mb: 3, borderRadius: 2 }}>
                 <Typography variant="subtitle2" fontWeight="600" gutterBottom>📦 Composição do Provisionamento</Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 1 }}>
-                    <Typography variant="body2" color="text.secondary">
-                        💰 Caixa recebido: <strong>{formatCurrency(recebido)}</strong>
-                    </Typography>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
+                    O provisionamento soma tudo que está garantido ou confirmado de entrar até o fim do mês.
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ minWidth: 200 }}>
+                            💰 <strong>Caixa recebido</strong>
+                        </Typography>
+                        <Typography variant="body2" fontWeight="600">{formatCurrency(recebido)}</Typography>
+                        <Typography variant="caption" color="text.secondary">— dinheiro já na conta</Typography>
+                    </Box>
                     {aReceber > 0 && (
-                        <Typography variant="body2" color="text.secondary">
-                            📋 A receber: <strong>{formatCurrency(aReceber)}</strong>
-                            {aReceberConvenio > 0 && aReceberParticular > 0 && (
-                                <span style={{ fontSize: '0.75rem', marginLeft: 4 }}>
-                                    (conv. {formatCurrency(aReceberConvenio)} + part. {formatCurrency(aReceberParticular)})
-                                </span>
-                            )}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 200 }}>
+                                📋 <strong>A receber</strong>
+                            </Typography>
+                            <Typography variant="body2" fontWeight="600">{formatCurrency(aReceber)}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                — sessões já realizadas aguardando pagamento
+                                {aReceberConvenio > 0 && ` (conv. ${formatCurrency(aReceberConvenio)}`}
+                                {aReceberConvenio > 0 && aReceberParticular > 0 && ` + part. ${formatCurrency(aReceberParticular)})`}
+                                {aReceberConvenio > 0 && aReceberParticular === 0 && `)`}
+                            </Typography>
+                        </Box>
                     )}
-                    {agendadoConfirmado > 0 && (
-                        <Typography variant="body2" color="text.secondary">
-                            📅 Agendados confirmados: <strong>{formatCurrency(agendadoConfirmado)}</strong>
-                        </Typography>
+                    {agendadoParticularBruto > 0 && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 200 }}>
+                                📅 <strong>Agendados particulares</strong>
+                            </Typography>
+                            <Typography variant="body2" fontWeight="600">{formatCurrency(agendadoParticularBruto)}</Typography>
+                            <Typography variant="caption" color="text.secondary">— consultas/sessões particulares confirmadas até 31/{String(selectedMonth + 1).padStart(2,'0')}</Typography>
+                        </Box>
                     )}
                     {convenioAgendado > 0 && (
-                        <Typography variant="body2" color="text.secondary">
-                            🏥 Convênio agendado: <strong>{formatCurrency(convenioAgendado)}</strong>
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 200 }}>
+                                🏥 <strong>Convênios agendados</strong>
+                            </Typography>
+                            <Typography variant="body2" fontWeight="600">{formatCurrency(convenioAgendado)}</Typography>
+                            <Typography variant="caption" color="text.secondary">— sessões de convênio (pacotes) confirmadas até 31/{String(selectedMonth + 1).padStart(2,'0')}</Typography>
+                        </Box>
                     )}
                     {agendadoPendente > 0 && (
-                        <Typography variant="body2" color="text.secondary">
-                            ⏳ Pendentes: <strong>{formatCurrency(agendadoPendente)}</strong>
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 200 }}>
+                                ⏳ <strong>Pendentes de confirmação</strong>
+                            </Typography>
+                            <Typography variant="body2" fontWeight="600">{formatCurrency(agendadoPendente)}</Typography>
+                            <Typography variant="caption" color="text.secondary">— agendamentos ainda sem confirmação (NÃO entram no provisionamento)</Typography>
+                        </Box>
                     )}
+                    <Divider sx={{ my: 0.5 }} />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body2" sx={{ minWidth: 200, fontWeight: 700 }}>
+                            = Total Provisionado
+                        </Typography>
+                        <Typography variant="body2" fontWeight="700" color="primary.main">
+                            {formatCurrency(recebido + aReceber + agendadoParticularBruto + convenioAgendado)}
+                        </Typography>
+                    </Box>
                 </Box>
             </Paper>
 
@@ -467,6 +614,11 @@ const GoalsTab: React.FC = () => {
                                             <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
                                                 {pct.toFixed(0)}% da meta semanal
                                             </Typography>
+                                            {pct < 100 && (pw.targets?.expectedRevenue || 0) > 0 && (
+                                                <Typography variant="caption" color="warning.main" sx={{ mt: 0.5, display: 'block', fontWeight: 600 }}>
+                                                    Falta {formatCurrency((pw.targets?.expectedRevenue || 0) - (pw.actual?.actualRevenue || 0))} para atingir a meta
+                                                </Typography>
+                                            )}
                                         </CardContent>
                                     </Card>
                                 </Grid>
@@ -498,13 +650,26 @@ const GoalsTab: React.FC = () => {
                                                 Meta: <strong>{formatCurrency(planningDoMes.targets?.expectedRevenue || 0)}</strong>
                                             </Typography>
                                             <Typography variant="body2">
-                                                Real: <strong>{formatCurrency(recebido)}</strong>
+                                                Real: <strong>{formatCurrency(planningDoMes.actual?.actualRevenue || 0)}</strong>
                                             </Typography>
                                         </Box>
-                                        <ProgressBar value={metrics.percentualRecebido} color={metrics.percentualRecebido >= 100 ? 'success' : 'primary'} />
-                                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                                            {metrics.percentualRecebido.toFixed(0)}% da meta mensal
-                                        </Typography>
+                                        {(() => {
+                                            const realizado = planningDoMes.actual?.actualRevenue || 0;
+                                            const pctMensal = metaMensal > 0 ? Math.min((realizado / metaMensal) * 100, 100) : 0;
+                                            return (
+                                                <>
+                                                    <ProgressBar value={pctMensal} color={pctMensal >= 100 ? 'success' : 'primary'} />
+                                                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                                                        {pctMensal.toFixed(0)}% da meta mensal
+                                                    </Typography>
+                                                    {pctMensal < 100 && metaMensal > 0 && (
+                                                        <Typography variant="caption" color="warning.main" sx={{ mt: 0.5, display: 'block', fontWeight: 600 }}>
+                                                            Falta {formatCurrency(metaMensal - realizado)} para atingir a meta
+                                                        </Typography>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
                                     </CardContent>
                                 </Card>
                             </Grid>
@@ -518,7 +683,10 @@ const GoalsTab: React.FC = () => {
             {/* Rodapé informativo */}
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'grey.50' }}>
                 <Typography variant="caption" color="text.secondary">
-                    💡 <strong>Produção</strong> = sessões realizadas | <strong>Provisionamento</strong> = realizado + avulsos + crédito pacotes + convênios | <strong>Recebido</strong> = dinheiro na conta
+                    💡 <strong>Produção</strong> = sessões realizadas (independente de pagamento) &nbsp;|&nbsp;
+                    <strong>Provisionamento</strong> = caixa + a receber + agendados confirmados até fim do mês &nbsp;|&nbsp;
+                    <strong>Recebido</strong> = dinheiro efetivamente na conta &nbsp;|&nbsp;
+                    <strong>Projeção</strong> = estimativa com taxas de conversão (85% confirmados + 40% pendentes)
                 </Typography>
             </Paper>
         </Box>

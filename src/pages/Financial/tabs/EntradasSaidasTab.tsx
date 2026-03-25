@@ -107,6 +107,9 @@ const EntradasSaidasTab = () => {
                 convenioAtendido: 0,
                 convenioFaturado: 0,
                 convenioRecebido: 0,
+                convenioRecebidoMesAtual: 0,
+                convenioRecebidoMesesAnteriores: 0,
+                convenioRecebidoPorMes: [],
                 convenioAReceber: 0,
                 pendenteFaturamento: 0,
                 percentualFaturado: 0,
@@ -164,6 +167,9 @@ const EntradasSaidasTab = () => {
             convenioAtendidoCount,
             convenioFaturado: faturadoNoMes,
             convenioRecebido,
+            convenioRecebidoMesAtual: financialData?.convenioDetail?.recebido?.mesAtual || 0,
+            convenioRecebidoMesesAnteriores: financialData?.convenioDetail?.recebido?.mesesAnteriores || 0,
+            convenioRecebidoPorMes: financialData?.convenioDetail?.recebido?.porMesReferencia || [],
             convenioAReceber,
         };
     }, [financialData]);
@@ -608,6 +614,60 @@ const EntradasSaidasTab = () => {
                             value={Math.min((metrics.convenioFaturado / metrics.convenioAtendido) * 100, 100)}
                             sx={{ height: 10, borderRadius: 5 }}
                         />
+                    </Box>
+                )}
+
+                {/* 🆕 Tabela de Recebimento por Mês de Referência */}
+                {metrics.convenioRecebidoPorMes && metrics.convenioRecebidoPorMes.length > 0 && (
+                    <Box mt={3} p={2} bgcolor="#F0F9FF" borderRadius={2}>
+                        <Typography variant="subtitle2" fontWeight="bold" mb={2} display="flex" alignItems="center" gap={1}>
+                            📅 Detalhamento do Recebido — Por Mês de Referência
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" display="block" mb={2}>
+                            Mostra de qual mês veio cada recebimento de convênio creditado em {periodoLabel}
+                        </Typography>
+                        
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+                            {metrics.convenioRecebidoPorMes.map((item: any) => {
+                                const [ano, mes] = item.mes.split('-');
+                                const mesNome = monthNames[parseInt(mes) - 1];
+                                const isMesAtual = item.mes === `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+                                return (
+                                    <Box 
+                                        key={item.mes}
+                                        sx={{ 
+                                            p: 1.5, 
+                                            bgcolor: isMesAtual ? '#10B98120' : 'white', 
+                                            border: '1px solid',
+                                            borderColor: isMesAtual ? '#10B981' : 'grey.200',
+                                            borderRadius: 1.5,
+                                            minWidth: 130,
+                                            flex: '1 1 calc(25% - 12px)',
+                                            maxWidth: 200
+                                        }}
+                                    >
+                                        <Typography variant="caption" color="text.secondary" display="block">
+                                            {mesNome} {ano} {isMesAtual && '✓'}
+                                        </Typography>
+                                        <Typography variant="body1" fontWeight="bold" color={isMesAtual ? 'success.main' : 'text.primary'}>
+                                            {formatCurrency(item.total)}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                            {item.count} pgt(s)
+                                        </Typography>
+                                    </Box>
+                                );
+                            })}
+                        </Box>
+                        
+                        {metrics.convenioRecebidoMesesAnteriores > 0 && (
+                            <Alert severity="info" sx={{ mt: 2 }}>
+                                <strong>Importante:</strong> {formatCurrency(metrics.convenioRecebidoMesesAnteriores)} 
+                                ({((metrics.convenioRecebidoMesesAnteriores / metrics.convenioRecebido) * 100).toFixed(1)}%) 
+                                do total recebido refere-se a sessões realizadas em meses anteriores.
+                                O valor do mês atual é {formatCurrency(metrics.convenioRecebidoMesAtual)}.
+                            </Alert>
+                        )}
                     </Box>
                 )}
             </Paper>

@@ -56,14 +56,14 @@ const formatDateBR = (dateString: string): string => {
 };
 
 const SPECIALTY_LABELS: Record<string, string> = {
-    fonoaudiologia: 'Fono',
-    psicologia: 'Psico',
-    terapia_ocupacional: 'TO',
-    fisioterapia: 'Fisio',
-    psicomotricidade: 'Psicomot',
-    musicoterapia: 'Music',
-    psicopedagogia: 'Psicoped',
-    neuropsicologia: 'Neuro',
+    fonoaudiologia: 'Fonoaudiologia',
+    psicologia: 'Psicologia',
+    terapia_ocupacional: 'Terapia Ocupacional',
+    fisioterapia: 'Fisioterapia',
+    psicomotricidade: 'Psicomotricidade',
+    musicoterapia: 'Musicoterapia',
+    psicopedagogia: 'Psicopedagogia',
+    neuropsicologia: 'Neuropsicologia',
     'N/A': 'Outros'
 };
 

@@ -28,6 +28,16 @@ interface Resumo {
     convenio: number;
   };
   caixa: number;
+  aReceber: {
+    total: number;
+    convenio: number;
+    particular: number;
+  };
+  aReceberHistorico: {
+    total: number;
+    convenioAvulso: number;
+    sessoes: number;
+  };
   creditoPacotes: number;
   convenioAgendado: number;
   agendadoConfirmado: number;

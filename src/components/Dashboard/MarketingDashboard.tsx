@@ -1796,6 +1796,7 @@ export default function MarketingDashboard() {
                   onPublishMeta={videos.publishMeta}
                   onDelete={(id) => videos.delete(id)}
                   onEditar={(v) => setVideoEditModal({ open: true, video: v })}
+                  onRefresh={refresh}
                 />
               ))
             )}

@@ -167,6 +167,25 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     // O loading automático estava causando re-renders infinitos
     const [currentViewDate, setCurrentViewDate] = useState<string>('');
 
+    // Scroll automático para o dia de hoje — dispara no mount e quando appointments carregam
+    const hasScrolledToday = useRef(false);
+    useEffect(() => {
+        if (hasScrolledToday.current) return;
+        let attempts = 0;
+        const tryScroll = () => {
+            const todayCell = document.querySelector('.fc-day-today');
+            if (todayCell) {
+                todayCell.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                hasScrolledToday.current = true;
+            } else if (attempts < 15) {
+                attempts++;
+                setTimeout(tryScroll, 300);
+            }
+        };
+        const timer = setTimeout(tryScroll, 300);
+        return () => clearTimeout(timer);
+    }, [appointments]);
+
     // ✅ CORREÇÃO: Fecha ambos os modais quando closeModalSignal muda
     useEffect(() => {
         if (closeModalSignal && closeModalSignal > 0) {

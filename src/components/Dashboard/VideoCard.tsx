@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import type { Video, Channel } from '../../hooks/useMarketing';
 import { ChannelToggle } from './ChannelToggle';
 import API from '../../services/api';
+import { io } from 'socket.io-client';
 
 interface VideoCardProps {
   video: Video;
@@ -10,6 +11,7 @@ interface VideoCardProps {
   onPublishMeta?: (videoId: string, data: any) => Promise<any>;
   onDelete: (videoId: string) => void;
   onEditar?: (video: Video) => void;
+  onRefresh?: () => void;
   publishing?: boolean;
 }
 
@@ -50,7 +52,7 @@ const statusConfig = {
   }
 };
 
-export function VideoCard({ video, onPublish, onPublishMeta, onDelete, onEditar, publishing }: VideoCardProps) {
+export function VideoCard({ video, onPublish, onPublishMeta, onDelete, onEditar, onRefresh, publishing }: VideoCardProps) {
   const [showPlayer, setShowPlayer] = useState(false);
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>([]);
   const [showPublishModal, setShowPublishModal] = useState(false);
@@ -59,6 +61,42 @@ export function VideoCard({ video, onPublish, onPublishMeta, onDelete, onEditar,
   const [downloading, setDownloading] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [nomeCampanha, setNomeCampanha] = useState(`[VIDEO] ${video.especialidadeId || 'Campanha'}_${Date.now()}`);
+  const [localStatus, setLocalStatus] = useState(video.status);
+
+  // 🔄 Socket.IO: atualizar status em tempo real + fallback polling
+  useEffect(() => {
+    setLocalStatus(video.status);
+    
+    // Conectar ao socket
+    const socket = io(window.location.origin);
+    
+    // Ouvir progresso do vídeo
+    socket.on(`video-progress-${video.jobId}`, (data) => {
+      if (data.etapa === 'ERRO' || data.etapa === 'CONCLUIDO') {
+        setLocalStatus(data.etapa === 'ERRO' ? 'failed' : 'ready');
+        onRefresh?.();
+      }
+    });
+
+    // Fallback: se processando há mais de 10s, verificar status real
+    let pollingInterval: NodeJS.Timeout;
+    if (video.status === 'processing') {
+      pollingInterval = setInterval(() => {
+        API.get(`/videos/status/${video.jobId}`).then((res) => {
+          if (res.data?.status && res.data.status !== 'processing') {
+            setLocalStatus(res.data.status);
+            onRefresh?.();
+            clearInterval(pollingInterval);
+          }
+        }).catch(() => {});
+      }, 5000); // Verificar a cada 5 segundos
+    }
+
+    return () => {
+      socket.disconnect();
+      if (pollingInterval) clearInterval(pollingInterval);
+    };
+  }, [video.jobId, video.status, onRefresh]);
 
   const handleDownload = async (url: string, filename: string) => {
     setDownloading(true);
@@ -79,10 +117,10 @@ export function VideoCard({ video, onPublish, onPublishMeta, onDelete, onEditar,
     }
   };
   
-  const status = statusConfig[video.status];
-  const isReady = video.status === 'ready';
-  const isProcessing = video.status === 'processing';
-  const isFailed = video.status === 'failed';
+  const status = statusConfig[localStatus];
+  const isReady = localStatus === 'ready';
+  const isProcessing = localStatus === 'processing';
+  const isFailed = localStatus === 'failed';
   const posProducaoStatus = (video as any).posProducaoStatus;
   const videoEditadoUrl = (video as any).videoEditadoUrl;
   
@@ -93,7 +131,7 @@ export function VideoCard({ video, onPublish, onPublishMeta, onDelete, onEditar,
   const createdAt = new Date(video.createdAt);
   const now = new Date();
   const processingTimeMinutes = isProcessing ? Math.floor((now.getTime() - createdAt.getTime()) / 60000) : 0;
-  const isStale = isProcessing && processingTimeMinutes > 30;
+  const isStale = isProcessing && processingTimeMinutes > 5; // Reduzido para 5 min
 
   const handlePublishClick = () => {
     if (selectedChannels.length === 0) return;
@@ -109,7 +147,7 @@ export function VideoCard({ video, onPublish, onPublishMeta, onDelete, onEditar,
           <img src={video.thumbnailUrl} alt={video.title} className="w-full h-full object-cover" />
         ) : showPlayer && videoUrlParaPlayer ? (
           <video src={videoUrlParaPlayer} controls autoPlay className="w-full h-full" />
-        ) : video.status === 'failed' ? (
+        ) : localStatus === 'failed' ? (
           <div className="w-full h-full flex items-center justify-center bg-red-900/20">
             <div className="text-center p-4">
               <svg className="w-12 h-12 mx-auto text-red-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -249,7 +287,7 @@ export function VideoCard({ video, onPublish, onPublishMeta, onDelete, onEditar,
                 try {
                   const res = await API.post(`/videos/${video._id}/retry`);
                   toast.success(res.data.message || 'Geração retomada!');
-                  setTimeout(() => window.location.reload(), 1500);
+                  setTimeout(() => onRefresh?.(), 1500);
                 } catch (err: any) {
                   toast.error(err.response?.data?.error || 'Erro ao retentar');
                 } finally {
@@ -280,7 +318,7 @@ export function VideoCard({ video, onPublish, onPublishMeta, onDelete, onEditar,
                 if (!confirm('Marcar este vídeo como falho? Ele está travado há mais de 30 minutos.')) return;
                 try {
                   await API.post(`/videos/${video._id}/force-fail`);
-                  window.location.reload();
+                  onRefresh?.();
                 } catch (err: any) {
                   alert(err.response?.data?.error || 'Erro ao atualizar status');
                 }
