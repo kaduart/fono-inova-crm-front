@@ -16,6 +16,7 @@ import {
     History as HistoryIcon
 } from '@mui/icons-material';
 import { useFinancialAnalytics } from '../../../hooks/useFinancialAnalytics';
+import { FinancialLoadingCompact } from './FinancialLoading';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Grid } from '@mui/material';

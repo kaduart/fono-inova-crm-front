@@ -78,12 +78,13 @@ const STATUS_CONFIG: Record<string, { color: string; bgColor: string; label: str
 const InsuranceTab = () => {
     const [subTab, setSubTab] = useState(0);
     const [receivables, setReceivables] = useState<InsuranceReceivableGroup[]>([]);
+    const [allReceivables, setAllReceivables] = useState<InsuranceReceivableGroup[]>([]); // Todos os status para os cards
     const [loading, setLoading] = useState(false);
     const [summary, setSummary] = useState({ totalProviders: 0, grandTotal: 0, pendingCount: 0 });
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
     const [expandedPatients, setExpandedPatients] = useState<Record<string, boolean>>({});
     const [patientSpecialtyTabs, setPatientSpecialtyTabs] = useState<Record<string, string>>({});
-    
+
     // Estados para seleção em lote
     const [selectedPayments, setSelectedPayments] = useState<Set<string>>(new Set());
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
@@ -135,14 +136,13 @@ const InsuranceTab = () => {
         return date.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
     };
 
-    const paymentMatchesMonth = (payment: any) => {
-        if (!selectedMonthYear) return true;
-        const date = payment.paymentDate || '';
-        return date.substring(0, 7) === selectedMonthYear;
-    };
+    // Backend já filtra pelo campo correto de cada status (paymentDate/billedAt/receivedAt)
+    // Frontend não deve refiltrar por paymentDate
+    const paymentMatchesMonth = (_payment: any) => true;
 
     const getMonthSummary = () => {
-        const allPayments = receivables.flatMap(g =>
+        // Usar allReceivables (todos os status) para os cards de resumo
+        const allPayments = allReceivables.flatMap(g =>
             (g.patients || []).flatMap((p: any) =>
                 (p.payments || []).filter(paymentMatchesMonth)
             )
@@ -207,14 +207,23 @@ const InsuranceTab = () => {
 
     useEffect(() => {
         loadReceivables(selectedMonthYear);
-    }, [selectedMonthYear]);
+    }, [selectedMonthYear, subTab]);
 
     const loadReceivables = async (month?: string) => {
         setLoading(true);
         try {
-            const response = await getInsuranceReceivables({ month });
+            // 1. Buscar TODOS os dados (sem filtro de status) para contagens e cards
+            const allResponse = await getInsuranceReceivables({ month });
+            const allData = allResponse.data.data || [];
+            setAllReceivables(allData);
+
+            // 2. Buscar dados filtrados pela aba ativa para a lista
+            const statusFilter = subTab === 0 ? 'pending_billing'
+                : subTab === 1 ? 'billed'
+                    : 'received';
+            const response = await getInsuranceReceivables({ month, status: statusFilter });
             const data = response.data.data || [];
-            
+
             const filteredData = data.map((group: any) => ({
                 ...group,
                 patients: (group.patients || []).map((p: any) => ({
@@ -222,19 +231,19 @@ const InsuranceTab = () => {
                     payments: (p.payments || []).filter((pay: any) => pay.grossAmount > 0 || pay.status === 'billed')
                 })).filter((p: any) => p.payments.length > 0)
             })).filter((group: any) => group.patients.length > 0);
-            
+
             setReceivables(filteredData);
-            
-            const totalPending = filteredData.reduce((acc: number, g: any) => 
-                acc + (g.patients || []).reduce((pAcc: number, p: any) => 
+
+            const totalPending = filteredData.reduce((acc: number, g: any) =>
+                acc + (g.patients || []).reduce((pAcc: number, p: any) =>
                     pAcc + (p.payments || []).filter((pay: any) => pay.status !== 'received').length, 0
                 ), 0
             );
-            
-            setSummary({ 
+
+            setSummary({
                 totalProviders: filteredData.length,
                 grandTotal: filteredData.reduce((acc: number, g: any) => acc + (g.totalPending || 0), 0),
-                pendingCount: totalPending 
+                pendingCount: totalPending
             });
 
             const expanded: Record<string, boolean> = {};
@@ -317,10 +326,10 @@ const InsuranceTab = () => {
     const getStatusChip = (status: string) => {
         const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending_billing;
         return (
-            <Chip 
-                size="small" 
+            <Chip
+                size="small"
                 label={config.label}
-                sx={{ 
+                sx={{
                     bgcolor: config.bgColor,
                     color: config.color,
                     borderColor: config.color,
@@ -356,13 +365,14 @@ const InsuranceTab = () => {
 
     const getGroupTotal = (group: any) => {
         const patients = filteredPatients(group.patients || []);
-        return patients.reduce((sum: number, patient: any) => 
+        return patients.reduce((sum: number, patient: any) =>
             sum + (patient.payments || []).reduce((pSum: number, p: any) => pSum + (p.grossAmount || 0), 0), 0
         );
     };
 
-    const countByStatus = (receivables: InsuranceReceivableGroup[], status: string) => {
-        return receivables.reduce((sum, group) =>
+    const countByStatus = (data: InsuranceReceivableGroup[], status: string) => {
+        // Usar allReceivables para as contagens das abas
+        return allReceivables.reduce((sum, group) =>
             sum + (group.patients || []).reduce((pSum, patient) =>
                 pSum + (patient.payments || []).filter((p: any) => p.status === status && paymentMatchesMonth(p)).length, 0
             ), 0
@@ -458,7 +468,7 @@ const InsuranceTab = () => {
                 paymentIds: Array.from(selectedPayments),
                 dataRecebimento: receberLoteData.dataRecebimento
             });
-            
+
             if (result.data.success) {
                 toast.success(`${result.data.data.recebidos} recebimento(s) registrado(s) com sucesso!`);
                 setReceberLoteModalOpen(false);
@@ -477,7 +487,7 @@ const InsuranceTab = () => {
     return (
         <Box>
             {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 mb-6">
+            <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 mb-6">
                 <div className="flex items-center gap-3 flex-wrap">
                     <Avatar sx={{ bgcolor: '#3B82F6', width: 48, height: 48 }}>
                         <Building2 className="w-6 h-6 text-white" />
@@ -496,13 +506,20 @@ const InsuranceTab = () => {
                     variant="contained"
                     startIcon={<Plus size={18} />}
                     onClick={() => setIsNewModalOpen(true)}
-                    fullWidth
                     sx={{
                         borderRadius: 2,
                         background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
                         px: { xs: 2, md: 3 },
-                        py: 1,
-                        '&:hover': { background: 'linear-gradient(135deg, #2563eb, #1e40af)' }
+                        py: { xs: 1, md: 1 },
+                        fontSize: { xs: '0.875rem', md: '0.9375rem' },
+                        whiteSpace: 'nowrap',
+                        width: { xs: '100%', md: 'auto' },
+                        '&:hover': {
+                            background: 'linear-gradient(135deg, #2563eb, #1e40af)',
+                            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
+                        },
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                        transition: 'all 0.2s ease'
                     }}
                 >
                     Novo Atendimento
@@ -601,25 +618,25 @@ const InsuranceTab = () => {
 
             {/* Sub-tabs */}
             <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
-                <Tabs 
-                    value={subTab} 
-                    onChange={(_, v) => setSubTab(v)} 
+                <Tabs
+                    value={subTab}
+                    onChange={(_, v) => setSubTab(v)}
                     sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 1 }}
                 >
-                    <Tab 
-                        icon={<Clock size={16} />} 
-                        iconPosition="start" 
-                        label={`A Faturar (${countByStatus(receivables, 'pending_billing')})`} 
+                    <Tab
+                        icon={<Clock size={16} />}
+                        iconPosition="start"
+                        label={`A Faturar (${countByStatus(receivables, 'pending_billing')})`}
                     />
-                    <Tab 
-                        icon={<Send size={16} />} 
-                        iconPosition="start" 
-                        label={`Faturados (${countByStatus(receivables, 'billed')})`} 
+                    <Tab
+                        icon={<Send size={16} />}
+                        iconPosition="start"
+                        label={`Faturados (${countByStatus(receivables, 'billed')})`}
                     />
-                    <Tab 
-                        icon={<CheckCircle size={16} />} 
-                        iconPosition="start" 
-                        label={`Recebidos (${countByStatus(receivables, 'received')})`} 
+                    <Tab
+                        icon={<CheckCircle size={16} />}
+                        iconPosition="start"
+                        label={`Recebidos (${countByStatus(receivables, 'received')})`}
                     />
                 </Tabs>
 
@@ -631,8 +648,8 @@ const InsuranceTab = () => {
                                 {selectedPayments.size} atendimento(s) selecionado(s)
                             </Typography>
                             <Box sx={{ display: 'flex', gap: 2 }}>
-                                <Button 
-                                    variant="outlined" 
+                                <Button
+                                    variant="outlined"
                                     size="small"
                                     onClick={clearAllSelection}
                                 >
@@ -697,9 +714,9 @@ const InsuranceTab = () => {
                                 return (
                                     <Card key={group._id} variant="outlined" sx={{ width: "100%", borderRadius: 2, overflow: 'hidden' }}>
                                         {/* Header do Convênio */}
-                                        <Box 
-                                            sx={{ 
-                                                p: 2, 
+                                        <Box
+                                            sx={{
+                                                p: 2,
                                                 bgcolor: '#F9FAFB',
                                                 borderBottom: isExpanded ? '1px solid' : 'none',
                                                 borderColor: 'grey.200',
@@ -723,7 +740,7 @@ const InsuranceTab = () => {
                                                 </Box>
                                             </Box>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                <Chip 
+                                                <Chip
                                                     size="small"
                                                     label={`R$ ${groupTotal.toLocaleString('pt-BR')}`}
                                                     sx={{ bgcolor: '#3B82F6', color: 'white', fontWeight: 'bold' }}
@@ -783,7 +800,7 @@ const InsuranceTab = () => {
                         <Typography variant="body2" color="text.secondary">
                             {selectedPayments.size} atendimento(s) serão faturados
                         </Typography>
-                        
+
                         <TextField
                             fullWidth
                             type="date"
@@ -793,7 +810,7 @@ const InsuranceTab = () => {
                             InputLabelProps={{ shrink: true }}
                             required
                         />
-                        
+
                         <TextField
                             fullWidth
                             label="Nota Fiscal (opcional)"
