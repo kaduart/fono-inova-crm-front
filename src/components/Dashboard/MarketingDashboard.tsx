@@ -348,6 +348,14 @@ export default function MarketingDashboard() {
   // 🎬 Preset Premium - configurações otimizadas
   const [selectedPreset, setSelectedPreset] = useState<string>('');
   
+  // ⚡ Modo Zeus (Alta Conversão) - Estados
+  const [modoZeus, setModoZeus] = useState(false);
+  const [zeusObjetivo, setZeusObjetivo] = useState<'atrrair' | 'qualificar' | 'converter' | 'reativar'>('atrrair');
+  const [zeusDuvida, setZeusDuvida] = useState('');
+  const [zeusProva, setZeusProva] = useState<'resultados' | 'casos' | 'dados'>('resultados');
+  const [zeusLoop, setZeusLoop] = useState(false);
+  const [zeusPromptExtra, setZeusPromptExtra] = useState('');  // Instruções adicionais para o Zeus
+  
   // Configurações de cada preset
   const VIDEO_PRESETS = {
     // 🎯 PRESETS PARA META ADS (Tráfego Pago)
@@ -418,9 +426,54 @@ export default function MarketingDashboard() {
     }
   };
 
-  // Auto-preenche gancho, tom e bordão ao selecionar subtema
+  // 🧠 Mapeamentos Modo Zeus para presets e estágios
+  const mapZeusObjetivoToPreset = (objetivo: string): string => {
+    switch (objetivo) {
+      case 'atrrair': return 'explosao_viral';
+      case 'qualificar': return 'autoridade_inspiradora';
+      case 'converter': return 'meta_urgencia';
+      case 'reativar': return 'empatia_emocional';
+      default: return 'explosao_viral';
+    }
+  };
+  
+  const mapZeusObjetivoToEstagio = (objetivo: string): string => {
+    switch (objetivo) {
+      case 'atrrair': return 'descoberta';
+      case 'qualificar': return 'consideracao';
+      case 'converter': return 'decisao';
+      case 'reativar': return 'retargeting';
+      default: return 'descoberta';
+    }
+  };
+  
+  const mapZeusProvaToTipo = (prova: string): string => {
+    switch (prova) {
+      case 'resultados': return 'resultado_recente';
+      case 'casos': return 'caso_anonimizado';
+      case 'dados': return 'volume_autoridade';
+      default: return 'resultado_recente';
+    }
+  };
+  
+  // Auto-preenche preset Zeus quando muda objetivo
   useEffect(() => {
-    if (!videoArea || !videoSubTema) return;
+    if (modoZeus) {
+      const preset = mapZeusObjetivoToPreset(zeusObjetivo);
+      setSelectedPreset(preset);
+      // Aplica configurações do preset automaticamente
+      const presetConfig = VIDEO_PRESETS[preset as keyof typeof VIDEO_PRESETS];
+      if (presetConfig) {
+        setVideoHookStyle(presetConfig.hookStyle);
+        setSelectedTone(presetConfig.tone);
+        setVideoObjetivo(presetConfig.objetivo);
+      }
+    }
+  }, [modoZeus, zeusObjetivo]);
+  
+  // Auto-preenche gancho, tom e bordão ao selecionar subtema (modo normal)
+  useEffect(() => {
+    if (!videoArea || !videoSubTema || modoZeus) return;
     const sub = TEMAS_VIDEO[videoArea]?.subtemas.find(s => s.id === videoSubTema);
     if (sub) {
       setVideoHookStyle(sub.gancho);
@@ -428,7 +481,7 @@ export default function MarketingDashboard() {
       // Bordão automático para temas educativos
       setVideoBordao(sub.tom === 'educativo' ? 'Você sabia' : '');
     }
-  }, [videoSubTema]);
+  }, [videoSubTema, modoZeus]);
 
   // Spy states
   const [spyKeyword, setSpyKeyword] = useState('');
@@ -722,7 +775,8 @@ export default function MarketingDashboard() {
     }
     setLoadingPreview(true);
     try {
-      const roteiro = await videos.previewRoteiro({
+      // Monta parâmetros base
+      const baseParams: any = {
         especialidadeId: selectedEspecialidade,
         tema: videoRoteiro || undefined,
         duration: videoDuration,
@@ -731,9 +785,23 @@ export default function MarketingDashboard() {
         subTema: videoSubTema || undefined,
         hookStyle: videoHookStyle,
         objetivo: videoObjetivo,
-        intensidade: 'viral',
-        bordao: videoBordao || undefined
-      });
+        intensidade: selectedPreset ? VIDEO_PRESETS[selectedPreset as keyof typeof VIDEO_PRESETS]?.intensidade || 'viral' : 'viral',
+        bordao: videoBordao || undefined,
+        preset: selectedPreset || undefined
+      };
+      
+      // Adiciona parâmetros Zeus se modo ativado
+      if (modoZeus) {
+        baseParams.modoZeus = true;
+        baseParams.zeusConfig = {
+          estagio_jornada: mapZeusObjetivoToEstagio(zeusObjetivo),
+          objecao_principal: zeusDuvida || undefined,
+          prova_social: mapZeusProvaToTipo(zeusProva),
+          tipo_conteudo: zeusLoop ? 'loop_continuo' : 'aquisicao_organica'
+        };
+      }
+      
+      const roteiro = await videos.previewRoteiro(baseParams);
       setRoteiroPreview(roteiro);
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Erro ao gerar roteiro');
@@ -750,7 +818,7 @@ export default function MarketingDashboard() {
     setRoteiroPreview(null);
     setGeneratingVideo(true);
     try {
-      await videos.generate({
+      const generateParams: any = {
         especialidadeId: selectedEspecialidade,
         roteiro: videoRoteiro,
         duration: videoDuration,
@@ -761,9 +829,23 @@ export default function MarketingDashboard() {
         hookStyle: videoHookStyle,
         objetivo: videoObjetivo,
         intensidade: selectedPreset ? VIDEO_PRESETS[selectedPreset as keyof typeof VIDEO_PRESETS]?.intensidade || 'viral' : 'viral',
-        preset: selectedPreset || undefined,  // 🎬 Envia o preset para o backend
+        preset: selectedPreset || undefined,
         roteiroEditado
-      });
+      };
+      
+      // Adiciona configuração Zeus se ativado
+      if (modoZeus) {
+        generateParams.modoZeus = true;
+        generateParams.zeusConfig = {
+          estagio_jornada: mapZeusObjetivoToEstagio(zeusObjetivo),
+          objecao_principal: zeusDuvida || undefined,
+          prova_social: mapZeusProvaToTipo(zeusProva),
+          tipo_conteudo: zeusLoop ? 'loop_continuo' : 'aquisicao_organica',
+          promptExtra: zeusPromptExtra || undefined
+        };
+      }
+      
+      await videos.generate(generateParams);
       const modoLabel = videoMode === 'runway' ? 'Runway Gen-3 (2-4 min)' : videoMode === 'veo' ? 'Veo 2.0 (3-5 min)' : videoMode === 'economico' ? 'Economico (1-2 min)' : videoMode === 'avatar' ? 'com avatar' : 'ilustrativo';
       const toneEmoji = selectedTone === 'educativo' ? '📚' : selectedTone === 'emotional' ? '💔' : selectedTone === 'inspiracional' ? '✨' : '🏥';
       toast.info(`${toneEmoji} Video ${modoLabel} em processamento!`);
@@ -1526,6 +1608,128 @@ export default function MarketingDashboard() {
           </div>
         )}
       </div>
+      
+      {/* ⚡ MODO ZEUS (Alta Conversão) */}
+      <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">⚡</span>
+            <div>
+              <label className="text-sm font-semibold text-emerald-800 flex items-center gap-2">
+                Modo Zeus (Alta Conversão)
+                <span className="text-[10px] font-medium text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">NOVO</span>
+              </label>
+              <p className="text-xs text-emerald-600">Roteiros otimizados para converter leads em pacientes</p>
+            </div>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={modoZeus}
+              onChange={(e) => setModoZeus(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+          </label>
+        </div>
+        
+        {/* Campos Zeus - aparecem apenas quando ativado */}
+        {modoZeus && (
+          <div className="mt-4 space-y-4 animate-fadeIn">
+            {/* Objetivo do vídeo */}
+            <div>
+              <label className="block text-xs font-medium text-emerald-700 mb-2">
+                Queremos que o vídeo:
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: 'atrrair', label: 'Atrair pacientes', emoji: '🎯', desc: 'Topo' },
+                  { key: 'qualificar', label: 'Qualificar interesse', emoji: '🔍', desc: 'Meio' },
+                  { key: 'converter', label: 'Converter agora', emoji: '💚', desc: 'Fundo' },
+                  { key: 'reativar', label: 'Reativar leads', emoji: '🔥', desc: 'Retarget' },
+                ].map((opt) => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setZeusObjetivo(opt.key as any)}
+                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center gap-2 transition-all ${
+                      zeusObjetivo === opt.key
+                        ? 'border-emerald-500 bg-emerald-100 text-emerald-800'
+                        : 'border-emerald-200 bg-white text-gray-600 hover:border-emerald-300'
+                    }`}
+                  >
+                    <span>{opt.emoji}</span>
+                    <div className="text-left">
+                      <div className="font-semibold">{opt.label}</div>
+                      <div className="text-[10px] opacity-70">{opt.desc}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Dúvida principal */}
+            <div>
+              <label className="block text-xs font-medium text-emerald-700 mb-1">
+                Principal dúvida que os pais têm:
+              </label>
+              <input
+                type="text"
+                value={zeusDuvida}
+                onChange={(e) => setZeusDuvida(e.target.value)}
+                placeholder="Ex: acho que é só fase, meu filho vai falar sozinho..."
+                className="w-full px-3 py-2 border border-emerald-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+              />
+            </div>
+            
+            {/* Tipo de prova */}
+            <div>
+              <label className="block text-xs font-medium text-emerald-700 mb-2">
+                Prova que vamos usar:
+              </label>
+              <div className="flex gap-2">
+                {[
+                  { key: 'resultados', label: 'Resultados da clínica', emoji: '📊' },
+                  { key: 'casos', label: 'Casos reais', emoji: '👨‍👩‍👧' },
+                  { key: 'dados', label: 'Dados científicos', emoji: '📚' },
+                ].map((opt) => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setZeusProva(opt.key as any)}
+                    className={`flex-1 px-3 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-1 transition-all ${
+                      zeusProva === opt.key
+                        ? 'border-emerald-500 bg-emerald-100 text-emerald-800'
+                        : 'border-emerald-200 bg-white text-gray-600 hover:border-emerald-300'
+                    }`}
+                  >
+                    <span className="text-base">{opt.emoji}</span>
+                    <span className="text-center leading-tight">{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Loop Veo - só aparece se modo veo selecionado */}
+            {videoMode === 'veo' && (
+              <div className="flex items-center gap-3 p-3 bg-violet-50 rounded-lg border border-violet-200">
+                <input
+                  type="checkbox"
+                  id="zeusLoop"
+                  checked={zeusLoop}
+                  onChange={(e) => setZeusLoop(e.target.checked)}
+                  className="w-4 h-4 text-violet-600 rounded border-gray-300 focus:ring-violet-500"
+                />
+                <div>
+                  <label htmlFor="zeusLoop" className="text-sm font-medium text-violet-800 flex items-center gap-1">
+                    Formato LOOP contínuo
+                    <span className="text-[10px] bg-violet-200 text-violet-700 px-1.5 py-0.5 rounded">Veo 2.0</span>
+                  </label>
+                  <p className="text-xs text-violet-600">Vídeo que reinicia automaticamente, parecendo infinito</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* 🎨 DESTINO - Fundo Rosa */}
       <div className="p-4 bg-pink-50/50 rounded-xl border border-pink-100">
@@ -1591,94 +1795,151 @@ export default function MarketingDashboard() {
         </div>
       </div>
 
-      {/* 🎨 Linha 3: Estilo do Gancho + Objetivo */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* 🎨 ESTILO DO GANCHO - Fundo Laranja */}
-        <div className="p-4 bg-orange-50/50 rounded-xl border border-orange-100">
-        <p className="text-xs text-orange-700 mb-3 font-semibold uppercase tracking-wider flex items-center gap-1">
-          <span>🎣</span> Estilo do Gancho
-        </p>
-        <div className="grid grid-cols-5 gap-1.5">
-          {[
-            { key: 'alerta', emoji: '🚨', label: 'Alerta' },
-            { key: 'dor', emoji: '💔', label: 'Dor' },
-            { key: 'curiosidade', emoji: '🤔', label: 'Curiosidade' },
-            { key: 'erro_comum', emoji: '❌', label: 'Erro' },
-            { key: 'autoridade', emoji: '🎓', label: 'Autoridade' },
-          ].map(({ key, emoji, label }) => (
-            <button
-              key={key}
-              onClick={() => setVideoHookStyle(key)}
-              className={`py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${
-                videoHookStyle === key
-                  ? 'border-orange-400 bg-orange-100 text-orange-800 shadow-sm'
-                  : 'border-orange-200 bg-white text-gray-600 hover:bg-orange-50'
-              }`}
-              >
-                <span className="text-base">{emoji}</span>
-                <span className="text-[9px] font-semibold">{label}</span>
-              </button>
-            ))}
+      {/* 🎨 Linha 3: Estilo do Gancho + Objetivo (escondido quando Zeus ativo) */}
+      {!modoZeus && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* 🎨 ESTILO DO GANCHO - Fundo Laranja */}
+            <div className="p-4 bg-orange-50/50 rounded-xl border border-orange-100">
+            <p className="text-xs text-orange-700 mb-3 font-semibold uppercase tracking-wider flex items-center gap-1">
+              <span>🎣</span> Estilo do Gancho
+            </p>
+            <div className="grid grid-cols-5 gap-1.5">
+              {[
+                { key: 'alerta', emoji: '🚨', label: 'Alerta' },
+                { key: 'dor', emoji: '💔', label: 'Dor' },
+                { key: 'curiosidade', emoji: '🤔', label: 'Curiosidade' },
+                { key: 'erro_comum', emoji: '❌', label: 'Erro' },
+                { key: 'autoridade', emoji: '🎓', label: 'Autoridade' },
+              ].map(({ key, emoji, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setVideoHookStyle(key)}
+                  className={`py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${
+                    videoHookStyle === key
+                      ? 'border-orange-400 bg-orange-100 text-orange-800 shadow-sm'
+                      : 'border-orange-200 bg-white text-gray-600 hover:bg-orange-50'
+                  }`}
+                  >
+                    <span className="text-base">{emoji}</span>
+                    <span className="text-[9px] font-semibold">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* 🎨 OBJETIVO DO VÍDEO - Fundo Verde */}
+            <div className="p-4 bg-green-50/50 rounded-xl border border-green-100">
+              <p className="text-xs text-green-700 mb-3 font-semibold uppercase tracking-wider flex items-center gap-1">
+                <span>🎯</span> Objetivo do Vídeo
+              </p>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[
+                  { key: 'salvar', emoji: '🔖', label: 'Salvar' },
+                  { key: 'compartilhar', emoji: '📤', label: 'Compartilhar' },
+                  { key: 'comentar', emoji: '💬', label: 'Comentar' },
+                  { key: 'agendar', emoji: '📅', label: 'Agendar' },
+                ].map(({ key, emoji, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setVideoObjetivo(key)}
+                    className={`py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${
+                      videoObjetivo === key
+                        ? 'border-green-400 bg-green-100 text-green-800 shadow-sm'
+                        : 'border-green-200 bg-white text-gray-600 hover:bg-green-50'
+                    }`}
+                  >
+                    <span className="text-base">{emoji}</span>
+                    <span className="text-[9px] font-semibold">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-        
-        {/* 🎨 OBJETIVO DO VÍDEO - Fundo Verde */}
-        <div className="p-4 bg-green-50/50 rounded-xl border border-green-100">
-          <p className="text-xs text-green-700 mb-3 font-semibold uppercase tracking-wider flex items-center gap-1">
-            <span>🎯</span> Objetivo do Vídeo
-          </p>
-          <div className="grid grid-cols-4 gap-1.5">
-            {[
-              { key: 'salvar', emoji: '🔖', label: 'Salvar' },
-              { key: 'compartilhar', emoji: '📤', label: 'Compartilhar' },
-              { key: 'comentar', emoji: '💬', label: 'Comentar' },
-              { key: 'agendar', emoji: '📅', label: 'Agendar' },
-            ].map(({ key, emoji, label }) => (
-              <button
-                key={key}
-                onClick={() => setVideoObjetivo(key)}
-                className={`py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${
-                  videoObjetivo === key
-                    ? 'border-green-400 bg-green-100 text-green-800 shadow-sm'
-                    : 'border-green-200 bg-white text-gray-600 hover:bg-green-50'
-                }`}
-              >
-                <span className="text-base">{emoji}</span>
-                <span className="text-[9px] font-semibold">{label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
 
-      {/* 🎨 TOM DO ROTEIRO - Fundo Violeta */}
-      <div className="p-4 bg-violet-50/50 rounded-xl border border-violet-100">
-        <p className="text-xs text-violet-700 mb-3 font-semibold uppercase tracking-wider flex items-center gap-1">
-          <span>🎭</span> Tom do Roteiro
-        </p>
-        <div className="grid grid-cols-4 gap-2">
-          {[
-            { key: 'emotional', emoji: '💔', label: 'Emocional', desc: 'Dor/urgência' },
-            { key: 'educativo', emoji: '📚', label: 'Educativo', desc: 'Dicas/fatos' },
-            { key: 'inspiracional', emoji: '✨', label: 'Inspiração', desc: 'Transformação' },
-            { key: 'bastidores', emoji: '🏥', label: 'Bastidores', desc: 'Da clínica' },
-          ].map(({ key, emoji, label, desc }) => (
-            <button
-              key={key}
-              onClick={() => setSelectedTone(key as any)}
-              className={`py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${
-                selectedTone === key
-                  ? 'border-violet-400 bg-violet-100 text-violet-800 shadow-sm'
-                  : 'border-violet-200 bg-white text-gray-600 hover:bg-violet-50'
-              }`}
-            >
-              <span className="text-base">{emoji}</span>
-              <span className="text-[11px] font-semibold">{label}</span>
-              <span className="text-[9px] text-gray-400">{desc}</span>
-            </button>
-          ))}
+          {/* 🎨 TOM DO ROTEIRO - Fundo Violeta */}
+          <div className="p-4 bg-violet-50/50 rounded-xl border border-violet-100">
+            <p className="text-xs text-violet-700 mb-3 font-semibold uppercase tracking-wider flex items-center gap-1">
+              <span>🎭</span> Tom do Roteiro
+            </p>
+            <div className="grid grid-cols-4 gap-2">
+              {[
+                { key: 'emotional', emoji: '💔', label: 'Emocional', desc: 'Dor/urgência' },
+                { key: 'educativo', emoji: '📚', label: 'Educativo', desc: 'Dicas/fatos' },
+                { key: 'inspiracional', emoji: '✨', label: 'Inspiração', desc: 'Transformação' },
+                { key: 'bastidores', emoji: '🏥', label: 'Bastidores', desc: 'Da clínica' },
+              ].map(({ key, emoji, label, desc }) => (
+                <button
+                  key={key}
+                  onClick={() => setSelectedTone(key as any)}
+                  className={`py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${
+                    selectedTone === key
+                      ? 'border-violet-400 bg-violet-100 text-violet-800 shadow-sm'
+                      : 'border-violet-200 bg-white text-gray-600 hover:bg-violet-50'
+                  }`}
+                >
+                  <span className="text-base">{emoji}</span>
+                  <span className="text-[11px] font-semibold">{label}</span>
+                  <span className="text-[9px] text-gray-400">{desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+      
+      {/* ⚡ Resumo Modo Zeus (mostrado quando ativo) */}
+      {modoZeus && (
+        <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+          <p className="text-xs text-emerald-700 mb-3 font-semibold uppercase tracking-wider flex items-center gap-1">
+            <span>⚡</span> Configuração Zeus Ativa
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">
+                {zeusObjetivo === 'atrrair' ? '🎯' : zeusObjetivo === 'qualificar' ? '🔍' : zeusObjetivo === 'converter' ? '💚' : '🔥'}
+              </span>
+              <div>
+                <div className="font-semibold text-emerald-800">
+                  {zeusObjetivo === 'atrrair' ? 'Atrair' : zeusObjetivo === 'qualificar' ? 'Qualificar' : zeusObjetivo === 'converter' ? 'Converter' : 'Reativar'}
+                </div>
+                <div className="text-[10px] text-emerald-600">Funil: {mapZeusObjetivoToEstagio(zeusObjetivo)}</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-lg">
+                {zeusProva === 'resultados' ? '📊' : zeusProva === 'casos' ? '👨‍👩‍👧' : '📚'}
+              </span>
+              <div>
+                <div className="font-semibold text-emerald-800">
+                  {zeusProva === 'resultados' ? 'Resultados' : zeusProva === 'casos' ? 'Casos' : 'Dados'}
+                </div>
+                <div className="text-[10px] text-emerald-600">Prova social</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🎨</span>
+              <div>
+                <div className="font-semibold text-emerald-800 capitalize">{videoHookStyle}</div>
+                <div className="text-[10px] text-emerald-600">Gancho (auto)</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🎭</span>
+              <div>
+                <div className="font-semibold text-emerald-800 capitalize">{selectedTone}</div>
+                <div className="text-[10px] text-emerald-600">Tom (auto)</div>
+              </div>
+            </div>
+          </div>
+          {zeusDuvida && (
+            <div className="mt-3 pt-3 border-t border-emerald-200">
+              <div className="text-[10px] text-emerald-600 uppercase font-semibold mb-1">Objeção a quebrar</div>
+              <div className="text-sm text-emerald-800 italic">"{zeusDuvida}"</div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Avisos e campos extras */}
       {(videoMode === 'runway' || videoMode === 'veo') && (

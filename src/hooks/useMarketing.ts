@@ -182,8 +182,8 @@ export interface UseMarketingReturn {
     loadMore: () => Promise<void>;
   };
   videos: VideoData & {
-    generate: (data: { especialidadeId: string; roteiro: string; duration: number; modo?: 'avatar' | 'ilustrativo' | 'veo' | 'runway' | 'economico'; tone?: 'emotional' | 'educativo' | 'inspiracional' | 'bastidores'; platform?: 'instagram' | 'meta_ads'; subTema?: string; hookStyle?: string; objetivo?: string; intensidade?: string; preset?: string; roteiroEditado?: any }) => Promise<void>;
-    previewRoteiro: (data: { especialidadeId: string; tema?: string; duration?: number; modo?: string; tone?: string; platform?: string; subTema?: string; hookStyle?: string; objetivo?: string; intensidade?: string }) => Promise<any>;
+    generate: (data: { especialidadeId: string; roteiro: string; duration: number; modo?: 'avatar' | 'ilustrativo' | 'veo' | 'runway' | 'economico' | 'teste'; tone?: 'emotional' | 'educativo' | 'inspiracional' | 'bastidores'; platform?: 'instagram' | 'meta_ads'; subTema?: string; hookStyle?: string; objetivo?: string; intensidade?: string; preset?: string; roteiroEditado?: any; modoZeus?: boolean; zeusConfig?: any }) => Promise<void>;
+    previewRoteiro: (data: { especialidadeId: string; tema?: string; duration?: number; modo?: string; tone?: string; platform?: string; subTema?: string; hookStyle?: string; objetivo?: string; intensidade?: string; modoZeus?: boolean; zeusConfig?: any }) => Promise<any>;
     publish: (videoId: string, channels: Channel[]) => Promise<void>;
     publishMeta: (videoId: string, data: { nomeCampanha?: string; copy?: any; targeting?: any }) => Promise<any>;
     delete: (videoId: string) => Promise<void>;
@@ -498,13 +498,13 @@ export function useMarketing(): UseMarketingReturn {
   };
 
   // Video Actions
-  const videoGenerate = async (data: { especialidadeId: string; roteiro: string; duration: number; modo?: string; tone?: string; platform?: string; subTema?: string; hookStyle?: string; objetivo?: string; intensidade?: string; roteiroEditado?: any }) => {
+  const videoGenerate = async (data: { especialidadeId: string; roteiro: string; duration: number; modo?: string; tone?: string; platform?: string; subTema?: string; hookStyle?: string; objetivo?: string; intensidade?: string; roteiroEditado?: any; modoZeus?: boolean; zeusConfig?: any }) => {
     await API.post('/videos', data);
     await fetchVideosData();
   };
 
-  const videoPreviewRoteiro = async (data: { especialidadeId: string; tema?: string; duration?: number; modo?: string; tone?: string; platform?: string; subTema?: string; hookStyle?: string; objetivo?: string; intensidade?: string }) => {
-    const res = await API.post('/videos/preview-roteiro', {
+  const videoPreviewRoteiro = async (data: { especialidadeId: string; tema?: string; duration?: number; modo?: string; tone?: string; platform?: string; subTema?: string; hookStyle?: string; objetivo?: string; intensidade?: string; modoZeus?: boolean; zeusConfig?: any }) => {
+    const body: any = {
       tema: data.tema || '',
       especialidadeId: data.especialidadeId,
       funil: 'TOPO',
@@ -515,7 +515,14 @@ export function useMarketing(): UseMarketingReturn {
       hookStyle: data.hookStyle || 'dor',
       objetivo: data.objetivo || 'salvar',
       intensidade: data.intensidade || 'viral'
-    });
+    };
+    
+    if (data.modoZeus) {
+      body.modoZeus = true;
+      body.zeusConfig = data.zeusConfig;
+    }
+    
+    const res = await API.post('/videos/preview-roteiro', body);
     return res.data.roteiro;
   };
 
