@@ -15,12 +15,13 @@ import { useEffect, useState } from 'react';
 import ScheduleModal from '../components/calendar/ScheduleModal';
 import { BASE_URL } from '../constants/constants';
 import { professionalService } from '../services/professionalService';
+import { SlotAvailability } from '../services/appointmentService';
 
 export default function AvailabilityPage() {
     const [doctors, setDoctors] = useState([]);
     const [selectedDoctor, setSelectedDoctor] = useState('');
     const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs | null>(null);
-    const [availableSlots, setAvailableSlots] = useState([]);
+    const [availableSlots, setAvailableSlots] = useState<(string | SlotAvailability)[]>([]);
     const [loading, setLoading] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedSlot, setSelectedSlot] = useState('');
@@ -91,15 +92,29 @@ export default function AvailabilityPage() {
                 <CircularProgress />
             ) : (
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                    {availableSlots.map((slot) => (
-                        <Button
-                            key={slot}
-                            variant="outlined"
-                            onClick={() => openModal(slot)}
-                        >
-                            {slot}
-                        </Button>
-                    ))}
+                    {availableSlots.map((slot) => {
+                        // 🆕 Suporta formato antigo (string) e novo (SlotAvailability)
+                        const time = typeof slot === 'string' ? slot : slot.time;
+                        const isAvailable = typeof slot === 'string' ? true : slot.available;
+                        const label = typeof slot === 'string' ? undefined : slot.label;
+                        
+                        return (
+                            <Button
+                                key={time}
+                                variant="outlined"
+                                onClick={() => isAvailable && openModal(time)}
+                                disabled={!isAvailable}
+                                sx={!isAvailable ? {
+                                    bgcolor: 'grey.100',
+                                    color: 'grey.500',
+                                    textDecoration: 'line-through',
+                                    '&:hover': { bgcolor: 'grey.100' }
+                                } : {}}
+                            >
+                                {time}{label ? ` - ${label}` : ''}
+                            </Button>
+                        );
+                    })}
                 </Box>
             )}
 

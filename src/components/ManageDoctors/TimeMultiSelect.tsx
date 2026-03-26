@@ -1,10 +1,11 @@
-import { Check } from 'lucide-react';
+import { Check, Calendar, X } from 'lucide-react';
 import { useState } from 'react';
 import { IPatient } from '../../utils/types/types';
+import { SlotAvailability } from '../../services/appointmentService';
 
 interface TimeMultiSelectProps {
   selected?: string[];
-  availableTimes?: string[];
+  availableTimes?: (string | SlotAvailability)[];
   selectedDate?: Date | null;
   patients: IPatient[];
   selectedDoctorId?: string;
@@ -40,10 +41,50 @@ export function TimeMultiSelect({
   };
 
 
+  // 🆕 Helper para extrair time do slot (suporta formato antigo e novo)
+  const getSlotTime = (slot: string | SlotAvailability): string => {
+    return typeof slot === 'string' ? slot : slot.time;
+  };
+
+  const isSlotAvailable = (slot: string | SlotAvailability): boolean => {
+    return typeof slot === 'string' ? true : slot.available;
+  };
+
+  const getSlotLabel = (slot: string | SlotAvailability): string | undefined => {
+    return typeof slot === 'string' ? undefined : slot.label;
+  };
+
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-      {availableTimes?.map((time) => {
+      {availableTimes?.map((slot) => {
+        const time = getSlotTime(slot);
+        const isAvailable = isSlotAvailable(slot);
+        const label = getSlotLabel(slot);
         const isSelected = selected.includes(time);
+
+        // Slot indisponível (feriado, ocupado, etc)
+        if (!isAvailable) {
+          return (
+            <div
+              key={time}
+              className="relative overflow-hidden rounded-lg p-3 border border-gray-100 bg-gray-50 text-gray-400 flex flex-col items-center justify-center cursor-not-allowed"
+              title={label}
+            >
+              <span className="font-medium line-through">{time}</span>
+              {label && (
+                <span className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                  <Calendar size={10} />
+                  {label}
+                </span>
+              )}
+              <div className="absolute top-1 right-1">
+                <X size={12} className="text-gray-300" />
+              </div>
+            </div>
+          );
+        }
+
+        // Slot disponível
         return (
           <button
             key={time}

@@ -2,7 +2,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin, { DateClickArg } from '@fullcalendar/interaction';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
-import { Box, Button, Paper, Tooltip, Typography, useTheme } from '@mui/material';
+import { Box, Button, GlobalStyles, Paper, Tooltip, Typography, useTheme } from '@mui/material';
 import { ptBR } from "date-fns/locale";
 import { AlertCircle, Calendar, CheckCircle, Clock, DollarSign, Plus, User, XCircle } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -11,6 +11,37 @@ import { OPERATIONAL_STATUS_CONFIG, StatusConfig } from '../../services/appointm
 import { IAppointment, IDoctor, IPatient, ScheduleAppointment, SelectedEvent } from '../../utils/types/types';
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
 import AppointmentDetailModal from './appointmentDetailModal';
+
+// 🆕 Lista de feriados nacionais (2025-2027)
+const FERIADOS_NACIONAIS = [
+  '2025-01-01', '2025-03-04', '2025-03-05', '2025-04-18', '2025-04-21',
+  '2025-05-01', '2025-06-19', '2025-09-07', '2025-10-12', '2025-11-02',
+  '2025-11-15', '2025-12-25',
+  '2026-01-01', '2026-02-16', '2026-02-17', '2026-04-03', '2026-04-21',
+  '2026-05-01', '2026-06-04', '2026-09-07', '2026-10-12', '2026-11-02',
+  '2026-11-15', '2026-12-25',
+  '2027-01-01', '2027-02-08', '2027-02-09', '2027-03-26', '2027-04-21',
+  '2027-05-01', '2027-05-27', '2027-09-07', '2027-10-12', '2027-11-02',
+  '2027-11-15', '2027-12-25',
+];
+
+const FERIADOS_NOMES: Record<string, string> = {
+  '2025-01-01': 'Confraternização Universal', '2025-03-04': 'Carnaval', '2025-03-05': 'Quarta-feira de Cinzas',
+  '2025-04-18': 'Sexta-feira Santa', '2025-04-21': 'Tiradentes', '2025-05-01': 'Dia do Trabalho',
+  '2025-06-19': 'Corpus Christi', '2025-09-07': 'Independência', '2025-10-12': 'Nossa Senhora Aparecida',
+  '2025-11-02': 'Finados', '2025-11-15': 'Proclamação da República', '2025-12-25': 'Natal',
+  '2026-01-01': 'Confraternização Universal', '2026-02-16': 'Carnaval', '2026-02-17': 'Quarta-feira de Cinzas',
+  '2026-04-03': 'Sexta-feira Santa', '2026-04-21': 'Tiradentes', '2026-05-01': 'Dia do Trabalho',
+  '2026-06-04': 'Corpus Christi', '2026-09-07': 'Independência', '2026-10-12': 'Nossa Senhora Aparecida',
+  '2026-11-02': 'Finados', '2026-11-15': 'Proclamação da República', '2026-12-25': 'Natal',
+  '2027-01-01': 'Confraternização Universal', '2027-02-08': 'Carnaval', '2027-02-09': 'Quarta-feira de Cinzas',
+  '2027-03-26': 'Sexta-feira Santa', '2027-04-21': 'Tiradentes', '2027-05-01': 'Dia do Trabalho',
+  '2027-05-27': 'Corpus Christi', '2027-09-07': 'Independência', '2027-10-12': 'Nossa Senhora Aparecida',
+  '2027-11-02': 'Finados', '2027-11-15': 'Proclamação da República', '2027-12-25': 'Natal',
+};
+
+const isHoliday = (dateStr: string): boolean => FERIADOS_NACIONAIS.includes(dateStr);
+const getHolidayName = (dateStr: string): string => FERIADOS_NOMES[dateStr] || 'Feriado';
 
 interface EnhancedCalendarProps {
     appointments: IAppointment[];
@@ -719,6 +750,28 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     };
 
     return (
+        <>
+            {/* 🆕 Estilos globais para o dia de feriado no FullCalendar */}
+            <GlobalStyles
+                styles={{
+                    '.fc-day-holiday': {
+                        backgroundColor: '#fef3c7 !important', // amber-100
+                        '& .fc-daygrid-day-frame': {
+                            backgroundColor: '#fef3c7 !important',
+                        },
+                        '& .fc-daygrid-day-top': {
+                            backgroundColor: '#fef3c7 !important',
+                        },
+                        '& .fc-scrollgrid-sync-inner': {
+                            backgroundColor: '#fef3c7 !important',
+                        },
+                    },
+                    '.fc-day-holiday .fc-daygrid-day-number': {
+                        color: '#92400e !important', // amber-800
+                        fontWeight: 'bold !important',
+                    },
+                }}
+            />
         <Box sx={{ p: 3, backgroundColor: 'grey.50', minHeight: '100vh' }}>
             <Paper
                 elevation={2}
@@ -782,7 +835,16 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     ref={calendarRef}
                     {...calendarOptions}
                     events={events}
-                    dateClick={onDateClick}
+                    dateClick={(arg) => {
+                        // 🆕 Validação de feriado
+                        const dateStr = arg.date.toISOString().split('T')[0];
+                        if (isHoliday(dateStr)) {
+                            const holidayName = getHolidayName(dateStr);
+                            alert(`🗓️ ${holidayName}\n\nNão é possível agendar em feriado.`);
+                            return;
+                        }
+                        onDateClick(arg);
+                    }}
                     eventClick={handleEventClick}
                     eventContent={renderEventContent}
                     slotMinTime="07:00:00"
@@ -796,18 +858,60 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     eventDisplay="block"
                     eventMinHeight={140}
                     eventShortHeight={false}
-                    dayCellContent={(arg) => (
-                        <div className="flex justify-end p-1">
-                            <span
-                                className={`text-sm rounded-full w-7 h-7 flex items-center justify-center transition-all ${arg.isToday
-                                    ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white font-bold shadow-lg transform scale-110'
-                                    : 'text-gray-700 hover:bg-gray-200'
-                                    } ${arg.isPast ? 'opacity-60' : ''}`}
-                            >
-                                {arg.dayNumberText}
-                            </span>
-                        </div>
-                    )}
+                    dayCellClassNames={(arg) => {
+                        const dateStr = arg.date.toISOString().split('T')[0];
+                        return isHoliday(dateStr) ? 'fc-day-holiday' : '';
+                    }}
+                    dayCellContent={(arg) => {
+                        const dateStr = arg.date.toISOString().split('T')[0];
+                        const isHolidayDate = isHoliday(dateStr);
+                        const holidayName = isHolidayDate ? getHolidayName(dateStr) : '';
+                        
+                        // 🆕 Card de feriado expandido ocupando o espaço
+                        if (isHolidayDate) {
+                            return (
+                                <div style={{ width: '100%', height: '100%', boxSizing: 'border-box', padding: '2px' }}>
+                                    <Tooltip title={holidayName}>
+                                        <div style={{ 
+                                            width: 'calc(100% - 4px)',
+                                            height: 'calc(100% - 4px)',
+                                            boxSizing: 'border-box',
+                                            background: '#fef3c7', 
+                                            border: '2px solid #f59e0b', 
+                                            borderRadius: '8px', 
+                                            padding: '12px', 
+                                            display: 'flex', 
+                                            flexDirection: 'column', 
+                                            alignItems: 'center', 
+                                            justifyContent: 'center',
+                                            cursor: 'not-allowed'
+                                        }}>
+                                            <span style={{ fontSize: '24px', marginBottom: '8px' }}>🗓️</span>
+                                            <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#92400e', textAlign: 'center', lineHeight: 1.2 }}>
+                                                {holidayName}
+                                            </span>
+                                            <span style={{ fontSize: '11px', color: '#b45309', marginTop: '4px', textAlign: 'center' }}>
+                                                Sem atendimento
+                                            </span>
+                                        </div>
+                                    </Tooltip>
+                                </div>
+                            );
+                        }
+                        
+                        return (
+                            <div className="flex flex-col items-end p-1 h-full">
+                                <span
+                                    className={`text-sm rounded-full w-7 h-7 flex items-center justify-center transition-all ${arg.isToday
+                                        ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white font-bold shadow-lg transform scale-110'
+                                        : 'text-gray-700 hover:bg-gray-200'
+                                        } ${arg.isPast ? 'opacity-60' : ''}`}
+                                >
+                                    {arg.dayNumberText}
+                                </span>
+                            </div>
+                        );
+                    }}
                     dayHeaderContent={(arg) => (
                         <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
                             {arg.text.substring(0, 3)}
@@ -926,6 +1030,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 patients={patients}
             />
         </Box>
+        </>
     );
 };
 

@@ -9,11 +9,12 @@ import { useEffect, useState } from 'react';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { TimeMultiSelect } from './TimeMultiSelect';
 import { IPatient, SlotBookingPayload } from '../../utils/types/types';
+import { SlotAvailability } from '../../services/appointmentService';
 
 const weekdays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
 
 interface DoctorAgendaCalendarProps {
-  daySlots?: { date: string; slots: string[] }[];
+  daySlots?: { date: string; slots: (string | SlotAvailability)[] }[];
   selectedDoctorId?: string;
   patients?: IPatient[];
   selectedDate?: dayjs.Dayjs | null;
@@ -176,16 +177,36 @@ const DoctorAgendaCalendar = ({
                 {dayNumber}
               </span>
 
-              {slotsForThisDate.length > 0 && (
-                <span
-                  className={`
-        mt-2 text-xs px-2 py-1 rounded-full
-        ${isSelected(date) ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}
-      `}
-                >
-                  {slotsForThisDate.length} horário{slotsForThisDate.length !== 1 ? 's' : ''}
-                </span>
-              )}
+              {(() => {
+                // 🆕 Conta apenas slots disponíveis (suporta formato antigo e novo)
+                const availableCount = slotsForThisDate.filter((slot: string | SlotAvailability) => {
+                  return typeof slot === 'string' ? true : slot.available;
+                }).length;
+                
+                // 🆕 Verifica se todos são feriado
+                const isAllHoliday = slotsForThisDate.length > 0 && slotsForThisDate.every((slot: string | SlotAvailability) => 
+                  typeof slot === 'object' && slot.reason === 'holiday'
+                );
+                
+                if (isAllHoliday) {
+                  return (
+                    <span className="mt-2 text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800">
+                      🗓️ Feriado
+                    </span>
+                  );
+                }
+                
+                return availableCount > 0 ? (
+                  <span
+                    className={`
+                      mt-2 text-xs px-2 py-1 rounded-full
+                      ${isSelected(date) ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}
+                    `}
+                  >
+                    {availableCount} horário{availableCount !== 1 ? 's' : ''}
+                  </span>
+                ) : null;
+              })()}
             </div>
 
           );
@@ -214,27 +235,59 @@ const DoctorAgendaCalendar = ({
               </button>
             </div>
 
-            {/* Adicione esta verificação */}
-            {daySlots.find((d) => d.date === expandedDate)?.slots?.length ? (
-              <TimeMultiSelect
-                availableTimes={daySlots.find((d) => d.date === expandedDate)?.slots || []}
-                selectedDate={selectedDate?.toDate() || null}
-                patients={patients}
-                selectedDoctorId={selectedDoctorId}
-                onChange={(times) =>
-                  setSelectedTimes((prev) => ({
-                    ...prev,
-                    [expandedDate]: times,
-                  }))
-                }
-                onSubmit={(data) => onSubmitSlotBooking?.(data)}
-              />
-            ) : (
-              <EmptyAgendaMessage 
-                selectedDate={expandedDate ? new Date(expandedDate) : undefined} 
-                hasAvailability={false}
-              />
-            )}
+            {/* 🆕 Sempre mostra slots se existirem (mesmo que todos indisponíveis) */}
+            {(() => {
+              const slots = daySlots.find((d) => d.date === expandedDate)?.slots || [];
+              const hasAnySlots = slots.length > 0;
+              const hasAvailableSlots = slots.some((slot: string | SlotAvailability) => 
+                typeof slot === 'string' ? true : slot.available
+              );
+              const isAllHoliday = slots.length > 0 && slots.every((slot: string | SlotAvailability) => 
+                typeof slot === 'object' && slot.reason === 'holiday'
+              );
+              
+              if (!hasAnySlots) {
+                return (
+                  <EmptyAgendaMessage 
+                    selectedDate={expandedDate ? new Date(expandedDate) : undefined} 
+                    hasAvailability={false}
+                  />
+                );
+              }
+              
+              return (
+                <>
+                  {/* 🆕 Alerta especial quando todos slots são feriado */}
+                  {isAllHoliday && (
+                    <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center gap-3">
+                      <Calendar className="h-5 w-5 text-amber-600" />
+                      <div>
+                        <p className="font-medium text-amber-900">
+                          🗓️ {typeof slots[0] === 'object' ? slots[0].label : 'Feriado'}
+                        </p>
+                        <p className="text-sm text-amber-700">
+                          Sem atendimento nesta data. Os horários abaixo estão indisponíveis.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <TimeMultiSelect
+                    availableTimes={slots}
+                    selectedDate={selectedDate?.toDate() || null}
+                    patients={patients}
+                    selectedDoctorId={selectedDoctorId}
+                    onChange={(times) =>
+                      setSelectedTimes((prev) => ({
+                        ...prev,
+                        [expandedDate]: times,
+                      }))
+                    }
+                    onSubmit={(data) => onSubmitSlotBooking?.(data)}
+                  />
+                </>
+              );
+            })()}
           </div>
         </motion.div>
       )}

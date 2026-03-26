@@ -126,6 +126,14 @@ export type AvailableSlotsParams = {
     date: string;
 };
 
+// 🆕 NOVO: Tipo para slot com metadados
+export interface SlotAvailability {
+    time: string;
+    available: boolean;
+    reason?: 'holiday' | 'appointment' | 'blocked';
+    label?: string;
+}
+
 export const appointmentService = {
     create: async (appointmentData: any) => {
         try {

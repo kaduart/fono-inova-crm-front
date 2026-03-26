@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { mergeDateAndTime } from '../../utils/dateFormat';
 import { IAppointment, STATUS_OPTIONS, TherapyType } from '../../utils/types/types';
+import { SlotAvailability } from '../../services/appointmentService';
 import SpecialtySelector from '../common/SpecialtySelector';
 import InsuranceSelector from '../appointments/InsuranceSelector';
 import Input from '../ui/Input';
@@ -14,7 +15,7 @@ type ScheduleModalProps = {
     doctors: any[];
     initialData?: IAppointment;
     payloadToSlots: (data: { doctorId: string; date: string }) => void;
-    availableSlots: any[];
+    availableSlots: (string | SlotAvailability)[];
     mode: 'create' | 'edit';
     onSave: (data: IAppointment | Omit<IAppointment, 'id'>) => void;
     onClose: () => void;
@@ -201,11 +202,23 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
                                             onChange={handleChange}
                                         >
                                             <option value="">Selecione um horário</option>
-                                            {availableSlots?.map(dr => (
-                                                <option key={dr._id} value={dr._id}>
-                                                    {dr}
-                                                </option>
-                                            ))}
+                                            {availableSlots?.map((slot) => {
+                                                // 🆕 Suporta formato antigo (string) e novo (SlotAvailability)
+                                                const time = typeof slot === 'string' ? slot : slot.time;
+                                                const isAvailable = typeof slot === 'string' ? true : slot.available;
+                                                const label = typeof slot === 'string' ? undefined : slot.label;
+                                                
+                                                return (
+                                                    <option 
+                                                        key={time} 
+                                                        value={time}
+                                                        disabled={!isAvailable}
+                                                        className={!isAvailable ? 'text-gray-400 bg-gray-100' : ''}
+                                                    >
+                                                        {time}{label ? ` - ${label}` : ''}
+                                                    </option>
+                                                );
+                                            })}
                                         </Select>
                                     </div>
                                 )}

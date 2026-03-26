@@ -3,7 +3,7 @@
 import { CardHeader } from '@mui/material';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
-import appointmentService, { AvailableSlotsParams } from '../../services/appointmentService';
+import appointmentService, { AvailableSlotsParams, SlotAvailability } from '../../services/appointmentService';
 import { IDoctor, IPatient, ScheduleAppointment } from '../../utils/types/types';
 import { Card, CardContent, CardTitle } from '../ui/Card';
 import { Label } from '../ui/Label';
@@ -15,7 +15,7 @@ interface IDoctorAgendaProps {
     doctors: IDoctor[];
     patients: IPatient[];
     selectedDoctor: IDoctor;
-    onDaySlotsChange?: (slots: { date: string; slots: string[] }[]) => void;
+    onDaySlotsChange?: (slots: { date: string; slots: (string | SlotAvailability)[] }[]) => void;
     updateSlots: ScheduleAppointment;
     onSubmitSlotBooking?: (data: {
         time: string,
@@ -26,7 +26,7 @@ interface IDoctorAgendaProps {
 const DoctorAgenda = ({ doctors = [], updateSlots, patients, onDaySlotsChange, selectedDoctor, onSubmitSlotBooking }: IDoctorAgendaProps) => {
     const [selectedDoctorId, setSelectedDoctorId] = useState('');
     const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs | null>(null);
-    const [daySlots, setDaySlots] = useState<{ date: string; slots: string[] }[]>([]);
+    const [daySlots, setDaySlots] = useState<{ date: string; slots: (string | SlotAvailability)[] }[]>([]);
     const [selectedBooking, setSelectedBooking] = useState<{
         patientId: string;
         doctorId: string;
@@ -72,7 +72,8 @@ useEffect(() => {
             };
             console.log('🔄 Buscando slots:', payload);
             const response = await appointmentService.getAvailableSlots(payload);
-            const slots = response.data;
+            // 🆕 Suporta tanto formato antigo (string[]) quanto novo (SlotAvailability[])
+            const slots: (string | SlotAvailability)[] = response.data;
             console.log('✅ Slots recebidos:', slots);
             setDaySlots([{ date, slots }]);
             onDaySlotsChange?.([{ date, slots }]);
