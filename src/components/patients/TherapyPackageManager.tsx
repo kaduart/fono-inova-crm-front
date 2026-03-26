@@ -12,9 +12,10 @@ type Props = {
     totalPages: number;
     onRefresh: () => void;
     onPackageCreated?: () => void;
+    onSave?: (newPackageId?: string) => void; // 🔥 Novo callback opcional
 };
 
-export default function TherapyPackageManager({ packages, patient, doctors, totalPages, onRefresh, onPackageCreated }: Props) {
+export default function TherapyPackageManager({ packages, patient, doctors, totalPages, onRefresh, onPackageCreated, onSave }: Props) {
     const [selected, setSelected] = useState<ITherapyPackage | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
     const [filters, setFilters] = useState({
@@ -207,9 +208,10 @@ export default function TherapyPackageManager({ packages, patient, doctors, tota
                         patient={patient}
                         doctors={doctors}
                         onClose={() => setModalOpen(false)}
-                        onSubmit={() => {
+                        onSubmit={(newPackageId?: string) => {
                             onRefresh();
                             onPackageCreated?.();
+                            onSave?.(newPackageId); // 🔥 Chama onSave com o ID do novo pacote
                             setModalOpen(false);
                         }}
                     />

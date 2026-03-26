@@ -9,6 +9,11 @@ export interface DailyClosingResponse {
       professionals: number;
       patients: number;
     };
+    // 🔥 NOVO: Contagem por tipo de paciente
+    byPatientType?: {
+      novos: number;
+      recorrentes: number;
+    };
   };
 }
 
@@ -49,6 +54,9 @@ export interface DailyClosingData {
       expectedValue: number;
       pendingValue: number;
       pendingCount: number;
+      // 🔥 NOVO: Contadores de novos vs recorrentes
+      novos?: number;
+      recorrentes?: number;
     };
     payments: {
       totalReceived: number;
@@ -95,6 +103,22 @@ export interface DailyClosingData {
   };
   professionals: ProfessionalSummary[];
   timeSlots?: TimeSlotSummary[];
+  // 🔥 NOVO: Agendamentos separados por tipo
+  appointmentsByType?: {
+    novos: AppointmentByType[];
+    recorrentes: AppointmentByType[];
+  };
+}
+
+// 🔥 NOVO: Tipo para agendamentos por tipo (novos/recorrentes)
+export interface AppointmentByType {
+  id: string;
+  patient: string;
+  phone?: string;
+  time: string;
+  specialty: string;
+  doctor: string;
+  serviceType: string;
 }
 
 // 🏥 NOVO: Tipos para convênio
@@ -135,6 +159,8 @@ export interface TimelineAppointment {
   isConvenio?: boolean;           // 🏥 NOVO
   insuranceProvider?: string | null;  // 🏥 NOVO
   insuranceValue?: number | null;     // 🏥 NOVO
+  // 🔥 NOVO: Flag de primeiro agendamento
+  isFirstAppointment?: boolean;
 }
 
 export interface TimelinePayment {

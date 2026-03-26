@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { BASE_URL } from '../constants/constants';
 import { SESSION_CONFIG } from '../constants/session';
 import API from '../services/api';
+import { getAuthToken, isTokenExpired, getTokenTimeRemaining } from '../services/authService';
 
 type UserRole = 'doctor' | 'admin' | 'patient';
 
@@ -35,7 +36,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   login: (token: string, userData: User) => Promise<{ success: boolean; userRole?: string }>;
-  logout: () => Promise<{ success: boolean }>;
+  logout: (options?: { forceClear?: boolean }) => Promise<{ success: boolean }>;
   isAuthenticated: boolean;
   setUser: (user: User | null) => void;
   loading: LoadingState;
@@ -84,12 +85,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback((options?: { forceClear?: boolean }) => {
     showLoading();
     try {
+      // 🧹 LIMPEZA COMPLETA de todos os dados de autenticação
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('userRole');
       localStorage.removeItem('lastActivity');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
 
       setUser(null);
       delete API.defaults.headers.common['Authorization'];
@@ -97,7 +102,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // 🔔 Notifica outros contextos sobre logout
       window.dispatchEvent(new CustomEvent('authLogout'));
 
-      // Delay para visualização do loading
+      // Se for forçado, garante que não haja restore automático
+      if (options?.forceClear) {
+        localStorage.clear();
+        sessionStorage.clear();
+      }
+
       return { success: true };
     } finally {
       setTimeout(hideLoading, 1000);
@@ -143,11 +153,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (isMounted) setAuthLoading(true);
 
-        // Etapa 1: Verifica expiração da sessão
+        // Etapa 0: Verifica se o token JWT está expirado (8h, 24h)
+        const token = getAuthToken();
+        if (isTokenExpired(token)) {
+          console.log('[Auth] Token JWT expirado na inicialização');
+          if (isMounted) {
+            await logout({ forceClear: true });
+            window.dispatchEvent(new CustomEvent('sessionExpired'));
+          }
+          return;
+        }
+
+        // Etapa 1: Verifica expiração da sessão (4h de inatividade)
         const isExpired = checkSessionExpiry();
         if (isExpired) {
           if (isMounted) {
-            await logout();
+            await logout({ forceClear: true });
             window.dispatchEvent(new CustomEvent('sessionExpired'));
           }
           return;
@@ -163,7 +184,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } catch (error) {
         if (isMounted) {
           setUser(null);
-          await logout();
+          await logout({ forceClear: true });
+          window.dispatchEvent(new CustomEvent('sessionExpired'));
         }
       } finally {
         if (isMounted) {
@@ -212,13 +234,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const sessionCheckInterval = setInterval(() => {
       if (checkSessionExpiry() && user) {
-        logout();
+        logout({ forceClear: true });
         window.dispatchEvent(new CustomEvent('sessionExpired'));
       }
     }, SESSION_CONFIG.CHECK_INTERVAL); // Usando CHECK_INTERVAL da configuração
 
     return () => clearInterval(sessionCheckInterval);
   }, [checkSessionExpiry, logout, user]);
+
+  // 🔐 Verificação de expiração do TOKEN JWT (8h, 24h, etc)
+  useEffect(() => {
+    const checkTokenExpiration = () => {
+      const token = getAuthToken();
+      
+      if (!token) return;
+      
+      // Verifica se o token JWT está expirado
+      if (isTokenExpired(token)) {
+        console.log('[Auth] Token JWT expirado. Fazendo logout...');
+        logout({ forceClear: true });
+        window.dispatchEvent(new CustomEvent('sessionExpired'));
+        return;
+      }
+      
+      // Log para debug: mostra quanto tempo falta (apenas se estiver logado)
+      const timeRemaining = getTokenTimeRemaining(token);
+      if (user && timeRemaining > 0 && timeRemaining < 3600) { // Menos de 1 hora
+        console.log(`[Auth] Token expira em ${Math.floor(timeRemaining / 60)} minutos`);
+      }
+    };
+
+    // Verifica imediatamente na montagem
+    checkTokenExpiration();
+    
+    // Verifica a cada minuto
+    const tokenCheckInterval = setInterval(checkTokenExpiration, 60 * 1000);
+
+    return () => clearInterval(tokenCheckInterval);
+  }, [logout, user]);
 
   const value = useMemo(() => ({
     user,

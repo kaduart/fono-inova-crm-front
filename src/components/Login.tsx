@@ -53,6 +53,8 @@ const Login = () => {
   useEffect(() => {
     const errorCode = searchParams.get('error');
     const sessionExpiredParam = searchParams.get('sessionExpired');
+    const forceLogin = searchParams.get('forceLogin');
+    
     if (errorCode === 'TOKEN_EXPIRED') {
       toast.error('Sua sessão expirou. Por favor, faça login novamente.');
     }
@@ -60,6 +62,15 @@ const Login = () => {
     if (sessionExpiredParam === 'true') {
       setSessionExpired(true);
       toast.info('Sua sessão expirou. Por favor, faça login novamente.');
+    }
+
+    // 🧹 Se forçar login, limpa TODOS os dados de autenticação
+    if (forceLogin === 'true') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('lastActivity');
+      sessionStorage.clear();
     }
   }, [searchParams]);
 

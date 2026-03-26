@@ -51,7 +51,7 @@ type Props = {
     patient: IPatient;
     doctors: IDoctor[];
     onClose: () => void;
-    onSubmit: () => void;
+    onSubmit: (newPackageId?: string) => void; // 🔥 Agora retorna o ID do pacote criado
 };
 
 const initialFormState = {
@@ -130,8 +130,11 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 baseErrors.sessionValue = "Valor por sessão deve ser maior que zero";
             }
 
-            const hasValidPayments = payments.every(p => Number(p.amount) > 0 && !!p.method && !!p.date);
-            if (!hasValidPayments) baseErrors.payments = "Preencha valor, método e data em todos os pagamentos.";
+            // 🔥 Só valida pagamentos se NÃO for per-session
+            if (formData.paymentType !== 'per-session') {
+                const hasValidPayments = payments.every(p => Number(p.amount) > 0 && !!p.method && !!p.date);
+                if (!hasValidPayments) baseErrors.payments = "Preencha valor, método e data em todos os pagamentos.";
+            }
         }
 
         // Regras específicas para CONVENIO
@@ -532,12 +535,15 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 time: formData.time,
                 calculationMode,
                 selectedSlots: unique, // ✅ datas reais geradas
-                payments: payments.map((p) => ({
-                    amount: Number(p.amount),
-                    method: p.method,
-                    date: p.date,
-                    description: p.description,
-                })),
+                // 🔥 Só envia pagamentos se NÃO for per-session
+                payments: formData.paymentType === 'per-session' 
+                    ? [] 
+                    : payments.map((p) => ({
+                        amount: Number(p.amount),
+                        method: p.method,
+                        date: p.date,
+                        description: p.description,
+                    })),
             };
 
             // Validar patientId
@@ -591,11 +597,19 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     patientId: patient._id,
                     sessionType: formData.sessionType as any // Type assertion para compatibilidade
                 };
-                await packageService.createPackage(therapyData);
-                toast.success(`Pacote criado com sucesso! 💚`);
+                if (editingPackage?._id) {
+                    // Edição
+                    await packageService.updatePackage(editingPackage._id, therapyData);
+                    toast.success(`Pacote atualizado com sucesso! 💚`);
+                    onSubmit();
+                } else {
+                    // Criação
+                    const response = await packageService.createPackage(therapyData);
+                    const newPackageId = response?.data?._id; // 🔥 Pega o ID do pacote criado
+                    toast.success(`Pacote criado com sucesso! 💚`);
+                    onSubmit(newPackageId); // 🔥 Passa o ID
+                }
             }
-
-            onSubmit();
             onClose();
         } catch (err: any) {
             toast.error(err?.message || "Erro ao salvar pacote.");
@@ -736,7 +750,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             formData.sessionType &&
             formData.paymentType &&
             formData.sessionValue > 0 &&
-            hasValidPayments &&
+            // 🔥 Só exige pagamentos válidos se NÃO for per-session
+            (formData.paymentType === 'per-session' || hasValidPayments) &&
             formData.date &&
             formData.time &&
             (calculationMode === 'sessions'
@@ -1393,10 +1408,17 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                     💡 Este valor será consumido do crédito à medida que as sessões forem realizadas.
                                                 </p>
                                             )}
+                                            
+                                            {/* 🔥 AVISO para per-session */}
+                                            {formData.paymentType === 'per-session' && (
+                                                <p className="text-xs text-blue-600 mt-2">
+                                                    💡 Pagamento por sessão: O paciente pagará no dia de cada atendimento. Não é necessário adicionar pagamento antecipado.
+                                                </p>
+                                            )}
                                         </div>
 
-                                        {/* Múltiplos Pagamentos - APENAS para Therapy */}
-                                        {packageType === 'therapy' && (
+                                        {/* Múltiplos Pagamentos - APENAS para Therapy e NÃO for per-session */}
+                                        {packageType === 'therapy' && formData.paymentType !== 'per-session' && (
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-center">
                                                 <label className="block text-sm font-medium text-gray-700">
@@ -1543,24 +1565,39 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                             <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-5 rounded-xl border border-gray-200">
                                 <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
                                     <TrendingUp className="w-5 h-5 text-gray-600" />
-                                    Resumo de Pagamento
+                                    {formData.paymentType === 'per-session' ? 'Forma de Pagamento' : 'Resumo de Pagamento'}
                                 </h3>
                                 <div className="space-y-3">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-sm text-gray-600">Valor pago:</span>
-                                        <span className="text-sm font-semibold text-gray-900">
-                                            R$ {getTotalPaid().toFixed(2)}
-                                        </span>
-                                    </div>
-                                    <div className="border-t border-gray-200 pt-2">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm font-semibold text-gray-700">Saldo restante:</span>
-                                            <span className={`text-sm font-bold ${remainingBalance > 0 ? 'text-red-600' : 'text-emerald-600'
-                                                }`}>
-                                                R$ {Number(remainingBalance || 0).toFixed(2)}
-                                            </span>
+                                    {formData.paymentType === 'per-session' ? (
+                                        // 🔥 Layout para per-session
+                                        <div className="text-center py-2">
+                                            <p className="text-sm text-blue-600 font-medium">
+                                                💳 Pagamento no dia da sessão
+                                            </p>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                O paciente pagará R$ {formData.sessionValue?.toFixed(2)} em cada atendimento
+                                            </p>
                                         </div>
-                                    </div>
+                                    ) : (
+                                        // Layout normal (full/partial)
+                                        <>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-gray-600">Valor pago:</span>
+                                                <span className="text-sm font-semibold text-gray-900">
+                                                    R$ {getTotalPaid().toFixed(2)}
+                                                </span>
+                                            </div>
+                                            <div className="border-t border-gray-200 pt-2">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm font-semibold text-gray-700">Saldo restante:</span>
+                                                    <span className={`text-sm font-bold ${remainingBalance > 0 ? 'text-red-600' : 'text-emerald-600'
+                                                        }`}>
+                                                        R$ {Number(remainingBalance || 0).toFixed(2)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>

@@ -11,37 +11,8 @@ import { OPERATIONAL_STATUS_CONFIG, StatusConfig } from '../../services/appointm
 import { IAppointment, IDoctor, IPatient, ScheduleAppointment, SelectedEvent } from '../../utils/types/types';
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
 import AppointmentDetailModal from './appointmentDetailModal';
-
-// 🆕 Lista de feriados nacionais (2025-2027)
-const FERIADOS_NACIONAIS = [
-  '2025-01-01', '2025-03-04', '2025-03-05', '2025-04-18', '2025-04-21',
-  '2025-05-01', '2025-06-19', '2025-09-07', '2025-10-12', '2025-11-02',
-  '2025-11-15', '2025-12-25',
-  '2026-01-01', '2026-02-16', '2026-02-17', '2026-04-03', '2026-04-21',
-  '2026-05-01', '2026-06-04', '2026-09-07', '2026-10-12', '2026-11-02',
-  '2026-11-15', '2026-12-25',
-  '2027-01-01', '2027-02-08', '2027-02-09', '2027-03-26', '2027-04-21',
-  '2027-05-01', '2027-05-27', '2027-09-07', '2027-10-12', '2027-11-02',
-  '2027-11-15', '2027-12-25',
-];
-
-const FERIADOS_NOMES: Record<string, string> = {
-  '2025-01-01': 'Confraternização Universal', '2025-03-04': 'Carnaval', '2025-03-05': 'Quarta-feira de Cinzas',
-  '2025-04-18': 'Sexta-feira Santa', '2025-04-21': 'Tiradentes', '2025-05-01': 'Dia do Trabalho',
-  '2025-06-19': 'Corpus Christi', '2025-09-07': 'Independência', '2025-10-12': 'Nossa Senhora Aparecida',
-  '2025-11-02': 'Finados', '2025-11-15': 'Proclamação da República', '2025-12-25': 'Natal',
-  '2026-01-01': 'Confraternização Universal', '2026-02-16': 'Carnaval', '2026-02-17': 'Quarta-feira de Cinzas',
-  '2026-04-03': 'Sexta-feira Santa', '2026-04-21': 'Tiradentes', '2026-05-01': 'Dia do Trabalho',
-  '2026-06-04': 'Corpus Christi', '2026-09-07': 'Independência', '2026-10-12': 'Nossa Senhora Aparecida',
-  '2026-11-02': 'Finados', '2026-11-15': 'Proclamação da República', '2026-12-25': 'Natal',
-  '2027-01-01': 'Confraternização Universal', '2027-02-08': 'Carnaval', '2027-02-09': 'Quarta-feira de Cinzas',
-  '2027-03-26': 'Sexta-feira Santa', '2027-04-21': 'Tiradentes', '2027-05-01': 'Dia do Trabalho',
-  '2027-05-27': 'Corpus Christi', '2027-09-07': 'Independência', '2027-10-12': 'Nossa Senhora Aparecida',
-  '2027-11-02': 'Finados', '2027-11-15': 'Proclamação da República', '2027-12-25': 'Natal',
-};
-
-const isHoliday = (dateStr: string): boolean => FERIADOS_NACIONAIS.includes(dateStr);
-const getHolidayName = (dateStr: string): string => FERIADOS_NOMES[dateStr] || 'Feriado';
+import API from '../../services/api';
+import calendarService, { Holiday } from '../../services/calendarService';
 
 interface EnhancedCalendarProps {
     appointments: IAppointment[];
@@ -197,6 +168,37 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     // ✅ CORREÇÃO: Apenas estado essencial, SEM loading automático
     // O loading automático estava causando re-renders infinitos
     const [currentViewDate, setCurrentViewDate] = useState<string>('');
+
+    // 🆕 Estado para feriados do backend
+    const [holidays, setHolidays] = useState<Record<string, Holiday>>({});
+    const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+
+    // 🆕 Busca feriados do backend quando o ano muda
+    useEffect(() => {
+        const fetchHolidays = async () => {
+            try {
+                const holidaysList = await calendarService.getHolidays(currentYear);
+                const holidaysMap = calendarService.holidaysToMap(holidaysList);
+                setHolidays(holidaysMap);
+            } catch (error) {
+                console.error('[EnhancedCalendar] Erro ao buscar feriados:', error);
+            }
+        };
+        fetchHolidays();
+    }, [currentYear]);
+
+    // 🆕 Funções helpers para feriados (usando serviço centralizado)
+    const isHoliday = useCallback((dateStr: string): boolean => {
+        return calendarService.isHoliday(dateStr, holidays);
+    }, [holidays]);
+
+    const getHolidayName = useCallback((dateStr: string): string => {
+        return holidays[dateStr]?.name || 'Feriado';
+    }, [holidays]);
+
+    const getHolidayType = useCallback((dateStr: string): string => {
+        return holidays[dateStr]?.type || 'full';
+    }, [holidays]);
 
     // Scroll automático para o dia de hoje — dispara no mount e quando appointments carregam
     const hasScrolledToday = useRef(false);

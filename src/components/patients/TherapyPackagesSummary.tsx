@@ -1,4 +1,4 @@
-import { Info, Package, Plus } from 'lucide-react';
+import { Info, Package, Plus, ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { useAppointmentsContext } from '../../contexts/AppointmentsContext';
@@ -21,7 +21,13 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
     const [selectedPackage, setSelectedPackage] = useState<ITherapyPackage | null>(null);
     const [editing, setEditing] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [viewMode, setViewMode] = useState<'view' | 'edit'>('view'); // Removemos 'add-session' pois agora está integrado
+    const [viewMode, setViewMode] = useState<'view' | 'edit'>('view');
+    
+    // 🔥 Controla qual pacote está expandido
+    const [expandedPackageId, setExpandedPackageId] = useState<string | null>(null);
+    
+    // 🔥 NOVO: Accordion principal para mostrar/ocultar todos os pacotes
+    const [isAccordionOpen, setIsAccordionOpen] = useState(true);
 
     useEffect(() => {
         fetchBasicPackages();
@@ -213,29 +219,45 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                         </div>
 
                         <button
-                            onClick={() => setShowManager(true)}
+                            onClick={() => {
+                                setExpandedPackageId(null); // 🔥 Fecha accordion interno
+                                setIsAccordionOpen(false);  // 🔥 Fecha accordion principal
+                                setShowManager(true);
+                            }}
                             className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-xl hover:from-emerald-700 hover:to-green-700 transition-all duration-200 font-medium flex items-center gap-2 shadow-lg hover:shadow-xl"
                         >
                             <Plus className="w-5 h-5" />
-                            Novo Pacote
+                            Criar Pacotes
                         </button>
                     </div>
                 </div>
             </div>
 
 
-            {/* Loading State */}
-            {loading && (
-                <div className="flex justify-center items-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
-                </div>
-            )}
+            {/* 🔥 Accordion Principal - Todos os Pacotes */}
+            {!loading && packages.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+                    {/* Header do Accordion */}
+                    <button
+                        onClick={() => setIsAccordionOpen(!isAccordionOpen)}
+                        className="w-full px-6 py-4 flex items-center justify-between bg-gradient-to-r from-emerald-50 to-green-50 hover:from-emerald-100 hover:to-green-100 transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <Package className="w-6 h-6 text-emerald-600" />
+                            <span className="font-semibold text-gray-900">Pacotes do Paciente</span>
+                            <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-sm font-medium">
+                                {packages.length}
+                            </span>
+                        </div>
+                        <div className={`transform transition-transform duration-300 ${isAccordionOpen ? 'rotate-180' : ''}`}>
+                            <ChevronDown className="w-5 h-5 text-emerald-600" />
+                        </div>
+                    </button>
 
-            {/* Grid de Pacotes */}
-            {!loading && (
-                <>
-                    {packages.length > 0 ? (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {/* Conteúdo do Accordion */}
+                    {isAccordionOpen && (
+                        <div className="p-6">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                             {packages.map(pkg => (
                                 <TherapyPackageCard
                                     key={pkg._id}
@@ -244,29 +266,42 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                                     doctors={doctors}
                                     onUseSession={handleUseSession}
                                     onRegisterPayment={handleRegisterPayment}
-                                    onCardClick={handleViewPackage} // Agora usa a função correta
+                                    onCardClick={handleViewPackage}
+                                    isExpanded={expandedPackageId === pkg._id} // 🔥 Controla expansão
+                                    onToggleExpand={(expanded) => {
+                                        // 🔥 Fecha outros e abre o clicado
+                                        setExpandedPackageId(expanded ? pkg._id : null);
+                                    }}
+                                    onRefresh={fetchBasicPackages} // 🔥 NOVO: Para recarregar após cancelamento em lote
                                 />
                             ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-12 bg-white rounded-2xl border border-gray-200">
-                            <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                                Nenhum pacote encontrado
-                            </h3>
-                            <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                                {patient.fullName} não possui pacotes de terapia ativos no momento.
-                            </p>
-                            <button
-                                onClick={() => setShowManager(true)}
-                                className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-xl hover:from-emerald-700 hover:to-green-700 transition-all duration-200 font-medium flex items-center gap-2 mx-auto"
-                            >
-                                <Plus className="w-5 h-5" />
-                                Criar Primeiro Pacote
-                            </button>
+                            </div>
                         </div>
                     )}
-                </>
+                </div>
+            )}
+
+            {/* Estado vazio - sem pacotes */}
+            {!loading && packages.length === 0 && (
+                <div className="text-center py-12 bg-white rounded-2xl border border-gray-200">
+                    <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                        Nenhum pacote encontrado
+                    </h3>
+                    <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                        {patient.fullName} não possui pacotes de terapia ativos no momento.
+                    </p>
+                    <button
+                        onClick={() => {
+                            setExpandedPackageId(null); // 🔥 Fecha accordion
+                            setShowManager(true);
+                        }}
+                        className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-xl hover:from-emerald-700 hover:to-green-700 transition-all duration-200 font-medium flex items-center gap-2 mx-auto"
+                    >
+                        <Plus className="w-5 h-5" />
+                        Criar Primeiro Pacote
+                    </button>
+                </div>
             )}
 
             {/* MODAIS CONDICIONAIS */}
@@ -285,11 +320,17 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
             {showManager && (
                 <TherapyPackageManager
                     onClose={() => setShowManager(false)}
-                    onSave={() => {
+                    onSave={(newPackageId?: string) => {
                         fetchBasicPackages();
                         setShowManager(false);
+                        setIsAccordionOpen(true); // 🔥 Abre accordion principal ao criar
+                        // 🔥 Abre o accordion do novo pacote se tiver ID
+                        if (newPackageId) {
+                            setExpandedPackageId(newPackageId);
+                        }
                     }}
                     packages={packages}
+                    totalPages={1} // 🔥 Valor padrão
                     onRefresh={fetchBasicPackages}
                     onPackageCreated={() => {
                         // Atualiza a lista de agendamentos no contexto global

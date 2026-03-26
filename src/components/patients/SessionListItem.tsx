@@ -20,9 +20,21 @@ export interface SessionListItemProps {
     sessionNumber: number;
     onEdit: (session: ISession) => void;
     onUse: (session: ISession) => void;
+    // 🔥 NOVO: Props de seleção
+    isSelected?: boolean;
+    onToggleSelect?: () => void;
+    canSelect?: boolean;
 }
 
-export const SessionListItem = ({ session, sessionNumber, onEdit, onUse }: SessionListItemProps) => {
+export const SessionListItem = ({ 
+    session, 
+    sessionNumber, 
+    onEdit, 
+    onUse,
+    isSelected = false,
+    onToggleSelect,
+    canSelect = false
+}: SessionListItemProps) => {
     const [isHovered, setIsHovered] = useState(false);
     const sessionDate = new Date(session.date);
     const isDateValid = !isNaN(sessionDate.getTime());
@@ -49,6 +61,25 @@ export const SessionListItem = ({ session, sessionNumber, onEdit, onUse }: Sessi
             {/* Header com número da sessão e ações */}
             <div className="flex justify-between items-start mb-3 relative z-10">
                 <div className="flex items-center gap-3">
+                    {/* 🔥 NOVO: Checkbox de seleção (só para sessões agendadas) */}
+                    {canSelect && onToggleSelect && (
+                        <label 
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center justify-center cursor-pointer p-1 rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                            <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                    e.stopPropagation();
+                                    onToggleSelect();
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500 cursor-pointer"
+                            />
+                        </label>
+                    )}
+
                     {/* Ícone de status com badge */}
                     <div className="relative">
                         <div className={`p-2 rounded-lg ${getIconBackground(session.status)}`}>

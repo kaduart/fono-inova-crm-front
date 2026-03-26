@@ -1,6 +1,7 @@
 // src/services/api.ts
 import axios, { AxiosHeaders } from 'axios';
 import { BASE_URL } from '../constants/constants';
+import { isTokenExpired, getAuthToken } from './authService';
 
 const API = axios.create({
   baseURL: BASE_URL,
@@ -22,15 +23,21 @@ API.interceptors.request.use(config => {
   }
 
   // Verifica múltiplas fontes de token
-  const token = localStorage.getItem('token') ||
-    document.cookie.split('; ')
-      .find(row => row.startsWith('token='))
-      ?.split('=')[1];
+  const token = getAuthToken();
 
   if (!token) {
     console.error('Token não encontrado para:', config.url);
     window.dispatchEvent(new CustomEvent('authError'));
     return Promise.reject(new Error('Token não disponível'));
+  }
+
+  // 🚨 Verifica se o token está expirado ANTES de fazer a requisição
+  if (isTokenExpired(token)) {
+    console.error('[API] Token expirado. Abortando requisição:', config.url);
+    window.dispatchEvent(new CustomEvent('authError', {
+      detail: { code: 'TOKEN_EXPIRED', message: 'Token expirado' }
+    }));
+    return Promise.reject(new Error('Token expirado'));
   }
 
   // Garante que headers é um objeto AxiosHeaders
@@ -62,6 +69,15 @@ API.interceptors.response.use(
     if (error.response?.status === 401) {
       const errorCode = error.response.data?.code || 'UNAUTHORIZED';
       const errorMessage = error.response.data?.message || 'Sessão expirada';
+
+      // 🧹 Limpa tokens inválidos imediatamente
+      if (errorCode === 'TOKEN_EXPIRED' || errorCode === 'INVALID_TOKEN' || errorCode === 'TOKEN_REQUIRED') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('lastActivity');
+        sessionStorage.clear();
+      }
 
       window.dispatchEvent(new CustomEvent('authError', {
         detail: { code: errorCode, message: errorMessage }

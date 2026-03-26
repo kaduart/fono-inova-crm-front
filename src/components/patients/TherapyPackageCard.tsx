@@ -1,4 +1,5 @@
-import { Building2, Calendar, CheckCircle2, ChevronDown, Clock, DollarSign, Scale, Gavel, Sprout, TrendingUp } from 'lucide-react';
+import { Building2, Calendar, CheckCircle2, ChevronDown, Clock, DollarSign, Scale, Gavel, Sprout, Trash2, TrendingUp } from 'lucide-react';
+import { packageService } from '../../services/packageService';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { IDoctors, IPatient, ISession, ITherapyPackage } from '../../utils/types/types';
@@ -11,6 +12,9 @@ type Props = {
   doctors: IDoctors[];
   onUseSession: (id: string, session: ISession, modalAction: string) => void;
   onCardClick?: (pack: ITherapyPackage) => void;
+  isExpanded?: boolean; // 🔥 Controlado externamente
+  onToggleExpand?: (expanded: boolean) => void; // 🔥 Callback para toggle
+  onRefresh?: () => void; // 🔥 NOVO: Para recarregar após cancelamento em lote
 };
 
 type ModalAction = 'edit' | 'use' | null;
@@ -21,6 +25,9 @@ export default function TherapyPackageCard({
   doctors,
   onUseSession,
   onCardClick = () => { },
+  isExpanded: externalExpanded,
+  onToggleExpand,
+  onRefresh,
 }: Props) {
   if (!pack) return null;
 
@@ -48,7 +55,22 @@ export default function TherapyPackageCard({
     confirmedAbsence: false
   });
   const [loading, setLoading] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [internalExpanded, setInternalExpanded] = useState(false);
+  
+  // 🔥 NOVO: Seleção de sessões para cancelamento em lote
+  const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
+  const [isBatchCanceling, setIsBatchCanceling] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  
+  // 🔥 Usa prop externa se fornecida, senão usa estado local
+  const isExpanded = externalExpanded !== undefined ? externalExpanded : internalExpanded;
+  const setIsExpanded = (value: boolean) => {
+    if (externalExpanded !== undefined && onToggleExpand) {
+      onToggleExpand(value);
+    } else {
+      setInternalExpanded(value);
+    }
+  };
 
   const openModalWithAction = (action: 'edit' | 'use', session?: ISession) => {
     setModalAction(action);
@@ -73,6 +95,106 @@ export default function TherapyPackageCard({
       toast.error("Erro ao salvar sessão");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 🔥 NOVO: Funções para seleção de sessões
+  const scheduledSessions = pack.sessions?.filter(s => s.status === 'scheduled') || [];
+  
+  const toggleSessionSelection = (sessionId: string) => {
+    setSelectedSessionIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(sessionId)) {
+        newSet.delete(sessionId);
+      } else {
+        newSet.add(sessionId);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllScheduledSessions = () => {
+    if (selectedSessionIds.size === scheduledSessions.length) {
+      setSelectedSessionIds(new Set()); // Desseleciona todos
+    } else {
+      setSelectedSessionIds(new Set(scheduledSessions.map(s => s._id))); // Seleciona todos
+    }
+  };
+
+  const handleBatchCancelSessions = async () => {
+    if (selectedSessionIds.size === 0) return;
+    setShowCancelModal(true);
+  };
+
+  const confirmBatchCancel = async () => {
+    setShowCancelModal(false);
+    setIsBatchCanceling(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    try {
+      // 🔥 Faz todas as requisições em paralelo
+      const cancelPromises = Array.from(selectedSessionIds).map(async (sessionId) => {
+        try {
+          // Busca a sessão original para ter todos os dados
+          const originalSession = pack.sessions?.find(s => s._id === sessionId);
+          if (!originalSession) {
+            console.error(`Sessão ${sessionId} não encontrada`);
+            return { success: false };
+          }
+          
+          // Payload para cancelamento
+          const payload = {
+            patientId: patient._id,
+            doctorId: originalSession.doctorId,
+            date: originalSession.date,
+            time: originalSession.time,
+            status: 'canceled',
+            notes: originalSession.notes,
+            package: pack._id,
+            sessionType: pack.sessionType,
+            specialty: pack.sessionType,
+            sessionId: sessionId,
+            confirmedAbsence: false,
+            payment: {
+              amount: 0,
+              method: 'dinheiro'
+            },
+          };
+          
+          // Chama API diretamente (sem passar por onUseSession que faz refresh)
+          await packageService.updateSession(pack._id, payload);
+          return { success: true };
+        } catch (err) {
+          console.error(`Erro ao cancelar sessão ${sessionId}:`, err);
+          return { success: false };
+        }
+      });
+
+      const results = await Promise.all(cancelPromises);
+      successCount = results.filter(r => r.success).length;
+      errorCount = results.filter(r => !r.success).length;
+
+      if (successCount > 0) {
+        toast.success(`${successCount} sessão(ões) cancelada(s) com sucesso!`);
+      }
+      if (errorCount > 0) {
+        toast.error(`Falha ao cancelar ${errorCount} sessão(ões).`);
+      }
+
+      // Limpa seleção
+      setSelectedSessionIds(new Set());
+      
+      // 🔥 SÓ NO FINAL: Recarrega a página (único reload!)
+      if (onRefresh) {
+        onRefresh();
+      } else {
+        window.location.reload();
+      }
+    } catch (err) {
+      toast.error('Erro ao processar cancelamento em lote');
+    } finally {
+      setIsBatchCanceling(false);
     }
   };
 
@@ -530,7 +652,57 @@ export default function TherapyPackageCard({
             <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-xs font-medium">
               {pack?.sessions?.length || 0}
             </span>
+            
+            {/* 🔥 NOVO: Contador de agendadas */}
+            {scheduledSessions.length > 0 && (
+              <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-medium">
+                {scheduledSessions.length} agendada(s)
+              </span>
+            )}
           </div>
+          
+          {/* 🔥 NOVO: Checkbox Selecionar Todos (só aparece se tiver sessões agendadas) */}
+          {isExpanded && scheduledSessions.length > 0 && (
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <label className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={selectedSessionIds.size === scheduledSessions.length && scheduledSessions.length > 0}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    selectAllScheduledSessions();
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                />
+                <span className="text-xs font-medium text-gray-700">
+                  {selectedSessionIds.size > 0 
+                    ? `${selectedSessionIds.size} selec.` 
+                    : 'Selec. todos'}
+                </span>
+              </label>
+              
+              {/* 🔥 NOVO: Botão Cancelar em Lote */}
+              {selectedSessionIds.size > 0 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleBatchCancelSessions();
+                  }}
+                  disabled={isBatchCanceling}
+                  className="px-3 py-1.5 bg-gradient-to-r from-red-600 to-red-700 text-white text-xs font-medium rounded-lg hover:from-red-700 hover:to-red-800 transition-all duration-200 flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isBatchCanceling ? (
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                  ) : (
+                    <Trash2 className="w-3 h-3" />
+                  )}
+                  Cancelar {selectedSessionIds.size}
+                </button>
+              )}
+            </div>
+          )}
+          
           <div className={`transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''
             }`}>
             <ChevronDown className="w-5 h-5 text-emerald-500" />
@@ -558,6 +730,10 @@ export default function TherapyPackageCard({
                   onUse={(session) => {
                     openModalWithAction('use', session);
                   }}
+                  // 🔥 NOVO: Props de seleção (só para agendadas)
+                  isSelected={selectedSessionIds.has(session._id)}
+                  onToggleSelect={() => toggleSessionSelection(session._id)}
+                  canSelect={session.status === 'scheduled'}
                 />
               ))}
           </div>
@@ -578,6 +754,56 @@ export default function TherapyPackageCard({
           loading={loading}
           sessionData={selectedSession}
         />
+      )}
+
+      {/* 🔥 NOVO: Modal de confirmação de cancelamento em lote */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-red-100 rounded-full">
+                <Trash2 className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">Cancelar Sessões</h3>
+            </div>
+            
+            <p className="text-gray-600 mb-6">
+              Tem certeza que deseja cancelar <span className="font-bold text-red-600">{selectedSessionIds.size}</span> sessão(ões) agendada(s)?
+            </p>
+            
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6">
+              <p className="text-sm text-amber-800">
+                ⚠️ Esta ação não pode ser desfeita.
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+              >
+                Voltar
+              </button>
+              <button
+                onClick={confirmBatchCancel}
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl font-medium hover:from-red-700 hover:to-red-800 transition-all shadow-lg"
+              >
+                Cancelar {selectedSessionIds.size}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🔥 NOVO: Loading centralizado para cancelamento em lote */}
+      {isBatchCanceling && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+            <p className="text-lg font-semibold text-gray-900">Cancelando sessões...</p>
+            <p className="text-sm text-gray-500">Aguarde enquanto processamos</p>
+          </div>
+        </div>
       )}
     </div>
   );

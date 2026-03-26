@@ -2,6 +2,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { clearAuthTokens } from '../services/authService';
 
 const SessionExpiryHandler: React.FC = () => {
     const navigate = useNavigate();
@@ -9,8 +10,14 @@ const SessionExpiryHandler: React.FC = () => {
 
     useEffect(() => {
         const handleSessionExpired = async () => {
-            await logout();
-            navigate('/login?sessionExpired=true');
+            // 🧹 LIMPEZA COMPLETA - Remove TODOS os dados de autenticação
+            clearAuthTokens();
+            
+            // Chama logout do contexto para atualizar estado (forceClear=true)
+            await logout({ forceClear: true });
+            
+            // Redireciona forçando login (forceLogin=true evita auto-redirect)
+            navigate('/login?sessionExpired=true&forceLogin=true', { replace: true });
         };
 
         window.addEventListener('sessionExpired', handleSessionExpired);
@@ -19,7 +26,7 @@ const SessionExpiryHandler: React.FC = () => {
         const handleAuthError = (event: CustomEvent) => {
             const detail = event?.detail;
             const code = detail?.code;
-            if (code === 'UNAUTHORIZED' || code === 'TOKEN_EXPIRED') {
+            if (code === 'UNAUTHORIZED' || code === 'TOKEN_EXPIRED' || code === 'TOKEN_REQUIRED' || code === 'INVALID_TOKEN') {
                 handleSessionExpired();
             }
         };

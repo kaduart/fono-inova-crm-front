@@ -7,7 +7,7 @@
  */
 
 import React, { lazy, Suspense, Component, type ReactNode } from 'react';
-import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, Route, Routes, useLocation, useSearchParams } from 'react-router-dom';
 import { Box, LinearProgress } from '@mui/material';
 import { useAuth } from './contexts/AuthContext';
 import MainLayout from './components/MainLayout';
@@ -129,6 +129,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, allowedRoles }) =
 const AppRoutes: React.FC = () => {
     const { user, isLoading } = useAuth();
     const location = useLocation();
+    const [searchParams] = useSearchParams();
 
     // 🔄 Loading de auth é tratado pelo LoadingOverlay no App.tsx
     // Não renderiza nada aqui para evitar duplo loading
@@ -147,16 +148,19 @@ const AppRoutes: React.FC = () => {
         return <PageLoader />;
     }
 
+    // 🔑 Verifica se deve forçar tela de login (sessão expirada)
+    const forceLogin = searchParams.get('forceLogin') === 'true';
+
     return (
         <Suspense fallback={<PageLoader />}>
             <Routes>
                 {/* ==================== ROTAS PÚBLICAS ==================== */}
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={
-                    user ? <Navigate to={`/${user.role}`} replace /> : <Login />
+                    user && !forceLogin ? <Navigate to={`/${user.role}`} replace /> : <Login />
                 } />
                 <Route path="/signup" element={
-                    user ? <Navigate to={`/${user.role}`} replace /> : <SignUp />
+                    user && !forceLogin ? <Navigate to={`/${user.role}`} replace /> : <SignUp />
                 } />
                 <Route path="/reset-password/:token" element={<ResetPassword />} />
 

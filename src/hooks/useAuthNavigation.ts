@@ -53,11 +53,11 @@ export const useAuthNavigation = () => {
 
   };
 
-  const logout = async () => {
+  const logout = async (options?: { forceClear?: boolean }) => {
     loading.showLoading();
     try {
-      await authLogout();
-      navigate('/login');
+      await authLogout(options);
+      navigate('/login?forceLogin=true', { replace: true });
     } finally {
       setTimeout(() => loading.hideLoading(), 500);
     }

@@ -161,13 +161,21 @@ const DailyClosingReport = () => {
             payments,
             financial,
             newAppointments: (report.timelines?.appointments || []).filter((a: any) => a.patientType === 'novo' && a.operationalStatus !== 'canceled'),
+            // 🔥 NOVO: Separar por isFirstAppointment
+            appointmentsByType: {
+                novos: report.appointmentsByType?.novos || [],
+                recorrentes: report.appointmentsByType?.recorrentes || [],
+            },
             summary: {
                 totalAppointments: summary.appointments?.total || 0,
                 totalConfirmed: summary.appointments?.attended || 0, // 🔹 'attended' = confirmados
                 totalCanceled: summary.appointments?.canceled || 0,
                 totalRevenue: summary.appointments?.expectedValue || 0,
                 totalPayments: payments.length,
-                paymentRevenue: summary.payments?.totalReceived || 0
+                paymentRevenue: summary.payments?.totalReceived || 0,
+                // 🔥 NOVO: Contadores de novos vs recorrentes
+                novosCount: summary.appointments?.novos || 0,
+                recorrentesCount: summary.appointments?.recorrentes || 0,
             }
         };
     }, [report]);
@@ -283,6 +291,8 @@ const DailyClosingReport = () => {
                 <nav className="-mb-px flex space-x-4 sm:space-x-8 min-w-max">
                     {[
                         { id: 'overview', name: 'Visão Geral', icon: BsCalendar3 },
+                        { id: 'novos', name: 'Novos', icon: BsPeople },
+                        { id: 'recorrentes', name: 'Recorrentes', icon: BsPeople },
                         { id: 'timeline', name: 'Timeline', icon: BsClock },
                         { id: 'professionals', name: 'Equipe', icon: BsPeople },
                         { id: 'financial', name: 'Financeiro', icon: FiDollarSign },
@@ -338,6 +348,63 @@ const DailyClosingReport = () => {
                 />
             </div>
 
+            {/* 🔥 NOVO: CARDS DE PACIENTES NOVOS VS RECORRENTES */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                {/* Card de Pacientes Novos */}
+                <div 
+                    className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4 cursor-pointer hover:shadow-md transition-all"
+                    onClick={() => setActiveTab('novos')}
+                >
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-green-700">Pacientes Novos</p>
+                            <p className="text-2xl font-bold text-green-900">
+                                {processedData.summary.novosCount}
+                            </p>
+                            <p className="text-xs text-green-600 mt-1">
+                                Primeiro agendamento
+                            </p>
+                        </div>
+                        <div className="p-3 bg-green-100 rounded-full">
+                            <BsPeople className="text-green-600 text-xl" />
+                        </div>
+                    </div>
+                    <div className="mt-3 flex items-center text-xs text-green-700">
+                        <span className="font-medium">
+                            {Math.round((processedData.summary.novosCount / processedData.summary.totalAppointments) * 100)}%
+                        </span>
+                        <span className="ml-1">do total de agendamentos</span>
+                    </div>
+                </div>
+
+                {/* Card de Pacientes Recorrentes */}
+                <div 
+                    className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 cursor-pointer hover:shadow-md transition-all"
+                    onClick={() => setActiveTab('recorrentes')}
+                >
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-blue-700">Pacientes Recorrentes</p>
+                            <p className="text-2xl font-bold text-blue-900">
+                                {processedData.summary.recorrentesCount}
+                            </p>
+                            <p className="text-xs text-blue-600 mt-1">
+                                Retornos e acompanhamentos
+                            </p>
+                        </div>
+                        <div className="p-3 bg-blue-100 rounded-full">
+                            <BsPeople className="text-blue-600 text-xl" />
+                        </div>
+                    </div>
+                    <div className="mt-3 flex items-center text-xs text-blue-700">
+                        <span className="font-medium">
+                            {Math.round((processedData.summary.recorrentesCount / processedData.summary.totalAppointments) * 100)}%
+                        </span>
+                        <span className="ml-1">do total de agendamentos</span>
+                    </div>
+                </div>
+            </div>
+
             {/* CONTEÚDO DAS ABAS */}
             {activeTab === 'overview' && (
                 <OverviewView
@@ -378,6 +445,26 @@ const DailyClosingReport = () => {
                 <AnalyticsView
                     data={processedData}
                     formatCurrency={formatCurrency}
+                />
+            )}
+
+            {/* 🔥 NOVO: ABA DE PACIENTES NOVOS */}
+            {activeTab === 'novos' && (
+                <AppointmentsListView
+                    title="Pacientes Novos"
+                    subtitle="Primeiro agendamento no sistema"
+                    appointments={processedData.appointmentsByType?.novos || []}
+                    color="green"
+                />
+            )}
+
+            {/* 🔥 NOVO: ABA DE PACIENTES RECORRENTES */}
+            {activeTab === 'recorrentes' && (
+                <AppointmentsListView
+                    title="Pacientes Recorrentes"
+                    subtitle="Retornos e acompanhamentos"
+                    appointments={processedData.appointmentsByType?.recorrentes || []}
+                    color="blue"
                 />
             )}
 
@@ -2001,6 +2088,112 @@ const StatCard = ({ title, value, color, subtitle }: any) => {
             {subtitle && (
                 <div className="text-xs text-gray-500 mt-1">{subtitle}</div>
             )}
+        </div>
+    );
+};
+
+// 🔥 NOVO: Componente de lista de agendamentos (Novos/Recorrentes)
+const AppointmentsListView = ({ 
+    title, 
+    subtitle, 
+    appointments, 
+    color 
+}: { 
+    title: string; 
+    subtitle: string; 
+    appointments: any[]; 
+    color: 'green' | 'blue';
+}) => {
+    const colors = {
+        green: {
+            bg: 'bg-green-50',
+            border: 'border-green-200',
+            text: 'text-green-900',
+            subtitle: 'text-green-600',
+            badge: 'bg-green-100 text-green-700'
+        },
+        blue: {
+            bg: 'bg-blue-50',
+            border: 'border-blue-200',
+            text: 'text-blue-900',
+            subtitle: 'text-blue-600',
+            badge: 'bg-blue-100 text-blue-700'
+        }
+    };
+
+    const theme = colors[color];
+
+    if (!appointments || appointments.length === 0) {
+        return (
+            <div className={`${theme.bg} border ${theme.border} rounded-xl p-8 text-center`}>
+                <p className={`text-lg font-medium ${theme.text}`}>{title}</p>
+                <p className={`text-sm ${theme.subtitle} mt-1`}>{subtitle}</p>
+                <p className="text-gray-500 mt-4">Nenhum agendamento encontrado nesta data.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            <div className={`${theme.bg} border ${theme.border} rounded-xl p-4`}>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h3 className={`text-lg font-bold ${theme.text}`}>{title}</h3>
+                        <p className={`text-sm ${theme.subtitle}`}>{subtitle}</p>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${theme.badge}`}>
+                        {appointments.length} pacientes
+                    </span>
+                </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th className="px-4 py-3 font-medium text-gray-700">Horário</th>
+                                <th className="px-4 py-3 font-medium text-gray-700">Paciente</th>
+                                <th className="px-4 py-3 font-medium text-gray-700">Especialidade</th>
+                                <th className="px-4 py-3 font-medium text-gray-700">Profissional</th>
+                                <th className="px-4 py-3 font-medium text-gray-700">Tipo</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {appointments.map((apt: any) => (
+                                <tr key={apt.id} className="hover:bg-gray-50">
+                                    <td className="px-4 py-3 text-gray-900 font-medium">
+                                        {apt.time || '--:--'}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <div>
+                                            <p className="font-medium text-gray-900">{apt.patient}</p>
+                                            {apt.phone && (
+                                                <p className="text-xs text-gray-500">{apt.phone}</p>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-gray-600 capitalize">
+                                        {apt.specialty}
+                                    </td>
+                                    <td className="px-4 py-3 text-gray-600">
+                                        {apt.doctor}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                                            apt.serviceType === 'package_session' 
+                                                ? 'bg-purple-100 text-purple-700' 
+                                                : 'bg-gray-100 text-gray-700'
+                                        }`}>
+                                            {apt.serviceType === 'package_session' ? 'Pacote' : 'Avulso'}
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     );
 };
