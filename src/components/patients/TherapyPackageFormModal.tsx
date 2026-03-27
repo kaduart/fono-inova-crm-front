@@ -597,9 +597,9 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     patientId: patient._id,
                     sessionType: formData.sessionType as any // Type assertion para compatibilidade
                 };
-                if (editingPackage?._id) {
+                if (initialData?._id) {
                     // Edição
-                    await packageService.updatePackage(editingPackage._id, therapyData);
+                    await packageService.updatePackage(initialData._id, therapyData);
                     toast.success(`Pacote atualizado com sucesso! 💚`);
                     onSubmit();
                 } else {

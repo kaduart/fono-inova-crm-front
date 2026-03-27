@@ -753,6 +753,8 @@ export default function TherapyPackageCard({
           onSubmit={handleSessionSubmit}
           loading={loading}
           sessionData={selectedSession}
+          // 🔥 NOVO: Passa info do pacote para pagamento automático
+          packageData={pack}
         />
       )}
 

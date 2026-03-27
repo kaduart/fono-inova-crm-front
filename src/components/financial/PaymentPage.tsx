@@ -24,7 +24,7 @@ import { Patient360Modal } from '../../pages/Financial/components/Patient360Moda
 import { FinancialTableLoading } from '../../pages/Financial/components/FinancialLoading';
 import api from '../../services/api';
 
-// ─── Appointments card that reacts to the active period filter ───────────────
+// ─── Status map for appointment badges ──────────────────────────────────────
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
     confirmed: { label: 'Confirmado', color: 'bg-green-100 text-green-800' },
     scheduled: { label: 'Agendado', color: 'bg-blue-100 text-blue-800' },
@@ -76,7 +76,8 @@ function computeDateRange(period: string, customStart: string, customEnd: string
     return null;
 }
 
-const AppointmentsPeriodCard = ({
+// ─── Componente: Card de Pacientes Novos ────────────────────────────────────
+const NewPatientsPeriodCard = ({
     selectedPeriod,
     customStartDate,
     customEndDate,
@@ -85,8 +86,9 @@ const AppointmentsPeriodCard = ({
     customStartDate: string;
     customEndDate: string;
 }) => {
-    const [appointments, setAppointments] = useState<any[]>([]);
-    const [loadingAppts, setLoadingAppts] = useState(false);
+    const [newPatients, setNewPatients] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [modalOpen, setModalOpen] = useState(false);
 
     const dateRange = useMemo(
         () => computeDateRange(selectedPeriod, customStartDate, customEndDate),
@@ -95,74 +97,131 @@ const AppointmentsPeriodCard = ({
 
     useEffect(() => {
         if (!dateRange) return;
-        setLoadingAppts(true);
-        api.get('/appointments', { params: { startDate: dateRange.start, endDate: dateRange.end } })
+        setLoading(true);
+        api.get('/appointments', { 
+            params: { 
+                startDate: dateRange.start, 
+                endDate: dateRange.end,
+                patientType: 'novo'
+            } 
+        })
             .then(res => {
                 const data = res.data?.data || res.data || [];
-                setAppointments(Array.isArray(data) ? data.filter((a: any) => a.operationalStatus !== 'pre_agendado') : []);
+                setNewPatients(Array.isArray(data) ? data : []);
             })
-            .catch(() => setAppointments([]))
-            .finally(() => setLoadingAppts(false));
+            .catch(() => setNewPatients([]))
+            .finally(() => setLoading(false));
     }, [dateRange]);
 
     if (!dateRange) return null;
 
-    const counts = appointments.reduce((acc, a) => {
-        const s = a.operationalStatus || 'scheduled';
-        acc[s] = (acc[s] || 0) + 1;
-        return acc;
-    }, {} as Record<string, number>);
-
     return (
-        <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-100">
-            <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-blue-800 text-sm">Agendamentos do Período</h3>
-                <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
-                    {appointments.length} agendamento{appointments.length !== 1 ? 's' : ''}
-                </span>
+        <>
+            <div 
+                className="mt-4 p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200 cursor-pointer hover:shadow-md transition-all"
+                onClick={() => newPatients.length > 0 && setModalOpen(true)}
+            >
+                <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold text-green-800 text-sm">Pacientes Novos</h3>
+                    <div className="p-2 bg-green-100 rounded-full">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
+                        </svg>
+                    </div>
+                </div>
+
+                {loading ? (
+                    <div className="flex justify-center py-4">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-500" />
+                    </div>
+                ) : (
+                    <>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-3xl font-bold text-green-900">{newPatients.length}</span>
+                            <span className="text-sm text-green-600">
+                                {newPatients.length === 1 ? 'novo paciente' : 'novos pacientes'}
+                            </span>
+                        </div>
+                        <p className="text-xs text-green-600 mt-2">
+                            {newPatients.length > 0 ? 'Clique para ver detalhes' : 'Nenhum paciente novo no período'}
+                        </p>
+                    </>
+                )}
             </div>
 
-            {loadingAppts ? (
-                <div className="flex justify-center py-4">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500" />
-                </div>
-            ) : appointments.length === 0 ? (
-                <p className="text-xs text-blue-600 text-center py-2">Nenhum agendamento no período</p>
-            ) : (
-                <>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                        {Object.entries(counts).map(([status, count]) => (
-                            <span
-                                key={status}
-                                className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_MAP[status]?.color || 'bg-gray-100 text-gray-700'}`}
-                            >
-                                {STATUS_MAP[status]?.label || status}: {count as number}
-                            </span>
-                        ))}
-                    </div>
-                    <div className="space-y-1 max-h-48 overflow-y-auto">
-                        {appointments.slice(0, 8).map((a: any) => (
-                            <div key={a._id} className="flex items-center justify-between text-xs bg-white rounded-lg px-3 py-2 border border-blue-100">
-                                <div className="flex items-center gap-2 min-w-0">
-                                    <span className="text-gray-500 shrink-0">{a.date} {a.time}</span>
-                                    <span className="font-medium text-gray-800 truncate">
-                                        {a.patient?.fullName || 'Paciente'}
-                                    </span>
-                                </div>
-                                <span className={`ml-2 shrink-0 text-xs px-2 py-0.5 rounded-full ${STATUS_MAP[a.operationalStatus]?.color || 'bg-gray-100 text-gray-700'}`}>
-                                    {STATUS_MAP[a.operationalStatus]?.label || a.operationalStatus}
-                                </span>
+            {/* Modal de Pacientes Novos */}
+            {modalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setModalOpen(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-900">Pacientes Novos</h3>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    Período: {dateRange.start} a {dateRange.end}
+                                </p>
                             </div>
-                        ))}
-                        {appointments.length > 8 && (
-                            <p className="text-xs text-center text-blue-500 pt-1">
-                                +{appointments.length - 8} mais
+                            <button 
+                                onClick={() => setModalOpen(false)} 
+                                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        
+                        <div className="overflow-y-auto p-6">
+                            {newPatients.length === 0 ? (
+                                <p className="text-center text-gray-500 py-8">Nenhum paciente novo encontrado.</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {newPatients.map((patient: any) => (
+                                        <div key={patient._id} className="bg-gray-50 rounded-lg p-4 border border-gray-100 hover:bg-gray-100 transition-colors">
+                                            <div className="flex items-start justify-between">
+                                                <div>
+                                                    <p className="font-semibold text-gray-900">
+                                                        {patient.patient?.fullName || patient.patientInfo?.fullName || 'Nome não informado'}
+                                                    </p>
+                                                    <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
+                                                        <span className="flex items-center gap-1">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                                <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                                                            </svg>
+                                                            {patient.patient?.phone || patient.patientInfo?.phone || 'Sem telefone'}
+                                                        </span>
+                                                        <span className="flex items-center gap-1">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                                <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                                                            </svg>
+                                                            {patient.date} {patient.time}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 mt-2">
+                                                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                                                            {patient.specialty}
+                                                        </span>
+                                                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                                                            {patient.doctor?.fullName || 'Profissional não informado'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <span className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_MAP[patient.operationalStatus]?.color || 'bg-gray-100 text-gray-700'}`}>
+                                                    {STATUS_MAP[patient.operationalStatus]?.label || patient.operationalStatus}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        
+                        <div className="p-6 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+                            <p className="text-sm text-gray-600 text-center">
+                                Total de <strong>{newPatients.length}</strong> paciente{newPatients.length !== 1 ? 's' : ''} novo{newPatients.length !== 1 ? 's' : ''} no período
                             </p>
-                        )}
+                        </div>
                     </div>
-                </>
+                </div>
             )}
-        </div>
+        </>
     );
 };
 // ─────────────────────────────────────────────────────────────────────────────
@@ -185,13 +244,14 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
     const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
     const [paymentToEdit, setPaymentToEdit] = useState<FinancialRecord | undefined>(undefined);
     const [error, setError] = useState<string | null>(null);
-    const [dailyReportOpen, setDailyReportOpen] = useState<boolean>(true);
-    const [financialControlOpen, setFinancialControlOpen] = useState<boolean>(true);
+    // Estados removidos - agora usando sistema de tabs
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month' | 'year' | 'all' | 'last_week' | 'last_month' | 'custom'>('month');
     const [customStartDate, setCustomStartDate] = useState<string>('');
     const [customEndDate, setCustomEndDate] = useState<string>('');
+    
+    // Performance: lazy loading removido - agora só mostra tabela direto
 
     const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -215,9 +275,8 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
         fetchPaymentTotals,
     } = usePayment();
 
-    // 🔹 Carregar dados iniciais - apenas se não tiver initialPayments
+    // 🔹 Carregar dados ao montar
     useEffect(() => {
-        // Se já temos initialPayments, não precisamos carregar tudo de novo
         if (initialPayments && initialPayments.length > 0) {
             return;
         }
@@ -225,13 +284,12 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
         const loadData = async () => {
             try {
                 await fetchPayments();
-                await fetchPaymentTotals({ period: 'month' });
             } catch (err) {
                 toast.error('Erro ao carregar dados financeiros');
             }
         };
         loadData();
-    }, [fetchPayments, fetchPaymentTotals, initialPayments]);
+    }, [fetchPayments, initialPayments]);
 
     // 🔹 Carregar role do usuário
     useEffect(() => {
@@ -421,41 +479,8 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
 
     return (
         <div className="space-y-6 p-4">
-
-            {/* 🔹 SEÇÃO RELATÓRIO DIÁRIO */}
-            <Paper elevation={1} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-                <button
-                    className={`flex justify-between items-center w-full p-4 text-left font-semibold transition-colors ${dailyReportOpen
-                        ? 'bg-blue-50 text-blue-800 border-b border-blue-100'
-                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                        }`}
-                    onClick={() => setDailyReportOpen(!dailyReportOpen)}
-                >
-                    <span className="text-lg font-bold">📊 Relatório Diário</span>
-                    {dailyReportOpen ? <ChevronUp size={22} /> : <ChevronDown size={22} />}
-                </button>
-                {dailyReportOpen && (
-                    <div className="p-4 bg-white">
-                        <DailyClosingReport />
-                    </div>
-                )}
-            </Paper>
-
-            {/* 🔹 SEÇÃO CONTROLE FINANCEIRO */}
-            <Paper elevation={1} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-                <button
-                    className={`flex justify-between items-center w-full p-4 text-left font-semibold transition-colors ${financialControlOpen
-                        ? 'bg-green-50 text-green-800 border-b border-green-100'
-                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                        }`}
-                    onClick={() => setFinancialControlOpen(!financialControlOpen)}
-                >
-                    <span className="text-lg font-bold">💰 Controle Financeiro</span>
-                    {financialControlOpen ? <ChevronUp size={22} /> : <ChevronDown size={22} />}
-                </button>
-
-                {financialControlOpen && (
-                    <div className="space-y-6 p-4 bg-white">
+            {/* CONTEÚDO: Tabela de Lançamentos */}
+            <div className="space-y-6">
                         {/* 🔹 RESUMO FINANCEIRO */}
                         {user && (
                             <div className="mb-6">
@@ -681,7 +706,7 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                     />
                                 )}
 
-                                <AppointmentsPeriodCard
+                                <NewPatientsPeriodCard
                                     selectedPeriod={selectedPeriod}
                                     customStartDate={customStartDate}
                                     customEndDate={customEndDate}
@@ -951,34 +976,6 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
                                 </div>
                             </Paper>
                         )}
-                    </div>
-                )}
-            </Paper>
-
-            {/* 🔹 BOTÕES DE CONTROLE DE VISUALIZAÇÃO */}
-            <div className="flex gap-3 justify-center">
-                <Button
-                    variant="outlined"
-                    startIcon={<ChevronUp size={18} />}
-                    onClick={() => {
-                        setDailyReportOpen(true);
-                        setFinancialControlOpen(true);
-                    }}
-                    sx={{ borderRadius: 2 }}
-                >
-                    Expandir Todos
-                </Button>
-                <Button
-                    variant="outlined"
-                    startIcon={<ChevronDown size={18} />}
-                    onClick={() => {
-                        setDailyReportOpen(false);
-                        setFinancialControlOpen(false);
-                    }}
-                    sx={{ borderRadius: 2 }}
-                >
-                    Recolher Todos
-                </Button>
             </div>
 
             {/* 🔹 MODAIS */}

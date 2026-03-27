@@ -86,6 +86,8 @@ const DailyClosingReport = () => {
     const [activeTab, setActiveTab] = useState('overview');
     const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlot | null>(null);
     const [isTimeSlotModalOpen, setIsTimeSlotModalOpen] = useState(false);
+    const [isNovosModalOpen, setIsNovosModalOpen] = useState(false);
+    const [isRecorrentesModalOpen, setIsRecorrentesModalOpen] = useState(false);
     const [filters, setFilters] = useState({
         professional: 'all',
         status: 'all',
@@ -291,8 +293,6 @@ const DailyClosingReport = () => {
                 <nav className="-mb-px flex space-x-4 sm:space-x-8 min-w-max">
                     {[
                         { id: 'overview', name: 'Visão Geral', icon: BsCalendar3 },
-                        { id: 'novos', name: 'Novos', icon: BsPeople },
-                        { id: 'recorrentes', name: 'Recorrentes', icon: BsPeople },
                         { id: 'timeline', name: 'Timeline', icon: BsClock },
                         { id: 'professionals', name: 'Equipe', icon: BsPeople },
                         { id: 'financial', name: 'Financeiro', icon: FiDollarSign },
@@ -353,7 +353,7 @@ const DailyClosingReport = () => {
                 {/* Card de Pacientes Novos */}
                 <div 
                     className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4 cursor-pointer hover:shadow-md transition-all"
-                    onClick={() => setActiveTab('novos')}
+                    onClick={() => setIsNovosModalOpen(true)}
                 >
                     <div className="flex items-center justify-between">
                         <div>
@@ -380,7 +380,7 @@ const DailyClosingReport = () => {
                 {/* Card de Pacientes Recorrentes */}
                 <div 
                     className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 cursor-pointer hover:shadow-md transition-all"
-                    onClick={() => setActiveTab('recorrentes')}
+                    onClick={() => setIsRecorrentesModalOpen(true)}
                 >
                     <div className="flex items-center justify-between">
                         <div>
@@ -448,23 +448,29 @@ const DailyClosingReport = () => {
                 />
             )}
 
-            {/* 🔥 NOVO: ABA DE PACIENTES NOVOS */}
-            {activeTab === 'novos' && (
-                <AppointmentsListView
+            {/* MODAL DE PACIENTES NOVOS */}
+            {isNovosModalOpen && (
+                <PatientsModal
+                    isOpen={isNovosModalOpen}
+                    onClose={() => setIsNovosModalOpen(false)}
                     title="Pacientes Novos"
                     subtitle="Primeiro agendamento no sistema"
                     appointments={processedData.appointmentsByType?.novos || []}
                     color="green"
+                    dateFilter={dateFilter}
                 />
             )}
 
-            {/* 🔥 NOVO: ABA DE PACIENTES RECORRENTES */}
-            {activeTab === 'recorrentes' && (
-                <AppointmentsListView
+            {/* MODAL DE PACIENTES RECORRENTES */}
+            {isRecorrentesModalOpen && (
+                <PatientsModal
+                    isOpen={isRecorrentesModalOpen}
+                    onClose={() => setIsRecorrentesModalOpen(false)}
                     title="Pacientes Recorrentes"
                     subtitle="Retornos e acompanhamentos"
                     appointments={processedData.appointmentsByType?.recorrentes || []}
                     color="blue"
+                    dateFilter={dateFilter}
                 />
             )}
 
@@ -2192,6 +2198,148 @@ const AppointmentsListView = ({
                             ))}
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// 🔥 NOVO: Modal de Pacientes (Novos/Recorrentes)
+const PatientsModal = ({
+    isOpen,
+    onClose,
+    title,
+    subtitle,
+    appointments,
+    color,
+    dateFilter
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+    title: string;
+    subtitle: string;
+    appointments: any[];
+    color: 'green' | 'blue';
+    dateFilter: string;
+}) => {
+    const colors = {
+        green: {
+            headerBg: 'bg-gradient-to-r from-green-600 to-emerald-600',
+            badge: 'bg-green-100 text-green-700',
+            emptyBg: 'bg-green-50',
+            emptyBorder: 'border-green-200',
+            emptyText: 'text-green-800'
+        },
+        blue: {
+            headerBg: 'bg-gradient-to-r from-blue-600 to-indigo-600',
+            badge: 'bg-blue-100 text-blue-700',
+            emptyBg: 'bg-blue-50',
+            emptyBorder: 'border-blue-200',
+            emptyText: 'text-blue-800'
+        }
+    };
+
+    const theme = colors[color];
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div className={`${theme.headerBg} text-white px-6 py-4 rounded-t-2xl`}>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="text-xl font-bold">{title}</h3>
+                            <p className="text-sm text-white/80">{subtitle}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className={`px-3 py-1 rounded-full text-sm font-bold ${theme.badge}`}>
+                                {appointments.length} paciente{appointments.length !== 1 ? 's' : ''}
+                            </span>
+                            <button 
+                                onClick={onClose}
+                                className="text-white/80 hover:text-white text-2xl leading-none transition-colors"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                    <p className="text-xs text-white/70 mt-2">Data: {dayjs(dateFilter).format('DD/MM/YYYY')}</p>
+                </div>
+
+                {/* Content */}
+                <div className="overflow-y-auto p-6 flex-1">
+                    {appointments.length === 0 ? (
+                        <div className={`${theme.emptyBg} border ${theme.emptyBorder} rounded-xl p-8 text-center`}>
+                            <svg xmlns="http://www.w3.org/2000/svg" className={`h-16 w-16 mx-auto mb-4 ${theme.emptyText} opacity-50`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            <p className={`text-lg font-medium ${theme.emptyText}`}>Nenhum paciente encontrado</p>
+                            <p className="text-gray-500 mt-1">Não há {title.toLowerCase()} para esta data.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {appointments.map((apt: any) => (
+                                <div key={apt.id} className="bg-gray-50 rounded-xl p-4 border border-gray-100 hover:border-gray-300 hover:shadow-md transition-all">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-semibold text-gray-900 truncate">{apt.patient}</p>
+                                            {apt.phone && (
+                                                <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                                                    </svg>
+                                                    {apt.phone}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <span className={`text-xs px-2 py-1 rounded-full font-medium ml-2 shrink-0 ${
+                                            apt.serviceType === 'package_session' 
+                                                ? 'bg-purple-100 text-purple-700' 
+                                                : 'bg-gray-100 text-gray-700'
+                                        }`}>
+                                            {apt.serviceType === 'package_session' ? 'Pacote' : 'Avulso'}
+                                        </span>
+                                    </div>
+                                    
+                                    <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                                        <span className="flex items-center gap-1 text-gray-600 bg-white px-2 py-1 rounded-lg border border-gray-200">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                                            </svg>
+                                            {apt.time || '--:--'}
+                                        </span>
+                                        <span className="text-gray-500 capitalize bg-white px-2 py-1 rounded-lg border border-gray-200">
+                                            {apt.specialty}
+                                        </span>
+                                    </div>
+                                    
+                                    <div className="mt-2 text-sm text-gray-600 flex items-center gap-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                        </svg>
+                                        {apt.doctor}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="border-t border-gray-100 px-6 py-4 bg-gray-50 rounded-b-2xl">
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm text-gray-600">
+                            Total de <strong>{appointments.length}</strong> paciente{appointments.length !== 1 ? 's' : ''}
+                        </p>
+                        <button 
+                            onClick={onClose}
+                            className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+                        >
+                            Fechar
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

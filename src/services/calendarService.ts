@@ -25,7 +25,7 @@ export interface HolidaysResponse {
 export const getHolidays = async (year?: number): Promise<Holiday[]> => {
   try {
     const targetYear = year || new Date().getFullYear();
-    const response = await API.get<HolidaysResponse>(`/api/calendar/holidays?year=${targetYear}`);
+    const response = await API.get<HolidaysResponse>(`/calendar/holidays?year=${targetYear}`);
     
     if (response.data?.success) {
       return response.data.holidays;

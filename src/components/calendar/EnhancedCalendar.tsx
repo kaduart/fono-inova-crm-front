@@ -489,6 +489,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 ? packageData.financialStatus  // Senão, usa do pacote
                 : appointmentPaymentStatus || 'pending';
 
+        // 🔥 NOVO: Detecta sessão de pacote pendente (destaque especial)
+        const isPackageSessionPending = hasPackage && financialStatus === 'pending';
+
         const PAYMENT_BADGE: Record<string, { label: string; icon: string; bg: string; text: string }> = {
             paid: { label: 'Pago', icon: '$', bg: 'bg-green-600', text: 'text-white' },
             pending: { label: 'Pendente', icon: '$', bg: 'bg-red-600', text: 'text-white' },
@@ -655,12 +658,17 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             >
                 <Paper
                     elevation={2}
-                    className="flex flex-col p-3 rounded-xl w-full h-full relative transition-all duration-200 hover:shadow-lg"
+                    className={`flex flex-col p-3 rounded-xl w-full h-full relative transition-all duration-200 hover:shadow-lg ${isPackageSessionPending ? 'animate-pulse' : ''}`}
                     style={{
-                        background: 'linear-gradient(135deg, #a2ddbfff 0%, #1aac68ff 100%)',
+                        background: isPackageSessionPending 
+                            ? 'linear-gradient(135deg, #fde047 0%, #f97316 100%)' // 🟡🟠 Amarelo/Laranja pulsante
+                            : 'linear-gradient(135deg, #a2ddbfff 0%, #1aac68ff 100%)',
                         borderLeft: `8px solid ${operationalConfig.color}`,
                         opacity: ['canceled', 'absent'].includes(arg.event.extendedProps.operationalStatus) ? 0.7 : 1,
-                        minHeight: '170px', // aumentado para dar mais espaço
+                        minHeight: '170px',
+                        boxShadow: isPackageSessionPending 
+                            ? '0 0 15px rgba(249, 115, 22, 0.6)' // 🔥 Glow laranja
+                            : undefined,
                     }}
                 >
                     {/* Linha superior: horário e status pagamento */}
@@ -717,6 +725,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         {patientHasDebt && (
                             <div className="bg-red-600 text-white px-2 py-0.5 rounded text-[9px] font-bold animate-pulse" title={`Paciente deve R$ ${patientBalance.toFixed(2)}`}>
                                 ⚠️ R$ {patientBalance.toFixed(0)}
+                            </div>
+                        )}
+                        {/* 🔥 NOVO: Badge para sessão de pacote pendente */}
+                        {isPackageSessionPending && (
+                            <div className="bg-amber-500 text-white px-2 py-0.5 rounded text-[9px] font-bold animate-pulse" title="Pacote - Receber hoje">
+                                💰 RECEBER
                             </div>
                         )}
                         {hasPackage && isConvenio && (
