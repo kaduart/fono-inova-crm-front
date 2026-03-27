@@ -199,11 +199,19 @@ export const packageService = {
     return API.patch<ISession>(`/packages/${packageId}/use-session`, data);
   },
 
-  // 🔄 Cancelamento em massa de sessões
+  // 🔄 Cancelamento em massa de sessões (com lista específica)
   bulkCancelSessions: async (packageId: string, sessionIds: string[], confirmedAbsence: boolean = false) => {
     return API.post<{ success: boolean; message: string; canceledCount: number }>(
       `/packages/${packageId}/sessions/bulk-cancel`,
       { sessionIds, confirmedAbsence }
+    );
+  },
+
+  // 🚀 Cancelar TODAS as sessões do pacote (mais simples, mais rápido)
+  cancelAllSessions: async (packageId: string, confirmedAbsence: boolean = false) => {
+    return API.post<{ success: boolean; message: string; canceledCount: number }>(
+      `/packages/${packageId}/cancel-all-sessions`,
+      { confirmedAbsence }
     );
   },
 }

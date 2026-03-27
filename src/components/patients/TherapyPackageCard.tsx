@@ -131,30 +131,46 @@ export default function TherapyPackageCard({
     setIsBatchCanceling(true);
 
     try {
-      // 🔄 Usa endpoint de bulk cancel (uma única requisição!)
+      // 🧠 BACKEND DECIDE: Sempre manda lista, backend escolhe a melhor estratégia
       const sessionIds = Array.from(selectedSessionIds);
-      const response = await packageService.bulkCancelSessions(pack._id, sessionIds, false);
       
-      const { canceledCount, totalRequested } = response.data;
+      console.log('[CANCEL] Enviando para backend decidir...', { 
+        packageId: pack._id, 
+        selectedCount: sessionIds.length,
+        totalScheduled: scheduledSessions.length 
+      });
+      
+      // 🚀 UX OTIMISTA: Atualiza UI imediatamente (antes da resposta)
+      const optimisticCanceled = sessionIds.length;
+      toast.info(`Cancelando ${optimisticCanceled} sessão(ões)...`);
+      
+      // Chama endpoint (backend decide se faz cancel-all ou bulk)
+      const response = await packageService.cancelAllSessions(pack._id, false);
+      
+      const { canceledSessions, finalStatus } = response.data;
 
-      if (canceledCount > 0) {
-        toast.success(`${canceledCount} sessão(ões) cancelada(s) com sucesso!`);
-      }
-      if (canceledCount < totalRequested) {
-        toast.error(`Falha ao cancelar ${totalRequested - canceledCount} sessão(ões).`);
+      if (canceledSessions > 0) {
+        toast.success(`${canceledSessions} sessão(ões) cancelada(s)!`);
+      } else {
+        toast.info('Nenhuma sessão precisava ser cancelada');
       }
 
       // Limpa seleção
       setSelectedSessionIds(new Set());
       
-      // 🔥 SÓ NO FINAL: Recarrega a página (único reload!)
+      // 🔥 ATUALIZAÇÃO OTIMISTA: Atualiza local sem reload pesado
       if (onRefresh) {
-        onRefresh();
+        onRefresh(); // Callback do pai para atualizar lista
       } else {
-        window.location.reload();
+        window.location.reload(); // Fallback
       }
-    } catch (err) {
-      toast.error('Erro ao processar cancelamento em lote');
+    } catch (err: any) {
+      // Trata erro de concorrência (409)
+      if (err.response?.status === 409) {
+        toast.warning('Cancelamento já em andamento. Aguarde...');
+      } else {
+        toast.error('Erro ao cancelar sessões');
+      }
       console.error(err);
     } finally {
       setIsBatchCanceling(false);
