@@ -129,57 +129,19 @@ export default function TherapyPackageCard({
   const confirmBatchCancel = async () => {
     setShowCancelModal(false);
     setIsBatchCanceling(true);
-    let successCount = 0;
-    let errorCount = 0;
 
     try {
-      // 🔥 Faz todas as requisições em paralelo
-      const cancelPromises = Array.from(selectedSessionIds).map(async (sessionId) => {
-        try {
-          // Busca a sessão original para ter todos os dados
-          const originalSession = pack.sessions?.find(s => s._id === sessionId);
-          if (!originalSession) {
-            console.error(`Sessão ${sessionId} não encontrada`);
-            return { success: false };
-          }
-          
-          // Payload para cancelamento
-          const payload = {
-            patientId: patient._id,
-            doctorId: originalSession.doctorId,
-            date: originalSession.date,
-            time: originalSession.time,
-            status: 'canceled',
-            notes: originalSession.notes,
-            package: pack._id,
-            sessionType: pack.sessionType,
-            specialty: pack.sessionType,
-            sessionId: sessionId,
-            confirmedAbsence: false,
-            payment: {
-              amount: 0,
-              method: 'dinheiro'
-            },
-          };
-          
-          // Chama API diretamente (sem passar por onUseSession que faz refresh)
-          await packageService.updateSession(pack._id, payload);
-          return { success: true };
-        } catch (err) {
-          console.error(`Erro ao cancelar sessão ${sessionId}:`, err);
-          return { success: false };
-        }
-      });
+      // 🔄 Usa endpoint de bulk cancel (uma única requisição!)
+      const sessionIds = Array.from(selectedSessionIds);
+      const response = await packageService.bulkCancelSessions(pack._id, sessionIds, false);
+      
+      const { canceledCount, totalRequested } = response.data;
 
-      const results = await Promise.all(cancelPromises);
-      successCount = results.filter(r => r.success).length;
-      errorCount = results.filter(r => !r.success).length;
-
-      if (successCount > 0) {
-        toast.success(`${successCount} sessão(ões) cancelada(s) com sucesso!`);
+      if (canceledCount > 0) {
+        toast.success(`${canceledCount} sessão(ões) cancelada(s) com sucesso!`);
       }
-      if (errorCount > 0) {
-        toast.error(`Falha ao cancelar ${errorCount} sessão(ões).`);
+      if (canceledCount < totalRequested) {
+        toast.error(`Falha ao cancelar ${totalRequested - canceledCount} sessão(ões).`);
       }
 
       // Limpa seleção
@@ -193,6 +155,7 @@ export default function TherapyPackageCard({
       }
     } catch (err) {
       toast.error('Erro ao processar cancelamento em lote');
+      console.error(err);
     } finally {
       setIsBatchCanceling(false);
     }

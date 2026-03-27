@@ -198,6 +198,14 @@ export const packageService = {
   useSession: async (packageId: string, data: UseSessionParams) => {
     return API.patch<ISession>(`/packages/${packageId}/use-session`, data);
   },
+
+  // 🔄 Cancelamento em massa de sessões
+  bulkCancelSessions: async (packageId: string, sessionIds: string[], confirmedAbsence: boolean = false) => {
+    return API.post<{ success: boolean; message: string; canceledCount: number }>(
+      `/packages/${packageId}/sessions/bulk-cancel`,
+      { sessionIds, confirmedAbsence }
+    );
+  },
 }
 
 export const validatePayment = (amount: number, balance: number) => {
