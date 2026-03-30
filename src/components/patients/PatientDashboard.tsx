@@ -254,7 +254,7 @@ export default function PatientDashboard() {
     if (!doctorId || !date) return;
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(BASE_URL + `/patient/available-slots?doctorId=${doctorId}&date=${date}`, {
+      const response = await fetch(BASE_URL + `/appointments/available-slots?doctorId=${doctorId}&date=${date}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

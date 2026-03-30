@@ -452,6 +452,14 @@ export interface IAppointment {
     // 🔹 adiciona esses dois como opcionais
     patient?: IPatient;
     doctor?: IDoctor;
+    
+    // 🆕 ARQUITETURA v4.0 - Campos financeiros
+    patientBalance?: number;  // Saldo devedor do paciente (retornado no complete)
+    paymentOrigin?: 'auto_per_session' | 'manual_balance' | 'package_prepaid' | 'convenio' | 'liminar';  // Origem do pagamento
+    correlationId?: string;  // ID de correlação para rastreamento
+    addedToBalance?: boolean;  // Se foi adicionado ao saldo devedor
+    balanceAmount?: number;  // Valor adicionado ao saldo
+    balanceDescription?: string;  // Descrição do saldo
 }
 
 export interface IAppointmentResponse extends Omit<IAppointment, 'patient' | 'doctor'> {

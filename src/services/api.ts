@@ -44,6 +44,11 @@ API.interceptors.request.use(config => {
   const headers = new AxiosHeaders(config.headers);
   headers.set('Authorization', `Bearer ${token}`);
   
+  // 🆕 ARQUITETURA v4.0 - Correlation ID para rastreabilidade distribuída
+  // Gera um ID único para rastrear a requisição do front ao back
+  const correlationId = `front_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  headers.set('x-correlation-id', correlationId);
+  
   // ✅ FIX: Não sobrescrever Content-Type quando for FormData (upload de arquivos)
   // O navegador define automaticamente o Content-Type com boundary para FormData
   const isFormData = config.data instanceof FormData;
