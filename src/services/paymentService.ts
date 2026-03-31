@@ -226,7 +226,7 @@ export const getPayments = (filters: Record<string, any> = {}) =>
 // 🚀 Feature Flag: USE_V2_TOTALS
 // Quando true: usa /v2/totals (event-driven + snapshot)
 // Quando false: usa /payments/totals (legado síncrono)
-const USE_V2_TOTALS = true;
+const USE_V2_TOTALS = false;
 
 export const getPaymentTotals = async (filters: {
     period?: "day" | "week" | "month" | "year" | "custom";
