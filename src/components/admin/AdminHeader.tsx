@@ -3,6 +3,7 @@ import {
     ChevronDown,
     Clock,
     DollarSign,
+    Eye,
     Home,
     LogOut,
     Menu,
@@ -47,6 +48,9 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
 
     const isVendasMarketingActive =
         activeTab === "Leads" || activeTab === "Analytics" || activeTab === "SocialMedia" || activeTab === "ROI";
+    
+    const isSistemaActive =
+        activeTab === "Observability";
 
     const handleLogout = async () => {
         await authLogout();
@@ -220,6 +224,33 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         <WhatsAppNotificationButton 
                             onClick={() => handleTabChange("Mensagens")}
                         />
+
+                        {/* Menu Sistema/Dev */}
+                        <div className="relative">
+                            <NavButton
+                                active={isSistemaActive}
+                                onClick={() => toggleMenu("sistema")}
+                                icon={<Eye className="h-4 w-4 text-orange-500" />}
+                                hasChevron
+                                className={isSistemaActive ? "bg-blue-100 text-blue-600" : "!text-white"}
+                            >
+                                Sistema
+                            </NavButton>
+                            {openMenu === "sistema" && (
+                                <div className="absolute z-10 mt-2 w-56 rounded-lg shadow-xl bg-white border border-emerald-200 py-2">
+                                    <NavDropdownItem
+                                        active={activeTab === "Observability"}
+                                        onClick={() => handleTabChange("Observability")}
+                                        icon={<Activity className="h-4 w-4 text-orange-500" />}
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-gray-800">Observabilidade</span>
+                                            <span className="text-xs text-gray-500">Eventos e métricas</span>
+                                        </div>
+                                    </NavDropdownItem>
+                                </div>
+                            )}
+                        </div>
                     </nav>
 
                     {/* 🔔 Notificações + Perfil + Hamburguer */}
@@ -398,6 +429,19 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                     }`}
                             >
                                 <MessageCircle size={18} className="text-emerald-400" /> WhatsApp
+                            </button>
+                        </div>
+
+                        <div className="space-y-1">
+                            <p className="px-4 pt-2 pb-1 text-xs text-emerald-300 font-semibold uppercase tracking-wide">Sistema</p>
+                            <button
+                                onClick={() => handleMobileTabChange("Observability")}
+                                className={`flex items-center gap-3 w-full px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "Observability"
+                                        ? "bg-emerald-600 text-white"
+                                        : "text-emerald-100 hover:bg-emerald-700"
+                                    }`}
+                            >
+                                <Activity size={18} className="text-orange-400" /> Observabilidade
                             </button>
                         </div>
 

@@ -29,6 +29,7 @@ interface EnhancedCalendarProps {
     openModalAppointment?: boolean;
     closeModalSignal?: number;
     onConvertPreAgendamento?: (id: string) => Promise<void>;
+    onRefreshAppointments?: () => void;
 }
 
 export const PAYMENT_STATUS_CONFIG = {
@@ -155,7 +156,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     onFetchAvailableSlots,
     onMonthChange,
     statusConfig = OPERATIONAL_STATUS_CONFIG,
-    onConvertPreAgendamento
+    onConvertPreAgendamento,
+    onRefreshAppointments
 }) => {
     const calendarRef = useRef<FullCalendar | null>(null);
     const [openSchedule, setOpenSchedule] = useState(false);
@@ -1041,6 +1043,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 onCompleteAppointment={onCompleteAppointment}
                 onEditAppointment={onEditAppointment}
                 onConvertPreAgendamento={onConvertPreAgendamento}
+                onRefreshAppointments={onRefreshAppointments}
                 event={selectedEvent}
                 doctors={doctors}
                 patients={patients}

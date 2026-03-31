@@ -23,6 +23,7 @@ interface AppointmentDetailModalProps {
     patients?: any[];
     onCancelAdvancedSession?: (sessionId: string) => void;
     onConvertPreAgendamento?: (id: string) => Promise<void>;
+    onRefreshAppointments?: () => void;
 }
 
 // 🔧 SISTEMA DE TRADUÇÃO DE STATUS
@@ -96,7 +97,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     onEditAppointment,
     patients = [],
     onCancelAdvancedSession,
-    onConvertPreAgendamento
+    onConvertPreAgendamento,
+    onRefreshAppointments
 }) => {
     const [activeTab, setActiveTab] = useState<'details' | 'confirm' | 'cancel' | 'edit'>('details');
     const [cancelReason, setCancelReason] = useState('');
@@ -1230,6 +1232,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 onClose={() => setIsBalanceModalOpen(false)}
                 patientId={event?.patient?.id || ''}
                 patientName={event?.patient?.fullName || 'Paciente'}
+                onRefresh={onRefreshAppointments}
             />
         </div>
     );

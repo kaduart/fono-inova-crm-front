@@ -45,6 +45,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import InputCurrency from '../../../components/ui/InputCurrency';
 import { PatientAccordionSection } from './PatientAccordionSection';
+import ConvenioManagerModal from '../components/ConvenioManagerModal';
 import { doctorService } from '../../../services/doctorService';
 import { patientService } from '../../../services/patientService';
 import {
@@ -128,6 +129,9 @@ const InsuranceTab = () => {
     const [receberLoteData, setReceberLoteData] = useState({
         dataRecebimento: new Date().toISOString().split('T')[0]
     });
+    
+    // Estado para modal de gerenciamento de convênios
+    const [convenioManagerOpen, setConvenioManagerOpen] = useState(false);
 
     const getMonthLabel = () => {
         if (!selectedMonthYear) return '';
@@ -502,28 +506,42 @@ const InsuranceTab = () => {
                     </div>
                 </div>
 
-                <Button
-                    variant="contained"
-                    startIcon={<Plus size={18} />}
-                    onClick={() => setIsNewModalOpen(true)}
-                    sx={{
-                        borderRadius: 2,
-                        background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-                        px: { xs: 2, md: 3 },
-                        py: { xs: 1, md: 1 },
-                        fontSize: { xs: '0.875rem', md: '0.9375rem' },
-                        whiteSpace: 'nowrap',
-                        width: { xs: '100%', md: 'auto' },
-                        '&:hover': {
-                            background: 'linear-gradient(135deg, #2563eb, #1e40af)',
-                            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
-                        },
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                        transition: 'all 0.2s ease'
-                    }}
-                >
-                    Novo Atendimento
-                </Button>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                    <Button
+                        variant="outlined"
+                        startIcon={<Building2 size={18} />}
+                        onClick={() => setConvenioManagerOpen(true)}
+                        sx={{
+                            borderRadius: 2,
+                            px: { xs: 2, md: 3 },
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        Gerenciar Convênios
+                    </Button>
+                    
+                    <Button
+                        variant="contained"
+                        startIcon={<Plus size={18} />}
+                        onClick={() => setIsNewModalOpen(true)}
+                        sx={{
+                            borderRadius: 2,
+                            background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                            px: { xs: 2, md: 3 },
+                            py: { xs: 1, md: 1 },
+                            fontSize: { xs: '0.875rem', md: '0.9375rem' },
+                            whiteSpace: 'nowrap',
+                            '&:hover': {
+                                background: 'linear-gradient(135deg, #2563eb, #1e40af)',
+                                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
+                            },
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                            transition: 'all 0.2s ease'
+                        }}
+                    >
+                        Novo Atendimento
+                    </Button>
+                </Box>
             </div>
 
             {/* Filtro de Mês */}
@@ -1014,6 +1032,12 @@ const InsuranceTab = () => {
                     onClose={() => setIs360ModalOpen(false)}
                 />
             )}
+            
+            {/* Modal: Gerenciamento de Convênios */}
+            <ConvenioManagerModal
+                open={convenioManagerOpen}
+                onClose={() => setConvenioManagerOpen(false)}
+            />
         </Box>
     );
 };

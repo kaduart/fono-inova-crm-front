@@ -135,9 +135,20 @@ export interface SlotAvailability {
 }
 
 export const appointmentService = {
+    // 🚀 MIGRAÇÃO V2 - Flags de controle
+    // true = usa V2 (async, event-driven) | false = usa legado (sync)
+    USE_V2_CREATE: true,
+    USE_V2_COMPLETE: true,
+    USE_V2_LIST: true,  // 🆕 NOVO: Listagem V2 com população completa
+
     create: async (appointmentData: any) => {
         try {
-            const response = await API.post('/appointments', appointmentData);
+            const endpoint = appointmentService.USE_V2_CREATE
+                ? '/v2/appointments'      // 🔄 Novo fluxo async (202 Accepted)
+                : '/appointments';         // 🔄 Legado sync (200 OK)
+
+            console.log(`[AppointmentService] create: ${endpoint} (V2=${appointmentService.USE_V2_CREATE})`);
+            const response = await API.post(endpoint, appointmentData);
             return response.data;
         } catch (error) {
             console.error('Erro ao criar agendamento:', error);
@@ -147,6 +158,11 @@ export const appointmentService = {
 
     get: async (id: string) => {
         return API.get(`/appointments/patient/${id}`);
+    },
+
+    // 🚀 V2: Busca agendamento por ID (para polling de status)
+    getById: async (id: string) => {
+        return API.get<IAppointmentResponse>(`/appointments/${id}`);
     },
 
     update: async (id: string, data: UpdateAppointmentParams) => {
@@ -182,18 +198,46 @@ export const appointmentService = {
         });
     },
 
+    // 🚀 V2: Listagem com filtros e população completa
+    listV2: async (params: { startDate?: string; endDate?: string; page?: number; limit?: number; light?: boolean } = {}) => {
+        const queryParams = new URLSearchParams();
+        if (params.startDate) queryParams.append('startDate', params.startDate);
+        if (params.endDate) queryParams.append('endDate', params.endDate);
+        if (params.page) queryParams.append('page', params.page.toString());
+        if (params.limit) queryParams.append('limit', params.limit.toString());
+        if (params.light) queryParams.append('light', 'true');
+
+        return API.get(`/v2/appointments?${queryParams.toString()}`);
+    },
+
     // Operações de status
     confirm: async (id: string, data?: { notes?: string }) => {
         return API.patch(`/appointments/${id}/confirm`, data);
     },
 
+    // 🚀 MIGRAÇÃO V2 - Flag de controle para fluxo event-driven
+    // true = usa V2 (async, event-driven) | false = usa legado (sync)
+    USE_V2_COMPLETE: true,
+
     complete: async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
-        return API.patch<IAppointmentResponse>(`/appointments/${id}/complete`, data);
+        const endpoint = appointmentService.USE_V2_COMPLETE
+            ? `/v2/appointments/${id}/complete`  // 🔄 Novo fluxo async (202 Accepted)
+            : `/appointments/${id}/complete`;     // 🔄 Legado sync (200 OK)
+
+        console.log(`[AppointmentService] complete: ${endpoint} (V2=${appointmentService.USE_V2_COMPLETE})`);
+        return API.patch<IAppointmentResponse>(endpoint, data);
     },
 
-    cancel: async (id: string, data: CancelParams) => {
+    // 🚀 MIGRAÇÃO V2 - Flag de controle para cancelamento event-driven
+    USE_V2_CANCEL: true,
 
-        return API.patch<IAppointmentResponse>(`/appointments/${id}/cancel`, data);
+    cancel: async (id: string, data: CancelParams) => {
+        const endpoint = appointmentService.USE_V2_CANCEL
+            ? `/v2/appointments/${id}/cancel`  // 🔄 Novo fluxo async (202 Accepted)
+            : `/appointments/${id}/cancel`;     // 🔄 Legado sync (200 OK)
+
+        console.log(`[AppointmentService] cancel: ${endpoint} (V2=${appointmentService.USE_V2_CANCEL})`);
+        return API.patch<IAppointmentResponse>(endpoint, data);
     },
 
     reschedule: async (id: string, data: RescheduleParams) => {
@@ -261,6 +305,87 @@ export const appointmentService = {
             success: boolean;
             data: IAppointmentStatusCount
         }>('/appointments/count-by-status', { params });
+    },
+
+    // 🚀 V2: Polling de status para operações async (202 Accepted)
+    // Hardened: com tratamento de erro, cancelamento e status robustos
+    pollStatus: async (id: string, options?: {
+        onComplete?: (data: any) => void;
+        onError?: (error: string) => void;
+        onMaxAttempts?: () => void;
+        onProgress?: (attempt: number, maxAttempts: number) => void;
+        maxAttempts?: number;
+        interval?: number;
+        abortSignal?: AbortSignal;
+    }): Promise<{ success: boolean; status?: string; error?: string }> => {
+        const { 
+            onComplete, 
+            onError,
+            onMaxAttempts, 
+            onProgress,
+            maxAttempts = 10, 
+            interval = 1000,
+            abortSignal 
+        } = options || {};
+        
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            // Verifica se foi cancelado
+            if (abortSignal?.aborted) {
+                console.log(`[pollStatus] Polling cancelado para ${id}`);
+                return { success: false, error: 'CANCELLED' };
+            }
+            
+            try {
+                await new Promise(resolve => setTimeout(resolve, interval));
+                onProgress?.(attempt, maxAttempts);
+                
+                const response = await API.get(`/v2/appointments/${id}/status`);
+                const status = response.data.data;
+
+                // Status de erro do backend
+                if (status.operationalStatus === 'failed' || status.operationalStatus === 'error') {
+                    const errorMsg = status.statusMessage || 'Processamento falhou';
+                    onError?.(errorMsg);
+                    return { success: false, status: status.operationalStatus, error: errorMsg };
+                }
+
+                // Se completou com sucesso
+                if (status.isCompleted || status.operationalStatus === 'completed') {
+                    onComplete?.(status);
+                    return { success: true, status: status.operationalStatus };
+                }
+
+                // Se foi cancelado
+                if (status.operationalStatus === 'canceled' || status.isCanceled) {
+                    return { success: false, status: 'canceled', error: 'Agendamento cancelado' };
+                }
+
+                // Se não está mais processando e não completou = erro
+                if (!status.isProcessing && 
+                    status.operationalStatus !== 'processing_create' && 
+                    status.operationalStatus !== 'processing_complete') {
+                    return { success: false, status: status.operationalStatus, error: 'Processamento interrompido' };
+                }
+            } catch (error: any) {
+                console.warn(`[pollStatus] Attempt ${attempt}/${maxAttempts} failed:`, error);
+                
+                // Se for erro de rede, continua tentando
+                // Se for 404, o agendamento pode ter sido deletado
+                if (error.response?.status === 404) {
+                    return { success: false, error: 'Agendamento não encontrado' };
+                }
+                
+                // Última tentativa falhou
+                if (attempt === maxAttempts) {
+                    const errorMsg = 'Falha ao verificar status após várias tentativas';
+                    onError?.(errorMsg);
+                    return { success: false, error: errorMsg };
+                }
+            }
+        }
+
+        onMaxAttempts?.();
+        return { success: false, error: 'Tempo de espera excedido' };
     },
 };
 

@@ -51,3 +51,33 @@ export const getStatusColor = (status: AppointmentStatus) => {
 
     return colors[status] || '#9E9E9E';
 };
+
+// 🚀 V2: Helper para determinar status visual baseado nos dois campos
+export const getAppointmentVisualStatus = (
+    operationalStatus?: string,
+    clinicalStatus?: string
+): { label: string; color: string; priority: 'high' | 'medium' | 'low' } => {
+    // Prioridade: completed > canceled > confirmed > scheduled > pending
+    
+    if (operationalStatus === 'completed' || clinicalStatus === 'completed') {
+        return { label: 'Concluído', color: 'bg-blue-100 text-blue-800', priority: 'high' };
+    }
+    
+    if (operationalStatus === 'canceled' || clinicalStatus === 'missed') {
+        return { label: 'Cancelado', color: 'bg-red-100 text-red-800', priority: 'high' };
+    }
+    
+    if (operationalStatus === 'confirmed') {
+        return { label: 'Confirmado', color: 'bg-green-100 text-green-800', priority: 'medium' };
+    }
+    
+    if (operationalStatus === 'scheduled') {
+        return { label: 'Agendado', color: 'bg-yellow-100 text-yellow-800', priority: 'medium' };
+    }
+    
+    if (operationalStatus === 'processing_create' || operationalStatus === 'processing_complete') {
+        return { label: 'Processando', color: 'bg-purple-100 text-purple-800', priority: 'high' };
+    }
+    
+    return { label: 'Pendente', color: 'bg-gray-100 text-gray-800', priority: 'low' };
+};

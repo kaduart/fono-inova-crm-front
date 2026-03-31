@@ -3,6 +3,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import SpecialtySelector from '../../components/common/SpecialtySelector';
 import API from '../../services/api';
+import appointmentService from '../../services/appointmentService';
 import { Specialty } from '../../utils/types';
 
 const CreateAppointmentPage: React.FC = () => {
@@ -62,9 +63,21 @@ const CreateAppointmentPage: React.FC = () => {
                 date: dateTime.toISOString()
             };
 
-            await API.post('/appointments', appointmentData);
-            toast.success('Agendamento criado com sucesso!');
-            navigate('/schedule');
+            // 🚀 V2: Usar service com polling automático
+            const response = await appointmentService.create(appointmentData);
+            
+            // Se for 202, mostra mensagem de processamento
+            if (response.status === 202) {
+                toast.success('Agendamento em processamento...');
+                
+                // Aguarda um pouco e redireciona
+                setTimeout(() => {
+                    navigate('/schedule');
+                }, 1500);
+            } else {
+                toast.success('Agendamento criado com sucesso!');
+                navigate('/schedule');
+            }
         } catch (error) {
             console.error('Erro ao criar agendamento:', error);
             toast.error('Erro ao criar agendamento. Tente novamente.');

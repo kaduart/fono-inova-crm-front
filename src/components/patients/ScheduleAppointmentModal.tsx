@@ -350,6 +350,12 @@ const ScheduleAppointmentModal = ({
                                 type="text"
                                 value={patientSearch}
                                 onChange={(e) => setPatientSearch(e.target.value)}
+                                onFocus={() => {
+                                    // 🎯 MOSTRA TODOS OS PACIENTES ao focar (se tiver menos de 50)
+                                    if (patients && patients.length > 0 && patients.length < 50 && patientSearch.length === 0) {
+                                        setSearchedPatients(patients);
+                                    }
+                                }}
                                 placeholder="Digite o nome do paciente..."
                                 className="w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm pr-10"
                             />

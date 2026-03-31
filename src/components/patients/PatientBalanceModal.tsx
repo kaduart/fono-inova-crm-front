@@ -15,6 +15,7 @@ interface PatientBalanceModalProps {
     onClose: () => void;
     patientId: string;
     patientName: string;
+    onRefresh?: () => void;
 }
 
 interface Transaction {
@@ -57,7 +58,8 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
     isOpen,
     onClose,
     patientId,
-    patientName
+    patientName,
+    onRefresh
 }) => {
     const [balance, setBalance] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -247,9 +249,10 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
             setShowQuickPaymentForm(false);
             setQuickPaymentMethod('dinheiro');
             
-            // Recarrega dados
+            // Recarrega dados e notifica pai para atualizar cards
             await loadBalance();
             setSelectedDebits(new Set());
+            onRefresh?.();
         } catch (error) {
             console.error('Erro ao registrar pagamento:', error);
             alert('Erro ao registrar pagamento');
@@ -334,9 +337,10 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
             setCustomPaymentAmount(0);
             setPaymentMethods([{ id: '1', method: 'dinheiro', amount: 0 }]);
             setSelectedDebits(new Set());
-            
-            // Recarrega dados
+
+            // Recarrega dados e notifica pai para atualizar cards
             await loadBalance();
+            onRefresh?.();
         } catch (error: any) {
             console.error('Erro ao registrar pagamento:', error);
             const message = error?.response?.data?.message || 'Erro ao registrar pagamento';

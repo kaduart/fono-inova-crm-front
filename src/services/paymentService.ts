@@ -223,6 +223,11 @@ export const receberConvenioLote = (data: { paymentIds: string[]; dataRecebiment
 export const getPayments = (filters: Record<string, any> = {}) =>
     API.get<FinancialRecord[]>('/payments', { params: filters });
 
+// 🚀 Feature Flag: USE_V2_TOTALS
+// Quando true: usa /v2/totals (event-driven + snapshot)
+// Quando false: usa /payments/totals (legado síncrono)
+const USE_V2_TOTALS = true;
+
 export const getPaymentTotals = async (filters: {
     period?: "day" | "week" | "month" | "year" | "custom";
     startDate?: string;
@@ -232,6 +237,24 @@ export const getPaymentTotals = async (filters: {
     serviceType?: string;
     status?: "paid" | "pending" | "partial";
 } = {}): Promise<PaymentTotalsResponse> => {
+    if (USE_V2_TOTALS) {
+        // 🚀 V2: Event-driven com snapshot (mais rápido, escalável)
+        try {
+            const res = await API.get<PaymentTotalsResponse>("/v2/totals", {
+                params: {
+                    date: filters.startDate || new Date().toISOString().split('T')[0],
+                    period: filters.period || 'month',
+                    clinicId: filters.doctorId, // V2 usa clinicId, não doctorId
+                },
+            });
+            return res.data;
+        } catch (error) {
+            console.warn('[PaymentService] V2 totals falhou, fallback para legado:', error);
+            // Fallback para legado se V2 falhar
+        }
+    }
+    
+    // Legado: Síncrono (mantido para compatibilidade)
     const res = await API.get<PaymentTotalsResponse>("/payments/totals", {
         params: filters,
     });
@@ -271,11 +294,38 @@ export const markPaymentAsPaid = async (paymentId: string) => {
 export const deletePayment = (id: string) =>
     API.delete<void>(`/payments/${id}`);
 
-// Fechamento diário completo
-export const getDailyClosing = (date?: string) => {
-    return API.get<DailyClosingReport>('/payments/daily-closing', {
+// 🚀 Feature Flag: USE_V2_DAILY_CLOSING
+const USE_V2_DAILY_CLOSING = true;
+
+// Fechamento diário completo (V2 com fallback para legado)
+export const getDailyClosing = async (date?: string): Promise<DailyClosingReport> => {
+    if (USE_V2_DAILY_CLOSING) {
+        // 🚀 V2: Event-driven (GET separado do POST /run)
+        try {
+            const res = await API.get<{ success: boolean; data: DailyClosingReport; message?: string }>('/v2/daily-closing', {
+                params: { date }
+            });
+            // V2 retorna { success: true, data: {...} }
+            return res.data.data;
+        } catch (error: any) {
+            // Se 404, relatório ainda não foi processado
+            if (error.response?.status === 404) {
+                console.log('[PaymentService] V2 daily-closing não processado, chamando POST /run...');
+                // Dispara processamento
+                await API.post('/v2/daily-closing/run', { date });
+                // Fallback para legado imediato (não espera processamento)
+                console.log('[PaymentService] Usando legado enquanto V2 processa...');
+            } else {
+                console.warn('[PaymentService] V2 daily-closing erro:', error.message);
+            }
+        }
+    }
+    
+    // Legado (fallback imediato)
+    const res = await API.get<DailyClosingReport>('/payments/daily-closing', {
         params: { date }
     });
+    return res.data;
 };
 
 // Detalhes de pagamentos diários

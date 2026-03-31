@@ -10,6 +10,7 @@ interface AppointmentsContextData {
     createAppointment: (data: any) => Promise<any>;
     updateAppointment: (id: string, data: any) => Promise<any>;
     completeAppointment: (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => Promise<any>;
+    pollAppointmentStatus: (id: string, maxAttempts?: number) => Promise<boolean>; // 🚀 V2: Polling para atualização async
     cancelAppointment: (id: string, params: any) => Promise<any>;
     getAvailableSlots: (params: any) => Promise<string[]>;
     refreshAppointments: () => Promise<void>;
@@ -103,11 +104,16 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     const createAppointment = useCallback(async (data: any) => {
         const result = await appointmentService.create(data);
-        
-        // 🚀 Invalida caches relacionados
+
+        // 🚀 V2: Se for processamento async (status 202), não emite socket ainda
+        if (result?._isAsyncProcessing) {
+            console.log('[AppointmentsContext] V2: Agendamento em criação async, aguardando...');
+            return result;
+        }
+
+        // Legado: Invalida caches e emite socket
         invalidateCache('dashboard');
         invalidateCache('doctorStats');
-        
         socketManager.emit('appointmentCreated', { appointmentId: result?.data?._id || result?._id });
         return result;
     }, []);
@@ -125,13 +131,38 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     const completeAppointment = useCallback(async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
         const result = await appointmentService.complete(id, data);
-        
+
         // 🚀 Invalida caches relacionados
         invalidateCache('dashboard');
         invalidateCache('doctorStats');
-        
+
         socketManager.emit('appointmentUpdated', { appointmentId: id });
         return result;
+    }, []);
+
+    // 🚀 V2: Polling inteligente para aguardar processamento async
+    const pollAppointmentStatus = useCallback(async (id: string, maxAttempts = 5): Promise<boolean> => {
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                console.log(`[AppointmentsContext] Polling ${attempt}/${maxAttempts}...`);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                const updated = await appointmentService.getById(id);
+
+                if (updated.data?.operationalStatus === 'completed' ||
+                    updated.data?.clinicalStatus === 'completed') {
+                    console.log('[AppointmentsContext] Agendamento completado!');
+
+                    // Atualiza cache e estado
+                    invalidateCache('dashboard');
+                    invalidateCache('doctorStats');
+                    return true;
+                }
+            } catch (err) {
+                console.warn(`[AppointmentsContext] Polling ${attempt} falhou:`, err);
+            }
+        }
+        return false;
     }, []);
 
     const cancelAppointment = useCallback(async (id: string, params: any) => {
@@ -157,6 +188,7 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             createAppointment,
             updateAppointment,
             completeAppointment,
+            pollAppointmentStatus, // 🚀 V2: Polling para atualização async
             cancelAppointment,
             getAvailableSlots,
             refreshAppointments

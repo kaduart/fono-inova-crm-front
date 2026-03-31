@@ -334,7 +334,7 @@ export default function MarketingDashboard() {
   const [pendingImages, setPendingImages] = useState<Record<string, string>>({});
   const [videoDuration, setVideoDuration] = useState<30 | 45 | 60>(30);
   const [videoRoteiro, setVideoRoteiro] = useState('');
-  const [videoMode, setVideoMode] = useState<'avatar' | 'ilustrativo' | 'veo' | 'runway' | 'economico' | 'teste'>('teste');
+  const [videoMode, setVideoMode] = useState<'avatar' | 'ilustrativo' | 'veo' | 'veo3' | 'runway' | 'economico' | 'teste' | 'infinitetalk'>('teste');
   const [roteiroPreview, setRoteiroPreview] = useState<RoteiroPreview | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [generatingVideo, setGeneratingVideo] = useState(false);
@@ -812,7 +812,7 @@ export default function MarketingDashboard() {
 
   // Passo 2: usuário confirmou (com ou sem edição) → dispara o pipeline de vídeo
   const handleConfirmRoteiro = async (roteiroEditado: RoteiroPreview) => {
-    if ((videoMode === 'veo' || videoMode === 'runway') && !window.confirm('⚠️ Gerar este vídeo custa ~R$56–70 (Veo 2).\n\nConfirmar geração?')) {
+    if ((videoMode === 'veo' || videoMode === 'veo3' || videoMode === 'runway') && !window.confirm(`⚠️ Gerar este vídeo custa ~R$56–70 (${videoMode === 'veo3' ? 'Veo 3.0 com áudio' : videoMode === 'veo' ? 'Veo 2.0' : 'Runway'}).\n\nConfirmar geração?`)) {
       return;
     }
     setRoteiroPreview(null);
@@ -846,7 +846,7 @@ export default function MarketingDashboard() {
       }
       
       await videos.generate(generateParams);
-      const modoLabel = videoMode === 'runway' ? 'Runway Gen-3 (2-4 min)' : videoMode === 'veo' ? 'Veo 2.0 (3-5 min)' : videoMode === 'economico' ? 'Economico (1-2 min)' : videoMode === 'avatar' ? 'com avatar' : 'ilustrativo';
+      const modoLabel = videoMode === 'infinitetalk' ? 'InfiniteTalk avatar (2-4 min)' : videoMode === 'runway' ? 'Runway Gen-3 (2-4 min)' : videoMode === 'veo3' ? 'Veo 3.0 com áudio (4-6 min)' : videoMode === 'veo' ? 'Veo 2.0 (3-5 min)' : videoMode === 'economico' ? 'Economico (1-2 min)' : videoMode === 'avatar' ? 'com avatar' : 'ilustrativo';
       const toneEmoji = selectedTone === 'educativo' ? '📚' : selectedTone === 'emotional' ? '💔' : selectedTone === 'inspiracional' ? '✨' : '🏥';
       toast.info(`${toneEmoji} Video ${modoLabel} em processamento!`);
       setVideoRoteiro('');
@@ -1577,12 +1577,14 @@ export default function MarketingDashboard() {
         </select>
         <select
           value={videoMode}
-          onChange={(e) => setVideoMode(e.target.value as 'avatar' | 'ilustrativo' | 'veo' | 'runway' | 'economico' | 'teste')}
+          onChange={(e) => setVideoMode(e.target.value as 'avatar' | 'ilustrativo' | 'veo' | 'veo3' | 'runway' | 'economico' | 'teste' | 'infinitetalk')}
           className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
         >
           <option value="teste">🧪 MODO TESTE (Grátis - Testar flow sem custo)</option>
           <option value="economico">💰 Econômico (Imagens + TTS) ~R$0,20</option>
-          <option value="veo">🎬 Cinematográfico (Google Veo 3.1) ~R$64 ⚠️ CARO</option>
+          <option value="infinitetalk">🗣️ InfiniteTalk (avatar falante) ~$0.45 ⭐ NOVO</option>
+          <option value="veo3">🎬 Veo 3.0 com Áudio (Google) ~R$64 ⚠️</option>
+          <option value="veo">🎬 Veo 2.0 Cinematográfico (Google) ~R$64 ⚠️ CARO</option>
           <option value="runway">🎬 Cinematográfico (Runway Gen-3) 💰</option>
           <option value="ilustrativo">🖼️ Ilustrativo (Imagens básico)</option>
           <option value="avatar">🎭 Avatar (HeyGen)</option>
@@ -1598,12 +1600,32 @@ export default function MarketingDashboard() {
           </div>
         )}
         
-        {/* ⚠️ Alerta VEO Caro */}
+        {/* ⚠️ Alerta VEO 2 Caro */}
         {videoMode === 'veo' && (
           <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-xs text-red-700 flex items-center gap-1">
               <span>💸</span>
               <strong>Custo alto:</strong> ~R$64 por vídeo. Use modo Teste primeiro para validar!
+            </p>
+          </div>
+        )}
+
+        {/* 🗣️ Alerta InfiniteTalk */}
+        {videoMode === 'infinitetalk' && (
+          <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-xs text-blue-700 flex items-center gap-1">
+              <span>🗣️</span>
+              <strong>InfiniteTalk:</strong> avatar falante com lip-sync. Precisa de INFINITETALK_AVATAR_URL + KIEAI_API_KEY no .env. ~$0.45 por vídeo de 30s.
+            </p>
+          </div>
+        )}
+
+        {/* 🆕 Alerta VEO 3 */}
+        {videoMode === 'veo3' && (
+          <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded-lg">
+            <p className="text-xs text-purple-700 flex items-center gap-1">
+              <span>🎬</span>
+              <strong>Veo 3.0 com áudio nativo:</strong> vídeo gerado com sons ambiente naturais (crianças, clínica). ~R$64/vídeo.
             </p>
           </div>
         )}
@@ -1942,17 +1964,32 @@ export default function MarketingDashboard() {
       )}
 
       {/* Avisos e campos extras */}
-      {(videoMode === 'runway' || videoMode === 'veo') && (
+      {(videoMode === 'runway' || videoMode === 'veo' || videoMode === 'veo3' || videoMode === 'infinitetalk') && (
         <div className={`p-3 rounded-lg text-xs border ${
-          videoMode === 'runway' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-blue-50 border-blue-200 text-blue-700'
+          videoMode === 'runway'       ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+          : videoMode === 'veo3'       ? 'bg-purple-50 border-purple-200 text-purple-700'
+          : videoMode === 'infinitetalk' ? 'bg-blue-50 border-blue-200 text-blue-700'
+          : 'bg-blue-50 border-blue-200 text-blue-700'
         }`}>
           <strong>
-            {videoMode === 'runway' ? '🎬 Runway Gen-3 Turbo' : '🎬 Google Veo 3.1'}
+            {videoMode === 'runway'        ? '🎬 Runway Gen-3 Turbo'
+            : videoMode === 'veo3'         ? '🎬 Google Veo 3.0 (com áudio)'
+            : videoMode === 'infinitetalk' ? '🗣️ InfiniteTalk — Avatar Falante'
+            : '🎬 Google Veo 2.0'}
           </strong> — {videoMode === 'runway'
             ? 'Vídeo cinematográfico 10s/clip, 9:16 para Reels. Custo menor que Veo.'
-            : 'Gera vídeo cinematográfico real (8s, 9:16 para Reels).'}
-          Deixe o campo abaixo vazio para usar o prompt da especialidade, ou descreva uma cena específica.
-          <span className="ml-2 text-blue-500">Tempo estimado: {videoMode === 'runway' ? '2-4 min' : '3-5 min'}</span>
+            : videoMode === 'veo3'
+              ? 'Vídeo 8s com áudio ambiente nativo (sons de clínica, crianças). Narração PT-BR adicionada automaticamente.'
+              : videoMode === 'infinitetalk'
+                ? 'Avatar lip-sync: Zeus gera o roteiro → vira TTS → avatar fala sincronizado. Campo abaixo = tema que o avatar vai falar (ou vazio pra gerar automático).'
+                : 'Gera vídeo cinematográfico real (8s, 9:16 para Reels).'}
+          {' '}
+          <span className="opacity-70">Tempo estimado: {
+            videoMode === 'runway' ? '2-4 min'
+            : videoMode === 'veo3' ? '4-6 min'
+            : videoMode === 'infinitetalk' ? '2-4 min'
+            : '3-5 min'
+          }</span>
         </div>
       )}
 
@@ -1960,18 +1997,20 @@ export default function MarketingDashboard() {
         value={videoRoteiro}
         onChange={(e) => setVideoRoteiro(e.target.value)}
         placeholder={
-          videoMode === 'veo'
+          (videoMode === 'veo' || videoMode === 'veo3')
             ? 'Cena personalizada (opcional) — ex: "terapeuta e criança sorrindo juntos durante atividade"'
-            : 'Tema personalizado (opcional) — ou deixe em branco para gerar automaticamente pelo subTema...'
+            : videoMode === 'infinitetalk'
+              ? 'Tema que o avatar vai falar (opcional) — ex: "atraso na fala: quando se preocupar". Vazio = Zeus gera automaticamente.'
+              : 'Tema personalizado (opcional) — ou deixe em branco para gerar automaticamente pelo subTema...'
         }
         className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
         rows={2}
       />
 
-      {videoMode === 'veo' && (
+      {(videoMode === 'veo' || videoMode === 'veo3') && (
         <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
           <span>⚠️</span>
-          <span><strong>Custo estimado: ~R$56–70 por vídeo</strong> (Veo 2 cobra R$2/s de vídeo gerado). Use só para publicar — não para testar.</span>
+          <span><strong>Custo estimado: ~R$56–70 por vídeo</strong> ({videoMode === 'veo3' ? 'Veo 3.0 com áudio' : 'Veo 2.0'} — R$2/s de vídeo gerado). Use só para publicar — não para testar.</span>
         </div>
       )}
 
@@ -1983,7 +2022,9 @@ export default function MarketingDashboard() {
             ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
             : videoMode === 'runway'
               ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700'
-              : videoMode === 'veo'
+              : videoMode === 'infinitetalk'
+                ? 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700'
+              : (videoMode === 'veo' || videoMode === 'veo3')
                 ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'
                 : videoMode === 'economico'
                   ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
@@ -1998,8 +2039,12 @@ export default function MarketingDashboard() {
               ? 'Gerar Vídeo para Tráfego Pago'
               : videoMode === 'runway'
                 ? 'Gerar Reel (Runway Gen-3)'
-                : videoMode === 'veo'
-                  ? 'Gerar Reel Viral (Veo 3.1)'
+                  : videoMode === 'infinitetalk'
+                  ? 'Gerar Vídeo Avatar (InfiniteTalk)'
+                  : videoMode === 'veo3'
+                  ? 'Gerar Reel com Áudio (Veo 3.0)'
+                  : videoMode === 'veo'
+                  ? 'Gerar Reel Viral (Veo 2.0)'
                   : videoMode === 'economico'
                     ? 'Gerar Reel Econômico'
                     : videoMode === 'avatar'

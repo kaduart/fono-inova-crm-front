@@ -22,6 +22,7 @@ import AddAdminContent from './admin/AddAdminContent';
 import AdminHeader from './admin/AdminHeader';
 import DashboardContentOptimized from './admin/DashboardContentOptimized';
 import ProfileContent from './admin/ProfileContent';
+import ObservabilityDashboard from './admin/ObservabilityDashboard';
 import DoctorFormModal from './ManageDoctors/DoctorFormModal';
 import ManageDoctors from './ManageDoctors/ManageDoctors';
 import { PatientModal } from './patients/PatientModal';
@@ -205,6 +206,7 @@ export default function AdminDashboard() {
         createAppointment,
         updateAppointment,
         completeAppointment,
+        pollAppointmentStatus, // 🚀 V2: Polling para atualização async
         cancelAppointment,
         getAvailableSlots,
     } = useAppointmentsContext();
@@ -212,10 +214,10 @@ export default function AdminDashboard() {
 
     const { markAsPaid } = usePayment();
 
-    // 🗓️ Buscar appointments quando o range de datas mudar
+    // 🗓️ Buscar appointments quando o range de datas mudar (modo light para calendário)
     useEffect(() => {
         if (calendarDateRange.startDate && calendarDateRange.endDate) {
-            fetchAppointments(calendarDateRange);
+            fetchAppointments({ ...calendarDateRange, light: true });
         }
     }, [fetchAppointments, calendarDateRange.startDate, calendarDateRange.endDate]);
 
@@ -223,7 +225,7 @@ export default function AdminDashboard() {
     usePixSocket({
         onCalendarRefresh: useCallback(() => {
             if (calendarDateRange.startDate && calendarDateRange.endDate) {
-                fetchAppointments(calendarDateRange);
+                fetchAppointments({ ...calendarDateRange, light: true });
             }
         }, [fetchAppointments, calendarDateRange]),
     });
@@ -381,9 +383,26 @@ export default function AdminDashboard() {
 
     const handleCompleteAppointment = useCallback(async (appointmentId: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
         try {
-            console.log('bateu no paiii', data)
-            await completeAppointment(appointmentId, data);
-            toast.success('Agendamento marcado como concluído!');
+            console.log('[AdminDashboard] Completando agendamento:', appointmentId, data);
+            const result = await completeAppointment(appointmentId, data);
+
+            // 🚀 V2: Se for processamento async (status 202), inicia polling
+            if (result?._isAsyncProcessing) {
+                toast.info(result._message || 'Finalizando agendamento...');
+                console.log('[AdminDashboard] V2: Polling para atualização...');
+
+                const completed = await pollAppointmentStatus(appointmentId, 5);
+
+                if (completed) {
+                    toast.success('Agendamento finalizado com sucesso!');
+                } else {
+                    toast.warning('Agendamento em processamento. Atualize a página em instantes.');
+                }
+            } else {
+                // Legado: Sucesso imediato
+                toast.success('Agendamento marcado como concluído!');
+            }
+
             fetchAppointments(calendarDateRange);
             setCloseModalSignal(prev => prev + 1);
         } catch (error) {
@@ -392,7 +411,7 @@ export default function AdminDashboard() {
             toast.error(errorResponse);
             throw error;
         }
-    }, [completeAppointment, fetchAppointments, calendarDateRange]);
+    }, [completeAppointment, pollAppointmentStatus, fetchAppointments, calendarDateRange]);
 
     const handleEditAppointment = useCallback(async (appointmentId: string, updatedData: UpdateAppointmentParams) => {
         try {
@@ -758,6 +777,12 @@ export default function AdminDashboard() {
                         <Suspense fallback={<TabSkeleton />}>
                             <PreAgendamentosPage />
                         </Suspense>
+                    </TabErrorBoundary>
+                );
+            case 'Observability':
+                return (
+                    <TabErrorBoundary tabName="Observabilidade">
+                        <ObservabilityDashboard />
                     </TabErrorBoundary>
                 );
             default:

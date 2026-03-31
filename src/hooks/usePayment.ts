@@ -283,7 +283,7 @@ const usePayment = () => {
     setLoading(true);
     try {
       const res = await getDailyClosing(date);
-      setDailyClosing(res?.data?.data || null);
+      setDailyClosing(res || null);
       setError(null);
     } catch (e: any) {
       console.error("❌ Erro no fetchDailyClosing:", e);

@@ -16,6 +16,7 @@ import { useState } from 'react';
 import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
 import PaymentPage from '../../components/financial/PaymentPage';
+import DailyClosingReport from '../../components/financial/DailyClosingReport';
 import ExpensesTab from './tabs/ExpensesTab';
 import EntradasSaidasTab from './tabs/EntradasSaidasTab';
 import GoalsTab from './tabs/GoalsTab';
@@ -76,6 +77,11 @@ const FinancialDashboard = ({
                     onCancelPayment={onCancelPayment}
                 />
             )
+        },
+        {
+            label: 'Fechamento do Dia',
+            icon: <ClipboardList size={18} />,
+            component: <DailyClosingReport />
         },
         {
             label: 'Despesas',
