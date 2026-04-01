@@ -99,11 +99,19 @@ export type UseSessionParams = {
   confirmedAbsence?: boolean;
 };
 
+/**
+ * Flag para controlar uso de V2 (event-driven)
+ * true = usa /api/v2/packages (CQRS + Event Sourcing)
+ * false = usa /packages (legado)
+ */
+const USE_V2 = true;
+
 export const packageService = {
   // Operações com Pacotes
   createPackage: async (data: CreatePackageParams) => {
     try {
-      const response = await API.post<ITherapyPackage>('/packages', data);
+      const endpoint = USE_V2 ? '/v2/packages' : '/packages';
+      const response = await API.post<ITherapyPackage>(endpoint, data);
       return response.data;
     } catch (error) {
       console.error('Erro na requisição:', error.config?.data);
@@ -123,19 +131,26 @@ export const packageService = {
   },
 
   getPackage: async (id: string) => {
-    return API.get<ITherapyPackage>(`/packages/${id}`);
+    const endpoint = USE_V2 ? `/v2/packages/${id}` : `/packages/${id}`;
+    return API.get<ITherapyPackage>(endpoint);
   },
 
   updatePackage: async (id: string, data: UpdatePackageParams) => {
-    return API.patch<ITherapyPackage>(`/packages/${id}`, data);
+    const endpoint = USE_V2 ? `/v2/packages/${id}` : `/packages/${id}`;
+    // V2 usa PUT (event-driven), V1 usa PATCH
+    return USE_V2 
+      ? API.put<ITherapyPackage>(endpoint, data)
+      : API.patch<ITherapyPackage>(endpoint, data);
   },
 
   deletePackage: async (id: string) => {
-    return API.delete<{ message: string }>(`/packages/${id}`);
+    const endpoint = USE_V2 ? `/v2/packages/${id}` : `/packages/${id}`;
+    return API.delete<{ message: string }>(endpoint);
   },
 
   listPackages: async (params: PaginationParams & { patientId: string }) => {
-    return API.get<IPaginatedPackageResponse>('/packages', {
+    const endpoint = USE_V2 ? '/v2/packages' : '/packages';
+    return API.get<IPaginatedPackageResponse>(endpoint, {
       params: {
         page: params.page || 1,
         limit: params.limit || 10,

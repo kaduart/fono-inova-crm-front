@@ -295,7 +295,7 @@ export const deletePayment = (id: string) =>
     API.delete<void>(`/payments/${id}`);
 
 // 🚀 Feature Flag: USE_V2_DAILY_CLOSING
-const USE_V2_DAILY_CLOSING = true;
+const USE_V2_DAILY_CLOSING = false;
 
 // Fechamento diário completo (V2 com fallback para legado)
 export const getDailyClosing = async (date?: string): Promise<DailyClosingReport> => {
