@@ -157,25 +157,32 @@ const DailyClosingReport = () => {
         const financial = report.financial || {};
         const summary = report.summary || {};
 
+        const allAppointments = report.timelines?.appointments || [];
+        const totalReceived = financial?.totalReceived || 0;
+        const totalExpected = financial?.totalExpected || 0;
+
         return {
             timeSlots: timeSlots.sort((a: any, b: any) => a.time.localeCompare(b.time)),
             professionals: professionals.sort((a: any, b: any) => b.sessionCount - a.sessionCount),
             payments,
-            financial,
-            newAppointments: (report.timelines?.appointments || []).filter((a: any) => a.patientType === 'novo' && a.operationalStatus !== 'canceled'),
-            // 🔥 NOVO: Separar por isFirstAppointment
+            financial: {
+                ...financial,
+                // V1 não calcula totalRevenue — derivar aqui
+                totalRevenue: totalExpected - totalReceived,
+            },
+            newAppointments: allAppointments.filter((a: any) => a.patientType === 'novo' && a.operationalStatus !== 'canceled'),
+            // V1 não manda appointmentsByType — derivar de timelines
             appointmentsByType: {
-                novos: report.appointmentsByType?.novos || [],
-                recorrentes: report.appointmentsByType?.recorrentes || [],
+                novos: allAppointments.filter((a: any) => a.patientType === 'novo'),
+                recorrentes: allAppointments.filter((a: any) => a.patientType === 'recorrente'),
             },
             summary: {
                 totalAppointments: summary.appointments?.total || 0,
-                totalConfirmed: summary.appointments?.attended || 0, // 🔹 'attended' = confirmados
+                totalConfirmed: summary.appointments?.attended || 0,
                 totalCanceled: summary.appointments?.canceled || 0,
                 totalRevenue: summary.appointments?.expectedValue || 0,
                 totalPayments: payments.length,
                 paymentRevenue: summary.payments?.totalReceived || 0,
-                // 🔥 NOVO: Contadores de novos vs recorrentes
                 novosCount: summary.appointments?.novos || 0,
                 recorrentesCount: summary.appointments?.recorrentes || 0,
             }
@@ -371,7 +378,7 @@ const DailyClosingReport = () => {
                     </div>
                     <div className="mt-3 flex items-center text-xs text-green-700">
                         <span className="font-medium">
-                            {Math.round((processedData.summary.novosCount / processedData.summary.totalAppointments) * 100)}%
+                            {processedData.summary.totalAppointments > 0 ? Math.round((processedData.summary.novosCount / processedData.summary.totalAppointments) * 100) : 0}%
                         </span>
                         <span className="ml-1">do total de agendamentos</span>
                     </div>
@@ -398,7 +405,7 @@ const DailyClosingReport = () => {
                     </div>
                     <div className="mt-3 flex items-center text-xs text-blue-700">
                         <span className="font-medium">
-                            {Math.round((processedData.summary.recorrentesCount / processedData.summary.totalAppointments) * 100)}%
+                            {processedData.summary.totalAppointments > 0 ? Math.round((processedData.summary.recorrentesCount / processedData.summary.totalAppointments) * 100) : 0}%
                         </span>
                         <span className="ml-1">do total de agendamentos</span>
                     </div>

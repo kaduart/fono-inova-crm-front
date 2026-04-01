@@ -1,7 +1,7 @@
 import { CreditCard, DollarSign, FileText, Landmark, QrCode, X } from 'lucide-react';
 import { useState } from "react";
 import { toast } from "react-toastify";
-import { addManualPayment } from "../../services/paymentService";
+import { usePaymentV2 } from "../../hooks/usePaymentV2";
 import { Button } from "../ui/Button";
 import InputCurrency from '../ui/InputCurrency';
 import { LoadingSpinner } from "../ui/LoadingSpinner";
@@ -25,6 +25,9 @@ export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentM
     const [serviceType, setServiceType] = useState("package_session");
     const [note, setNote] = useState("");
     const [loading, setLoading] = useState(false);
+    
+    // 🚀 V2 Payment Hook
+    const { createPayment, isProcessing, statusMessage, progress } = usePaymentV2();
 
     console.log('Adicionando pagamento ao pacote:', packageData);
     const handleSubmit = async () => {
@@ -36,28 +39,23 @@ export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentM
         try {
             setLoading(true);
 
-            const payload = {
-                packageId: packageData?._id,
+            // 🚀 V2: Payment com fallback
+            const result = await createPayment({
                 patientId: packageData?.patient?._id,
                 doctorId: packageData?.doctor?._id,
                 amount,
                 paymentMethod,
-                serviceType,
-                paymentDate: new Date().toISOString().split("T")[0],
-                note,
-            };
+                notes: note
+            });
 
-
-            console.log("📦 Enviando payload de pagamento:", payload);
-
-            const { data } = await addManualPayment(payload);
+            console.log(`[AddPaymentModal] Usou: ${result.source}`);
 
             toast.success("Pagamento registrado com sucesso! 💚");
-            onSuccess(data);
+            onSuccess(result.data);
             onClose();
         } catch (error: any) {
             console.error("Erro ao registrar pagamento:", error);
-            toast.error("Erro ao registrar pagamento");
+            toast.error(error.message || "Erro ao registrar pagamento");
         } finally {
             setLoading(false);
         }
@@ -187,7 +185,7 @@ export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentM
                     </Button>
                     <Button
                         onClick={handleSubmit}
-                        disabled={loading || !amount || amount <= 0}
+                        disabled={loading || !amount || amount <= 0 || isProcessing}
                         className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-200 ${loading || !amount || amount <= 0
                             ? 'bg-gray-400 cursor-not-allowed text-white'
                             : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl'
