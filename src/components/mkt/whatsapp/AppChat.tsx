@@ -122,7 +122,7 @@ const AppChat: React.FC = () => {
         }
     };
 
-    // 🎨 Empty State
+    // 🎨 Empty State 
     const EmptyState = () => (
         <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50/30">
             <div className="text-center p-8 max-w-md mx-auto">
@@ -181,8 +181,7 @@ const AppChat: React.FC = () => {
                     borderRadius: 3,
                     background: `linear-gradient(135deg, ${theme.palette.primary.main}08, ${theme.palette.secondary.main}05)`,
                     border: `1px solid ${theme.palette.grey[200]}`,
-                }}
-            >
+                }}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div className="flex items-center gap-4">
                         <div className="p-2 bg-primary/10 rounded-lg">
