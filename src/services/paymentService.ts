@@ -322,10 +322,10 @@ export const getDailyClosing = async (date?: string): Promise<DailyClosingReport
     }
     
     // Legado (fallback imediato)
-    const res = await API.get<DailyClosingReport>('/payments/daily-closing', {
+    const res = await API.get<{ success: boolean; data: DailyClosingReport }>('/payments/daily-closing', {
         params: { date }
     });
-    return res.data;
+    return res.data.data;
 };
 
 // Detalhes de pagamentos diários
