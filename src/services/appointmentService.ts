@@ -137,9 +137,9 @@ export interface SlotAvailability {
 export const appointmentService = {
     // 🚀 MIGRAÇÃO V2 - Flags de controle
     // true = usa V2 (async, event-driven) | false = usa legado (sync)
-    USE_V2_CREATE: true,
-    USE_V2_COMPLETE: true,
-    USE_V2_LIST: true,  // 🆕 NOVO: Listagem V2 com população completa
+    USE_V2_CREATE: false,
+    USE_V2_COMPLETE: false,
+    USE_V2_LIST: false,  // desligado — usar legado em PRD
 
     create: async (appointmentData: any) => {
         try {
