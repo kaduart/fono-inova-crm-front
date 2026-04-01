@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
-import { createPayment } from '../../services/paymentService';
+import { usePaymentV2 } from '../../hooks/usePaymentV2';
 
 interface RegisterPaymentFormProps {
     packageId: string;
+    patientId: string;  // ← REQUERIDO para V2
     onSuccess: () => void;
 }
 
-const RegisterPaymentForm: React.FC<RegisterPaymentFormProps> = ({ packageId, onSuccess }) => {
+const RegisterPaymentForm: React.FC<RegisterPaymentFormProps> = ({ packageId, patientId, onSuccess }) => {
+    const { createPayment, isProcessing } = usePaymentV2();
     const [value, setValue] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('Dinheiro');
     const [notes, setNotes] = useState('');
@@ -16,16 +18,19 @@ const RegisterPaymentForm: React.FC<RegisterPaymentFormProps> = ({ packageId, on
         e.preventDefault();
 
         try {
-            await createPayment({
-                packageId,
-                value: parseFloat(value),
+            // 🚀 V2: Payment com fallback
+            const result = await createPayment({
+                patientId,
+                amount: parseFloat(value),
                 paymentMethod,
                 notes,
             });
+            
+            console.log(`[RegisterPaymentForm] Usou: ${result.source}`);
             toast.success('Pagamento registrado com sucesso!');
             onSuccess();
-        } catch (err) {
-            toast.error('Erro ao registrar pagamento.');
+        } catch (err: any) {
+            toast.error(err.message || 'Erro ao registrar pagamento.');
             console.error(err);
         }
     };

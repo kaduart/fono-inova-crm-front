@@ -5,7 +5,8 @@ import { ptBR } from 'date-fns/locale';
 import { ArrowDownCircle, ArrowUpCircle, CheckCircle, DollarSign, History, Plus, Trash2, Wallet, X, CheckSquare, Square, Calculator, Pencil, AlertTriangle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import DatePicker from 'react-datepicker';
-import { getPatientBalance, addBalanceDebit, addBalancePayment, addBalancePaymentMulti, deleteBalanceTransaction, editBalanceTransaction } from '../../services/paymentService';
+import { getPatientBalance, addBalanceDebit, addBalancePayment, deleteBalanceTransaction, editBalanceTransaction } from '../../services/paymentService';
+import { usePaymentV2 } from '../../hooks/usePaymentV2';
 import { appointmentService } from '../../services/appointmentService';
 import { InputCurrency } from '../ui/InputCurrency';
 import { LoadingSpinner, ModalSpinner } from '../ui/LoadingSpinner';
@@ -71,6 +72,9 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
     const [description, setDescription] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('dinheiro');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // 🚀 V2 Payment Hook
+    const { createPaymentMulti, isProcessing, statusMessage, progress } = usePaymentV2();
     
     // 💰 Pagamento personalizado - seleção múltipla
     const [selectedDebits, setSelectedDebits] = useState<Set<string>>(new Set());
@@ -326,7 +330,7 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
             }
             
             // Envia todos os pagamentos de uma vez + IDs dos débitos selecionados
-            await addBalancePaymentMulti(patientId, {
+            await createPaymentMulti(patientId, {
                 payments,
                 totalAmount: customPaymentAmount,
                 debitIds: Array.from(selectedDebits)
@@ -625,13 +629,21 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                             {/* Botão de pagamento personalizado */}
                             {selectedDebits.size > 0 && (
                                 <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+                                    {isProcessing && (
+                                        <div className="mb-3">
+                                            <p className="text-sm text-amber-800 dark:text-amber-200">{statusMessage}</p>
+                                            <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                                <div className="bg-amber-600 h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
+                                            </div>
+                                        </div>
+                                    )}
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
                                                 Pagamento Personalizado
                                             </p>
                                             <p className="text-xs text-amber-600 dark:text-amber-400">
-                                                Defina um valor diferente do total
+                                                {isProcessing ? 'Processando na fila...' : 'Defina um valor diferente do total'}
                                             </p>
                                         </div>
                                         <button
@@ -639,10 +651,11 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                                                 setPaymentMethods([{ id: '1', method: 'dinheiro', amount: selectedTotal }]);
                                                 setShowCustomPaymentModal(true);
                                             }}
-                                            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2"
+                                            disabled={isProcessing}
+                                            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400 text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2"
                                         >
                                             <Calculator className="w-4 h-4" />
-                                            Pagar Selecionados
+                                            {isProcessing ? `${progress}%` : 'Pagar Selecionados'}
                                         </button>
                                     </div>
                                 </div>
