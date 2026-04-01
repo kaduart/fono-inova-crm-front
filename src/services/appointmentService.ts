@@ -215,10 +215,6 @@ export const appointmentService = {
         return API.patch(`/appointments/${id}/confirm`, data);
     },
 
-    // 🚀 MIGRAÇÃO V2 - Flag de controle para fluxo event-driven
-    // true = usa V2 (async, event-driven) | false = usa legado (sync)
-    USE_V2_COMPLETE: true,
-
     complete: async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
         const endpoint = appointmentService.USE_V2_COMPLETE
             ? `/v2/appointments/${id}/complete`  // 🔄 Novo fluxo async (202 Accepted)

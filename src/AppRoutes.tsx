@@ -62,7 +62,7 @@ const AdminDashboard = lazyWithRetry(() => import('./components/AdminDashboard')
 const DoctorDashboard = lazyWithRetry(() => import('./pages/doctor/DoctorDashboard'));
 const PatientDashboard = lazyWithRetry(() => import('./components/patients/PatientDashboard'));
 const CreateAppointmentPage = lazyWithRetry(() => import('./pages/appointments/create'));
-const AppointmentsPageV2 = lazyWithRetry(() => import('./pages/appointments/AppointmentsPage')); // 🚀 V2: Nova tela com polling
+const AppointmentsPageV2 = lazyWithRetry(() => import('./components/AppointmentPage')); // 🚀 V2: Nova tela com polling
 const SchedulePage = lazyWithRetry(() => import('./pages/schedule'));
 const PatientsTable = lazyWithRetry(() => import('./components/doctor/patient/PatientsTable'));
 const PreAgendamentosPage = lazyWithRetry(() => import('./pages/Secretaria/PreAgendamentosPage'));

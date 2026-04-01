@@ -32,7 +32,6 @@ export const EVENT_TRANSLATIONS: Record<string, string> = {
   'page_title': 'Título da Página',
   
   // Eventos padrão GA4
-  'click': 'Clique',
   'file_download': 'Download de Arquivo',
   'search': 'Busca',
   'video_start': 'Início de Vídeo',
