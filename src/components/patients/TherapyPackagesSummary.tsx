@@ -50,7 +50,9 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
             const packageData = (
                 Array.isArray(responseData)
                     ? responseData
-                    : responseData.data || []
+                    : Array.isArray(responseData.data)
+                        ? responseData.data
+                        : responseData.data?.packages || []
             ).filter(pkg => pkg);
 
             setPackages(packageData);
