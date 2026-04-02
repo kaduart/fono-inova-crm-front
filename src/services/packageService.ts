@@ -33,8 +33,12 @@ export type CreatePackageParams = {
     date: string;
     description?: string;
   }[];
+  // 🏥 Campos para pacotes convênio
+  type?: 'therapy' | 'convenio' | 'liminar';
+  insuranceGuideId?: string;
+  insuranceProvider?: string;
+  insuranceGrossAmount?: number;
   // ⚖️ Campos para pacotes liminar
-  type?: 'therapy' | 'liminar';
   liminarProcessNumber?: string;
   liminarCourt?: string;
   liminarMode?: 'deferred' | 'immediate' | 'hybrid';
@@ -104,7 +108,7 @@ export type UseSessionParams = {
  * true = usa /api/v2/packages (CQRS + Event Sourcing)
  * false = usa /packages (legado)
  */
-const USE_V2 = true;
+const USE_V2 = false;
 
 export const packageService = {
   // Operações com Pacotes
