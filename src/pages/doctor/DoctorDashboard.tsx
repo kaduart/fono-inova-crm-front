@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { toDateString } from '../../utils/dateUtils';
 import DashboardHeader from '../../components/doctor/DashboardHeader';
 import { PatientModal } from '../../components/patients/PatientModal';
 import useDoctorDashboard from '../../hooks/useDoctorDashboard';
@@ -197,7 +198,7 @@ export default function DoctorDashboard() {
     const today = new Date().toISOString().split('T')[0];
     const appointmentsList = appointments ?? [];
     const todayAppointments = appointmentsList.filter(
-      apt => apt.date.split('T')[0] === today
+      apt => toDateString(apt.date) === today
     );
 
     // Total de pacientes ativos
@@ -268,7 +269,7 @@ export default function DoctorDashboard() {
     // Consultas de hoje
     const today = new Date().toISOString().split('T')[0];
     const todayPending = appointmentsList.filter(
-      apt => apt.date.split('T')[0] === today && apt.status === 'scheduled'
+      apt => toDateString(apt.date) === today && apt.status === 'scheduled'
     );
 
     if (todayPending.length > 0) {

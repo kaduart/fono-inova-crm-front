@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { toast } from "react-hot-toast";
 import { useNavigate, useParams } from 'react-router-dom';
 import { BASE_URL } from '../../constants/constants';
+import { toDateString } from '../../utils/dateUtils';
 import { useAppointments } from '../../hooks/useAppointments';
 import { usePatientsContext } from '../../contexts/PatientsContext';
 import { AvailableSlotsParams, CreateAppointmentParams } from '../../services/appointmentService';
@@ -245,9 +246,8 @@ export default function PatientDashboard() {
   // Filtra apenas os agendamentos DESSE paciente que são para hoje
   const todaysAppointments = patientAppointments?.filter((appt) => {
     if (!appt.date) return false;
-    // Pega apenas a parte da data (YYYY-MM-DD) da string de data
-    const apptDateStr = appt.date.split('T')[0];
-    return apptDateStr === todayStr;
+    // 🆕 Usa helper para compatibilidade com Date e string
+    return toDateString(appt.date) === todayStr;
   }) || [];
 
   const fetchAvailableSlots = async (doctorId, date) => {

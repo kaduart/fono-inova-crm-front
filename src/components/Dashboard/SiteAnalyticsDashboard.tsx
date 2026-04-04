@@ -10,6 +10,7 @@
 
 import { useCallback, useMemo, useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
+import { toDateString } from '../../utils/dateUtils';
 import {
     CartesianGrid,
     Cell,
@@ -279,11 +280,12 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
     // Dados para gráficos
     const lineChartData = useMemo(() => {
         return dailyReport.map(day => {
-            // Adiciona T12:00:00 para evitar bug de timezone (UTC vs local)
-            const [, mm, dd] = day.date.split('-');
+            // 🆕 Usa helper para compatibilidade com Date e string
+            const dateStr = toDateString(day.date);
+            const [, mm, dd] = dateStr.split('-');
             return {
                 date: `${dd}/${mm}`,
-                fullDate: day.date,
+                fullDate: dateStr,
                 views: day.pageViews,
                 events: day.events,
                 leads: day.leads,

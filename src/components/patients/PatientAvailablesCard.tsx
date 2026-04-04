@@ -8,6 +8,7 @@ import {
 } from "@radix-ui/react-tooltip"; // ajuste o caminho conforme sua estrutura
 import { FileText, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { toDateString } from "../../utils/dateUtils";
 import { IDoctors, IPatient } from "../../utils/types/types";
 import { Button } from "../ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
@@ -126,7 +127,7 @@ export function PatientAvailablesCard({ doctors, evaluations, onDelete, patientI
                                       doctorId: evalItem.doctorId._id,
                                       valuePaid: evalItem.valuePaid,
                                       paymentType: evalItem.paymentType,
-                                      date: evalItem.date.split("T")[0],
+                                      date: toDateString(evalItem.date),
                                       time: evalItem.time,
                                     });
                                     setShowModal(true);

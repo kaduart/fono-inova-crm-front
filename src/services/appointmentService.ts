@@ -161,25 +161,45 @@ export const appointmentService = {
     },
 
     // 🚀 V2: Busca agendamento por ID (para polling de status)
+    // 🚀 MIGRAÇÃO V2 - Flag de controle para getById
+    USE_V2_GET_BY_ID: true,
+
     getById: async (id: string) => {
-        return API.get<IAppointmentResponse>(`/appointments/${id}`);
+        const endpoint = appointmentService.USE_V2_GET_BY_ID
+            ? `/v2/appointments/${id}`  // 🔄 V2 com população completa
+            : `/appointments/${id}`;     // 🔄 Legado
+
+        console.log(`[AppointmentService] getById: ${endpoint} (V2=${appointmentService.USE_V2_GET_BY_ID})`);
+        return API.get<IAppointmentResponse>(endpoint);
     },
+
+    // 🚀 MIGRAÇÃO V2 - Flag de controle para update
+    USE_V2_UPDATE: true,
 
     update: async (id: string, data: UpdateAppointmentParams) => {
+        const endpoint = appointmentService.USE_V2_UPDATE
+            ? `/v2/appointments/${id}`  // 🔄 V2 sync com eventos
+            : `/appointments/${id}`;     // 🔄 Legado
 
+        console.log(`[AppointmentService] update: ${endpoint} (V2=${appointmentService.USE_V2_UPDATE})`);
 
         const payload = data.startTime && data.duration
-            ? {
-                ...data,
-                endTime: calculateEndTime(data.startTime, data.duration)
-            }
+            ? { ...data, endTime: calculateEndTime(data.startTime, data.duration) }
             : data;
 
-        return API.put<IAppointmentResponse>(`/appointments/${id}`, payload);
+        return API.put<IAppointmentResponse>(endpoint, payload);
     },
 
+    // 🚀 MIGRAÇÃO V2 - Flag de controle para delete
+    USE_V2_DELETE: true,
+
     delete: async (id: string) => {
-        return API.delete<{ message: string }>(`/appointments/${id}`);
+        const endpoint = appointmentService.USE_V2_DELETE
+            ? `/v2/appointments/${id}`  // 🔄 V2 sync com eventos
+            : `/appointments/${id}`;     // 🔄 Legado
+
+        console.log(`[AppointmentService] delete: ${endpoint} (V2=${appointmentService.USE_V2_DELETE})`);
+        return API.delete<{ message: string }>(endpoint);
     },
 
     list: async (params: PaginationParams = {}) => {
@@ -210,13 +230,32 @@ export const appointmentService = {
         return API.get(`/v2/appointments?${queryParams.toString()}`);
     },
 
+    // 🚀 MIGRAÇÃO V2 - Flag de controle para confirm
+    USE_V2_CONFIRM: true,
+
     // Operações de status
     confirm: async (id: string, data?: { notes?: string }) => {
-        return API.patch(`/appointments/${id}/confirm`, data);
+        const endpoint = appointmentService.USE_V2_CONFIRM
+            ? `/v2/appointments/${id}/confirm`  // 🔄 V2 sync com eventos
+            : `/appointments/${id}/confirm`;     // 🔄 Legado
+
+        console.log(`[AppointmentService] confirm: ${endpoint} (V2=${appointmentService.USE_V2_CONFIRM})`);
+        return API.patch(endpoint, data);
+    },
+
+    // 🚀 MIGRAÇÃO V2 - Flag de controle para reschedule
+    USE_V2_RESCHEDULE: true,
+
+    reschedule: async (id: string, data: { date: string; time: string; reason?: string }) => {
+        const endpoint = appointmentService.USE_V2_RESCHEDULE
+            ? `/v2/appointments/${id}/reschedule`  // 🔄 V2 sync com eventos
+            : `/appointments/${id}/reschedule`;     // 🔄 Legado (se existir)
+
+        console.log(`[AppointmentService] reschedule: ${endpoint} (V2=${appointmentService.USE_V2_RESCHEDULE})`);
+        return API.patch<IAppointmentResponse>(endpoint, data);
     },
 
     // 🚀 MIGRAÇÃO V2 - Flag de controle para fluxo event-driven
-    // true = usa V2 (async, event-driven) | false = usa legado (sync)
     USE_V2_COMPLETE: true,
 
     complete: async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
@@ -238,16 +277,6 @@ export const appointmentService = {
 
         console.log(`[AppointmentService] cancel: ${endpoint} (V2=${appointmentService.USE_V2_CANCEL})`);
         return API.patch<IAppointmentResponse>(endpoint, data);
-    },
-
-    reschedule: async (id: string, data: RescheduleParams) => {
-        const payload = {
-            ...data,
-            endTime: data.newStartTime && data.duration
-                ? calculateEndTime(data.newStartTime, data.duration)
-                : undefined
-        };
-        return API.patch<IAppointmentResponse>(`/appointments/${id}/reschedule`, payload);
     },
 
     // Consultas

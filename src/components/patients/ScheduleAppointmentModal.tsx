@@ -8,6 +8,7 @@ import ReactInputMask from 'react-input-mask';
 import Modal from 'react-modal';
 import { toast } from 'react-toastify';
 import { INSURANCE_PROVIDERS, getProviderById } from '../../constants/insuranceProviders';
+import { toDateString } from '../../utils/dateUtils';
 import { IDoctor, IPatient, ScheduleAppointment } from '../../utils/types/types';
 import { patientService } from '../../services/patientService';
 import { Button } from '../ui/Button';
@@ -187,8 +188,11 @@ const ScheduleAppointmentModal = ({
 
                 if (upcomingSessions.length > 0) {
                     const closest = upcomingSessions[0];
-                    const date = closest.date.split('T')[0];
-                    const time = closest.date.split('T')[1].slice(0, 5);
+                    // 🆕 Usa helper para compatibilidade
+                    const dateStr = toDateString(closest.date);
+                    const date = dateStr;
+                    // Extrai hora do time ou da data
+                    const time = closest.time || (dateStr.includes('T') ? dateStr.split('T')[1].slice(0, 5) : '');
 
                     setFormData((prev) => ({
                         ...prev,

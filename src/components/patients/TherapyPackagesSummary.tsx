@@ -33,6 +33,8 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
         fetchBasicPackages();
     }, [patient._id]);
 
+
+
     // Função para buscar pacotes atualizados - SEM TOAST de sucesso
     const fetchBasicPackages = async () => {
         setLoading(true);

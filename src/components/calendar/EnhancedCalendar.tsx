@@ -2,7 +2,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin, { DateClickArg } from '@fullcalendar/interaction';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
-import { Box, Button, GlobalStyles, Paper, Tooltip, Typography, useTheme } from '@mui/material';
+import { Box, Button, GlobalStyles, Paper, Skeleton, Tooltip, Typography, useTheme } from '@mui/material';
 import { ptBR } from "date-fns/locale";
 import { AlertCircle, Calendar, CheckCircle, Clock, DollarSign, Plus, User, XCircle } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -30,6 +30,7 @@ interface EnhancedCalendarProps {
     closeModalSignal?: number;
     onConvertPreAgendamento?: (id: string) => Promise<void>;
     onRefreshAppointments?: () => void;
+    loading?: boolean; // 🆕 NOVO: Estado de loading
 }
 
 export const PAYMENT_STATUS_CONFIG = {
@@ -157,7 +158,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     onMonthChange,
     statusConfig = OPERATIONAL_STATUS_CONFIG,
     onConvertPreAgendamento,
-    onRefreshAppointments
+    onRefreshAppointments,
+    loading = false // 🆕 NOVO: Default false
 }) => {
     const calendarRef = useRef<FullCalendar | null>(null);
     const [openSchedule, setOpenSchedule] = useState(false);
@@ -309,8 +311,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     // 🔹 MEMOIZAÇÃO DOS EVENTOS - Só recalcula quando appointments mudar
     const events = useMemo(() => {
         console.log('⚙️ Recalculando events:', appointments?.length || 0, 'appointments');
+        console.log('📋 Sample appointment:', appointments?.[0]);
 
         if (!appointments || appointments.length === 0) {
+            console.log('⚠️ Nenhum appointment recebido');
             return [];
         }
 
@@ -318,16 +322,39 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             const hasDate = !!appt.date;
             const hasTime = !!appt.time;
             const hasId = !!(appt.id || appt._id);
-            // 🎯 SIMPLIFICAÇÃO: Pré-agendamentos agora são tratados como agendamentos normais
-            // com operationalStatus = 'pre_agendado', então não precisamos filtrar
-            return hasDate && hasTime && hasId;
+            const isValid = hasDate && hasTime && hasId;
+            if (!isValid) {
+                console.log('❌ Appointment inválido:', appt._id || appt.id, { hasDate, hasTime, hasId });
+            }
+            return isValid;
         });
 
-        return validAppointments.map((appt) => {
-            const [hours, minutes] = appt.time!.split(':').map(Number);
-            const [year, month, day] = appt.date!.split('-').map(Number);
+        console.log('✅ Appointments válidos:', validAppointments.length);
 
-            const startDate = new Date(year, month - 1, day, hours, minutes);
+        const mappedEvents = validAppointments.map((appt) => {
+            const [hours, minutes] = appt.time!.split(':').map(Number);
+            
+            // 🆕 CORREÇÃO: Lida com date como string (YYYY-MM-DD ou ISO) ou Date
+            let startDate: Date;
+            if (typeof appt.date === 'string') {
+                if (appt.date.includes('T')) {
+                    // Formato ISO: "2026-04-03T12:00:00.000Z" (vindo do backend)
+                    startDate = new Date(appt.date);
+                    startDate.setHours(hours, minutes);
+                } else {
+                    // Formato antigo: "YYYY-MM-DD"
+                    const [year, month, day] = appt.date.split('-').map(Number);
+                    startDate = new Date(year, month - 1, day, hours, minutes);
+                }
+            } else if (appt.date instanceof Date) {
+                // Formato Date object
+                startDate = new Date(appt.date);
+                startDate.setHours(hours, minutes);
+            } else {
+                // Fallback: tenta converter
+                startDate = new Date(appt.date as any);
+                startDate.setHours(hours, minutes);
+            }
             const endDate = new Date(startDate.getTime() + (appt.duration || 60) * 60000);
 
             const paymentConfig = getPaymentStatusConfig(appt.paymentStatus || 'pending');
@@ -352,6 +379,11 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 borderWidth: 4
             };
         });
+
+        console.log('🎯 Events mapeados:', mappedEvents.length);
+        console.log('🎯 Sample event:', mappedEvents[0]);
+        
+        return mappedEvents;
 
     }, [appointments, getPaymentStatusConfig, getOperationalStatusConfig]);
 
@@ -847,8 +879,69 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     overflow: 'hidden',
                     border: `1px solid ${theme.palette.grey[200]}`,
                     background: 'white',
+                    position: 'relative', // 🆕 NOVO: Para posicionar o overlay
                 }}
             >
+                {/* 🆕 NOVO: Skeleton de loading */}
+                {loading && (
+                    <Box
+                        sx={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                            zIndex: 10,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            p: 3,
+                        }}
+                    >
+                        {/* Header skeleton */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+                            <Skeleton variant="text" width={200} height={40} />
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                <Skeleton variant="rectangular" width={40} height={40} sx={{ borderRadius: 1 }} />
+                                <Skeleton variant="rectangular" width={40} height={40} sx={{ borderRadius: 1 }} />
+                                <Skeleton variant="rectangular" width={100} height={40} sx={{ borderRadius: 1 }} />
+                            </Box>
+                        </Box>
+                        
+                        {/* Calendar grid skeleton */}
+                        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                            {/* Days header */}
+                            <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                                {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
+                                    <Skeleton key={day} variant="text" width="100%" height={30} />
+                                ))}
+                            </Box>
+                            
+                            {/* Calendar cells */}
+                            {Array.from({ length: 5 }).map((_, weekIndex) => (
+                                <Box key={weekIndex} sx={{ display: 'flex', gap: 1, flex: 1, mb: 1 }}>
+                                    {Array.from({ length: 7 }).map((_, dayIndex) => (
+                                        <Skeleton
+                                            key={dayIndex}
+                                            variant="rectangular"
+                                            width="100%"
+                                            height="100%"
+                                            sx={{ borderRadius: 1 }}
+                                        />
+                                    ))}
+                                </Box>
+                            ))}
+                        </Box>
+                        
+                        {/* Loading text */}
+                        <Box sx={{ textAlign: 'center', mt: 2 }}>
+                            <Typography variant="body2" color="text.secondary">
+                                Carregando agendamentos...
+                            </Typography>
+                        </Box>
+                    </Box>
+                )}
+                
                 <FullCalendar
                     ref={calendarRef}
                     {...calendarOptions}

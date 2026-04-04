@@ -36,7 +36,8 @@ export const CalendarTab = ({
     const { patients, loading: patientsLoading, refreshPatients } = usePatientsContext();
     const { appointments, fetchAppointments } = useAppointmentsContext();
     
-    const loading = patientsLoading || doctorsLoading;
+    const [appointmentsLoading, setAppointmentsLoading] = useState(true); // 🆕 NOVO: Loading de appointments
+    const loading = patientsLoading || doctorsLoading || appointmentsLoading;
     const [closeModalSignal, setCloseModalSignal] = useState(0);
     
     // Range padrão: mês atual
@@ -51,6 +52,7 @@ export const CalendarTab = ({
         let mounted = true;
 
         const loadData = async () => {
+            setAppointmentsLoading(true); // 🆕 INICIA LOADING
             try {
                 // Garante que pacientes estão carregados
                 if (patients.length === 0) {
@@ -68,6 +70,10 @@ export const CalendarTab = ({
             } catch (error) {
                 console.error('Erro ao carregar calendário:', error);
                 toast.error('Erro ao carregar calendário');
+            } finally {
+                if (mounted) {
+                    setAppointmentsLoading(false); // 🆕 FINALIZA LOADING
+                }
             }
         };
 
@@ -80,6 +86,8 @@ export const CalendarTab = ({
 
     // 🔄 Recarrega quando mudar de mês
     const handleMonthChange = useCallback(async (startDate: Date, endDate: Date) => {
+        setAppointmentsLoading(true); // 🆕 INICIA LOADING
+        
         const formatDate = (date: Date): string => {
             return moment(date).format('YYYY-MM-DD');
         };
@@ -91,12 +99,16 @@ export const CalendarTab = ({
 
         setDateRange(newRange);
 
-        // 🎯 Usa o contexto para buscar appointments
-        await fetchAppointments({
-            startDate: newRange.startDate,
-            endDate: newRange.endDate,
-            excludePreAgendamentos: true
-        });
+        try {
+            // 🎯 Usa o contexto para buscar appointments
+            await fetchAppointments({
+                startDate: newRange.startDate,
+                endDate: newRange.endDate,
+                excludePreAgendamentos: true
+            });
+        } finally {
+            setAppointmentsLoading(false); // 🆕 FINALIZA LOADING
+        }
     }, [fetchAppointments]);
 
     const handleNewAppointment = async (data: any) => {
@@ -146,6 +158,7 @@ export const CalendarTab = ({
             onMonthChange={handleMonthChange}
             openModalAppointment={false}
             closeModalSignal={closeModalSignal}
+            loading={appointmentsLoading} // 🆕 NOVO: Passa o estado de loading
         />
     );
 };

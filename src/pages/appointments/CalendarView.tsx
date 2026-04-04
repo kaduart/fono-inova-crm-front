@@ -43,11 +43,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({ specialty }) => {
                     const color = spec?.color || '#cccccc';
                     const icon = spec?.icon ?? '📌';
 
+                    // 🆕 CORREÇÃO: Garante que a data seja convertida corretamente
+                    const startDate = new Date(appointment.date);
+                    const endDate = new Date(startDate.getTime() + (appointment.duration || 60) * 60000);
+
                     return {
                         id: appointment.id,
                         title: `${icon} ${appointment.reason} - ${appointment.patient?.fullName || 'Paciente'}`,
-                        start: appointment.date,
-                        end: new Date(new Date(appointment.date).getTime() + appointment.duration * 60000).toISOString(),
+                        start: startDate,
+                        end: endDate,
                         backgroundColor: color,
                         borderColor: color,
                         extendedProps: {

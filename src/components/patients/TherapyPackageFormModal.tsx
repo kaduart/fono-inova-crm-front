@@ -605,7 +605,10 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 } else {
                     // Criação
                     const response = await packageService.createPackage(therapyData);
-                    const newPackageId = response?.data?._id; // 🔥 Pega o ID do pacote criado
+                    // V2 retorna { data: { package: {...} } }; V1 retorna o pacote direto
+                    const newPackageId = response?.data?.package?._id
+                        || response?.data?.package?.packageId
+                        || response?.data?._id;
                     toast.success(`Pacote criado com sucesso! 💚`);
                     onSubmit(newPackageId); // 🔥 Passa o ID
                 }

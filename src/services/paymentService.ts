@@ -189,10 +189,10 @@ export interface InsuranceReceivableGroup {
 export const createInsurancePayment = (data: InsurancePaymentData) =>
     API.post<{ success: boolean; data: InsurancePayment }>('/payments/insurance', data);
 
-// Listar contas a receber de convênios
+// Listar contas a receber de convênios (V2)
 export const getInsuranceReceivables = (filters?: { provider?: string; status?: string; month?: string }) =>
     API.get<{ success: boolean; data: InsuranceReceivableGroup[]; summary: { totalProviders: number; grandTotal: number } }>(
-        '/payments/insurance/receivables',
+        '/v2/payments/insurance/receivables',
         { params: filters }
     );
 
@@ -211,13 +211,13 @@ export const markInsuranceAsBilled = (id: string) =>
 export const receiveInsurancePayment = (id: string, data: { receivedAmount?: number; receivedDate?: string; notes?: string }) =>
     API.patch<{ success: boolean; data: InsurancePayment }>(`/payments/insurance/${id}/receive`, data);
 
-// Faturar em lote
+// Faturar em lote (V2)
 export const faturarConvenioLote = (data: { paymentIds: string[]; dataFaturamento: string; notaFiscal?: string }) =>
-    API.post<{ success: boolean; data: any }>('/financial/convenio/faturar-lote', data);
+    API.post<{ success: boolean; data: any }>('/v2/financial/convenio/faturar-lote', data);
 
-// Receber em lote
+// Receber em lote (V2)
 export const receberConvenioLote = (data: { paymentIds: string[]; dataRecebimento: string }) =>
-    API.post<{ success: boolean; data: any }>('/financial/convenio/receber-lote', data);
+    API.post<{ success: boolean; data: any }>('/v2/financial/convenio/receber-lote', data);
 
 // CRUD básicos
 export const getPayments = (filters: Record<string, any> = {}) =>

@@ -11,11 +11,13 @@ import {
     Receipt,
     CreditCard,
     ArrowLeftRight,
+    LayoutDashboard,
 } from 'lucide-react';
 import { useState } from 'react';
 import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
 import PaymentPage from '../../components/financial/PaymentPage';
+import LancamentosV2Tab from './tabs/LancamentosV2Tab';
 import DailyClosingReport from '../../components/financial/DailyClosingReport';
 import ExpensesTab from './tabs/ExpensesTab';
 import EntradasSaidasTab from './tabs/EntradasSaidasTab';
@@ -64,8 +66,13 @@ const FinancialDashboard = ({
 
     // Tabs do modo OPERACIONAL (Gestão do Dia a Dia)
     const operacionalTabs = [
-        {
-            label: 'Lançamentos',
+               {
+            label: 'Caixa',
+            icon: <LayoutDashboard size={18} />,
+            component: <LancamentosV2Tab />
+        },
+         {
+            label: 'Pagamentos',
             icon: <DollarSign size={18} />,
             component: (
                 <PaymentPage

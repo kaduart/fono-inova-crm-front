@@ -110,8 +110,8 @@ export const packageService = {
   // Operações com Pacotes
   createPackage: async (data: CreatePackageParams) => {
     try {
-      // Sempre usa endpoint legado (síncrono) para criação imediata
-      const response = await API.post<ITherapyPackage>('/packages', data);
+      const endpoint = USE_V2 ? '/v2/packages' : '/packages';
+      const response = await API.post<ITherapyPackage>(endpoint, data);
       return response.data;
     } catch (error) {
       console.error('Erro na requisição:', error.config?.data);

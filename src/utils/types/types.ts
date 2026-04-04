@@ -77,7 +77,7 @@ export interface IPayment {
 
 export interface ISession {
     _id?: string;
-    date: string;
+    date: string | Date; // 🆕 Pode ser string ou Date
     time: string;
     doctorId: string;
     sessionId?: string;
@@ -236,7 +236,7 @@ export const PatientInitialValues = {
 export interface ScheduleAppointment {
     patientId: string;
     doctorId: string;
-    date: string; // 'YYYY-MM-DD'
+    date: string | Date; // 'YYYY-MM-DD' ou Date
     time: string; // 'HH:mm'
 
     // Terapia
@@ -359,7 +359,7 @@ export interface SelectedEvent {
 
 export interface SlotBookingPayload {
     time: string;
-    date: string;
+    date: string | Date;
     doctorId: string;
     specialty: string;
     isBookingModalOpen: boolean;
@@ -408,7 +408,7 @@ export interface IPatient {
     };
     appointments: {
         professional: string;
-        date: string;
+        date: string | Date;
         time: string;
         sessionType: string;
         status: string;
@@ -432,7 +432,7 @@ export interface IAppointment {
     _id: string;
     patientId: string;
     doctorId: string;
-    date: string;
+    date: string | Date; // 🆕 Pode ser string (legado) ou Date (novo)
     time: string;
     reason: string;
     clinicalStatus?: 'pending' | 'in_progress' | 'completed' | 'missed';
@@ -484,7 +484,7 @@ export interface IPaginatedAppointmentResponse {
 
 export interface IAvailableSlot {
     slots: {
-        date: string;
+        date: string | Date;
         slots: string[]
     }[]
 }
