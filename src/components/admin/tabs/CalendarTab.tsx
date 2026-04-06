@@ -8,7 +8,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import EnhancedCalendar from '../../calendar/EnhancedCalendar';
 
-import { usePatientsContext } from '../../../contexts/PatientsContext';
+import { usePatientsV2 } from '../../../hooks/usePatientV2';
 import { useDoctorsContext } from '../../../contexts/DoctorsContext';
 import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';
 import { Skeleton } from '@mui/material';
@@ -32,7 +32,7 @@ export const CalendarTab = ({
 }: CalendarTabProps) => {
     // 🎯 USA OS CONTEXTOS GLOBAIS
     const { activeDoctors: doctors, loading: doctorsLoading } = useDoctorsContext();
-    const { patients, loading: patientsLoading, refreshPatients } = usePatientsContext();
+    const { patients, loading: patientsLoading } = usePatientsV2();
     const { appointments, fetchAppointments } = useAppointmentsContext();
     
     const [appointmentsLoading, setAppointmentsLoading] = useState(true); // 🆕 NOVO: Loading de appointments
@@ -53,11 +53,6 @@ export const CalendarTab = ({
         const loadData = async () => {
             setAppointmentsLoading(true); // 🆕 INICIA LOADING
             try {
-                // Garante que pacientes estão carregados
-                if (patients.length === 0) {
-                    await refreshPatients();
-                }
-
                 // 🎯 Carrega appointments via contexto (sincronizado globalmente)
                 if (mounted) {
                     await fetchAppointments({
@@ -115,10 +110,6 @@ export const CalendarTab = ({
         setCloseModalSignal(prev => prev + 1);
         
         // 🎯 Pacientes e Appointments já são atualizados via contexto
-        // Apenas recarrega pacientes se um novo foi criado
-        if (data.patientId && !patients.find(p => p._id === data.patientId)) {
-            await refreshPatients();
-        }
     };
 
     const handleCancelAppointment = async (id: string, reason: string) => {

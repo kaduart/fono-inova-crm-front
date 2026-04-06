@@ -5,7 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { extractErrorMessage } from '../../utils/errorUtils';
 import { toDateString } from '../../utils/dateUtils';
 import { useAppointments } from '../../hooks/useAppointments';
-import { usePatientsContext } from '../../contexts/PatientsContext';
+import { usePatientsV2 } from '../../hooks/usePatientV2';
 import { CreateAppointmentParams } from '../../services/appointmentService';
 import { createEvaluation, deleteEvaluation, getEvaluationsByPatient, updateEvaluation } from '../../services/evaluationService';
 import patientService from '../../services/patientService';
@@ -104,7 +104,7 @@ export default function PatientDashboard() {
   const [patientAppointments, setPatientAppointments] = useState<IAppointment[]>([]);
 
   // 🎯 USA O CONTEXTO GLOBAL DE PACIENTES
-  const { patients } = usePatientsContext();
+  const { patients } = usePatientsV2();
 
   const {
     appointments,

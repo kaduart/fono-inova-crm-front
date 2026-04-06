@@ -4,7 +4,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react
 import toast from 'react-hot-toast';
 import { FinancialLoading, FinancialLoadingDashboard } from '../pages/Financial/components/FinancialLoading';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import patientService from '../services/patientService';
+
 import { confirmToast } from '../utils/confirmToast';
 import { extractErrorMessage, isCriticalError } from '../utils/errorUtils';
 import { TabErrorBoundary } from './error/TabErrorBoundary';
@@ -14,7 +14,7 @@ import { useChatNavigation } from "../contexts/ChatNavigationContext";
 import { useChatOptional } from '../contexts/ChatContext'; // 🆕 Para mensagens de erro no chat
 import { useAdmin } from '../hooks/useAdmin';
 import { useDashboard } from '../hooks/useDashboard';
-import { usePatientsContext } from '../contexts/PatientsContext';
+import { usePatientsV2 } from '../hooks/usePatientV2';
 import { usePaymentsContext } from '../contexts/PaymentsContext';
 import usePayment from '../hooks/usePayment';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
@@ -216,8 +216,9 @@ export default function AdminDashboard() {
     } = useDashboard();
 
 
-    // 🎯 USA O CONTEXTO GLOBAL DE PACIENTES
-    const { patients, totalPatients, refreshPatients, updatePatient, createPatient } = usePatientsContext();
+    // 🎯 USA API V2
+    const { patients, pagination, refresh, updatePatient, createPatient, deletePatient } = usePatientsV2();
+    const totalPatients = pagination?.total ?? patients.length;
     
     // 🚀 IMPORTANTE: AdminDashboard NÃO usa useDoctorDashboard!
     // useDoctorDashboard é SÓ para o DoctorDashboard (perfil de médico)
@@ -255,8 +256,8 @@ export default function AdminDashboard() {
         }, [fetchAppointments, calendarDateRange, hasLoadedAppointments]),
     });
 
-    // 🎯 Pacientes já são carregados pelo contexto global
-    // Não precisa chamar refreshPatients no mount
+    // 🎯 Pacientes já são carregados pela API V2
+    // Não precisa chamar refresh no mount
 
     // Nota: useDashboard gerencia seu próprio cache, não precisa refresh forçado ao trocar aba
 
@@ -623,16 +624,14 @@ export default function AdminDashboard() {
         if (!confirmed) return;
         
         try {
-            await patientService.delete(patient._id);
+            await deletePatient(patient._id);
             toast.success('Paciente excluído com sucesso!');
-            // 🔄 Atualiza a lista de pacientes
-            refreshPatients();
             // 🔄 Atualiza o dashboard
             refreshDashboard();
         } catch (error: any) {
             toast.error(extractErrorMessage(error, 'Erro ao excluir paciente'));
         }
-    }, [refreshPatients, refreshDashboard]);
+    }, [deletePatient, refreshDashboard]);
 
     // 🗓️ Handler para quando o usuário muda de mês no calendário
     const handleMonthChange = useCallback((startDate: Date, endDate: Date) => {

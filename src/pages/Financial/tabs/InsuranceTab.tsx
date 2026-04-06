@@ -47,7 +47,7 @@ import InputCurrency from '../../../components/ui/InputCurrency';
 import { PatientAccordionSection } from './PatientAccordionSection';
 import ConvenioManagerModal from '../components/ConvenioManagerModal';
 import doctorService from '../../../services/doctorService';
-import patientService from '../../../services/patientService';
+import { usePatientsV2 } from '../../../hooks/usePatientV2';
 import {
     createInsurancePayment,
     getInsuranceReceivables,
@@ -90,7 +90,7 @@ const InsuranceTab = () => {
     // Estados para seleção em lote
     const [selectedPayments, setSelectedPayments] = useState<Set<string>>(new Set());
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
-    const [patients, setPatients] = useState<any[]>([]);
+
     const [doctors, setDoctors] = useState<any[]>([]);
     const [formData, setFormData] = useState({
         patientId: '',
@@ -207,7 +207,7 @@ const InsuranceTab = () => {
     };
 
     useEffect(() => {
-        loadPatientsAndDoctors();
+        loadDoctors();
     }, []);
 
     useEffect(() => {
@@ -264,16 +264,15 @@ const InsuranceTab = () => {
         }
     };
 
-    const loadPatientsAndDoctors = async () => {
+    // Hook V2 para pacientes
+    const { patients } = usePatientsV2();
+
+    const loadDoctors = async () => {
         try {
-            const [patientsData, doctorsRes] = await Promise.all([
-                patientService.fetchAll(),
-                doctorService.getAllDoctors()
-            ]);
-            setPatients(patientsData || []);
+            const doctorsRes = await doctorService.getAllDoctors();
             setDoctors(doctorsRes.data || []);
         } catch (error) {
-            console.error('Erro ao carregar pacientes/doutores:', error);
+            console.error('Erro ao carregar doutores:', error);
         }
     };
 

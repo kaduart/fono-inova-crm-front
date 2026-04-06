@@ -33,6 +33,10 @@ interface Patient {
         totalSessions: number;
         sessionsDone: number;
     }>;
+    balance?: {
+        current?: number;
+        lastUpdated?: string;
+    };
 }
 
 interface PatientTableProps {
@@ -409,7 +413,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                     return (
                                         <React.Fragment key={patient._id}>
                                             <tr
-                                                className="hover:bg-gray-50 transition-colors cursor-pointer"
+                                                className="hover:bg-gray-100 transition-colors cursor-pointer even:bg-green-50"
                                                 onClick={() => toggleRow(patient._id)}
                                             >
                                                 {/* Paciente */}
@@ -457,6 +461,34 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                     ) : (
                                                         <span className="text-gray-400 text-xs">Sem agendamento</span>
                                                     )}
+                                                </td>
+
+                                                {/* Saldo */}
+                                                <td className="px-6 py-4">
+                                                    {(() => {
+                                                        const saldo = patient.balance?.current ?? 0;
+                                                        if (saldo > 0) {
+                                                            // Débito (paciente deve) - VERMELHO PULSANTE
+                                                            return (
+                                                                <span className="inline-flex items-center gap-1 text-red-600 font-semibold animate-pulse bg-red-100 px-2 py-1 rounded">
+                                                                    <DollarSign className="w-4 h-4" />
+                                                                    R$ {saldo.toFixed(2)}
+                                                                </span>
+                                                            );
+                                                        } else if (saldo < 0) {
+                                                            // Crédito (clínica deve) - VERDE
+                                                            return (
+                                                                <span className="inline-flex items-center gap-1 text-green-700 font-medium">
+                                                                    <DollarSign className="w-4 h-4" />
+                                                                    -R$ {Math.abs(saldo).toFixed(2)}
+                                                                </span>
+                                                            );
+                                                        } else {
+                                                            return (
+                                                                <span className="text-gray-400 text-xs">R$ 0,00</span>
+                                                            );
+                                                        }
+                                                    })()}
                                                 </td>
 
                                                 {/* Pacotes */}
@@ -535,7 +567,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                             {/* Linha expandida (WhatsApp) */}
                                             {isExpanded && (
                                                 <tr className="bg-gray-50">
-                                                    <td colSpan={6} className="px-6 py-4">
+                                                    <td colSpan={7} className="px-6 py-4">
                                                         <div className="bg-white rounded-lg p-4 border border-gray-100">
                                                             <h4 className="text-xs font-medium text-gray-700 mb-2 flex items-center gap-1.5">
                                                                 <div className="w-1 h-4 bg-green-500 rounded-full"></div>
@@ -581,7 +613,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                             {/* Rodapé com paginação */}
                             <tfoot className="bg-white border-t border-gray-100">
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-4">
+                                    <td colSpan={7} className="px-6 py-4">
                                         <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
                                             <div className="flex items-center gap-3 text-xs text-gray-500">
                                                 <span>

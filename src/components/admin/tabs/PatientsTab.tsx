@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { usePatientsContext } from '../../../contexts/PatientsContext';
+import { usePatientsV2 } from '../../../hooks/usePatientV2';
 import { PatientList } from '../../patients/PatientList';
 import { PatientSearch } from '../../patients/PatientSearch';
 import { Skeleton, Button } from '@mui/material';
@@ -22,55 +22,15 @@ export const PatientsTab = ({ onAddPatient, onEditPatient }: PatientsTabProps) =
     const [searchTerm, setSearchTerm] = useState('');
     const [page, setPage] = useState(1);
     
-    // 🎯 USA O CONTEXTO GLOBAL DE PACIENTES
-    const {
-        patients,
-        totalPatients,
-        loading,
-        refreshPatients,
-        searchPatients
-    } = usePatientsContext();
+    // 🎯 USA O HOOK V2 DE PACIENTES
+    const { patients, loading } = usePatientsV2();
 
-    // Carrega pacientes na montagem
-    useEffect(() => {
-        let mounted = true;
-
-        const loadData = async () => {
-            try {
-                if (searchTerm) {
-                    await searchPatients(searchTerm);
-                } else if (patients.length === 0) {
-                    await refreshPatients();
-                }
-            } catch (error) {
-                if (mounted) {
-                    toast.error('Erro ao carregar pacientes');
-                }
-            }
-        };
-
-        loadData();
-
-        return () => {
-            mounted = false;
-        };
-    }, [page]); // Recarrega quando muda de página
-
-    // Debounce para busca
     const handleSearch = useCallback((term: string) => {
         setSearchTerm(term);
         setPage(1);
-        
-        if (term.length >= 3) {
-            searchPatients(term);
-        } else if (term === '') {
-            refreshPatients();
-        }
-    }, [searchPatients, fetchPatients]);
+    }, []);
 
     const handlePageChange = (newPage: number) => {
-        setPage(newPage);
-        // Pagination com contexto global (dados já carregados)
         setPage(newPage);
     };
 
@@ -91,7 +51,7 @@ export const PatientsTab = ({ onAddPatient, onEditPatient }: PatientsTabProps) =
                             Pacientes
                         </h2>
                         <p className="text-sm text-gray-500">
-                            {totalPatients} pacientes cadastrados
+                            {patients.length} pacientes cadastrados
                         </p>
                     </div>
                 </div>
@@ -122,7 +82,7 @@ export const PatientsTab = ({ onAddPatient, onEditPatient }: PatientsTabProps) =
                 loading={loading}
                 onEdit={onEditPatient}
                 page={page}
-                totalPages={Math.ceil(totalPatients / 20)}
+                totalPages={Math.ceil(patients.length / 20)}
                 onPageChange={handlePageChange}
             />
         </div>

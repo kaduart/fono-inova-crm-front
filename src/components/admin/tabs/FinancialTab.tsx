@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from 'react';
 import FinancialDashboard from '../../../pages/Financial/FinancialDashboard';
-import { usePatientsContext } from '../../../contexts/PatientsContext';
+import { usePatientsV2 } from '../../../hooks/usePatientV2';
 import { useDoctorsContext } from '../../../contexts/DoctorsContext';
 import { usePaymentsContext } from '../../../contexts/PaymentsContext';
 import { Skeleton } from '@mui/material';
@@ -63,7 +63,7 @@ export const FinancialTab = ({
 }: FinancialTabProps) => {
   // 🎯 SOURCE OF TRUTH: Contexts globais V2
   const { payments, loadPayments, isLoading: paymentsLoading } = usePaymentsContext();
-  const { patients, loading: patientsLoading } = usePatientsContext();
+  const { patients, loading: patientsLoading } = usePatientsV2();
   const { activeDoctors: doctors, loading: doctorsLoading } = useDoctorsContext();
   
   const [isLoading, setIsLoading] = useState(true);

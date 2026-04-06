@@ -7,7 +7,7 @@
 
 import { useEffect } from 'react';
 import { useDashboard } from '../../../hooks/useDashboard';
-import { usePatientsContext } from '../../../contexts/PatientsContext';
+import { usePatientsV2 } from '../../../hooks/usePatientV2';
 import DashboardContentOptimized from '../DashboardContentOptimized';
 import { Paper, Typography, Skeleton } from '@mui/material';
 import { BarChart3 } from 'lucide-react';
@@ -39,8 +39,8 @@ export const DashboardTab = ({
         refresh: refreshDashboard
     } = useDashboard();
 
-    // 🎯 USA O CONTEXTO GLOBAL DE PACIENTES
-    const { patients } = usePatientsContext();
+    // 🎯 USA API V2
+    const { patients, loading: patientsLoading } = usePatientsV2();
 
     // 🔄 Refresh quando montar
     useEffect(() => {

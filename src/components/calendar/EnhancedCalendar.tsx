@@ -984,36 +984,30 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         const holidayName = isHolidayDate ? getHolidayName(dateStr) : '';
                         
                         // 🆕 Card de feriado expandido ocupando o espaço
-                        if (isHolidayDate) {
-                            return (
-                                <div style={{ width: '100%', height: '100%', boxSizing: 'border-box', padding: '2px' }}>
-                                    <Tooltip title={holidayName}>
-                                        <div style={{ 
-                                            width: 'calc(100% - 4px)',
-                                            height: 'calc(100% - 4px)',
-                                            boxSizing: 'border-box',
-                                            background: '#fef3c7', 
-                                            border: '2px solid #f59e0b', 
-                                            borderRadius: '8px', 
-                                            padding: '12px', 
-                                            display: 'flex', 
-                                            flexDirection: 'column', 
-                                            alignItems: 'center', 
-                                            justifyContent: 'center',
-                                            cursor: 'not-allowed'
-                                        }}>
-                                            <span style={{ fontSize: '24px', marginBottom: '8px' }}>🗓️</span>
-                                            <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#92400e', textAlign: 'center', lineHeight: 1.2 }}>
-                                                {holidayName}
-                                            </span>
-                                            <span style={{ fontSize: '11px', color: '#b45309', marginTop: '4px', textAlign: 'center' }}>
-                                                Sem atendimento
-                                            </span>
-                                        </div>
-                                    </Tooltip>
-                                </div>
-                            );
-                        }
+                       if (isHolidayDate) {
+  return (
+    <Tooltip title={holidayName}>
+      <div className="
+        w-full h-full
+        bg-amber-50
+        border-2 border-amber-400
+        rounded-lg
+        flex flex-col items-center justify-center
+        gap-0.5
+        p-2
+        cursor-not-allowed
+      ">
+        <span className="text-2xl">🗓️</span>
+        <span className="text-xs font-bold text-amber-800 text-center leading-tight">
+          {holidayName}
+        </span>
+        <span className="text-[10px] text-amber-600 text-center font-medium">
+          Sem atendimento
+        </span>
+      </div>
+    </Tooltip>
+  );
+}
                         
                         return (
                             <div className="flex flex-col items-end p-1 h-full">
