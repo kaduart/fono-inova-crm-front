@@ -15,6 +15,7 @@ export interface FinancialRecord {
     doctor?: { _id: string; fullName?: string; specialty?: string };
     serviceType: string;
     paymentMethod: string;
+    billingType?: 'particular' | 'convenio' | 'liminar' | 'sus';
     notes: string;
     packageId: string;
     package?: { _id: string; name?: string };
@@ -29,104 +30,6 @@ export interface Summary {
     total: number;
     paidCount: number;
     unpaidCount: number;
-}
-
-// Tipos para fechamento diário
-export interface DailyClosingReport {
-    date: string;
-    period: {
-        start: string;
-        end: string;
-    };
-    totals: {
-        scheduled: {
-            count: number;
-            value: number;
-        };
-        completed: {
-            count: number;
-            value: number;
-        };
-        confirmed: {
-            count: number;
-            value: number;
-        };
-        payments: {
-            count: number;
-            value: number;
-            methods: {
-                dinheiro: number;
-                pix: number;
-                cartão: number;
-            };
-        };
-        absences: {
-            count: number;
-            estimatedLoss: number;
-        };
-    };
-    byProfessional: Array<{
-        doctorId: string;
-        doctorName: string;
-        specialty: string;
-        scheduled: number;
-        scheduledValue: number;
-        completed: number;
-        completedValue: number;
-        absences: number;
-        payments: {
-            total: number;
-            methods: {
-                dinheiro: number;
-                pix: number;
-                cartão: number;
-            };
-        };
-    }>;
-}
-
-export interface DailySession {
-    id: string;
-    date: string;
-    time: string;
-    patient: string;
-    patientPhone?: string;
-    patientEmail?: string;
-    doctor: string;
-    specialty: string;
-    sessionType: string;
-    value: number;
-    status?: string;
-    confirmedAbsence?: boolean;
-    notes?: string;
-    duration?: number;
-}
-
-export interface DailyPayment {
-    id: string;
-    date: string;
-    patient: string;
-    doctor: string;
-    specialty: string;
-    sessionType: string;
-    sessionDate?: string;
-    amount: number;
-    paymentMethod: string;
-    notes?: string;
-}
-
-export interface DailyAbsence {
-    id: string;
-    date: string;
-    time: string;
-    patient: string;
-    patientPhone?: string;
-    doctor: string;
-    specialty: string;
-    sessionType: string;
-    value: number;
-    confirmedAbsence: boolean;
-    notes?: string;
 }
 
 // ============================================================
@@ -223,6 +126,24 @@ export const receberConvenioLote = (data: { paymentIds: string[]; dataRecebiment
 export const getPayments = (filters: Record<string, any> = {}) =>
     API.get<FinancialRecord[]>('/payments', { params: filters });
 
+// 🚀 NOVO: V2 Payments Projection (rápido, sem populate)
+// Substitui getPayments() para leitura - mantém legado para compatibilidade
+export const getPaymentsV2 = (filters: {
+    month?: string;
+    startDate?: string;
+    endDate?: string;
+    status?: 'paid' | 'pending' | 'partial' | 'all';
+    category?: 'particular' | 'package' | 'insurance' | 'expense' | 'all';
+    method?: 'pix' | 'cash' | 'card' | 'insurance' | 'all';
+    search?: string;
+    page?: number;
+    limit?: number;
+} = {}) =>
+    API.get('/v2/payments', { params: filters });
+
+// Feature Flag para usar V2 ou legado
+export const USE_V2_PAYMENTS = true;
+
 // 🚀 Feature Flag: USE_V2_TOTALS
 // Quando true: usa /v2/totals (event-driven + snapshot)
 // Quando false: usa /payments/totals (legado síncrono)
@@ -294,68 +215,9 @@ export const markPaymentAsPaid = async (paymentId: string) => {
 export const deletePayment = (id: string) =>
     API.delete<void>(`/payments/${id}`);
 
-// 🚀 Feature Flag: USE_V2_DAILY_CLOSING
-const USE_V2_DAILY_CLOSING = false;
 
-// Fechamento diário completo (V2 com fallback para legado)
-export const getDailyClosing = async (date?: string): Promise<DailyClosingReport> => {
-    if (USE_V2_DAILY_CLOSING) {
-        // 🚀 V2: Event-driven (GET separado do POST /run)
-        try {
-            const res = await API.get<{ success: boolean; data: DailyClosingReport; message?: string }>('/v2/daily-closing', {
-                params: { date }
-            });
-            // V2 retorna { success: true, data: {...} }
-            return res.data.data;
-        } catch (error: any) {
-            // Se 404, relatório ainda não foi processado
-            if (error.response?.status === 404) {
-                console.log('[PaymentService] V2 daily-closing não processado, chamando POST /run...');
-                // Dispara processamento
-                await API.post('/v2/daily-closing/run', { date });
-                // Fallback para legado imediato (não espera processamento)
-                console.log('[PaymentService] Usando legado enquanto V2 processa...');
-            } else {
-                console.warn('[PaymentService] V2 daily-closing erro:', error.message);
-            }
-        }
-    }
-    
-    // Legado (fallback imediato)
-    const res = await API.get<DailyClosingReport>('/payments/daily-closing', {
-        params: { date }
-    });
-    return res.data;
-};
-
-// Detalhes de pagamentos diários
-export const getDailyPayments = (date?: string) => {
-    return API.get<DailyPayment[]>('/payments/daily-payments-details', {
-        params: { date }
-    });
-};
 
 // Detalhes de sessões agendadas
-export const getDailyScheduledDetails = (date?: string) => {
-    return API.get<DailySession[]>('/payments/daily-scheduled-details', {
-        params: { date }
-    });
-};
-
-// Detalhes de sessões realizadas
-export const getDailyCompletedSessions = (date?: string) => {
-    return API.get<DailySession[]>('/payments/daily-completed-details', {
-        params: { date }
-    });
-};
-
-// Detalhes de faltas
-export const getDailyAbsences = (date?: string) => {
-    return API.get<DailyAbsence[]>('/payments/daily-absences-details', {
-        params: { date }
-    });
-};
-
 // Relatórios e exportação
 export const getReport = (params: any) => API.get('/payments/report', { params });
 export const getPaymentSummary = () => API.get<Summary>('/payments/report/summary');

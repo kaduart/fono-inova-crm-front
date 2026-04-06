@@ -6,7 +6,7 @@ import { toDateString } from '../../utils/dateUtils';
 import DashboardHeader from '../../components/doctor/DashboardHeader';
 import { PatientModal } from '../../components/patients/PatientModal';
 import useDoctorDashboard from '../../hooks/useDoctorDashboard';
-import { patientService } from '../../services/patientService';
+import patientService from '../../services/patientService';
 import { IPatient } from '../../utils/types/types';
 import AppointmentsSection from '../../components/doctor/AppointmentsSection';
 import AttendanceOverview from '../../components/doctor/AttendanceOverview';

@@ -8,7 +8,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import EnhancedCalendar from '../../calendar/EnhancedCalendar';
 
-import { appointmentService } from '../../../services/appointmentService';
 import { usePatientsContext } from '../../../contexts/PatientsContext';
 import { useDoctorsContext } from '../../../contexts/DoctorsContext';
 import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';

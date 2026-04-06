@@ -46,15 +46,17 @@ export const NotificationBellDebug: React.FC = () => {
   const fetchPreAgendamentos = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/pre-agendamento?limit=50', {
+      const response = await fetch('/api/v2/pre-agendamento?limit=50', {
         headers: { 'Authorization': `Bearer ${API_TOKEN}` }
       });
       
       if (response.ok) {
         const data = await response.json();
         const items = data.data || [];
+        // V2 usa operationalStatus, com fallback para status
+        const getStatus = (p: any) => p.operationalStatus || p.status;
         const pendentes = items.filter((p: any) => 
-          p.status === 'novo' || p.status === 'em_analise' || p.status === 'contatado'
+          getStatus(p) === 'novo' || getStatus(p) === 'em_analise' || getStatus(p) === 'contatado'
         );
         
         setPreAgendamentos(pendentes);

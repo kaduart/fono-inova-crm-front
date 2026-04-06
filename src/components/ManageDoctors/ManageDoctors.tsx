@@ -3,7 +3,7 @@ import { Plus, Users } from 'lucide-react';
 import React, { useEffect, useState } from "react";
 import { toast } from 'react-hot-toast';
 import { IAppointment, IDoctor, IPatient, ScheduleAppointment } from "../../utils/types/types";
-import { doctorService } from "../../services/doctorService";
+import doctorService from '../../services/doctorService';
 import { useDoctorsContext } from "../../contexts/DoctorsContext";
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
 import DoctorAgenda from "./DoctorAgenda";
@@ -165,6 +165,8 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
                 ...data,
                 _syncKey: Date.now(),
             });
+            // ✅ Fecha modal após sucesso
+            setShowScheduleModal(false);
         } catch (error: any) {
             console.error("Erro no intermediário:", error);
             setErrorMessage(error.message);
@@ -179,7 +181,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
         
         setIsLoading(true);
         try {
-            await doctorService.deactivateDoctor(doctor._id);
+            await doctorService.deactivate(doctor._id);
             toast.success(`Profissional "${doctor.fullName}" inativado com sucesso!`);
             
             // 🎯 Atualiza via contexto
@@ -204,7 +206,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
         
         setIsLoading(true);
         try {
-            await doctorService.reactivateDoctor(doctor._id);
+            await doctorService.reactivate(doctor._id);
             toast.success(`Profissional "${doctor.fullName}" reativado com sucesso!`);
             
             // 🎯 Atualiza via contexto

@@ -46,8 +46,8 @@ import { toast } from 'react-toastify';
 import InputCurrency from '../../../components/ui/InputCurrency';
 import { PatientAccordionSection } from './PatientAccordionSection';
 import ConvenioManagerModal from '../components/ConvenioManagerModal';
-import { doctorService } from '../../../services/doctorService';
-import { patientService } from '../../../services/patientService';
+import doctorService from '../../../services/doctorService';
+import patientService from '../../../services/patientService';
 import {
     createInsurancePayment,
     getInsuranceReceivables,

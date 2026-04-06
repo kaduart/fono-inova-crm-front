@@ -10,7 +10,7 @@ import { toast } from 'react-toastify';
 import { INSURANCE_PROVIDERS, getProviderById } from '../../constants/insuranceProviders';
 import { toDateString } from '../../utils/dateUtils';
 import { IDoctor, IPatient, ScheduleAppointment } from '../../utils/types/types';
-import { patientService } from '../../services/patientService';
+import patientService from '../../services/patientService';
 import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
 import { Label } from '../ui/Label';
@@ -47,7 +47,8 @@ type Props = {
     packages?: any[];
     initialData?: ScheduleAppointment | null;
     erroMessage?: string | null,
-    isLoading: boolean
+    isLoading: boolean;
+    closeModalSignal?: number; // 🆕 Sinal para fechar modal após sucesso
 };
 
 const ScheduleAppointmentModal = ({
@@ -58,7 +59,8 @@ const ScheduleAppointmentModal = ({
     doctors,
     patients,
     erroMessage,
-    isLoading
+    isLoading,
+    closeModalSignal
 }: Props) => {
     const [formData, setFormData] = useState<ScheduleAppointment>(defaultForm);
     const [serviceType, setServiceType] = useState<ServiceType>('individual_session');
@@ -174,6 +176,13 @@ const ScheduleAppointmentModal = ({
             setSelectedPatient(found);
         }
     }, [initialData?.patientId, patients]);
+
+    // 🆕 Fecha o modal quando o sinal é emitido (após sucesso no agendamento)
+    useEffect(() => {
+        if (closeModalSignal && closeModalSignal > 0 && onClose) {
+            onClose();
+        }
+    }, [closeModalSignal, onClose]);
 
     useEffect(() => {
 

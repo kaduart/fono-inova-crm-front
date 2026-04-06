@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { patientService } from '../services/patientService';
+import patientService from '../services/patientService';
 import { IPatient } from '../utils/types/types';
 import { 
     subscribeToCacheInvalidation, 

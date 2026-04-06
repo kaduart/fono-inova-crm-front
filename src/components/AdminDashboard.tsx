@@ -4,7 +4,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react
 import toast from 'react-hot-toast';
 import { FinancialLoading, FinancialLoadingDashboard } from '../pages/Financial/components/FinancialLoading';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { patientService } from '../services/patientService';
+import patientService from '../services/patientService';
 import { confirmToast } from '../utils/confirmToast';
 import { TabErrorBoundary } from './error/TabErrorBoundary';
 import { IPatient, ScheduleAppointment } from '../../utils/types/types';
@@ -13,10 +13,11 @@ import { useChatNavigation } from "../contexts/ChatNavigationContext";
 import { useAdmin } from '../hooks/useAdmin';
 import { useDashboard } from '../hooks/useDashboard';
 import { usePatientsContext } from '../contexts/PatientsContext';
+import { usePaymentsContext } from '../contexts/PaymentsContext';
 import usePayment from '../hooks/usePayment';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
-import { CreateDoctorParams, doctorService } from '../services/doctorService';
-import { createPayment, FinancialRecord, getPayments, updatePayment } from '../services/paymentService';
+import doctorService, { CreateDoctorParams } from '../services/doctorService';
+import { createPayment, FinancialRecord, getPaymentsV2, updatePayment } from '../services/paymentService';
 import { usePixSocket } from '../hooks/usePixSocket';
 import AddAdminContent from './admin/AddAdminContent';
 import AdminHeader from './admin/AdminHeader';
@@ -36,6 +37,7 @@ const AppChat = lazy(() => import('./mkt/whatsapp/AppChat'));
 
 // Componentes de abas específicas - só carregam quando a aba é aberta
 const ObservabilityDashboard = lazy(() => import('./admin/ObservabilityDashboard'));
+const AmandaMetricsDashboard = lazy(() => import('./admin/AmandaMetricsDashboard'));
 const ManageDoctors = lazy(() => import('./ManageDoctors/ManageDoctors'));
 const DoctorFormModal = lazy(() => import('./ManageDoctors/DoctorFormModal'));
 const PatientModal = lazy(() => import('./patients/PatientModal').then(m => ({ default: m.PatientModal })));
@@ -152,7 +154,8 @@ export default function AdminDashboard() {
     const [selectedPatient, setSelectedPatient] = useState<IPatient | null>(null);
     const [showModalAddProfessional, setShowModalAddProfessional] = useState(false);
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-    const [allPayments, setAllPayments] = useState<any[]>([]);
+    // 🚀 SOURCE OF TRUTH: Context API (não state local)
+    const { payments: allPayments, setPayments: setAllPayments, loadPayments } = usePaymentsContext();
     const [paymentContext, setPaymentContext] = useState<{
         mode: 'create' | 'edit';
         patient?: IPatient;
@@ -236,6 +239,7 @@ export default function AdminDashboard() {
     // 🗓️ Buscar appointments quando o range de datas mudar (só se já carregou a aba)
     useEffect(() => {
         if (hasLoadedAppointments && calendarDateRange.startDate && calendarDateRange.endDate) {
+            console.log('📅 AdminDashboard: Buscando appointments para range:', calendarDateRange);
             fetchAppointments({ ...calendarDateRange, light: true });
         }
     }, [fetchAppointments, calendarDateRange.startDate, calendarDateRange.endDate, hasLoadedAppointments]);
@@ -299,10 +303,10 @@ export default function AdminDashboard() {
         setIsLoading(true);
         try {
             if (doctor._id) {
-                await doctorService.updateDoctor(doctor._id, doctor);
+                await doctorService.update(doctor._id, doctor);
                 toast.success("Profissional atualizado com sucesso!");
             } else {
-                await doctorService.createDoctor(doctor);
+                await doctorService.create(doctor);
                 toast.success("Profissional cadastrado com sucesso!");
             }
 
@@ -497,24 +501,17 @@ export default function AdminDashboard() {
         setShowAdvancedPayment(true);
     }, []);
 
-    // 🔄 Load payments - definido antes dos handlers que o usam
-    const loadPayments = useCallback(async () => {
-        try {
-            const res = await getPayments();
-            setAllPayments(res.data.data);
-        } catch (error) {
-            console.error('Erro ao carregar pagamentos:', error);
-            toast.error('Erro ao carregar pagamentos');
-        }
-    }, []);
+    // 🔄 Load payments via Context (cache inteligente por mês)
+    const currentMonth = new Date().toISOString().substring(0, 7);
 
      // 🚀 Carrega pagamentos SÓ quando abrir aba Financeiro pela primeira vez
+     // O context gerencia o cache (não recarrega se já tiver do mesmo mês)
     useEffect(() => {
         if (activeTab === 'Financeiro' && !hasLoadedPayments) {
-            loadPayments();
+            loadPayments(currentMonth);
             setHasLoadedPayments(true);
         }
-    }, [activeTab, hasLoadedPayments, loadPayments]);
+    }, [activeTab, hasLoadedPayments, loadPayments, currentMonth]);
 
     const handleCreatePayment = useCallback(async (data: any) => {
         try {
@@ -522,11 +519,11 @@ export default function AdminDashboard() {
             toast.success('Pagamento registrado com sucesso!');
             setPaymentModalOpen(false);
             setPaymentContext({ mode: 'create' });
-            loadPayments();
+            loadPayments(currentMonth);
         } catch (error) {
             toast.error('Erro ao registrar pagamento');
         }
-    }, [loadPayments]);
+    }, [loadPayments, currentMonth]);
 
     const handleUpdatePayment = useCallback(async (data: any) => {
         try {
@@ -538,13 +535,13 @@ export default function AdminDashboard() {
                 setTimeout(() => {
                     setPaymentModalOpen(false);
                     setPaymentContext({ mode: 'create' });
-                    loadPayments();
+                    loadPayments(currentMonth);
                 }, 300);
             }
         } catch (error) {
             toast.error('Erro ao atualizar pagamento');
         }
-    }, [paymentContext.payment?._id, fetchAppointments, calendarDateRange, loadPayments]);
+    }, [paymentContext.payment?._id, fetchAppointments, calendarDateRange, loadPayments, currentMonth]);
 
     // 🚀 OTIMIZAÇÃO: Não carrega pagamentos no reload inicial
     // Só carrega quando necessário (lazy loading na aba Financeiro)
@@ -567,23 +564,23 @@ export default function AdminDashboard() {
         try {
             await markAsPaid(payment._id);        // <- não existe response.ok aqui
             toast.success('Pagamento marcado como pago!');
-            await Promise.all([loadPayments(), fetchAppointments(calendarDateRange)]);
+            await Promise.all([loadPayments(currentMonth), fetchAppointments(calendarDateRange)]);
         } catch (error: any) {
             console.error('Erro ao marcar pagamento:', error);
             console.log('Erro ao marcar pagamentosssssssss:', error);
             toast.error(error.response.data.message || error.message);
         }
-    }, [markAsPaid, fetchAppointments, calendarDateRange, loadPayments]);
+    }, [markAsPaid, fetchAppointments, calendarDateRange, loadPayments, currentMonth]);
 
     const handleCancelPayment = useCallback(async (paymentId: string) => {
         try {
             await updatePayment(paymentId, { status: 'canceled' });
-            loadPayments();
+            loadPayments(currentMonth);
             toast.success('Pagamento cancelado com sucesso!');
         } catch (error) {
             toast.error('Erro ao cancelar pagamento');
         }
-    }, [loadPayments]);
+    }, [loadPayments, currentMonth]);
 
     const handleEspecialidadeToggle = useCallback((id: string) => {
         setPatientToEdit(prev => {
@@ -822,6 +819,14 @@ export default function AdminDashboard() {
                     <TabErrorBoundary tabName="Observabilidade">
                         <Suspense fallback={<TabSkeleton />}>
                             <ObservabilityDashboard />
+                        </Suspense>
+                    </TabErrorBoundary>
+                );
+            case 'AmandaMetrics':
+                return (
+                    <TabErrorBoundary tabName="Amanda AI">
+                        <Suspense fallback={<TabSkeleton />}>
+                            <AmandaMetricsDashboard />
                         </Suspense>
                     </TabErrorBoundary>
                 );

@@ -1,14 +1,15 @@
-import axios from 'axios';
 import { Activity, Calendar, ChevronDown, FileText, Plus, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from "react-hot-toast";
 import { useNavigate, useParams } from 'react-router-dom';
-import { BASE_URL } from '../../constants/constants';
 import { toDateString } from '../../utils/dateUtils';
 import { useAppointments } from '../../hooks/useAppointments';
 import { usePatientsContext } from '../../contexts/PatientsContext';
-import { AvailableSlotsParams, CreateAppointmentParams } from '../../services/appointmentService';
+import { CreateAppointmentParams } from '../../services/appointmentService';
 import { createEvaluation, deleteEvaluation, getEvaluationsByPatient, updateEvaluation } from '../../services/evaluationService';
+import patientService from '../../services/patientService';
+import doctorService from '../../services/doctorService';
+import { bookingService } from '../../services/bookingService';
 import { IAppointment, IDoctors, IPatient } from '../../utils/types/types';
 import PatientHeader from '../admin/PatientHeader';
 import AppointmentHistoryModal from '../AppointmentHistoryModal';
@@ -106,34 +107,34 @@ export default function PatientDashboard() {
 
   const {
     appointments,
+    loading: appointmentsLoading,
     fetchAppointments,
     fetchAppointmentsByPatient,
     createAppointment,
-    getAvailableSlots
+    getAvailableSlots,
+    pollingState
   } = useAppointments();
 
-  // Busca agendamentos específicos do paciente
+  // 🚀 V2: Busca agendamentos específicos do paciente (Event-Driven)
   useEffect(() => {
     if (patientId) {
       const loadAppointments = async () => {
         try {
-          const token = localStorage.getItem('token');
-          const response = await fetch(`${BASE_URL}/appointments/patient/${patientId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (response.ok) {
-            const data = await response.json();
-            setPatientAppointments(data || []);
-            setAllAppointmentsById(data || []);
-          }
+          setIsLoading(true);
+          const data = await fetchAppointmentsByPatient(patientId);
+          setPatientAppointments(data || []);
+          setAllAppointmentsById(data || []);
         } catch (err) {
           console.error('Erro ao buscar agendamentos:', err);
+          toast.error('Erro ao carregar agendamentos do paciente');
+        } finally {
+          setIsLoading(false);
         }
       };
 
       loadAppointments();
     }
-  }, [patientId]);
+  }, [patientId, fetchAppointmentsByPatient]);
   const handleNewAppointment = async (appointmentData: IAppointment) => {
     try {
       const payload: CreateAppointmentParams = {
@@ -172,51 +173,38 @@ export default function PatientDashboard() {
   }, [patients, patientId]);
 
 
+  // 🚀 V2: Busca perfil do paciente (CQRS - PatientsView)
   const fetchPatientProfile = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
+      if (!patientId) {
         navigate('/login');
         return;
       }
 
-      const response = await fetch(`${BASE_URL}/patients/${patientId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setPatientInfo(data);
-        setEditedInfo(data);
-      } else {
-        console.error('Falhou ao busca os dados do paciente');
+      // Usa V2 para leitura rápida via PatientsView (10-50ms)
+      const patient = await patientService.getById(patientId);
+      setPatientInfo(patient);
+      setEditedInfo(patient);
+    } catch (error: any) {
+      console.error('Erro ao buscar dados do paciente:', error);
+      toast.error('Erro ao carregar dados do paciente');
+      if (error.response?.status === 401) {
+        navigate('/login');
       }
-    } catch (error) {
-      console.error('Erro ao busca os dados do paciente:', error);
     }
   };
 
+  // 🚀 V2: Busca lista de médicos
   const fetchDoctors = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-      const response = await fetch(BASE_URL + '/doctors', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setDoctors(data);
-      } else {
-        console.error('Failed to fetch doctors');
-      }
-    } catch (error) {
+      const response = await doctorService.getAllDoctors();
+      setDoctors(response.data || []);
+    } catch (error: any) {
       console.error('Error fetching doctors:', error);
+      toast.error('Erro ao carregar médicos');
+      if (error.response?.status === 401) {
+        navigate('/login');
+      }
     }
   };
 
@@ -250,23 +238,15 @@ export default function PatientDashboard() {
     return toDateString(appt.date) === todayStr;
   }) || [];
 
-  const fetchAvailableSlots = async (doctorId, date) => {
+  // 🚀 V2: Busca horários disponíveis via hook useAppointments
+  const fetchAvailableSlots = async (doctorId: string, date: string) => {
     if (!doctorId || !date) return;
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(BASE_URL + `/appointments/available-slots?doctorId=${doctorId}&date=${date}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (response.ok) {
-        const slots = await response.json();
-        setAvailableSlots(slots);
-      } else {
-        console.error('Failed to fetch available slots');
-      }
+      const slots = await getAvailableSlots({ doctorId, date });
+      setAvailableSlots(slots);
     } catch (error) {
       console.error('Error fetching available slots:', error);
+      toast.error('Erro ao buscar horários disponíveis');
     }
   };
 
@@ -344,12 +324,13 @@ export default function PatientDashboard() {
     } */
   };
 
+  // 🚀 V2: Busca evoluções usando evaluationService
   useEffect(() => {
     if (activeTab === 'Evolution' && patientInfo?._id) {
       const fetchEvolutions = async () => {
         try {
-          const response = await axios.get(`/api/evolutions/patient/${patientInfo._id}`);
-          setEvolutions(response.data);
+          const data = await getEvaluationsByPatient(patientInfo._id);
+          setEvolutions(data || []);
         } catch (error) {
           console.error('Erro ao carregar evoluções:', error);
           toast.error('Erro ao carregar dados de evolução');
@@ -731,44 +712,61 @@ export default function PatientDashboard() {
   };
 
   const renderAppointmentBooking = () => {
-    const handleInputChange = (e) => {
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const { name, value } = e.target;
       setAppointmentData(prev => ({ ...prev, [name]: value }));
 
       if (name === 'date' || name === 'doctorId') {
-        fetchAvailableSlots(appointmentData.doctorId, value);
+        const currentDoctorId = name === 'doctorId' ? value : appointmentData.doctorId;
+        const currentDate = name === 'date' ? value : appointmentData.date;
+        if (currentDoctorId && currentDate) {
+          fetchAvailableSlots(currentDoctorId, currentDate);
+        }
       }
     };
 
-    const handleSubmit = async (e) => {
+    // 🚀 V2: Cria agendamento via BookingService Event-Driven
+    const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
+      if (!patientId) return;
+
       try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(BASE_URL + '/patient/book-appointment', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+        await bookingService.bookAppointment(
+          {
+            patientId: patientId,
+            doctorId: appointmentData.doctorId,
+            date: appointmentData.date,
+            time: appointmentData.time,
+            reason: appointmentData.reason,
+            specialty: 'avaliação'
           },
-          body: JSON.stringify(appointmentData)
-        });
-        if (response.ok) {
-          const result = await response.json();
-          setAppointmentData({
-            doctorId: '',
-            date: '',
-            time: '',
-            reason: ''
-          });
-          setAvailableSlots([]);
-          fetchAppointments();
-          return toast.success('Appointment booked successfully.');
-        } else {
-          const errorData = await response.json();
-          return toast.error(`Failed to book appointment.`);
-        }
-      } catch (error) {
-        return toast.error('Error booking appointment. Please try again.');
+          {
+            onProgress: (status, progress) => {
+              console.log(`[Booking] Status: ${status}, Progress: ${progress}%`);
+            },
+            onSuccess: () => {
+              toast.success('Agendamento criado com sucesso!');
+              setAppointmentData({
+                doctorId: '',
+                date: '',
+                time: '',
+                reason: ''
+              });
+              setAvailableSlots([]);
+              // Recarrega agendamentos do paciente
+              fetchAppointmentsByPatient(patientId).then(data => {
+                setPatientAppointments(data || []);
+                setAllAppointmentsById(data || []);
+              });
+            },
+            onError: (error) => {
+              toast.error(`Erro ao criar agendamento: ${error}`);
+            }
+          }
+        );
+      } catch (error: any) {
+        console.error('Error booking appointment:', error);
+        toast.error('Erro ao criar agendamento. Tente novamente.');
       }
     };
 
@@ -844,6 +842,21 @@ export default function PatientDashboard() {
             {activeTab === 'Management Packages'}
             {activeTab === 'Evolution'}
           </h2>
+          
+          {/* 🚀 V2: Indicador de processamento assíncrono */}
+          {pollingState.isPolling && (
+            <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full">
+              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <span>Processando... ({pollingState.progress}%)</span>
+            </div>
+          )}
+          
+          {isLoading && (
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+              <span>Carregando...</span>
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-lg shadow-sm p-6">

@@ -7,7 +7,7 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useDoctorStats, invalidateDoctorStatsCache, DoctorStats } from '../useDoctorStats';
-import { doctorService } from '../../services/doctorService';
+import doctorService from '../../services/doctorService';
 import API from '../../services/api';
 
 // Mocks

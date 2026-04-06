@@ -11,7 +11,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { patientServiceV2, patientServiceHybrid } from '../services/patientService.v2';
+import patientService from '../services/patientService';
 import { IPatient } from '../utils/types/types';
 import { toast } from 'react-toastify';
 
@@ -38,7 +38,7 @@ export function usePatientList(options: {
   
   const query = useQuery({
     queryKey: [QUERY_KEYS.patients, { search, limit }],
-    queryFn: () => patientServiceV2.list({ search, limit }),
+    queryFn: () => patientService.list({ search, limit }),
     enabled,
     staleTime: 30 * 1000, // 30s
     refetchInterval: search ? false : 60 * 1000, // refetch a cada 1min se não estiver buscando
@@ -62,7 +62,7 @@ export function usePatientList(options: {
 export function usePatient(id: string | null) {
   const query = useQuery({
     queryKey: QUERY_KEYS.patient(id || ''),
-    queryFn: () => id ? patientServiceV2.getById(id) : null,
+    queryFn: () => id ? patientService.getById(id) : null,
     enabled: !!id,
     staleTime: 60 * 1000, // 1min
   });
@@ -93,7 +93,7 @@ export function useCreatePatient(options: {
     mutationFn: async (data: IPatient) => {
       abortControllerRef.current = new AbortController();
       
-      const result = await patientServiceV2.create(data, {
+      const result = await patientService.create(data, {
         skipPolling: options.optimistic !== false, // default: true (UI otimista)
         onProgress: (status, attempt) => {
           setProgress({ status, attempt });
@@ -181,7 +181,7 @@ export function useCreatePatient(options: {
   // Polling em background (não bloqueia UI)
   const pollInBackground = async (eventId: string, patientId: string) => {
     try {
-      const finalStatus = await patientServiceV2.getEventStatus(eventId);
+      const finalStatus = await patientService.getEventStatus(eventId);
       
       if (finalStatus.status === 'completed' && finalStatus.patientView) {
         // Atualiza cache com dados reais
@@ -228,7 +228,7 @@ export function useUpdatePatient(options: {
   const mutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<IPatient> }) => {
       setUpdatingId(id);
-      const result = await patientServiceV2.update(id, data, { skipPolling: true });
+      const result = await patientService.update(id, data, { skipPolling: true });
       return result;
     },
     onSuccess: (result, variables) => {
@@ -270,7 +270,7 @@ export function useDeletePatient(options: {
   const mutation = useMutation({
     mutationFn: async (id: string) => {
       setDeletingId(id);
-      await patientServiceV2.delete(id, { skipPolling: true });
+      await patientService.delete(id, { skipPolling: true });
       return id;
     },
     onMutate: async (deletedId) => {
@@ -340,7 +340,7 @@ export function usePatientSearch(debounceMs = 300) {
   
   const query = useQuery({
     queryKey: [QUERY_KEYS.patients, 'search', debouncedTerm],
-    queryFn: () => patientServiceV2.list({ 
+    queryFn: () => patientService.list({ 
       search: debouncedTerm, 
       limit: 50 
     }),

@@ -1,7 +1,8 @@
-// Exemplo de como usar o PatientTable com busca na API
+// Exemplo de como usar o PatientTable com busca na API V2 (Event-Driven)
 
 import { useState, useCallback, useEffect } from 'react';
 import PatientTable from './PatientTable';
+import patientService from '../../services/patientService';
 
 interface Patient {
   _id: string;
@@ -16,21 +17,19 @@ export default function PatientDashboard() {
   const [isSearching, setIsSearching] = useState(false);
   const [allPatients, setAllPatients] = useState<Patient[]>([]); // Cache inicial
 
-  // Busca inicial (primeira vez)
+  // 🚀 V2: Busca inicial (primeira vez) via Event-Driven API
   useEffect(() => {
-    fetch('/api/patients?limit=50', {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    })
-      .then(r => r.json())
-      .then(data => {
-        setPatients(data);
-        setAllPatients(data);
+    patientService.list({ limit: 50 })
+      .then((result) => {
+        setPatients(result.patients);
+        setAllPatients(result.patients);
+      })
+      .catch((error) => {
+        console.error('❌ Erro ao buscar pacientes:', error);
       });
   }, []);
 
-  // Função de busca
+  // 🚀 V2: Função de busca via Event-Driven API
   const handleSearch = useCallback(async (term: string) => {
     if (!term.trim()) {
       // Se termo vazio, volta para lista inicial
@@ -41,13 +40,11 @@ export default function PatientDashboard() {
     setIsSearching(true);
     
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/patients?search=${encodeURIComponent(term)}&limit=100`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const result = await patientService.list({ 
+        search: term, 
+        limit: 100 
       });
-      
-      const data = await res.json();
-      setPatients(data);
+      setPatients(result.patients);
     } catch (error) {
       console.error('Erro na busca:', error);
     } finally {

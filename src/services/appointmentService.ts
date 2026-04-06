@@ -173,6 +173,11 @@ export const appointmentService = {
         return API.get<IAppointmentResponse>(endpoint);
     },
 
+    // 🚀 V2: Endpoint leve para polling de status async (evita buscar objeto completo)
+    getStatus: async (id: string) => {
+        return API.get(`/v2/appointments/${id}/status`);
+    },
+
     // 🚀 MIGRAÇÃO V2 - Flag de controle para update
     USE_V2_UPDATE: true,
 
@@ -254,9 +259,6 @@ export const appointmentService = {
         console.log(`[AppointmentService] reschedule: ${endpoint} (V2=${appointmentService.USE_V2_RESCHEDULE})`);
         return API.patch<IAppointmentResponse>(endpoint, data);
     },
-
-    // 🚀 MIGRAÇÃO V2 - Flag de controle para fluxo event-driven
-    USE_V2_COMPLETE: true,
 
     complete: async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
         const endpoint = appointmentService.USE_V2_COMPLETE
@@ -378,8 +380,8 @@ export const appointmentService = {
                     return { success: false, status: status.operationalStatus, error: errorMsg };
                 }
 
-                // Se completou com sucesso
-                if (status.isCompleted || status.operationalStatus === 'completed') {
+                // Se resolvido com sucesso (scheduled, confirmed, paid, completed, etc.)
+                if (status.isResolved || status.isCompleted || status.operationalStatus === 'scheduled') {
                     onComplete?.(status);
                     return { success: true, status: status.operationalStatus };
                 }
@@ -389,10 +391,8 @@ export const appointmentService = {
                     return { success: false, status: 'canceled', error: 'Agendamento cancelado' };
                 }
 
-                // Se não está mais processando e não completou = erro
-                if (!status.isProcessing && 
-                    status.operationalStatus !== 'processing_create' && 
-                    status.operationalStatus !== 'processing_complete') {
+                // Se não está mais processando e não foi resolvido = algo errado
+                if (!status.isProcessing && !status.isResolved) {
                     return { success: false, status: status.operationalStatus, error: 'Processamento interrompido' };
                 }
             } catch (error: any) {

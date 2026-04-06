@@ -12,7 +12,7 @@ import { IAppointment, IDoctor, IPatient, ScheduleAppointment, SelectedEvent } f
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
 import AppointmentDetailModal from './appointmentDetailModal';
 import API from '../../services/api';
-import calendarService, { Holiday } from '../../services/calendarService';
+import { calendarServiceV2, Holiday } from '../../services/calendarServiceV2';
 
 interface EnhancedCalendarProps {
     appointments: IAppointment[];
@@ -181,8 +181,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     useEffect(() => {
         const fetchHolidays = async () => {
             try {
-                const holidaysList = await calendarService.getHolidays(currentYear);
-                const holidaysMap = calendarService.holidaysToMap(holidaysList);
+                const holidaysList = await calendarServiceV2.getHolidays(currentYear);
+                const holidaysMap = calendarServiceV2.holidaysToMap(holidaysList);
                 setHolidays(holidaysMap);
             } catch (error) {
                 console.error('[EnhancedCalendar] Erro ao buscar feriados:', error);
@@ -193,7 +193,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
     // 🆕 Funções helpers para feriados (usando serviço centralizado)
     const isHoliday = useCallback((dateStr: string): boolean => {
-        return calendarService.isHoliday(dateStr, holidays);
+        return calendarServiceV2.isHoliday(dateStr, holidays);
     }, [holidays]);
 
     const getHolidayName = useCallback((dateStr: string): string => {
@@ -486,6 +486,11 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         // 💰 SALDO DEVEDOR DO PACIENTE
         const patientBalance = arg.event.extendedProps.patientBalance || 0;
         const patientHasDebt = arg.event.extendedProps.patientHasDebt || false;
+        
+        // DEBUG
+        if (patientHasDebt) {
+            console.log('[Calendar] Paciente com dívida:', arg.event.extendedProps.patientName, patientBalance);
+        }
 
         // 🆕 NOVAS INFORMAÇÕES NO CARD
         const serviceType = arg.event.extendedProps.serviceType || arg.event.extendedProps.sessionType || 'Sessão';
@@ -1127,6 +1132,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 patients={patients}
                 onClose={() => setOpenSchedule(false)}
                 onSave={onNewAppointment}
+                closeModalSignal={closeModalSignal}
             />
 
             <AppointmentDetailModal

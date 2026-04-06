@@ -31,13 +31,7 @@ export default function TherapyPackageCard({
 }: Props) {
   if (!pack) return null;
 
-  // 🐛 Debug: Log para verificar sessionsDone
-  console.log(`📦 Package ${pack._id?.substring(0, 8)}:`, {
-    type: pack.type || 'therapy',
-    sessionsDone: pack.sessionsDone,
-    totalSessions: pack.totalSessions,
-    status: pack.status
-  });
+
 
   const [modalAction, setModalAction] = useState<ModalAction>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -566,53 +560,17 @@ export default function TherapyPackageCard({
               );
             })()}
 
-            {/* PAGAMENTO PENDENTE — só se REALMENTE não houver pagamento útil */}
-            {(() => {
-              if (!Array.isArray(pack?.payments) || pack.payments.length === 0) {
-                // não tem nada registrado → pendente
-                return (
-                  <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 p-3 rounded-lg flex items-center gap-3">
-                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-orange-800">Pagamento Pendente</div>
-                      <div className="text-xs text-orange-600">Nenhum pagamento registrado para este pacote</div>
-                    </div>
-                  </div>
-                );
-              }
-
-              // há pagamentos: só mostra pendência se TODOS forem claramente "não pagos"
-              const hasUsefulPayment = pack.payments.some(p => {
-                const status = String(p?.status || '').toLowerCase();
-                const amount = Number(p?.amount || 0);
-                return status === 'paid' || status === 'partial' || amount > 0;
-              });
-
-              if (hasUsefulPayment) return null;
-
-              return (
-                <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 p-3 rounded-lg flex items-center gap-3">
-                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-orange-800">Pagamento Pendente</div>
-                    <div className="text-xs text-orange-600">Nenhum pagamento válido encontrado para este pacote</div>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-
-          {pack?.payments?.length === 0 && (
-            <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 p-3 rounded-lg flex items-center gap-3">
-              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-              <div className="flex-1">
-                <div className="text-sm font-medium text-orange-800">Pagamento Pendente</div>
-                <div className="text-xs text-orange-600">
-                  Nenhum pagamento registrado para este pacote
+            {/* PAGAMENTO PENDENTE — usa totalPaid/financialStatus (não depende de array populado) */}
+            {Number(pack?.totalPaid || 0) === 0 && (
+              <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 p-3 rounded-lg flex items-center gap-3">
+                <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-orange-800">Pagamento Pendente</div>
+                  <div className="text-xs text-orange-600">Nenhum pagamento registrado para este pacote</div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 

@@ -6,7 +6,7 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import { patientService } from '../services/patientService';
+import patientService from '../services/patientService';
 import { IPatient } from '../utils/types/types';
 import { 
   subscribeToCacheInvalidation, 
@@ -105,29 +105,29 @@ export const PatientsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const loadPromise = (async () => {
       try {
-        console.log('🔄 PatientsContext: Buscando pacientes...');
+        console.log('🔄 PatientsContext: Buscando pacientes (limite: 20)...');
         
-        // 🔹 Carrega tudo em paralelo
-        const [patientsData, totalData, overviewData] = await Promise.all([
-          patientService.fetchAll(false),
-          patientService.getTotalPatients(),
-          patientService.getPatientOverview()
+        // 🔹 Carrega APENAS os primeiros 20 pacientes + total
+        const [patientsData, totalData] = await Promise.all([
+          patientService.fetchAll(20), // Só 20 iniciais!
+          patientService.getTotalPatients()
         ]);
 
         if (isMounted.current) {
           setPatients(patientsData);
           setTotalPatients(totalData.totalPatients);
-          setPatientOverview(overviewData);
+          // Overview vazio inicialmente - carrega sob demanda
+          setPatientOverview([]);
           setLastUpdated(new Date());
           
           // Atualiza cache global
           setCache('patients', {
             patients: patientsData,
             totalPatients: totalData.totalPatients,
-            patientOverview: overviewData
+            patientOverview: []
           });
           
-          console.log(`✅ PatientsContext: ${patientsData.length} pacientes carregados`);
+          console.log(`✅ PatientsContext: ${patientsData.length} pacientes carregados (total: ${totalData.totalPatients})`);
         }
       } catch (err: any) {
         console.error('❌ PatientsContext: Erro ao buscar pacientes:', err);

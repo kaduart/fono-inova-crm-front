@@ -15,7 +15,17 @@ vi.mock('../../../../services/doctorService', () => ({
 
 vi.mock('../../../../services/appointmentService', () => ({
     appointmentService: {
-        list: vi.fn().mockResolvedValue({ data: [] })
+        list: vi.fn().mockResolvedValue({ data: [] }),
+        listV2: vi.fn().mockResolvedValue({ 
+            data: { 
+                success: true, 
+                data: { 
+                    appointments: [],
+                    pagination: { total: 0, limit: 500, page: 1 }
+                } 
+            } 
+        }),
+        USE_V2_LIST: true
     }
 }));
 
@@ -79,12 +89,30 @@ vi.mock('../../../calendar/EnhancedCalendar', () => ({
 }));
 
 import { appointmentService } from '../../../../services/appointmentService';
-import { patientService } from '../../../../services/patientService';
-import { doctorService } from '../../../../services/doctorService';
+import patientService from '../../../../services/patientService';
+import doctorService from '../../../../services/doctorService';
 
 describe('CalendarTab - Service Integration', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+    });
+
+    it('appointmentService deve ter método listV2 disponível', () => {
+        expect(appointmentService.listV2).toBeDefined();
+        expect(typeof appointmentService.listV2).toBe('function');
+    });
+
+    it('appointmentService.listV2 deve ser chamável com parâmetros de data', async () => {
+        const params = {
+            startDate: '2026-02-01',
+            endDate: '2026-02-28',
+            limit: 500,
+            light: true
+        };
+        
+        await appointmentService.listV2(params);
+        
+        expect(appointmentService.listV2).toHaveBeenCalledWith(params);
     });
 
     it('appointmentService deve ter método list disponível', () => {

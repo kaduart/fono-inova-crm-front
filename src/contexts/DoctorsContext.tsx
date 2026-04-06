@@ -6,7 +6,7 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import { doctorService, Doctor } from '../services/doctorService';
+import doctorService, { Doctor } from '../services/doctorService';
 import { 
   subscribeToCacheInvalidation, 
   invalidateCache,
@@ -86,8 +86,8 @@ export const DoctorsProvider: React.FC<{ children: React.ReactNode }> = ({ child
           doctorService.getInactiveDoctors()
         ]);
 
-        const active = activeRes.data || [];
-        const inactive = (inactiveRes.data || []).map((d: Doctor) => ({ ...d, active: false as const }));
+        const active = activeRes?.data || [];
+        const inactive = (inactiveRes?.data || []).map((d: Doctor) => ({ ...d, active: false as const }));
         
         const allDoctors = [...active, ...inactive];
 

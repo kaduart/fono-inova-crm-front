@@ -17,6 +17,7 @@ import { FinancialLoading } from "./pages/Financial/components/FinancialLoading"
 import { AppointmentsProvider } from "./contexts/AppointmentsContext";
 import { DoctorsProvider } from "./contexts/DoctorsContext";
 import { PatientsProvider } from "./contexts/PatientsContext";
+import { PaymentsProvider } from "./contexts/PaymentsContext";
 import { useAuth } from "./contexts/AuthContext";
 import { ChatNavigationProvider } from "./contexts/ChatNavigationContext";
 import { PreAgendamentoNotificationPopup } from "./components/patients/PreAgendamentoNotificationPopup";
@@ -52,9 +53,11 @@ const App: React.FC = () => {
       }>
         <DoctorsProvider>
           <PatientsProvider>
-            <AppointmentsProvider>
-              <AppRoutes />
-            </AppointmentsProvider>
+            <PaymentsProvider>
+              <AppointmentsProvider>
+                <AppRoutes />
+              </AppointmentsProvider>
+            </PaymentsProvider>
           </PatientsProvider>
         </DoctorsProvider>
 

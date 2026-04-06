@@ -6,6 +6,8 @@ import { invalidateCache } from '../utils/cacheManager';
 
 interface AppointmentsContextData {
     appointments: IAppointment[];
+    isLoading: boolean;
+    currentPeriod: { startDate?: string; endDate?: string } | null;
     fetchAppointments: (filters?: { startDate?: string; endDate?: string }) => Promise<void>;
     createAppointment: (data: any) => Promise<any>;
     updateAppointment: (id: string, data: any) => Promise<any>;
@@ -20,13 +22,55 @@ const AppointmentsContext = createContext<AppointmentsContextData>({} as Appoint
 
 export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [appointments, setAppointments] = useState<IAppointment[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
     const [currentFilters, setCurrentFilters] = useState<{ startDate?: string; endDate?: string }>({});
+    const [currentPeriod, setCurrentPeriod] = useState<{ startDate?: string; endDate?: string } | null>(null);
     
     // Ref para debounce de socket events
     const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const pendingRefreshRef = useRef(false);
+    
+    // 🛡️ PROTEÇÃO: Controle de concorrência (race condition ao trocar período rápido)
+    const requestIdRef = useRef(0);
+    
+    // Ref para acesso síncrono aos filtros sem recriar callback
+    const currentFiltersRef = useRef(currentFilters);
+    const currentPeriodRef = useRef(currentPeriod);
+    const appointmentsRef = useRef(appointments);
+    const isFetchingRef = useRef(false);
+    
+    // Atualiza refs sem causar re-render
+    currentFiltersRef.current = currentFilters;
+    currentPeriodRef.current = currentPeriod;
+    appointmentsRef.current = appointments;
 
+    // 🚀 LOAD COM CACHE POR PERÍODO + PROTEÇÃO DE CONCORRÊNCIA
     const fetchAppointments = useCallback(async (filters?: { startDate?: string; endDate?: string }) => {
+        // 🛡️ Proteção contra chamadas simultâneas
+        if (isFetchingRef.current) {
+            console.log('[AppointmentsContext] Já está carregando, ignorando chamada');
+            return;
+        }
+        
+        const effectiveFilters = filters || currentFiltersRef.current;
+
+        // ✅ Persiste os filtros para que refreshAppointments reuse o range correto
+        if (filters?.startDate) currentFiltersRef.current = filters;
+
+        // ✅ Cache: se já carregou esse período, não busca de novo (null = forçar refresh)
+        if (currentPeriodRef.current !== null &&
+            currentPeriodRef.current?.startDate === effectiveFilters.startDate &&
+            currentPeriodRef.current?.endDate === effectiveFilters.endDate &&
+            appointmentsRef.current.length > 0) {
+            return;
+        }
+        
+        isFetchingRef.current = true;
+        
+        // 🛡️ Incrementa request ID para esta chamada
+        const currentRequest = ++requestIdRef.current;
+        
+        setIsLoading(true);
         try {
             if (filters) {
                 setCurrentFilters(filters);
@@ -36,9 +80,15 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             const response = await appointmentService.listV2({
                 limit: 500,
                 light: true,  // 🆕 Apenas campos essenciais para o calendário
-                ...(filters?.startDate && { startDate: filters.startDate }),
-                ...(filters?.endDate && { endDate: filters.endDate }),
+                ...(effectiveFilters?.startDate && { startDate: effectiveFilters.startDate }),
+                ...(effectiveFilters?.endDate && { endDate: effectiveFilters.endDate }),
             });
+            
+            // 🛡️ IGNORA resposta se já teve nova requisição (race condition)
+            if (currentRequest !== requestIdRef.current) {
+                console.log('[AppointmentsContext] Resposta ignorada (request antigo)');
+                return;
+            }
             
             // 🆕 CORREÇÃO: Extrai appointments da estrutura correta da V2
             // V2 retorna: { success: true, data: { appointments: [...], pagination: {...} } }
@@ -49,15 +99,25 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
                                      [];
 
             setAppointments(appointmentsData);
+            setCurrentPeriod(effectiveFilters);
         } catch (error) {
             console.error('❌ Erro ao buscar appointments:', error);
+        } finally {
+            isFetchingRef.current = false;
+            // 🛡️ Só desativa loading se for o request atual
+            if (currentRequest === requestIdRef.current) {
+                setIsLoading(false);
+            }
         }
-    }, []);
+    }, []);  // 🚀 Sem dependências - usa refs internamente
 
     const refreshAppointments = useCallback(async () => {
         console.log('🔄 [AppointmentsContext] Refreshing appointments...');
-        await fetchAppointments(currentFilters);
-    }, [fetchAppointments, currentFilters]);
+        // Limpa cache imediatamente via ref (setCurrentPeriod é async, não reflete antes do fetch)
+        currentPeriodRef.current = null;
+        setCurrentPeriod(null);
+        await fetchAppointments(currentFiltersRef.current);
+    }, [fetchAppointments]);
 
     // 🔄 Debounced refresh para evitar múltiplas chamadas
     const debouncedRefresh = useCallback(() => {
@@ -97,6 +157,12 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const unsubDeleted = socketManager.on('appointmentDeleted', handleSocketEvent('Agendamento deletado'));
         const unsubPreImported = socketManager.on('preagendamento:imported', handleSocketEvent('Pré-agendamento importado'));
         const unsubPreDiscarded = socketManager.on('preagendamento:discarded', handleSocketEvent('Pré-agendamento descartado'));
+        
+        // 🆕 V2: Eventos de completar/cancelar
+        const unsubCompleted = socketManager.on('appointmentCompleted', handleSocketEvent('Agendamento completado'));
+        const unsubCanceled = socketManager.on('appointmentCanceled', handleSocketEvent('Agendamento cancelado'));
+        // Fallback para eventos genéricos
+        const unsubGeneric = socketManager.on('appointment:refresh', handleSocketEvent('Refresh solicitado'));
 
         return () => {
             console.log('🔌 [AppointmentsContext] Removendo listeners de socket...');
@@ -105,6 +171,9 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             unsubDeleted();
             unsubPreImported();
             unsubPreDiscarded();
+            unsubCompleted();
+            unsubCanceled();
+            unsubGeneric();
         };
     }, [debouncedRefresh]);
 
@@ -113,29 +182,30 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 console.log(`[AppointmentsContext] Polling ${attempt}/${maxAttempts}...`);
-                await new Promise(resolve => setTimeout(resolve, 1500)); // Aumentado para 1.5s
+                await new Promise(resolve => setTimeout(resolve, 1500));
 
-                const updated = await appointmentService.getById(id);
-                const apt = updated.data;
+                // Usa endpoint leve /status — retorna isResolved diretamente
+                const statusRes = await appointmentService.getStatus(id);
+                const status = statusRes.data?.data;
 
-                // 🆕 CORREÇÃO: Verifica também paymentStatus para convênios
-                const isCompleted = apt?.operationalStatus === 'completed' || 
-                                   apt?.clinicalStatus === 'completed' || 
-                                   apt?.operationalStatus === 'canceled' ||
-                                   apt?.paymentStatus === 'paid';
+                console.log('[POLL DEBUG] operationalStatus=', status?.operationalStatus, 'isResolved=', status?.isResolved);
 
-                if (isCompleted) {
-                    console.log('[AppointmentsContext] ✅ Agendamento processado!', apt);
+                if (status?.isResolved) {
+                    console.log('[AppointmentsContext] ✅ Agendamento processado!', status);
 
-                    // Atualiza estado local imediatamente
+                    // Atualiza estado local com os campos de status disponíveis
                     setAppointments(prev =>
-                        prev.map(a => (a._id === id ? { ...a, ...apt } : a))
+                        prev.map(a => (a._id === id ? {
+                            ...a,
+                            operationalStatus: status.operationalStatus,
+                            clinicalStatus: status.clinicalStatus,
+                            paymentStatus: status.paymentStatus,
+                        } : a))
                     );
 
-                    // 🆕 EMITE SOCKET para atualizar outros componentes
-                    socketManager.emit('appointmentUpdated', { appointmentId: id, data: apt });
+                    // Emite socket para atualizar outros componentes
+                    socketManager.emit('appointmentUpdated', { appointmentId: id });
 
-                    // Atualiza cache
                     invalidateCache('dashboard');
                     invalidateCache('doctorStats');
                     return true;
@@ -241,6 +311,8 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return (
         <AppointmentsContext.Provider value={{
             appointments,
+            isLoading,
+            currentPeriod,
             fetchAppointments,
             createAppointment,
             updateAppointment,
