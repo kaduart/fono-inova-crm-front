@@ -109,7 +109,7 @@ const fetchSpecialties = async (): Promise<Specialty[]> => {
 export const ExtratoModal = ({ open, onClose, startDate, endDate, periodLabel }: ExtratoModalProps) => {
     const [activeTab, setActiveTab] = useState(0);
     
-    const { data, isLoading } = useQuery({
+      const { data, isLoading } = useQuery({
         queryKey: ['extrato', startDate, endDate],
         queryFn: () => fetchExtrato(startDate, endDate),
         enabled: open && !!startDate && !!endDate
@@ -200,7 +200,7 @@ export const ExtratoModal = ({ open, onClose, startDate, endDate, periodLabel }:
         };
     };
 
-    if (isLoading) {
+   if (isLoading) {
         return (
             <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
                 <DialogContent sx={{ p: 4, textAlign: 'center' }}>
@@ -215,48 +215,45 @@ export const ExtratoModal = ({ open, onClose, startDate, endDate, periodLabel }:
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth scroll="paper">
-            <DialogTitle sx={{ pb: 1, bgcolor: 'grey.50' }}>
+            <DialogTitle sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'white' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Box>
                         <Typography variant="h6" fontWeight="bold">
-                            📋 Extrato do Caixa
+                            Extrato do Caixa
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
                             {periodLabel} • {transactions.length} transações
                         </Typography>
                     </Box>
                     <IconButton onClick={onClose} size="small">
-                        <Close />
+                        <Close fontSize="small" />
                     </IconButton>
                 </Box>
             </DialogTitle>
             
-            <DialogContent dividers sx={{ p: 0 }}>
+            <DialogContent dividers sx={{ p: 0, '& .MuiDialogContent-dividers': { borderTop: 'none' } }}>
                 {/* ======================================================
-                    BLOCO 1: RESUMO INTELIGENTE
+                    BLOCO 1: RESUMO (cards minimalistas)
                     ====================================================== */}
                 {summary && (
-                    <Box sx={{ p: 3, bgcolor: '#f0fdf4' }}>
-                        <Typography variant="h5" fontWeight="bold" color="success.main" gutterBottom>
-                            💰 Total: {formatCurrency(summary.total)}
+                    <Box sx={{ p: 2.5, bgcolor: '#F9FAFB', borderBottom: '1px solid', borderColor: 'divider' }}>
+                        <Typography variant="h5" fontWeight="bold" sx={{ mb: 1.5 }}>
+                            {formatCurrency(summary.total)}
                         </Typography>
                         
-                        <Grid container spacing={2} sx={{ mt: 1 }}>
+                        <Grid container spacing={2}>
                             {/* Por Tipo */}
                             <Grid item xs={12} md={6}>
-                                <Paper sx={{ p: 2, bgcolor: 'white' }}>
-                                    <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-                                        📦 Por Tipo
+                                <Box sx={{ bgcolor: 'white', p: 1.5, borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}>
+                                    <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                                        Por Tipo
                                     </Typography>
-                                    
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                         {/* Pacotes */}
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <AccountBalanceWallet sx={{ color: '#ec4899', fontSize: 20 }} />
-                                                <Typography variant="body2">
-                                                    Pacotes vendidos
-                                                </Typography>
+                                                <AccountBalanceWallet sx={{ fontSize: 18, color: '#ec4899' }} />
+                                                <Typography variant="body2">Pacotes</Typography>
                                             </Box>
                                             <Box sx={{ textAlign: 'right' }}>
                                                 <Typography variant="body2" fontWeight="bold" color="#ec4899">
@@ -267,16 +264,12 @@ export const ExtratoModal = ({ open, onClose, startDate, endDate, periodLabel }:
                                                 </Typography>
                                             </Box>
                                         </Box>
-                                        
-                                        <Divider />
-                                        
-                                        {/* Sessões */}
+                                        <Divider sx={{ my: 0.5 }} />
+                                        {/* Sessões avulsas */}
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <Person sx={{ color: '#3b82f6', fontSize: 20 }} />
-                                                <Typography variant="body2">
-                                                    Sessões avulsas
-                                                </Typography>
+                                                <Person sx={{ fontSize: 18, color: '#3b82f6' }} />
+                                                <Typography variant="body2">Sessões avulsas</Typography>
                                             </Box>
                                             <Box sx={{ textAlign: 'right' }}>
                                                 <Typography variant="body2" fontWeight="bold" color="#3b82f6">
@@ -287,17 +280,13 @@ export const ExtratoModal = ({ open, onClose, startDate, endDate, periodLabel }:
                                                 </Typography>
                                             </Box>
                                         </Box>
-                                        
-                                        {/* Convênio (só mostra se > 0) */}
                                         {summary.byType.insurance.total > 0 && (
                                             <>
-                                                <Divider />
+                                                <Divider sx={{ my: 0.5 }} />
                                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                        <LocalHospital sx={{ color: '#f59e0b', fontSize: 20 }} />
-                                                        <Typography variant="body2">
-                                                            Convênio
-                                                        </Typography>
+                                                        <LocalHospital sx={{ fontSize: 18, color: '#f59e0b' }} />
+                                                        <Typography variant="body2">Convênio</Typography>
                                                     </Box>
                                                     <Typography variant="body2" fontWeight="bold" color="#f59e0b">
                                                         {formatCurrency(summary.byType.insurance.total)}
@@ -306,63 +295,43 @@ export const ExtratoModal = ({ open, onClose, startDate, endDate, periodLabel }:
                                             </>
                                         )}
                                     </Box>
-                                </Paper>
+                                </Box>
                             </Grid>
                             
                             {/* Por Método */}
                             <Grid item xs={12} md={6}>
-                                <Paper sx={{ p: 2, bgcolor: 'white' }}>
-                                    <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-                                        💳 Por Forma de Pagamento
+                                <Box sx={{ bgcolor: 'white', p: 1.5, borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}>
+                                    <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                                        Por Forma de Pagamento
                                     </Typography>
-                                    
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                                        {/* PIX */}
-                                        <Box>
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                                                <Typography variant="body2">PIX</Typography>
-                                                <Typography variant="body2" fontWeight="bold" color="#00b4d8">
-                                                    {formatCurrency(summary.byMethod.pix)}
-                                                </Typography>
-                                            </Box>
-                                            <LinearProgress 
-                                                variant="determinate" 
-                                                value={summary.total > 0 ? (summary.byMethod.pix / summary.total) * 100 : 0}
-                                                sx={{ height: 8, borderRadius: 4, bgcolor: '#e0f7fa' }}
-                                            />
-                                        </Box>
-                                        
-                                        {/* Cartão */}
-                                        <Box>
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                                                <Typography variant="body2">Cartão</Typography>
-                                                <Typography variant="body2" fontWeight="bold" color="#7c3aed">
-                                                    {formatCurrency(summary.byMethod.cartao)}
-                                                </Typography>
-                                            </Box>
-                                            <LinearProgress 
-                                                variant="determinate" 
-                                                value={summary.total > 0 ? (summary.byMethod.cartao / summary.total) * 100 : 0}
-                                                sx={{ height: 8, borderRadius: 4, bgcolor: '#ede9fe', '& .MuiLinearProgress-bar': { bgcolor: '#7c3aed' } }}
-                                            />
-                                        </Box>
-                                        
-                                        {/* Dinheiro */}
-                                        <Box>
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                                                <Typography variant="body2">Dinheiro</Typography>
-                                                <Typography variant="body2" fontWeight="bold" color="#059669">
-                                                    {formatCurrency(summary.byMethod.dinheiro)}
-                                                </Typography>
-                                            </Box>
-                                            <LinearProgress 
-                                                variant="determinate" 
-                                                value={summary.total > 0 ? (summary.byMethod.dinheiro / summary.total) * 100 : 0}
-                                                sx={{ height: 8, borderRadius: 4, bgcolor: '#d1fae5', '& .MuiLinearProgress-bar': { bgcolor: '#059669' } }}
-                                            />
-                                        </Box>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                        {['pix', 'cartao', 'dinheiro'].map(method => {
+                                            const value = summary.byMethod[method as keyof typeof summary.byMethod] || 0;
+                                            const percent = summary.total > 0 ? (value / summary.total) * 100 : 0;
+                                            const colors = {
+                                                pix: { bg: '#e0f7fa', bar: '#00b4d8', text: '#00b4d8' },
+                                                cartao: { bg: '#ede9fe', bar: '#7c3aed', text: '#7c3aed' },
+                                                dinheiro: { bg: '#d1fae5', bar: '#059669', text: '#059669' }
+                                            };
+                                            const c = colors[method as keyof typeof colors];
+                                            return (
+                                                <Box key={method}>
+                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                                        <Typography variant="body2">{method === 'pix' ? 'PIX' : method === 'cartao' ? 'Cartão' : 'Dinheiro'}</Typography>
+                                                        <Typography variant="body2" fontWeight="bold" sx={{ color: c.text }}>
+                                                            {formatCurrency(value)}
+                                                        </Typography>
+                                                    </Box>
+                                                    <LinearProgress 
+                                                        variant="determinate" 
+                                                        value={percent}
+                                                        sx={{ height: 4, borderRadius: 2, bgcolor: c.bg, '& .MuiLinearProgress-bar': { bgcolor: c.bar, borderRadius: 2 } }}
+                                                    />
+                                                </Box>
+                                            );
+                                        })}
                                     </Box>
-                                </Paper>
+                                </Box>
                             </Grid>
                         </Grid>
                     </Box>
@@ -373,35 +342,39 @@ export const ExtratoModal = ({ open, onClose, startDate, endDate, periodLabel }:
                 {/* ======================================================
                     BLOCO 2: FILTROS + LISTA DETALHADA
                     ====================================================== */}
-                <Box sx={{ px: 2, pt: 2 }}>
-                    <Typography variant="h6" fontWeight="bold" gutterBottom>
-                        📄 Lista Detalhada
+                <Box sx={{ px: 2, pt: 2, pb: 1 }}>
+                    <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1.5 }}>
+                        Lista Detalhada
                     </Typography>
                     
-                    <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 2 }}>
+                    <Tabs 
+                        value={activeTab} 
+                        onChange={(_, v) => setActiveTab(v)} 
+                        sx={{ mb: 2, minHeight: 36, '& .MuiTab-root': { py: 0.5, minHeight: 36, textTransform: 'none', fontSize: '0.75rem' } }}
+                    >
                         <Tab label={`Todas (${transactions.length})`} />
                         <Tab label={`Particular (${transactions.filter(t => t.type === 'appointment' || !t.type).length})`} />
                         <Tab label={`Pacotes (${transactions.filter(t => t.type === 'package' || t.type === 'pacote').length})`} />
                         <Tab label={`Convênio (${transactions.filter(t => t.type === 'insurance' || t.type === 'convenio').length})`} />
                     </Tabs>
 
-                    {/* Tabela */}
-                    <Table size="small">
+                    {/* Tabela compacta */}
+                    <Table size="small" sx={{ '& .MuiTableCell-root': { py: 1, px: 1.5, fontSize: '0.75rem', borderBottom: '1px solid', borderColor: 'divider' } }}>
                         <TableHead>
-                            <TableRow sx={{ bgcolor: 'grey.50' }}>
-                                <TableCell width="50"><strong>Hora</strong></TableCell>
+                            <TableRow sx={{ bgcolor: '#F9FAFB' }}>
+                                <TableCell width="60"><strong>Hora</strong></TableCell>
                                 <TableCell><strong>Especificação</strong></TableCell>
                                 <TableCell><strong>Paciente</strong></TableCell>
-                                <TableCell width="90"><strong>Forma</strong></TableCell>
-                                <TableCell align="right" width="110"><strong>Valor</strong></TableCell>
+                                <TableCell width="80"><strong>Forma</strong></TableCell>
+                                <TableCell align="right" width="100"><strong>Valor</strong></TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {filteredTransactions.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                                        <Receipt sx={{ fontSize: 48, color: 'grey.300', mb: 1 }} />
-                                        <Typography color="text.secondary">
+                                        <Receipt sx={{ fontSize: 32, color: 'grey.300', mb: 1 }} />
+                                        <Typography variant="body2" color="text.secondary">
                                             Nenhuma transação nesta categoria
                                         </Typography>
                                     </TableCell>
@@ -411,7 +384,7 @@ export const ExtratoModal = ({ open, onClose, startDate, endDate, periodLabel }:
                                     const specialty = getSpecialtyDisplay(t.specialty, t.serviceType);
                                     return (
                                         <TableRow key={t.id} hover>
-                                            <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>
+                                            <TableCell sx={{ color: 'text.secondary' }}>
                                                 {t.time || '—'}
                                             </TableCell>
                                             <TableCell>
@@ -421,36 +394,30 @@ export const ExtratoModal = ({ open, onClose, startDate, endDate, periodLabel }:
                                                         {t.especificacao || 'Atendimento'}
                                                     </Typography>
                                                 </Box>
-                                                {/* Mostra especialidade se existir */}
                                                 {specialty && (
-                                                    <Tooltip title={specialty.name} arrow>
-                                                        <Chip
-                                                            size="small"
-                                                            icon={specialty.icon || undefined}
-                                                            label={specialty.name}
-                                                            sx={{
-                                                                ml: 3,
-                                                                mt: 0.5,
-                                                                fontSize: '0.7rem',
-                                                                height: 20,
-                                                                bgcolor: `${specialty.color}15`,
-                                                                color: specialty.color,
-                                                                border: `1px solid ${specialty.color}30`,
-                                                                '& .MuiChip-icon': {
-                                                                    color: specialty.color,
-                                                                    ml: '4px'
-                                                                }
-                                                            }}
-                                                        />
-                                                    </Tooltip>
+                                                    <Chip
+                                                        size="small"
+                                                        icon={specialty.icon || undefined}
+                                                        label={specialty.name}
+                                                        sx={{
+                                                            ml: 3,
+                                                            mt: 0.5,
+                                                            fontSize: '0.65rem',
+                                                            height: 20,
+                                                            bgcolor: `${specialty.color}15`,
+                                                            color: specialty.color,
+                                                            border: `1px solid ${specialty.color}30`,
+                                                            '& .MuiChip-icon': { color: specialty.color, ml: '4px' }
+                                                        }}
+                                                    />
                                                 )}
                                                 {t.description && t.description !== t.especificacao && !t.specialty && (
                                                     <Typography variant="caption" color="text.secondary" sx={{ ml: 3, display: 'block' }}>
-                                                        {t.description.substring(0, 30)}{t.description.length > 30 ? '...' : ''}
+                                                        {t.description.length > 40 ? t.description.substring(0, 40) + '…' : t.description}
                                                     </Typography>
                                                 )}
                                             </TableCell>
-                                            <TableCell sx={{ fontSize: '0.875rem' }}>
+                                            <TableCell sx={{ maxWidth: 150, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                 {t.patient || '—'}
                                             </TableCell>
                                             <TableCell>
@@ -459,15 +426,16 @@ export const ExtratoModal = ({ open, onClose, startDate, endDate, periodLabel }:
                                                     size="small"
                                                     sx={{ 
                                                         fontSize: '0.65rem', 
-                                                        fontWeight: 'bold',
+                                                        fontWeight: 500,
                                                         bgcolor: `${getMethodColor(t.method)}15`,
                                                         color: getMethodColor(t.method),
-                                                        border: `1px solid ${getMethodColor(t.method)}30`
+                                                        border: `1px solid ${getMethodColor(t.method)}30`,
+                                                        height: 22
                                                     }} 
                                                 />
                                             </TableCell>
                                             <TableCell align="right">
-                                                <Typography fontWeight="bold" color="success.main">
+                                                <Typography fontWeight="bold" color="success.main" variant="body2">
                                                     {formatCurrency(t.amount)}
                                                 </Typography>
                                             </TableCell>
@@ -480,12 +448,12 @@ export const ExtratoModal = ({ open, onClose, startDate, endDate, periodLabel }:
                 </Box>
 
                 {/* Rodapé */}
-                <Box sx={{ p: 2, bgcolor: 'grey.50', borderTop: '1px solid', borderColor: 'divider', mt: 2 }}>
+                <Box sx={{ p: 1.5, bgcolor: '#F9FAFB', borderTop: '1px solid', borderColor: 'divider' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="subtitle2">
-                            Total em {activeTab === 0 ? 'Todas' : activeTab === 1 ? 'Particular' : activeTab === 2 ? 'Pacotes' : 'Convênio'}:
+                        <Typography variant="body2" color="text.secondary">
+                            Total {activeTab === 0 ? 'todas' : activeTab === 1 ? 'particular' : activeTab === 2 ? 'pacotes' : 'convênio'}
                         </Typography>
-                        <Typography variant="h5" fontWeight="bold" color="success.main">
+                        <Typography variant="h6" fontWeight="bold" color="success.main">
                             {formatCurrency(totalFiltered)}
                         </Typography>
                     </Box>
@@ -493,6 +461,7 @@ export const ExtratoModal = ({ open, onClose, startDate, endDate, periodLabel }:
             </DialogContent>
         </Dialog>
     );
+
 };
 
 export default ExtratoModal;
