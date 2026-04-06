@@ -835,6 +835,27 @@ export default function AdminDashboard() {
         }
     };
 
+    if (dashboardLoading) return (
+        <div className="min-h-screen bg-gray-100 animate-pulse">
+            {/* Header skeleton */}
+            <div className="bg-white shadow-sm h-16 w-full mb-6" />
+            <div className="max-w-7xl mx-auto px-4 sm:px-8 space-y-6">
+                {/* Cards row */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {[...Array(4)].map((_, i) => (
+                        <div key={i} className="bg-white rounded-xl h-28 shadow-sm" />
+                    ))}
+                </div>
+                {/* Main content area */}
+                <div className="bg-white rounded-xl h-64 shadow-sm" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="bg-white rounded-xl h-48 shadow-sm" />
+                    <div className="bg-white rounded-xl h-48 shadow-sm" />
+                </div>
+            </div>
+        </div>
+    );
+
     return (
         <div className="min-h-screen bg-gray-100 text-gray-800">
             <AdminHeader
