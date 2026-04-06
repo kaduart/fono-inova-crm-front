@@ -1,4 +1,4 @@
-import { Calendar, ChevronDown, ChevronUp, Edit, Eye, FileHeart, List, Package, Phone, Search, Trash2, User, X } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, DollarSign, Edit, Eye, FileHeart, List, Package, Phone, Search, Trash2, User, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from 'react';
 import { BsHourglass } from "react-icons/bs";
 import { Link } from "react-router-dom";
