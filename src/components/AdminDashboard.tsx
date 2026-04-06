@@ -6,10 +6,12 @@ import { FinancialLoading, FinancialLoadingDashboard } from '../pages/Financial/
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import patientService from '../services/patientService';
 import { confirmToast } from '../utils/confirmToast';
+import { extractErrorMessage, isCriticalError } from '../utils/errorUtils';
 import { TabErrorBoundary } from './error/TabErrorBoundary';
 import { IPatient, ScheduleAppointment } from '../../utils/types/types';
 import { useAppointmentsContext } from '../contexts/AppointmentsContext';
 import { useChatNavigation } from "../contexts/ChatNavigationContext";
+import { useChatOptional } from '../contexts/ChatContext'; // 🆕 Para mensagens de erro no chat
 import { useAdmin } from '../hooks/useAdmin';
 import { useDashboard } from '../hooks/useDashboard';
 import { usePatientsContext } from '../contexts/PatientsContext';
@@ -314,7 +316,7 @@ export default function AdminDashboard() {
             // 🔄 Atualiza dashboard para refletir mudanças
             refreshDashboard();
         } catch (error: any) {
-            toast.error(error.message || "Erro ao salvar profissional.");
+            toast.error(extractErrorMessage(error, "Erro ao salvar profissional."));
         } finally {
             setIsLoading(false);
         }
@@ -339,11 +341,7 @@ export default function AdminDashboard() {
 
             return true; // sucesso
         } catch (error: any) {
-            const msg =
-                error?.response?.data?.error ||
-                error?.response?.data?.message ||
-                'Erro ao salvar paciente';
-            toast.error(msg);
+            toast.error(extractErrorMessage(error, 'Erro ao salvar paciente'));
 
             return false;
         } finally {
@@ -384,9 +382,12 @@ export default function AdminDashboard() {
             setCloseModalSignal(prev => prev + 1);
             toast.success('Agendamento criado com sucesso!');
         } catch (error: any) {
-            toast.error(error.response?.data?.message || 'Erro ao criar agendamento');
+            toast.error(extractErrorMessage(error, 'Erro ao criar agendamento'));
         }
     }, [createAppointment, fetchAppointments, calendarDateRange, refreshDashboard]);
+
+    // 🆕 Hook para mensagens de erro no chat (opcional - só funciona se estiver na aba de chat)
+    const chat = useChatOptional();
 
     const handleCancelAppointment = useCallback(async (appointmentId: string, reason: string) => {
         try {
@@ -400,11 +401,19 @@ export default function AdminDashboard() {
             refreshDashboard(); // 🔄 Atualiza cards do dashboard
             setCloseModalSignal(prev => prev + 1);
         } catch (error) {
-            const errorResponse = error.response?.data?.error || 'Erro ao cancelar agendamento';
-            toast.error(errorResponse);
+            const errorResponse = extractErrorMessage(error, 'Erro ao cancelar agendamento');
+            
+            // 🆕 Toast com ID para evitar spam de erros repetidos
+            toast.error(errorResponse, { id: errorResponse });
+            
+            // 🆕 Só envia pro chat se for erro crítico (conflito, regra de negócio)
+            if (isCriticalError(error)) {
+                chat?.addSystemMessage?.(`❌ ${errorResponse}`, 'error');
+            }
+            
             throw error;
         }
-    }, [cancelAppointment, fetchAppointments, calendarDateRange, refreshDashboard]);
+    }, [cancelAppointment, fetchAppointments, calendarDateRange, refreshDashboard, chat]);
 
     const handleCompleteAppointment = useCallback(async (appointmentId: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
         try {
@@ -433,11 +442,19 @@ export default function AdminDashboard() {
             setCloseModalSignal(prev => prev + 1);
         } catch (error) {
             console.log('Erro ao Completar agendamento:', error);
-            const errorResponse = error.response?.data?.message || 'Erro ao completar agendamento';
-            toast.error(errorResponse);
+            const errorResponse = extractErrorMessage(error, 'Erro ao completar agendamento');
+            
+            // 🆕 Toast com ID para evitar spam de erros repetidos
+            toast.error(errorResponse, { id: errorResponse });
+            
+            // 🆕 Só envia pro chat se for erro crítico (conflito, regra de negócio)
+            if (isCriticalError(error)) {
+                chat?.addSystemMessage?.(`❌ ${errorResponse}`, 'error');
+            }
+            
             throw error;
         }
-    }, [completeAppointment, pollAppointmentStatus, fetchAppointments, calendarDateRange, refreshDashboard]);
+    }, [completeAppointment, pollAppointmentStatus, fetchAppointments, calendarDateRange, refreshDashboard, chat]);
 
     const handleEditAppointment = useCallback(async (appointmentId: string, updatedData: UpdateAppointmentParams) => {
         try {
@@ -448,33 +465,32 @@ export default function AdminDashboard() {
         } catch (error: any) {
             console.error('Erro ao editar agendamento:', error);
 
-            // ✅ CORREÇÃO: pegar error.response?.data
             const errorData = error.response?.data;
+            const msg = extractErrorMessage(error, 'Erro ao atualizar agendamento');
 
             if (!errorData) {
                 toast.error('Erro de conexão com o servidor');
-                throw error; // ✅ Propaga erro para não fechar modal
+                throw error;
             }
 
             // Conflito (write conflict ou slot taken)
             if (error.response?.status === 409) {
-                toast.error(errorData.message || 'Conflito ao atualizar');
+                toast.error(msg, { id: msg });
                 if (errorData.code === 'WRITE_CONFLICT') {
                     setTimeout(() => window.location.reload(), 2000);
                 }
-                throw error; // ✅ Propaga erro para não fechar modal
+                throw error;
             }
 
             // Validação de campos
             if (error.response?.status === 400 && errorData.fields) {
                 toast.error('Verifique os campos destacados');
-                // TODO: se tiver setFieldErrors, chame aqui
-                throw error; // ✅ Propaga erro para não fechar modal
+                throw error;
             }
 
             // Erro genérico
-            toast.error(errorData.message || 'Erro ao atualizar agendamento');
-            throw error; // ✅ Propaga erro para não fechar modal
+            toast.error(msg, { id: msg });
+            throw error;
         }
     }, [updateAppointment, fetchAppointments, calendarDateRange]);
 
@@ -568,7 +584,7 @@ export default function AdminDashboard() {
         } catch (error: any) {
             console.error('Erro ao marcar pagamento:', error);
             console.log('Erro ao marcar pagamentosssssssss:', error);
-            toast.error(error.response.data.message || error.message);
+            toast.error(extractErrorMessage(error, 'Erro ao marcar pagamento'));
         }
     }, [markAsPaid, fetchAppointments, calendarDateRange, loadPayments, currentMonth]);
 
@@ -614,8 +630,7 @@ export default function AdminDashboard() {
             // 🔄 Atualiza o dashboard
             refreshDashboard();
         } catch (error: any) {
-            const msg = error?.response?.data?.error || error?.response?.data?.message || 'Erro ao excluir paciente';
-            toast.error(msg);
+            toast.error(extractErrorMessage(error, 'Erro ao excluir paciente'));
         }
     }, [refreshPatients, refreshDashboard]);
 
@@ -720,7 +735,7 @@ export default function AdminDashboard() {
             case 'Dashboard':
                 return (
                     <TabErrorBoundary tabName="Dashboard">
-                        <DashboardContentOptimized />
+                        <DashboardContentOptimized {...dashboardProps} />
                     </TabErrorBoundary>
                 );
             case 'Profile':

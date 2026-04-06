@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 import { IAppointment, IDoctor, IPatient, ScheduleAppointment } from "../../utils/types/types";
 import doctorService from '../../services/doctorService';
 import { useDoctorsContext } from "../../contexts/DoctorsContext";
+import { extractErrorMessage } from "../../utils/errorUtils";
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
 import DoctorAgenda from "./DoctorAgenda";
 import DoctorFormModal from "./DoctorFormModal";
@@ -169,7 +170,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
             setShowScheduleModal(false);
         } catch (error: any) {
             console.error("Erro no intermediário:", error);
-            setErrorMessage(error.message);
+            setErrorMessage(extractErrorMessage(error, 'Erro ao agendar'));
         } finally {
             setIsLoading(false);
         }
@@ -194,7 +195,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
             }
         } catch (error: any) {
             console.error("Erro ao inativar profissional:", error);
-            toast.error(error.response?.data?.message || "Erro ao inativar profissional");
+            toast.error(extractErrorMessage(error, "Erro ao inativar profissional"));
         } finally {
             setIsLoading(false);
         }
@@ -214,7 +215,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
             await onDoctorsChange?.();
         } catch (error: any) {
             console.error("Erro ao reativar profissional:", error);
-            toast.error(error.response?.data?.message || "Erro ao reativar profissional");
+            toast.error(extractErrorMessage(error, "Erro ao reativar profissional"));
         } finally {
             setIsLoading(false);
         }

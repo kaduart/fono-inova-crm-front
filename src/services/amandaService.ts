@@ -1,5 +1,6 @@
 import toast from "react-hot-toast";
 import API from "./api";
+import { extractErrorMessage } from "../utils/errorUtils";
 export interface AIFollowupPayload {
   leadId: string;
   context?: string;
@@ -50,7 +51,7 @@ export const amandaService = {
     } catch (error: any) {
       console.error("Erro ao gerar follow-up com IA:", error);
       toast.error(
-        error?.response?.data?.error || "Erro ao gerar follow-up com Amanda."
+        extractErrorMessage(error, "Erro ao gerar follow-up com Amanda.")
       );
       return {
         success: false,
@@ -76,7 +77,7 @@ export const amandaService = {
     } catch (error: any) {
       console.error("Erro ao analisar conversa:", error);
       toast.error(
-        error?.response?.data?.error || "Erro ao analisar conversa."
+        extractErrorMessage(error, "Erro ao analisar conversa.")
       );
       return {
         success: false,
@@ -157,7 +158,7 @@ export const amandaService = {
     } catch (error: any) {
       console.error("Erro ao enviar follow-up:", error);
       toast.error(
-        error?.response?.data?.message || "Erro ao enviar follow-up."
+        extractErrorMessage(error, "Erro ao enviar follow-up.")
       );
       return {
         success: false,

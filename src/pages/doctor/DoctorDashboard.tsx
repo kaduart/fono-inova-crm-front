@@ -8,6 +8,7 @@ import { PatientModal } from '../../components/patients/PatientModal';
 import useDoctorDashboard from '../../hooks/useDoctorDashboard';
 import patientService from '../../services/patientService';
 import { IPatient } from '../../utils/types/types';
+import { extractErrorMessage } from '../../utils/errorUtils';
 import AppointmentsSection from '../../components/doctor/AppointmentsSection';
 import AttendanceOverview from '../../components/doctor/AttendanceOverview';
 import PatientDetail from '../../components/doctor/patient/PatientDetail';
@@ -174,7 +175,7 @@ export default function DoctorDashboard() {
       }
       return true;
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Erro ao salvar paciente.');
+      toast.error(extractErrorMessage(error, 'Erro ao salvar paciente.'));
       return false;
     } finally {
       setIsLoading(false);

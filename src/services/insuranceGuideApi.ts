@@ -1,5 +1,6 @@
 // src/services/insuranceGuideApi.ts
 import API from './api';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 export interface InsuranceGuide {
   _id: string;
@@ -76,7 +77,7 @@ export const getGuides = async (
 
     return response.data.data?.guides || [];
   } catch (error: any) {
-    throw new Error(error.response?.data?.message || 'Erro ao buscar guias');
+    throw new Error(extractErrorMessage(error, 'Erro ao buscar guias'));
   }
 };
 
@@ -88,7 +89,7 @@ export const getGuide = async (id: string): Promise<InsuranceGuide> => {
     const response = await API.get(`/insurance-guides/${id}`);
     return response.data.data;
   } catch (error: any) {
-    throw new Error(error.response?.data?.message || 'Erro ao buscar guia');
+    throw new Error(extractErrorMessage(error, 'Erro ao buscar guia'));
   }
 };
 
@@ -100,8 +101,7 @@ export const createGuide = async (data: CreateGuideData): Promise<InsuranceGuide
     const response = await API.post('/insurance-guides', data);
     return response.data.data;
   } catch (error: any) {
-    const errorCode = error.response?.data?.code;
-    const errorMessage = error.response?.data?.message;
+    const errorCode = extractErrorCode(error);
 
     // Mapear erros específicos
     if (errorCode === 'DUPLICATE_GUIDE_NUMBER') {
@@ -114,7 +114,7 @@ export const createGuide = async (data: CreateGuideData): Promise<InsuranceGuide
       throw new Error('Convênio inválido');
     }
 
-    throw new Error(errorMessage || 'Erro ao criar guia');
+    throw new Error(extractErrorMessage(error, 'Erro ao criar guia'));
   }
 };
 
@@ -129,14 +129,13 @@ export const updateGuide = async (
     const response = await API.put(`/insurance-guides/${id}`, data);
     return response.data.data;
   } catch (error: any) {
-    const errorCode = error.response?.data?.code;
-    const errorMessage = error.response?.data?.message;
+    const errorCode = extractErrorCode(error);
 
     if (errorCode === 'GUIDE_ALREADY_USED') {
       throw new Error('Não é possível editar guia já utilizada');
     }
 
-    throw new Error(errorMessage || 'Erro ao atualizar guia');
+    throw new Error(extractErrorMessage(error, 'Erro ao atualizar guia'));
   }
 };
 
@@ -147,7 +146,7 @@ export const cancelGuide = async (id: string): Promise<void> => {
   try {
     await API.delete(`/insurance-guides/${id}`);
   } catch (error: any) {
-    throw new Error(error.response?.data?.message || 'Erro ao cancelar guia');
+    throw new Error(extractErrorMessage(error, 'Erro ao cancelar guia'));
   }
 };
 
@@ -166,6 +165,6 @@ export const getBalance = async (
     const response = await API.get(url);
     return response.data.data;
   } catch (error: any) {
-    throw new Error(error.response?.data?.message || 'Erro ao buscar saldo');
+    throw new Error(extractErrorMessage(error, 'Erro ao buscar saldo'));
   }
 };

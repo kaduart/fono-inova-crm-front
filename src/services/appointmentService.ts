@@ -6,6 +6,7 @@ import {
     TherapyType
 } from '../utils/types/types';
 import API from './api';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 export interface StatusConfig {
     [key: string]: {

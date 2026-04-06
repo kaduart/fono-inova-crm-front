@@ -108,7 +108,48 @@ interface MessageItemProps {
     onRetry: (messageId: string, text: string) => void;
 }
 
+// 🆕 Componente para mensagens de sistema/erro
+const SystemMessageBubble: React.FC<{ message: Message }> = ({ message }) => {
+    const systemType = message.systemType || 'info';
+    const count = (message as any).count || 1; // 🆕 Contador de repetições
+    
+    const styles = {
+        error: 'bg-red-100 border-red-300 text-red-800',
+        warning: 'bg-amber-100 border-amber-300 text-amber-800',
+        info: 'bg-blue-100 border-blue-300 text-blue-800',
+        success: 'bg-green-100 border-green-300 text-green-800'
+    };
+    
+    const icons = {
+        error: '⚠️',
+        warning: '⚡',
+        info: 'ℹ️',
+        success: '✅'
+    };
+    
+    return (
+        <div className={`flex justify-center my-2`}>
+            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm max-w-[90%] shadow-sm ${styles[systemType]}`}>
+                <span className="text-lg">{icons[systemType]}</span>
+                <div className="flex flex-col">
+                    <span className="font-medium leading-tight">{message.text}</span>
+                    {count > 1 && (
+                        <span className="text-xs opacity-75 mt-0.5">
+                            (repetido {count}x)
+                        </span>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const MessageItem: React.FC<MessageItemProps> = ({ message, contact, isPending, onRetry }) => {
+    // 🆕 Renderiza mensagens de sistema de forma diferente
+    if (message.isSystem || message.type === 'system') {
+        return <SystemMessageBubble message={message} />;
+    }
+    
     return (
         <div className="flex flex-col group">
             <div className="flex items-start gap-2">

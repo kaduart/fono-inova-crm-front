@@ -11,6 +11,7 @@ import { Label } from '../ui/Label';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/TextArea';
+import { extractErrorMessage } from '../../utils/errorUtils';
 
 interface PaymentModalProps {
     open: boolean;
@@ -222,7 +223,7 @@ export const PaymentModal = ({
             onClose();
         } catch (error: any) {
             console.error('Erro ao registrar pagamento:', error);
-            toast.error(error.message || 'Erro ao registrar pagamento');
+            toast.error(extractErrorMessage(error, 'Erro ao registrar pagamento'));
         } finally {
             setIsLoading(false);
         }

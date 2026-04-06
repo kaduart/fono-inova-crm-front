@@ -16,6 +16,7 @@ import {
   setCache
 } from '../utils/cacheManager';
 import { socketManager } from '../utils/socketManager';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 interface PatientOverview {
   name: string;
@@ -132,7 +133,7 @@ export const PatientsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       } catch (err: any) {
         console.error('❌ PatientsContext: Erro ao buscar pacientes:', err);
         if (isMounted.current) {
-          setError(err.message || 'Erro ao carregar pacientes');
+          setError(extractErrorMessage(err, 'Erro ao carregar pacientes'));
         }
       } finally {
         if (isMounted.current) setLoading(false);
@@ -190,7 +191,7 @@ export const PatientsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       
       return newPatient;
     } catch (error: any) {
-      setError(error.message);
+      setError(extractErrorMessage(error, 'Erro ao criar paciente'));
       throw error;
     } finally {
       setLoading(false);
@@ -217,7 +218,7 @@ export const PatientsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       
       return updatedPatient;
     } catch (error: any) {
-      setError(error.message);
+      setError(extractErrorMessage(error, 'Erro ao criar paciente'));
       throw error;
     } finally {
       setLoading(false);
@@ -241,7 +242,7 @@ export const PatientsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       invalidateCache('patients');
       loadPatients(true);
     } catch (error: any) {
-      setError(error.message);
+      setError(extractErrorMessage(error, 'Erro ao criar paciente'));
       throw error;
     } finally {
       setLoading(false);

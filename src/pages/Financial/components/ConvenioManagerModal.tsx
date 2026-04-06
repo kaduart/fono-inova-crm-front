@@ -50,6 +50,7 @@ import {
     Convenio,
     CreateConvenioData
 } from '../../../services/insuranceService';
+import { extractErrorMessage } from '../../../utils/errorUtils';
 
 interface ConvenioManagerModalProps {
     open: boolean;
@@ -153,7 +154,7 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
             resetForm();
             loadConvenios();
         } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Erro ao salvar convênio');
+            toast.error(extractErrorMessage(error, 'Erro ao salvar convênio'));
         } finally {
             setLoading(false);
         }
@@ -179,7 +180,7 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
             toast.success('Convênio desativado');
             loadConvenios();
         } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Erro ao desativar');
+            toast.error(extractErrorMessage(error, 'Erro ao desativar'));
         } finally {
             setLoading(false);
         }

@@ -18,6 +18,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { getStatusConfig, canComplete, canCancel } from '../../utils/appointmentStatus';
+import { extractErrorMessage } from '../../utils/errorUtils';
 
 export default function AppointmentsPage() {
   const {
@@ -79,7 +80,8 @@ export default function AppointmentsPage() {
         setSelectedAppointment(null);
       },
       onError: (err: any) => {
-        alert(`Erro: ${err.message || err}`);
+        const msg = extractErrorMessage(err, 'Erro ao completar agendamento');
+        alert(`Erro: ${msg}`);
       }
     });
   };
@@ -90,7 +92,7 @@ export default function AppointmentsPage() {
     
     await cancelAppointment(id, { reason: 'Cancelado pelo usuário' }, {
       onError: (err: any) => {
-        alert(`Erro ao cancelar: ${err.message || err}`);
+        alert(`Erro ao cancelar: ${extractErrorMessage(err, 'Erro ao cancelar agendamento')}`);
       }
     });
   };

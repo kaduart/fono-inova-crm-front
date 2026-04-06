@@ -8,6 +8,7 @@ import TherapyPackageCard from './TherapyPackageCard';
 import TherapyPackageDetails from './TherapyPackageDetails';
 import TherapyPackageDetailsModal from './TherapyPackageDetailsModal';
 import TherapyPackageManager from './TherapyPackageManager';
+import { extractErrorMessage } from '../../utils/errorUtils';
 
 type TherapyPackagesSummaryProps = {
     patient: IPatient;
@@ -70,7 +71,7 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
         } catch (error: any) {
             console.error('Erro na requisição:', {
                 error,
-                message: error.response?.data?.message || 'Erro desconhecido'
+                message: extractErrorMessage(error, 'Erro desconhecido')
             });
 
             toast.error('Erro ao carregar pacotes');

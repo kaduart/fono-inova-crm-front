@@ -10,6 +10,7 @@ import { usePaymentV2 } from '../../hooks/usePaymentV2';
 import { appointmentService } from '../../services/appointmentService';
 import { InputCurrency } from '../ui/InputCurrency';
 import { LoadingSpinner, ModalSpinner } from '../ui/LoadingSpinner';
+import { extractErrorMessage } from '../../utils/errorUtils';
 
 interface PatientBalanceModalProps {
     isOpen: boolean;
@@ -330,7 +331,7 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
             onRefresh?.();
         } catch (error: any) {
             console.error('Erro ao registrar pagamento:', error);
-            const message = error?.response?.data?.message || 'Erro ao registrar pagamento';
+            const message = extractErrorMessage(error, 'Erro ao registrar pagamento');
             alert(message);
         } finally {
             setIsSubmitting(false);

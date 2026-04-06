@@ -47,12 +47,15 @@ interface PatientAccordionSectionProps {
     subTab?: number;
 }
 
-// Função para formatar data de YYYY-MM-DD para DD/MM/YYYY
+// Função para formatar data (YYYY-MM-DD ou ISO) para DD/MM/YYYY
 const formatDateBR = (dateString: string): string => {
     if (!dateString || dateString === 'N/A') return '-';
-    const parts = dateString.split('-');
-    if (parts.length !== 3) return dateString;
-    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return dateString;
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const year = d.getUTCFullYear();
+    return `${day}/${month}/${year}`;
 };
 
 const SPECIALTY_LABELS: Record<string, string> = {

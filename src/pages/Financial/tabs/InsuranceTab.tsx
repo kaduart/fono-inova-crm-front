@@ -57,6 +57,7 @@ import {
     faturarConvenioLote,
     receberConvenioLote
 } from '../../../services/paymentService';
+import { extractErrorMessage } from '../../../utils/errorUtils';
 
 const INSURANCE_PROVIDERS = [
     'Unimed',
@@ -299,7 +300,7 @@ const InsuranceTab = () => {
             });
             loadReceivables(selectedMonthYear);
         } catch (error: any) {
-            toast.error(error.response?.data?.message || 'Erro ao registrar');
+            toast.error(extractErrorMessage(error, 'Erro ao registrar'));
         } finally {
             setLoading(false);
         }
@@ -452,7 +453,7 @@ const InsuranceTab = () => {
                 toast.error(result.data.error || 'Erro ao faturar');
             }
         } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Erro ao faturar em lote');
+            toast.error(extractErrorMessage(error, 'Erro ao faturar em lote'));
         } finally {
             setFaturarLoteLoading(false);
         }
@@ -484,7 +485,7 @@ const InsuranceTab = () => {
                 toast.error(result.data.error || 'Erro ao receber');
             }
         } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Erro ao receber em lote');
+            toast.error(extractErrorMessage(error, 'Erro ao receber em lote'));
         } finally {
             setReceberLoteLoading(false);
         }

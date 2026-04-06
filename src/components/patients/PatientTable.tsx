@@ -386,6 +386,12 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         <div className="flex items-center gap-1.5">
+                                            <DollarSign className="w-3.5 h-3.5" />
+                                            Saldo
+                                        </div>
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <div className="flex items-center gap-1.5">
                                             <Package className="w-3.5 h-3.5" />
                                             Pacotes
                                         </div>
@@ -493,13 +499,14 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                         >
                                                             <Edit className="w-4 h-4" />
                                                         </button>
-                                                        <button
-                                                            onClick={(e) => e.stopPropagation()}
+                                                        <Link
+                                                            to={`/patient-dashboard/${patient._id}?tab=evolucoes`}
                                                             title="Ver evoluções"
                                                             className="p-1.5 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-md transition-colors"
+                                                            onClick={(e) => e.stopPropagation()}
                                                         >
                                                             <FileHeart className="w-4 h-4" />
-                                                        </button>
+                                                        </Link>
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();

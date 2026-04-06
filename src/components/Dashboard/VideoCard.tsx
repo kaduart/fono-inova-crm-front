@@ -4,6 +4,7 @@ import type { Video, Channel } from '../../hooks/useMarketing';
 import { ChannelToggle } from './ChannelToggle';
 import API from '../../services/api';
 import { io } from 'socket.io-client';
+import { extractErrorMessage } from '../../utils/errorUtils';
 
 interface VideoCardProps {
   video: Video;
@@ -320,7 +321,7 @@ export function VideoCard({ video, onPublish, onPublishMeta, onDelete, onEditar,
                   await API.post(`/videos/${video._id}/force-fail`);
                   onRefresh?.();
                 } catch (err: any) {
-                  alert(err.response?.data?.error || 'Erro ao atualizar status');
+                  alert(extractErrorMessage(err, 'Erro ao atualizar status'));
                 }
               }}
               className="flex-1 px-3 py-2 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700"

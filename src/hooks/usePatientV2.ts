@@ -14,6 +14,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import patientService from '../services/patientService';
 import { IPatient } from '../utils/types/types';
 import { toast } from 'react-toastify';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 // ============================================
 // CONFIG
@@ -169,7 +170,7 @@ export function useCreatePatient(options: {
       setCreatingPatient(null);
       setProgress(null);
       
-      toast.error(`Erro ao criar paciente: ${error.message}`);
+      toast.error(`Erro ao criar paciente: ${extractErrorMessage(error, 'Erro desconhecido')}`);
       options.onError?.(error as Error);
     },
     onSettled: () => {
@@ -242,7 +243,7 @@ export function useUpdatePatient(options: {
     },
     onError: (error) => {
       setUpdatingId(null);
-      toast.error(`Erro ao atualizar: ${error.message}`);
+      toast.error(`Erro ao atualizar: ${extractErrorMessage(error, 'Erro desconhecido')}`);
       options.onError?.(error as Error);
     }
   });
@@ -304,7 +305,7 @@ export function useDeletePatient(options: {
         queryClient.setQueryData([QUERY_KEYS.patients], context.previousPatients);
       }
       setDeletingId(null);
-      toast.error(`Erro ao remover: ${error.message}`);
+      toast.error(`Erro ao remover: ${extractErrorMessage(error, 'Erro desconhecido')}`);
       options.onError?.(error as Error);
     }
   });

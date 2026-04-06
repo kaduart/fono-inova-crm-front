@@ -20,6 +20,7 @@ import {
     V2PaymentRequest
 } from '../services/paymentService';
 import { usePaymentPolling } from './usePaymentPolling';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 export type PaymentStatus = 
     | 'idle' 
@@ -125,7 +126,7 @@ export const usePaymentV2 = (): UsePaymentV2Result => {
                 setError('Cancelado pelo usuário');
             } else {
                 setStatus('failed');
-                setError(err.message || 'Erro desconhecido');
+                setError(extractErrorMessage(err, 'Erro ao processar pagamento'));
             }
             setProgress(0);
         }
@@ -175,7 +176,7 @@ export const usePaymentV2 = (): UsePaymentV2Result => {
                 setStatus('cancelled');
             } else {
                 setStatus('failed');
-                setError(err.message || 'Erro desconhecido');
+                setError(extractErrorMessage(err, 'Erro ao processar pagamento'));
             }
             setProgress(0);
         }

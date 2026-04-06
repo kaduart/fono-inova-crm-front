@@ -9,6 +9,7 @@ import appointmentService, {
     UpdateAppointmentParams
 } from '../services/appointmentService';
 import { useAppointmentPolling } from './useAppointmentPolling';
+import { extractErrorMessage } from '../utils/errorUtils';
 import { IAppointment } from '../utils/types/types';
 
 // 🔹 Cache para evitar recarregamentos desnecessários
@@ -116,7 +117,7 @@ export const useAppointments = () => {
             options?.onSuccess?.();
             return response.data;
         } catch (error) {
-            setError('Falha ao criar agendamento');
+            setError(extractErrorMessage(error, 'Falha ao criar agendamento'));
             options?.onError?.(error as Error);
             throw error;
         } finally {
@@ -268,7 +269,7 @@ export const useAppointments = () => {
             options?.onSuccess?.();
             return response.data;
         } catch (error) {
-            setError('Falha ao completar agendamento');
+            setError(extractErrorMessage(error, 'Falha ao completar agendamento'));
             options?.onError?.(error as Error);
             throw error;
         } finally {
@@ -366,7 +367,7 @@ export const useAppointments = () => {
             options?.onSuccess?.();
             return response.data;
         } catch (error) {
-            setError('Falha ao cancelar agendamento');
+            setError(extractErrorMessage(error, 'Falha ao cancelar agendamento'));
             options?.onError?.(error as Error);
             throw error;
         } finally {

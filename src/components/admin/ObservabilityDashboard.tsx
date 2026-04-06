@@ -56,6 +56,7 @@ import {
 import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import axios from 'axios';
+import { extractErrorMessage } from '../../utils/errorUtils';
 
 interface EventMetrics {
     timestamp: string;
@@ -170,7 +171,7 @@ const ObservabilityDashboard = () => {
             setEventFlow(response.data.data);
             setFlowDialogOpen(true);
         } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Fluxo não encontrado');
+            toast.error(extractErrorMessage(error, 'Fluxo não encontrado'));
         } finally {
             setLoading(false);
         }

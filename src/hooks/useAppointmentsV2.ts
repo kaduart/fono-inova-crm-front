@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import appointmentService from '../services/appointmentService';
 import { useAppointmentPolling } from './useAppointmentPolling';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 const QUERY_KEY = 'appointments';
 

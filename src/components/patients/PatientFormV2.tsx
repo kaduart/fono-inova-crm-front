@@ -13,6 +13,7 @@ import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { useCreatePatient, useUpdatePatient } from '../../hooks/usePatientV2';
 import { IPatient } from '../../utils/types/types';
+import { extractErrorMessage } from '../../utils/errorUtils';
 import { Loader2, Check, AlertCircle } from 'lucide-react';
 
 interface PatientFormV2Props {
@@ -44,7 +45,7 @@ export const PatientFormV2: React.FC<PatientFormV2Props> = ({
       onSuccess?.(newPatient);
     },
     onError: (error) => {
-      toast.error(`Erro: ${error.message}`);
+      toast.error(`Erro: ${extractErrorMessage(error, 'Erro ao criar paciente')}`);
     }
   });
   
@@ -54,7 +55,7 @@ export const PatientFormV2: React.FC<PatientFormV2Props> = ({
       onSuccess?.(updatedPatient);
     },
     onError: (error) => {
-      toast.error(`Erro: ${error.message}`);
+      toast.error(`Erro: ${extractErrorMessage(error, 'Erro ao criar paciente')}`);
     }
   });
   

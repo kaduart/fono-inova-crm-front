@@ -8,6 +8,7 @@ import {
     getCache,
     setCache
 } from '../utils/cacheManager';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 // 🔹 Cache estático para evitar recarregamentos desnecessários
 const localCache = {
@@ -148,7 +149,7 @@ export const usePatients = () => {
             await refreshData();
             return newPatient;
         } catch (error: any) {
-            setError(error.message);
+            setError(extractErrorMessage(error, 'Erro ao criar paciente'));
             throw error;
         } finally {
             setLoading(false);

@@ -12,6 +12,7 @@ import doctorService, {
 } from '../services/doctorService';
 import { Appointment } from '../utils/types';
 import { IPatient } from '../utils/types/types';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 import {
   subscribeToCacheInvalidation,
@@ -319,7 +320,7 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
       toast.success('Profissional criado com sucesso!');
     } catch (error: any) {
       console.error("Erro ao criar profissional:", error);
-      toast.error(error.message || "Erro ao criar profissional");
+      toast.error(extractErrorMessage(error, "Erro ao criar profissional"));
       throw error;
     } finally {
       setLoading(false);
@@ -343,7 +344,7 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
       toast.success('Profissional atualizado com sucesso!');
     } catch (error: any) {
       console.error("Erro ao atualizar profissional:", error);
-      toast.error(error.message || "Erro ao atualizar profissional");
+      toast.error(extractErrorMessage(error, "Erro ao atualizar profissional"));
       throw error;
     } finally {
       setLoading(false);

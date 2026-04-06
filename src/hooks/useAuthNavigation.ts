@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { BASE_URL } from '../constants/constants';
 import { useAuth } from '../contexts/AuthContext';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 export const useAuthNavigation = () => {
   const navigate = useNavigate();
@@ -43,7 +44,7 @@ export const useAuthNavigation = () => {
       return { success: true };
     } catch (error: any) {
       loading.hideLoading();
-      const message = error.response?.data?.error || 'Erro ao fazer login';
+      const message = extractErrorMessage(error, 'Erro ao fazer login');
       toast.error(message);
       return { success: false };
     } finally {

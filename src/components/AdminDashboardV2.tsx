@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { IPatient } from '../utils/types/types';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 // 🎯 Feature Flag - controla migração gradual
 const USE_V2_PATIENT = import.meta.env.VITE_USE_V2_PATIENT === 'true' || false;
@@ -58,7 +59,7 @@ export function usePatientOperationsV2(props: AdminDashboardV2Props) {
       // Não precisa chamar refresh - cache já atualizado via UI otimista
     },
     onError: (error) => {
-      toast.error(`Erro: ${error.message}`);
+      toast.error(`Erro: ${extractErrorMessage(error, 'Erro ao criar paciente')}`);
     }
   });
   
@@ -68,7 +69,7 @@ export function usePatientOperationsV2(props: AdminDashboardV2Props) {
       setIsModalOpen(false);
     },
     onError: (error) => {
-      toast.error(`Erro: ${error.message}`);
+      toast.error(`Erro: ${extractErrorMessage(error, 'Erro ao criar paciente')}`);
     }
   });
   
@@ -121,7 +122,7 @@ export function usePatientOperationsV2(props: AdminDashboardV2Props) {
       }
       
     } catch (error: any) {
-      const msg = error?.message || error?.response?.data?.message || 'Erro ao salvar paciente';
+      const msg = extractErrorMessage(error, 'Erro ao salvar paciente');
       toast.error(msg);
       return false;
       

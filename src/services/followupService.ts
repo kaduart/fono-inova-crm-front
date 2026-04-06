@@ -1,6 +1,7 @@
 // services/followupService.ts
 import toast from "react-hot-toast";
 import API from "./api";
+import { extractErrorMessage } from "../utils/errorUtils";
 
 export interface FollowupMetrics {
   sent: number;
@@ -30,7 +31,7 @@ export const followupService = {
       };
     } catch (error: any) {
       console.error("Erro ao buscar métricas de followup:", error);
-      toast.error(error?.response?.data?.error || "Erro ao carregar métricas.");
+      toast.error(extractErrorMessage(error, "Erro ao carregar métricas."));
       return { success: false, error };
     }
   },
@@ -46,7 +47,7 @@ export const followupService = {
       };
     } catch (error: any) {
       console.error("Erro ao buscar tendência:", error);
-      toast.error(error?.response?.data?.error || "Erro ao carregar tendência.");
+      toast.error(extractErrorMessage(error, "Erro ao carregar tendência."));
       return { success: false, error };
     }
   },
@@ -60,7 +61,7 @@ export const followupService = {
       };
     } catch (error: any) {
       console.error("Erro ao buscar conversão por origem:", error);
-      toast.error(error?.response?.data?.error || "Erro ao carregar conversão por origem.");
+      toast.error(extractErrorMessage(error, "Erro ao carregar conversão por origem."));
       return { success: false, error };
     }
   },
@@ -72,7 +73,7 @@ export const followupService = {
       return { success: true, data: res.data.data || res.data || [] };
     } catch (error: any) {
       console.error("Erro ao carregar follow-ups:", error);
-      toast.error(error?.response?.data?.error || "Erro ao carregar follow-ups.");
+      toast.error(extractErrorMessage(error, "Erro ao carregar follow-ups."));
       return { success: false, error };
     }
   },
@@ -83,7 +84,7 @@ export const followupService = {
       return { success: true, data: res.data.data || [] };
     } catch (error: any) {
       console.error("Erro ao filtrar follow-ups:", error);
-      toast.error(error?.response?.data?.error || "Erro ao filtrar follow-ups.");
+      toast.error(extractErrorMessage(error, "Erro ao filtrar follow-ups."));
       return { success: false, error };
     }
   },
@@ -95,7 +96,7 @@ export const followupService = {
       return { success: true, data: res.data.data || [] };
     } catch (error: any) {
       console.error("Erro ao buscar pendentes:", error);
-      toast.error(error?.response?.data?.error || "Erro ao buscar pendentes.");
+      toast.error(extractErrorMessage(error, "Erro ao buscar pendentes."));
       return { success: false, error };
     }
   },
@@ -107,7 +108,7 @@ export const followupService = {
       return { success: true, data: res.data.data || [] };
     } catch (error: any) {
       console.error("Erro ao buscar histórico:", error);
-      toast.error(error?.response?.data?.error || "Erro ao buscar histórico.");
+      toast.error(extractErrorMessage(error, "Erro ao buscar histórico."));
       return { success: false, error };
     }
   },
@@ -120,7 +121,7 @@ export const followupService = {
       return { success: true, data: res.data.data };
     } catch (error: any) {
       console.error("Erro ao criar follow-up:", error);
-      toast.error(error?.response?.data?.error || "Erro ao criar follow-up.");
+      toast.error(extractErrorMessage(error, "Erro ao criar follow-up."));
       return { success: false, error };
     }
   },
@@ -132,7 +133,7 @@ export const followupService = {
       return { success: true, data: res.data.data };
     } catch (error: any) {
       console.error("Erro ao reenviar follow-up:", error);
-      toast.error(error?.response?.data?.error || "Erro ao reenviar follow-up.");
+      toast.error(extractErrorMessage(error, "Erro ao reenviar follow-up."));
       return { success: false, error };
     }
   },
@@ -150,7 +151,7 @@ export const followupService = {
       return { success: true, data: res.data.data };
     } catch (error: any) {
       console.error("Erro ao agendar follow-up:", error);
-      toast.error(error?.response?.data?.error || "Erro ao agendar follow-up.");
+      toast.error(extractErrorMessage(error, "Erro ao agendar follow-up."));
       return { success: false, error };
     }
   },
@@ -168,7 +169,7 @@ export const followupService = {
       return { success: true, data: res.data.data };
     } catch (error: any) {
       console.error("Erro ao gerar follow-up com IA:", error);
-      toast.error(error?.response?.data?.error || "Erro ao gerar follow-up com IA.");
+      toast.error(extractErrorMessage(error, "Erro ao gerar follow-up com IA."));
       return { success: false, error };
     }
   },

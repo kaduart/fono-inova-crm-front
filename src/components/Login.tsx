@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { BASE_URL } from '../constants/constants';
 import { useAuthNavigation } from '../hooks/useAuthNavigation';
+import { extractErrorMessage } from '../utils/errorUtils';
 import SessionExpiryHandler from './SessionExpiryHandler';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 
@@ -146,7 +147,7 @@ const Login = () => {
       setShowCreatePassword(false);
 
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(extractErrorMessage(error, 'Erro ao criar senha'));
     }
   };
 

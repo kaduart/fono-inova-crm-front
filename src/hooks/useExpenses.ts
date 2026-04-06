@@ -3,6 +3,7 @@ import { useState, useCallback } from 'react';
 import { expenseService, Expense, ExpenseFilters } from '../services/expenseService';
 import { toast } from 'react-toastify';
 import { invalidateCache } from '../utils/cacheManager';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 export const useExpenses = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -18,7 +19,7 @@ export const useExpenses = () => {
       setPagination(response.pagination);
       setTotals(response.totals);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erro ao carregar despesas');
+      toast.error(extractErrorMessage(error, 'Erro ao carregar despesas'));
     } finally {
       setLoading(false);
     }
@@ -34,7 +35,7 @@ export const useExpenses = () => {
       
       return response.data;
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erro ao criar despesa');
+      toast.error(extractErrorMessage(error, 'Erro ao criar despesa'));
       throw error;
     }
   }, []);
@@ -49,7 +50,7 @@ export const useExpenses = () => {
       
       return response.data;
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erro ao atualizar despesa');
+      toast.error(extractErrorMessage(error, 'Erro ao atualizar despesa'));
       throw error;
     }
   }, []);
@@ -64,7 +65,7 @@ export const useExpenses = () => {
       
       await fetchExpenses();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erro ao cancelar despesa');
+      toast.error(extractErrorMessage(error, 'Erro ao cancelar despesa'));
     }
   }, [fetchExpenses]);
 
@@ -79,7 +80,7 @@ export const useExpenses = () => {
       await fetchExpenses();
       return response.data;
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erro ao gerar comissões');
+      toast.error(extractErrorMessage(error, 'Erro ao gerar comissões'));
       throw error;
     }
   }, [fetchExpenses]);

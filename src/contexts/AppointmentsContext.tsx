@@ -3,6 +3,7 @@ import { appointmentService, PaginationParams } from '../services/appointmentSer
 import { IAppointment } from '../utils/types/types';
 import { socketManager } from '../utils/socketManager';
 import { invalidateCache } from '../utils/cacheManager';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 interface AppointmentsContextData {
     appointments: IAppointment[];

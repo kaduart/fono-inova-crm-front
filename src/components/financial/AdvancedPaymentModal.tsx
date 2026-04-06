@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { IDoctor, IPatient } from '../../utils/types/types';
 import InputCurrency from '../ui/InputCurrency';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { extractErrorMessage } from '../../utils/errorUtils';
 
 interface AdvancedPaymentModalProps {
     open: boolean;
@@ -114,7 +115,7 @@ export const AdvancedPaymentModal = ({
             onClose();
         } catch (error: any) {
             console.error('Erro ao registrar pagamento:', error);
-            toast.error(error.message || 'Erro ao registrar pagamento');
+            toast.error(extractErrorMessage(error, 'Erro ao registrar pagamento'));
         } finally {
             setIsLoading(false);
         }

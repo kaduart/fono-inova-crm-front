@@ -8,6 +8,7 @@
 
 import API from './api';
 import { appointmentService } from './appointmentService';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 export interface BookAppointmentParams {
   patientId: string;
@@ -128,7 +129,7 @@ export const bookingService = {
       };
 
     } catch (error: any) {
-      const errorMsg = error.response?.data?.message || error.message || 'Erro ao criar agendamento';
+      const errorMsg = extractErrorMessage(error, 'Erro ao criar agendamento');
       onError?.(errorMsg);
       throw error;
     }

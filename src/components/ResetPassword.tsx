@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { BASE_URL } from '../constants/constants';
 import { LoadingSpinner } from './ui/LoadingSpinner';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 function ResetPassword() {
     const { token } = useParams();
@@ -94,10 +95,7 @@ function ResetPassword() {
             setTimeout(() => navigate('/login'), 2000);
         } catch (error) {
             console.error('Erro ao redefinir senha:', error);
-            const errorMessage = error.response?.data?.error ||
-                error.response?.data?.message ||
-                'Erro ao redefinir senha';
-
+            const errorMessage = extractErrorMessage(error, 'Erro ao redefinir senha');
             setMessage({
                 text: errorMessage,
                 type: 'error'

@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { FiAlertCircle, FiMessageCircle, FiUserPlus, FiX } from "react-icons/fi";
 import { useChatNavigation } from "../../../contexts/ChatNavigationContext";
 import { useContacts } from "../../../contexts/ContactsContext";
+import { ChatProvider } from "../../../contexts/ChatContext"; // 🆕 Contexto para mensagens de sistema
 import { Contact, sendWhatsAppText } from "../../../services/whatsappService";
 import API from "../../../services/api";
 import { normalizeE164BR } from "../../../utils/phone";
@@ -237,12 +238,14 @@ const AppChat: React.FC = () => {
                         ← Contatos
                     </button>
                     {active ? (
-                        <ChatWindow
-                            contact={active as any}
-                            sendMessage={sendMessage}
-                            leadId={effectiveLeadId || undefined}
-                            className="flex-1 min-h-0 overflow-hidden bg-white"
-                        />
+                        <ChatProvider>
+                            <ChatWindow
+                                contact={active as any}
+                                sendMessage={sendMessage}
+                                leadId={effectiveLeadId || undefined}
+                                className="flex-1 min-h-0 overflow-hidden bg-white"
+                            />
+                        </ChatProvider>
                     ) : (
                         <EmptyState />
                     )}

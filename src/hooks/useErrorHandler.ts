@@ -1,15 +1,16 @@
 import toast from "react-hot-toast";
+import { extractErrorMessage } from "../utils/errorUtils";
 
 export const useErrorHandler = () => {
     const handleError = (error: any) => {
-        if (error.response?.data?.errors) {
+        // Verifica se há múltiplos erros de validação
+        if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
             error.response.data.errors.forEach((err: any) => {
                 toast.error(`${err.field}: ${err.message}`);
             });
-        } else if (error.response?.data?.error) {
-            toast.error(error.response.data.error);
         } else {
-            toast.error('Erro inesperado. Tente novamente.');
+            // Usa extractErrorMessage para extrair mensagem de erro padronizada
+            toast.error(extractErrorMessage(error, 'Erro inesperado. Tente novamente.'));
         }
     };
 

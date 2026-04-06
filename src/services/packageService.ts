@@ -9,6 +9,7 @@ import {
   TherapyType
 } from '../utils/types/types';
 import API from './api';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 export type CreatePackageParams = {
   patientId: string;
@@ -119,7 +120,7 @@ export const packageService = {
       return response.data;
     } catch (error) {
       console.error('Erro na requisição:', error.config?.data);
-      throw new Error(error.response?.data?.message || 'Erro ao criar pacote');
+      throw new Error(extractErrorMessage(error, 'Erro ao criar pacote'));
     }
   },
 
@@ -130,7 +131,7 @@ export const packageService = {
       return response.data;
     } catch (error) {
       console.error('Erro ao criar pacote de convênio:', error.config?.data);
-      throw new Error(error.response?.data?.message || 'Erro ao criar pacote de convênio');
+      throw new Error(extractErrorMessage(error, 'Erro ao criar pacote de convênio'));
     }
   },
 

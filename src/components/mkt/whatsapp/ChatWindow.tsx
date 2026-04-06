@@ -18,9 +18,18 @@ import { isGenericName } from './utils/messageHelpers';
 import type { Contact, ChatWindowProps } from './types/chat.types';
 import { enviarViaExtensao, type PreAgendamentoChat } from './extensionHelper';
 import LeadJourneyPanel from './LeadJourneyPanel';
+import { useChat } from '../../../contexts/ChatContext';
 
 // Interface local (já importamos do helper)
 type PreAgendamentoLocal = PreAgendamentoChat;
+
+// 🆕 Tipo para mensagens de sistema/erro
+export interface SystemMessage {
+    id: string;
+    text: string;
+    type: 'error' | 'warning' | 'info' | 'success';
+    timestamp: Date;
+}
 
 const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) => {
     // Hooks personalizados
@@ -58,11 +67,25 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
     const [preAgendamentos, setPreAgendamentos] = useState<PreAgendamentoChat[]>([]);
     const [loadingPreAgendamentos, setLoadingPreAgendamentos] = useState(false);
     const [isInitialLoad, setIsInitialLoad] = useState(true); // 🆕 Controla se é primeira carga
+    const [systemMessages, setSystemMessages] = useState<SystemMessage[]>([]); // 🆕 Mensagens de sistema/erro
     
     const { updateContact } = useContacts();
+    const { registerChatWindow, unregisterChatWindow } = useChat(); // 🆕 Contexto do chat
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const hasGenericNameValue = isGenericName(contact?.name, contact?.phone);
+    const [isWindowOpen, setIsWindowOpen] = useState(true); // 🆕 Para verificar se está aberto
+
+    // 🆕 Registrar no contexto quando montar (com isOpen)
+    useEffect(() => {
+        registerChatWindow({ 
+            addSystemMessage: (msg) => addSystemMessage(msg.text, msg.type),
+            isOpen: () => isWindowOpen && !!contact 
+        });
+        return () => {
+            unregisterChatWindow();
+        };
+    }, [registerChatWindow, unregisterChatWindow, addSystemMessage]);
 
     // Sincronizar manualActive com contact
     useEffect(() => {
@@ -139,8 +162,46 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                 setIsInitialLoad(false); // Após carregar, marca como não-inicial
             });
             setDraft('');
+            setSystemMessages([]); // 🆕 Limpa mensagens de sistema ao trocar de contato
         }
     }, [contact?.phone, loadMessages]);
+
+    // 🆕 Função para adicionar mensagem de sistema/erro no chat
+    const addSystemMessage = useCallback((text: string, type: 'error' | 'warning' | 'info' | 'success' = 'info') => {
+        const newMessage: SystemMessage = {
+            id: `system_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            text,
+            type,
+            timestamp: new Date()
+        };
+        setSystemMessages(prev => [...prev, newMessage]);
+        
+        // Auto-remove após 10 segundos para infos e warnings, mantém erros por 30s
+        const timeout = type === 'error' ? 30000 : 10000;
+        setTimeout(() => {
+            setSystemMessages(prev => prev.filter(m => m.id !== newMessage.id));
+        }, timeout);
+    }, []);
+
+    // 🆕 Combina mensagens normais com mensagens de sistema
+    const allMessages = React.useMemo(() => {
+        const combined = [
+            ...messages,
+            ...systemMessages.map(sm => ({
+                id: sm.id,
+                text: sm.text,
+                timestamp: sm.timestamp,
+                status: 'sent' as const,
+                fromMe: true,
+                type: 'system' as const,
+                caption: '',
+                isSystem: true,
+                systemType: sm.type
+            }))
+        ];
+        // Ordena por timestamp
+        return combined.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    }, [messages, systemMessages]);
 
     // 🆕 Buscar pré-agendamentos do contato
     useEffect(() => {
@@ -469,9 +530,26 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
             {/* Jornada do lead no site */}
             <LeadJourneyPanel leadId={leadId} />
 
-            {/* Messages */}
+            {/* 🆕 Mensagem de Erro */}
+            {error && (
+                <div className="bg-red-50 border-b border-red-200 p-3 flex items-start gap-2">
+                    <span className="text-red-500 text-lg">⚠️</span>
+                    <div className="flex-1">
+                        <p className="text-sm text-red-700 font-medium">Erro ao carregar mensagens</p>
+                        <p className="text-xs text-red-600">{error}</p>
+                    </div>
+                    <button 
+                        onClick={() => contact?.phone && loadMessages(contact.phone)}
+                        className="text-xs text-red-700 hover:text-red-800 font-medium px-2 py-1 bg-red-100 rounded hover:bg-red-200 transition-colors"
+                    >
+                        Tentar novamente
+                    </button>
+                </div>
+            )}
+
+            {/* Messages -->
             <ChatMessageList
-                messages={messages}
+                messages={allMessages} // 🆕 Usa allMessages (normais + sistema)
                 contact={contact}
                 loading={loading}
                 loadingMore={loadingMore}

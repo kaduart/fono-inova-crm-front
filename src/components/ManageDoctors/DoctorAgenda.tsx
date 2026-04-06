@@ -10,6 +10,7 @@ import { Label } from '../ui/Label';
 import { Select } from '../ui/Select';
 import DoctorAgendaCalendar from './DoctorAgendaCalendar';
 import { ScheduleWithPackageFlow } from './ScheduleWithPackageFlow';
+import { extractErrorMessage } from '../../utils/errorUtils';
 
 interface IDoctorAgendaProps {
     doctors: IDoctor[];
@@ -78,7 +79,7 @@ useEffect(() => {
             setDaySlots([{ date, slots }]);
             onDaySlotsChange?.([{ date, slots }]);
         } catch (error) {
-            console.error('❌ Erro ao buscar slots:', error);
+            console.error('❌ Erro ao buscar slots:', extractErrorMessage(error, 'Erro ao buscar horários disponíveis'));
             setDaySlots([]);
         }
     };

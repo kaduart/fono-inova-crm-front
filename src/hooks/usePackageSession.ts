@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import API from '../services/api';
 import { invalidateCache } from '../utils/cacheManager';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 const useTherapyPackage = () => {
   const [loading, setLoading] = useState(false);
@@ -19,7 +20,7 @@ const useTherapyPackage = () => {
       
       return result;
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Erro na operação';
+      const errorMessage = extractErrorMessage(error, 'Erro na operação');
       toast.error(`Erro: ${errorMessage}`);
       throw new Error(errorMessage);
     } finally {

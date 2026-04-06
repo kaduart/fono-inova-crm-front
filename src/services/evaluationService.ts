@@ -1,6 +1,7 @@
 // services/evaluationService.ts
 import toast from "react-hot-toast";
 import API from "./api";
+import { extractErrorMessage } from "../utils/errorUtils";
 
 export const createEvaluation = async (
   data: {
@@ -23,7 +24,7 @@ export const createEvaluation = async (
     console.error("Erro ao criar avaliação:", error);
 
     toast.error(
-      error?.response?.data?.message || "Erro ao criar avaliação."
+      extractErrorMessage(error, "Erro ao criar avaliação.")
     );
 
     return {

@@ -37,6 +37,7 @@ import Skeleton from "../components/ui/Skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/Tabs";
 import { WhatsAppDiagnostic } from '../pages/Settings/WhatsAppDiagnostic'; // ⬅️ ADICIONAR
 import { formatMessageTime } from "../utils/dateHelper";
+import { extractErrorMessage } from "../utils/errorUtils";
 
 /** -------- Modal completo de "Novo Lead" -------- */
 type NewLeadPayload = {
@@ -311,7 +312,7 @@ const FollowupPage = () => {
       setShowCreateModal(false);
       toast.success("Lead criado com sucesso!");
     } catch (error: any) {
-      toast.error(error.message || "Erro ao criar lead");
+      toast.error(extractErrorMessage(error, "Erro ao criar lead"));
     }
   }, [createLeadFromSheet]);
 
@@ -320,7 +321,7 @@ const FollowupPage = () => {
       await updateLeadStatus(leadId, newStatus);
       toast.success("Status atualizado!");
     } catch (error: any) {
-      toast.error(error.message || "Erro ao atualizar status");
+      toast.error(extractErrorMessage(error, "Erro ao atualizar status"));
     }
   };
 

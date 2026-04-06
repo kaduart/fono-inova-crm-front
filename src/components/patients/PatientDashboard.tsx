@@ -2,6 +2,7 @@ import { Activity, Calendar, ChevronDown, FileText, Plus, Users } from 'lucide-r
 import { useEffect, useState } from 'react';
 import { toast } from "react-hot-toast";
 import { useNavigate, useParams } from 'react-router-dom';
+import { extractErrorMessage } from '../../utils/errorUtils';
 import { toDateString } from '../../utils/dateUtils';
 import { useAppointments } from '../../hooks/useAppointments';
 import { usePatientsContext } from '../../contexts/PatientsContext';
@@ -155,7 +156,7 @@ export default function PatientDashboard() {
       setOpenSchedule(false);
 
     } catch (error) {
-      toast.error('Erro ao criar agendamento');
+      toast.error(extractErrorMessage(error, 'Erro ao criar agendamento'));
       console.error(error);
     }
   };

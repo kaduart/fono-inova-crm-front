@@ -5,6 +5,7 @@ import { usePaymentV2 } from "../../hooks/usePaymentV2";
 import { Button } from "../ui/Button";
 import InputCurrency from '../ui/InputCurrency';
 import { LoadingSpinner } from "../ui/LoadingSpinner";
+import { extractErrorMessage } from "../../utils/errorUtils";
 
 interface AddPaymentModalProps {
     packageData: any;
@@ -55,7 +56,7 @@ export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentM
             onClose();
         } catch (error: any) {
             console.error("Erro ao registrar pagamento:", error);
-            toast.error(error.message || "Erro ao registrar pagamento");
+            toast.error(extractErrorMessage(error, "Erro ao registrar pagamento"));
         } finally {
             setLoading(false);
         }
