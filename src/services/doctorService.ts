@@ -338,4 +338,35 @@ export const doctorService = {
   }
 };
 
+// Funções auxiliares para compatibilidade (migrar para V2 posteriormente)
+export const fetchPatients = async (doctorId: string) => {
+  const response = await API.get(`/v2/doctors/${doctorId}/patients`);
+  return response.data.data;
+};
+
+export const fetchStats = async (doctorId: string) => {
+  const response = await API.get(`/v2/doctors/${doctorId}/stats`);
+  return response.data.data;
+};
+
+export const fetchTherapySessions = async (doctorId: string) => {
+  const response = await API.get(`/v2/doctors/${doctorId}/sessions`);
+  return response.data.data;
+};
+
+export const fetchTodaysAppointments = async (doctorId: string) => {
+  const response = await API.get(`/v2/doctors/${doctorId}/appointments/today`);
+  return response.data.data;
+};
+
+export const fetchFutureAppointments = async (doctorId: string) => {
+  const response = await API.get(`/v2/doctors/${doctorId}/appointments/future`);
+  return response.data.data;
+};
+
+export const updateClinicalStatus = async (doctorId: string, status: string) => {
+  const response = await API.patch(`/v2/doctors/${doctorId}/clinical-status`, { status });
+  return response.data.data;
+};
+
 export default doctorService;
