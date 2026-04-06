@@ -265,9 +265,9 @@ export function useAdminDashboardPatientsV2(
     try {
       if (USE_V2_PATIENT && !formData._id) {
         // 🆕 CREATE V2: UI otimista, não espera resposta
-        const { patientServiceV2 } = await import('../services/patientService.v2');
+        const patientService = await import('../services/patientService.v2');
         
-        const result = await patientServiceV2.create(formData, {
+        const result = await patientService.default.create(formData, {
           skipPolling: true, // Retorna imediatamente
           onSuccess: (patient) => {
             toast.success(`${patient.fullName} criado!`);
@@ -285,9 +285,9 @@ export function useAdminDashboardPatientsV2(
         
       } else if (USE_V2_PATIENT && formData._id) {
         // 🆕 UPDATE V2
-        const { patientServiceV2 } = await import('../services/patientService.v2');
+        const patientService = await import('../services/patientService.v2');
         
-        await patientServiceV2.update(formData._id, formData, {
+        await patientService.default.update(formData._id, formData, {
           skipPolling: true
         });
         

@@ -4,7 +4,6 @@ import { IDoctor } from "../../utils/types/types";
 interface Filters {
     doctorId?: string;
     patientId?: string;
-    paymentId?: string;
     status?: string;
     paymentMethod?: string;
     serviceType?: string;
@@ -24,18 +23,16 @@ type SortField = 'date' | 'amount' | 'patient' | 'doctor' | 'status' | 'method';
 type SortDirection = 'asc' | 'desc';
 
 export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFilters = {} }: PaymentsFiltersProps) {
+    const safePayments = payments || [];
+    console.log('[PaymentsFilters] Render com', safePayments.length, 'pagamentos');
     const [filters, setFilters] = useState<Filters>(initialFilters);
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
     // Aplica os filtros sempre que eles ou a lista de pagamentos mudar
     const filteredPayments = useMemo(() => {
-        let result = payments.filter(payment => {
-            // Filtro por ID do pagamento
-            if (filters.paymentId && payment._id !== filters.paymentId) {
-                return false;
-            }
-
+        console.log('[PaymentsFilters] Aplicando filtros:', filters, 'em', safePayments.length, 'registros');
+        let result = safePayments.filter(payment => {
             // Filtro por profissional
             if (filters.doctorId && payment.doctor?._id !== filters.doctorId) {
                 return false;
@@ -67,37 +64,7 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
                 return false;
             }
 
-            // Filtro por data do agendamento (appointment.date)
-            if (filters.from || filters.to) {
-                const appointmentDateStr = payment.appointment?.date;
-                const paymentDateStr = payment.createdAt;
-
-                // Usa a data do agendamento ou a data de criação do pagamento
-                const dateStr = appointmentDateStr || paymentDateStr;
-
-                if (!dateStr) return false;
-
-                try {
-                    const date = new Date(dateStr);
-                    date.setHours(0, 0, 0, 0);
-
-                    if (filters.from) {
-                        const fromDate = new Date(filters.from);
-                        fromDate.setHours(0, 0, 0, 0);
-                        if (date < fromDate) return false;
-                    }
-
-                    if (filters.to) {
-                        const toDate = new Date(filters.to);
-                        toDate.setHours(23, 59, 59, 999);
-                        if (date > toDate) return false;
-                    }
-                } catch (e) {
-                    console.error("Erro ao processar data:", e);
-                    return false;
-                }
-            }
-
+            // Nota: Filtro de data removido - período definido pelo filtro superior
             return true;
         });
 
@@ -107,8 +74,8 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
 
             switch (sortField) {
                 case 'date':
-                    aValue = new Date(a.appointment?.date || a.createdAt).getTime();
-                    bValue = new Date(b.appointment?.date || b.createdAt).getTime();
+                    aValue = new Date(a.date || a.appointment?.date || a.createdAt).getTime();
+                    bValue = new Date(b.date || b.appointment?.date || b.createdAt).getTime();
                     break;
                 case 'amount':
                     aValue = a.amount;
@@ -144,12 +111,20 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
         });
 
         return result;
-    }, [payments, filters, sortField, sortDirection]);
+    }, [safePayments, filters, sortField, sortDirection]);
 
     // Notifica o componente pai quando os filtros mudam
     useEffect(() => {
+        console.log('[PaymentsFilters] Enviando', filteredPayments.length, 'de', safePayments.length, 'para onFilter');
         onFilter(filteredPayments);
-    }, [filteredPayments]);
+    }, [filteredPayments, onFilter]);
+
+    // Notifica o componente pai quando os payments mudam (incluindo primeira carga)
+    useEffect(() => {
+        console.log('[PaymentsFilters] Payments mudou, enviando', filteredPayments.length);
+        onFilter(filteredPayments);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [safePayments]);
 
     const handleFilterChange = (key: keyof Filters, value: string | undefined) => {
         console.log('Alterando filtro', key, 'para', value);
@@ -184,7 +159,7 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
     return (
         <div className="bg-white rounded-xl shadow-sm p-5 mb-6 border border-gray-100">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                <h3 className="text-lg font-medium text-gray-800">Filtrar Pagamentos</h3>
+                <h3 className="text-lg font-medium text-gray-800">Filtros</h3>
 
                 <div className="flex items-center gap-2">
                     {hasActiveFilters && (
@@ -193,30 +168,13 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
                         </span>
                     )}
                     <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-lg">
-                        {filteredPayments.length} de {payments.length} resultados
+                        {filteredPayments.length} de {safePayments.length} resultados
                     </span>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-                {/* Filtro por ID do Pagamento */}
-                <div className="flex flex-col">
-                    <label className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">
-                        ID do Pagamento
-                    </label>
-                    <div className="relative flex items-center">
-                        <input
-                            type="text"
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Buscar por ID"
-                            value={filters.paymentId || ""}
-                            onChange={(e) => handleFilterChange('paymentId', e.target.value)}
-                        />
-                        <svg className="h-5 w-5 text-gray-400 absolute right-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                </div>
+                
 
                 {/* Filtro por Profissional */}
                 <div className="flex flex-col">
@@ -335,32 +293,7 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
                     </div>
                 </div>
 
-                {/* Filtro por Data */}
-                <div className="flex flex-col">
-                    <label className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">
-                        Período
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                        <div className="relative">
-                            <input
-                                type="date"
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                value={filters.from || ""}
-                                onChange={(e) => handleFilterChange('from', e.target.value)}
-                            />
-                        </div>
-                        <div className="relative">
-                            <input
-                                type="date"
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                value={filters.to || ""}
-                                onChange={(e) => handleFilterChange('to', e.target.value)}
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Botão Limpar Filtros */}
+                {/* Botão Limpar Filtros -- Data definida pelo filtro de período acima */}
                 <div className="flex flex-col justify-end h-full">
                     <button
                         onClick={clearFilters}

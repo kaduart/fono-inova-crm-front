@@ -46,8 +46,8 @@ import { toast } from 'react-toastify';
 import InputCurrency from '../../../components/ui/InputCurrency';
 import { PatientAccordionSection } from './PatientAccordionSection';
 import ConvenioManagerModal from '../components/ConvenioManagerModal';
-import { doctorService } from '../../../services/doctorService';
-import { patientService } from '../../../services/patientService';
+import doctorService from '../../../services/doctorService';
+import patientService from '../../../services/patientService';
 import {
     createInsurancePayment,
     getInsuranceReceivables,
@@ -228,30 +228,32 @@ const InsuranceTab = () => {
             const response = await getInsuranceReceivables({ month, status: statusFilter });
             const data = response.data.data || [];
 
-            const filteredData = data.map((group: any) => ({
+            // 🆕 CORREÇÃO: Não filtrar novamente - backend já retorna dados corretos
+            // Apenas garante estrutura válida
+            const validData = (data || []).map((group: any) => ({
                 ...group,
                 patients: (group.patients || []).map((p: any) => ({
                     ...p,
-                    payments: (p.payments || []).filter((pay: any) => pay.grossAmount > 0 || pay.status === 'billed')
-                })).filter((p: any) => p.payments.length > 0)
-            })).filter((group: any) => group.patients.length > 0);
+                    payments: p.payments || []
+                })).filter((p: any) => (p.payments || []).length > 0)
+            })).filter((group: any) => (group.patients || []).length > 0);
 
-            setReceivables(filteredData);
+            setReceivables(validData);
 
-            const totalPending = filteredData.reduce((acc: number, g: any) =>
+            const totalPending = validData.reduce((acc: number, g: any) =>
                 acc + (g.patients || []).reduce((pAcc: number, p: any) =>
                     pAcc + (p.payments || []).filter((pay: any) => pay.status !== 'received').length, 0
                 ), 0
             );
 
             setSummary({
-                totalProviders: filteredData.length,
-                grandTotal: filteredData.reduce((acc: number, g: any) => acc + (g.totalPending || 0), 0),
+                totalProviders: validData.length,
+                grandTotal: validData.reduce((acc: number, g: any) => acc + (g.totalPending || 0), 0),
                 pendingCount: totalPending
             });
 
             const expanded: Record<string, boolean> = {};
-            filteredData.forEach((g: any) => { expanded[g._id] = true; });
+            validData.forEach((g: any) => { expanded[g._id] = true; });
             setExpandedGroups(expanded);
         } catch (error) {
             console.error('Erro ao carregar recebíveis:', error);
@@ -724,9 +726,10 @@ const InsuranceTab = () => {
                     ) : (
                         <div className="space-y-4">
                             {receivables.map((group) => {
-                                const patientsToShow = filteredPatients(group.patients || []);
+                                // 🆕 CORREÇÃO: Não filtrar novamente - backend já filtrou por status
+                                const patientsToShow = group.patients || [];
                                 if (patientsToShow.length === 0) return null;
-                                const groupTotal = getGroupTotal(group);
+                                const groupTotal = group.totalPending || 0;
                                 const isExpanded = expandedGroups[group._id] !== false;
 
                                 return (

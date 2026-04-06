@@ -2,8 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import API from '../services/api';
-import {
-  doctorService,
+import doctorService, {
   fetchFutureAppointments,
   fetchPatients,
   fetchStats,

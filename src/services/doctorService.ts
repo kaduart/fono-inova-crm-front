@@ -1,6 +1,15 @@
-import { Appointment } from "../utils/types";
+// src/services/doctorService.ts
+/**
+ * Doctor Service V2 - CQRS + Event-Driven (V2 ONLY)
+ */
+
 import API from "./api";
-import { toast } from 'react-toastify';
+
+const POLL_CONFIG = {
+  maxAttempts: 30,
+  interval: 800,
+  backoffMultiplier: 1.2
+};
 
 export type DoctorRole = 'doctor';
 
@@ -29,142 +38,303 @@ export type Doctor = {
   updatedAt?: string;
 };
 
-// ==========================================================
-// 👨‍⚕️ Serviço principal do médico
-// ==========================================================
-export const doctorService = {
-  createDoctor: async (data: CreateDoctorParams) => {
-    return API.post<Doctor>("/doctors", data);
-  },
+export interface CreateDoctorResponse {
+  success: boolean;
+  data: {
+    eventId: string;
+    correlationId: string;
+    jobId: string;
+    doctorId: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    checkStatusUrl: string;
+    estimatedTime: string;
+  };
+  message?: string;
+}
 
-  getAllDoctors: async () => {
-    return API.get<Doctor[]>("/doctors");
-  },
+export interface DoctorStatusResponse {
+  success: boolean;
+  data: {
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    doctorView?: Doctor;
+    error?: string;
+    processedAt?: string;
+  };
+}
 
-  getDoctorById: async (id: string) => {
-    return API.get<Doctor>(`/doctors/${id}`);
-  },
+export interface ListDoctorsResponse {
+  success: boolean;
+  data: {
+    doctors: Doctor[];
+    pagination: {
+      total: number;
+      limit: number;
+      skip: number;
+      hasMore: boolean;
+    };
+    meta?: {
+      duration: string;
+      source: string;
+      staleCount?: number;
+    };
+  };
+}
 
-  deleteDoctor: async (id: string) => {
-    return API.delete<{ message: string }>(`/doctors/${id}`);
-  },
+async function pollEventStatus(
+  eventId: string,
+  options: {
+    onProgress?: (status: string, attempt: number) => void;
+    onSuccess?: (data: any) => void;
+    onError?: (error: string) => void;
+  } = {}
+): Promise<DoctorStatusResponse['data']> {
+  const { onProgress, onSuccess, onError } = options;
+  let interval = POLL_CONFIG.interval;
 
-  updateDoctor: async (id: string, data: CreateDoctorParams) => {
-    return API.patch<Doctor>(`/doctors/${id}`, data);
-  },
+  for (let attempt = 1; attempt <= POLL_CONFIG.maxAttempts; attempt++) {
+    try {
+      const response = await API.get<DoctorStatusResponse>(`/v2/doctors/status/${eventId}`);
+      const { status, doctorView, error } = response.data.data;
 
-  // 🆕 Soft delete - inativa o profissional
-  deactivateDoctor: async (id: string) => {
-    return API.patch<{ message: string; doctor: Doctor }>(`/doctors/${id}/deactivate`);
-  },
+      onProgress?.(status, attempt);
 
-  // 🆕 Reativa um profissional inativado
-  reactivateDoctor: async (id: string) => {
-    return API.patch<{ message: string; doctor: Doctor }>(`/doctors/${id}/reactivate`);
-  },
+      if (status === 'completed') {
+        onSuccess?.(doctorView);
+        return response.data.data;
+      }
 
-  // 🆕 Lista apenas profissionais ativos
-  getActiveDoctors: async () => {
-    return API.get<Doctor[]>("/doctors/active/list");
-  },
+      if (status === 'failed') {
+        onError?.(error || 'Processamento falhou');
+        throw new Error(error || 'Processamento falhou');
+      }
 
-  // 🆕 Lista apenas profissionais inativos
-  getInactiveDoctors: async () => {
-    return API.get<Doctor[]>("/doctors/inactive/list");
-  },
-
-  getTotalDoctors: async (): Promise<{ totalDoctors: number }> => {
-    const response = await API.get("/admin/total-doctors");
-    return response.data;
-  },
-
-  getDoctorOverview: async (): Promise<any> => {
-    const response = await API.get("/admin/doctor-overview");
-    return response.data;
-  },
-
-  getAppointmentCalendarDoctor: async (id: string): Promise<any> => {
-    const response = await API.get(`/doctors/appointments/calendar/${id}`);
-    return response.data;
-  },
-
-  completeTherapySession: async (sessionId: string) => {
-    const res = await API.patch(`/doctors/therapy-sessions/${sessionId}/complete`);
-    return res.data;
-  },
-
-  // ==========================================================
-  // 🔥 NOVO MÉTODO — Resumo de frequência dos pacientes
-  // ==========================================================
-  getAttendanceSummary: async (doctorId: string) => {
-    const res = await API.get(`/doctors/${doctorId}/attendance-summary`);
-    return res.data;
-  },
-};
-
-// ==========================================================
-// 🔹 Funções auxiliares de dados
-// ==========================================================
-export const fetchPatients = async (): Promise<any[]> => {
-  console.log('📡 doctorService: Buscando pacientes...');
-  const response = await API.get("/doctors/patients");
-  console.log('✅ doctorService: Pacientes recebidos:', response.data?.length);
-  return response.data;
-};
-
-export const fetchStats = async (): Promise<any> => {
-  const response = await API.get("/doctors/appointments/stats");
-  return response.data;
-};
-
-export const fetchTherapySessions = async (): Promise<any[]> => {
-  const response = await API.get("/doctors/therapy-sessions");
-  return response.data;
-};
-
-export const fetchTodaysAppointments = async (): Promise<any[]> => {
-  const response = await API.get("/doctors/appointments/today");
-  return response.data;
-};
-
-export const fetchFutureAppointments = async (): Promise<Appointment[]> => {
-  try {
-    const response = await API.get("/doctors/appointments/future");
-    return response.data;
-  } catch (error) {
-    console.error("Erro ao buscar agendamentos futuros:", error);
-    throw new Error("Não foi possível carregar os agendamentos");
-  }
-};
-
-export const updateClinicalStatus = async ({ appointmentId, status }: ClinicalStatusUpdate) => {
-  try {
-    const response = await API.patch(`/appointments/${appointmentId}/clinical-status`, { status });
-    toast.success('Agendamento concluído com sucesso!');
-  
-    return response.data;
-  } catch (error: any) {
-    console.error("Erro ao atualizar status clínico:", error);
-    if (error.response) {
-      const { status, data } = error.response;
-      if (status === 400) throw new Error(data.error || "Dados inválidos");
-      if (status === 403) throw new Error("Sem permissão para atualizar");
-      if (status === 404) throw new Error("Agendamento não encontrado");
+      await new Promise(resolve => setTimeout(resolve, interval));
+      interval = Math.min(interval * POLL_CONFIG.backoffMultiplier, 5000);
+    } catch (error: any) {
+      if (!error.response) {
+        await new Promise(resolve => setTimeout(resolve, interval));
+        continue;
+      }
+      throw error;
     }
-    throw new Error("Erro ao conectar com o servidor.");
   }
-};
 
-// ==========================================================
-// 👨‍⚕️ Buscar médico logado
-// ==========================================================
-export const fetchCurrentDoctor = async () => {
-  try {
-    const response = await API.get("/users/me");
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching current doctor:", error);
-    throw error;
+  throw new Error('Timeout aguardando processamento do profissional');
+}
+
+export const doctorService = {
+  async list(options: {
+    search?: string;
+    limit?: number;
+    skip?: number;
+    status?: 'active' | 'inactive' | 'all';
+  } = {}): Promise<ListDoctorsResponse['data']> {
+    const { search, limit = 50, skip = 0, status = 'all' } = options;
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    params.append('limit', limit.toString());
+    params.append('skip', skip.toString());
+    params.append('status', status);
+
+    const response = await API.get<ListDoctorsResponse>(`/v2/doctors?${params}`);
+    return response.data.data;
+  },
+
+  async getById(id: string): Promise<Doctor> {
+    const response = await API.get(`/v2/doctors/${id}`);
+    return response.data.data;
+  },
+
+  async getActiveDoctors(): Promise<{ data: Doctor[] }> {
+    const response = await API.get<ListDoctorsResponse>('/v2/doctors?status=active');
+    return { data: response.data.data.doctors };
+  },
+
+  async getInactiveDoctors(): Promise<{ data: Doctor[] }> {
+    const response = await API.get<ListDoctorsResponse>('/v2/doctors?status=inactive');
+    return { data: response.data.data.doctors };
+  },
+
+  async create(
+    data: CreateDoctorParams,
+    options: {
+      onProgress?: (status: string, attempt: number) => void;
+      onSuccess?: (doctor: Doctor) => void;
+      onError?: (error: string) => void;
+      skipPolling?: boolean;
+    } = {}
+  ): Promise<{ doctor: Doctor; isAsync: boolean; eventId?: string }> {
+    const { onProgress, onSuccess, onError, skipPolling } = options;
+    const response = await API.post<CreateDoctorResponse>('/v2/doctors', data);
+    const { eventId, doctorId, status } = response.data.data;
+
+    if (status === 'completed') {
+      const doctor = await this.getById(doctorId);
+      onSuccess?.(doctor);
+      return { doctor, isAsync: false };
+    }
+
+    if (skipPolling) {
+      return {
+        doctor: { ...data, _id: doctorId, id: doctorId, status: 'creating', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as Doctor,
+        isAsync: true,
+        eventId
+      };
+    }
+
+    const finalStatus = await pollEventStatus(eventId, {
+      onProgress,
+      onSuccess: (view) => onSuccess?.(view as Doctor),
+      onError
+    });
+
+    const doctor = finalStatus.doctorView || await this.getById(doctorId);
+    return { doctor, isAsync: true, eventId };
+  },
+
+  async update(
+    id: string,
+    data: Partial<CreateDoctorParams>,
+    options: { onProgress?: (status: string, attempt: number) => void; skipPolling?: boolean } = {}
+  ): Promise<{ doctor: Doctor; isAsync: boolean; eventId?: string }> {
+    const response = await API.put(`/v2/doctors/${id}`, data);
+    const { eventId, status } = response.data.data;
+
+    if (status === 'completed') {
+      const doctor = await this.getById(id);
+      return { doctor, isAsync: false };
+    }
+
+    if (options.skipPolling) {
+      return { doctor: { _id: id, ...data } as Doctor, isAsync: true, eventId };
+    }
+
+    await pollEventStatus(eventId, { onProgress: options.onProgress });
+    const doctor = await this.getById(id);
+    return { doctor, isAsync: true, eventId };
+  },
+
+  async delete(
+    id: string,
+    options: { reason?: string; onProgress?: (status: string, attempt: number) => void; skipPolling?: boolean } = {}
+  ): Promise<{ isAsync: boolean; eventId?: string }> {
+    const response = await API.delete(`/v2/doctors/${id}`, { data: { reason: options.reason } });
+    const { eventId, status } = response.data.data;
+
+    if (status === 'completed') return { isAsync: false };
+    if (options.skipPolling) return { isAsync: true, eventId };
+
+    await pollEventStatus(eventId, { onProgress: options.onProgress });
+    return { isAsync: true, eventId };
+  },
+
+  async deactivate(
+    id: string,
+    options: { onProgress?: (status: string, attempt: number) => void; skipPolling?: boolean } = {}
+  ): Promise<{ doctor: Doctor; isAsync: boolean; eventId?: string }> {
+    const response = await API.patch(`/v2/doctors/${id}/deactivate`);
+    const { eventId, status } = response.data.data;
+
+    if (status === 'completed') {
+      const doctor = await this.getById(id);
+      return { doctor, isAsync: false };
+    }
+
+    if (options.skipPolling) {
+      return { doctor: { _id: id, active: 'false' } as Doctor, isAsync: true, eventId };
+    }
+
+    await pollEventStatus(eventId, { onProgress: options.onProgress });
+    const doctor = await this.getById(id);
+    return { doctor, isAsync: true, eventId };
+  },
+
+  async reactivate(
+    id: string,
+    options: { onProgress?: (status: string, attempt: number) => void; skipPolling?: boolean } = {}
+  ): Promise<{ doctor: Doctor; isAsync: boolean; eventId?: string }> {
+    const response = await API.patch(`/v2/doctors/${id}/reactivate`);
+    const { eventId, status } = response.data.data;
+
+    if (status === 'completed') {
+      const doctor = await this.getById(id);
+      return { doctor, isAsync: false };
+    }
+
+    if (options.skipPolling) {
+      return { doctor: { _id: id, active: 'true' } as Doctor, isAsync: true, eventId };
+    }
+
+    await pollEventStatus(eventId, { onProgress: options.onProgress });
+    const doctor = await this.getById(id);
+    return { doctor, isAsync: true, eventId };
+  },
+
+  async getEventStatus(eventId: string): Promise<DoctorStatusResponse['data']> {
+    const response = await API.get<DoctorStatusResponse>(`/v2/doctors/status/${eventId}`);
+    return response.data.data;
+  },
+
+  // Compatibilidade com código legado
+  async getAllDoctors(): Promise<{ data: Doctor[] }> {
+    const result = await this.list({ status: 'all' });
+    return { data: result.doctors };
+  },
+
+  async getDoctorById(id: string): Promise<{ data: Doctor }> {
+    const doctor = await this.getById(id);
+    return { data: doctor };
+  },
+
+  async getTotalDoctors(): Promise<{ totalDoctors: number }> {
+    const result = await this.list({ status: 'all', limit: 1 });
+    return { totalDoctors: result.pagination.total };
+  },
+
+  async getDoctorOverview(): Promise<any> {
+    const response = await API.get('/v2/doctors/overview');
+    return response.data.data;
+  },
+
+  async getAppointmentCalendarDoctor(id: string): Promise<any> {
+    const response = await API.get(`/v2/doctors/${id}/appointments/calendar`);
+    return response.data.data;
+  },
+
+  async completeTherapySession(sessionId: string): Promise<any> {
+    const res = await API.patch(`/v2/doctors/therapy-sessions/${sessionId}/complete`);
+    return res.data.data;
+  },
+
+  async getAttendanceSummary(doctorId: string): Promise<any> {
+    const res = await API.get(`/v2/doctors/${doctorId}/attendance-summary`);
+    return res.data.data;
+  },
+
+  // Alias para compatibilidade
+  async createDoctor(data: CreateDoctorParams) {
+    const result = await this.create(data);
+    return { data: result.doctor };
+  },
+
+  async updateDoctor(id: string, data: Partial<CreateDoctorParams>) {
+    const result = await this.update(id, data);
+    return { data: result.doctor };
+  },
+
+  async deleteDoctor(id: string) {
+    await this.delete(id);
+    return { data: { message: 'Médico deletado com sucesso' } };
+  },
+
+  async deactivateDoctor(id: string) {
+    const result = await this.deactivate(id);
+    return { data: { message: 'Médico inativado com sucesso', doctor: result.doctor } };
+  },
+
+  async reactivateDoctor(id: string) {
+    const result = await this.reactivate(id);
+    return { data: { message: 'Médico reativado com sucesso', doctor: result.doctor } };
   }
 };
 

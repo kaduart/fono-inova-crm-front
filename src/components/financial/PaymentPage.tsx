@@ -1,21 +1,20 @@
 import { Button, Paper, Typography } from '@mui/material';
-import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { RefreshCw, User, Stethoscope } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import usePayment from '../../hooks/usePayment';
-import { usePixSocket } from '../../hooks/usePixSocket';
+
+import { usePaymentsContext } from '../../contexts/PaymentsContext';
 import {
     exportCSV,
     exportPDF,
     FinancialRecord,
-    getPayments,
     updatePayment
 } from '../../services/paymentService';
 import { formatDateToDMY } from '../../utils/dateFormat';
-import { IDoctor, IPatient } from '../../utils/types/types';
+import { IDoctor } from '../../utils/types/types';
 import { AddPaymentModal } from './AddPaymentModal';
-import DailyClosingReport from './DailyClosingReport';
 import { EditPaymentModal } from './EditPaymentModal';
 import { PaymentActionIcons } from './PaymentAction';
 import { PaymentsFilters } from './PaymentsFilters';
@@ -32,6 +31,49 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
     missed:    { label: 'Faltou',     color: 'bg-orange-100 text-orange-800' },
     completed: { label: 'Realizado',  color: 'bg-purple-100 text-purple-800' },
 };
+
+function mapPaymentStatus(ps: string | undefined): string {
+    switch (ps) {
+        case 'paid':
+        case 'package_paid': return 'paid';
+        case 'partial': return 'partial';
+        case 'canceled': return 'canceled';
+        default: return 'pending';
+    }
+}
+
+function mapAppointmentToRecord(appt: any): FinancialRecord {
+    const dateStr = appt.date ? new Date(appt.date).toISOString().split('T')[0] : '';
+    return {
+        _id: appt.id || appt._id,  // ✅ Backend retorna 'id', não '_id'
+        date: dateStr,
+        description: appt.notes || '',
+        amount: appt.sessionValue || appt.insuranceValue || 0,
+        paid: appt.paymentStatus === 'paid' || appt.paymentStatus === 'package_paid',
+        status: mapPaymentStatus(appt.paymentStatus),
+        specialty: appt.specialty || '',
+        createdAt: appt.createdAt || '',
+        patientId: appt.patient?._id || '',
+        doctorId: appt.doctor?._id || '',
+        serviceType: appt.serviceType || 'session',
+        billingType: appt.billingType || 'particular',
+        paymentMethod: appt.billingType === 'convenio'
+            ? 'Convênio'
+            : (appt.metadata?.paymentMethod || ''),
+        notes: appt.notes || '',
+        packageId: appt.package?._id || appt.package || '',
+        sessionId: appt.session?._id || appt.session || '',
+        advancedSessions: [],
+        patient: appt.patient
+            ? { _id: appt.patient._id, fullName: appt.patient.fullName || appt.patient.nome || appt.patient.name || appt.patientInfo?.fullName || appt.patientInfo?.nome || 'Desconhecido' }
+            : { _id: '', fullName: appt.patientInfo?.fullName || appt.patientInfo?.nome || appt.patientName || 'Desconhecido' },
+        doctor: appt.doctor
+            ? { _id: appt.doctor._id, fullName: appt.doctor.fullName || appt.doctor.nome || appt.doctor.name || appt.professionalName || 'Desconhecido' }
+            : { _id: '', fullName: appt.professionalName || 'Desconhecido' },
+        appointment: { date: appt.date || '', time: appt.time || '', status: appt.operationalStatus || '' },
+        advanceSessions: [],
+    };
+}
 
 function computeDateRange(period: string, customStart: string, customEnd: string): { start: string; end: string } | null {
     const now = new Date();
@@ -229,30 +271,44 @@ const NewPatientsPeriodCard = ({
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface PaymentPageProps {
-    patients?: IPatient[];
     doctors?: IDoctor[];
-    initialPayments: any[];
-    onMarkAsPaid: (payment: FinancialRecord) => void;
-    registerAppointmentAndPayemntFuture: (payment: FinancialRecord) => void;
-    onCancelPayment: (paymentId: string) => void;
+    onMarkAsPaid?: (payment: FinancialRecord) => void;
+    registerAppointmentAndPayemntFuture?: (payment: FinancialRecord) => void;
+    onCancelPayment?: (paymentId: string) => void;
+    enabled?: boolean;
 }
 
-const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCancelPayment, registerAppointmentAndPayemntFuture }: PaymentPageProps) => {
-    const [allPayments, setAllPayments] = useState<FinancialRecord[]>([]);
+const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment, registerAppointmentAndPayemntFuture, enabled = true }: PaymentPageProps) => {
+    // 🚀 SOURCE OF TRUTH: Context API (padrão do projeto)
+    const { 
+        payments: allPayments = [], 
+        setPayments: setAllPayments = () => {},
+        updatePayment: updatePaymentContext,
+        loadPayments,
+        currentMonth: contextMonth
+    } = usePaymentsContext();
+    
+    const currentMonth = new Date().toISOString().substring(0, 7);
+    
+    // 🚀 PaymentPage gerencia seu próprio carregamento via loadPaymentsList
+    // Não chama loadPayments do contexto para evitar race condition
+    // useEffect(() => {
+    //     if (contextMonth !== currentMonth) {
+    //         loadPayments(currentMonth);
+    //     }
+    // }, [contextMonth, currentMonth, loadPayments]);
+    
     const [filteredPayments, setFilteredPayments] = useState<FinancialRecord[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
     const [paymentToEdit, setPaymentToEdit] = useState<FinancialRecord | undefined>(undefined);
     const [error, setError] = useState<string | null>(null);
-    // Estados removidos - agora usando sistema de tabs
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
-    const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month' | 'year' | 'all' | 'last_week' | 'last_month' | 'custom'>('month');
+    const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month' | 'year' | 'all' | 'last_week' | 'last_month' | 'custom'>('day');
     const [customStartDate, setCustomStartDate] = useState<string>('');
     const [customEndDate, setCustomEndDate] = useState<string>('');
     
-    // Performance: lazy loading removido - agora só mostra tabela direto
-
     const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const currentPayments = filteredPayments.slice(startIndex, startIndex + itemsPerPage);
@@ -269,27 +325,31 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
     const [is360ModalOpen, setIs360ModalOpen] = useState(false);
 
     const {
-        payments,
         fetchPayments,
         paymentTotals,
         fetchPaymentTotals,
     } = usePayment();
 
-    // 🔹 Carregar dados ao montar
-    useEffect(() => {
-        if (initialPayments && initialPayments.length > 0) {
-            return;
+    // Busca agendamentos como lista financeira (usa Context, não state local)
+    const loadPaymentsList = useCallback(async (params: { startDate?: string; endDate?: string } = {}) => {
+        setLoading(true);
+        try {
+            const res = await api.get('/appointments', {
+                params: { startDate: params.startDate, endDate: params.endDate, limit: 500 }
+            });
+            const raw = res.data?.data || res.data || [];
+            console.log('[PaymentPage] API retornou:', raw.length, 'agendamentos');
+            const mapped: FinancialRecord[] = (Array.isArray(raw) ? raw : [])
+                .map(mapAppointmentToRecord)
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            console.log('[PaymentPage] Mapeados para:', mapped.length, 'registros');
+            setAllPayments(mapped); // ✅ Context API
+        } catch (err) {
+            console.error('Erro ao carregar lista de pagamentos:', err);
+        } finally {
+            setLoading(false);
         }
-
-        const loadData = async () => {
-            try {
-                await fetchPayments();
-            } catch (err) {
-                toast.error('Erro ao carregar dados financeiros');
-            }
-        };
-        loadData();
-    }, [fetchPayments, initialPayments]);
+    }, [setAllPayments]);
 
     // 🔹 Carregar role do usuário
     useEffect(() => {
@@ -307,14 +367,8 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
         }
     }, []);
 
-    // 🔹 Atualizar pagamentos iniciais
-    useEffect(() => {
-        if (initialPayments) {
-            setAllPayments(initialPayments);
-        }
-    }, [initialPayments]);
 
-    // 🔹 Filtrar por paciente na URL
+    // 🔹 Filtrar por paciente na URL - apenas atualiza estado inicial dos filtros
     useEffect(() => {
         if (patientParam && allPayments.length > 0) {
             const filtered = allPayments.filter(p =>
@@ -323,49 +377,26 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
 
             if (filtered.length > 0) {
                 toast.info(`🔍 Exibindo pagamentos de ${patientParam}`);
-                setFilteredPayments(filtered);
             } else {
                 toast.warn(`Nenhum pagamento encontrado para ${patientParam}`);
             }
-        } else if (!patientParam) {
-            setFilteredPayments(allPayments);
         }
     }, [patientParam, allPayments]);
 
-    // 🔹 Socket para atualizações em tempo real
-    usePixSocket({
-        onPaymentRefresh: () => {
-            fetchPaymentTotals({ period: 'month' });
-            getPayments().then(res => {
-                const data = res.data?.data || res.data;
-                if (data) setAllPayments(data);
-            }).catch(() => {});
-        },
-    });
-
-    // 🔹 Carregar todos os pagamentos - apenas se não tiver initialPayments
+    // 🔹 Carregar pagamentos de hoje quando a aba for ativada
     useEffect(() => {
-        // Se já temos initialPayments, não precisamos carregar novamente
-        if (initialPayments && initialPayments.length > 0) {
-            setAllPayments(initialPayments);
-            return;
-        }
+        if (!enabled) return;
+        const today = new Date().toISOString().split('T')[0];
+        loadPaymentsList({ startDate: today, endDate: today });
+        fetchPaymentTotals({ period: 'day' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [enabled]);
 
-        const loadAll = async () => {
-            setLoading(true);
-            try {
-                const res = await getPayments();
-                setAllPayments(res.data.data);
-                await fetchPaymentTotals({ period: 'month' });
-            } catch (err) {
-                console.error("Erro ao carregar dados:", err);
-                toast.error("Erro ao carregar dados financeiros");
-            } finally {
-                setLoading(false);
-            }
-        };
-        loadAll();
-    }, [fetchPaymentTotals, initialPayments]);
+    // 🔹 Sincroniza filteredPayments com allPayments quando não há filtros ativos
+    useEffect(() => {
+        console.log('[PaymentPage] allPayments mudou:', allPayments.length);
+        setFilteredPayments(allPayments);
+    }, [allPayments]);
 
     const handleEditAmount = (paymentId: string) => {
         const payment = allPayments.find(p => p._id === paymentId);
@@ -395,8 +426,8 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
             // ✅ Normaliza a resposta (mesmo padrão do usePayment)
             const updated = response.data?.data ?? response.data ?? response;
 
-            // ✅ Atualiza os estados locais com o pagamento atualizado
-            setAllPayments(prev => prev.map(p => p._id === data.id ? updated : p));
+            // ✅ Atualiza Context (Source of Truth)
+            updatePaymentContext(updated);
             setFilteredPayments(prev => prev.map(p => p._id === data.id ? updated : p));
 
             // ✅ Fecha modal
@@ -478,533 +509,519 @@ const PaymentPage = ({ patients, doctors, initialPayments, onMarkAsPaid, onCance
     };
 
     return (
-        <div className="space-y-6 p-4">
-            {/* CONTEÚDO: Tabela de Lançamentos */}
-            <div className="space-y-6">
-                        {/* 🔹 RESUMO FINANCEIRO */}
-                        {user && (
-                            <div className="mb-6">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <label className="text-sm font-medium text-gray-700">Período:</label>
-                                    
-                                    {/* 🔹 CHIPS DE FILTRO RÁPIDO */}
-                                    <div className="flex flex-wrap gap-2">
-                                        {[
-                                            { key: 'day', label: 'Hoje', color: 'bg-blue-100 text-blue-800 hover:bg-blue-200' },
-                                            { key: 'week', label: 'Esta Semana', color: 'bg-green-100 text-green-800 hover:bg-green-200' },
-                                            { key: 'month', label: 'Este Mês', color: 'bg-purple-100 text-purple-800 hover:bg-purple-200' },
-                                            { key: 'last_week', label: 'Semana Passada', color: 'bg-orange-100 text-orange-800 hover:bg-orange-200' },
-                                            { key: 'last_month', label: 'Mês Passado', color: 'bg-pink-100 text-pink-800 hover:bg-pink-200' },
-                                        ].map((chip) => (
-                                            <button
-                                                key={chip.key}
-                                                onClick={() => {
-                                                    setSelectedPeriod(chip.key as any);
-                                                    // Trigger the same logic as select onChange
-                                                    if (chip.key === 'last_week') {
-                                                        const now = new Date();
-                                                        const dayOfWeek = now.getDay();
-                                                        const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-                                                        const lastMonday = new Date(now);
-                                                        lastMonday.setDate(now.getDate() - diffToMonday - 7);
-                                                        lastMonday.setHours(0, 0, 0, 0);
-                                                        const lastSunday = new Date(lastMonday);
-                                                        lastSunday.setDate(lastMonday.getDate() + 6);
-                                                        lastSunday.setHours(23, 59, 59, 999);
-                                                        fetchPaymentTotals({
-                                                            period: 'custom',
-                                                            startDate: lastMonday.toISOString(),
-                                                            endDate: lastSunday.toISOString()
-                                                        });
-                                                    } else if (chip.key === 'last_month') {
-                                                        const now = new Date();
-                                                        const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                                                        const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-                                                        lastDayLastMonth.setHours(23, 59, 59, 999);
-                                                        fetchPaymentTotals({
-                                                            period: 'custom',
-                                                            startDate: firstDayLastMonth.toISOString(),
-                                                            endDate: lastDayLastMonth.toISOString()
-                                                        });
-                                                    } else {
-                                                        fetchPaymentTotals({ period: chip.key as any });
-                                                    }
-                                                }}
-                                                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                                                    selectedPeriod === chip.key 
-                                                        ? 'ring-2 ring-offset-1 ring-green-500 ' + chip.color 
-                                                        : chip.color
-                                                }`}
-                                            >
-                                                {chip.label}
-                                            </button>
-                                        ))}
-                                    </div>
+    <div className="space-y-4 p-3 sm:p-4">
+        {/* Área de Filtros e Resumo Financeiro */}
+        <div className="space-y-4">
+            {/* Linha de período e botões de exportação */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                {/* Seletor de período (mantido exatamente igual) */}
+                <div className="flex flex-wrap items-center gap-2">
+                    <label className="text-xs font-medium text-gray-600">Período:</label>
+                    <div className="flex flex-wrap gap-1.5">
+                        {[
+                            { key: 'day', label: 'Hoje', color: 'bg-blue-100 text-blue-800 hover:bg-blue-200' },
+                            { key: 'week', label: 'Esta Semana', color: 'bg-green-100 text-green-800 hover:bg-green-200' },
+                            { key: 'month', label: 'Este Mês', color: 'bg-purple-100 text-purple-800 hover:bg-purple-200' },
+                            { key: 'last_week', label: 'Semana Passada', color: 'bg-orange-100 text-orange-800 hover:bg-orange-200' },
+                            { key: 'last_month', label: 'Mês Passado', color: 'bg-pink-100 text-pink-800 hover:bg-pink-200' },
+                        ].map((chip) => (
+                            <button
+                                key={chip.key}
+                                onClick={() => {
+                                    setSelectedPeriod(chip.key as any);
+                                    // ... lógica original
+                                    if (chip.key === 'last_week') {
+                                        const now = new Date();
+                                        const dayOfWeek = now.getDay();
+                                        const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                                        const lastMonday = new Date(now);
+                                        lastMonday.setDate(now.getDate() - diffToMonday - 7);
+                                        lastMonday.setHours(0, 0, 0, 0);
+                                        const lastSunday = new Date(lastMonday);
+                                        lastSunday.setDate(lastMonday.getDate() + 6);
+                                        lastSunday.setHours(23, 59, 59, 999);
+                                        fetchPaymentTotals({
+                                            period: 'custom',
+                                            startDate: lastMonday.toISOString(),
+                                            endDate: lastSunday.toISOString()
+                                        });
+                                    } else if (chip.key === 'last_month') {
+                                        const now = new Date();
+                                        const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                                        const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+                                        lastDayLastMonth.setHours(23, 59, 59, 999);
+                                        fetchPaymentTotals({
+                                            period: 'custom',
+                                            startDate: firstDayLastMonth.toISOString(),
+                                            endDate: lastDayLastMonth.toISOString()
+                                        });
+                                    } else {
+                                        fetchPaymentTotals({ period: chip.key as any });
+                                        const range = computeDateRange(chip.key, '', '');
+                                        if (range) loadPaymentsList({ startDate: range.start, endDate: range.end });
+                                    }
+                                }}
+                                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                                    selectedPeriod === chip.key
+                                        ? 'ring-2 ring-offset-1 ring-green-500 ' + chip.color
+                                        : chip.color
+                                }`}
+                            >
+                                {chip.label}
+                            </button>
+                        ))}
+                    </div>
 
-                                    <select
-                                        className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                        value={selectedPeriod}
-                                        onChange={(e) => {
-                                            const value = e.target.value;
-                                            setSelectedPeriod(value);
+                    <select
+                        className="border border-gray-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+                        value={selectedPeriod}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            setSelectedPeriod(value);
+                            // ... lógica original
+                            if (/^\d{4}-\d{2}$/.test(value)) {
+                                const [year, month] = value.split('-').map(Number);
+                                const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
+                                const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+                                fetchPaymentTotals({ period: 'custom', startDate, endDate });
+                                loadPaymentsList({ startDate, endDate });
+                            } else if (value === 'last_week') {
+                                const now = new Date();
+                                const dayOfWeek = now.getDay();
+                                const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                                const lastMonday = new Date(now);
+                                lastMonday.setDate(now.getDate() - diffToMonday - 7);
+                                lastMonday.setHours(0, 0, 0, 0);
+                                const lastSunday = new Date(lastMonday);
+                                lastSunday.setDate(lastMonday.getDate() + 6);
+                                lastSunday.setHours(23, 59, 59, 999);
+                                const lwStart = lastMonday.toISOString().split('T')[0];
+                                const lwEnd = lastSunday.toISOString().split('T')[0];
+                                fetchPaymentTotals({ period: 'custom', startDate: lwStart, endDate: lwEnd });
+                                loadPaymentsList({ startDate: lwStart, endDate: lwEnd });
+                            } else if (value === 'last_month') {
+                                const now = new Date();
+                                const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                                const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+                                lastDayLastMonth.setHours(23, 59, 59, 999);
+                                const sd = firstDayLastMonth.toISOString().split('T')[0];
+                                const ed = lastDayLastMonth.toISOString().split('T')[0];
+                                fetchPaymentTotals({ period: 'custom', startDate: sd, endDate: ed });
+                                loadPaymentsList({ startDate: sd, endDate: ed });
+                            } else if (value === 'custom') {
+                                return;
+                            } else {
+                                fetchPaymentTotals({ period: value as 'day' | 'week' | 'month' | 'year' | 'all' });
+                                const range = computeDateRange(value, '', '');
+                                if (range) loadPaymentsList({ startDate: range.start, endDate: range.end });
+                            }
+                        }}
+                    >
+                        <optgroup label="Períodos Rápidos">
+                            <option value="day">Hoje</option>
+                            <option value="week">Esta Semana</option>
+                            <option value="month">Este Mês</option>
+                            <option value="last_week">📅 Semana Passada</option>
+                            <option value="last_month">📅 Mês Passado</option>
+                            <option value="year">Este Ano</option>
+                            <option value="all">Todo Período</option>
+                            <option value="custom">📆 Período Customizado</option>
+                        </optgroup>
+                        <optgroup label="Últimos 12 Meses">
+                            {(() => {
+                                const months = [];
+                                const now = new Date();
+                                const monthNames = [
+                                    'Janeiro', 'Fevereiro', 'Março', 'Abril',
+                                    'Maio', 'Junho', 'Julho', 'Agosto',
+                                    'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+                                ];
+                                for (let i = 0; i < 12; i++) {
+                                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                                    const year = d.getFullYear();
+                                    const month = d.getMonth();
+                                    const value = `${year}-${String(month + 1).padStart(2, '0')}`;
+                                    const label = `${monthNames[month]} ${year}`;
+                                    months.push(<option key={value} value={value}>{label}</option>);
+                                }
+                                return months;
+                            })()}
+                        </optgroup>
+                    </select>
 
-                                            // 🔹 Se for mês específico (formato YYYY-MM)
-                                            if (/^\d{4}-\d{2}$/.test(value)) {
-                                                const [year, month] = value.split('-').map(Number);
-                                                const startDate = new Date(year, month - 1, 1).toISOString();
-                                                const endDate = new Date(year, month, 0, 23, 59, 59, 999).toISOString();
+                    {selectedPeriod === 'custom' && (
+                        <div className="flex items-center gap-1.5">
+                            <input
+                                type="date"
+                                className="border border-gray-300 rounded-lg px-2 py-1 text-xs focus:ring-2 focus:ring-green-500"
+                                value={customStartDate}
+                                onChange={(e) => setCustomStartDate(e.target.value)}
+                            />
+                            <span className="text-gray-500 text-xs">até</span>
+                            <input
+                                type="date"
+                                className="border border-gray-300 rounded-lg px-2 py-1 text-xs focus:ring-2 focus:ring-green-500"
+                                value={customEndDate}
+                                onChange={(e) => setCustomEndDate(e.target.value)}
+                            />
+                            <button
+                                onClick={() => {
+                                    if (customStartDate && customEndDate) {
+                                        fetchPaymentTotals({
+                                            period: 'custom',
+                                            startDate: new Date(customStartDate).toISOString(),
+                                            endDate: new Date(customEndDate + 'T23:59:59').toISOString()
+                                        });
+                                        loadPaymentsList({ startDate: customStartDate, endDate: customEndDate });
+                                    } else {
+                                        toast.warning('Selecione as datas inicial e final');
+                                    }
+                                }}
+                                disabled={!customStartDate || !customEndDate}
+                                className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-medium hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                            >
+                                Aplicar
+                            </button>
+                        </div>
+                    )}
 
-                                                fetchPaymentTotals({
-                                                    period: 'custom',
-                                                    startDate,
-                                                    endDate
-                                                });
-                                            } else if (value === 'last_week') {
-                                                // 🔹 Semana Passada
-                                                const now = new Date();
-                                                const dayOfWeek = now.getDay();
-                                                const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-                                                const lastMonday = new Date(now);
-                                                lastMonday.setDate(now.getDate() - diffToMonday - 7);
-                                                lastMonday.setHours(0, 0, 0, 0);
-                                                const lastSunday = new Date(lastMonday);
-                                                lastSunday.setDate(lastMonday.getDate() + 6);
-                                                lastSunday.setHours(23, 59, 59, 999);
-                                                
-                                                fetchPaymentTotals({
-                                                    period: 'custom',
-                                                    startDate: lastMonday.toISOString(),
-                                                    endDate: lastSunday.toISOString()
-                                                });
-                                            } else if (value === 'last_month') {
-                                                // 🔹 Mês Passado
-                                                const now = new Date();
-                                                const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                                                const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-                                                lastDayLastMonth.setHours(23, 59, 59, 999);
-                                                
-                                                fetchPaymentTotals({
-                                                    period: 'custom',
-                                                    startDate: firstDayLastMonth.toISOString(),
-                                                    endDate: lastDayLastMonth.toISOString()
-                                                });
-                                            } else if (value === 'custom') {
-                                                // 🔹 Período Customizado - não faz nada até preencher datas
-                                                return;
-                                            } else {
-                                                // 🔹 Filtros padrão (day, week, month, year, all)
-                                                fetchPaymentTotals({ period: value as 'day' | 'week' | 'month' | 'year' | 'all' });
-                                            }
-                                        }}
-                                    >
-                                        <optgroup label="Períodos Rápidos">
-                                            <option value="day">Hoje</option>
-                                            <option value="week">Esta Semana</option>
-                                            <option value="month">Este Mês</option>
-                                            <option value="last_week">📅 Semana Passada</option>
-                                            <option value="last_month">📅 Mês Passado</option>
-                                            <option value="year">Este Ano</option>
-                                            <option value="all">Todo Período</option>
-                                            <option value="custom">📆 Período Customizado</option>
-                                        </optgroup>
-                                        <optgroup label="Últimos 12 Meses">
+                    {loading && <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-500"></div>}
+                </div>
+
+                {/* Botões de exportação */}
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outlined"
+                        startIcon={
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                        }
+                        onClick={handleExportCSV}
+                        disabled={loading}
+                        size="small"
+                        sx={{
+                            borderRadius: 1.5,
+                            px: 2,
+                            py: 0.5,
+                            fontSize: '0.75rem',
+                            fontWeight: 500,
+                            textTransform: 'none'
+                        }}
+                    >
+                        CSV
+                    </Button>
+                    <Button
+                        variant="outlined"
+                        startIcon={
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                        }
+                        onClick={handleExportPDF}
+                        disabled={loading}
+                        size="small"
+                        sx={{
+                            borderRadius: 1.5,
+                            px: 2,
+                            py: 0.5,
+                            fontSize: '0.75rem',
+                            fontWeight: 500,
+                            textTransform: 'none',
+                            borderColor: 'grey.300',
+                            color: 'grey.700',
+                        }}
+                    >
+                        PDF
+                    </Button>
+                </div>
+            </div>
+
+            {/* Cards de resumo (FinancialSummaryCard + NewPatientsPeriodCard) */}
+            {paymentTotals && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                    <div className="lg:col-span-2">
+                        <FinancialSummaryCard
+                            data={{
+                                totalReceived: paymentTotals.totalReceived || 0,
+                                totalPending: paymentTotals.totalPending || 0,
+                                countReceived: paymentTotals.countReceived || 0,
+                                countPending: paymentTotals.countPending || 0,
+                                particularReceived: paymentTotals.particularReceived || 0,
+                                particularPending: paymentTotals.particularPending || 0,
+                                particularCountReceived: paymentTotals.particularCountReceived || 0,
+                                particularCountPending: paymentTotals.particularCountPending || 0,
+                            }}
+                            periodLabel={
+                                customStartDate && customEndDate
+                                    ? `${customStartDate} a ${customEndDate}`
+                                    : selectedPeriod === 'day'
+                                    ? 'Hoje'
+                                    : selectedPeriod === 'week'
+                                    ? 'Esta Semana'
+                                    : selectedPeriod === 'month'
+                                    ? 'Este Mês'
+                                    : new Date().toLocaleDateString('pt-BR')
+                            }
+                        />
+                    </div>
+                    <div>
+                        <NewPatientsPeriodCard
+                            selectedPeriod={selectedPeriod}
+                            customStartDate={customStartDate}
+                            customEndDate={customEndDate}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {/* Mensagem quando não há resumo */}
+            {!paymentTotals && !loading && (
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-yellow-700 text-xs">Selecione um período acima para visualizar o resumo financeiro.</p>
+                </div>
+            )}
+
+            {/* Filtro de paciente na URL (opcional) */}
+            {patientParam && (
+                <div className="flex justify-end">
+                    <Button
+                        variant="outlined"
+                        startIcon={
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                        }
+                        onClick={() => {
+                            window.history.replaceState(null, "", "/financeiro");
+                            setFilteredPayments(allPayments);
+                            toast.info("Filtro de paciente removido");
+                        }}
+                        size="small"
+                        sx={{ fontSize: '0.7rem', textTransform: 'none' }}
+                    >
+                        Limpar filtro de {patientParam}
+                    </Button>
+                </div>
+            )}
+
+            {/* Componente de filtros avançados (PaymentsFilters) */}
+            <PaymentsFilters doctors={doctors || []} payments={allPayments} onFilter={setFilteredPayments} />
+
+            {/* Tabela de pagamentos */}
+            {error ? (
+                <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'error.light', color: 'error.dark' }}>
+                    <Typography variant="body2" gutterBottom>{error}</Typography>
+                    <Button variant="contained" startIcon={<RefreshCw size={14} />} onClick={fetchPayments} size="small">
+                        Tentar novamente
+                    </Button>
+                </Paper>
+            ) : loading ? (
+                <FinancialTableLoading rowCount={6} colSpan={1} />
+            ) : (
+                <Paper elevation={0} sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: 'grey.200' }}>
+                    <div className="overflow-x-auto">
+                        <table className="w-full min-w-[700px] text-sm">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Paciente / Profissional</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hidden md:table-cell">Agendamento</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hidden lg:table-cell">Sessões</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hidden lg:table-cell">Tipo</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Valor</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hidden sm:table-cell">Método</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {currentPayments.map(payment => (
+                                    <tr key={payment._id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-3 py-2">
+                                            <div className="flex items-center gap-1.5 mb-1">
+                                                <User className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                                                <span
+                                                    className="cursor-pointer hover:text-blue-600 hover:underline font-medium text-xs text-gray-900 truncate max-w-[130px]"
+                                                    title={payment.patient?.fullName}
+                                                    onClick={() => payment.patient?._id && handleOpen360(payment.patient._id)}
+                                                >
+                                                    {payment.patient?.fullName}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                <Stethoscope className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                                                <span className="text-xs text-gray-600 truncate max-w-[130px]" title={payment.doctor?.fullName}>
+                                                    {payment.doctor?.fullName}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-3 py-2 hidden md:table-cell">
                                             {(() => {
-                                                const months = [];
-                                                const now = new Date();
-                                                const monthNames = [
-                                                    'Janeiro', 'Fevereiro', 'Março', 'Abril',
-                                                    'Maio', 'Junho', 'Julho', 'Agosto',
-                                                    'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-                                                ];
-
-                                                for (let i = 0; i < 12; i++) {
-                                                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                                                    const year = d.getFullYear();
-                                                    const month = d.getMonth();
-                                                    const value = `${year}-${String(month + 1).padStart(2, '0')}`;
-                                                    const label = `${monthNames[month]} ${year}`;
-
-                                                    months.push(
-                                                        <option key={value} value={value}>
-                                                            {label}
-                                                        </option>
-                                                    );
-                                                }
-                                                return months;
+                                                const appointmentDate = payment.appointment?.date || payment.date;
+                                                const appointmentTime = payment.appointment?.time;
+                                                const operationalStatus = payment.appointment?.status || 'scheduled';
+                                                const statusColors: Record<string, string> = {
+                                                    scheduled: 'bg-blue-100 text-blue-800 border-blue-200',
+                                                    confirmed: 'bg-green-100 text-green-800 border-green-200',
+                                                    completed: 'bg-purple-100 text-purple-800 border-purple-200',
+                                                    canceled: 'bg-red-100 text-red-800 border-red-200',
+                                                    missed: 'bg-orange-100 text-orange-800 border-orange-200',
+                                                    processing_complete: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                                                };
+                                                const colors = statusColors[operationalStatus] || statusColors.scheduled;
+                                                if (!appointmentDate) return <span className="text-xs text-gray-400">—</span>;
+                                                return (
+                                                    <div className={`inline-flex flex-col px-2 py-1 rounded-md border ${colors}`}>
+                                                        <span className="text-[10px] font-medium">{formatDateToDMY(appointmentDate)}</span>
+                                                        {appointmentTime && <span className="text-xs font-bold">{appointmentTime}</span>}
+                                                    </div>
+                                                );
                                             })()}
-                                        </optgroup>
-                                    </select>
-
-                                    {/* 🔹 Inputs de Período Customizado */}
-                                    {selectedPeriod === 'custom' && (
-                                        <div className="flex items-center gap-2 ml-2">
-                                            <input
-                                                type="date"
-                                                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                                                value={customStartDate}
-                                                onChange={(e) => setCustomStartDate(e.target.value)}
-                                                placeholder="Data Inicial"
-                                            />
-                                            <span className="text-gray-500">até</span>
-                                            <input
-                                                type="date"
-                                                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                                                value={customEndDate}
-                                                onChange={(e) => setCustomEndDate(e.target.value)}
-                                                placeholder="Data Final"
-                                            />
-                                            <button
-                                                onClick={() => {
-                                                    if (customStartDate && customEndDate) {
-                                                        const start = new Date(customStartDate);
-                                                        start.setHours(0, 0, 0, 0);
-                                                        const end = new Date(customEndDate);
-                                                        end.setHours(23, 59, 59, 999);
-                                                        fetchPaymentTotals({
-                                                            period: 'custom',
-                                                            startDate: start.toISOString(),
-                                                            endDate: end.toISOString()
-                                                        });
-                                                    } else {
-                                                        toast.warning('Selecione as datas inicial e final');
-                                                    }
+                                        </td>
+                                        <td className="px-3 py-2 text-center text-xs text-gray-600 hidden lg:table-cell">
+                                            {payment && payment.advancedSessions?.length > 0 ? payment.advancedSessions.length : '0'}
+                                        </td>
+                                        <td className="px-3 py-2 text-xs text-gray-600 hidden lg:table-cell">
+                                            {getServiceTypeLabel(payment.serviceType)}
+                                        </td>
+                                        <td className="px-3 py-2 text-xs font-semibold text-gray-900">
+                                            {payment.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                        </td>
+                                        <td className="px-3 py-2">
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                                payment.status === 'paid'
+                                                    ? 'bg-green-100 text-green-800'
+                                                    : payment.status === 'partial'
+                                                    ? 'bg-orange-100 text-orange-800'
+                                                    : payment.status === 'pending'
+                                                    ? 'bg-yellow-100 text-yellow-800'
+                                                    : 'bg-red-100 text-red-800'
+                                            }`}>
+                                                {payment.status === 'paid'
+                                                    ? 'PAGO'
+                                                    : payment.status === 'partial'
+                                                    ? 'PARCIAL'
+                                                    : payment.status === 'pending'
+                                                    ? 'PENDENTE'
+                                                    : 'CANCELADO'}
+                                            </span>
+                                        </td>
+                                        <td className="px-3 py-2 hidden sm:table-cell">
+                                            {(() => {
+                                                const billingType = payment.billingType || 'particular';
+                                                const billingConfig: Record<string, { label: string; color: string; icon: string }> = {
+                                                    particular: { label: 'Particular', color: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: '💵' },
+                                                    convenio: { label: 'Convênio', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: '🏥' },
+                                                    liminar: { label: 'Liminar', color: 'bg-amber-100 text-amber-800 border-amber-200', icon: '⚖️' },
+                                                    sus: { label: 'SUS', color: 'bg-teal-100 text-teal-800 border-teal-200', icon: '🏛️' }
+                                                };
+                                                const config = billingConfig[billingType] || billingConfig.particular;
+                                                return (
+                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${config.color}`}>
+                                                        <span>{config.icon}</span>
+                                                        <span>{config.label}</span>
+                                                    </span>
+                                                );
+                                            })()}
+                                        </td>
+                                        <td className="px-3 py-2">
+                                            <PaymentActionIcons
+                                                payment={payment}
+                                                onMarkAsPaid={() => onMarkAsPaid(payment)}
+                                                registerAppointmentAndPayemntFuture={() => registerAppointmentAndPayemntFuture(payment)}
+                                                onCancelPayment={onCancelPayment}
+                                                onEditAmount={handleEditAmount}
+                                                onAddPaymentToPackage={(pkg) => {
+                                                    setSelectedPackage(pkg);
+                                                    setSelectedPackageId(pkg._id);
+                                                    setIsAddModalOpen(true);
                                                 }}
-                                                disabled={!customStartDate || !customEndDate}
-                                                className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                                            >
-                                                Aplicar
-                                            </button>
-                                        </div>
-                                    )}
+                                                disabled={!(userRole && ['admin', 'secretary'].includes(userRole) && payment.status !== 'canceled')}
+                                            />
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
 
-                                    {loading && (
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>
-                                    )}
-                                </div>
-
-                                {paymentTotals && (
-                                    <FinancialSummaryCard
-                                        data={{
-                                            totalReceived: paymentTotals.totalReceived || 0,
-                                            totalPending: paymentTotals.totalPending || 0,
-                                            countReceived: paymentTotals.countReceived || 0,
-                                            countPending: paymentTotals.countPending || 0,
-                                            // 💰 Particular (separado)
-                                            particularReceived: paymentTotals.particularReceived || 0,
-                                            particularPending: paymentTotals.particularPending || 0,
-                                            particularCountReceived: paymentTotals.particularCountReceived || 0,
-                                            particularCountPending: paymentTotals.particularCountPending || 0,
-                                            // 🏥 Convênios
-                                            totalInsuranceProduction: paymentTotals.totalInsuranceProduction || 0,
-                                            totalInsuranceReceived: paymentTotals.totalInsuranceReceived || 0,
-                                            totalInsurancePending: paymentTotals.totalInsurancePending || 0,
-                                            countInsuranceTotal: paymentTotals.countInsuranceTotal || 0,
-                                            countInsuranceReceived: paymentTotals.countInsuranceReceived || 0,
-                                            countInsurancePending: paymentTotals.countInsurancePending || 0,
-                                            totalCombined: paymentTotals.totalCombined || 0,
-                                        }}
-                                    />
-                                )}
-
-                                <NewPatientsPeriodCard
-                                    selectedPeriod={selectedPeriod}
-                                    customStartDate={customStartDate}
-                                    customEndDate={customEndDate}
-                                />
-
-                                {!paymentTotals && !loading && (
-                                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-                                        <p className="text-yellow-700 text-sm">
-                                            Selecione um período acima para visualizar o resumo financeiro.
-                                        </p>
-                                    </div>
-                                )}
+                    {/* Paginação */}
+                    <div className="px-4 py-3 border-t border-gray-200">
+                        <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
+                            <div className="flex items-center gap-2">
+                                <Typography variant="body2" color="grey.600" className="text-xs">
+                                    Itens por página:
+                                </Typography>
+                                <select
+                                    value={itemsPerPage}
+                                    onChange={(e) => {
+                                        setItemsPerPage(Number(e.target.value));
+                                        setCurrentPage(1);
+                                    }}
+                                    className="border border-gray-300 rounded-md px-2 py-0.5 text-xs"
+                                >
+                                    <option value={5}>5</option>
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                </select>
                             </div>
-                        )}
 
-                        {/* 🔹 BOTÕES DE EXPORTAÇÃO */}
-                        <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-gray-50 rounded-2xl">
-                            <Typography variant="h6" fontWeight="600" color="grey.800">
-                                Exportar Relatórios
-                            </Typography>
-                            <div className="flex items-center gap-3">
-                                <Button
-                                    variant="outlined"
-                                    startIcon={
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                                        </svg>
-                                    }
-                                    onClick={handleExportCSV}
-                                    disabled={loading}
-                                    sx={{
-                                        borderRadius: 2,
-                                        px: 3,
-                                        py: 1,
-                                        fontWeight: 600,
-                                    }}
-                                >
-                                    Exportar CSV
+                            <div className="flex items-center gap-1">
+                                <Button variant="outlined" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} size="small" sx={{ minWidth: '32px', height: '32px' }}>
+                                    Anterior
                                 </Button>
-
-                                <Button
-                                    variant="outlined"
-                                    startIcon={
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                                        </svg>
-                                    }
-                                    onClick={handleExportPDF}
-                                    disabled={loading}
-                                    sx={{
-                                        borderRadius: 2,
-                                        px: 3,
-                                        py: 1,
-                                        fontWeight: 600,
-                                        borderColor: 'grey.300',
-                                        color: 'grey.700',
-                                        '&:hover': {
-                                            borderColor: 'grey.400',
-                                            backgroundColor: 'grey.50'
-                                        }
-                                    }}
-                                >
-                                    Exportar PDF
+                                {Array.from({ length: Math.min(totalPages, 5) }, (_, index) => {
+                                    const page = index + 1;
+                                    const isActive = currentPage === page;
+                                    return (
+                                        <Button
+                                            key={page}
+                                            variant={isActive ? "contained" : "outlined"}
+                                            onClick={() => setCurrentPage(page)}
+                                            size="small"
+                                            sx={{ minWidth: '32px', height: '32px', fontWeight: isActive ? 'bold' : 'normal' }}
+                                        >
+                                            {page}
+                                        </Button>
+                                    );
+                                })}
+                                {totalPages > 5 && <span className="text-gray-500 text-xs">...</span>}
+                                <Button variant="outlined" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} size="small" sx={{ minWidth: '32px', height: '32px' }}>
+                                    Próxima
                                 </Button>
                             </div>
                         </div>
-
-                        {/* 🔹 FILTROS */}
-                        {patientParam && (
-                            <div className="flex justify-end">
-                                <Button
-                                    variant="outlined"
-                                    startIcon={
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                                        </svg>
-                                    }
-                                    onClick={() => {
-                                        window.history.replaceState(null, "", "/financeiro");
-                                        setFilteredPayments(allPayments);
-                                        toast.info("Filtro de paciente removido");
-                                    }}
-                                    sx={{
-                                        borderRadius: 2,
-                                        px: 3,
-                                        py: 1,
-                                        fontSize: '0.875rem'
-                                    }}
-                                >
-                                    Limpar filtro de {patientParam}
-                                </Button>
-                            </div>
-                        )}
-
-                        <PaymentsFilters
-                            doctors={doctors || []}
-                            payments={allPayments}
-                            onFilter={setFilteredPayments}
-                        />
-
-                        {/* 🔹 TABELA DE PAGAMENTOS */}
-                        {error ? (
-                            <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'error.light', color: 'error.dark' }}>
-                                <Typography variant="body1" gutterBottom>{error}</Typography>
-                                <Button
-                                    variant="contained"
-                                    startIcon={<RefreshCw size={16} />}
-                                    onClick={fetchPayments}
-                                    sx={{ mt: 2 }}
-                                >
-                                    Tentar novamente
-                                </Button>
-                            </Paper>
-                        ) : loading ? (
-                            <FinancialTableLoading rowCount={8} colSpan={1} />
-                        ) : (
-                            <Paper elevation={0} sx={{ borderRadius: 2, overflow: 'hidden', border: 1, borderColor: 'grey.200' }}>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full min-w-[700px]">
-                                        <thead className="bg-gray-50">
-                                            <tr>
-                                                <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Paciente</th>
-                                                <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hidden sm:table-cell">Profissional</th>
-                                                <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hidden md:table-cell">Agendamento</th>
-                                                <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hidden lg:table-cell">Sessões</th>
-                                                <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hidden lg:table-cell">Tipo</th>
-                                                <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Valor</th>
-                                                <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                                                <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hidden sm:table-cell">Método</th>
-                                                <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ações</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-gray-200">
-                                            {currentPayments.map(payment => (
-                                                <tr key={payment._id} className="hover:bg-gray-50 transition-colors">
-                                                    <td className="px-2 py-2 sm:px-4 sm:py-3 text-sm text-gray-900 max-w-[120px] truncate" title={payment.patient?.fullName}>
-                                                        <span
-                                                            className="cursor-pointer hover:text-blue-600 hover:underline font-medium"
-                                                            onClick={() => payment.patient?._id && handleOpen360(payment.patient._id)}
-                                                        >
-                                                            {payment.patient?.fullName}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-2 py-2 sm:px-4 sm:py-3 text-sm text-gray-600 max-w-[120px] truncate hidden sm:table-cell" title={payment.doctor?.fullName}>
-                                                        {payment.doctor?.fullName}
-                                                    </td>
-                                                    <td className="px-2 py-2 sm:px-4 sm:py-3 text-sm text-gray-600 hidden md:table-cell">
-                                                        {payment && payment.appointment
-                                                            ? `${formatDateToDMY(payment.appointment.date)} às ${payment.appointment.time}`
-                                                            : 'Pacote'}
-                                                    </td>
-                                                    <td className="px-2 py-2 sm:px-4 sm:py-3 text-sm text-gray-600 text-center hidden lg:table-cell">
-                                                        {payment && payment.advancedSessions?.length > 0 ? payment.advancedSessions.length : '0'}
-                                                    </td>
-                                                    <td className="px-2 py-2 sm:px-4 sm:py-3 text-sm text-gray-600 hidden lg:table-cell">
-                                                        {getServiceTypeLabel(payment.serviceType)}
-                                                    </td>
-                                                    <td className="px-2 py-2 sm:px-4 sm:py-3 text-sm font-semibold text-gray-900">
-                                                        {payment.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                                    </td>
-                                                    <td className="px-2 py-2 sm:px-4 sm:py-3">
-                                                        <span
-                                                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${payment.status === 'paid'
-                                                                ? 'bg-green-100 text-green-800'
-                                                                : payment.status === 'partial'
-                                                                    ? 'bg-orange-100 text-orange-800'
-                                                                    : payment.status === 'pending'
-                                                                        ? 'bg-yellow-100 text-yellow-800'
-                                                                        : 'bg-red-100 text-red-800'
-                                                                }`}
-                                                        >
-                                                            {payment.status === 'paid'
-                                                                ? 'PAGO'
-                                                                : payment.status === 'partial'
-                                                                    ? 'PARCIAL'
-                                                                    : payment.status === 'pending'
-                                                                        ? 'PENDENTE'
-                                                                        : 'CANCELADO'}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-2 py-2 sm:px-4 sm:py-3 text-sm text-gray-600 hidden sm:table-cell">
-                                                        {payment.paymentMethod}
-                                                    </td>
-                                                    <td className="px-2 py-2 sm:px-4 text-sm font-medium">
-                                                        <PaymentActionIcons
-                                                            payment={payment}
-                                                            onMarkAsPaid={() => onMarkAsPaid(payment)}
-                                                            registerAppointmentAndPayemntFuture={() => registerAppointmentAndPayemntFuture(payment)}
-                                                            onCancelPayment={onCancelPayment}
-                                                            onEditAmount={handleEditAmount}
-                                                            onAddPaymentToPackage={(pkg) => {
-                                                                setSelectedPackage(pkg);
-                                                                setSelectedPackageId(pkg._id);
-                                                                setIsAddModalOpen(true);
-                                                            }}
-                                                            disabled={!(userRole && ['admin', 'secretary'].includes(userRole) && payment.status !== 'canceled')}
-                                                        />
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                {/* 🔹 PAGINAÇÃO */}
-                                <div className="px-6 py-4 border-t border-gray-200">
-                                    <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                                        <div className="flex items-center space-x-2">
-                                            <Typography variant="body2" color="grey.600">
-                                                Itens por página:
-                                            </Typography>
-                                            <select
-                                                value={itemsPerPage}
-                                                onChange={(e) => {
-                                                    setItemsPerPage(Number(e.target.value));
-                                                    setCurrentPage(1);
-                                                }}
-                                                className="border border-gray-300 rounded-lg px-3 py-1 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500"
-                                            >
-                                                <option value={5}>5</option>
-                                                <option value={10}>10</option>
-                                                <option value={20}>20</option>
-                                                <option value={50}>50</option>
-                                            </select>
-                                        </div>
-
-                                        <div className="flex items-center space-x-2">
-                                            <Button
-                                                variant="outlined"
-                                                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-                                                disabled={currentPage === 1}
-                                                size="small"
-                                            >
-                                                Anterior
-                                            </Button>
-
-                                            {Array.from({ length: totalPages }, (_, index) => {
-                                                const page = index + 1;
-                                                const isActive = currentPage === page;
-                                                return (
-                                                    <Button
-                                                        key={page}
-                                                        variant={isActive ? "contained" : "outlined"}
-                                                        onClick={() => setCurrentPage(page)}
-                                                        size="small"
-                                                        sx={{
-                                                            minWidth: '40px',
-                                                            height: '40px',
-                                                            fontWeight: isActive ? 'bold' : 'normal'
-                                                        }}
-                                                    >
-                                                        {page}
-                                                    </Button>
-                                                );
-                                            })}
-
-                                            <Button
-                                                variant="outlined"
-                                                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-                                                disabled={currentPage === totalPages}
-                                                size="small"
-                                            >
-                                                Próxima
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </Paper>
-                        )}
-            </div>
-
-            {/* 🔹 MODAIS */}
-            {isEditModalOpen && paymentToEdit && (
-                <EditPaymentModal
-                    payment={paymentToEdit}
-                    isOpen={isEditModalOpen}
-                    onClose={() => setIsEditModalOpen(false)}
-                    onSave={handleUpdateAmount}
-                />
-            )}
-
-            {isAddModalOpen && (
-                <AddPaymentModal
-                    packageData={selectedPackage}
-                    onClose={() => setIsAddModalOpen(false)}
-                    onSuccess={addPayment}
-                />
-            )}
-
-            {selectedPatient360Id && (
-                <Patient360Modal
-                    patientId={selectedPatient360Id}
-                    open={is360ModalOpen}
-                    onClose={() => setIs360ModalOpen(false)}
-                />
+                    </div>
+                </Paper>
             )}
         </div>
-    );
+
+        {/* Modais (sem alterações) */}
+        {isEditModalOpen && paymentToEdit && (
+            <EditPaymentModal
+                payment={paymentToEdit}
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                onSave={handleUpdateAmount}
+            />
+        )}
+        {isAddModalOpen && (
+            <AddPaymentModal
+                packageData={selectedPackage}
+                onClose={() => setIsAddModalOpen(false)}
+                onSuccess={addPayment}
+            />
+        )}
+        {selectedPatient360Id && (
+            <Patient360Modal
+                patientId={selectedPatient360Id}
+                open={is360ModalOpen}
+                onClose={() => setIs360ModalOpen(false)}
+            />
+        )}
+    </div>
+);
 };
 
 export default PaymentPage;

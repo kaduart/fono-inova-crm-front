@@ -9,8 +9,23 @@ export const dateFormat = (date: any): string => {
 
 export function formatDateToDMY(isoDate) {
   if (!isoDate) return '';
-  const [year, month, day] = isoDate.split('-');
-  return `${day}/${month}/${year}`;
+  
+  // Se for um objeto Date ou string ISO completa (2026-04-06T12:00:00.000Z)
+  const dateObj = new Date(isoDate);
+  if (!isNaN(dateObj.getTime())) {
+    const day = dateObj.getDate().toString().padStart(2, '0');
+    const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+    const year = dateObj.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+  
+  // Fallback: se for string no formato YYYY-MM-DD
+  if (typeof isoDate === 'string' && isoDate.includes('-')) {
+    const [year, month, day] = isoDate.split('-');
+    return `${day}/${month}/${year}`;
+  }
+  
+  return '';
 }
 
 

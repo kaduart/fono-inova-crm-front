@@ -45,6 +45,7 @@ const defaultForm: FormState = {
 const ExpenseModal = ({ open, onClose, expense, onSaved }: ExpenseModalProps) => {
     const { createExpense, updateExpense } = useExpenses();
     const [form, setForm] = useState<FormState>(defaultForm);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const isEditing = !!expense;
 
     useEffect(() => {
@@ -69,30 +70,38 @@ const ExpenseModal = ({ open, onClose, expense, onSaved }: ExpenseModalProps) =>
     };
 
     const handleSubmit = async () => {
+        if (isSubmitting) return;
+        
         const amountValue = parseFloat(form.amount);
         if (isNaN(amountValue) || amountValue <= 0) {
             toast.error('Informe um valor válido para a despesa');
             return;
         }
 
-        const payload: Partial<Expense> = {
-            description: form.description,
-            category: form.category as Expense['category'],
-            subcategory: form.subcategory || undefined,
-            amount: amountValue,
-            date: form.date,
-            paymentMethod: form.paymentMethod,
-            status: form.status as Expense['status'],
-            notes: form.notes,
-        };
+        setIsSubmitting(true);
+        
+        try {
+            const payload: Partial<Expense> = {
+                description: form.description,
+                category: form.category as Expense['category'],
+                subcategory: form.subcategory || undefined,
+                amount: amountValue,
+                date: form.date,
+                paymentMethod: form.paymentMethod,
+                status: form.status as Expense['status'],
+                notes: form.notes,
+            };
 
-        if (isEditing && expense) {
-            await updateExpense(expense._id, payload);
-        } else {
-            await createExpense(payload);
+            if (isEditing && expense) {
+                await updateExpense(expense._id, payload);
+            } else {
+                await createExpense(payload);
+            }
+
+            onSaved();
+        } finally {
+            setIsSubmitting(false);
         }
-
-        onSaved();
     };
 
     return (
@@ -215,8 +224,12 @@ const ExpenseModal = ({ open, onClose, expense, onSaved }: ExpenseModalProps) =>
 
             <DialogActions>
                 <Button onClick={onClose}>Cancelar</Button>
-                <Button variant="contained" onClick={handleSubmit}>
-                    {isEditing ? 'Salvar alterações' : 'Salvar despesa'}
+                <Button 
+                    variant="contained" 
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                >
+                    {isSubmitting ? 'Salvando...' : (isEditing ? 'Salvar alterações' : 'Salvar despesa')}
                 </Button>
             </DialogActions>
         </Dialog>

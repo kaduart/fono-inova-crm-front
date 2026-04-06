@@ -8,8 +8,9 @@ import ReactInputMask from 'react-input-mask';
 import Modal from 'react-modal';
 import { toast } from 'react-toastify';
 import { INSURANCE_PROVIDERS, getProviderById } from '../../constants/insuranceProviders';
+import { toDateString } from '../../utils/dateUtils';
 import { IDoctor, IPatient, ScheduleAppointment } from '../../utils/types/types';
-import { patientService } from '../../services/patientService';
+import patientService from '../../services/patientService';
 import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
 import { Label } from '../ui/Label';
@@ -46,7 +47,8 @@ type Props = {
     packages?: any[];
     initialData?: ScheduleAppointment | null;
     erroMessage?: string | null,
-    isLoading: boolean
+    isLoading: boolean;
+    closeModalSignal?: number; // 🆕 Sinal para fechar modal após sucesso
 };
 
 const ScheduleAppointmentModal = ({
@@ -57,7 +59,8 @@ const ScheduleAppointmentModal = ({
     doctors,
     patients,
     erroMessage,
-    isLoading
+    isLoading,
+    closeModalSignal
 }: Props) => {
     const [formData, setFormData] = useState<ScheduleAppointment>(defaultForm);
     const [serviceType, setServiceType] = useState<ServiceType>('individual_session');
@@ -174,6 +177,13 @@ const ScheduleAppointmentModal = ({
         }
     }, [initialData?.patientId, patients]);
 
+    // 🆕 Fecha o modal quando o sinal é emitido (após sucesso no agendamento)
+    useEffect(() => {
+        if (closeModalSignal && closeModalSignal > 0 && onClose) {
+            onClose();
+        }
+    }, [closeModalSignal, onClose]);
+
     useEffect(() => {
 
         if (formData.packageId && formData.patientId) {
@@ -187,8 +197,11 @@ const ScheduleAppointmentModal = ({
 
                 if (upcomingSessions.length > 0) {
                     const closest = upcomingSessions[0];
-                    const date = closest.date.split('T')[0];
-                    const time = closest.date.split('T')[1].slice(0, 5);
+                    // 🆕 Usa helper para compatibilidade
+                    const dateStr = toDateString(closest.date);
+                    const date = dateStr;
+                    // Extrai hora do time ou da data
+                    const time = closest.time || (dateStr.includes('T') ? dateStr.split('T')[1].slice(0, 5) : '');
 
                     setFormData((prev) => ({
                         ...prev,

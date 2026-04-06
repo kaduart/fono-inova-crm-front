@@ -39,8 +39,13 @@ export const SessionListItem = ({
     const sessionDate = new Date(session.date);
     const isDateValid = !isNaN(sessionDate.getTime());
 
-    const [dateStr, timeStr] = isDateValid
-        ? [session.date, session.time]
+    // Normaliza para "YYYY-MM-DD" independente do formato recebido (ISO completo, Date object, etc.)
+    const normalizedDate = isDateValid
+        ? sessionDate.toISOString().split('T')[0]
+        : null;
+
+    const [dateStr, timeStr] = normalizedDate
+        ? [normalizedDate, session.time]
         : ['--/--/----', '--:--'];
 
     const isOverdue = session.status === 'pending' && isDateValid && sessionDate < new Date();

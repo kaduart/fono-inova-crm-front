@@ -2,26 +2,18 @@
 import { useCallback, useRef, useState } from 'react';
 import {
   createPayment,
-  DailyAbsence,
-  DailyPayment,
-  DailySession,
   deletePayment,
   exportCSV,
   exportPDF,
   FinancialRecord,
-  getDailyAbsences,
-  getDailyClosing,
-  getDailyCompletedSessions,
-  getDailyPayments,
-  getDailyScheduledDetails,
   getPayment,
-  getPayments,
+  getPaymentsV2,
+  USE_V2_PAYMENTS,
   getPaymentSummary,
   getPaymentTotals,
   markPaymentAsPaid,
   Summary
 } from '../services/paymentService';
-import { DailyClosingData } from '../utils/types/daily-closing-model';
 import { PaymentTotals } from '../utils/types/types';
 import { invalidateCache, subscribeToCacheInvalidation } from '../utils/cacheManager';
 
@@ -57,10 +49,7 @@ const usePayment = () => {
   const [payments, setPayments] = useState<FinancialRecord[]>(cache.payments || []);
   const [payment, setPayment] = useState<FinancialRecord | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
-  const [dailyClosing, setDailyClosing] = useState<DailyClosingData | null>(null);
-  const [dailySessions, setDailySessions] = useState<DailySession[]>([]);
-  const [dailyPayments, setDailyPayments] = useState<DailyPayment[]>([]);
-  const [dailyAbsences, setDailyAbsences] = useState<DailyAbsence[]>([]);
+
   const [loading, setLoading] = useState(cache.isLoading);
   const [error, setError] = useState<string | null>(null);
   const [paymentTotals, setPaymentTotals] = useState<PaymentTotals | null>(cache.paymentTotals);
@@ -94,8 +83,24 @@ const usePayment = () => {
 
     const loadPromise = (async () => {
       try {
-        const res = await getPayments(filters); 
-        const data = res.data?.data || res.data;
+        let data;
+        
+        // 🚀 V2: Usa projection otimizada se feature flag ativada
+        if (USE_V2_PAYMENTS) {
+          const res = await getPaymentsV2({
+            month: filters.month || new Date().toISOString().substring(0, 7),
+            status: filters.status || 'all',
+            page: filters.page || 1,
+            limit: filters.limit || 50
+          });
+          data = res.data.data;
+          console.log(`[usePayment] V2: ${data.length} pagamentos em ${res.data.meta?.executionTime || 'N/A'}`);
+        } else {
+          // Legado: populate pesado
+          const res = await getPayments(filters);
+          data = res.data?.data || res.data;
+        }
+        
         if (isMounted.current) {
           setPayments(data);
           setError(null);
@@ -278,82 +283,6 @@ const usePayment = () => {
     }
   }, []);
 
-  // Fechamento diário
-  const fetchDailyClosing = useCallback(async (date?: string) => {
-    setLoading(true);
-    try {
-      const res = await getDailyClosing(date);
-      setDailyClosing(res || null);
-      setError(null);
-    } catch (e: any) {
-      console.error("❌ Erro no fetchDailyClosing:", e);
-      setError(e?.message || "Erro ao buscar fechamento diário");
-      setDailyClosing(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Detalhes de pagamentos diários
-  const fetchDailyPayments = useCallback(async (date?: string) => {
-    setLoading(true);
-    try {
-      const data = await getDailyPayments(date);
-      setDailyPayments(data);
-      setError(null);
-    } catch (err) {
-      setError('Erro ao buscar pagamentos diários');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Sessões agendadas diárias
-  const fetchDailyScheduledSessions = useCallback(async (date?: string) => {
-    setLoading(true);
-    try {
-      const data = await getDailyScheduledDetails(date);
-      setDailySessions(data);
-      setError(null);
-    } catch (err) {
-      setError('Erro ao buscar sessões agendadas');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Sessões realizadas diárias
-  const fetchDailyCompletedSessions = useCallback(async (date?: string) => {
-    setLoading(true);
-    try {
-      const data = await getDailyCompletedSessions(date);
-      setDailySessions(data);
-      setError(null);
-    } catch (err) {
-      setError('Erro ao buscar sessões realizadas');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Faltas diárias
-  const fetchDailyAbsences = useCallback(async (date?: string) => {
-    setLoading(true);
-    try {
-      const data = await getDailyAbsences(date);
-      setDailyAbsences(data);
-      setError(null);
-    } catch (err) {
-      setError('Erro ao buscar faltas');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   // Exportar CSV
   const exportCsvReport = useCallback(async (filters: PaymentFilters = {}) => {
     setLoading(true);
@@ -401,10 +330,6 @@ const usePayment = () => {
     setPayments([]);
     setPayment(null);
     setSummary(null);
-    setDailyClosing(null);
-    setDailySessions([]);
-    setDailyPayments([]);
-    setDailyAbsences([]);
     setError(null);
   }, []);
 
@@ -413,10 +338,6 @@ const usePayment = () => {
     payments,
     payment,
     summary,
-    dailyClosing,
-    dailySessions,
-    dailyPayments,
-    dailyAbsences,
     paymentTotals,
     totalsFilters,
     loading,
@@ -428,11 +349,6 @@ const usePayment = () => {
     removePayment,
     fetchSummary,
     fetchPaymentTotals,
-    fetchDailyClosing,
-    fetchDailyPayments,
-    fetchDailyScheduledSessions,
-    fetchDailyCompletedSessions,
-    fetchDailyAbsences,
     exportCsvReport,
     exportPdfReport,
     resetPaymentState

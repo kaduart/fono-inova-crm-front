@@ -77,8 +77,8 @@ export const useAppointments = () => {
             setError(null);
             const response = await appointmentService.create(data);
 
-            // 🚀 V2: Se for 202 Accepted, agendamento está em processamento
-            if (response.status === 202) {
+            // 🚀 V2: Se for 202 Accepted ou status de processamento, agendamento está em processamento
+            if (response.status === 202 || response.data?.data?.status?.startsWith('processing')) {
                 console.log('[useAppointments] V2: Agendamento em processamento:', response.data);
                 
                 const appointmentId = response.data.data?.appointmentId;
@@ -220,8 +220,8 @@ export const useAppointments = () => {
             setError(null);
             const response = await appointmentService.complete(id, data);
 
-            // 🚀 V2: Se for 202 Accepted, inicia polling para atualização
-            if (response.status === 202) {
+            // 🚀 V2: Se for 202 Accepted ou status de processamento, inicia polling para atualização
+            if (response.status === 202 || response.data?.data?.status?.startsWith('processing')) {
                 console.log('[useAppointments] V2: Agendamento em processamento, iniciando polling...');
 
                 // Inicia polling usando o service
@@ -312,22 +312,62 @@ export const useAppointments = () => {
         return false;
     }, []);
 
-    const cancelAppointment = useCallback(async (id: string, data: CancelParams) => {
+    const cancelAppointment = useCallback(async (id: string, data: CancelParams, options?: {
+        onSuccess?: () => void;
+        onError?: (error: Error) => void;
+    }) => {
         try {
-
             setLoading(true);
             setError(null);
             const response = await appointmentService.cancel(id, data);
+
+            // 🚀 V2: Se for 202 Accepted ou status de processamento, inicia polling
+            if (response.status === 202 || response.data?.data?.status?.startsWith('processing')) {
+                console.log('[useAppointments] V2: Cancelamento em processamento, iniciando polling...');
+
+                const completed = await appointmentService.pollStatus(id, {
+                    onComplete: (status) => {
+                        console.log('[useAppointments] Polling de cancelamento completado:', status);
+                        appointmentService.getById(id).then(updated => {
+                            setAppointments(prev =>
+                                prev
+                                    .filter(a => a && a._id)
+                                    .map(a => a._id === id ? { ...a, ...updated.data } : a)
+                            );
+                        });
+                        options?.onSuccess?.();
+                    },
+                    onMaxAttempts: () => {
+                        console.warn('[useAppointments] Polling de cancelamento atingiu máximo de tentativas');
+                        options?.onError?.(new Error('Tempo de processamento excedido'));
+                    },
+                    maxAttempts: 10,
+                    interval: 1000
+                });
+
+                if (!completed) {
+                    throw new Error('Processamento não completado no tempo esperado');
+                }
+
+                return {
+                    ...response.data,
+                    _isAsyncProcessing: true,
+                    _message: 'Agendamento cancelado com sucesso!'
+                };
+            }
+
             setAppointments(prev =>
                 prev
-                    .filter(a => a && a._id) // garante que não tem undefined/null
+                    .filter(a => a && a._id)
                     .map(a =>
                         a._id === id ? { ...a, ...response.data } : a
                     )
             );
+            options?.onSuccess?.();
             return response.data;
         } catch (error) {
             setError('Falha ao cancelar agendamento');
+            options?.onError?.(error as Error);
             throw error;
         } finally {
             setLoading(false);

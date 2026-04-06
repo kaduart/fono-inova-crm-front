@@ -1,101 +1,238 @@
-// src/services/patientService.ts
-import { normalizeIPatient } from "../utils/normalize";
-import { IPatient } from "../utils/types/types";
+// src/services/patientService.v2.ts
+/**
+ * Patient Service V2 - CQRS + Event-Driven (V2 ONLY)
+ */
+
 import API from "./api";
-import { getAuthToken } from "./authService";
+import { IPatient } from "../utils/types/types";
+import { normalizeIPatient } from "../utils/normalize";
 
-// Interceptor para autenticação
-API.interceptors.request.use((config) => {
-    const token = getAuthToken();
-    if (token) {
-        config.headers = config.headers || {};
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-});
+const POLL_CONFIG = {
+  maxAttempts: 30,
+  interval: 800,
+  backoffMultiplier: 1.2
+};
 
-// Interceptor para tratamento global de erros
-API.interceptors.response.use(
-    response => response,
-    error => {
-        if (error.response?.status === 401) {
-            // Lógica para logout ou renovação de token
-        }
-        return Promise.reject(error);
+export interface CreatePatientResponse {
+  success: boolean;
+  data: {
+    eventId: string;
+    correlationId: string;
+    jobId: string;
+    patientId: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    checkStatusUrl: string;
+    estimatedTime: string;
+  };
+  message?: string;
+}
+
+export interface PatientStatusResponse {
+  success: boolean;
+  data: {
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    patientView?: IPatient;
+    error?: string;
+    processedAt?: string;
+  };
+}
+
+export interface ListPatientsResponse {
+  success: boolean;
+  data: {
+    patients: IPatient[];
+    pagination: {
+      total: number;
+      limit: number;
+      skip: number;
+      hasMore: boolean;
+    };
+    meta?: {
+      duration: string;
+      source: string;
+      staleCount?: number;
+    };
+  };
+}
+
+async function pollEventStatus(
+  eventId: string,
+  options: {
+    onProgress?: (status: string, attempt: number) => void;
+    onSuccess?: (data: any) => void;
+    onError?: (error: string) => void;
+  } = {}
+): Promise<PatientStatusResponse['data']> {
+  const { onProgress, onSuccess, onError } = options;
+  let interval = POLL_CONFIG.interval;
+
+  for (let attempt = 1; attempt <= POLL_CONFIG.maxAttempts; attempt++) {
+    try {
+      const response = await API.get<PatientStatusResponse>(`/v2/patients/status/${eventId}`);
+      const { status, patientView, error } = response.data.data;
+
+      onProgress?.(status, attempt);
+
+      if (status === 'completed') {
+        onSuccess?.(patientView);
+        return response.data.data;
+      }
+
+      if (status === 'failed') {
+        onError?.(error || 'Processamento falhou');
+        throw new Error(error || 'Processamento falhou');
+      }
+
+      await new Promise(resolve => setTimeout(resolve, interval));
+      interval = Math.min(interval * POLL_CONFIG.backoffMultiplier, 5000);
+    } catch (error: any) {
+      if (!error.response) {
+        await new Promise(resolve => setTimeout(resolve, interval));
+        continue;
+      }
+      throw error;
     }
-);
+  }
+
+  throw new Error('Timeout aguardando processamento do paciente');
+}
 
 export const patientService = {
-    /**
-     * Busca todos os pacientes com opção de incluir resumo de consultas
-     */
-    fetchAll: async (withAppointments = false): Promise<any[]> => {
-        const patients = await API.get<IPatient[]>('/patients').then(res => res.data);
-        if (!withAppointments) {
-            return patients;
-        }
+  async list(options: {
+    search?: string;
+    limit?: number;
+    skip?: number;
+    doctorId?: string;
+    status?: string;
+  } = {}): Promise<ListPatientsResponse['data']> {
+    const { search, limit = 50, skip = 0, doctorId, status } = options;
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    params.append('limit', limit.toString());
+    params.append('skip', skip.toString());
+    if (doctorId) params.append('doctorId', doctorId);
+    if (status) params.append('status', status);
 
-        return Promise.all(
-            patients.map(async patient => ({
-                ...patient,
-                ...await patientService.getAppointmentsSummary(patient._id)
-            }))
-        );
-    },
+    const response = await API.get<ListPatientsResponse>(`/v2/patients?${params}`);
+    return response.data.data;
+  },
 
-    /**
-     * 🔍 Busca pacientes por nome, CPF ou telefone
-     */
-    search: async (searchTerm: string): Promise<IPatient[]> => {
-        if (!searchTerm || searchTerm.trim().length < 2) {
-            return [];
-        }
-        const response = await API.get<IPatient[]>(`/patients?search=${encodeURIComponent(searchTerm.trim())}`);
-        return response.data;
-    },
+  async getById(id: string): Promise<IPatient> {
+    const response = await API.get(`/v2/patients/${id}`);
+    return response.data.data;
+  },
 
-    async create(data: IPatient): Promise<IPatient> {
-        // Normaliza os dados antes de enviar
-        const normalizedData = normalizeIPatient(data);
+  async getFull(id: string): Promise<{
+    view: IPatient;
+    patient: IPatient;
+    recentAppointments: any[];
+  }> {
+    const response = await API.get(`/v2/patients/${id}/full`);
+    return response.data.data;
+  },
 
-        try {
-            const response = await API.post<IPatient>('/patients/add', normalizedData);
-            return response.data;
-        } catch (error) {
-            // Tratamento específico para erros de duplicidade
-            if (error.response?.data?.error?.includes('E11000')) {
-                throw new Error('Dados duplicados: CPF, RG ou Email já cadastrado');
-            }
-            throw error;
-        }
-    },
+  async create(
+    data: IPatient,
+    options: {
+      onProgress?: (status: string, attempt: number) => void;
+      onSuccess?: (patient: IPatient) => void;
+      onError?: (error: string) => void;
+      skipPolling?: boolean;
+    } = {}
+  ): Promise<{ patient: IPatient; isAsync: boolean; eventId?: string }> {
+    const { onProgress, onSuccess, onError, skipPolling } = options;
+    const normalizedData = normalizeIPatient(data);
+    const response = await API.post<CreatePatientResponse>('/v2/patients', normalizedData);
+    const { eventId, patientId, status } = response.data.data;
 
-    fetchById: (id: string): Promise<IPatient> =>
-        API.get<IPatient>(`/patients/${id}`).then(res => res.data),
+    if (status === 'completed') {
+      const patient = await this.getById(patientId);
+      onSuccess?.(patient);
+      return { patient, isAsync: false };
+    }
 
-    update: (id: string, data: Partial<IPatient>): Promise<IPatient> =>
-        API.put<IPatient>(`/patients/${id}`, data).then(res => res.data),
+    if (skipPolling) {
+      return {
+        patient: { ...normalizedData, _id: patientId, id: patientId, status: 'creating', createdAt: new Date().toISOString() } as IPatient,
+        isAsync: true,
+        eventId
+      };
+    }
 
-    delete: (id: string): Promise<void> =>
-        API.delete(`/patients/${id}`),
+    const finalStatus = await pollEventStatus(eventId, {
+      onProgress,
+      onSuccess: (view) => onSuccess?.(view as IPatient),
+      onError
+    });
 
-    getAppointmentsSummary: (id: string): Promise<{
-        lastAppointment: any;
-        nextAppointment: any;
-    }> => API.get(`/patients/${id}/appointments-summary`).then(res => {
-        return res.data
-    }),
+    const patient = finalStatus.patientView || await this.getById(patientId);
+    return { patient, isAsync: true, eventId };
+  },
 
-    getTotalPatients: async (): Promise<{ totalPatients: number }> => {
-        const response = await API.get('/admin/total-patients');
-        return response.data;
-    },
+  async update(
+    id: string,
+    data: Partial<IPatient>,
+    options: { onProgress?: (status: string, attempt: number) => void; skipPolling?: boolean } = {}
+  ): Promise<{ patient: IPatient; isAsync: boolean; eventId?: string }> {
+    const response = await API.put(`/v2/patients/${id}`, data);
+    const { eventId, status } = response.data.data;
 
-    getPatientOverview: async (): Promise<any> => {
-        const response = await API.get('/admin/patient-overview');
-        return response.data;
-    },
+    if (status === 'completed') {
+      const patient = await this.getById(id);
+      return { patient, isAsync: false };
+    }
 
-    getPatientSessions: (patientId: string): Promise<any[]> =>
-        API.get(`/patients/${patientId}/sessions`).then(res => res.data),
+    if (options.skipPolling) {
+      return { patient: { _id: id, ...data } as IPatient, isAsync: true, eventId };
+    }
+
+    await pollEventStatus(eventId, { onProgress: options.onProgress });
+    const patient = await this.getById(id);
+    return { patient, isAsync: true, eventId };
+  },
+
+  async delete(
+    id: string,
+    options: { reason?: string; onProgress?: (status: string, attempt: number) => void; skipPolling?: boolean } = {}
+  ): Promise<{ isAsync: boolean; eventId?: string }> {
+    const response = await API.delete(`/v2/patients/${id}`, { data: { reason: options.reason } });
+    const { eventId, status } = response.data.data;
+
+    if (status === 'completed') return { isAsync: false };
+    if (options.skipPolling) return { isAsync: true, eventId };
+
+    await pollEventStatus(eventId, { onProgress: options.onProgress });
+    return { isAsync: true, eventId };
+  },
+
+  async getEventStatus(eventId: string): Promise<PatientStatusResponse['data']> {
+    const response = await API.get<PatientStatusResponse>(`/v2/patients/status/${eventId}`);
+    return response.data.data;
+  },
+
+  // Compatibilidade com código legado (AGORA COM LIMITE!)
+  async fetchAll(limit: number = 20): Promise<IPatient[]> {
+    const result = await this.list({ limit });
+    return result.patients;
+  },
+
+  async search(searchTerm: string): Promise<IPatient[]> {
+    const result = await this.list({ search: searchTerm, limit: 100 });
+    return result.patients;
+  },
+
+  async getTotalPatients(): Promise<{ totalPatients: number }> {
+    const result = await this.list({ limit: 1 });
+    return { totalPatients: result.pagination.total };
+  },
+
+  async getPatientOverview(): Promise<any> {
+    const result = await this.list({ limit: 1000 });
+    return result.patients.map((p: IPatient) => ({
+      name: p.fullName || p.name,
+      appointments: p.stats?.totalAppointments || 0
+    }));
+  }
 };
+
+export default patientService;

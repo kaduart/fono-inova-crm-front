@@ -5,7 +5,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { doctorService } from '../services/doctorService';
+import doctorService from '../services/doctorService';
 import API from '../services/api';
 import {
   subscribeToCacheInvalidation,

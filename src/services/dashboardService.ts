@@ -74,6 +74,7 @@ const CACHE_TTL = 3 * 60 * 1000; // 3 minutos
 /**
  * 🎯 Busca visão completa do dashboard (endpoint consolidado)
  * Substitui 5+ chamadas individuais
+ * 🚀 V2: Usa /v2/admin/dashboard/overview
  */
 export const fetchDashboardOverview = async (
     forceRefresh = false
@@ -105,7 +106,8 @@ export const fetchDashboardOverview = async (
     // Criar nova promise de carregamento
     cache.promise = (async () => {
         try {
-            const response = await API.get<DashboardOverview>('/dashboard/overview');
+            // 🚀 V2: Usa endpoint V2 do admin dashboard
+            const response = await API.get<DashboardOverview>('/v2/admin/dashboard/overview');
 
             // ✅ CORREÇÃO: Extrair dados do formato { success, data }
             const dashboardData = response.data?.data || response.data;

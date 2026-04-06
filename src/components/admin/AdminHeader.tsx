@@ -50,7 +50,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
         activeTab === "Leads" || activeTab === "Analytics" || activeTab === "SocialMedia" || activeTab === "ROI";
     
     const isSistemaActive =
-        activeTab === "Observability";
+        activeTab === "Observability" || activeTab === "AmandaMetrics";
 
     const handleLogout = async () => {
         await authLogout();
@@ -246,6 +246,16 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         <div className="flex flex-col">
                                             <span className="text-sm font-medium text-gray-800">Observabilidade</span>
                                             <span className="text-xs text-gray-500">Eventos e métricas</span>
+                                        </div>
+                                    </NavDropdownItem>
+                                    <NavDropdownItem
+                                        active={activeTab === "AmandaMetrics"}
+                                        onClick={() => handleTabChange("AmandaMetrics")}
+                                        icon={<MessageCircle className="h-4 w-4 text-emerald-500" />}
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-gray-800">Amanda AI</span>
+                                            <span className="text-xs text-gray-500">Decisões RULE / HYBRID / AI</span>
                                         </div>
                                     </NavDropdownItem>
                                 </div>

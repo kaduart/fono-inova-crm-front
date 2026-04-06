@@ -4,7 +4,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react
 import toast from 'react-hot-toast';
 import { FinancialLoading, FinancialLoadingDashboard } from '../pages/Financial/components/FinancialLoading';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { patientService } from '../services/patientService';
+import patientService from '../services/patientService';
 import { confirmToast } from '../utils/confirmToast';
 import { TabErrorBoundary } from './error/TabErrorBoundary';
 import { IPatient, ScheduleAppointment } from '../../utils/types/types';
@@ -13,34 +13,36 @@ import { useChatNavigation } from "../contexts/ChatNavigationContext";
 import { useAdmin } from '../hooks/useAdmin';
 import { useDashboard } from '../hooks/useDashboard';
 import { usePatientsContext } from '../contexts/PatientsContext';
+import { usePaymentsContext } from '../contexts/PaymentsContext';
 import usePayment from '../hooks/usePayment';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
-import { CreateDoctorParams, doctorService } from '../services/doctorService';
-import { createPayment, FinancialRecord, getPayments, updatePayment } from '../services/paymentService';
+import doctorService, { CreateDoctorParams } from '../services/doctorService';
+import { createPayment, FinancialRecord, getPaymentsV2, updatePayment } from '../services/paymentService';
 import { usePixSocket } from '../hooks/usePixSocket';
 import AddAdminContent from './admin/AddAdminContent';
 import AdminHeader from './admin/AdminHeader';
 import DashboardContentOptimized from './admin/DashboardContentOptimized';
 import ProfileContent from './admin/ProfileContent';
-import ObservabilityDashboard from './admin/ObservabilityDashboard';
-import DoctorFormModal from './ManageDoctors/DoctorFormModal';
-import ManageDoctors from './ManageDoctors/ManageDoctors';
-import { PatientModal } from './patients/PatientModal';
 
-// 🚀 LAZY LOADING - Componentes pesados só carregam quando a aba é ativada
+// 🚀 LAZY LOADING - Todos os componentes pesados só carregam quando necessário
 const FinancialDashboard = lazy(() => import('../pages/Financial/FinancialDashboard'));
+
 const FollowupPage = lazy(() => import('../pages/FollowupPage'));
 const PreAgendamentosPage = lazy(() => import('../pages/Secretaria/PreAgendamentosPage'));
 const EnhancedCalendar = lazy(() => import('./calendar/EnhancedCalendar'));
 const SiteAnalyticsDashboard = lazy(() => import('./Dashboard/SiteAnalyticsDashboard'));
 const MarketingDashboard = lazy(() => import('./Dashboard/MarketingDashboard'));
-
 const RevenueTab = lazy(() => import('./Dashboard/RevenueTab'));
 const AppChat = lazy(() => import('./mkt/whatsapp/AppChat'));
 
+// Componentes de abas específicas - só carregam quando a aba é aberta
+const ObservabilityDashboard = lazy(() => import('./admin/ObservabilityDashboard'));
+const AmandaMetricsDashboard = lazy(() => import('./admin/AmandaMetricsDashboard'));
+const ManageDoctors = lazy(() => import('./ManageDoctors/ManageDoctors'));
+const DoctorFormModal = lazy(() => import('./ManageDoctors/DoctorFormModal'));
+const PatientModal = lazy(() => import('./patients/PatientModal').then(m => ({ default: m.PatientModal })));
 
-
-// Modais também podem ser lazy loaded
+// Modais lazy loaded
 const AdvancedPaymentModal = lazy(() => import('./financial/AdvancedPaymentModal').then(m => ({ default: m.AdvancedPaymentModal })));
 const PaymentModal = lazy(() => import('./financial/PaymentModal').then(m => ({ default: m.PaymentModal })));
 
@@ -152,13 +154,33 @@ export default function AdminDashboard() {
     const [selectedPatient, setSelectedPatient] = useState<IPatient | null>(null);
     const [showModalAddProfessional, setShowModalAddProfessional] = useState(false);
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-    const [allPayments, setAllPayments] = useState<any[]>([]);
+    // 🚀 SOURCE OF TRUTH: Context API (não state local)
+    const { payments: allPayments, setPayments: setAllPayments, loadPayments } = usePaymentsContext();
     const [paymentContext, setPaymentContext] = useState<{
         mode: 'create' | 'edit';
         patient?: IPatient;
         payment?: FinancialRecord;
     }>({ mode: 'create' });
     const [showAdvancedPayment, setShowAdvancedPayment] = useState(false);
+    const [hasLoadedPayments, setHasLoadedPayments] = useState(false);
+    const [hasLoadedAppointments, setHasLoadedAppointments] = useState(false);
+
+    // 🗓️ Carrega agendamentos SÓ quando abrir aba Calendário pela primeira vez
+    useEffect(() => {
+        if ((activeTab === 'Calendário' || activeTab === 'Pré-Agendamentos') && !hasLoadedAppointments) {
+            // Inicializa o range com a data atual
+            const today = new Date();
+            const startOfWeek = new Date(today.setDate(today.getDate() - today.getDay()));
+            const endOfWeek = new Date(today.setDate(today.getDate() - today.getDay() + 6));
+            
+            const formatDate = (d: Date) => d.toISOString().split('T')[0];
+            setCalendarDateRange({
+                startDate: formatDate(startOfWeek),
+                endDate: formatDate(endOfWeek)
+            });
+            setHasLoadedAppointments(true);
+        }
+    }, [activeTab, hasLoadedAppointments]);
 
     // 🗓️ Estado para controle do range de datas do calendário
     const [calendarDateRange, setCalendarDateRange] = useState<{ startDate?: string; endDate?: string }>({});
@@ -214,20 +236,21 @@ export default function AdminDashboard() {
 
     const { markAsPaid } = usePayment();
 
-    // 🗓️ Buscar appointments quando o range de datas mudar (modo light para calendário)
+    // 🗓️ Buscar appointments quando o range de datas mudar (só se já carregou a aba)
     useEffect(() => {
-        if (calendarDateRange.startDate && calendarDateRange.endDate) {
+        if (hasLoadedAppointments && calendarDateRange.startDate && calendarDateRange.endDate) {
+            console.log('📅 AdminDashboard: Buscando appointments para range:', calendarDateRange);
             fetchAppointments({ ...calendarDateRange, light: true });
         }
-    }, [fetchAppointments, calendarDateRange.startDate, calendarDateRange.endDate]);
+    }, [fetchAppointments, calendarDateRange.startDate, calendarDateRange.endDate, hasLoadedAppointments]);
 
-    // 🔄 Atualizar calendário em tempo real quando agenda externa fizer alterações
+    // 🔄 Atualizar calendário em tempo real (só se já carregou)
     usePixSocket({
         onCalendarRefresh: useCallback(() => {
-            if (calendarDateRange.startDate && calendarDateRange.endDate) {
+            if (hasLoadedAppointments && calendarDateRange.startDate && calendarDateRange.endDate) {
                 fetchAppointments({ ...calendarDateRange, light: true });
             }
-        }, [fetchAppointments, calendarDateRange]),
+        }, [fetchAppointments, calendarDateRange, hasLoadedAppointments]),
     });
 
     // 🎯 Pacientes já são carregados pelo contexto global
@@ -280,10 +303,10 @@ export default function AdminDashboard() {
         setIsLoading(true);
         try {
             if (doctor._id) {
-                await doctorService.updateDoctor(doctor._id, doctor);
+                await doctorService.update(doctor._id, doctor);
                 toast.success("Profissional atualizado com sucesso!");
             } else {
-                await doctorService.createDoctor(doctor);
+                await doctorService.create(doctor);
                 toast.success("Profissional cadastrado com sucesso!");
             }
 
@@ -357,12 +380,13 @@ export default function AdminDashboard() {
         try {
             await createAppointment(payload);
             await fetchAppointments(calendarDateRange);
+            refreshDashboard(); // 🔄 Atualiza cards do dashboard
             setCloseModalSignal(prev => prev + 1);
             toast.success('Agendamento criado com sucesso!');
         } catch (error: any) {
             toast.error(error.response?.data?.message || 'Erro ao criar agendamento');
         }
-    }, [createAppointment, fetchAppointments, calendarDateRange]);
+    }, [createAppointment, fetchAppointments, calendarDateRange, refreshDashboard]);
 
     const handleCancelAppointment = useCallback(async (appointmentId: string, reason: string) => {
         try {
@@ -373,13 +397,14 @@ export default function AdminDashboard() {
             await cancelAppointment(appointmentId, cancelParams);
             toast.success('Agendamento cancelado!');
             fetchAppointments(calendarDateRange);
+            refreshDashboard(); // 🔄 Atualiza cards do dashboard
             setCloseModalSignal(prev => prev + 1);
         } catch (error) {
             const errorResponse = error.response?.data?.error || 'Erro ao cancelar agendamento';
             toast.error(errorResponse);
             throw error;
         }
-    }, [cancelAppointment, fetchAppointments, calendarDateRange]);
+    }, [cancelAppointment, fetchAppointments, calendarDateRange, refreshDashboard]);
 
     const handleCompleteAppointment = useCallback(async (appointmentId: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
         try {
@@ -391,7 +416,7 @@ export default function AdminDashboard() {
                 toast.info(result._message || 'Finalizando agendamento...');
                 console.log('[AdminDashboard] V2: Polling para atualização...');
 
-                const completed = await pollAppointmentStatus(appointmentId, 5);
+                const completed = await pollAppointmentStatus(appointmentId, 8);
 
                 if (completed) {
                     toast.success('Agendamento finalizado com sucesso!');
@@ -404,6 +429,7 @@ export default function AdminDashboard() {
             }
 
             fetchAppointments(calendarDateRange);
+            refreshDashboard(); // 🔄 Atualiza cards do dashboard (agora depois do polling)
             setCloseModalSignal(prev => prev + 1);
         } catch (error) {
             console.log('Erro ao Completar agendamento:', error);
@@ -411,7 +437,7 @@ export default function AdminDashboard() {
             toast.error(errorResponse);
             throw error;
         }
-    }, [completeAppointment, pollAppointmentStatus, fetchAppointments, calendarDateRange]);
+    }, [completeAppointment, pollAppointmentStatus, fetchAppointments, calendarDateRange, refreshDashboard]);
 
     const handleEditAppointment = useCallback(async (appointmentId: string, updatedData: UpdateAppointmentParams) => {
         try {
@@ -475,16 +501,17 @@ export default function AdminDashboard() {
         setShowAdvancedPayment(true);
     }, []);
 
-    // 🔄 Load payments - definido antes dos handlers que o usam
-    const loadPayments = useCallback(async () => {
-        try {
-            const res = await getPayments();
-            setAllPayments(res.data.data);
-        } catch (error) {
-            console.error('Erro ao carregar pagamentos:', error);
-            toast.error('Erro ao carregar pagamentos');
+    // 🔄 Load payments via Context (cache inteligente por mês)
+    const currentMonth = new Date().toISOString().substring(0, 7);
+
+     // 🚀 Carrega pagamentos SÓ quando abrir aba Financeiro pela primeira vez
+     // O context gerencia o cache (não recarrega se já tiver do mesmo mês)
+    useEffect(() => {
+        if (activeTab === 'Financeiro' && !hasLoadedPayments) {
+            loadPayments(currentMonth);
+            setHasLoadedPayments(true);
         }
-    }, []);
+    }, [activeTab, hasLoadedPayments, loadPayments, currentMonth]);
 
     const handleCreatePayment = useCallback(async (data: any) => {
         try {
@@ -492,11 +519,11 @@ export default function AdminDashboard() {
             toast.success('Pagamento registrado com sucesso!');
             setPaymentModalOpen(false);
             setPaymentContext({ mode: 'create' });
-            loadPayments();
+            loadPayments(currentMonth);
         } catch (error) {
             toast.error('Erro ao registrar pagamento');
         }
-    }, [loadPayments]);
+    }, [loadPayments, currentMonth]);
 
     const handleUpdatePayment = useCallback(async (data: any) => {
         try {
@@ -508,17 +535,17 @@ export default function AdminDashboard() {
                 setTimeout(() => {
                     setPaymentModalOpen(false);
                     setPaymentContext({ mode: 'create' });
-                    loadPayments();
+                    loadPayments(currentMonth);
                 }, 300);
             }
         } catch (error) {
             toast.error('Erro ao atualizar pagamento');
         }
-    }, [paymentContext.payment?._id, fetchAppointments, calendarDateRange, loadPayments]);
+    }, [paymentContext.payment?._id, fetchAppointments, calendarDateRange, loadPayments, currentMonth]);
 
-    useEffect(() => {
-        loadPayments();
-    }, [loadPayments]);
+    // 🚀 OTIMIZAÇÃO: Não carrega pagamentos no reload inicial
+    // Só carrega quando necessário (lazy loading na aba Financeiro)
+    // loadPayments() é chamado manualmente quando a aba é aberta
 
     const handleRegisterAppointmentAndPayemntFuture = useCallback((payment: FinancialRecord) => {
         if (!payment || typeof payment !== 'object') {
@@ -537,23 +564,23 @@ export default function AdminDashboard() {
         try {
             await markAsPaid(payment._id);        // <- não existe response.ok aqui
             toast.success('Pagamento marcado como pago!');
-            await Promise.all([loadPayments(), fetchAppointments(calendarDateRange)]);
+            await Promise.all([loadPayments(currentMonth), fetchAppointments(calendarDateRange)]);
         } catch (error: any) {
             console.error('Erro ao marcar pagamento:', error);
             console.log('Erro ao marcar pagamentosssssssss:', error);
             toast.error(error.response.data.message || error.message);
         }
-    }, [markAsPaid, fetchAppointments, calendarDateRange, loadPayments]);
+    }, [markAsPaid, fetchAppointments, calendarDateRange, loadPayments, currentMonth]);
 
     const handleCancelPayment = useCallback(async (paymentId: string) => {
         try {
             await updatePayment(paymentId, { status: 'canceled' });
-            loadPayments();
+            loadPayments(currentMonth);
             toast.success('Pagamento cancelado com sucesso!');
         } catch (error) {
             toast.error('Erro ao cancelar pagamento');
         }
-    }, [loadPayments]);
+    }, [loadPayments, currentMonth]);
 
     const handleEspecialidadeToggle = useCallback((id: string) => {
         setPatientToEdit(prev => {
@@ -691,7 +718,11 @@ export default function AdminDashboard() {
     const renderContent = () => {
         switch (activeTab) {
             case 'Dashboard':
-                return <DashboardContentOptimized {...dashboardProps} />;
+                return (
+                    <TabErrorBoundary tabName="Dashboard">
+                        <DashboardContentOptimized />
+                    </TabErrorBoundary>
+                );
             case 'Profile':
                 return (
                     <ProfileContent
@@ -706,7 +737,11 @@ export default function AdminDashboard() {
             case 'Add Admin':
                 return <AddAdminContent addNewAdmin={addNewAdmin} />;
             case 'Add Profissional':
-                return <ManageDoctors {...manageDoctorsProps} />;
+                return (
+                    <Suspense fallback={<TabSkeleton />}>
+                        <ManageDoctors {...manageDoctorsProps} />
+                    </Suspense>
+                );
             case 'Calendário':
                 return (
                     <TabErrorBoundary tabName="Calendário">
@@ -782,7 +817,17 @@ export default function AdminDashboard() {
             case 'Observability':
                 return (
                     <TabErrorBoundary tabName="Observabilidade">
-                        <ObservabilityDashboard />
+                        <Suspense fallback={<TabSkeleton />}>
+                            <ObservabilityDashboard />
+                        </Suspense>
+                    </TabErrorBoundary>
+                );
+            case 'AmandaMetrics':
+                return (
+                    <TabErrorBoundary tabName="Amanda AI">
+                        <Suspense fallback={<TabSkeleton />}>
+                            <AmandaMetricsDashboard />
+                        </Suspense>
                     </TabErrorBoundary>
                 );
             default:
@@ -810,72 +855,44 @@ export default function AdminDashboard() {
                     </h2>
                 </div> */}
 
-                <div className="bg-white rounded-lg shadow-sm space-y-6 p-1 sm:p-4 lg:p-6 overflow-hidden">
-                    {activeTab === 'Dashboard' && (
-                        <Paper
-                            elevation={2}
-                            sx={{
-                                p: { xs: 2, md: 4 },
-                                mb: 4,
-                                mt: 2,
-                                borderRadius: 3,
-                                background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
-                            }}
-                        >
-                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                                {/* Ícone e título */}
-                                <div className="flex items-center gap-4">
-                                    <div
-                                        className="p-3 rounded-2xl"
-                                        style={{ backgroundColor: 'rgba(55,171,135,0.15)' }}
-                                    >
-                                        <BarChart3 size={24} style={{ color: '#00C087' }} />
-                                    </div>
-
-                                    <div>
-                                        <Typography variant="h4" fontWeight="bold" color="grey.800">
-                                            Visão Geral da Clínica
-                                        </Typography>
-                                        <Typography variant="body2" color="grey.600">
-                                            Acompanhe métricas, desempenho e indicadores do atendimento em tempo real.
-                                        </Typography>
-                                    </div>
-                                </div>
-                            </div>
-                        </Paper>
-                    )}
+                <div className="bg-white rounded-lg shadow-sm space-y-6 overflow-hidden">
+                    {/* 🚀 Dashboard V2 é o conteúdo principal - sem header adicional */}
                     {renderContent()}
                 </div>
             </main>
 
 
-            {/* Modais */}
+            {/* Modais com Lazy Loading */}
             {isModalOpen && (
-                <PatientModal
-                    open={isModalOpen}
-                    patient={patientToEdit || initialPatientState}
-                    onClose={() => {
-                        setIsModalOpen(false);
-                        setPatientToEdit(undefined);
-                    }}
-                    onSaveSuccess={async (formData) => {
-                        const success = await handleSavePatient(formData);
-                        if (success) {
+                <Suspense fallback={<ModalSkeleton />}>
+                    <PatientModal
+                        open={isModalOpen}
+                        patient={patientToEdit || initialPatientState}
+                        onClose={() => {
                             setIsModalOpen(false);
                             setPatientToEdit(undefined);
-                            setActiveTab('Dashboard');
-                        }
-                    }}
-                />
+                        }}
+                        onSaveSuccess={async (formData) => {
+                            const success = await handleSavePatient(formData);
+                            if (success) {
+                                setIsModalOpen(false);
+                                setPatientToEdit(undefined);
+                                setActiveTab('Dashboard');
+                            }
+                        }}
+                    />
+                </Suspense>
             )}
 
-            <DoctorFormModal
-                open={showModalAddProfessional}
-                patients={patients}
-                onClose={() => setShowModalAddProfessional(false)}
-                onSubmitDoctor={handleSaveDoctor}
-                loading={isLoading}
-            />
+            <Suspense fallback={<ModalSkeleton />}>
+                <DoctorFormModal
+                    open={showModalAddProfessional}
+                    patients={patients}
+                    onClose={() => setShowModalAddProfessional(false)}
+                    onSubmitDoctor={handleSaveDoctor}
+                    loading={isLoading}
+                />
+            </Suspense>
 
             {paymentModalOpen && (
                 <Suspense fallback={<ModalSkeleton />}>

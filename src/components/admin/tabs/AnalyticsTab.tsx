@@ -7,9 +7,10 @@
 
 import { useEffect, useState } from 'react';
 import SiteAnalyticsDashboard from '../../Dashboard/SiteAnalyticsDashboard';
-import { getPayments, FinancialRecord } from '../../../services/paymentService';
+import { getPaymentsV2, FinancialRecord } from '../../../services/paymentService';
 import { usePatientsContext } from '../../../contexts/PatientsContext';
 import { useDoctorsContext } from '../../../contexts/DoctorsContext';
+import { usePaymentsContext } from '../../../contexts/PaymentsContext';
 import { IPatient } from '../../../utils/types/types';
 import { Skeleton } from '@mui/material';
 import toast from 'react-hot-toast';
@@ -31,39 +32,35 @@ export const AnalyticsTab = ({
     onRegisterAppointmentAndPayment,
     onCancelPayment
 }: AnalyticsTabProps) => {
-    const [payments, setPayments] = useState<FinancialRecord[]>([]);
-    // 🎯 USA OS CONTEXTOS GLOBAIS
+    // 🎯 SOURCE OF TRUTH: Contexts globais (sem state local duplicado)
+    const { payments, loadPayments, isLoading: paymentsLoading } = usePaymentsContext();
     const { patients, loading: patientsLoading } = usePatientsContext();
     const { activeDoctors: doctors, loading: doctorsLoading } = useDoctorsContext();
-    const [loadingPayments, setLoadingPayments] = useState(true);
-    const loading = loadingPayments || patientsLoading || doctorsLoading;
+    const [isLoading, setIsLoading] = useState(true);
+    const loading = isLoading || patientsLoading || doctorsLoading || paymentsLoading;
+    const currentMonth = new Date().toISOString().substring(0, 7);
 
-    // 🎯 Só carrega quando a aba é ativada
+    // 🎯 Só carrega quando a aba é ativada (o context gerencia o cache)
     useEffect(() => {
         let mounted = true;
 
         const loadData = async () => {
             const startTime = Date.now();
             try {
-                setLoadingPayments(true);
+                setIsLoading(true);
                 
-                // Carrega pagamentos (pacientes e médicos vêm dos contextos)
-                const paymentsRes = await getPayments({ period: 'month' });
-
-                if (!mounted) return;
-
-                setPayments(paymentsRes.data?.data || paymentsRes.data || []);
+                // 🚀 V2: Context gerencia cache (não recarrega se já tiver do mesmo mês)
+                await loadPayments(currentMonth);
             } catch (error) {
                 console.error('Erro ao carregar analytics:', error);
                 toast.error('Erro ao carregar analytics');
             } finally {
-                // Garante tempo mínimo de loading para evitar flash (400ms)
                 const elapsed = Date.now() - startTime;
                 const minDelay = Math.max(0, 400 - elapsed);
                 
                 setTimeout(() => {
                     if (mounted) {
-                        setLoadingPayments(false);
+                        setIsLoading(false);
                     }
                 }, minDelay);
             }
@@ -74,7 +71,7 @@ export const AnalyticsTab = ({
         return () => {
             mounted = false;
         };
-    }, []);
+    }, [loadPayments, currentMonth]);
 
     if (loading) {
         return <AnalyticsSkeleton />;

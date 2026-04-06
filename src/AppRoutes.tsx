@@ -77,6 +77,7 @@ const MarketingDashboard = lazyWithRetry(() => import('./components/Dashboard/Ma
 const FollowupDashboard = lazyWithRetry(() => import('./components/Dashboard/FollowupDashboard'));
 const AppChat = lazyWithRetry(() => import('./components/mkt/whatsapp/AppChat'));
 const FinancialDashboard = lazyWithRetry(() => import('./pages/Financial/FinancialDashboard'));
+const FinancialV2Dashboard = lazyWithRetry(() => import('./pages/FinancialV2/FinancialV2Dashboard'));  // 🚀 NOVO: Dashboard V2
 const PaymentPage = lazyWithRetry(() => import('./components/financial/PaymentPage'));
 const ManageDoctors = lazyWithRetry(() => import('./components/ManageDoctors/ManageDoctors'));
 const DoctorAgenda = lazyWithRetry(() => import('./components/ManageDoctors/DoctorAgenda'));
@@ -214,6 +215,11 @@ const AppRoutes: React.FC = () => {
                 <Route path="/admin/financial" element={
                     <PrivateRoute allowedRoles={['admin']}>
                         <FinancialDashboard />
+                    </PrivateRoute>
+                } />
+                <Route path="/admin/financial-v2" element={
+                    <PrivateRoute allowedRoles={['admin']}>
+                        <FinancialV2Dashboard />
                     </PrivateRoute>
                 } />
                 <Route path="/admin/payments" element={

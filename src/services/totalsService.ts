@@ -8,7 +8,7 @@
  * - Polling: GET /v2/totals/status/:date para verificar status
  */
 
-import { api } from './api';
+import API from './api';
 
 export interface TotalsData {
   totalReceived: number;

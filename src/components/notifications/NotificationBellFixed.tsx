@@ -54,15 +54,17 @@ export const NotificationBellFixed: React.FC = () => {
   const fetchPreAgendamentos = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/pre-agendamento?limit=50', {
+      const response = await fetch('/api/v2/pre-agendamento?limit=50', {
         headers: { 'Authorization': `Bearer ${API_TOKEN}` }
       });
       
       if (response.ok) {
         const data = await response.json();
         const items = data.data || [];
+        // V2 usa operationalStatus, com fallback para status
+        const getStatus = (p: any) => p.operationalStatus || p.status;
         const pendentes = items.filter((p: any) => 
-          p.status === 'novo' || p.status === 'em_analise' || p.status === 'contatado'
+          getStatus(p) === 'novo' || getStatus(p) === 'em_analise' || getStatus(p) === 'contatado'
         );
         
         setPreAgendamentos(pendentes);
@@ -122,7 +124,8 @@ export const NotificationBellFixed: React.FC = () => {
     console.log('[Bell] Limpado!');
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (item: any) => {
+    const status = item.operationalStatus || item.status;
     const colors: Record<string, string> = {
       novo: '#ef4444',
       em_analise: '#f59e0b', 
@@ -132,7 +135,8 @@ export const NotificationBellFixed: React.FC = () => {
     return colors[status] || '#6b7280';
   };
 
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = (item: any) => {
+    const status = item.operationalStatus || item.status;
     const labels: Record<string, string> = {
       novo: 'NOVO',
       em_analise: 'EM ANÁLISE',
@@ -286,10 +290,10 @@ export const NotificationBellFixed: React.FC = () => {
                       fontSize: '10px',
                       padding: '2px 8px',
                       borderRadius: '12px',
-                      background: getStatusBadge(p.status) + '20',
-                      color: getStatusBadge(p.status),
+                      background: getStatusBadge(p) + '20',
+                      color: getStatusBadge(p),
                     }}>
-                      {getStatusLabel(p.status)}
+                      {getStatusLabel(p)}
                     </span>
                   </div>
                   <div style={{ fontSize: '12px', color: '#666' }}>

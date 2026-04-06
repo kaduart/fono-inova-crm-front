@@ -30,8 +30,8 @@ vi.mock('react-hot-toast', () => ({
     }
 }));
 
-import { patientService } from '../../../../services/patientService';
-import { doctorService } from '../../../../services/doctorService';
+import patientService from '../../../../services/patientService';
+import doctorService from '../../../../services/doctorService';
 import { getPayments } from '../../../../services/paymentService';
 
 describe('FinancialTab', () => {

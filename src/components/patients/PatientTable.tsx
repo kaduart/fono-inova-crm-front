@@ -2,6 +2,7 @@ import { Calendar, ChevronDown, ChevronUp, Edit, Eye, FileHeart, List, Package, 
 import React, { useEffect, useMemo, useState } from 'react';
 import { BsHourglass } from "react-icons/bs";
 import { Link } from "react-router-dom";
+import patientService from '../../services/patientService';
 
 // ============================================================================
 // Tipos e interfaces
@@ -178,38 +179,21 @@ const PatientTable: React.FC<PatientTableProps> = ({
     });
 
     // ------------------------------------------------------------
-    // Busca na API quando digita no filtro
+    // 🚀 V2: Busca na API quando digita no filtro (Event-Driven)
     // ------------------------------------------------------------
     useEffect(() => {
         const fetchPatients = async () => {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                console.log('❌ Sem token');
-                return;
-            }
-
             setIsSearching(true);
             try {
-                const url = searchTerm.trim()
-                    ? `/api/patients?search=${encodeURIComponent(searchTerm.trim())}&limit=100`
-                    : '/api/patients?limit=50';
-
-                console.log('🔍 Buscando:', url);
-
-                const response = await fetch(url, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                // 🚀 V2: Usa patientService para busca
+                const result = await patientService.list({
+                    search: searchTerm.trim() || undefined,
+                    limit: searchTerm.trim() ? 100 : 50
                 });
 
-                console.log('📡 Status:', response.status);
-
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('✅ Recebido:', data.length, 'pacientes');
-                    setPatients(data);
-                    setCurrentPage(1);
-                } else {
-                    console.error('❌ Erro na resposta:', await response.text());
-                }
+                console.log('✅ Recebido:', result.patients.length, 'pacientes');
+                setPatients(result.patients);
+                setCurrentPage(1);
             } catch (error) {
                 console.error('❌ Erro ao buscar pacientes:', error);
             } finally {

@@ -16,7 +16,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { doctorService, Doctor } from '../services/doctorService';
+import doctorService, { Doctor } from '../services/doctorService';
 import {
   subscribeToCacheInvalidation,
   invalidateCache as invalidateGlobalCache,
