@@ -14,8 +14,8 @@ interface ChatMessageListProps {
     pendingMessages: Set<string>;
     onLoadMore: () => void;
     onRetry: (messageId: string, text: string) => void;
-    messagesEndRef?: React.RefObject<HTMLDivElement>;
-    messagesContainerRef?: React.RefObject<HTMLDivElement>;
+    messagesEndRef?: React.RefObject<HTMLDivElement | null>;
+    messagesContainerRef?: React.RefObject<HTMLDivElement | null>;
     isInitialLoad?: boolean; // 🆕 Diferencia primeira carga de recargas
 }
 
@@ -32,6 +32,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
     messagesContainerRef: externalContainerRef,
     isInitialLoad = false,
 }) => {
+    console.log('[ChatMessageList] Received messages:', messages.length, messages);
     const internalEndRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = externalEndRef || internalEndRef;
     const internalContainerRef = useRef<HTMLDivElement>(null);

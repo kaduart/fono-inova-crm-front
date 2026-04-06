@@ -76,6 +76,23 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
     const hasGenericNameValue = isGenericName(contact?.name, contact?.phone);
     const [isWindowOpen, setIsWindowOpen] = useState(true); // 🆕 Para verificar se está aberto
 
+    // 🆕 Função para adicionar mensagem de sistema/erro no chat - DEFINIDA ANTES DE USAR
+    const addSystemMessage = useCallback((text: string, type: 'error' | 'warning' | 'info' | 'success' = 'info') => {
+        const newMessage: SystemMessage = {
+            id: `system_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            text,
+            type,
+            timestamp: new Date()
+        };
+        setSystemMessages(prev => [...prev, newMessage]);
+        
+        // Auto-remove após 10 segundos para infos e warnings, mantém erros por 30s
+        const timeout = type === 'error' ? 30000 : 10000;
+        setTimeout(() => {
+            setSystemMessages(prev => prev.filter(m => m.id !== newMessage.id));
+        }, timeout);
+    }, []);
+
     // 🆕 Registrar no contexto quando montar (com isOpen)
     useEffect(() => {
         registerChatWindow({ 
@@ -166,25 +183,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
         }
     }, [contact?.phone, loadMessages]);
 
-    // 🆕 Função para adicionar mensagem de sistema/erro no chat
-    const addSystemMessage = useCallback((text: string, type: 'error' | 'warning' | 'info' | 'success' = 'info') => {
-        const newMessage: SystemMessage = {
-            id: `system_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            text,
-            type,
-            timestamp: new Date()
-        };
-        setSystemMessages(prev => [...prev, newMessage]);
-        
-        // Auto-remove após 10 segundos para infos e warnings, mantém erros por 30s
-        const timeout = type === 'error' ? 30000 : 10000;
-        setTimeout(() => {
-            setSystemMessages(prev => prev.filter(m => m.id !== newMessage.id));
-        }, timeout);
-    }, []);
-
     // 🆕 Combina mensagens normais com mensagens de sistema
     const allMessages = React.useMemo(() => {
+        console.log('[ChatWindow] Messages from API:', messages.length, messages);
+        console.log('[ChatWindow] System messages:', systemMessages.length);
         const combined = [
             ...messages,
             ...systemMessages.map(sm => ({
@@ -199,6 +201,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                 systemType: sm.type
             }))
         ];
+        console.log('[ChatWindow] Combined messages:', combined.length);
         // Ordena por timestamp
         return combined.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
     }, [messages, systemMessages]);
@@ -547,7 +550,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                 </div>
             )}
 
-            {/* Messages -->
             <ChatMessageList
                 messages={allMessages} // 🆕 Usa allMessages (normais + sistema)
                 contact={contact}

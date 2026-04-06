@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from 'react';
 import { MapPin, Globe, MousePointer, TrendingUp, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
-import axios from 'axios';
+import API from '../../../services/api';
 
 interface PageVisit {
   url: string;
@@ -72,8 +72,8 @@ export default function LeadJourneyPanel({ leadId }: Props) {
     if (!leadId) return;
     setJourney(null);
     setLoading(true);
-    axios
-      .get(`/api/leads/${leadId}`)
+    API
+      .get(`/leads/${leadId}`)
       .then(({ data }) => {
         const lead = data.lead || data;
         setJourney({

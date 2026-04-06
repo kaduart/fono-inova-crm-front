@@ -13,6 +13,7 @@ import { Button } from "../../ui/Button";
 import AddContactModal from "./AddContactModal";
 import ChatWindow from "./ChatWindow";
 import Sidebar from "./Sidebar";
+import ChatSkeleton from "./ChatSkeleton";
 import { useDebouncedCallback } from "../../../hooks/useDebounce";
 import { searchContactsByMessage } from "../../../services/whatsappService";
 import AmandaStatusBadge from "./AmandaStatusBadge";
@@ -172,6 +173,11 @@ const AppChat: React.FC = () => {
     );
     // ✅ leadId correto: tenta pegar do contato (se existir). Evita usar _id como leadId.
     const effectiveLeadId = active?.leadId;
+    // 🆕 Skeleton loading
+    if (loadingContacts) {
+        return <ChatSkeleton />;
+    }
+
     return (
         <div>
             <Paper
