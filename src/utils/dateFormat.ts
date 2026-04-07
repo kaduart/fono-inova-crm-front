@@ -117,8 +117,12 @@ export const formatDateTimeBR = (isoString: string): string => {
 };
 
 
-export function buildLocalDateOnly(dateString: string) {
-  const [year, month, day] = dateString.split('-').map(Number);
+export function buildLocalDateOnly(dateString: string | Date) {
+  if (dateString instanceof Date) {
+    return new Date(dateString.getFullYear(), dateString.getMonth(), dateString.getDate());
+  }
+  const datePart = dateString.substring(0, 10); // suporta "YYYY-MM-DD" e ISO strings
+  const [year, month, day] = datePart.split('-').map(Number);
   return new Date(year, month - 1, day); // cria com hora 00:00 no fuso local
 }
 
