@@ -12,7 +12,7 @@ import { IAppointment, IDoctor, IPatient, ScheduleAppointment, SelectedEvent } f
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
 import AppointmentDetailModal from './appointmentDetailModal';
 import API from '../../services/api';
-import { getHolidays, holidaysToMap, isHoliday, Holiday } from '../../services/calendarService';
+import { getHolidays, holidaysToMap, isHoliday as isHolidayUtil, Holiday } from '../../services/calendarService';
 
 interface EnhancedCalendarProps {
     appointments: IAppointment[];
@@ -193,7 +193,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
     // 🆕 Funções helpers para feriados (usando serviço centralizado)
     const isHoliday = useCallback((dateStr: string): boolean => {
-        return isHoliday(dateStr, holidays);
+        return isHolidayUtil(dateStr, holidays);
     }, [holidays]);
 
     const getHolidayName = useCallback((dateStr: string): string => {

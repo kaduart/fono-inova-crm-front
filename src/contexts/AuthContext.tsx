@@ -264,10 +264,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     };
 
-    // Verifica imediatamente na montagem
-    checkTokenExpiration();
-    
-    // Verifica a cada minuto
+    // Verifica a cada minuto (validateAuth já cobre a verificação inicial no mount)
     const tokenCheckInterval = setInterval(checkTokenExpiration, 60 * 1000);
 
     return () => clearInterval(tokenCheckInterval);

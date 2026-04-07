@@ -221,6 +221,8 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
             setContacts([]);
             setPage(1);
             setHasMore(true);
+            isInitialLoadRef.current = true;
+            lastRefreshRef.current = 0;
         };
 
         const handleVisibilityChange = () => {
