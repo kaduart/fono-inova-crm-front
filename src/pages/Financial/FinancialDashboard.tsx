@@ -112,7 +112,7 @@ const FinancialDashboard = ({
             case 'resumo-dia':
                 return <DailySummaryCard />;
             case 'caixa':
-                return <div className="p-4 text-gray-500">Componente Caixa em manutenção</div>;
+                return <DailySummaryCard />;
             case 'metas-v2':
                 return <GoalsTab />;
             case 'pagamentos':
