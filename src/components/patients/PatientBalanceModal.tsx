@@ -1,15 +1,12 @@
 // src/components/patients/PatientBalanceModal.tsx
 // Modal para visualizar e gerenciar a conta corrente do paciente
 
-import { ptBR } from 'date-fns/locale';
-import { ArrowDownCircle, ArrowUpCircle, CheckCircle, DollarSign, History, Plus, Trash2, Wallet, X, CheckSquare, Square, Calculator, Pencil, AlertTriangle } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import DatePicker from 'react-datepicker';
-import { useBalanceV2 } from '../../hooks/useBalanceV2';
-import { usePaymentV2 } from '../../hooks/usePaymentV2';
-import { appointmentService } from '../../services/appointmentService';
+import { ArrowDownCircle, ArrowUpCircle, CheckCircle, DollarSign, History, Plus, Trash2, Wallet, X, CheckSquare, Square, Calculator, Pencil } from 'lucide-react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { getBalanceV2, addBalanceDebitV2 } from '../../services/balanceService';
+import usePayment from '../../hooks/usePayment';
 import { InputCurrency } from '../ui/InputCurrency';
-import { LoadingSpinner, ModalSpinner } from '../ui/LoadingSpinner';
+import { ModalSpinner } from '../ui/LoadingSpinner';
 import { extractErrorMessage } from '../../utils/errorUtils';
 
 interface PatientBalanceModalProps {
@@ -63,9 +60,64 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
     patientName,
     onRefresh
 }) => {
-    // 🚀 V2 Hooks
-    const { balance, isLoading: loading, addDebit, refetch } = useBalanceV2(patientId);
-    const { createPaymentMulti, isProcessing, statusMessage, progress } = usePaymentV2();
+    // Hooks adaptados
+    const [balance, setBalance] = useState<any>(null);
+    const [loading, setLoading] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const { addPayment } = usePayment();
+
+    // Buscar balance do paciente
+    const fetchBalance = useCallback(async () => {
+        if (!patientId) return;
+        setLoading(true);
+        try {
+            const response = await getBalanceV2(patientId);
+            setBalance(response.data);
+        } catch (error) {
+            console.error('Erro ao buscar balance:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [patientId]);
+
+    useEffect(() => {
+        fetchBalance();
+    }, [fetchBalance]);
+
+    const addDebit = async (data: { amount: number; description: string }) => {
+        if (!patientId) return;
+        setIsProcessing(true);
+        try {
+            await addBalanceDebitV2(patientId, data);
+            await fetchBalance();
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    // Adaptação para pagamento múltiplo
+    const createPaymentMulti = async (patientId: string, data: any) => {
+        setIsProcessing(true);
+        setProgress(50);
+        try {
+            // Cria pagamentos individuais para cada item
+            if (data.payments && data.payments.length > 0) {
+                for (const payment of data.payments) {
+                    await addPayment({
+                        patientId,
+                        amount: payment.amount,
+                        paymentMethod: payment.paymentMethod,
+                        notes: payment.description,
+                    });
+                }
+            }
+            await fetchBalance();
+            setProgress(100);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
     
     const [activeTab, setActiveTab] = useState<'pending' | 'paid' | 'add'>('pending');
     
@@ -113,7 +165,7 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
     const [deleteReason, setDeleteReason] = useState('');
     const [isDeleteSubmitting, setIsDeleteSubmitting] = useState(false);
 
-    // React Query já carrega o balance automaticamente via useBalanceV2
+    // Balance é carregado via useEffect
 
     // Separa transações por status
     const { pendingDebits, paidDebits, payments } = useMemo(() => {
@@ -181,10 +233,10 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
         if (!editingTransaction?._id) return;
         setIsEditSubmitting(true);
         try {
-            // TODO: Implementar updateTransaction no useBalanceV2
-            console.warn('Edit transaction V2 not implemented yet');
+            // TODO: Implementar updateTransaction
+            console.warn('Edit transaction not implemented yet');
             setEditingTransaction(null);
-            await refetch();
+            await fetchBalance();
         } catch (err: any) {
             alert(err?.response?.data?.message || 'Erro ao editar transação');
         } finally {
@@ -202,11 +254,11 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
         }
         setIsDeleteSubmitting(true);
         try {
-            // TODO: Implementar deleteTransaction no useBalanceV2  
-            console.warn('Delete transaction V2 not implemented yet');
+            // TODO: Implementar deleteTransaction
+            console.warn('Delete transaction not implemented yet');
             setDeletingTransaction(null);
             setDeleteReason('');
-            await refetch();
+            await fetchBalance();
         } catch (err: any) {
             alert(err?.response?.data?.message || 'Erro ao excluir transação');
         } finally {
@@ -238,7 +290,7 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
             setQuickPaymentMethod('dinheiro');
             
             // Recarrega dados e notifica pai para atualizar cards
-            await refetch();
+            await fetchBalance();
             setSelectedDebits(new Set());
             onRefresh?.();
         } catch (error) {
@@ -327,7 +379,7 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
             setSelectedDebits(new Set());
 
             // Recarrega dados e notifica pai para atualizar cards
-            await refetch();
+            await fetchBalance();
             onRefresh?.();
         } catch (error: any) {
             console.error('Erro ao registrar pagamento:', error);
@@ -617,7 +669,7 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                                 <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
                                     {isProcessing && (
                                         <div className="mb-3">
-                                            <p className="text-sm text-amber-800 dark:text-amber-200">{statusMessage}</p>
+                                            <p className="text-sm text-amber-800 dark:text-amber-200">Processando pagamento...</p>
                                             <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
                                                 <div className="bg-amber-600 h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
                                             </div>

@@ -2,13 +2,13 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
 import { useContacts } from "../../../contexts/ContactsContext";
-import { usePatientsV2 } from '../../../hooks/usePatientV2';
+import { usePatients } from '../../../hooks/usePatients';
 import { addContact, deleteContact, editContact } from "../../../services/whatsappService";
 import ContactsList, { Contact } from "./ContactsList";
 
 export default function ContactsPage() {
     const { listContacts, refreshContacts, markAsRead } = useContacts();
-    const { patients, createPatient } = usePatientsV2(); // ✅ hook V2 de pacientes
+    const { patients, createPatient } = usePatients(); // ✅ hook de pacientes
     const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
 
     // ✅ Seleciona contato e marca como lido (limpa notificação)

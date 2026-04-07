@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { usePatientsV2 } from '../../../hooks/usePatientV2';
+import { usePatients } from '../../../hooks/usePatients';
 import { PatientList } from '../../patients/PatientList';
 import { PatientSearch } from '../../patients/PatientSearch';
 import { Skeleton, Button } from '@mui/material';
@@ -22,8 +22,8 @@ export const PatientsTab = ({ onAddPatient, onEditPatient }: PatientsTabProps) =
     const [searchTerm, setSearchTerm] = useState('');
     const [page, setPage] = useState(1);
     
-    // 🎯 USA O HOOK V2 DE PACIENTES
-    const { patients, loading } = usePatientsV2();
+    // 🎯 USA O HOOK DE PACIENTES
+    const { patients, loading } = usePatients();
 
     const handleSearch = useCallback((term: string) => {
         setSearchTerm(term);

@@ -166,8 +166,13 @@ export const useAppointments = () => {
     const fetchAppointmentsByPatient = useCallback(async (id: string) => {
         try {
             setLoading(true);
-            const response = await appointmentService.get(id);
-            return response.data;
+            // 🚀 V2: Usa listV2 com filtro de patientId
+            const response = await appointmentService.listV2({
+                patientId: id,
+                limit: 100
+            });
+            // Extrai appointments da resposta V2
+            return response.data?.data?.appointments || response.data?.data || [];
         } catch (error) {
             setError('Falha ao buscar agendamento');
             throw error;

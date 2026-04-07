@@ -5,7 +5,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import { format } from 'date-fns';
 import { ptBR } from "date-fns/locale";
 import { Calendar, ClipboardCheck, Mail, MapPin, Phone, User, X } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 
 interface Patient {
     _id: string;
@@ -42,26 +42,60 @@ interface AppointmentsSectionProps {
     calendarEvents: any[];
 }
 
-const AppointmentsSection: React.FC<AppointmentsSectionProps> = ({ calendarEvents }) => {
+// Constantes definidas fora do componente para não recriar a cada render
+const OPERATIONAL_COLORS: Record<string, string> = {
+    scheduled: '#3b82f6',
+    confirmed: '#10b981',
+    in_progress: '#f59e0b',
+    completed: '#22c55e',
+    canceled: '#6b7280',
+    absent: '#ef4444',
+    pre_agendado: '#ec4899'
+};
+
+const PAYMENT_BADGE: Record<string, { label: string; bg: string; text: string }> = {
+    paid: { label: 'Pago', bg: 'bg-green-600', text: 'text-white' },
+    pending: { label: 'Pendente', bg: 'bg-red-600', text: 'text-white' },
+    package_paid: { label: 'Pacote', bg: 'bg-green-600', text: 'text-white' },
+    partial: { label: 'Parcial', bg: 'bg-amber-500', text: 'text-white' },
+    advanced: { label: 'Adiant.', bg: 'bg-blue-600', text: 'text-white' },
+};
+
+const OPERATIONAL_BADGE: Record<string, { label: string; bg: string; text: string }> = {
+    scheduled: { label: 'Agendado', bg: 'bg-blue-500', text: 'text-white' },
+    confirmed: { label: 'Confirm.', bg: 'bg-emerald-600', text: 'text-white' },
+    in_progress: { label: 'Andamento', bg: 'bg-orange-500', text: 'text-white' },
+    completed: { label: 'Concluído', bg: 'bg-green-700', text: 'text-white' },
+    canceled: { label: 'Cancel.', bg: 'bg-gray-600', text: 'text-white' },
+    absent: { label: 'Faltou', bg: 'bg-red-700', text: 'text-white' },
+    pre_agendado: { label: 'Pré-Agend.', bg: 'bg-pink-500', text: 'text-white' },
+};
+
+const AppointmentsSection: React.FC<AppointmentsSectionProps> = memo(({ calendarEvents }) => {
     const calendarRef = useRef<FullCalendar>(null);
     const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    const handleEventClick = (arg: any) => {
+    const handleEventClick = useCallback((arg: any) => {
         setSelectedAppointment(arg.event.extendedProps);
         setIsModalOpen(true);
-    };
+    }, []);
 
-    const formatFullDate = (isoString: string) => {
+    const handleCloseModal = useCallback(() => {
+        setIsModalOpen(false);
+        setSelectedAppointment(null);
+    }, []);
+
+    const formatFullDate = useCallback((isoString: string) => {
         try {
             const date = new Date(isoString);
             return format(date, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
         } catch {
             return 'Data/horário inválido';
         }
-    };
+    }, []);
 
-    const formatAddress = (address: any) => {
+    const formatAddress = useCallback((address: any) => {
         if (!address) return 'Endereço não informado';
         const parts = [
             address.street,
@@ -72,9 +106,9 @@ const AppointmentsSection: React.FC<AppointmentsSectionProps> = ({ calendarEvent
             address.zipCode
         ].filter(Boolean);
         return parts.join(', ') || 'Endereço incompleto';
-    };
+    }, []);
 
-    const getStatusClass = (status: string) => {
+    const getStatusClass = useCallback((status: string) => {
         switch (status?.toLowerCase()) {
             case 'pending':
             case 'pendente':
@@ -91,9 +125,9 @@ const AppointmentsSection: React.FC<AppointmentsSectionProps> = ({ calendarEvent
             default:
                 return 'bg-gray-100 text-gray-600';
         }
-    };
+    }, []);
 
-    const formatStatus = (status: string) => {
+    const formatStatus = useCallback((status: string) => {
         const statusMap: Record<string, string> = {
             'pending': 'Pendente',
             'in_progress': 'Em Andamento',
@@ -101,7 +135,62 @@ const AppointmentsSection: React.FC<AppointmentsSectionProps> = ({ calendarEvent
             'missed': 'Faltou'
         };
         return statusMap[status] || status;
-    };
+    }, []);
+
+    // Memoiza o render de evento para evitar recriação
+    const renderEventContent = useCallback((arg: any) => {
+        const extendedProps = arg.event.extendedProps;
+        const operationalStatus = extendedProps.operationalStatus || 'scheduled';
+        const paymentStatus = extendedProps.paymentStatus || 'pending';
+        
+        const borderColor = OPERATIONAL_COLORS[operationalStatus] || '#3b82f6';
+        const paymentBadge = PAYMENT_BADGE[paymentStatus] || PAYMENT_BADGE.pending;
+        const operationalBadge = OPERATIONAL_BADGE[operationalStatus] || OPERATIONAL_BADGE.scheduled;
+        
+        const hasPackage = !!extendedProps.package;
+        const isConvenio = extendedProps.billingType === 'convenio' || extendedProps.insuranceProvider;
+        
+        return (
+            <div 
+                className="flex flex-col p-2 rounded-xl w-full h-full relative transition-all duration-200 hover:shadow-lg cursor-pointer"
+                style={{
+                    background: 'linear-gradient(135deg, #a2ddbfff 0%, #1aac68ff 100%)',
+                    borderLeft: `6px solid ${borderColor}`,
+                    minHeight: '90px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                }}
+            >
+                <div className="flex justify-between items-start mb-1 gap-1">
+                    <span className="text-xs font-bold bg-white/90 text-gray-800 px-1.5 py-0.5 rounded">
+                        {arg.timeText}
+                    </span>
+                    <div className={`${paymentBadge.bg} ${paymentBadge.text} px-1.5 py-0.5 rounded text-[9px] font-bold shadow-sm`}>
+                        {paymentBadge.label}
+                    </div>
+                </div>
+                
+                <p className="text-sm font-bold truncate leading-tight text-gray-900 mb-1">
+                    {arg.event.title}
+                </p>
+                
+                <div className="flex flex-wrap items-center gap-1 mt-auto">
+                    <div className={`${operationalBadge.bg} ${operationalBadge.text} px-1.5 py-0.5 rounded text-[9px] font-bold`}>
+                        {operationalBadge.label}
+                    </div>
+                    {hasPackage && (
+                        <div className="bg-green-700 text-white px-1.5 py-0.5 rounded text-[9px] font-bold">
+                            📦 Pacote
+                        </div>
+                    )}
+                    {isConvenio && (
+                        <div className="bg-orange-600 text-white px-1.5 py-0.5 rounded text-[9px] font-bold">
+                            🏥 Convênio
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }, []);
 
     return (
         <div className="bg-white rounded-3xl border-2 border-gray-200 shadow-2xl overflow-hidden">
@@ -134,6 +223,10 @@ const AppointmentsSection: React.FC<AppointmentsSectionProps> = ({ calendarEvent
                         eventClick={handleEventClick}
                         height="auto"
                         eventDisplay="block"
+                        eventMinHeight={100}
+                        dayMaxEventRows={4}
+                        dayMaxEvents={true}
+                        slotMinHeight={100}
                         eventTimeFormat={{
                             hour: '2-digit',
                             minute: '2-digit',
@@ -145,19 +238,7 @@ const AppointmentsSection: React.FC<AppointmentsSectionProps> = ({ calendarEvent
                             week: 'Semana',
                             day: 'Dia'
                         }}
-                        eventContent={(arg) => (
-                            <div className="flex flex-col p-2 cursor-pointer hover:opacity-90 transition-opacity">
-                                <span className="text-xs font-bold text-white">
-                                    {arg.timeText}
-                                </span>
-                                <span className="text-sm font-semibold truncate text-white">
-                                    {arg.event.title}
-                                </span>
-                                <span className={`px-2 py-1 rounded-full text-xs font-bold mt-1 w-fit ${getStatusClass(arg.event.extendedProps.clinicalStatus)}`}>
-                                    {formatStatus(arg.event.extendedProps.clinicalStatus)}
-                                </span>
-                            </div>
-                        )}
+                        eventContent={renderEventContent}
                         dayHeaderContent={(arg) => (
                             <span className="text-sm font-bold text-gray-700">
                                 {arg.text}
@@ -184,7 +265,7 @@ const AppointmentsSection: React.FC<AppointmentsSectionProps> = ({ calendarEvent
                                 Detalhes do Agendamento
                             </h2>
                             <button
-                                onClick={() => setIsModalOpen(false)}
+                                onClick={handleCloseModal}
                                 className="text-white hover:bg-white hover:bg-opacity-20 rounded-xl p-2 transition-all"
                             >
                                 <X size={24} />
@@ -328,7 +409,7 @@ const AppointmentsSection: React.FC<AppointmentsSectionProps> = ({ calendarEvent
 
                         <div className="sticky bottom-0 bg-white border-t-2 p-6 flex justify-end space-x-3 rounded-b-3xl">
                             <button
-                                onClick={() => setIsModalOpen(false)}
+                                onClick={handleCloseModal}
                                 className="px-6 py-3 border-2 border-gray-300 rounded-xl text-gray-700 font-bold hover:bg-gray-50 transition-all"
                             >
                                 Fechar
@@ -397,15 +478,25 @@ const AppointmentsSection: React.FC<AppointmentsSectionProps> = ({ calendarEvent
                 
                 .fc-event {
                     border-radius: 0.75rem !important;
-                    padding: 0.5rem !important;
+                    padding: 0 !important;
                     font-weight: 700 !important;
-                    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+                    background: transparent !important;
                     border: none !important;
-                    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3) !important;
+                    box-shadow: none !important;
                 }
                 
                 .fc-event:hover {
-                    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.5) !important;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+                    transform: translateY(-2px);
+                }
+                
+                .fc-daygrid-event {
+                    padding: 2px !important;
+                    margin: 2px 4px !important;
+                }
+                
+                .fc-daygrid-event-harness {
+                    margin-bottom: 4px !important;
                 }
                 
                 .fc .fc-toolbar-title {
@@ -420,6 +511,8 @@ const AppointmentsSection: React.FC<AppointmentsSectionProps> = ({ calendarEvent
             `}</style>
         </div>
     );
-};
+});
+
+AppointmentsSection.displayName = 'AppointmentsSection';
 
 export default AppointmentsSection;

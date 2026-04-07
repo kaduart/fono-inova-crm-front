@@ -19,12 +19,13 @@ const DoctorFormModal = ({
     onClose,
     onSubmitDoctor,
     selectedDoctor,
-    loading,
+    loading: externalLoading,
     onCancel,
     modalShouldClose
 }: DoctorFormModalProps) => {
     const [localOpen, setLocalOpen] = useState(open);
     const [shouldClose, setShouldClose] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Sincroniza o estado aberto/fechado
     useEffect(() => {
@@ -39,13 +40,20 @@ const DoctorFormModal = ({
     }, [open, modalShouldClose]);
 
     const handleSubmit = async (data: IDoctor) => {
+        setIsSubmitting(true);
         try {
             await onSubmitDoctor(data);
-            setShouldClose(true); 
+            setShouldClose(true);
+            onClose(); // Fecha o modal no sucesso
         } catch (error) {
             // Erros são tratados no componente pai
+        } finally {
+            setIsSubmitting(false);
         }
     };
+
+    // Combina loading externo com interno
+    const loading = externalLoading || isSubmitting;
 
     return (
         <Modal

@@ -7,8 +7,8 @@
 
 import { useEffect, useState } from 'react';
 import SiteAnalyticsDashboard from '../../Dashboard/SiteAnalyticsDashboard';
-import { getPaymentsV2, FinancialRecord } from '../../../services/paymentService';
-import { usePatientsV2 } from '../../../hooks/usePatientV2';
+import { getPayments, FinancialRecord } from '../../../services/paymentService';
+import { usePatients } from '../../../hooks/usePatients';
 import { useDoctorsContext } from '../../../contexts/DoctorsContext';
 import { usePaymentsContext } from '../../../contexts/PaymentsContext';
 import { IPatient } from '../../../utils/types/types';
@@ -34,7 +34,7 @@ export const AnalyticsTab = ({
 }: AnalyticsTabProps) => {
     // 🎯 SOURCE OF TRUTH: Contexts globais (sem state local duplicado)
     const { payments, loadPayments, isLoading: paymentsLoading } = usePaymentsContext();
-    const { patients, loading: patientsLoading } = usePatientsV2();
+    const { patients, loading: patientsLoading } = usePatients();
     const { activeDoctors: doctors, loading: doctorsLoading } = useDoctorsContext();
     const [isLoading, setIsLoading] = useState(true);
     const loading = isLoading || patientsLoading || doctorsLoading || paymentsLoading;

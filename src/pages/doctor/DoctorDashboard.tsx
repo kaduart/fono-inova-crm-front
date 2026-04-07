@@ -1,7 +1,8 @@
-// src/pages/doctor/DashboardPage.tsx
-import { useState } from 'react';
+// src/pages/doctor/DoctorDashboard.tsx
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { Box, Card, CardContent, Grid, Paper, Skeleton, Typography } from '@mui/material';
 import { toDateString } from '../../utils/dateUtils';
 import DashboardHeader from '../../components/doctor/DashboardHeader';
 import { PatientModal } from '../../components/patients/PatientModal';
@@ -17,14 +18,57 @@ import ReportsSection from '../../components/doctor/ReportsSection';
 import SpecialtyStatsCard from '../../components/doctor/SpecialtyStatsCard';
 import TherapyEvolution from '../../components/doctor/TherapyEvolution';
 import TodayAppointmentsCard from '../../components/doctor/TodayAppointmentsCard';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-
 import { Activity, Calendar, CheckCircle, Users } from 'lucide-react';
 import KPICard from '../../components/doctor/DoctorKPICard';
 import AlertsPanel from '../../components/doctor/AlertsPanel';
 import QuickActions from '../../components/doctor/QuickActions';
 
-// Estado inicial do paciente
+// Skeleton para KPI
+const KPICardSkeleton = () => (
+  <Card className="rounded-2xl border border-gray-200 shadow-sm">
+    <CardContent className="p-6">
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          <Skeleton variant="text" width={120} height={20} className="mb-2" />
+          <Skeleton variant="text" width={60} height={48} />
+        </div>
+        <Skeleton variant="circular" width={48} height={48} />
+      </div>
+    </CardContent>
+  </Card>
+);
+
+// Skeleton para o Dashboard completo
+const DashboardSkeleton = () => (
+  <div className="min-h-screen bg-gray-50">
+    <div className="bg-white border-b border-gray-200">
+      <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Skeleton variant="circular" width={48} height={48} />
+            <div>
+              <Skeleton variant="text" width={250} height={32} />
+              <Skeleton variant="text" width={180} height={20} />
+            </div>
+          </div>
+          <Skeleton variant="rectangular" width={120} height={40} className="rounded-full" />
+        </div>
+      </div>
+    </div>
+    <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <Grid container spacing={3} className="mb-6">
+          {[1, 2, 3, 4].map((i) => (
+            <Grid item xs={12} sm={6} lg={3} key={i}>
+              <KPICardSkeleton />
+            </Grid>
+          ))}
+        </Grid>
+      </div>
+    </div>
+  </div>
+);
+
 const initialPatientState: IPatient = {
   fullName: '',
   dateOfBirth: '',
@@ -69,95 +113,104 @@ const initialPatientState: IPatient = {
 };
 
 export default function DoctorDashboard() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
   const [showTodayAppointments, setShowTodayAppointments] = useState(true);
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<IPatient | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'detail'>('list'); // 'list' ou 'detail'
+  const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
   const [isLoading, setIsLoading] = useState(false);
 
-  const navigate = useNavigate();
-
   const {
-    loading,
     doctorData,
+    doctorId,
     patients,
     appointments,
     stats,
     futureAppointments,
     calendarEvents,
-    handleUpdateStatus
-  } = useDoctorDashboard({ skipCache: true });
-
-  // 🐛 Debug logs
-  console.log('🩺 DoctorDashboard:', {
+    therapySessions,
+    attendanceSummary,
     loading,
-    doctorDataId: doctorData?._id,
-    patientsCount: patients?.length,
-    appointmentsCount: appointments?.length,
-    stats
-  });
+    loadOverview,
+    loadAppointments,
+    loadTherapy,
+    loadAttendance,
+    loadPatients,
+    handleUpdateStatus
+  } = useDoctorDashboard();
 
-  // Função para abrir modal do paciente (clique rápido no nome/avatar)
-  const handleOpenPatientModal = (patient: IPatient) => {
+  // 🚀 Lazy loading: carrega dados da aba ativa
+  useEffect(() => {
+    if (!doctorId) return;
+    
+    switch (activeTab) {
+      case 'overview':
+        loadOverview();
+        break;
+      case 'patients':
+        loadPatients();
+        break;
+      case 'appointments':
+        loadAppointments();
+        break;
+      case 'therapy':
+        loadTherapy();
+        break;
+      case 'attendance':
+        loadAttendance();
+        break;
+    }
+  }, [activeTab, doctorId]); // Só recarrega quando muda a aba ou carrega o doctorId
+
+  const handleOpenPatientModal = useCallback((patient: IPatient) => {
     setSelectedPatient(patient);
     setIsPatientModalOpen(true);
-  };
+  }, []);
 
-  // Função para visualização completa (PatientDetail)
-  const handleViewPatientDetails = (patient: IPatient) => {
+  const handleViewPatientDetails = useCallback((patient: IPatient) => {
     setSelectedPatient(patient);
     setViewMode('detail');
-    setActiveTab('patients'); // Garante que está na aba de pacientes
-  };
+    setActiveTab('patients');
+  }, []);
 
-  // Função para voltar para a lista
-  const handleBackToList = () => {
+  const handleBackToList = useCallback(() => {
     setViewMode('list');
     setSelectedPatient(null);
-  };
+  }, []);
 
-  // Função para criar anamnese
-  const handleCreateAnamnesis = (patient: IPatient) => {
+  const handleCreateAnamnesis = useCallback((patient: IPatient) => {
     setSelectedPatient(patient);
     setViewMode('detail');
     setActiveTab('patients');
-    // Aqui você pode adicionar lógica para abrir direto na aba de anamnese
     toast.info(`Criar anamnese para ${patient.fullName}`);
-  };
+  }, []);
 
-  // Função para criar relatório escolar
-  const handleCreateSchoolReport = (patient: IPatient) => {
+  const handleCreateSchoolReport = useCallback((patient: IPatient) => {
     setSelectedPatient(patient);
     setViewMode('detail');
     setActiveTab('patients');
-    // Aqui você pode adicionar lógica para abrir direto na aba de relatórios escolares
     toast.info(`Criar relatório escolar para ${patient.fullName}`);
-  };
+  }, []);
 
-  // Função para ver relatórios médicos
-  const handleViewMedicalReports = (patient: IPatient) => {
+  const handleViewMedicalReports = useCallback((patient: IPatient) => {
     setSelectedPatient(patient);
     setViewMode('detail');
     setActiveTab('patients');
-    // Aqui você pode adicionar lógica para abrir direto na aba de relatórios médicos
     toast.info(`Ver relatórios médicos de ${patient.fullName}`);
-  };
+  }, []);
 
-  // Função para adicionar novo paciente
-  const handleAddNewPatient = () => {
+  const handleAddNewPatient = useCallback(() => {
     setSelectedPatient(null);
     setIsPatientModalOpen(true);
-  };
+  }, []);
 
-  // Função para fechar modal
-  const handleClosePatientModal = () => {
+  const handleClosePatientModal = useCallback(() => {
     setIsPatientModalOpen(false);
     setSelectedPatient(null);
-  };
+  }, []);
 
-  // Função para salvar paciente
-  const handleSavePatient = async (formData: IPatient) => {
+  const handleSavePatient = useCallback(async (formData: IPatient) => {
     setIsLoading(true);
     try {
       if (formData._id) {
@@ -173,6 +226,10 @@ export default function DoctorDashboard() {
         });
         toast.success("Paciente criado com sucesso!");
       }
+      // Recarrega pacientes se estiver na aba
+      if (activeTab === 'patients') {
+        loadPatients(true);
+      }
       return true;
     } catch (error: any) {
       toast.error(extractErrorMessage(error, 'Erro ao salvar paciente.'));
@@ -180,35 +237,37 @@ export default function DoctorDashboard() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeTab, loadPatients]);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     navigate('/logout');
-  }
+  }, [navigate]);
 
-  const handleTabChange = (tab: string) => {
+  const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);
-    // Se mudar de aba e não estiver na de pacientes, volta para a lista
     if (tab !== 'patients') {
       setViewMode('list');
       setSelectedPatient(null);
     }
-  };
+  }, []);
 
-  const calculateKPIs = () => {
+  const handleGoToEvolution = useCallback((patient: any) => {
+    setSelectedPatient(patient);
+    setActiveTab('therapy');
+  }, []);
+
+  const calculateKPIs = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     const appointmentsList = appointments ?? [];
     const todayAppointments = appointmentsList.filter(
       apt => toDateString(apt.date) === today
     );
 
-    // Total de pacientes ativos
     const patientsList = patients ?? [];
     const activePatients = patientsList.filter(p =>
-      p.appointments && p.appointments.length > 0
+      p.stats?.totalAppointments > 0
     ).length;
 
-    // Consultas do mês
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
     const monthAppointments = appointmentsList.filter(apt => {
@@ -218,7 +277,6 @@ export default function DoctorDashboard() {
         apt.status === 'completed';
     }).length;
 
-    // Taxa de comparecimento
     const completedAppointments = appointmentsList.filter(
       apt => apt.status === 'completed'
     ).length;
@@ -227,7 +285,6 @@ export default function DoctorDashboard() {
       ? Math.round((completedAppointments / totalScheduled) * 100)
       : 0;
 
-    // Próxima consulta
     const nextAppointment = (futureAppointments ?? [])[0];
     const nextAppointmentTime = nextAppointment
       ? `${nextAppointment.time}`
@@ -240,18 +297,18 @@ export default function DoctorDashboard() {
       todayCount: todayAppointments.length,
       nextAppointmentTime
     };
-  };
+  }, [patients, appointments, futureAppointments]);
 
-  const generateAlerts = () => {
+  const generateAlerts = useMemo(() => {
     const alerts: any[] = [];
     const patientsList = patients ?? [];
     const appointmentsList = appointments ?? [];
 
-    // Pacientes sem evolução há 30+ dias
     const patientsWithoutEvolution = patientsList.filter(p => {
-      if (!p.lastAppointment) return false;
+      const lastAppointmentDate = p.lastAppointment?.date || p.stats?.lastAppointmentDate;
+      if (!lastAppointmentDate) return false;
       const daysSinceLastAppointment = Math.floor(
-        (Date.now() - new Date(p.lastAppointment).getTime()) / (1000 * 60 * 60 * 24)
+        (Date.now() - new Date(lastAppointmentDate).getTime()) / (1000 * 60 * 60 * 24)
       );
       return daysSinceLastAppointment >= 30;
     });
@@ -267,7 +324,6 @@ export default function DoctorDashboard() {
       });
     }
 
-    // Consultas de hoje
     const today = new Date().toISOString().split('T')[0];
     const todayPending = appointmentsList.filter(
       apt => toDateString(apt.date) === today && apt.status === 'scheduled'
@@ -283,108 +339,87 @@ export default function DoctorDashboard() {
       });
     }
 
-    // Exemplo: Relatórios pendentes (você pode adicionar lógica real aqui)
-    // alerts.push({
-    //     id: 'reports-pending',
-    //     type: 'urgent',
-    //     title: 'Relatórios médicos pendentes',
-    //     description: 'Há relatórios aguardando sua assinatura',
-    //     count: 3,
-    //     onClick: () => handleTabChange('reports')
-    // });
-
     return alerts;
-  };
+  }, [patients, appointments, handleTabChange]);
 
-  // ✅ FUNÇÃO PARA IR À EVOLUÇÃO DO PACIENTE
-  const handleGoToEvolution = (patient: any) => {
-    setSelectedPatient(patient);
-    setActiveTab('therapy');
-  };
-
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-60vh">
-        <LoadingSpinner />
-      </div>
-    );
+  // Skeleton enquanto carrega dados iniciais
+  if (!doctorData || !doctorId) {
+    return <DashboardSkeleton />;
   }
 
-  // Renderização condicional do conteúdo baseado na tab ativa
   const renderTabContent = () => {
     switch (activeTab) {
       case 'overview':
-        const kpis = calculateKPIs();
-        const alerts = generateAlerts();
-
         return (
           <div className="space-y-6 p-6">
-            {/* KPI CARDS */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <KPICard
-                title="Pacientes Ativos"
-                value={kpis.activePatients}
-                icon={Users}
-                color="primary"
-                onClick={() => handleTabChange('patients')}
-              />
-              <KPICard
-                title="Consultas este Mês"
-                value={kpis.monthAppointments}
-                icon={Calendar}
-                color="success"
-              />
-              <KPICard
-                title="Taxa de Comparecimento"
-                value={`${kpis.attendanceRate}%`}
-                icon={CheckCircle}
-                color="info"
-                trend={{
-                  value: 5,
-                  isPositive: true
-                }}
-              />
-              <KPICard
-                title="Próxima Consulta"
-                value={kpis.nextAppointmentTime}
-                icon={Activity}
-                color="warning"
-              />
-            </div>
+            {loading.overview ? (
+              <Grid container spacing={3}>
+                {[1, 2, 3, 4].map((i) => (
+                  <Grid item xs={12} sm={6} lg={3} key={i}>
+                    <KPICardSkeleton />
+                  </Grid>
+                ))}
+              </Grid>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <KPICard
+                    title="Pacientes Ativos"
+                    value={calculateKPIs.activePatients}
+                    icon={Users}
+                    color="primary"
+                    onClick={() => handleTabChange('patients')}
+                  />
+                  <KPICard
+                    title="Consultas este Mês"
+                    value={calculateKPIs.monthAppointments}
+                    icon={Calendar}
+                    color="success"
+                  />
+                  <KPICard
+                    title="Taxa de Comparecimento"
+                    value={`${calculateKPIs.attendanceRate}%`}
+                    icon={CheckCircle}
+                    color="info"
+                    trend={{ value: 5, isPositive: true }}
+                  />
+                  <KPICard
+                    title="Próxima Consulta"
+                    value={calculateKPIs.nextAppointmentTime}
+                    icon={Activity}
+                    color="warning"
+                  />
+                </div>
 
-            {/* ALERTAS E HOJE */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <AlertsPanel alerts={alerts} />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <AlertsPanel alerts={generateAlerts} />
+                  <TodayAppointmentsCard
+                    appointments={appointments ?? []}
+                    showAll={showTodayAppointments}
+                    onToggleShow={() => setShowTodayAppointments(!showTodayAppointments)}
+                    onUpdateStatus={handleUpdateStatus}
+                    onPatientClick={handleGoToEvolution}
+                  />
+                </div>
 
-              <TodayAppointmentsCard
-                appointments={appointments ?? []}
-                showAll={showTodayAppointments}
-                onToggleShow={() => setShowTodayAppointments(!showTodayAppointments)}
-                onUpdateStatus={handleUpdateStatus}
-                onPatientClick={handleGoToEvolution} // ✅ IR PARA EVOLUÇÃO
-              />
-            </div>
-
-            {/* AÇÕES RÁPIDAS E STATS */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <QuickActions
-                onNewAppointment={() => handleTabChange('appointments')}
-                onNewPatient={handleAddNewPatient}
-                onQuickEvolution={() => handleTabChange('therapy')}
-                onViewCalendar={() => handleTabChange('appointments')}
-              />
-
-              <SpecialtyStatsCard
-                doctorData={doctorData}
-                stats={stats}
-              />
-            </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <QuickActions
+                    onNewAppointment={() => handleTabChange('appointments')}
+                    onNewPatient={handleAddNewPatient}
+                    onQuickEvolution={() => handleTabChange('therapy')}
+                    onViewCalendar={() => handleTabChange('appointments')}
+                  />
+                  <SpecialtyStatsCard
+                    doctorData={doctorData}
+                    stats={stats}
+                  />
+                </div>
+              </>
+            )}
           </div>
         );
 
       case 'patients':
-        // Se estiver no modo detail, mostra o PatientDetail completo
         if (viewMode === 'detail' && selectedPatient) {
           return (
             <div className="p-6">
@@ -395,8 +430,6 @@ export default function DoctorDashboard() {
             </div>
           );
         }
-
-        // Modo lista - mostra a tabela de pacientes
         return (
           <div className="p-6">
             <PatientsTable
@@ -418,12 +451,10 @@ export default function DoctorDashboard() {
               patients={patients ?? []}
               selectedPatient={selectedPatient}
               onSelectPatient={setSelectedPatient}
-              // opcional: se quiser abrir o prontuário completo a partir da aba Terapia
               onOpenPatientDetail={handleViewPatientDetails}
             />
           </div>
         );
-
 
       case 'appointments':
         return (
@@ -491,15 +522,6 @@ export default function DoctorDashboard() {
     }
   };
 
-  // 🔄 Mostra loading enquanto carrega dados
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader
@@ -509,26 +531,18 @@ export default function DoctorDashboard() {
         onLogout={handleLogout}
       />
 
-      {/* 🔹 CONTEÚDO PRINCIPAL */}
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm ">
           {renderTabContent()}
         </div>
       </div>
 
-      {/* 🔹 MODAL DO PACIENTE (para edição rápida) */}
       {isPatientModalOpen && (
         <PatientModal
           open={isPatientModalOpen}
           patient={selectedPatient || initialPatientState}
           onClose={handleClosePatientModal}
-          onSaveSuccess={async (formData) => {
-            const success = await handleSavePatient(formData);
-            if (success) {
-              handleClosePatientModal();
-              // Aqui você pode adicionar um refresh dos dados se necessário
-            }
-          }}
+          onSaveSuccess={handleSavePatient}
         />
       )}
     </div>

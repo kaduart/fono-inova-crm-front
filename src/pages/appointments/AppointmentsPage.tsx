@@ -2,7 +2,7 @@
 // 🚀 Tela de Appointments com integração V2 real (React Query)
 
 import React, { useState } from 'react';
-import { useAppointmentsV2 } from '../../hooks/useAppointmentsV2';
+import { useAppointments } from '../../hooks/useAppointments';
 import { PollingIndicator, StatusBadge } from '../../components/appointments/PollingIndicator';
 import { 
   Calendar, 
@@ -23,17 +23,17 @@ import { extractErrorMessage } from '../../utils/errorUtils';
 export default function AppointmentsPage() {
   const {
     appointments,
-    isLoading,
+    loading: isLoading,
     error,
     pollingState,
     isPolling,
     cancelPolling,
-    refetch,
+    fetchAppointments: refetch,
     completeAppointment,
     cancelAppointment,
-    isCompleting,
-    isCanceling
-  } = useAppointmentsV2();
+    completing: isCompleting,
+    canceling: isCanceling
+  } = useAppointments();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');

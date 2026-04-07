@@ -62,7 +62,7 @@ const AdminDashboard = lazyWithRetry(() => import('./components/AdminDashboard')
 const DoctorDashboard = lazyWithRetry(() => import('./pages/doctor/DoctorDashboard'));
 const PatientDashboard = lazyWithRetry(() => import('./components/patients/PatientDashboard'));
 const CreateAppointmentPage = lazyWithRetry(() => import('./pages/appointments/create'));
-const AppointmentsPageV2 = lazyWithRetry(() => import('./components/AppointmentPage')); // 🚀 V2: Nova tela com polling
+const AppointmentPage = lazyWithRetry(() => import('./components/AppointmentPage'));
 const SchedulePage = lazyWithRetry(() => import('./pages/schedule'));
 const PatientsTable = lazyWithRetry(() => import('./components/doctor/patient/PatientsTable'));
 const PreAgendamentosPage = lazyWithRetry(() => import('./pages/Secretaria/PreAgendamentosPage'));
@@ -77,7 +77,7 @@ const MarketingDashboard = lazyWithRetry(() => import('./components/Dashboard/Ma
 const FollowupDashboard = lazyWithRetry(() => import('./components/Dashboard/FollowupDashboard'));
 const AppChat = lazyWithRetry(() => import('./components/mkt/whatsapp/AppChat'));
 const FinancialDashboard = lazyWithRetry(() => import('./pages/Financial/FinancialDashboard'));
-const FinancialV2Dashboard = lazyWithRetry(() => import('./pages/FinancialV2/FinancialV2Dashboard'));  // 🚀 NOVO: Dashboard V2
+
 const PaymentPage = lazyWithRetry(() => import('./components/financial/PaymentPage'));
 const ManageDoctors = lazyWithRetry(() => import('./components/ManageDoctors/ManageDoctors'));
 const DoctorAgenda = lazyWithRetry(() => import('./components/ManageDoctors/DoctorAgenda'));
@@ -217,11 +217,7 @@ const AppRoutes: React.FC = () => {
                         <FinancialDashboard />
                     </PrivateRoute>
                 } />
-                <Route path="/admin/financial-v2" element={
-                    <PrivateRoute allowedRoles={['admin']}>
-                        <FinancialV2Dashboard />
-                    </PrivateRoute>
-                } />
+
                 <Route path="/admin/payments" element={
                     <PrivateRoute allowedRoles={['admin']}>
                         <PaymentPage patients={[]} initialPayments={[]} doctors={[]} />
@@ -282,7 +278,7 @@ const AppRoutes: React.FC = () => {
                 {/* Agendamentos */}
                 <Route path="/appointments-v2" element={
                     <PrivateRoute allowedRoles={['admin', 'doctor', 'recepcao']}>
-                        <AppointmentsPageV2 />
+                        <AppointmentPage />
                     </PrivateRoute>
                 } />
                 <Route path="/create-appointment" element={

@@ -9,14 +9,14 @@ interface AppointmentsContextData {
     appointments: IAppointment[];
     isLoading: boolean;
     currentPeriod: { startDate?: string; endDate?: string } | null;
-    fetchAppointments: (filters?: { startDate?: string; endDate?: string }) => Promise<void>;
+    fetchAppointments: (filters?: { startDate?: string; endDate?: string; force?: boolean }) => Promise<void>;
     createAppointment: (data: any) => Promise<any>;
     updateAppointment: (id: string, data: any) => Promise<any>;
     completeAppointment: (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => Promise<any>;
     pollAppointmentStatus: (id: string, maxAttempts?: number) => Promise<boolean>; // 🚀 V2: Polling para atualização async
     cancelAppointment: (id: string, params: any) => Promise<any>;
     getAvailableSlots: (params: any) => Promise<string[]>;
-    refreshAppointments: () => Promise<void>;
+    refreshAppointments: (force?: boolean) => Promise<void>;
 }
 
 const AppointmentsContext = createContext<AppointmentsContextData>({} as AppointmentsContextData);
@@ -46,24 +46,33 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     appointmentsRef.current = appointments;
 
     // 🚀 LOAD COM CACHE POR PERÍODO + PROTEÇÃO DE CONCORRÊNCIA
-    const fetchAppointments = useCallback(async (filters?: { startDate?: string; endDate?: string }) => {
-        // 🛡️ Proteção contra chamadas simultâneas
-        if (isFetchingRef.current) {
+    const fetchAppointments = useCallback(async (filters?: { startDate?: string; endDate?: string; force?: boolean }) => {
+        const effectiveFilters = filters || currentFiltersRef.current;
+        const forceRefresh = filters?.force;
+
+        // 🛡️ Proteção contra chamadas simultâneas (ignora se forçar refresh)
+        if (!forceRefresh && isFetchingRef.current) {
             console.log('[AppointmentsContext] Já está carregando, ignorando chamada');
             return;
         }
         
-        const effectiveFilters = filters || currentFiltersRef.current;
-
         // ✅ Persiste os filtros para que refreshAppointments reuse o range correto
         if (filters?.startDate) currentFiltersRef.current = filters;
 
         // ✅ Cache: se já carregou esse período, não busca de novo (null = forçar refresh)
-        if (currentPeriodRef.current !== null &&
+        // 🆕 force = true ignora o cache
+        if (!forceRefresh && currentPeriodRef.current !== null &&
             currentPeriodRef.current?.startDate === effectiveFilters.startDate &&
             currentPeriodRef.current?.endDate === effectiveFilters.endDate &&
             appointmentsRef.current.length > 0) {
+            console.log('[AppointmentsContext] Usando cache (force=false)');
             return;
+        }
+        
+        // Se forçar refresh, limpa o período atual
+        if (forceRefresh) {
+            console.log('[AppointmentsContext] Forçando refresh (force=true)');
+            currentPeriodRef.current = null;
         }
         
         isFetchingRef.current = true;
@@ -112,12 +121,12 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
     }, []);  // 🚀 Sem dependências - usa refs internamente
 
-    const refreshAppointments = useCallback(async () => {
+    const refreshAppointments = useCallback(async (force = true) => {
         console.log('🔄 [AppointmentsContext] Refreshing appointments...');
         // Limpa cache imediatamente via ref (setCurrentPeriod é async, não reflete antes do fetch)
         currentPeriodRef.current = null;
         setCurrentPeriod(null);
-        await fetchAppointments(currentFiltersRef.current);
+        await fetchAppointments({ ...currentFiltersRef.current, force });
     }, [fetchAppointments]);
 
     // 🔄 Debounced refresh para evitar múltiplas chamadas

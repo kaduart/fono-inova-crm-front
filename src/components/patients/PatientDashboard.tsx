@@ -5,7 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { extractErrorMessage } from '../../utils/errorUtils';
 import { toDateString } from '../../utils/dateUtils';
 import { useAppointments } from '../../hooks/useAppointments';
-import { usePatientsV2 } from '../../hooks/usePatientV2';
+import { usePatients } from '../../hooks/usePatients';
 import { CreateAppointmentParams } from '../../services/appointmentService';
 import { createEvaluation, deleteEvaluation, getEvaluationsByPatient, updateEvaluation } from '../../services/evaluationService';
 import patientService from '../../services/patientService';
@@ -104,7 +104,7 @@ export default function PatientDashboard() {
   const [patientAppointments, setPatientAppointments] = useState<IAppointment[]>([]);
 
   // 🎯 USA O CONTEXTO GLOBAL DE PACIENTES
-  const { patients } = usePatientsV2();
+  const { patients } = usePatients();
 
   const {
     appointments,
@@ -188,6 +188,14 @@ export default function PatientDashboard() {
       setEditedInfo(patient);
     } catch (error: any) {
       console.error('Erro ao buscar dados do paciente:', error);
+      
+      // 🆕 Se paciente não encontrado (404), redireciona para lista
+      if (error.response?.status === 404) {
+        toast.error('Paciente não encontrado. Redirecionando...');
+        navigate('/admin');
+        return;
+      }
+      
       toast.error('Erro ao carregar dados do paciente');
       if (error.response?.status === 401) {
         navigate('/login');

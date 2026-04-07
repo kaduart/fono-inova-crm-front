@@ -12,7 +12,7 @@ import { IAppointment, IDoctor, IPatient, ScheduleAppointment, SelectedEvent } f
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
 import AppointmentDetailModal from './appointmentDetailModal';
 import API from '../../services/api';
-import { calendarServiceV2, Holiday } from '../../services/calendarServiceV2';
+import { getHolidays, holidaysToMap, isHoliday, Holiday } from '../../services/calendarService';
 
 interface EnhancedCalendarProps {
     appointments: IAppointment[];
@@ -181,8 +181,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     useEffect(() => {
         const fetchHolidays = async () => {
             try {
-                const holidaysList = await calendarServiceV2.getHolidays(currentYear);
-                const holidaysMap = calendarServiceV2.holidaysToMap(holidaysList);
+                const holidaysList = await getHolidays(currentYear);
+                const holidaysMap = holidaysToMap(holidaysList);
                 setHolidays(holidaysMap);
             } catch (error) {
                 console.error('[EnhancedCalendar] Erro ao buscar feriados:', error);
@@ -193,7 +193,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
     // 🆕 Funções helpers para feriados (usando serviço centralizado)
     const isHoliday = useCallback((dateStr: string): boolean => {
-        return calendarServiceV2.isHoliday(dateStr, holidays);
+        return isHoliday(dateStr, holidays);
     }, [holidays]);
 
     const getHolidayName = useCallback((dateStr: string): string => {

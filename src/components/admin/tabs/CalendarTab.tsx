@@ -8,7 +8,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import EnhancedCalendar from '../../calendar/EnhancedCalendar';
 
-import { usePatientsV2 } from '../../../hooks/usePatientV2';
+import { usePatients } from '../../../hooks/usePatients';
 import { useDoctorsContext } from '../../../contexts/DoctorsContext';
 import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';
 import { Skeleton } from '@mui/material';
@@ -32,7 +32,7 @@ export const CalendarTab = ({
 }: CalendarTabProps) => {
     // 🎯 USA OS CONTEXTOS GLOBAIS
     const { activeDoctors: doctors, loading: doctorsLoading } = useDoctorsContext();
-    const { patients, loading: patientsLoading } = usePatientsV2();
+    const { patients, loading: patientsLoading } = usePatients();
     const { appointments, fetchAppointments } = useAppointmentsContext();
     
     const [appointmentsLoading, setAppointmentsLoading] = useState(true); // 🆕 NOVO: Loading de appointments
@@ -121,7 +121,15 @@ export const CalendarTab = ({
     const handleCompleteAppointment = async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
         await onCompleteAppointment(id, data);
         setCloseModalSignal(prev => prev + 1);
-        // 🎯 Appointments já são atualizados via contexto
+        // 🎯 Força refresh para garantir atualização imediata na tela
+        setTimeout(async () => {
+            await fetchAppointments({
+                startDate: dateRange.startDate,
+                endDate: dateRange.endDate,
+                excludePreAgendamentos: true,
+                force: true // 🆕 Ignora cache
+            });
+        }, 500); // Pequeno delay para o backend processar
     };
 
     const handleEditAppointment = async (id: string, data: any) => {

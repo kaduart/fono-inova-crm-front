@@ -43,7 +43,7 @@ export default function DashboardHeader({
                                     <h1 className="text-2xl font-bold text-gray-800 md:text-3xl">
                                         Bem-vindo(a),{' '}
                                         <span className="bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                                            Dr(a). {doctorData?.fullName || 'Médico'}
+                                            Dr(a). {doctorData?.name || doctorData?.fullName || 'Médico'}
                                         </span>
                                     </h1>
 

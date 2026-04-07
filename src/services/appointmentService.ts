@@ -225,13 +225,15 @@ export const appointmentService = {
     },
 
     // 🚀 V2: Listagem com filtros e população completa
-    listV2: async (params: { startDate?: string; endDate?: string; page?: number; limit?: number; light?: boolean } = {}) => {
+    listV2: async (params: { startDate?: string; endDate?: string; page?: number; limit?: number; light?: boolean; patientId?: string; doctorId?: string } = {}) => {
         const queryParams = new URLSearchParams();
         if (params.startDate) queryParams.append('startDate', params.startDate);
         if (params.endDate) queryParams.append('endDate', params.endDate);
         if (params.page) queryParams.append('page', params.page.toString());
         if (params.limit) queryParams.append('limit', params.limit.toString());
         if (params.light) queryParams.append('light', 'true');
+        if (params.patientId) queryParams.append('patientId', params.patientId);
+        if (params.doctorId) queryParams.append('doctorId', params.doctorId);
 
         return API.get(`/v2/appointments?${queryParams.toString()}`);
     },

@@ -18,10 +18,11 @@ import { useEffect, useMemo, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import ReactInputMask from 'react-input-mask';
 import { toast } from 'react-toastify';
-import { useAppointmentsContext } from '../../contexts/AppointmentsContext';
+
 import appointmentService from '../../services/appointmentService';
 import { getGuides, InsuranceGuide } from '../../services/insuranceGuideApi';
 import packageService from '../../services/packageService';
+import API from '../../services/api';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
 import { DURATION_OPTIONS, FREQUENCY_OPTIONS, IAppointment, IDoctor, IPatient, ITherapyPackage, PAYMENT_TYPES, THERAPY_TYPES } from '../../utils/types/types';
 import { Button } from '../ui/Button';
@@ -94,6 +95,10 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     // 🆕 Estados para Sessões no Mesmo Dia
     const [sameDaySessions, setSameDaySessions] = useState(false);
     const [dailySessionTimes, setDailySessionTimes] = useState<string[]>(['16:00', '16:40']);
+
+    // 🔄 Sessões pendentes para absorção
+    const [pendingSessions, setPendingSessions] = useState<Array<{ _id: string; date: string; time: string; sessionValue: number; specialty: string; doctorName?: string }>>([]);
+    const [selectedPendingIds, setSelectedPendingIds] = useState<string[]>([]);
 
     // Calculados dinamicamente (compatível com string ou número)
     const toNumber = (v: any) => {
@@ -205,36 +210,91 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         }
     }, [formData.durationMonths, formData.sessionsPerWeek, calculationMode]);
 
-    const { fetchAppointments } = useAppointmentsContext();
     const [selectedSlots, setSelectedSlots] = useState<Array<{ day: string; time: string }>>([]);
 
-    useEffect(() => {
-        fetchAppointments();
-    }, [fetchAppointments]);
+    // real patient _id (patients_view has patientId pointing to the actual Patient document)
+    const realPatientId = patient?.patientId || patient?._id;
 
     useEffect(() => {
-        if (patient?._id) {
+        console.log('[TherapyPackageFormModal] Patient mudou:', patient, '→ realPatientId:', realPatientId);
+        if (realPatientId) {
             setFormData(prev => ({
                 ...prev,
-                patientId: patient._id,
+                patientId: realPatientId,
             }));
-            fetchAppointmentsByPatient(patient._id);
+            fetchAppointmentsByPatient(realPatientId);
         }
     }, [patient]);
 
     // 🏥 Buscar guias ativas quando tipo = convenio
     useEffect(() => {
-        if (packageType === 'convenio' && patient?._id) {
-            fetchInsuranceGuides(patient._id);
+        if (packageType === 'convenio' && realPatientId) {
+            fetchInsuranceGuides(realPatientId);
         }
-    }, [packageType, patient?._id]);
+    }, [packageType, realPatientId]);
+
+    // 🔄 Buscar sessões pendentes — só quando especialidade estiver selecionada
+    useEffect(() => {
+        if (!realPatientId || packageType !== 'therapy' || !formData.sessionType) {
+            setPendingSessions([]);
+            setSelectedPendingIds([]);
+            return;
+        }
+        const fetchPending = async () => {
+            try {
+                const res = await API.get(`/patients/${realPatientId}/sessions/pending`, {
+                    params: { specialty: formData.sessionType }
+                });
+                const raw = res.data?.data || res.data || [];
+                const sessions = [...raw].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                setPendingSessions(sessions);
+                setSelectedPendingIds(sessions.map((s: any) => s._id));
+
+                // Auto-sugerir data inicial = semana seguinte à última sessão absorvida
+                if (sessions.length > 0) {
+                    const lastDate = new Date(sessions[sessions.length - 1].date);
+                    lastDate.setUTCDate(lastDate.getUTCDate() + 7);
+                    const yyyy = lastDate.getUTCFullYear();
+                    const mm = String(lastDate.getUTCMonth() + 1).padStart(2, '0');
+                    const dd = String(lastDate.getUTCDate()).padStart(2, '0');
+                    setFormData(prev => ({ ...prev, date: `${yyyy}-${mm}-${dd}` }));
+                }
+            } catch {
+                // silencioso — não é crítico
+            }
+        };
+        fetchPending();
+    }, [realPatientId, packageType, formData.sessionType]);
 
     const fetchAppointmentsByPatient = async (patientId: string) => {
         setIsLoading(true);
         try {
-            const data = await appointmentService.get(patientId);
-            setAppointments(data.data);
+            console.log('[TherapyPackageFormModal] Buscando agendamentos para paciente (V2):', patientId);
+            // Usa endpoint V2 com filtro de patientId
+            const response = await appointmentService.listV2({
+                patientId: patientId,
+                limit: 100
+            });
+            console.log('[TherapyPackageFormModal] Resposta da API V2:', response);
+            
+            // Extrai dados da resposta V2: { data: { appointments: [...], pagination: {...} } }
+            const appointmentsData = response.data?.data?.appointments || 
+                                     response.data?.appointments || 
+                                     response.data?.data || 
+                                     response.data || 
+                                     [];
+            console.log('[TherapyPackageFormModal] Agendamentos extraídos:', appointmentsData);
+            console.log('[TherapyPackageFormModal] Tipo:', typeof appointmentsData, 'É array?', Array.isArray(appointmentsData));
+            
+            // Garante que é um array
+            if (Array.isArray(appointmentsData)) {
+                setAppointments(appointmentsData);
+            } else {
+                console.warn('[TherapyPackageFormModal] Resposta não é array, usando []');
+                setAppointments([]);
+            }
         } catch (error) {
+            console.error('[TherapyPackageFormModal] Erro ao carregar agendamentos:', error);
             toast.error('Erro ao carregar agendamentos');
         } finally {
             setIsLoading(false);
@@ -471,35 +531,23 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     : (formData.durationMonths || 0) * 4 * (formData.sessionsPerWeek || 0);
 
             // ============================================================
-            // 📅 Gera as datas reais (usando a função declarada fora)
+            // 📅 Gera as datas reais — sessões absorvidas já contam, não criar slots para elas
             // ============================================================
+            const absorbedCount = selectedPendingIds.length;
+            const newSlotsNeeded = Math.max(totalSessions - absorbedCount, 0);
+
             let generatedSlots: { date: string; time: string }[] = [];
 
-            if (calculationMode === "sessions") {
-                // 🔹 Modo 1: Por número de sessões (já está funcionando)
+            if (newSlotsNeeded > 0) {
                 generatedSlots = generateSessionDates({
                     startDate: formData.date,
                     startTime: formData.time,
-                    totalSessions,
+                    totalSessions: newSlotsNeeded,
                     sessionsPerWeek: formData.sessionsPerWeek,
                     selectedSlots,
                     sameDaySessions,
                     dailySessionTimes
                 });
-            } else {
-                // 🔹 Modo 2: Por duração — usa mesma lógica do modo "sessions"
-                const totalSessions = formData.durationMonths * 4 * formData.sessionsPerWeek;
-
-                generatedSlots = generateSessionDates({
-                    startDate: formData.date,
-                    startTime: formData.time,
-                    totalSessions,
-                    sessionsPerWeek: formData.sessionsPerWeek,
-                    selectedSlots,
-                    sameDaySessions,
-                    dailySessionTimes
-                });
-
             }
 
             // 🔹 Remove duplicatas e ordena (garantia extra)
@@ -514,7 +562,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             // 🔹 Monta o payload final
             // ============================================================
             const packageData = {
-                patientId: patient._id,
+                patientId: realPatientId,
                 doctorId: formData.doctorId,
                 sessionType: formData.sessionType,
                 specialty: formData.sessionType,
@@ -535,8 +583,9 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 time: formData.time,
                 calculationMode,
                 selectedSlots: unique, // ✅ datas reais geradas
+                pendingSessionIds: selectedPendingIds, // 🔄 sessões pendentes a absorver
                 // 🔥 Só envia pagamentos se NÃO for per-session
-                payments: formData.paymentType === 'per-session' 
+                payments: formData.paymentType === 'per-session'
                     ? [] 
                     : payments.map((p) => ({
                         amount: Number(p.amount),
@@ -547,7 +596,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             };
 
             // Validar patientId
-            if (!patient._id) {
+            if (!realPatientId) {
                 toast.error('Paciente não identificado');
                 setIsLoading(false);
                 return;
@@ -566,7 +615,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
                 // Payload simplificado para convenio
                 const convenioData = {
-                    patientId: patient._id,
+                    patientId: realPatientId,
                     doctorId: formData.doctorId,
                     insuranceGuideId: selectedGuide,
                     selectedSlots: unique
@@ -579,7 +628,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 // ⚖️ Payload para liminar
                 const liminarData = {
                     ...packageData,
-                    patientId: patient._id,
+                    patientId: realPatientId,
                     sessionType: formData.sessionType as any,
                     type: 'liminar',
                     liminarProcessNumber: liminarProcessNumber || undefined,
@@ -594,7 +643,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 // Fluxo normal (therapy)
                 const therapyData = {
                     ...packageData,
-                    patientId: patient._id,
+                    patientId: realPatientId,
                     sessionType: formData.sessionType as any // Type assertion para compatibilidade
                 };
                 if (initialData?._id) {
@@ -761,6 +810,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 ? formData.totalSessions > 0
                 : (formData.durationMonths > 0 && formData.sessionsPerWeek > 0))
         );
+        console.log('appointments', appointments);
 
     const { totalSessions, totalValuePackage, remainingBalance } = useMemo(() => {
         const sessions =
@@ -953,6 +1003,49 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 </div>
                             )}
 
+                            {/* 🔄 ALERTA: Sessões pendentes para absorção */}
+                            {packageType === 'therapy' && pendingSessions.length > 0 && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-amber-600 text-base">⚠️</span>
+                                        <p className="text-sm font-semibold text-amber-800">
+                                            {pendingSessions.length} sessão(ões) pendente(s) encontrada(s)
+                                        </p>
+                                    </div>
+                                    <p className="text-xs text-amber-700">
+                                        Selecione quais deseja cobrir com este pacote:
+                                    </p>
+                                    <div className="space-y-1">
+                                        {pendingSessions.map(s => (
+                                            <label key={s._id} className="flex items-center gap-2 cursor-pointer hover:bg-amber-100 rounded px-1 py-0.5">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedPendingIds.includes(s._id)}
+                                                    onChange={e => {
+                                                        if (e.target.checked) {
+                                                            setSelectedPendingIds(prev => [...prev, s._id]);
+                                                        } else {
+                                                            setSelectedPendingIds(prev => prev.filter(id => id !== s._id));
+                                                        }
+                                                    }}
+                                                    className="accent-amber-600"
+                                                />
+                                                <span className="text-xs text-amber-900">
+                                                    {(() => { const d = new Date(s.date); return `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${d.getUTCFullYear()}`; })()} às {s.time}
+                                                    {s.specialty ? ` — ${s.specialty}` : ''}
+                                                    {s.sessionValue ? ` — R$ ${Number(s.sessionValue).toFixed(2).replace('.', ',')}` : ''}
+                                                </span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                    {selectedPendingIds.length > 0 && (
+                                        <p className="text-xs text-amber-700 font-medium">
+                                            ✅ {selectedPendingIds.length} sessão(ões) serão absorvidas e marcadas como pagas pelo pacote.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
                             {/* Agendamento Existente */}
                             {packageType === 'therapy' && (
                                 <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-100">
@@ -1123,6 +1216,11 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             placeholderText="dd/MM/yyyy"
                                             dateFormat="dd/MM/yyyy"
                                         />
+                                        {selectedPendingIds.length > 0 && (
+                                            <p className="mt-1 text-xs text-purple-600">
+                                                📌 Data da 1ª nova sessão — as {selectedPendingIds.length} sessão(ões) absorvidas já contam para o pacote.
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div>

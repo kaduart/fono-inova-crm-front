@@ -11,8 +11,8 @@ import {
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 
-import axios from 'axios';
 import { FileText } from 'lucide-react';
+import { getEvaluationsByPatient } from '../../services/evaluationService';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -68,9 +68,10 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        axios.get(`/api/evolutions/${patientId}`)
+        // 🚀 V2: Busca evoluções do paciente
+        getEvaluationsByPatient(patientId)
             .then(response => {
-                setEvolutions(response.data);
+                setEvolutions(response);
                 setIsLoading(false);
             })
             .catch(error => {
@@ -78,7 +79,7 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
                 setIsLoading(false);
             });
 
-        // Fetch available evaluation types
+        // Fetch available evaluation types (mantém legado por enquanto)
         axios.get(`/api/evaluationTypes`)
             .then(response => {
                 setEvaluationTypes(response.data);
@@ -178,9 +179,9 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
                 patientId
             });
 
-            // Recarregar evoluções
-            const evolutionsRes = await axios.get(`/api/evolutions/patient/${patientId}`);
-            setEvolutions(evolutionsRes.data);
+            // Recarregar evoluções (V2)
+            const evolutionsRes = await getEvaluationsByPatient(patientId);
+            setEvolutions(evolutionsRes);
 
             setShowForm(false);
         } catch (error) {

@@ -9,22 +9,33 @@ export const dateFormat = (date: any): string => {
 
 export function formatDateToDMY(isoDate) {
   if (!isoDate) return '';
-  
-  // Se for um objeto Date ou string ISO completa (2026-04-06T12:00:00.000Z)
-  const dateObj = new Date(isoDate);
-  if (!isNaN(dateObj.getTime())) {
-    const day = dateObj.getDate().toString().padStart(2, '0');
-    const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
-    const year = dateObj.getFullYear();
-    return `${day}/${month}/${year}`;
-  }
-  
-  // Fallback: se for string no formato YYYY-MM-DD
-  if (typeof isoDate === 'string' && isoDate.includes('-')) {
+
+  // Date-only strings (YYYY-MM-DD) must be split directly — new Date("YYYY-MM-DD")
+  // parses as UTC midnight which shifts to previous day in UTC-3
+  if (typeof isoDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
     const [year, month, day] = isoDate.split('-');
     return `${day}/${month}/${year}`;
   }
-  
+
+  // ISO string com horário (2026-04-06T12:00:00.000Z) — usar UTC para extrair a data
+  if (typeof isoDate === 'string' && isoDate.includes('T')) {
+    const dateObj = new Date(isoDate);
+    if (!isNaN(dateObj.getTime())) {
+      const day = dateObj.getUTCDate().toString().padStart(2, '0');
+      const month = (dateObj.getUTCMonth() + 1).toString().padStart(2, '0');
+      const year = dateObj.getUTCFullYear();
+      return `${day}/${month}/${year}`;
+    }
+  }
+
+  // Date object
+  if (isoDate instanceof Date && !isNaN(isoDate.getTime())) {
+    const day = isoDate.getUTCDate().toString().padStart(2, '0');
+    const month = (isoDate.getUTCMonth() + 1).toString().padStart(2, '0');
+    const year = isoDate.getUTCFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
   return '';
 }
 

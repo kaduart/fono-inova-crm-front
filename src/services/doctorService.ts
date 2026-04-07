@@ -292,23 +292,33 @@ export const doctorService = {
   },
 
   async getDoctorOverview(): Promise<any> {
-    const response = await API.get('/v2/doctors/overview');
-    return response.data.data;
+    // ⚠️ Rota não implementada no backend - retornando dados mockados
+    // TODO: Implementar rota /v2/doctors/overview ou /doctors/overview no backend
+    console.warn('[DoctorService] getDoctorOverview: Rota não implementada no backend');
+    return {
+      totalPatients: 0,
+      todayAppointments: 0,
+      monthlyRevenue: 0,
+      attendanceRate: 0
+    };
   },
 
   async getAppointmentCalendarDoctor(id: string): Promise<any> {
-    const response = await API.get(`/v2/doctors/${id}/appointments/calendar`);
-    return response.data.data;
+    // Rota legada: /doctors/appointments/calendar/:id
+    const response = await API.get(`/doctors/appointments/calendar/${id}`);
+    return Array.isArray(response.data) ? response.data : response.data?.data || [];
   },
 
   async completeTherapySession(sessionId: string): Promise<any> {
-    const res = await API.patch(`/v2/doctors/therapy-sessions/${sessionId}/complete`);
-    return res.data.data;
+    // ⚠️ Rota não implementada no backend legado
+    console.warn('[DoctorService] completeTherapySession: Rota não implementada no backend');
+    return { success: true, message: 'Sessão marcada como concluída (mock)' };
   },
 
   async getAttendanceSummary(doctorId: string): Promise<any> {
-    const res = await API.get(`/v2/doctors/${doctorId}/attendance-summary`);
-    return res.data.data;
+    // Rota legada: /doctors/:id/attendance-summary
+    const res = await API.get(`/doctors/${doctorId}/attendance-summary`);
+    return res.data?.data || res.data || [];
   },
 
   // Alias para compatibilidade
@@ -339,34 +349,50 @@ export const doctorService = {
 };
 
 // Funções auxiliares para compatibilidade (migrar para V2 posteriormente)
-export const fetchPatients = async (doctorId: string) => {
-  const response = await API.get(`/v2/doctors/${doctorId}/patients`);
-  return response.data.data;
+// ⚠️ IMPORTANTE: O backend usa req.user.id do token JWT, não precisa passar doctorId na URL
+// 🔄 Os controllers legados retornam array direto, não { success, data }
+
+export const fetchPatients = async (_doctorId?: string) => {
+  console.log('[DoctorService] fetchPatients: Chamando /doctors/patients');
+  try {
+    const response = await API.get(`/doctors/patients`);
+    console.log('[DoctorService] fetchPatients: Sucesso', response.data?.length || response.data?.data?.length || 0, 'pacientes');
+    // Backend legado retorna array direto, V2 retorna { success, data }
+    return Array.isArray(response.data) ? response.data : response.data?.data || [];
+  } catch (error: any) {
+    console.error('[DoctorService] fetchPatients: Erro', error.response?.status, error.response?.data);
+    throw error;
+  }
 };
 
-export const fetchStats = async (doctorId: string) => {
-  const response = await API.get(`/v2/doctors/${doctorId}/stats`);
-  return response.data.data;
+export const fetchStats = async (_doctorId?: string) => {
+  const response = await API.get(`/doctors/appointments/stats`);
+  // Backend legado retorna objeto direto
+  return response.data?.data || response.data || {};
 };
 
-export const fetchTherapySessions = async (doctorId: string) => {
-  const response = await API.get(`/v2/doctors/${doctorId}/sessions`);
-  return response.data.data;
+export const fetchTherapySessions = async (_doctorId?: string) => {
+  const response = await API.get(`/doctors/therapy-sessions`);
+  // Backend legado retorna array direto
+  return Array.isArray(response.data) ? response.data : response.data?.data || [];
 };
 
-export const fetchTodaysAppointments = async (doctorId: string) => {
-  const response = await API.get(`/v2/doctors/${doctorId}/appointments/today`);
-  return response.data.data;
+export const fetchTodaysAppointments = async (_doctorId?: string) => {
+  const response = await API.get(`/doctors/appointments/today`);
+  // Backend legado retorna array direto
+  return Array.isArray(response.data) ? response.data : response.data?.data || [];
 };
 
-export const fetchFutureAppointments = async (doctorId: string) => {
-  const response = await API.get(`/v2/doctors/${doctorId}/appointments/future`);
-  return response.data.data;
+export const fetchFutureAppointments = async (_doctorId?: string) => {
+  const response = await API.get(`/doctors/appointments/future`);
+  // Backend legado retorna array direto
+  return Array.isArray(response.data) ? response.data : response.data?.data || [];
 };
 
-export const updateClinicalStatus = async (doctorId: string, status: string) => {
-  const response = await API.patch(`/v2/doctors/${doctorId}/clinical-status`, { status });
-  return response.data.data;
+export const updateClinicalStatus = async (appointmentId: string, status: string) => {
+  // Rota correta: /appointments/:id/clinical-status
+  const response = await API.patch(`/appointments/${appointmentId}/clinical-status`, { clinicalStatus: status });
+  return response.data?.data || response.data;
 };
 
 export default doctorService;

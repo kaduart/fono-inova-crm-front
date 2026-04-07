@@ -47,7 +47,7 @@ import InputCurrency from '../../../components/ui/InputCurrency';
 import { PatientAccordionSection } from './PatientAccordionSection';
 import ConvenioManagerModal from '../components/ConvenioManagerModal';
 import doctorService from '../../../services/doctorService';
-import { usePatientsV2 } from '../../../hooks/usePatientV2';
+import { usePatients } from '../../../hooks/usePatients';
 import {
     createInsurancePayment,
     getInsuranceReceivables,
@@ -264,8 +264,8 @@ const InsuranceTab = () => {
         }
     };
 
-    // Hook V2 para pacientes
-    const { patients } = usePatientsV2();
+    // Hook para pacientes
+    const { patients } = usePatients();
 
     const loadDoctors = async () => {
         try {

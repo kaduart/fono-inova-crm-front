@@ -1,5 +1,5 @@
 // src/hooks/useDoctorDashboard.ts
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import API from '../services/api';
 import doctorService, {
@@ -14,37 +14,45 @@ import { Appointment } from '../utils/types';
 import { IPatient } from '../utils/types/types';
 import { extractErrorMessage } from '../utils/errorUtils';
 
-import {
-  subscribeToCacheInvalidation,
-  invalidateCache,
-  isCacheValid,
-  getCache,
-  setCache
-} from '../utils/cacheManager';
-
-// Cache local para controle de loading
-const localCache = {
-  isLoading: false,
-  promise: null as Promise<void> | null
-};
-
-/**
- * @deprecated Este hook será substituído por useDoctorList e useDoctorStats
- * Mantido para compatibilidade com código existente
- * @see useDoctorList - Para lista de médicos
- * @see useDoctorStats - Para estatísticas
- */
 interface UseDoctorDashboardOptions {
   skipCache?: boolean;
 }
 
 export default function useDoctorDashboard(options: UseDoctorDashboardOptions = {}) {
-  // 🎯 Verifica se o usuário é médico antes de carregar qualquer coisa
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [doctorData, setDoctorData] = useState<any>(null);
+  const [doctorId, setDoctorId] = useState<string | null>(null);
   
+  // Dados por aba
+  const [overviewData, setOverviewData] = useState({
+    patients: [] as IPatient[],
+    appointments: [] as Appointment[],
+    stats: null as any,
+    futureAppointments: [] as Appointment[],
+  });
+  
+  const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+  const [therapySessions, setTherapySessions] = useState<any[]>([]);
+  const [attendanceSummary, setAttendanceSummary] = useState<any[]>([]);
+  const [doctors, setDoctors] = useState<any[]>([]);
+  const [totalDoctors, setTotalDoctors] = useState<number>(0);
+  const [doctorOverview, setDoctorOverview] = useState<any>(null);
+  
+  // Loading por aba
+  const [loadingTabsState, setLoadingTabsState] = useState<Record<string, boolean>>({
+    overview: false,
+    appointments: false,
+    therapy: false,
+    attendance: false,
+    patients: false
+  });
+
+  const isDoctor = userRole === 'doctor';
+  const { skipCache = false } = options;
+
+  // Carrega role do usuário (apenas uma vez)
   useEffect(() => {
     const storedRole = localStorage.getItem('userRole');
-    console.log('👤 useDoctorDashboard: Role lido do localStorage:', storedRole);
     if (storedRole) {
       try {
         setUserRole(JSON.parse(storedRole));
@@ -52,226 +60,155 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
         setUserRole(storedRole);
       }
     } else {
-      // Se não tiver role, tenta usar 'doctor' como fallback
-      console.log('⚠️ useDoctorDashboard: Role não encontrado, usando fallback');
       setUserRole('doctor');
     }
   }, []);
-  
-  const isDoctor = userRole === 'doctor';
-  
-  const cachedData = getCache<any>('doctors');
-  
-  const [loading, setLoading] = useState(!cachedData && isDoctor);
-  const [doctorData, setDoctorData] = useState<any>(cachedData?.doctorData || null);
-  const [patients, setPatients] = useState<IPatient[]>(cachedData?.patients || []);
-  const [appointments, setAppointments] = useState<Appointment[]>(cachedData?.appointments || []);
-  const [therapySessions, setTherapySessions] = useState<any[]>(cachedData?.therapySessions || []);
-  const [stats, setStats] = useState<any>(cachedData?.stats || {
-    today: 0,
-    confirmed: 0,
-    totalPatients: 0,
-    specialties: {}
-  });
-  const [futureAppointments, setFutureAppointments] = useState<Appointment[]>(cachedData?.futureAppointments || []);
-  const [totalDoctors, setTotalDoctors] = useState<number>(cachedData?.totalDoctors || 0);
-  const [doctorOverview, setDoctorOverview] = useState<any>(cachedData?.doctorOverview || null);
-  const [doctors, setDoctors] = useState<any[]>(cachedData?.doctors || []);
-  const [calendarEvents, setCalendarEvents] = useState<any[]>(cachedData?.calendarEvents || []);
-  const [attendanceSummary, setAttendanceSummary] = useState<any[]>(cachedData?.attendanceSummary || []);
 
-  const isMounted = useRef(true);
-
-  // ✅ CORREÇÃO: Usar ref para evitar stale closure sem causar re-renderizações
-  const isDoctorRef = useRef(isDoctor);
-  isDoctorRef.current = isDoctor;
-  
-  const { skipCache = false } = options;
-
-  const loadData = useCallback(async (forceRefresh = false) => {
-    // 🚀 Verifica cache (se skipCache for true, ignora)
-    if (!skipCache && !forceRefresh && isCacheValid('doctors')) {
-      const cached = getCache<any>('doctors');
-      if (cached) {
-        console.log('📦 useDoctorDashboard: Usando cache');
-        if (isMounted.current) {
-          setDoctorData(cached.doctorData);
-          setPatients(cached.patients);
-          setAppointments(cached.appointments);
-          setTherapySessions(cached.therapySessions);
-          setStats(cached.stats);
-          setCalendarEvents(cached.calendarEvents);
-          setFutureAppointments(cached.futureAppointments);
-          setDoctors(cached.doctors);
-          setTotalDoctors(cached.totalDoctors);
-          setDoctorOverview(cached.doctorOverview);
-          setAttendanceSummary(cached.attendanceSummary);
-        }
-        return;
-      }
-    }
-
-    // 🚀 Se já está carregando, espera
-    if (localCache.isLoading && localCache.promise) {
-      await localCache.promise;
-      return;
-    }
-
-    localCache.isLoading = true;
-    if (isMounted.current) setLoading(true);
-
-    const loadPromise = (async () => {
+  // Carrega dados básicos do médico (apenas uma vez)
+  useEffect(() => {
+    if (!userRole) return;
+    
+    const loadDoctorProfile = async () => {
       try {
-        console.log('🔄 useDoctorDashboard: Iniciando carregamento de dados...');
-        
-        // ✅ Otimizado: Primeira leva de chamadas (COMUNS a todos os usuários)
-        const [doctorRes, patientsRes, appointmentsRes, sessionsRes, statsRes] = await Promise.all([
-          API.get('/users/me'),
-          fetchPatients(),
-          fetchTodaysAppointments(),
-          fetchTherapySessions(),
-          fetchStats()
-        ]);
-
-        console.log('✅ useDoctorDashboard: Dados carregados:', {
-          doctor: doctorRes.data?._id,
-          patientsCount: patientsRes?.length,
-          appointmentsCount: appointmentsRes?.length,
-          sessionsCount: sessionsRes?.length,
-          stats: statsRes
-        });
-
-        if (isMounted.current) {
-          setDoctorData(doctorRes.data);
-          setPatients(patientsRes || []);
-          setAppointments(appointmentsRes || []);
-          setTherapySessions(sessionsRes || []);
-          setStats(statsRes || {});
-        }
-
-        let extendedData = {};
-        if (doctorRes.data && doctorRes.data._id) {
-          // ✅ Chamadas específicas para MÉDICOS (dados próprios)
-          const [calendarData, futureApps, attendanceRes] = await Promise.all([
-            doctorService.getAppointmentCalendarDoctor(doctorRes.data._id),
-            fetchFutureAppointments(),
-            doctorService.getAttendanceSummary(doctorRes.data._id)
-          ]);
-
-          if (isMounted.current) {
-            setCalendarEvents(calendarData);
-            setFutureAppointments(futureApps);
-            setAttendanceSummary(attendanceRes.data?.data || []);
-          }
-
-          extendedData = {
-            calendarEvents: calendarData,
-            futureAppointments: futureApps,
-            attendanceSummary: attendanceRes.data?.data || []
-          };
-
-          // 🔥 Só carrega dados de ADMIN se NÃO for médico (usa ref para evitar re-render)
-          if (!isDoctorRef.current) {
-            const [doctorsRes, totalDoctorsRes, doctorOverviewRes] = await Promise.all([
-              doctorService.getAllDoctors(),
-              doctorService.getTotalDoctors(),
-              doctorService.getDoctorOverview()
-            ]);
-
-            if (isMounted.current) {
-              setDoctors(doctorsRes.data);
-              setTotalDoctors(totalDoctorsRes.totalDoctors);
-              setDoctorOverview(doctorOverviewRes);
-            }
-
-            extendedData = {
-              ...extendedData,
-              doctors: doctorsRes.data,
-              totalDoctors: totalDoctorsRes.totalDoctors,
-              doctorOverview: doctorOverviewRes
-            };
-          }
-        }
-
-        // 🚀 Atualiza cache global
-        setCache('doctors', {
-          doctorData: doctorRes.data,
-          patients: patientsRes,
-          appointments: appointmentsRes,
-          therapySessions: sessionsRes,
-          stats: statsRes,
-          ...extendedData
-        });
-
+        const doctorRes = await API.get('/users/me');
+        const docId = doctorRes.data?.id || doctorRes.data?._id;
+        setDoctorData(doctorRes.data);
+        setDoctorId(docId);
       } catch (error) {
-        toast.error('Erro ao carregar dados do dashboard');
-        console.error('Erro no dashboard:', error);
-      } finally {
-        localCache.isLoading = false;
-        if (isMounted.current) setLoading(false);
+        console.error('[useDoctorDashboard] Erro ao carregar perfil:', error);
+        toast.error('Erro ao carregar dados do perfil');
       }
-    })();
-
-    localCache.promise = loadPromise;
-    await loadPromise;
-    localCache.promise = null;
-  }, [skipCache]); // 🔄 Inclui skipCache nas deps
-
-  // ✅ CORREÇÃO: Controle de carregamento único (respeita skipCache)
-  const hasLoadedRef = useRef(false);
-  
-  useEffect(() => {
-    isMounted.current = true;
-    
-    // 🚀 Reseta o localCache se estiver preso (prevenção de deadlock)
-    if (skipCache) {
-      localCache.isLoading = false;
-      localCache.promise = null;
-    }
-    
-    // 🚀 Carrega quando o role estiver definido (ou se skipCache for true, sempre recarrega)
-    if (userRole !== null && (!hasLoadedRef.current || skipCache)) {
-      hasLoadedRef.current = true;
-      console.log('🚀 useDoctorDashboard: Carregando dados (role:', userRole + ', skipCache:', skipCache + ')');
-      loadData(skipCache);
-    }
-    
-    return () => {
-      isMounted.current = false;
     };
-  }, [loadData, userRole, skipCache]);
+    
+    loadDoctorProfile();
+  }, [userRole]);
 
-  // 🔔 Subscribe para invalidação de cache externa
-  useEffect(() => {
-    const unsubscribe = subscribeToCacheInvalidation('doctors', () => {
-      console.log('🔄 useDoctorDashboard: Cache invalidado externamente, recarregando...');
-      loadData(true);
-    });
+  // 🎯 Carrega dados da aba Overview (KPIs, alertas, pacientes de hoje)
+  const loadOverview = useCallback(async (force = false) => {
+    if (!doctorId) return;
+    if (loadingTabsState.overview && !force) return;
 
-    return () => unsubscribe();
-  }, [loadData]);
+    setLoadingTabsState(prev => ({ ...prev, overview: true }));
 
-  const handleCompleteSession = async (sessionId: string) => {
     try {
-      const updated = await doctorService.completeTherapySession(sessionId);
-      toast.success('Sessão marcada como concluída!');
+      const [patientsRes, appointmentsRes, statsRes, futureRes] = await Promise.all([
+        fetchPatients(doctorId),
+        fetchTodaysAppointments(doctorId),
+        fetchStats(doctorId),
+        fetchFutureAppointments(doctorId)
+      ]);
 
-      setTherapySessions((prev) =>
-        prev.map((s) =>
-          s._id === sessionId ? { ...s, status: "completed" } : s
-        )
-      );
-
-      return updated;
-    } catch (err) {
-      console.error("Erro ao completar sessão:", err);
-      throw err;
+      setOverviewData({
+        patients: patientsRes || [],
+        appointments: appointmentsRes || [],
+        stats: statsRes || {},
+        futureAppointments: futureRes || []
+      });
+    } catch (error) {
+      console.error('[useDoctorDashboard] Erro ao carregar overview:', error);
+      toast.error('Erro ao carregar overview');
+    } finally {
+      setLoadingTabsState(prev => ({ ...prev, overview: false }));
     }
-  };
+  }, [doctorId, loadingTabsState.overview]);
 
-  // ✅ NOVO: fetchDoctors otimizado (sem useEffect duplicado)
+  // 🎯 Carrega dados da aba Appointments (calendário completo)
+  const loadAppointments = useCallback(async (force = false) => {
+    if (!doctorId) return;
+    if (loadingTabsState.appointments && !force) return;
+
+    setLoadingTabsState(prev => ({ ...prev, appointments: true }));
+
+    try {
+      const [calendarData, futureApps] = await Promise.all([
+        doctorService.getAppointmentCalendarDoctor(doctorId),
+        fetchFutureAppointments(doctorId)
+      ]);
+
+      // Formata eventos para o calendário
+      const allAppointments = [...(calendarData || []), ...(futureApps || [])];
+      const events = allAppointments.map((apt: any) => {
+        let startDate;
+        if (apt.date && apt.time) {
+          const datePart = apt.date.includes('T') ? apt.date.split('T')[0] : apt.date;
+          startDate = `${datePart}T${apt.time}`;
+        } else {
+          startDate = apt.date;
+        }
+        
+        return {
+          id: apt._id || apt.id,
+          title: `${apt.patient?.fullName || 'Paciente'}`,
+          start: startDate,
+          extendedProps: apt
+        };
+      });
+
+      setCalendarEvents(events);
+    } catch (error) {
+      console.error('[useDoctorDashboard] Erro ao carregar agendamentos:', error);
+      toast.error('Erro ao carregar agendamentos');
+    } finally {
+      setLoadingTabsState(prev => ({ ...prev, appointments: false }));
+    }
+  }, [doctorId, loadingTabsState.appointments]);
+
+  // 🎯 Carrega dados da aba Therapy (sessões)
+  const loadTherapy = useCallback(async (force = false) => {
+    if (!doctorId) return;
+    if (loadingTabsState.therapy && !force) return;
+
+    setLoadingTabsState(prev => ({ ...prev, therapy: true }));
+
+    try {
+      const sessionsRes = await fetchTherapySessions(doctorId);
+      setTherapySessions(sessionsRes || []);
+    } catch (error) {
+      console.error('[useDoctorDashboard] Erro ao carregar sessões:', error);
+      toast.error('Erro ao carregar sessões');
+    } finally {
+      setLoadingTabsState(prev => ({ ...prev, therapy: false }));
+    }
+  }, [doctorId, loadingTabsState.therapy]);
+
+  // 🎯 Carrega dados da aba Attendance (frequência)
+  const loadAttendance = useCallback(async (force = false) => {
+    if (!doctorId) return;
+    if (loadingTabsState.attendance && !force) return;
+
+    setLoadingTabsState(prev => ({ ...prev, attendance: true }));
+
+    try {
+      const attendanceRes = await doctorService.getAttendanceSummary(doctorId);
+      setAttendanceSummary(attendanceRes.data?.data || []);
+    } catch (error) {
+      console.error('[useDoctorDashboard] Erro ao carregar frequência:', error);
+      toast.error('Erro ao carregar frequência');
+    } finally {
+      setLoadingTabsState(prev => ({ ...prev, attendance: false }));
+    }
+  }, [doctorId, loadingTabsState.attendance]);
+
+  // 🎯 Carrega dados da aba Patients (lista completa)
+  const loadPatients = useCallback(async (force = false) => {
+    if (!doctorId) return;
+    if (loadingTabsState.patients && !force) return;
+
+    setLoadingTabsState(prev => ({ ...prev, patients: true }));
+
+    try {
+      const patientsRes = await fetchPatients(doctorId);
+      setOverviewData(prev => ({ ...prev, patients: patientsRes || [] }));
+    } catch (error) {
+      console.error('[useDoctorDashboard] Erro ao carregar pacientes:', error);
+      toast.error('Erro ao carregar pacientes');
+    } finally {
+      setLoadingTabsState(prev => ({ ...prev, patients: false }));
+    }
+  }, [doctorId, loadingTabsState.patients]);
+
+  // Admin: carrega lista de médicos
   const fetchDoctors = useCallback(async () => {
-    // 🔒 Apenas admin pode listar todos médicos
     if (isDoctor) {
       toast.error('Apenas administradores podem listar todos profissionais');
       return;
@@ -281,97 +218,134 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
       setDoctors(response.data);
     } catch (error) {
       toast.error('Erro ao atualizar lista de profissionais');
-      console.error('Erro ao atualizar profissionais:', error);
     }
   }, [isDoctor]);
 
-  const handleUpdateStatus = async (appointmentId: string, status: string) => {
+  // Admin: carrega overview
+  const loadAdminData = useCallback(async () => {
+    if (isDoctor) return;
     try {
-      await updateClinicalStatus({ appointmentId, status });
-      const response = await fetchTodaysAppointments();
-      setAppointments(response);
-      const newStats = await fetchStats();
-      setStats(newStats);
+      const [doctorsRes, totalDoctorsRes, doctorOverviewRes] = await Promise.all([
+        doctorService.getAllDoctors(),
+        doctorService.getTotalDoctors(),
+        doctorService.getDoctorOverview()
+      ]);
+
+      setDoctors(doctorsRes.data);
+      setTotalDoctors(totalDoctorsRes.totalDoctors);
+      setDoctorOverview(doctorOverviewRes);
+    } catch (error) {
+      toast.error('Erro ao carregar dados administrativos');
+    }
+  }, [isDoctor]);
+
+  const handleUpdateStatus = useCallback(async (appointmentId: string, status: string) => {
+    try {
+      await updateClinicalStatus(appointmentId, status);
+      // Recarrega dados relevantes
+      const todayRes = await fetchTodaysAppointments(doctorId || '');
+      setOverviewData(prev => ({ ...prev, appointments: todayRes || [] }));
     } catch (error) {
       toast.error('Erro ao atualizar status');
-      console.error('Erro ao atualizar status:', error);
     }
-  };
+  }, [doctorId]);
 
-  // 🚀 Força refresh invalidando cache
-  const refreshData = useCallback(async () => {
-    invalidateCache('doctors');
-    await loadData(true);
-  }, [loadData]);
+  const handleCompleteSession = useCallback(async (sessionId: string) => {
+    try {
+      const updated = await doctorService.completeTherapySession(sessionId);
+      toast.success('Sessão marcada como concluída!');
+      setTherapySessions(prev =>
+        prev.map(s => s._id === sessionId ? { ...s, status: "completed" } : s)
+      );
+      return updated;
+    } catch (err) {
+      toast.error('Erro ao completar sessão');
+      throw err;
+    }
+  }, []);
 
-  const createDoctor = async (doctor: any) => {
-    // 🔒 Apenas admin pode criar médicos
+  const createDoctor = useCallback(async (doctor: any) => {
     if (isDoctor) {
       toast.error('Apenas administradores podem criar profissionais');
       throw new Error('Unauthorized');
     }
-    setLoading(true);
     try {
       await doctorService.createDoctor(doctor);
-      // 🚀 Invalida cache e propaga para hooks relacionados
-      invalidateCache('doctors');
       const allDoctors = await doctorService.getAllDoctors();
       setDoctors(allDoctors.data);
       toast.success('Profissional criado com sucesso!');
     } catch (error: any) {
-      console.error("Erro ao criar profissional:", error);
       toast.error(extractErrorMessage(error, "Erro ao criar profissional"));
       throw error;
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [isDoctor]);
 
-  const updateDoctor = async (doctor: any) => {
+  const updateDoctor = useCallback(async (doctor: any) => {
     if (!doctor._id) throw new Error("ID do profissional é obrigatório");
-    // 🔒 Apenas admin pode atualizar outros médicos (médico pode atualizar si próprio via outra rota)
     if (isDoctor) {
       toast.error('Apenas administradores podem atualizar profissionais');
       throw new Error('Unauthorized');
     }
-    setLoading(true);
     try {
       await doctorService.updateDoctor(doctor._id, doctor);
-      // 🚀 Invalida cache e propaga para hooks relacionados
-      invalidateCache('doctors');
       const allDoctors = await doctorService.getAllDoctors();
       setDoctors(allDoctors.data);
       toast.success('Profissional atualizado com sucesso!');
     } catch (error: any) {
-      console.error("Erro ao atualizar profissional:", error);
       toast.error(extractErrorMessage(error, "Erro ao atualizar profissional"));
       throw error;
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [isDoctor]);
+
+  // Força refresh de uma aba específica
+  const refreshTab = useCallback((tab: string) => {
+    switch (tab) {
+      case 'overview': loadOverview(true); break;
+      case 'appointments': loadAppointments(true); break;
+      case 'therapy': loadTherapy(true); break;
+      case 'attendance': loadAttendance(true); break;
+      case 'patients': loadPatients(true); break;
+    }
+  }, [loadOverview, loadAppointments, loadTherapy, loadAttendance, loadPatients]);
 
   return {
-    loading,
+    // Dados do médico
     doctorData,
-    patients,
-    appointments,
+    doctorId,
+    userRole,
+    isDoctor,
+    
+    // Dados por aba
+    patients: overviewData.patients,
+    appointments: overviewData.appointments,
+    stats: overviewData.stats,
+    futureAppointments: overviewData.futureAppointments,
+    calendarEvents,
     therapySessions,
-    stats,
-    futureAppointments,
-
-    // 🔥 novos retornos
+    attendanceSummary,
+    
+    // Admin data
     doctors,
     totalDoctors,
     doctorOverview,
-    attendanceSummary,
-    handleCompleteSession,
+    
+    // Loading por aba
+    loading: loadingTabsState,
+    
+    // Funções de carregamento lazy
+    loadOverview,
+    loadAppointments,
+    loadTherapy,
+    loadAttendance,
+    loadPatients,
+    loadAdminData,
+    
+    // Ações
     handleUpdateStatus,
-    refreshData, // 🚀 Agora invalida cache antes de recarregar
+    handleCompleteSession,
     createDoctor,
-    fetchPatients,
-    calendarEvents,
     updateDoctor,
-    fetchDoctors // ✅ Mantido para compatibilidade
+    fetchDoctors,
+    refreshTab
   };
 }

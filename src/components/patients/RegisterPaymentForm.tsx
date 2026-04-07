@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
-import { usePaymentV2 } from '../../hooks/usePaymentV2';
+import usePayment from '../../hooks/usePayment';
 
 interface RegisterPaymentFormProps {
     packageId: string;
@@ -9,7 +9,7 @@ interface RegisterPaymentFormProps {
 }
 
 const RegisterPaymentForm: React.FC<RegisterPaymentFormProps> = ({ packageId, patientId, onSuccess }) => {
-    const { createPayment, isProcessing } = usePaymentV2();
+    const { addPayment, loading: isProcessing } = usePayment();
     const [value, setValue] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('Dinheiro');
     const [notes, setNotes] = useState('');
@@ -18,15 +18,15 @@ const RegisterPaymentForm: React.FC<RegisterPaymentFormProps> = ({ packageId, pa
         e.preventDefault();
 
         try {
-            // 🚀 V2: Payment com fallback
-            const result = await createPayment({
+            // Payment
+            const result = await addPayment({
                 patientId,
                 amount: parseFloat(value),
                 paymentMethod,
                 notes,
             });
             
-            console.log(`[RegisterPaymentForm] Usou: ${result.source}`);
+            console.log(`[RegisterPaymentForm] Pagamento registrado`);
             toast.success('Pagamento registrado com sucesso!');
             onSuccess();
         } catch (err: any) {

@@ -1,4 +1,4 @@
-import { Box, Paper, Typography, useTheme } from '@mui/material';
+import { Box, Paper, Skeleton, Typography, useTheme } from '@mui/material';
 import { BarChart3, CalendarPlus } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -14,7 +14,7 @@ import { useChatNavigation } from "../contexts/ChatNavigationContext";
 import { useChatOptional } from '../contexts/ChatContext'; // 🆕 Para mensagens de erro no chat
 import { useAdmin } from '../hooks/useAdmin';
 import { useDashboard } from '../hooks/useDashboard';
-import { usePatientsV2 } from '../hooks/usePatientV2';
+import { usePatients } from '../hooks/usePatients';
 import { usePaymentsContext } from '../contexts/PaymentsContext';
 import usePayment from '../hooks/usePayment';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
@@ -217,7 +217,7 @@ export default function AdminDashboard() {
 
 
     // 🎯 USA API V2
-    const { patients, pagination, refresh, updatePatient, createPatient, deletePatient } = usePatientsV2();
+    const { patients, pagination, refresh, updatePatient, createPatient, deletePatient } = usePatients();
     const totalPatients = pagination?.total ?? patients.length;
     
     // 🚀 IMPORTANTE: AdminDashboard NÃO usa useDoctorDashboard!
@@ -313,11 +313,14 @@ export default function AdminDashboard() {
                 toast.success("Profissional cadastrado com sucesso!");
             }
 
+            // ✅ Fecha o modal após sucesso
+            setShowModalAddProfessional(false);
             setModalShouldClose(true);
             // 🔄 Atualiza dashboard para refletir mudanças
             refreshDashboard();
         } catch (error: any) {
             toast.error(extractErrorMessage(error, "Erro ao salvar profissional."));
+            throw error; // Re-throw para o modal saber que falhou
         } finally {
             setIsLoading(false);
         }
@@ -438,8 +441,9 @@ export default function AdminDashboard() {
                 toast.success('Agendamento marcado como concluído!');
             }
 
-            fetchAppointments(calendarDateRange);
-            refreshDashboard(); // 🔄 Atualiza cards do dashboard (agora depois do polling)
+            // 🔄 FORÇA atualização do calendário - limpa o período atual para buscar novamente
+            await fetchAppointments({ ...calendarDateRange, force: true });
+            await refreshDashboard(); // 🔄 Atualiza cards do dashboard
             setCloseModalSignal(prev => prev + 1);
         } catch (error) {
             console.log('Erro ao Completar agendamento:', error);
@@ -849,22 +853,93 @@ export default function AdminDashboard() {
         }
     };
 
+    // 🆕 Skeleton de loading completo (estilo DoctorDashboard)
     if (dashboardLoading) return (
-        <div className="min-h-screen bg-gray-100 animate-pulse">
-            {/* Header skeleton */}
-            <div className="bg-white shadow-sm h-16 w-full mb-6" />
-            <div className="max-w-7xl mx-auto px-4 sm:px-8 space-y-6">
-                {/* Cards row */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    {[...Array(4)].map((_, i) => (
-                        <div key={i} className="bg-white rounded-xl h-28 shadow-sm" />
-                    ))}
+        <div className="min-h-screen bg-gray-50">
+            {/* Header Skeleton */}
+            <div className="bg-white border-b border-gray-200">
+                <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <Skeleton variant="circular" width={48} height={48} />
+                            <div>
+                                <Skeleton variant="text" width={250} height={32} />
+                                <Skeleton variant="text" width={180} height={20} />
+                            </div>
+                        </div>
+                        <Skeleton variant="rectangular" width={120} height={40} className="rounded-full" />
+                    </div>
                 </div>
-                {/* Main content area */}
-                <div className="bg-white rounded-xl h-64 shadow-sm" />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="bg-white rounded-xl h-48 shadow-sm" />
-                    <div className="bg-white rounded-xl h-48 shadow-sm" />
+            </div>
+
+            {/* Tabs Skeleton */}
+            <div className="bg-white border-b border-gray-200">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex space-x-8 py-4">
+                        {[1, 2, 3, 4, 5, 6].map((i) => (
+                            <Skeleton key={i} variant="text" width={80} height={24} />
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Content Skeleton */}
+            <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    {/* KPI Cards Skeleton */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        {[1, 2, 3, 4].map((i) => (
+                            <Paper key={i} className="rounded-2xl border border-gray-200 shadow-sm p-6">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                        <Skeleton variant="text" width={120} height={20} className="mb-2" />
+                                        <Skeleton variant="text" width={60} height={48} />
+                                    </div>
+                                    <Skeleton variant="circular" width={48} height={48} />
+                                </div>
+                            </Paper>
+                        ))}
+                    </div>
+
+                    {/* Alerts and Today Appointments Skeleton */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <Paper className="p-4 rounded-xl border border-gray-200">
+                            <Skeleton variant="text" width={200} height={24} className="mb-4" />
+                            {[1, 2, 3].map((i) => (
+                                <Box key={i} className="mb-3">
+                                    <Skeleton variant="rectangular" height={80} className="rounded-lg" />
+                                </Box>
+                            ))}
+                        </Paper>
+                        <Paper className="p-4 rounded-xl border border-gray-200">
+                            <Skeleton variant="text" width={180} height={24} className="mb-4" />
+                            {[1, 2, 3].map((i) => (
+                                <Box key={i} className="flex items-center gap-3 mb-3">
+                                    <Skeleton variant="circular" width={40} height={40} />
+                                    <div className="flex-1">
+                                        <Skeleton variant="text" width="80%" height={20} />
+                                        <Skeleton variant="text" width="60%" height={16} />
+                                    </div>
+                                </Box>
+                            ))}
+                        </Paper>
+                    </div>
+
+                    {/* Quick Actions and Stats Skeleton */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <Paper className="p-4 rounded-xl border border-gray-200">
+                            <Skeleton variant="text" width={150} height={24} className="mb-4" />
+                            <div className="grid grid-cols-2 gap-3">
+                                {[1, 2, 3, 4].map((i) => (
+                                    <Skeleton key={i} variant="rectangular" height={80} className="rounded-lg" />
+                                ))}
+                            </div>
+                        </Paper>
+                        <Paper className="p-4 rounded-xl border border-gray-200">
+                            <Skeleton variant="text" width={180} height={24} className="mb-4" />
+                            <Skeleton variant="rectangular" height={200} className="rounded-lg" />
+                        </Paper>
+                    </div>
                 </div>
             </div>
         </div>

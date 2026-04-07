@@ -1,7 +1,7 @@
 import { CreditCard, DollarSign, FileText, Landmark, QrCode, X } from 'lucide-react';
 import { useState } from "react";
 import { toast } from "react-toastify";
-import { usePaymentV2 } from "../../hooks/usePaymentV2";
+import usePayment from "../../hooks/usePayment";
 import { Button } from "../ui/Button";
 import InputCurrency from '../ui/InputCurrency';
 import { LoadingSpinner } from "../ui/LoadingSpinner";
@@ -27,8 +27,8 @@ export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentM
     const [note, setNote] = useState("");
     const [loading, setLoading] = useState(false);
     
-    // 🚀 V2 Payment Hook
-    const { createPayment, isProcessing, statusMessage, progress } = usePaymentV2();
+    // Payment Hook
+    const { addPayment, loading: isProcessing } = usePayment();
 
     console.log('Adicionando pagamento ao pacote:', packageData);
     const handleSubmit = async () => {
@@ -40,8 +40,8 @@ export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentM
         try {
             setLoading(true);
 
-            // 🚀 V2: Payment com fallback
-            const result = await createPayment({
+            // Payment
+            const result = await addPayment({
                 patientId: packageData?.patient?._id,
                 doctorId: packageData?.doctor?._id,
                 amount,
@@ -49,7 +49,7 @@ export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentM
                 notes: note
             });
 
-            console.log(`[AddPaymentModal] Usou: ${result.source}`);
+            console.log(`[AddPaymentModal] Pagamento registrado`);
 
             toast.success("Pagamento registrado com sucesso! 💚");
             onSuccess(result.data);
@@ -192,7 +192,7 @@ export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentM
                             : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl'
                             }`}
                     >
-                        {loading ? (
+                        {loading || isProcessing ? (
                             <div className="flex items-center gap-2">
                                 <LoadingSpinner size="small" color="border-white" />
                                 <span>Registrando...</span>

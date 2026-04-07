@@ -30,9 +30,11 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
     // 🔥 NOVO: Accordion principal para mostrar/ocultar todos os pacotes
     const [isAccordionOpen, setIsAccordionOpen] = useState(true);
 
+    const realPatientId = patient?.patientId || patient?._id;
+
     useEffect(() => {
         fetchBasicPackages();
-    }, [patient._id]);
+    }, [realPatientId]);
 
 
 
@@ -44,7 +46,7 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                 page: 1,
                 limit: 10,
                 status: "active",
-                patientId: patient._id,
+                patientId: realPatientId,
             };
 
             const res = await packagesService.listPackages(params);

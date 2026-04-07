@@ -21,7 +21,7 @@ import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
 
 // 🚀 LAZY LOAD: Só carrega quando a aba for ativada
-const LancamentosV2Tab = lazy(() => import('./tabs/LancamentosV2Tab'));
+// LancamentosV2Tab removido - usar PaymentPage ou criar nova aba
 const PaymentPage = lazy(() => import('../../components/financial/PaymentPage'));
 const ExpensesTab = lazy(() => import('./tabs/ExpensesTab'));
 const EntradasSaidasTab = lazy(() => import('./tabs/EntradasSaidasTab'));
@@ -30,8 +30,7 @@ const InsuranceTab = lazy(() => import('./tabs/InsuranceTab'));
 const PlanningTab = lazy(() => import('./tabs/PlanningTab'));
 const VisaoGeralEstrategicaTab = lazy(() => import('./tabs/VisaoGeralEstrategicaTab'));
 const AnaliseProjecaoTab = lazy(() => import('./tabs/AnaliseProjecaoTab'));
-const CaixaTab = lazy(() => import('../FinancialV2/components/CaixaTab'));
-const MetasTab = lazy(() => import('../FinancialV2/components/MetasTab'));
+// Nota: Componentes FinancialV2 removidos - usando apenas versões normais
 const DailySummaryCard = lazy(() => import('./components/DailySummaryCard'));
 
 // 🔄 Skeleton de loading para tabs
@@ -113,9 +112,9 @@ const FinancialDashboard = ({
             case 'resumo-dia':
                 return <DailySummaryCard />;
             case 'caixa':
-                return <CaixaTab />;
+                return <div className="p-4 text-gray-500">Componente Caixa em manutenção</div>;
             case 'metas-v2':
-                return <MetasTab />;
+                return <GoalsTab />;
             case 'pagamentos':
                 return (
                     <PaymentPage
