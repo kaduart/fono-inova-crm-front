@@ -38,31 +38,18 @@ export const useAppointments = () => {
 
     const isMounted = useRef(true);
 
-    // ✅ FIX: fetchAppointments usando V2 ou legado conforme flag
+    // ✅ FIX: fetchAppointments usando V2 (sempre)
     const fetchAppointments = useCallback(async (filters?: { startDate?: string; endDate?: string; light?: boolean }) => {
         try {
-            let response;
-
-            // 🚀 V2: Usa endpoint V2 se flag ativada
-            if (appointmentService.USE_V2_LIST) {
-                response = await appointmentService.listV2({
-                    startDate: filters?.startDate,
-                    endDate: filters?.endDate,
-                    limit: filters?.light ? 200 : 100,
-                    light: filters?.light
-                });
-                // V2 retorna { success, data: { appointments, pagination } }
-                setAppointments(response.data.data?.appointments || response.data.data || []);
-            } else {
-                // Legado
-                const params: PaginationParams = {
-                    limit: 500,
-                    ...(filters?.startDate && { startDate: new Date(filters.startDate) }),
-                    ...(filters?.endDate && { endDate: new Date(filters.endDate) }),
-                };
-                response = await appointmentService.list(params);
-                setAppointments(response.data.data || response.data || []);
-            }
+            // 🚀 V2: Usa endpoint V2 otimizado
+            const response = await appointmentService.list({
+                startDate: filters?.startDate,
+                endDate: filters?.endDate,
+                limit: filters?.light ? 200 : 100,
+                light: filters?.light
+            });
+            // V2 retorna { success, data: { appointments, pagination } }
+            setAppointments(response.data.data?.appointments || response.data.data || []);
         } catch (error) {
             console.error('❌ Erro ao buscar appointments:', error);
             // Fallback silencioso ou usar notificação global se disponível
@@ -167,7 +154,7 @@ export const useAppointments = () => {
         try {
             setLoading(true);
             // 🚀 V2: Usa listV2 com filtro de patientId
-            const response = await appointmentService.listV2({
+            const response = await appointmentService.list({
                 patientId: id,
                 limit: 100
             });

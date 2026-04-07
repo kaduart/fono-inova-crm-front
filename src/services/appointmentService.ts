@@ -208,24 +208,8 @@ export const appointmentService = {
         return API.delete<{ message: string }>(endpoint);
     },
 
-    list: async (params: PaginationParams = {}) => {
-        return API.get<IPaginatedAppointmentResponse>('/appointments', {
-            params: {
-                page: params.page || 1,
-                limit: params.limit || 20,
-                status: params.status,
-                doctorId: params.doctorId,
-                patientId: params.patientId,
-                sessionType: params.sessionType,
-                startDate: params.startDate,
-                endDate: params.endDate,
-                excludePreAgendamentos: params.excludePreAgendamentos || false
-            }
-        });
-    },
-
-    // 🚀 V2: Listagem com filtros e população completa
-    listV2: async (params: { startDate?: string; endDate?: string; page?: number; limit?: number; light?: boolean; patientId?: string; doctorId?: string } = {}) => {
+    // 🚀 V2: Listagem com filtros e população completa (única opção)
+    list: async (params: { startDate?: string; endDate?: string; page?: number; limit?: number; light?: boolean; patientId?: string; doctorId?: string } = {}) => {
         const queryParams = new URLSearchParams();
         if (params.startDate) queryParams.append('startDate', params.startDate);
         if (params.endDate) queryParams.append('endDate', params.endDate);

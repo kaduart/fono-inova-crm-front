@@ -21,7 +21,6 @@ import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
 
 // 🚀 LAZY LOAD: Só carrega quando a aba for ativada
-// LancamentosV2Tab removido - usar PaymentPage ou criar nova aba
 const PaymentPage = lazy(() => import('../../components/financial/PaymentPage'));
 const ExpensesTab = lazy(() => import('./tabs/ExpensesTab'));
 const EntradasSaidasTab = lazy(() => import('./tabs/EntradasSaidasTab'));
@@ -30,7 +29,6 @@ const InsuranceTab = lazy(() => import('./tabs/InsuranceTab'));
 const PlanningTab = lazy(() => import('./tabs/PlanningTab'));
 const VisaoGeralEstrategicaTab = lazy(() => import('./tabs/VisaoGeralEstrategicaTab'));
 const AnaliseProjecaoTab = lazy(() => import('./tabs/AnaliseProjecaoTab'));
-// Nota: Componentes FinancialV2 removidos - usando apenas versões normais
 const DailySummaryCard = lazy(() => import('./components/DailySummaryCard'));
 
 // 🔄 Skeleton de loading para tabs
@@ -80,11 +78,11 @@ const FinancialDashboard = ({
     // Configuração das tabs operacionais
     const operacionalTabs = [
         { id: 'caixa', label: 'Caixa', icon: <LayoutDashboard size={18} /> },
-        { id: 'pagamentos', label: 'Pagamentos', icon: <DollarSign size={18} /> },
+        { id: 'pagamentos', label: 'Pagamentos', icon: <DollarSign size={18} /> },  // 🧑‍💼 Secretária
         { id: 'despesas', label: 'Despesas', icon: <Receipt size={18} /> },
         { id: 'convenios', label: 'Convênios', icon: <CreditCard size={18} /> },
         { id: 'metas-v2', label: 'Metas', icon: <TrendingUp size={18} /> },
-        { id: 'extrato', label: 'Extrato', icon: <ArrowLeftRight size={18} /> },
+        { id: 'extrato', label: 'Dashboard', icon: <BarChart3 size={18} /> },  // 📊 Dashboard completo
     ];
 
     // Configuração das tabs estratégicas
@@ -107,6 +105,7 @@ const FinancialDashboard = ({
         );
     };
 
+    // 🎯 Renderiza apenas a aba ativa (lazy loaded)
     const renderOperacionalTab = () => {
         switch (currentTabId) {
             case 'resumo-dia':

@@ -87,7 +87,7 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             }
             
             // 🚀 V2: Usa listagem otimizada da V2 (light=true para calendário)
-            const response = await appointmentService.listV2({
+            const response = await appointmentService.list({
                 limit: 500,
                 light: true,  // 🆕 Apenas campos essenciais para o calendário
                 ...(effectiveFilters?.startDate && { startDate: effectiveFilters.startDate }),

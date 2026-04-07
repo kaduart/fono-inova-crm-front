@@ -271,7 +271,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         try {
             console.log('[TherapyPackageFormModal] Buscando agendamentos para paciente (V2):', patientId);
             // Usa endpoint V2 com filtro de patientId
-            const response = await appointmentService.listV2({
+            const response = await appointmentService.list({
                 patientId: patientId,
                 limit: 100
             });

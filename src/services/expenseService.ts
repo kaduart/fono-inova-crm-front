@@ -47,37 +47,37 @@ export interface ExpenseFilters {
 }
 
 export const expenseService = {
-    // Criar despesa
+    // Criar despesa (V2)
     create: async (data: Partial<Expense>) => {
-        const response = await api.post('/expenses', data);
+        const response = await api.post('/v2/expenses', data);
         return response.data;
     },
 
-    // Listar despesas
+    // Listar despesas (V2 - com cache)
     getAll: async (filters?: ExpenseFilters) => {
-        const response = await api.get('/expenses', { params: filters });
+        const response = await api.get('/v2/expenses', { params: filters });
         return response.data;
     },
 
-    // Buscar por profissional
+    // Buscar por profissional (mantém V1 - não tem V2 ainda)
     getByDoctor: async (doctorId: string, filters?: { month?: number; year?: number }) => {
         const response = await api.get(`/expenses/by-doctor/${doctorId}`, { params: filters });
         return response.data;
     },
 
-    // Atualizar despesa
+    // Atualizar despesa (V2)
     update: async (id: string, data: Partial<Expense>) => {
-        const response = await api.patch(`/expenses/${id}`, data);
+        const response = await api.patch(`/v2/expenses/${id}`, data);
         return response.data;
     },
 
-    // Cancelar despesa
+    // Cancelar despesa (V2)
     cancel: async (id: string) => {
-        const response = await api.delete(`/expenses/${id}`);
+        const response = await api.delete(`/v2/expenses/${id}`);
         return response.data;
     },
 
-    // Gerar comissões manualmente
+    // Gerar comissões manualmente (mantém V1)
     generateCommissions: async () => {
         const response = await api.post('/expenses/generate-commissions');
         return response.data;

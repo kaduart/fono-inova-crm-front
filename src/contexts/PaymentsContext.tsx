@@ -96,14 +96,14 @@ export const PaymentsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const [year, monthNum] = month.split('-');
             const lastDay = new Date(parseInt(year), parseInt(monthNum), 0).getDate();
             
-            // 🚀 Busca TODOS os appointments do período (não só recentes)
-            const res = await API.get('/appointments', {
-                params: {
-                    startDate: `${month}-01`,
-                    endDate: `${month}-${lastDay}`,
-                    limit: 500
-                }
-            });
+            // 🚀 Busca TODOS os appointments do período (V2 - otimizado)
+            const queryParams = new URLSearchParams();
+            queryParams.append('startDate', `${month}-01`);
+            queryParams.append('endDate', `${month}-${lastDay}`);
+            queryParams.append('limit', '500');
+            queryParams.append('light', 'true');
+            
+            const res = await API.get(`/v2/appointments?${queryParams.toString()}`);
             
             // 🛡️ IGNORA resposta se já teve nova requisição (race condition)
             if (currentRequest !== requestIdRef.current) {
@@ -111,7 +111,16 @@ export const PaymentsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 return;
             }
             
-            const appointments = res.data?.data || res.data || [];
+            // 🆕 V2: Extrai appointments da estrutura correta
+            // V2 retorna: { success: true, data: { appointments: [...], pagination: {...} } }
+            const appointments = res.data?.data?.appointments || res.data?.appointments || res.data?.data || res.data || [];
+            
+            // Garante que é array
+            if (!Array.isArray(appointments)) {
+                console.error('[PaymentsContext] appointments não é array:', appointments);
+                setPayments([]);
+                return;
+            }
             
             // 🎯 Converte appointments para FinancialRecord
             const mappedPayments: FinancialRecord[] = appointments.map((appt: any) => ({

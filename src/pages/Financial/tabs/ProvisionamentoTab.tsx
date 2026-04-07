@@ -507,7 +507,7 @@ const ProvisionamentoTab = () => {
                         <TableCell>
                           <span
                             className="cursor-pointer hover:text-blue-600 hover:underline font-medium"
-                            onClick={() => apt.patient?._id && handleOpen360(apt.patient._id)}
+                            onClick={() => (apt.patient?.patientId || apt.patient?._id) && handleOpen360(apt.patient?.patientId || apt.patient?._id)}
                           >
                             {apt.patient?.fullName || 'N/A'}
                           </span>

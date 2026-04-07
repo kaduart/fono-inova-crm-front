@@ -2,16 +2,20 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
-import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+import api from '../services/api';
 
 const AppointmentCalendar = () => {
     const [events, setEvents] = useState([]);
 
     useEffect(() => {
-        axios.get('/api/appointments')
-            .then(res => setEvents(res.data))
+        // 🚀 V2: Usa API otimizada
+        api.get('/v2/appointments?limit=500&light=true')
+            .then(res => {
+                const data = res.data?.data?.appointments || res.data?.data || [];
+                setEvents(data);
+            })
             .catch(() => toast.error('Erro ao carregar agendamentos.'));
     }, []);
 
@@ -28,8 +32,9 @@ const AppointmentCalendar = () => {
             };
 
             try {
-                const res = await axios.post('/api/appointments', newEvent);
-                calendarApi.addEvent({ ...res.data });
+                // 🚀 V2: Cria via API V2
+                const res = await api.post('/v2/appointments', newEvent);
+                calendarApi.addEvent({ ...res.data.data });
                 toast.success('Agendamento criado com sucesso!');
             } catch {
                 toast.error('Erro ao criar agendamento.');
@@ -40,7 +45,8 @@ const AppointmentCalendar = () => {
     const handleEventClick = async (clickInfo) => {
         if (window.confirm(`Deseja excluir "${clickInfo.event.title}"?`)) {
             try {
-                await axios.delete(`/api/appointments/${clickInfo.event.id}`);
+                // 🚀 V2: Deleta via API V2
+                await api.delete(`/v2/appointments/${clickInfo.event.id}`);
                 clickInfo.event.remove();
                 toast.success('Agendamento removido.');
             } catch {
@@ -58,8 +64,10 @@ const AppointmentCalendar = () => {
                 editable={true}
                 selectable={true}
                 events={events.map(event => ({
-                    ...event,
-                    title: event.title?.split(' - ')[0] || 'Sem motivo' // ← Split seguro
+                    id: event._id || event.id,
+                    title: event.patient?.fullName || event.title || 'Consulta',
+                    start: event.date,
+                    end: event.endDate || event.date,
                 }))}
                 select={handleDateSelect}
                 eventClick={handleEventClick}

@@ -504,7 +504,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                 <td className="px-6 py-4">
                                                     <div className="flex gap-2 justify-center">
                                                         <Link
-                                                            to={`/patient-dashboard/${patient._id}`}
+                                                            to={`/patient-dashboard/${patient.patientId || patient._id}`}
                                                             title="Ver detalhes"
                                                             className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
                                                             onClick={(e) => e.stopPropagation()}
@@ -532,7 +532,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                             <Edit className="w-4 h-4" />
                                                         </button>
                                                         <Link
-                                                            to={`/patient-dashboard/${patient._id}?tab=evolucoes`}
+                                                            to={`/patient-dashboard/${patient.patientId || patient._id}?tab=evolucoes`}
                                                             title="Ver evoluções"
                                                             className="p-1.5 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-md transition-colors"
                                                             onClick={(e) => e.stopPropagation()}

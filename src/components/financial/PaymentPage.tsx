@@ -140,16 +140,20 @@ const NewPatientsPeriodCard = ({
     useEffect(() => {
         if (!dateRange) return;
         setLoading(true);
-        api.get('/appointments', { 
-            params: { 
-                startDate: dateRange.start, 
-                endDate: dateRange.end,
-                patientType: 'novo'
-            } 
-        })
+        // 🚀 V2: Usa listagem otimizada
+        const queryParams = new URLSearchParams();
+        queryParams.append('startDate', dateRange.start);
+        queryParams.append('endDate', dateRange.end);
+        queryParams.append('light', 'true');
+        
+        api.get(`/v2/appointments?${queryParams.toString()}`)
             .then(res => {
                 const data = res.data?.data || res.data || [];
-                setNewPatients(Array.isArray(data) ? data : []);
+                // Filtra novos pacientes no frontend (primeira consulta do paciente)
+                const novosPacientes = (Array.isArray(data) ? data : []).filter((apt: any) => 
+                    apt.isFirstVisit === true || apt.patientType === 'novo'
+                );
+                setNewPatients(novosPacientes);
             })
             .catch(() => setNewPatients([]))
             .finally(() => setLoading(false));
@@ -330,15 +334,21 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment, registerAppointme
         fetchPaymentTotals,
     } = usePayment();
 
-    // Busca agendamentos como lista financeira (usa Context, não state local)
+    // Busca agendamentos como lista financeira (V2 - otimizado)
     const loadPaymentsList = useCallback(async (params: { startDate?: string; endDate?: string } = {}) => {
         setLoading(true);
         try {
-            const res = await api.get('/appointments', {
-                params: { startDate: params.startDate, endDate: params.endDate, limit: 500 }
-            });
+            // 🚀 V2: Usa listagem otimizada
+            const queryParams = new URLSearchParams();
+            if (params.startDate) queryParams.append('startDate', params.startDate);
+            if (params.endDate) queryParams.append('endDate', params.endDate);
+            queryParams.append('limit', '500');
+            // light=true para campos essenciais (mais rápido)
+            queryParams.append('light', 'true');
+            
+            const res = await api.get(`/v2/appointments?${queryParams.toString()}`);
             const raw = res.data?.data || res.data || [];
-            console.log('[PaymentPage] API retornou:', raw.length, 'agendamentos');
+            console.log('[PaymentPage] API V2 retornou:', raw.length, 'agendamentos');
             const mapped: FinancialRecord[] = (Array.isArray(raw) ? raw : [])
                 .map(mapAppointmentToRecord)
                 .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -843,7 +853,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment, registerAppointme
                                                 <span
                                                     className="cursor-pointer hover:text-blue-600 hover:underline font-medium text-xs text-gray-900 truncate max-w-[130px]"
                                                     title={payment.patient?.fullName}
-                                                    onClick={() => payment.patient?._id && handleOpen360(payment.patient._id)}
+                                                    onClick={() => (payment.patient?.patientId || payment.patient?._id) && handleOpen360(payment.patient?.patientId || payment.patient?._id)}
                                                 >
                                                     {payment.patient?.fullName}
                                                 </span>

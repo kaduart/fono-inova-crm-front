@@ -31,7 +31,7 @@ export const ScheduleWithPackageFlow = ({
     const handleSaveAppointment = async (data) => {
         setLoading(true);
         try {
-            const res = await fetch(`/api/pacotes/${patient._id}`);
+            const res = await fetch(`/api/pacotes/${patient.patientId || patient._id}`);
             const pacote = await res.json();
 
             if (!res.ok || !pacote?.hasActivePackage) {

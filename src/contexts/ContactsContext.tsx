@@ -98,12 +98,26 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
     const lastRefreshRef = useRef(0);
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const MIN_REFRESH_INTERVAL = 5000; // Mínimo 5s entre chamadas
+    
+    // 🆕 Só carrega contatos em rotas do WhatsApp (otimização)
+    const shouldLoadContacts = () => {
+        const path = window.location.pathname;
+        // Só carrega em rotas de chat/whatsapp ou se já estiver com contatos carregados
+        const isWhatsAppRoute = path.includes('/whatsapp') || path.includes('/chat') || path.includes('/atendimento');
+        return isWhatsAppRoute;
+    };
 
     const refreshContacts = useCallback(async (force = false) => {
         // Verificar se tem token antes de carregar
         const token = localStorage.getItem('token');
         if (!token) {
             console.log('⏳ ContactsContext: Token não disponível, skip load');
+            return;
+        }
+        
+        // 🛡️ Só carrega em rotas do WhatsApp (otimização)
+        if (!shouldLoadContacts()) {
+            console.log('[ContactsContext] Fora da rota WhatsApp, skip load');
             return;
         }
 
@@ -213,7 +227,9 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
 
         const handleAuthReady = () => {
             console.log('[ContactsContext] Auth ready, loading contacts...');
-            refreshContacts();
+            if (shouldLoadContacts()) {
+                refreshContacts();
+            }
         };
 
         const handleAuthLogout = () => {
@@ -227,7 +243,7 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
 
         const handleVisibilityChange = () => {
             // Quando a aba volta a ficar visível, faz um refresh se passou tempo suficiente
-            if (document.visibilityState === 'visible' && localStorage.getItem('token')) {
+            if (document.visibilityState === 'visible' && localStorage.getItem('token') && shouldLoadContacts()) {
                 const now = Date.now();
                 if (now - lastRefreshRef.current > MIN_REFRESH_INTERVAL) {
                     console.log('[ContactsContext] Tab visible, refreshing contacts...');
@@ -236,9 +252,9 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
             }
         };
 
-        // Verifica se já tem token no mount
+        // Verifica se já tem token no mount (só em rotas WhatsApp)
         const token = localStorage.getItem('token');
-        if (token && isInitialLoadRef.current) {
+        if (token && isInitialLoadRef.current && shouldLoadContacts()) {
             refreshContacts();
         }
 
@@ -247,10 +263,10 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
         window.addEventListener('authLogout', handleAuthLogout);
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
-        // 🔄 FALLBACK: Polling a cada 30 segundos (apenas quando visível)
+        // 🔄 FALLBACK: Polling a cada 30 segundos (apenas quando visível e na rota WhatsApp)
         // Socket já atualiza em tempo real, polling é só fallback
         pollingIntervalRef.current = setInterval(() => {
-            if (document.visibilityState === 'visible' && localStorage.getItem('token')) {
+            if (document.visibilityState === 'visible' && localStorage.getItem('token') && shouldLoadContacts()) {
                 console.log('[ContactsContext] Polling 30s: verificando atualizações...', new Date().toISOString());
                 refreshContacts(false); // false = não força loading
             }
@@ -316,8 +332,12 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
                     contactId = phoneIndexRef.current.get(phone);
                 }
                 
-                // Se não encontrou contato, faz refresh para buscar do servidor (com rate limit)
+                // Se não encontrou contato, faz refresh para buscar do servidor (com rate limit, só em rotas WhatsApp)
                 if (!contactId) {
+                    if (!shouldLoadContacts()) {
+                        console.log('[ContactsContext] Contato não encontrado, mas fora da rota WhatsApp, ignorando...');
+                        return;
+                    }
                     const now = Date.now();
                     if (now - lastSocketRefresh > SOCKET_REFRESH_COOLDOWN) {
                         lastSocketRefresh = now;

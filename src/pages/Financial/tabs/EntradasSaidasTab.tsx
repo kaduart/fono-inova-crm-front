@@ -17,7 +17,8 @@ import {
     Alert,
     Divider,
     LinearProgress,
-    Tooltip
+    Tooltip,
+    Avatar
 } from '@mui/material';
 import {
     TrendingUp,
@@ -31,10 +32,14 @@ import {
     MedicalServices,
     CalendarToday,
     Warning,
-    CheckCircle
+    CheckCircle,
+    EventAvailable,
+    TrackChanges,
+    Schedule
 } from '@mui/icons-material';
 import { useFinancialMetrics } from '../../../hooks/useFinancialMetrics';
 import { useExpenses } from '../../../hooks/useExpenses';
+import { usePlanning } from '../../../hooks/usePlanning';
 import { FinancialLoading } from '../components/FinancialLoading';
 import { FinancialDetailsModal } from '../components/FinancialDetailsModal';
 import moment from 'moment-timezone';
@@ -77,6 +82,13 @@ const EntradasSaidasTab = () => {
     
     // Hook de despesas - com busca filtrada por período
     const { expenses, isLoading: expensesLoading, fetchExpenses } = useExpenses();
+    
+    // Hook de planning para metas
+    const { plannings, fetchPlannings } = usePlanning();
+    
+    useEffect(() => {
+        fetchPlannings({});
+    }, [fetchPlannings]);
 
     // Busca despesas quando muda o período
     useEffect(() => {
@@ -174,6 +186,36 @@ const EntradasSaidasTab = () => {
         };
     }, [financialData]);
 
+    // 🎯 Métricas de Meta (do GoalsTab)
+    const planningDoMes = useMemo(() => plannings.find(p => {
+        if (p.type !== 'monthly') return false;
+        const planStart = new Date(p.period.start);
+        const planEnd = new Date(p.period.end);
+        const monthStart = new Date(selectedYear, selectedMonth, 1);
+        const monthEnd = new Date(selectedYear, selectedMonth + 1, 0);
+        return planStart <= monthEnd && planEnd >= monthStart;
+    }), [plannings, selectedMonth, selectedYear]);
+    
+    const metaMensal = planningDoMes?.targets?.expectedRevenue || 0;
+    
+    // Agendados para projeção
+    const today = moment().tz(TIMEZONE).format('YYYY-MM-DD');
+    const agendadoConfirmado = financialData?.projections?.agendadoConfirmado?.total || 0;
+    const agendadoPendente = financialData?.projections?.pendenteConfirmacao?.total || 0;
+    const convenioAgendado = financialData?.projections?.convenioAgendado?.total || 0;
+    
+    // Cálculos de meta
+    const percentualProducao = metaMensal > 0 ? Math.min((metrics.producao / metaMensal) * 100, 100) : 0;
+    const percentualRecebido = metaMensal > 0 ? Math.min((metrics.caixa / metaMensal) * 100, 100) : 0;
+    
+    // Provisionamento e Projeção
+    const totalAgendadoConfirmado = agendadoConfirmado + convenioAgendado;
+    const totalComissionado = metrics.caixa + metrics.aReceber + totalAgendadoConfirmado;
+    const percentualAgendado = metaMensal > 0 ? Math.min((totalComissionado / metaMensal) * 100, 100) : 0;
+    
+    const projecaoRealista = metrics.producao + (agendadoConfirmado * 0.85) + (convenioAgendado * 0.85) + (agendadoPendente * 0.40);
+    const percentualProjecao = metaMensal > 0 ? Math.min((projecaoRealista / metaMensal) * 100, 100) : 0;
+
     // Cálculos derivados
     const saldo = metrics.caixa - totalExpenses;
     const margemLucro = metrics.producao > 0 ? (saldo / metrics.producao) * 100 : 0;
@@ -241,6 +283,117 @@ const EntradasSaidasTab = () => {
                     />
                 </Box>
             </Paper>
+
+            {/* 🎯 Cards de Metas (do GoalsTab) */}
+            {metaMensal > 0 && (
+                <>
+                    <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Chip label="Meta do mês" size="small" sx={{ bgcolor: '#8B5CF6', color: 'white', fontWeight: 500 }} />
+                        <Typography variant="body1" fontWeight="bold">{formatCurrency(metaMensal)}</Typography>
+                    </Box>
+
+                    <Grid container spacing={2.5} sx={{ mb: 3 }}>
+                        {/* Produção Clínica */}
+                        <Grid item xs={12} sm={6} md={3}>
+                            <Card elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', borderRadius: 2, height: '100%' }}>
+                                <CardContent>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                                        <Avatar sx={{ bgcolor: '#10B98115', width: 40, height: 40 }}>
+                                            <TrendingUp sx={{ color: '#10B981' }} />
+                                        </Avatar>
+                                        <Box>
+                                            <Typography variant="body2" color="text.secondary">Produção Clínica</Typography>
+                                            <Typography variant="h5" fontWeight="bold" color="#10B981">
+                                                {formatCurrency(metrics.producao)}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                        <Typography variant="caption" color="text.secondary">Progresso</Typography>
+                                        <Typography variant="caption" fontWeight="600">{percentualProducao.toFixed(1)}%</Typography>
+                                    </Box>
+                                    <LinearProgress variant="determinate" value={percentualProducao} sx={{ height: 8, borderRadius: 4, bgcolor: 'grey.100', '& .MuiLinearProgress-bar': { borderRadius: 4, bgcolor: '#10B981' } }} />
+                                </CardContent>
+                            </Card>
+                        </Grid>
+
+                        {/* Provisionamento */}
+                        <Grid item xs={12} sm={6} md={3}>
+                            <Card elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', borderRadius: 2, height: '100%' }}>
+                                <CardContent>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                                        <Avatar sx={{ bgcolor: '#3B82F615', width: 40, height: 40 }}>
+                                            <EventAvailable sx={{ color: '#3B82F6' }} />
+                                        </Avatar>
+                                        <Box>
+                                            <Typography variant="body2" color="text.secondary">Provisionamento</Typography>
+                                            <Typography variant="h5" fontWeight="bold" color="#3B82F6">
+                                                {formatCurrency(totalComissionado)}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                        <Typography variant="caption" color="text.secondary">Progresso</Typography>
+                                        <Typography variant="caption" fontWeight="600">{percentualAgendado.toFixed(1)}%</Typography>
+                                    </Box>
+                                    <LinearProgress variant="determinate" value={percentualAgendado} sx={{ height: 8, borderRadius: 4, bgcolor: 'grey.100', '& .MuiLinearProgress-bar': { borderRadius: 4, bgcolor: '#3B82F6' } }} />
+                                </CardContent>
+                            </Card>
+                        </Grid>
+
+                        {/* Recebido (Caixa) */}
+                        <Grid item xs={12} sm={6} md={3}>
+                            <Card elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', borderRadius: 2, height: '100%' }}>
+                                <CardContent>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                                        <Avatar sx={{ bgcolor: '#0EA5E915', width: 40, height: 40 }}>
+                                            <TrackChanges sx={{ color: '#0EA5E9' }} />
+                                        </Avatar>
+                                        <Box>
+                                            <Typography variant="body2" color="text.secondary">Recebido (Caixa)</Typography>
+                                            <Typography variant="h5" fontWeight="bold" color="#0EA5E9">
+                                                {formatCurrency(metrics.caixa)}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                        <Typography variant="caption" color="text.secondary">vs Meta</Typography>
+                                        <Typography variant="caption" fontWeight="600">{percentualRecebido.toFixed(1)}%</Typography>
+                                    </Box>
+                                    <LinearProgress variant="determinate" value={percentualRecebido} sx={{ height: 8, borderRadius: 4, bgcolor: 'grey.100', '& .MuiLinearProgress-bar': { borderRadius: 4, bgcolor: '#0EA5E9' } }} />
+                                </CardContent>
+                            </Card>
+                        </Grid>
+
+                        {/* Projeção de Fechamento */}
+                        <Grid item xs={12} sm={6} md={3}>
+                            <Card elevation={0} sx={{ border: '1px solid', borderColor: '#8B5CF630', borderRadius: 2, height: '100%', bgcolor: '#8B5CF605' }}>
+                                <CardContent>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                                        <Avatar sx={{ bgcolor: '#8B5CF615', width: 40, height: 40 }}>
+                                            <Schedule sx={{ color: '#8B5CF6' }} />
+                                        </Avatar>
+                                        <Box>
+                                            <Typography variant="body2" color="text.secondary">Projeção de Fechamento</Typography>
+                                            <Typography variant="h5" fontWeight="bold" color="#8B5CF6">
+                                                {formatCurrency(projecaoRealista)}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                        <Typography variant="caption" color="text.secondary">Estimativa</Typography>
+                                        <Typography variant="caption" fontWeight="600">{percentualProjecao.toFixed(1)}%</Typography>
+                                    </Box>
+                                    <LinearProgress variant="determinate" value={percentualProjecao} sx={{ height: 8, borderRadius: 4, bgcolor: 'grey.100', '& .MuiLinearProgress-bar': { borderRadius: 4, bgcolor: '#8B5CF6' } }} />
+                                    <Typography variant="caption" color={projecaoRealista >= metaMensal ? 'success.main' : 'warning.main'} sx={{ mt: 1, display: 'block' }}>
+                                        {projecaoRealista >= metaMensal ? '✅ Meta atingível' : `Falta ${formatCurrency(metaMensal - projecaoRealista)}`}
+                                    </Typography>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    </Grid>
+                </>
+            )}
 
             {/* Cards das 4 Camadas Financeiras */}
             <Grid container spacing={3} sx={{ mb: 3 }}>

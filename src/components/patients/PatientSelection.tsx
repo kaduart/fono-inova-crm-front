@@ -97,7 +97,7 @@ export default function PatientSelection() {
                                 {patient.cpf || patient.phone || "Sem contato"}
                             </p>
                         </div>
-                        <Button onClick={() => navigate(`/patient/${patient._id}`)}>
+                        <Button onClick={() => navigate(`/patient/${patient.patientId || patient._id}`)}>
                             Acessar Prontuário
                         </Button>
                     </div>

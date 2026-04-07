@@ -35,8 +35,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({ specialty }) => {
                 const specialtiesRes = await API.get<Specialty[]>('/specialties');
                 setSpecialties(specialtiesRes.data);
 
-                const params = specialty && specialty !== 'all' ? { specialty } : {};
-                const appointmentsRes = await API.get<Appointment[]>('/appointments', { params });
+                // 🚀 V2: Listagem otimizada
+                const queryParams = new URLSearchParams();
+                if (specialty && specialty !== 'all') queryParams.append('specialty', specialty);
+                queryParams.append('light', 'true');
+                
+                const appointmentsRes = await API.get<Appointment[]>(`/v2/appointments?${queryParams.toString()}`);
 
                 const calendarEvents: CalendarEvent[] = appointmentsRes.data.map((appointment) => {
                     const spec = specialtiesRes.data.find(s => s.id === appointment.specialty);
