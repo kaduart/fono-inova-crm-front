@@ -401,7 +401,8 @@ export default function AdminDashboard() {
             };
             await cancelAppointment(appointmentId, cancelParams);
             toast.success('Agendamento cancelado!');
-            fetchAppointments(calendarDateRange);
+            // 🔄 Força refresh para garantir atualização imediata na tela
+            fetchAppointments({ ...calendarDateRange, force: true });
             refreshDashboard(); // 🔄 Atualiza cards do dashboard
             setCloseModalSignal(prev => prev + 1);
         } catch (error) {
@@ -426,47 +427,75 @@ export default function AdminDashboard() {
 
             // 🚀 V2: Se for processamento async (status 202), inicia polling
             if (result?._isAsyncProcessing) {
-                toast.info(result._message || 'Finalizando agendamento...');
+                toast.info(result._message || 'Finalizando agendamento...', { id: `processing-${appointmentId}` });
                 console.log('[AdminDashboard] V2: Polling para atualização...');
 
-                const completed = await pollAppointmentStatus(appointmentId, 8);
+                const completed = await pollAppointmentStatus(appointmentId, 10); // 10 tentativas = ~30 segundos
 
                 if (completed) {
-                    toast.success('Agendamento finalizado com sucesso!');
+                    toast.success('Agendamento finalizado com sucesso!', { id: `success-${appointmentId}` });
+                    
+                    // ✅ SÓ FECHA O MODAL SE DEU CERTO
+                    await fetchAppointments({ ...calendarDateRange, force: true });
+                    await refreshDashboard();
+                    setCloseModalSignal(prev => prev + 1);
+                    
+                    // 🆕 DISPARA EVENTO para atualizar Card Caixa
+                    window.dispatchEvent(new CustomEvent('cash:refresh', { 
+                        detail: { appointmentId, timestamp: Date.now() } 
+                    }));
                 } else {
-                    toast.warning('Agendamento em processamento. Atualize a página em instantes.');
+                    // 🚨 FALHOU: Não fecha o modal, usuário pode tentar de novo
+                    toast.error('❌ Falha ao finalizar. Tente novamente.', { 
+                        id: `error-${appointmentId}`,
+                        autoClose: false // Não some sozinho
+                    });
+                    // ❌ NÃO fecha o modal - deixa usuário tentar de novo
+                    throw new Error('PROCESSING_FAILED');
                 }
             } else {
                 // Legado: Sucesso imediato
                 toast.success('Agendamento marcado como concluído!');
+                await fetchAppointments({ ...calendarDateRange, force: true });
+                await refreshDashboard();
+                setCloseModalSignal(prev => prev + 1);
             }
-
-            // 🔄 FORÇA atualização do calendário - limpa o período atual para buscar novamente
-            await fetchAppointments({ ...calendarDateRange, force: true });
-            await refreshDashboard(); // 🔄 Atualiza cards do dashboard
-            setCloseModalSignal(prev => prev + 1);
         } catch (error) {
             console.log('Erro ao Completar agendamento:', error);
             const errorResponse = extractErrorMessage(error, 'Erro ao completar agendamento');
             
-            // 🆕 Toast com ID para evitar spam de erros repetidos
-            toast.error(errorResponse, { id: errorResponse });
+            // 🆕 Toast com ID para evitar spam
+            toast.error(errorResponse, { id: `complete-error-${appointmentId}` });
             
-            // 🆕 Só envia pro chat se for erro crítico (conflito, regra de negócio)
+            // 🆕 Só envia pro chat se for erro crítico
             if (isCriticalError(error)) {
                 chat?.addSystemMessage?.(`❌ ${errorResponse}`, 'error');
             }
             
+            // 🚨 IMPORTANTE: Lança erro para o modal saber que falhou
             throw error;
         }
     }, [completeAppointment, pollAppointmentStatus, fetchAppointments, calendarDateRange, refreshDashboard, chat]);
 
     const handleEditAppointment = useCallback(async (appointmentId: string, updatedData: UpdateAppointmentParams) => {
+        console.log('🔄 [AdminDashboard] Editando agendamento:', appointmentId, updatedData);
         try {
-            await updateAppointment(appointmentId, updatedData);
+            const result = await updateAppointment(appointmentId, updatedData);
+            console.log('✅ [AdminDashboard] Agendamento atualizado na API:', result);
             toast.success('Agendamento atualizado!');
-            fetchAppointments(calendarDateRange);
+            console.log('📅 [AdminDashboard] Chamando fetchAppointments com range:', calendarDateRange);
+            await fetchAppointments(calendarDateRange);
+            console.log('✅ [AdminDashboard] fetchAppointments concluído');
             setCloseModalSignal(prev => prev + 1); // ✅ só fecha se sucesso
+            console.log('🔔 [AdminDashboard] closeModalSignal incrementado');
+            
+            // 🆕 Se status foi alterado para completed, atualiza Card Caixa
+            if (updatedData.operationalStatus === 'completed' || updatedData.clinicalStatus === 'completed') {
+                console.log('📢 [AdminDashboard] Status concluído detectado, disparando cash:refresh');
+                window.dispatchEvent(new CustomEvent('cash:refresh', { 
+                    detail: { appointmentId, status: 'completed', timestamp: Date.now() } 
+                }));
+            }
         } catch (error: any) {
             console.error('Erro ao editar agendamento:', error);
 
@@ -482,7 +511,14 @@ export default function AdminDashboard() {
             if (error.response?.status === 409) {
                 toast.error(msg, { id: msg });
                 if (errorData.code === 'WRITE_CONFLICT') {
-                    setTimeout(() => window.location.reload(), 2000);
+                    // 🔄 Atualização suave em vez de reload
+                    toast.info('Sincronizando dados...', { id: 'sync-data' });
+                    await fetchAppointments({ ...calendarDateRange, force: true });
+                    await refreshDashboard();
+                    // 🔔 Notifica outros componentes para atualizar
+                    window.dispatchEvent(new CustomEvent('appointments:refresh', { 
+                        detail: { timestamp: Date.now(), reason: 'write_conflict_resolved' } 
+                    }));
                 }
                 throw error;
             }
@@ -497,7 +533,7 @@ export default function AdminDashboard() {
             toast.error(msg, { id: msg });
             throw error;
         }
-    }, [updateAppointment, fetchAppointments, calendarDateRange]);
+    }, [updateAppointment, fetchAppointments, calendarDateRange, refreshDashboard]);
 
     const handleFetchAvailableSlots = useCallback(async (payload: AvailableSlotsParams): Promise<string[]> => {
         try {

@@ -4,7 +4,7 @@ export type TherapyType =
     | 'psicologia'
     | 'fisioterapia'
     | 'pediatria'
-    | 'neuropediatria'
+    | 'neuroped'
     | 'psicomotricidade'
     | 'musicoterapia'
     | 'psicopedagogia';
@@ -18,7 +18,7 @@ export const THERAPY_TYPES = [
     { value: 'psicologia', label: 'Psicologia' },
     { value: 'fisioterapia', label: 'Fisioterapia' },
     { value: 'pediatria', label: 'Pediatria' },
-    { value: 'neuropediatria', label: 'Neuropediatria' },
+    { value: 'neuroped', label: 'Neuropediatria' },
     { value: 'musicoterapia', label: 'Musicoterapia' },
     { value: 'psicomotricidade', label: 'Psicomotricidade' },
     { value: 'psicopedagogia', label: 'Psicopedagogia' },

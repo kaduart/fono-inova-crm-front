@@ -1,40 +1,59 @@
 /**
- * DailySummaryCard - Resumo operacional diário (V2)
+ * DailySummaryCard - Resumo operacional diário (Daily Closing V2)
  * 
+ * Usa endpoint /api/v2/daily-closing - Dados reais do backend
  * Caixa, atendimentos e receita do dia para conferência da secretária.
- * 💰 AO CLICAR NO CARD "CAIXA" → abre modal de fechamento completo
  */
 
 import { useEffect, useState } from 'react';
-import { DollarSign, Users, Calendar, TrendingUp, RefreshCw, Eye } from 'lucide-react';
+import { DollarSign, Users, Calendar, TrendingUp, RefreshCw, Eye, CreditCard } from 'lucide-react';
 import { formatCurrency } from '../../../utils/format';
 import API from '../../../services/api';
 import { useDailyCash } from '../../../hooks/useDailyCash';
 import DailyCashModal from './DailyCashModal';
 
-interface DailySummary {
+interface AppointmentTimeline {
+    id: string;
+    patient: string;
+    phone?: string;
+    service: string;
+    doctor: string;
+    sessionValue: number;
+    operationalStatus: string;
+    time: string;
+    isPackage: boolean;
+    isConvenio: boolean;
+}
+
+interface DailyClosing {
     date: string;
-    cash: {
-        received: number;
-        count: number;
-        byMethod: {
-            pix: number;
-            cash: number;
-            card: number;
-            transfer: number;
+    summary: {
+        appointments: {
+            total: number;
+            attended: number;
+            canceled: number;
+            pending: number;
+            expectedValue: number;
+        };
+        financial: {
+            totalReceived: number;
+            totalExpected: number;
+            totalRevenue: number;
+            byMethod: {
+                dinheiro: number;
+                pix: number;
+                cartão: number;
+            };
+        };
+        insurance: {
+            production: number;
+            received: number;
+            pending: number;
+            sessionsCount: number;
         };
     };
-    appointments: {
-        scheduled: number;
-        completed: number;
-        noShow: number;
-        canceled: number;
-    };
-    revenue: {
-        production: number;
-        received: number;
-        insurance: number;
-        pending: number;
+    timelines?: {
+        appointments?: AppointmentTimeline[];
     };
 }
 
@@ -43,23 +62,24 @@ interface DailySummaryCardProps {
 }
 
 export const DailySummaryCard = ({ enabled = true }: DailySummaryCardProps) => {
-    const [summary, setSummary] = useState<DailySummary | null>(null);
+    const [data, setData] = useState<DailyClosing | null>(null);
     const [loading, setLoading] = useState(true);
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [date, setDate] = useState(() => {
+        const now = new Date();
+        return now.toISOString().split('T')[0];
+    });
     
-    // 🆕 Estado para o modal de caixa
     const [modalOpen, setModalOpen] = useState(false);
-    
-    // 🆕 Hook do caixa diário detalhado (só carrega ao abrir modal)
     const dailyCash = useDailyCash();
 
-    const fetchSummary = async () => {
+    const fetchClosing = async () => {
         setLoading(true);
         try {
-            const res = await API.get(`/v2/daily-summary?date=${date}`);
-            setSummary(res.data.data);
+            const res = await API.get(`/v2/daily-closing?date=${date}`);
+            setData(res.data.data);
+            console.log('[DailySummary] Dados carregados:', res.data.data);
         } catch (err) {
-            console.error('Erro ao carregar resumo diário:', err);
+            console.error('Erro ao carregar fechamento:', err);
         } finally {
             setLoading(false);
         }
@@ -67,11 +87,23 @@ export const DailySummaryCard = ({ enabled = true }: DailySummaryCardProps) => {
 
     useEffect(() => {
         if (!enabled) return;
-        fetchSummary();
+        fetchClosing();
     }, [date, enabled]);
 
-    // 🆕 Handler para abrir modal (carrega dados só agora)
+    useEffect(() => {
+        const handleCashRefresh = (event: CustomEvent) => {
+            console.log('💰 [DailySummary] Evento cash:refresh:', event.detail);
+            fetchClosing();
+        };
+
+        window.addEventListener('cash:refresh', handleCashRefresh as EventListener);
+        return () => {
+            window.removeEventListener('cash:refresh', handleCashRefresh as EventListener);
+        };
+    }, [date]);
+
     const handleOpenCashModal = async () => {
+        console.log('[DailySummary] Abrindo modal para:', date);
         setModalOpen(true);
         await dailyCash.fetchDailyCash(date);
     };
@@ -89,21 +121,18 @@ export const DailySummaryCard = ({ enabled = true }: DailySummaryCardProps) => {
         );
     }
 
-    if (!summary) {
+    if (!data || !data.summary) {
         return (
             <div className="bg-red-50 rounded-xl border border-red-200 p-6 text-center">
-                <p className="text-red-700">Erro ao carregar resumo do dia</p>
-                <button 
-                    onClick={fetchSummary}
-                    className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm"
-                >
+                <p className="text-red-700">Erro ao carregar resumo</p>
+                <button onClick={fetchClosing} className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg">
                     Tentar novamente
                 </button>
             </div>
         );
     }
 
-    const { cash, appointments, revenue } = summary;
+    const { appointments, financial, insurance } = data.summary;
 
     return (
         <>
@@ -123,7 +152,7 @@ export const DailySummaryCard = ({ enabled = true }: DailySummaryCardProps) => {
                             className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
                         />
                         <button
-                            onClick={fetchSummary}
+                            onClick={fetchClosing}
                             className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
                         >
                             <RefreshCw className="w-4 h-4" />
@@ -133,7 +162,7 @@ export const DailySummaryCard = ({ enabled = true }: DailySummaryCardProps) => {
 
                 {/* Cards Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {/* 🆕 Caixa - AGORA CLICÁVEL */}
+                    {/* Caixa - CLICÁVEL */}
                     <div 
                         className="bg-emerald-50 rounded-lg p-4 cursor-pointer hover:bg-emerald-100 transition-colors relative group"
                         onClick={handleOpenCashModal}
@@ -146,9 +175,8 @@ export const DailySummaryCard = ({ enabled = true }: DailySummaryCardProps) => {
                             <span className="text-sm text-gray-600">Caixa</span>
                         </div>
                         <p className="text-xl font-bold text-emerald-700">
-                            {formatCurrency(cash.received)}
+                            {formatCurrency(financial?.totalReceived || 0)}
                         </p>
-                        <p className="text-xs text-gray-500">{cash.count} pagamentos</p>
                         <p className="text-xs text-emerald-600 mt-1 font-medium">👆 Clique para detalhes</p>
                     </div>
 
@@ -159,72 +187,126 @@ export const DailySummaryCard = ({ enabled = true }: DailySummaryCardProps) => {
                             <span className="text-sm text-gray-600">Produção</span>
                         </div>
                         <p className="text-xl font-bold text-blue-700">
-                            {formatCurrency(revenue.production)}
+                            {formatCurrency(financial?.totalExpected || 0)}
                         </p>
                         <p className="text-xs text-gray-500">
-                            {formatCurrency(revenue.insurance)} convênio
+                            {formatCurrency(insurance?.production || 0)} convênio
                         </p>
                     </div>
 
-                    {/* Atendimentos */}
+                    {/* Realizados */}
                     <div className="bg-purple-50 rounded-lg p-4">
                         <div className="flex items-center gap-2 mb-2">
                             <Users className="w-4 h-4 text-purple-600" />
                             <span className="text-sm text-gray-600">Realizados</span>
                         </div>
                         <p className="text-xl font-bold text-purple-700">
-                            {appointments.completed}
+                            {appointments?.attended || 0}
                         </p>
                         <p className="text-xs text-gray-500">
-                            {appointments.noShow} faltas
+                            {appointments?.canceled || 0} faltas
                         </p>
                     </div>
 
                     {/* Pendente */}
                     <div className="bg-amber-50 rounded-lg p-4">
                         <div className="flex items-center gap-2 mb-2">
-                            <DollarSign className="w-4 h-4 text-amber-600" />
+                            <CreditCard className="w-4 h-4 text-amber-600" />
                             <span className="text-sm text-gray-600">Pendente</span>
                         </div>
                         <p className="text-xl font-bold text-amber-700">
-                            {formatCurrency(revenue.pending)}
+                            {formatCurrency((financial?.totalExpected || 0) - (financial?.totalReceived || 0))}
                         </p>
                         <p className="text-xs text-gray-500">a receber</p>
                     </div>
                 </div>
 
-                {/* Detalhe por método */}
+                {/* Formas de pagamento */}
                 <div className="mt-4 pt-4 border-t border-gray-100">
                     <p className="text-sm text-gray-600 mb-2">Formas de pagamento:</p>
                     <div className="flex flex-wrap gap-3">
-                        {cash.byMethod.pix > 0 && (
+                        {(financial?.byMethod?.pix || 0) > 0 && (
                             <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-                                PIX: {formatCurrency(cash.byMethod.pix)}
+                                PIX: {formatCurrency(financial.byMethod.pix)}
                             </span>
                         )}
-                        {cash.byMethod.cash > 0 && (
+                        {(financial?.byMethod?.dinheiro || 0) > 0 && (
                             <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-                                Dinheiro: {formatCurrency(cash.byMethod.cash)}
+                                Dinheiro: {formatCurrency(financial.byMethod.dinheiro)}
                             </span>
                         )}
-                        {cash.byMethod.card > 0 && (
+                        {(financial?.byMethod?.cartão || 0) > 0 && (
                             <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-                                Cartão: {formatCurrency(cash.byMethod.card)}
-                            </span>
-                        )}
-                        {cash.byMethod.transfer > 0 && (
-                            <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-                                Transferência: {formatCurrency(cash.byMethod.transfer)}
+                                Cartão: {formatCurrency(financial.byMethod.cartão)}
                             </span>
                         )}
                     </div>
                 </div>
 
-                {/* 🆕 Botão de Fechamento de Caixa */}
+                {/* Lista de Agendamentos do Dia */}
+                {data?.timelines?.appointments && data.timelines.appointments.length > 0 && (
+                    <div className="mt-6 pt-4 border-t border-gray-100">
+                        <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                            <Users className="w-4 h-4" />
+                            Atendimentos do Dia ({data.timelines.appointments.length})
+                        </h4>
+                        <div className="space-y-2 max-h-80 overflow-y-auto">
+                            {data.timelines.appointments.map((apt) => (
+                                <div 
+                                    key={apt.id} 
+                                    className={`flex items-center justify-between p-3 rounded-lg ${
+                                        apt.operationalStatus === 'completed' 
+                                            ? 'bg-emerald-50 border border-emerald-100' 
+                                            : apt.operationalStatus === 'canceled'
+                                            ? 'bg-red-50 border border-red-100'
+                                            : 'bg-gray-50'
+                                    }`}
+                                >
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <p className="font-medium text-gray-900">{apt.patient}</p>
+                                            {apt.isConvenio && (
+                                                <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">
+                                                    Convênio
+                                                </span>
+                                            )}
+                                            {apt.isPackage && (
+                                                <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded">
+                                                    Pacote
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-gray-500">
+                                            {apt.time} • {apt.doctor} • {apt.service}
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-bold text-gray-900">
+                                            {formatCurrency(apt.sessionValue)}
+                                        </p>
+                                        <span className={`text-xs px-2 py-0.5 rounded ${
+                                            apt.operationalStatus === 'completed'
+                                                ? 'bg-emerald-100 text-emerald-700'
+                                                : apt.operationalStatus === 'canceled'
+                                                ? 'bg-red-100 text-red-700'
+                                                : 'bg-gray-100 text-gray-600'
+                                        }`}>
+                                            {apt.operationalStatus === 'completed' ? 'Realizado' 
+                                                : apt.operationalStatus === 'canceled' ? 'Cancelado' 
+                                                : 'Agendado'}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Botão Fechamento */}
                 <div className="mt-6 pt-4 border-t border-gray-100">
                     <button
                         onClick={handleOpenCashModal}
-                        className="w-full md:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg flex items-center justify-center gap-2 transition-colors"
+                        className="w-full md:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg flex items-center justify-center gap-2"
                     >
                         <Eye className="w-5 h-5" />
                         📋 Ver Detalhes do Caixa e Fechar
@@ -232,10 +314,13 @@ export const DailySummaryCard = ({ enabled = true }: DailySummaryCardProps) => {
                 </div>
             </div>
 
-            {/* 🆕 Modal de Fechamento de Caixa */}
+            {/* Modal */}
             <DailyCashModal
                 open={modalOpen}
-                onClose={() => setModalOpen(false)}
+                onClose={() => {
+                    setModalOpen(false);
+                    dailyCash.reset();
+                }}
                 date={date}
                 data={{
                     total: dailyCash.total,

@@ -86,10 +86,10 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 setCurrentFilters(filters);
             }
             
-            // 🚀 V2: Usa listagem otimizada da V2 (light=true para calendário)
+            // 🚀 V2: Usa listagem da V2 com todos os campos (inclui paymentMethod)
             const response = await appointmentService.list({
                 limit: 500,
-                light: true,  // 🆕 Apenas campos essenciais para o calendário
+                // ❌ REMOVIDO: light: true - precisamos de todos os campos incluindo paymentMethod
                 ...(effectiveFilters?.startDate && { startDate: effectiveFilters.startDate }),
                 ...(effectiveFilters?.endDate && { endDate: effectiveFilters.endDate }),
             });
@@ -108,7 +108,31 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
                                      response.data || 
                                      [];
 
-            setAppointments(appointmentsData);
+            // 🛡️ MAPPER: Normaliza dados do paciente/doctor para garantir estrutura válida
+            // Isso evita que patient: null ou patient: ObjectId quebrem a UI
+            const normalizedAppointments = appointmentsData.map((appt: any) => ({
+                ...appt,
+                patient: appt.patient && typeof appt.patient === 'object' 
+                    ? { 
+                        _id: appt.patient._id || appt.patient.id, 
+                        fullName: appt.patient.fullName || appt.patient.name || appt.patient.nome || 'Paciente não informado'
+                      }
+                    : { 
+                        _id: appt.patient || '',  // Se for string (ObjectId)
+                        fullName: appt.patientName || appt.patientInfo?.fullName || 'Paciente não informado'
+                      },
+                doctor: appt.doctor && typeof appt.doctor === 'object'
+                    ? {
+                        _id: appt.doctor._id || appt.doctor.id,
+                        fullName: appt.doctor.fullName || appt.doctor.name || appt.doctor.nome || 'Profissional não informado'
+                      }
+                    : {
+                        _id: appt.doctor || '',
+                        fullName: appt.professionalName || 'Profissional não informado'
+                      }
+            }));
+
+            setAppointments(normalizedAppointments);
             setCurrentPeriod(effectiveFilters);
         } catch (error) {
             console.error('❌ Erro ao buscar appointments:', error);
@@ -140,7 +164,8 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         refreshTimeoutRef.current = setTimeout(() => {
             if (pendingRefreshRef.current) {
                 pendingRefreshRef.current = false;
-                refreshAppointments();
+                // 🔄 Força refresh ignorando cache para garantir dados atualizados
+                refreshAppointments({ force: true });
             }
         }, 1000); // 1 segundo de debounce
     }, [refreshAppointments]);

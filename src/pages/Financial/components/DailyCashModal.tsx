@@ -24,7 +24,8 @@ import {
     Grid,
     IconButton,
     Alert,
-    TextField
+    TextField,
+    Tooltip,
 } from '@mui/material';
 import {
     Close,
@@ -35,13 +36,17 @@ import {
 
 interface Payment {
     _id: string;
+    id?: string;
     patientName?: string;
+    patient?: string;
     patientId?: string;
     amount: number;
-    method: string;
+    method?: string;
+    paymentMethod?: string;
     billingType?: string;
     paymentDate: string;
     status: string;
+    notes?: string;
 }
 
 interface DailyCashModalProps {
@@ -82,12 +87,12 @@ const getMethodLabel = (method: string, billingType?: string) => {
     const m = (method || '').toLowerCase();
     const b = (billingType || '').toLowerCase();
     
-    if (b === 'convenio' || m.includes('convenio')) return '🏥 Convênio';
-    if (m.includes('pix')) return '⚡ PIX';
-    if (m.includes('card') || m.includes('cartão') || m.includes('credito') || m.includes('debito')) return '💳 Cartão';
-    if (m.includes('cash') || m.includes('dinheiro')) return '💵 Dinheiro';
-    if (m.includes('transfer')) return '🔄 Transferência';
-    return '💰 Outros';
+    if (b === 'convenio' || m.includes('convenio')) return 'Convênio';
+    if (m.includes('pix')) return 'PIX';
+    if (m.includes('card') || m.includes('cartão') || m.includes('credito') || m.includes('debito')) return 'Cartão';
+    if (m.includes('cash') || m.includes('dinheiro')) return 'Dinheiro';
+    if (m.includes('transfer')) return 'Transferência';
+    return 'Outros';
 };
 
 const DailyCashModal: React.FC<DailyCashModalProps> = ({
@@ -104,8 +109,6 @@ const DailyCashModal: React.FC<DailyCashModalProps> = ({
 
     const handleFecharCaixa = async () => {
         setFechando(true);
-        
-        // Simula chamada API para fechar caixa
         setTimeout(() => {
             console.log('✅ CAIXA FECHADO', {
                 date,
@@ -132,34 +135,35 @@ const DailyCashModal: React.FC<DailyCashModalProps> = ({
             onClose={onClose} 
             fullWidth 
             maxWidth="md"
-            PaperProps={{ sx: { minHeight: '70vh' } }}
+            PaperProps={{ sx: { borderRadius: 2 } }}
         >
             <DialogTitle sx={{ 
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'space-between',
-                bgcolor: '#F0FDF4',
-                borderBottom: '1px solid #86EFAC'
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+                pb: 1.5
             }}>
                 <Box>
-                    <Typography variant="h6" fontWeight="bold" color="#166534">
-                        💰 Fechamento de Caixa
+                    <Typography variant="h6" fontWeight="600">
+                        Fechamento de Caixa
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                        {formatDate(date)} • {data.count} pagamentos
+                        {formatDate(date)} • {data.count} pagamento{data.count !== 1 ? 's' : ''}
                     </Typography>
                 </Box>
-                <Box display="flex" gap={1}>
+                <Box display="flex" gap={0.5}>
                     {onRefresh && (
                         <IconButton onClick={onRefresh} size="small" disabled={loading}>
-                            <Refresh />
+                            <Refresh fontSize="small" />
                         </IconButton>
                     )}
                     <IconButton onClick={handlePrint} size="small">
-                        <Print />
+                        <Print fontSize="small" />
                     </IconButton>
                     <IconButton onClick={onClose} size="small">
-                        <Close />
+                        <Close fontSize="small" />
                     </IconButton>
                 </Box>
             </DialogTitle>
@@ -167,17 +171,17 @@ const DailyCashModal: React.FC<DailyCashModalProps> = ({
             <DialogContent sx={{ p: 0 }}>
                 {fechado ? (
                     <Box p={4} textAlign="center">
-                        <CheckCircle sx={{ fontSize: 64, color: '#22C55E', mb: 2 }} />
-                        <Typography variant="h5" fontWeight="bold" color="#166534" gutterBottom>
+                        <CheckCircle sx={{ fontSize: 56, color: '#10B981', mb: 2 }} />
+                        <Typography variant="h6" fontWeight="bold" gutterBottom>
                             Caixa Fechado com Sucesso!
                         </Typography>
-                        <Typography color="text.secondary">
+                        <Typography variant="body2" color="text.secondary">
                             Total: {formatCurrency(data.total)}
                         </Typography>
                         <Button 
                             variant="contained" 
                             onClick={onClose}
-                            sx={{ mt: 3 }}
+                            sx={{ mt: 3, textTransform: 'none' }}
                         >
                             OK
                         </Button>
@@ -188,17 +192,17 @@ const DailyCashModal: React.FC<DailyCashModalProps> = ({
                         <Box p={3} bgcolor="#F9FAFB">
                             <Grid container spacing={2}>
                                 <Grid item xs={12} md={4}>
-                                    <Box p={2} bgcolor="white" borderRadius={2} boxShadow="0 1px 3px rgba(0,0,0,0.1)">
+                                    <Box p={2} bgcolor="white" borderRadius={1.5} border="1px solid #E5E7EB">
                                         <Typography variant="caption" color="text.secondary">
                                             TOTAL DO DIA
                                         </Typography>
-                                        <Typography variant="h4" fontWeight="bold" color="#059669">
+                                        <Typography variant="h5" fontWeight="bold" color="#059669">
                                             {formatCurrency(data.total)}
                                         </Typography>
                                     </Box>
                                 </Grid>
                                 <Grid item xs={6} md={4}>
-                                    <Box p={2} bgcolor="white" borderRadius={2}>
+                                    <Box p={2} bgcolor="white" borderRadius={1.5} border="1px solid #E5E7EB">
                                         <Typography variant="caption" color="text.secondary">
                                             QUANTIDADE
                                         </Typography>
@@ -206,12 +210,12 @@ const DailyCashModal: React.FC<DailyCashModalProps> = ({
                                             {data.count}
                                         </Typography>
                                         <Typography variant="caption" color="text.secondary">
-                                            pagamentos
+                                            pagamento{data.count !== 1 ? 's' : ''}
                                         </Typography>
                                     </Box>
                                 </Grid>
                                 <Grid item xs={6} md={4}>
-                                    <Box p={2} bgcolor="white" borderRadius={2}>
+                                    <Box p={2} bgcolor="white" borderRadius={1.5} border="1px solid #E5E7EB">
                                         <Typography variant="caption" color="text.secondary">
                                             TICKET MÉDIO
                                         </Typography>
@@ -227,58 +231,31 @@ const DailyCashModal: React.FC<DailyCashModalProps> = ({
 
                         {/* FORMAS DE PAGAMENTO */}
                         <Box p={3}>
-                            <Typography variant="subtitle1" fontWeight="bold" mb={2}>
-                                💳 Formas de Pagamento
+                            <Typography variant="subtitle2" fontWeight="600" mb={2}>
+                                Formas de Pagamento
                             </Typography>
-                            <Grid container spacing={2}>
-                                {data.porMetodo.pix > 0 && (
-                                    <Grid item xs={6} sm={4}>
-                                        <Box p={2} border="1px solid #E5E7EB" borderRadius={2}>
-                                            <Typography variant="caption" color="text.secondary">PIX</Typography>
-                                            <Typography variant="h6" fontWeight="bold" color="#0891B2">
-                                                {formatCurrency(data.porMetodo.pix)}
+                            <Grid container spacing={1.5}>
+                                {[
+                                    { key: 'pix', label: 'PIX', value: data.porMetodo.pix, color: '#0891B2', bg: '#E0F2FE' },
+                                    { key: 'cartao', label: 'Cartão', value: data.porMetodo.cartao, color: '#7C3AED', bg: '#EDE9FE' },
+                                    { key: 'dinheiro', label: 'Dinheiro', value: data.porMetodo.dinheiro, color: '#059669', bg: '#D1FAE5' },
+                                    { key: 'convenio', label: 'Convênio', value: data.porMetodo.convenio, color: '#D97706', bg: '#FEF3C7' },
+                                    { key: 'outros', label: 'Outros', value: data.porMetodo.outros, color: '#6B7280', bg: '#F3F4F6' },
+                                ].filter(item => item.value > 0).map(item => (
+                                    <Grid item xs={6} sm={4} key={item.key}>
+                                        <Box p={1.5} borderRadius={1.5} border="1px solid #E5E7EB" bgcolor={item.bg}>
+                                            <Typography variant="caption" color="text.secondary">{item.label}</Typography>
+                                            <Typography variant="h6" fontWeight="bold" sx={{ color: item.color }}>
+                                                {formatCurrency(item.value)}
                                             </Typography>
                                         </Box>
                                     </Grid>
-                                )}
-                                {data.porMetodo.cartao > 0 && (
-                                    <Grid item xs={6} sm={4}>
-                                        <Box p={2} border="1px solid #E5E7EB" borderRadius={2}>
-                                            <Typography variant="caption" color="text.secondary">Cartão</Typography>
-                                            <Typography variant="h6" fontWeight="bold" color="#7C3AED">
-                                                {formatCurrency(data.porMetodo.cartao)}
-                                            </Typography>
-                                        </Box>
-                                    </Grid>
-                                )}
-                                {data.porMetodo.dinheiro > 0 && (
-                                    <Grid item xs={6} sm={4}>
-                                        <Box p={2} border="1px solid #E5E7EB" borderRadius={2}>
-                                            <Typography variant="caption" color="text.secondary">Dinheiro</Typography>
-                                            <Typography variant="h6" fontWeight="bold" color="#059669">
-                                                {formatCurrency(data.porMetodo.dinheiro)}
-                                            </Typography>
-                                        </Box>
-                                    </Grid>
-                                )}
-                                {data.porMetodo.convenio > 0 && (
-                                    <Grid item xs={6} sm={4}>
-                                        <Box p={2} border="1px solid #E5E7EB" borderRadius={2}>
-                                            <Typography variant="caption" color="text.secondary">Convênio</Typography>
-                                            <Typography variant="h6" fontWeight="bold" color="#7C2D12">
-                                                {formatCurrency(data.porMetodo.convenio)}
-                                            </Typography>
-                                        </Box>
-                                    </Grid>
-                                )}
-                                {data.porMetodo.outros > 0 && (
-                                    <Grid item xs={6} sm={4}>
-                                        <Box p={2} border="1px solid #E5E7EB" borderRadius={2}>
-                                            <Typography variant="caption" color="text.secondary">Outros</Typography>
-                                            <Typography variant="h6" fontWeight="bold" color="#6B7280">
-                                                {formatCurrency(data.porMetodo.outros)}
-                                            </Typography>
-                                        </Box>
+                                ))}
+                                {Object.values(data.porMetodo).every(v => v === 0) && (
+                                    <Grid item xs={12}>
+                                        <Typography variant="body2" color="text.secondary" textAlign="center">
+                                            Nenhum pagamento registrado
+                                        </Typography>
                                     </Grid>
                                 )}
                             </Grid>
@@ -288,48 +265,79 @@ const DailyCashModal: React.FC<DailyCashModalProps> = ({
 
                         {/* LISTA DE PAGAMENTOS */}
                         <Box p={3}>
-                            <Typography variant="subtitle1" fontWeight="bold" mb={2}>
-                                📋 Lista de Pagamentos
+                            <Typography variant="subtitle2" fontWeight="600" mb={2}>
+                                Lista de Pagamentos
                             </Typography>
-                            
-                            <TableContainer component={Paper} variant="outlined">
+                            <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1.5 }}>
                                 <Table size="small">
                                     <TableHead>
-                                        <TableRow sx={{ bgcolor: '#F3F4F6' }}>
-                                            <TableCell>Paciente</TableCell>
-                                            <TableCell>Forma</TableCell>
-                                            <TableCell align="right">Valor</TableCell>
+                                        <TableRow sx={{ bgcolor: '#F9FAFB' }}>
+                                            <TableCell sx={{ py: 1 }}>Paciente</TableCell>
+                                            <TableCell sx={{ py: 1 }}>Forma</TableCell>
+                                            <TableCell align="right" sx={{ py: 1 }}>Valor</TableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
                                         {data.lista.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
-                                                    <Typography color="text.secondary">
+                                                <TableCell colSpan={3} align="center" sx={{ py: 3 }}>
+                                                    <Typography variant="body2" color="text.secondary">
                                                         Nenhum pagamento encontrado
                                                     </Typography>
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
-                                            data.lista.map((payment) => (
-                                                <TableRow key={payment._id} hover>
-                                                    <TableCell>
-                                                        {payment.patientName || 'Paciente'}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Chip 
-                                                            label={getMethodLabel(payment.method, payment.billingType)}
-                                                            size="small"
-                                                            variant="outlined"
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell align="right">
-                                                        <Typography fontWeight="medium">
-                                                            {formatCurrency(payment.amount)}
-                                                        </Typography>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
+                                            data.lista.map((payment) => {
+                                                const patientName = payment.patientName || payment.patient || 'Paciente';
+                                                const method = payment.method || payment.paymentMethod || '';
+                                                const billingType = (payment.billingType || '').toLowerCase();
+                                                const isConvenio = billingType === 'convenio' || method.toLowerCase().includes('convenio');
+                                                const isPacote = billingType === 'pacote' || billingType === 'package';
+                                                
+                                                return (
+                                                    <TableRow key={payment._id || payment.id} hover>
+                                                        <TableCell>
+                                                            <Typography variant="body2" fontWeight="500">
+                                                                {patientName}
+                                                            </Typography>
+                                                            {payment.notes && (
+                                                                <Typography variant="caption" color="text.secondary">
+                                                                    {payment.notes}
+                                                                </Typography>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Box display="flex" gap={0.5} flexWrap="wrap">
+                                                                <Chip 
+                                                                    label={getMethodLabel(method, billingType)}
+                                                                    size="small"
+                                                                    variant="outlined"
+                                                                    sx={{ fontSize: '0.7rem', height: 24 }}
+                                                                />
+                                                                {isConvenio && (
+                                                                    <Chip 
+                                                                        label="Convênio"
+                                                                        size="small"
+                                                                        sx={{ fontSize: '0.7rem', height: 24, bgcolor: '#FEF3C7', color: '#D97706' }}
+                                                                    />
+                                                                )}
+                                                                {isPacote && (
+                                                                    <Chip 
+                                                                        label="Pacote"
+                                                                        size="small"
+                                                                        sx={{ fontSize: '0.7rem', height: 24, bgcolor: '#EDE9FE', color: '#7C3AED' }}
+                                                                    />
+                                                                )}
+                                                            </Box>
+                                                        </TableCell>
+                                                        <TableCell align="right">
+                                                            <Typography variant="body2" fontWeight="bold" color="success.main">
+                                                                {formatCurrency(payment.amount)}
+                                                            </Typography>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })
                                         )}
                                     </TableBody>
                                 </Table>
@@ -339,18 +347,19 @@ const DailyCashModal: React.FC<DailyCashModalProps> = ({
                         <Divider />
 
                         {/* OBSERVAÇÃO */}
-                        <Box p={3} bgcolor="#FEF3C7">
-                            <Alert severity="warning" sx={{ mb: 2 }}>
-                                ⚠️ Verifique se todos os valores estão corretos antes de fechar o caixa.
+                        <Box p={3} bgcolor="#F9FAFB">
+                            <Alert severity="info" sx={{ mb: 2, borderRadius: 1.5, '& .MuiAlert-icon': { alignItems: 'center' } }}>
+                                Verifique todos os valores antes de fechar o caixa.
                             </Alert>
                             <TextField
                                 fullWidth
                                 label="Observação (opcional)"
-                                placeholder="Ex: Falta lançar pagamento do João..."
+                                placeholder="Ex: Falta lançar pagamento do paciente X..."
                                 value={observacao}
                                 onChange={(e) => setObservacao(e.target.value)}
                                 multiline
                                 rows={2}
+                                size="small"
                             />
                         </Box>
                     </>
@@ -358,8 +367,8 @@ const DailyCashModal: React.FC<DailyCashModalProps> = ({
             </DialogContent>
 
             {!fechado && (
-                <DialogActions sx={{ p: 3, bgcolor: '#F9FAFB' }}>
-                    <Button onClick={onClose} variant="outlined">
+                <DialogActions sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+                    <Button onClick={onClose} variant="outlined" size="small">
                         Cancelar
                     </Button>
                     <Button 
@@ -368,8 +377,9 @@ const DailyCashModal: React.FC<DailyCashModalProps> = ({
                         color="success"
                         disabled={fechando || data.count === 0}
                         startIcon={<CheckCircle />}
+                        size="small"
                     >
-                        {fechando ? 'Fechando...' : '✅ Fechar Caixa do Dia'}
+                        {fechando ? 'Fechando...' : 'Fechar Caixa'}
                     </Button>
                 </DialogActions>
             )}

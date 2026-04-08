@@ -373,9 +373,10 @@ export const appointmentService = {
                     return { success: true, status: status.operationalStatus };
                 }
 
-                // Se foi cancelado
+                // Se foi cancelado (sucesso para operação de cancelamento)
                 if (status.operationalStatus === 'canceled' || status.isCanceled) {
-                    return { success: false, status: 'canceled', error: 'Agendamento cancelado' };
+                    onComplete?.(status);
+                    return { success: true, status: 'canceled' };
                 }
 
                 // Se não está mais processando e não foi resolvido = algo errado

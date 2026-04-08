@@ -318,17 +318,16 @@ export const useAppointments = () => {
             if (response.status === 202 || response.data?.data?.status?.startsWith('processing')) {
                 console.log('[useAppointments] V2: Cancelamento em processamento, iniciando polling...');
 
-                const completed = await appointmentService.pollStatus(id, {
+                const pollResult = await appointmentService.pollStatus(id, {
                     onComplete: (status) => {
                         console.log('[useAppointments] Polling de cancelamento completado:', status);
-                        appointmentService.getById(id).then(updated => {
-                            setAppointments(prev =>
-                                prev
-                                    .filter(a => a && a._id)
-                                    .map(a => a._id === id ? { ...a, ...updated.data } : a)
-                            );
-                        });
+                        // 🔄 Força refresh completo para garantir dados atualizados no calendário
+                        fetchAppointments({ light: true });
                         options?.onSuccess?.();
+                    },
+                    onError: (errorMsg) => {
+                        console.error('[useAppointments] Polling de cancelamento falhou:', errorMsg);
+                        options?.onError?.(new Error(errorMsg));
                     },
                     onMaxAttempts: () => {
                         console.warn('[useAppointments] Polling de cancelamento atingiu máximo de tentativas');
@@ -338,8 +337,8 @@ export const useAppointments = () => {
                     interval: 1000
                 });
 
-                if (!completed) {
-                    throw new Error('Processamento não completado no tempo esperado');
+                if (!pollResult.success) {
+                    throw new Error(pollResult.error || 'Processamento não completado');
                 }
 
                 return {
@@ -349,6 +348,7 @@ export const useAppointments = () => {
                 };
             }
 
+            // 🔄 Atualização imediata + refresh completo para garantir consistência
             setAppointments(prev =>
                 prev
                     .filter(a => a && a._id)
@@ -356,6 +356,8 @@ export const useAppointments = () => {
                         a._id === id ? { ...a, ...response.data } : a
                     )
             );
+            // 🔄 Força refresh completo para garantir dados atualizados no calendário
+            fetchAppointments({ light: true });
             options?.onSuccess?.();
             return response.data;
         } catch (error) {
@@ -365,7 +367,7 @@ export const useAppointments = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [fetchAppointments]);
 
     const rescheduleAppointment = useCallback(async (id: string, data: RescheduleParams) => {
         try {

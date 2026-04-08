@@ -394,19 +394,43 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment, registerAppointme
     }, [patientParam, allPayments]);
 
     // 🔹 Carregar pagamentos de hoje quando a aba for ativada
+    // 🛡️ CORREÇÃO: Só carrega se não tiver dados (evita sobrescrever com resposta vazia)
     useEffect(() => {
         if (!enabled) return;
+        
+        // Se já tem pagamentos carregados, não chama API de novo
+        if (allPayments.length > 0) {
+            console.log('[PaymentPage] Já tem', allPayments.length, 'pagamentos, pulando loadPaymentsList');
+            fetchPaymentTotals({ period: 'day' });
+            return;
+        }
+        
         const today = new Date().toISOString().split('T')[0];
         loadPaymentsList({ startDate: today, endDate: today });
         fetchPaymentTotals({ period: 'day' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [enabled]);
 
-    // 🔹 Sincroniza filteredPayments com allPayments quando não há filtros ativos
+    // 🔹 FILTRO DE PERÍODO NO FRONTEND: Filtra os pagamentos já carregados
     useEffect(() => {
-        console.log('[PaymentPage] allPayments mudou:', allPayments.length);
-        setFilteredPayments(allPayments);
-    }, [allPayments]);
+        if (allPayments.length === 0) return;
+        
+        const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+        if (!range) {
+            setFilteredPayments(allPayments);
+            return;
+        }
+        
+        console.log('[PaymentPage] Filtrando período:', selectedPeriod, range);
+        
+        const filtered = allPayments.filter(payment => {
+            const paymentDate = payment.date;
+            return paymentDate >= range.start && paymentDate <= range.end;
+        });
+        
+        console.log('[PaymentPage] Filtrado:', filtered.length, 'de', allPayments.length);
+        setFilteredPayments(filtered);
+    }, [allPayments, selectedPeriod, customStartDate, customEndDate]);
 
     const handleEditAmount = (paymentId: string) => {
         const payment = allPayments.find(p => p._id === paymentId);

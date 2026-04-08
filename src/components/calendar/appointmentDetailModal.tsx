@@ -1,6 +1,7 @@
 import { ptBR } from 'date-fns/locale';
 import { Building2, Calendar, CheckCircle, ClipboardCheck, Clock, DollarSign, PencilIcon, Stethoscope, User, X, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import ReactInputMask from 'react-input-mask';
 import { INSURANCE_PROVIDERS, getProviderById } from '../../constants/insuranceProviders';
@@ -139,9 +140,16 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
     registerLocale("pt-BR", ptBR);
 
+    // 🔔 Log quando modal abre/fecha
+    useEffect(() => {
+        console.log(`🔔 [Modal] isOpen mudou: ${isOpen}`);
+    }, [isOpen]);
+
     useEffect(() => {
         if (event) {
             console.log('📋 [Modal] Evento recebido:', event);
+            console.log('📋 [Modal] Status operacional:', event.operationalStatus);
+            console.log('📋 [Modal] Status visual:', event.status);
             console.log('👤 [Modal] Paciente:', event.patient);
             console.log('👨‍⚕️ [Modal] Médico:', event.doctor);
             
@@ -183,6 +191,51 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         }
     }, [event]);
 
+    // 🔄 ATUALIZA DADOS DE PAGAMENTO QUANDO O EVENTO MUDA (inclui atualizações do backend)
+    useEffect(() => {
+        if (event) {
+            console.log('🔄 [Modal] Atualizando dados de pagamento:', {
+                paymentMethod: event.paymentMethod,
+                billingType: event.billingType,
+                paymentAmount: event.paymentAmount,
+                sessionValue: event.sessionValue
+            });
+            
+            // Atualiza apenas se os valores forem diferentes
+            if (event.paymentMethod && event.paymentMethod !== paymentMethod) {
+                console.log(`💳 [Modal] Atualizando paymentMethod: ${paymentMethod} -> ${event.paymentMethod}`);
+                setPaymentMethod(event.paymentMethod);
+            }
+            if (event.billingType && event.billingType !== billingType) {
+                setBillingType(event.billingType);
+            }
+            if ((event.sessionValue || event.paymentAmount) && 
+                (event.sessionValue !== paymentAmount && event.paymentAmount !== paymentAmount)) {
+                setPaymentAmount(event.sessionValue || event.paymentAmount || 0);
+            }
+        }
+    }, [event?.paymentMethod, event?.billingType, event?.sessionValue, event?.paymentAmount]);
+
+    // 🔄 ATUALIZA TUDO QUANDO O MODAL ABRIR (garante dados frescos)
+    useEffect(() => {
+        if (isOpen && event) {
+            console.log('🔄 [Modal] Modal abriu - atualizando TODOS os dados:', {
+                paymentMethod: event.paymentMethod,
+                billingType: event.billingType,
+                paymentAmount: event.paymentAmount,
+                sessionValue: event.sessionValue
+            });
+            
+            // FORÇA atualização de todos os campos de pagamento
+            setPaymentMethod(event.paymentMethod || 'dinheiro');
+            setBillingType(event.billingType || 'particular');
+            setPaymentAmount(event.sessionValue || event.paymentAmount || 0);
+            setInsuranceProvider(event.insuranceProvider || '');
+            setInsuranceValue(event.insuranceValue || 0);
+            setAuthorizationCode(event.authorizationCode || '');
+        }
+    }, [isOpen]); // Roda quando isOpen muda
+
     // 🔄 RESETA O ESTADO QUANDO O MODAL FECHAR
     useEffect(() => {
         if (!isOpen) {
@@ -218,6 +271,20 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         setIsCancelling(true);
         try {
             await onCancelAppointment(event.id, cancelReason);
+            // ✅ Sucesso: limpa o motivo e volta para a aba de detalhes
+            setCancelReason('');
+            setActiveTab('details');
+        } catch (err: any) {
+            // 🐛 CORREÇÃO: Modal fica aberto quando dá erro
+            console.error('❌ [Modal] Erro ao cancelar:', err);
+            
+            const errorMsg = err?.response?.data?.error || 
+                           err?.message || 
+                           'Erro ao cancelar agendamento. Tente novamente.';
+            
+            toast.error(errorMsg, { id: `cancel-error-${event.id}` });
+            
+            // Importante: NÃO fecha o modal aqui! Usuário precisa ver o erro e tentar de novo
         } finally {
             setIsCancelling(false);
         }
@@ -225,13 +292,20 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
     const handleComplete = async () => {
         console.log('✅ [Modal] Completando agendamento ID:', event?.id);
+        
+        // 🛡️ PROTEÇÃO: Evita bater no 409 desnecessariamente
+        if (event?.extendedProps?.operationalStatus === 'processing_complete') {
+            toast.warning('Este atendimento já está sendo processado. Aguarde...', {
+                id: `processing-${event.id}`
+            });
+            return;
+        }
+        
         setIsCompleting(true);
         try {
             // Chama o complete com parâmetros extras se for adicionar ao saldo
             if (addToBalance) {
                 console.log('💰 [Modal] Completando com saldo devedor:', debitAmount);
-                // Precisamos chamar uma função diferente ou modificar onCompleteAppointment
-                // Por enquanto, vamos assumir que onCompleteAppointment aceita um objeto
                 await onCompleteAppointment(event.id, {
                     addToBalance: true,
                     balanceAmount: debitAmount,
@@ -241,6 +315,25 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 // Completa normalmente
                 await onCompleteAppointment(event.id);
             }
+            // Sucesso: o modal fecha via closeModalSignal do pai
+        } catch (err: any) {
+            // 🐛 CORREÇÃO: Modal fica aberto quando dá erro
+            console.error('❌ [Modal] Erro ao completar:', err);
+            
+            const errorMsg = err?.response?.data?.error || 
+                           err?.message || 
+                           'Erro ao finalizar sessão. Tente novamente.';
+            
+            toast.error(errorMsg, { id: `complete-error-${event.id}` });
+            
+            // Se for conflito de processing, mostra instrução específica
+            if (err?.response?.data?.code === 'ALREADY_PROCESSING') {
+                toast.info('Aguarde alguns segundos e tente novamente...', { 
+                    id: `complete-info-${event.id}` 
+                });
+            }
+            
+            // Importante: NÃO fecha o modal aqui! Usuário precisa ver o erro e tentar de novo
         } finally {
             setIsCompleting(false);
         }
@@ -260,6 +353,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     };
 
     const handleEdit = async () => {
+        console.log('🔄 [Modal] Iniciando handleEdit...');
+        console.log('📝 [Modal] editedAppointment:', editedAppointment);
+        
         if (!editedAppointment.date || !editedAppointment.time) {
             alert('Data e hora são obrigatórias');
             return;
@@ -275,6 +371,10 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             const clinicalStatusEN = Object.keys(STATUS_TRANSLATIONS.clinical).find(
                 key => STATUS_TRANSLATIONS.clinical[key] === editedAppointment.clinicalStatus
             ) || editedAppointment.clinicalStatus;
+
+            console.log('🌐 [Modal] Status traduzidos para EN:');
+            console.log('   - operationalStatus:', operationalStatusEN);
+            console.log('   - clinicalStatus:', clinicalStatusEN);
 
             const appointmentData = {
                 doctorId: editedAppointment.doctorId,
@@ -303,7 +403,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 } : null
             };
 
+            console.log('📤 [Modal] Chamando onEditAppointment com:', { id: event.id, data: appointmentData });
             await onEditAppointment(event.id, appointmentData);
+            console.log('✅ [Modal] onEditAppointment retornou com sucesso');
         } finally {
             setIsEditing(false);
         }

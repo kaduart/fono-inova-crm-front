@@ -113,9 +113,15 @@ export const CalendarTab = ({
     };
 
     const handleCancelAppointment = async (id: string, reason: string) => {
-        await onCancelAppointment(id, reason);
-        setCloseModalSignal(prev => prev + 1);
-        // 🎯 Appointments já são atualizados via contexto
+        try {
+            await onCancelAppointment(id, reason);
+            // 🎯 Só fecha o modal se não der erro
+            setCloseModalSignal(prev => prev + 1);
+        } catch (error) {
+            // 🎯 Se der erro, NÃO fecha o modal - deixa o usuário ver o erro e tentar novamente
+            console.error('[CalendarTab] Erro ao cancelar:', error);
+            throw error; // Re-throw para o modal saber que deu erro
+        }
     };
 
     const handleCompleteAppointment = async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {

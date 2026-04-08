@@ -207,6 +207,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     // Scroll automático para o dia de hoje — dispara no mount e quando appointments carregam
     const hasScrolledToday = useRef(false);
     useEffect(() => {
+        console.log('📊 [EnhancedCalendar] Appointments atualizados:', appointments?.length || 0, 'itens');
+        if (appointments?.length > 0) {
+            const agendado = appointments.filter((a: any) => a.operationalStatus === 'scheduled' || a.operationalStatus === 'agendado').length;
+            const concluido = appointments.filter((a: any) => a.operationalStatus === 'completed' || a.operationalStatus === 'concluído').length;
+            console.log(`📊 [EnhancedCalendar] Status: ${agendado} agendados, ${concluido} concluídos`);
+        }
         if (hasScrolledToday.current) return;
         let attempts = 0;
         const tryScroll = () => {
@@ -225,12 +231,85 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
     // ✅ CORREÇÃO: Fecha ambos os modais quando closeModalSignal muda
     useEffect(() => {
+        console.log('🔔 [EnhancedCalendar] closeModalSignal mudou:', closeModalSignal);
         if (closeModalSignal && closeModalSignal > 0) {
+            console.log('🔒 [EnhancedCalendar] Fechando modais e limpando selectedEvent');
             setOpenSchedule(false);
             setIsAppointmentDetailModalOpen(false);
             setSelectedEvent(null);
         }
     }, [closeModalSignal]);
+
+    // 🔄 ATUALIZA selectedEvent quando appointments mudam e modal está aberto
+    useEffect(() => {
+        if (selectedEvent && isAppointmentDetailModalOpen) {
+            const updatedAppt = appointments.find(a => a._id === selectedEvent.id || a.id === selectedEvent.id);
+            if (updatedAppt) {
+                console.log('🔄 [EnhancedCalendar] Atualizando selectedEvent com dados novos:', updatedAppt);
+                // 🔄 ATUALIZA TODOS OS CAMPOS do selectedEvent com os dados novos do appointment
+                setSelectedEvent(prev => {
+                    if (!prev) return null;
+                    
+                    // 🛡️ CORREÇÃO: Detecta se patient/doctor são objetos populados ou apenas IDs
+                    // Quando backend retorna após update, pode vir como string (ObjectId) ou objeto sem nome
+                    const isPatientPopulated = updatedAppt.patient && 
+                        typeof updatedAppt.patient === 'object' && 
+                        (updatedAppt.patient.fullName || updatedAppt.patient.name);
+                    
+                    const isDoctorPopulated = updatedAppt.doctor && 
+                        typeof updatedAppt.doctor === 'object' && 
+                        updatedAppt.doctor.fullName;
+                    
+                    return {
+                        ...prev,
+                        // Dados do paciente - só atualiza se vier objeto populado com nome
+                        patient: isPatientPopulated ? {
+                            id: updatedAppt.patient._id || updatedAppt.patient.id || prev.patient?.id,
+                            fullName: updatedAppt.patient.fullName || updatedAppt.patient.name
+                        } : prev.patient,
+                        // Dados do médico - só atualiza se vier objeto populado com nome
+                        doctor: isDoctorPopulated ? {
+                            id: updatedAppt.doctor._id || updatedAppt.doctor.id || prev.doctor?.id,
+                            fullName: updatedAppt.doctor.fullName
+                        } : prev.doctor,
+                        // Status
+                        operationalStatus: updatedAppt.operationalStatus || prev.operationalStatus,
+                        clinicalStatus: updatedAppt.clinicalStatus || prev.clinicalStatus,
+                        // Dados de pagamento - só atualiza se tiver valor real (não string vazia)
+                        paymentMethod: (updatedAppt.paymentMethod && updatedAppt.paymentMethod !== '') 
+                            ? updatedAppt.paymentMethod 
+                            : prev.paymentMethod,
+                        billingType: (updatedAppt.billingType && updatedAppt.billingType !== '') 
+                            ? updatedAppt.billingType 
+                            : prev.billingType,
+                        paymentAmount: updatedAppt.paymentAmount || updatedAppt.sessionValue || prev.paymentAmount,
+                        sessionValue: updatedAppt.sessionValue || prev.sessionValue,
+                        // Dados do convênio - só atualiza se tiver valor real
+                        insuranceProvider: (updatedAppt.insuranceProvider && updatedAppt.insuranceProvider !== '') 
+                            ? updatedAppt.insuranceProvider 
+                            : prev.insuranceProvider,
+                        insuranceValue: updatedAppt.insuranceValue || prev.insuranceValue,
+                        authorizationCode: (updatedAppt.authorizationCode && updatedAppt.authorizationCode !== '') 
+                            ? updatedAppt.authorizationCode 
+                            : prev.authorizationCode,
+                        // Outros dados
+                        serviceType: updatedAppt.serviceType || prev.serviceType,
+                        sessionType: updatedAppt.sessionType || updatedAppt.specialty || prev.sessionType,
+                        specialty: updatedAppt.specialty || prev.specialty,
+                        reason: updatedAppt.reason || prev.reason,
+                        notes: updatedAppt.notes || prev.notes,
+                        // Datas
+                        date: updatedAppt.date ? new Date(updatedAppt.date) : prev.date,
+                        startTime: updatedAppt.time || prev.startTime,
+                        // Package info
+                        package: updatedAppt.package || prev.package,
+                        paymentStatus: updatedAppt.paymentStatus || prev.paymentStatus,
+                        visualFlag: updatedAppt.visualFlag || prev.visualFlag,
+                    };
+                });
+            }
+        }
+    }, [appointments, selectedEvent?.id, isAppointmentDetailModalOpen]);
 
     const getPaymentStatusConfig = useCallback((paymentStatus: string) => {
         return PAYMENT_STATUS_CONFIG[paymentStatus as keyof typeof PAYMENT_STATUS_CONFIG] || PAYMENT_STATUS_CONFIG.pending;
@@ -249,7 +328,13 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     const handleEventClick = (info: { event: any }) => {
         const { event } = info;
         console.log('🗓️ [Calendar] Evento clicado:', event);
-        console.log('📦 [Calendar] ExtendedProps:', event.extendedProps);
+        
+        // 🔄 BUSCA DADOS ATUALIZADOS DO APPOINTMENT (não usa extendedProps desatualizado)
+        const freshAppointment = appointments.find(a => (a._id || a.id) === event.id);
+        console.log('📦 [Calendar] Dados frescos do appointment:', freshAppointment);
+        
+        // Usa dados atualizados se encontrou, senão usa extendedProps como fallback
+        const data = freshAppointment || event.extendedProps;
 
         const formattedDate = event.start
             ? new Intl.DateTimeFormat("pt-BR", {
@@ -264,43 +349,43 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         const time = `${String(event.start.getHours()).padStart(2, '0')}:${String(event.start.getMinutes()).padStart(2, '0')}`;
         const extendedProps = event.extendedProps;
 
-        console.log('👤 [Calendar] Patient from extendedProps:', extendedProps.patient);
-        console.log('👨‍⚕️ [Calendar] Doctor from extendedProps:', extendedProps.doctor);
-        console.log('🆔 [Calendar] patientId:', extendedProps.patientId, 'doctorId:', extendedProps.doctorId);
+        console.log('👤 [Calendar] Patient:', data.patient);
+        console.log('👨‍⚕️ [Calendar] Doctor:', data.doctor);
+        console.log('🆔 [Calendar] patientId:', data.patient?._id || data.patient?.id, 'doctorId:', data.doctor?._id || data.doctor?.id);
 
         // 🔧 CORREÇÃO: Usa patientId/doctorId como fallback quando objeto não tem ID
-        const patientId = extendedProps.patient?._id || extendedProps.patient?.id || extendedProps.patientId || '';
-        const doctorId = extendedProps.doctor?._id || extendedProps.doctor?.id || extendedProps.doctorId || '';
+        const patientId = data.patient?._id || data.patient?.id || extendedProps.patientId || '';
+        const doctorId = data.doctor?._id || data.doctor?.id || extendedProps.doctorId || '';
 
         const selectedEventData = {
             id: event.id,
             patient: {
                 id: patientId,
-                fullName: extendedProps.patient?.fullName || "Paciente não informado"
+                fullName: data.patient?.fullName || extendedProps.patient?.fullName || "Paciente não informado"
             },
             doctor: {
                 id: doctorId,
-                fullName: extendedProps.doctor?.fullName || "Profissional não informado"
+                fullName: data.doctor?.fullName || extendedProps.doctor?.fullName || "Profissional não informado"
             },
             date: event.start ? new Date(event.start) : null,
             startTime: time,
-            operationalStatus: extendedProps.operationalStatus || "scheduled",
-            clinicalStatus: extendedProps.clinicalStatus || "pending",
+            operationalStatus: data.operationalStatus || extendedProps.operationalStatus || "scheduled",
+            clinicalStatus: data.clinicalStatus || extendedProps.clinicalStatus || "pending",
             formattedDate,
             backgroundColor: event.backgroundColor,
             borderColor: event.borderColor,
             start: formattedDate,
-            reason: extendedProps.reason || "",
-            billingType: extendedProps.billingType || 'particular',
-            insuranceProvider: extendedProps.insuranceProvider || '',
-            insuranceValue: extendedProps.insuranceValue || 0,
-            authorizationCode: extendedProps.authorizationCode || '',
-            serviceType: extendedProps.serviceType || 'individual_session',
-            paymentAmount: extendedProps.paymentAmount || extendedProps.sessionValue || 0,
-            sessionValue: extendedProps.sessionValue || extendedProps.paymentAmount || 0,
-            paymentMethod: extendedProps.paymentMethod || 'dinheiro',
-            specialty: extendedProps.specialty || extendedProps.sessionType || '',
-            __isPreAgendamento: extendedProps.__isPreAgendamento || false
+            reason: data.reason || extendedProps.reason || "",
+            billingType: data.billingType || extendedProps.billingType || 'particular',
+            insuranceProvider: data.insuranceProvider || extendedProps.insuranceProvider || '',
+            insuranceValue: data.insuranceValue || extendedProps.insuranceValue || 0,
+            authorizationCode: data.authorizationCode || extendedProps.authorizationCode || '',
+            serviceType: data.serviceType || extendedProps.serviceType || 'individual_session',
+            paymentAmount: data.paymentAmount || data.sessionValue || extendedProps.paymentAmount || extendedProps.sessionValue || 0,
+            sessionValue: data.sessionValue || data.paymentAmount || extendedProps.sessionValue || extendedProps.paymentAmount || 0,
+            paymentMethod: data.paymentMethod || extendedProps.paymentMethod || 'dinheiro',
+            specialty: data.specialty || data.sessionType || extendedProps.specialty || extendedProps.sessionType || '',
+            __isPreAgendamento: data.__isPreAgendamento || extendedProps.__isPreAgendamento || false
         };
 
         console.log('📤 [Calendar] selectedEventData:', selectedEventData);
@@ -323,6 +408,20 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             const hasTime = !!appt.time;
             const hasId = !!(appt.id || appt._id);
             const isValid = hasDate && hasTime && hasId;
+            
+            // 🆕 DEBUG: Log específico para o appointment da Luiza
+            const apptId = appt._id || appt.id;
+            if (apptId === '69cd1764856a4f39ce254cb7' || apptId?.toString().includes('254cb7')) {
+                console.log('🔍 [DEBUG Luiza] Appointment encontrado:', {
+                    id: apptId,
+                    hasDate, hasTime, hasId,
+                    isValid,
+                    patient: appt.patient,
+                    date: appt.date,
+                    time: appt.time
+                });
+            }
+            
             if (!isValid) {
                 console.log('❌ Appointment inválido:', appt._id || appt.id, { hasDate, hasTime, hasId });
             }
@@ -332,6 +431,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         console.log('✅ Appointments válidos:', validAppointments.length);
 
         const mappedEvents = validAppointments.map((appt) => {
+            console.log('🔄 [Calendar] Mapeando appt:', appt._id || appt.id, 'Status:', appt.operationalStatus);
+            
             const [hours, minutes] = appt.time!.split(':').map(Number);
             
             // 🆕 CORREÇÃO: Lida com date como string (YYYY-MM-DD ou ISO) ou Date
@@ -360,7 +461,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             const paymentConfig = getPaymentStatusConfig(appt.paymentStatus || 'pending');
             const operationalConfig = getOperationalStatusConfig(appt.operationalStatus || 'scheduled');
 
-            return {
+            const eventObj = {
                 id: appt._id || appt.id,
                 title: `${appt.patient?.fullName || 'Paciente'} - ${appt.doctor?.fullName || 'Profissional'}`,
                 start: startDate,
@@ -378,6 +479,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 textColor: paymentConfig.textColor,
                 borderWidth: 4
             };
+            
+            console.log(`🎨 [Calendar] Evento criado: ${eventObj.id} | Status: ${appt.operationalStatus} | Cor: ${paymentConfig.bgColor}`);
+            
+            return eventObj;
         });
 
         console.log('🎯 Events mapeados:', mappedEvents.length);

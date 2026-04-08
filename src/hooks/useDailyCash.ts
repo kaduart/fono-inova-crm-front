@@ -8,14 +8,18 @@ import API from '../services/api';
 
 interface Payment {
     _id: string;
+    id?: string;
     patientName?: string;
+    patient?: string;
     patientId?: string;
     amount: number;
-    method: string;
+    method?: string;
+    paymentMethod?: string;
     billingType?: string;
     paymentDate: string;
     status: string;
     createdAt: string;
+    notes?: string;
 }
 
 interface DailyCashData {
@@ -49,6 +53,17 @@ export const useDailyCash = () => {
 
     // 🆕 Só busca quando chamar essa função (ao abrir modal)
     const fetchDailyCash = useCallback(async (date: string) => {
+        console.log('[useDailyCash] Buscando caixa para:', date);
+        
+        // 🆕 LIMPA dados antigos imediatamente para não mostrar data errada
+        setData({
+            total: 0,
+            count: 0,
+            porMetodo: { pix: 0, cartao: 0, dinheiro: 0, convenio: 0, outros: 0 },
+            porTipo: { particular: 0, convenio: 0, pacote: 0 },
+            lista: []
+        });
+        
         setLoading(true);
         setError(null);
         
@@ -58,7 +73,10 @@ export const useDailyCash = () => {
                 params: { date }
             });
 
-            const payments: Payment[] = res.data?.payments || res.data?.data || [];
+            // Backend retorna array direto ou encapsulado
+            const payments: Payment[] = Array.isArray(res.data) 
+                ? res.data 
+                : (res.data?.payments || res.data?.data || []);
 
             // Calcula totais
             const total = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
@@ -82,6 +100,7 @@ export const useDailyCash = () => {
             payments.forEach((p) => {
                 const amount = p.amount || 0;
                 const method = (p.method || p.paymentMethod || '').toLowerCase();
+                const patientName = p.patientName || p.patient || 'Paciente';
                 const billingType = (p.billingType || '').toLowerCase();
 
                 // Por método
@@ -123,11 +142,30 @@ export const useDailyCash = () => {
         }
     }, []);
 
+    // 🆕 Função de refresh exposta
+    const refresh = useCallback(() => {
+        // Não faz nada aqui, o refresh é feito chamando fetchDailyCash novamente
+        // Mas exportamos para compatibilidade com o componente
+    }, []);
+
+    // 🆕 Limpa dados (chamar quando fechar modal)
+    const reset = useCallback(() => {
+        setData({
+            total: 0,
+            count: 0,
+            porMetodo: { pix: 0, cartao: 0, dinheiro: 0, convenio: 0, outros: 0 },
+            porTipo: { particular: 0, convenio: 0, pacote: 0 },
+            lista: []
+        });
+    }, []);
+
     return {
         ...data,
         loading,
         error,
-        fetchDailyCash
+        fetchDailyCash,
+        refresh,
+        reset
     };
 };
 
