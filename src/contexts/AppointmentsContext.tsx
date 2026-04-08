@@ -13,7 +13,7 @@ interface AppointmentsContextData {
     createAppointment: (data: any) => Promise<any>;
     updateAppointment: (id: string, data: any) => Promise<any>;
     completeAppointment: (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => Promise<any>;
-    pollAppointmentStatus: (id: string, maxAttempts?: number) => Promise<boolean>; // 🚀 V2: Polling para atualização async
+    pollAppointmentStatus: (id: string, maxAttempts?: number) => Promise<{ success: boolean; wasLockReleased?: boolean }>; // 🚀 V2: Polling para atualização async
     cancelAppointment: (id: string, params: any) => Promise<any>;
     getAvailableSlots: (params: any) => Promise<string[]>;
     refreshAppointments: (force?: boolean) => Promise<void>;
@@ -215,7 +215,7 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }, [debouncedRefresh]);
 
     // 🚀 V2: Polling inteligente para aguardar processamento async
-    const pollAppointmentStatus = useCallback(async (id: string, maxAttempts = 5): Promise<boolean> => {
+    const pollAppointmentStatus = useCallback(async (id: string, maxAttempts = 5): Promise<{ success: boolean; wasLockReleased?: boolean }> => {
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 console.log(`[AppointmentsContext] Polling ${attempt}/${maxAttempts}...`);
@@ -225,7 +225,13 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 const statusRes = await appointmentService.getStatus(id);
                 const status = statusRes.data?.data;
 
-                console.log('[POLL DEBUG] operationalStatus=', status?.operationalStatus, 'isResolved=', status?.isResolved);
+                console.log('[POLL DEBUG] operationalStatus=', status?.operationalStatus, 'isResolved=', status?.isResolved, 'wasLockReleased=', status?.wasLockReleased);
+
+                // 🔴 LOCK LIBERADO POR ERRO: Worker falhou, usuário precisa tentar de novo
+                if (status?.wasLockReleased) {
+                    console.warn('[AppointmentsContext] ⚠️ Lock liberado por erro. Usuário precisa tentar novamente.');
+                    return { success: false, wasLockReleased: true };
+                }
 
                 if (status?.isResolved) {
                     console.log('[AppointmentsContext] ✅ Agendamento processado!', status);
@@ -245,14 +251,14 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
                     invalidateCache('dashboard');
                     invalidateCache('doctorStats');
-                    return true;
+                    return { success: true };
                 }
             } catch (err) {
                 console.warn(`[AppointmentsContext] Polling ${attempt} falhou:`, err);
             }
         }
         console.warn('[AppointmentsContext] ❌ Polling expirou sem sucesso');
-        return false;
+        return { success: false };
     }, []);
 
     const createAppointment = useCallback(async (data: any) => {
@@ -297,19 +303,25 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // 🚀 V2: Se for processamento async, aguarda polling completar
         if (result?.data?.status?.startsWith('processing')) {
             console.log('[AppointmentsContext] V2: Complete em processamento, aguardando polling...');
-            const done = await pollAppointmentStatus(id, 10);
+            const pollResult = await pollAppointmentStatus(id, 10);
             
-            if (done) {
+            if (pollResult.wasLockReleased) {
+                // 🔴 Worker falhou, lock foi liberado. Não fechar modal!
+                console.warn('[AppointmentsContext] ⚠️ Complete falhou - lock liberado. Usuário deve tentar novamente.');
+                return { ...result, _isAsyncProcessing: true, _completed: false, _lockReleased: true };
+            }
+            
+            if (pollResult.success) {
                 console.log('[AppointmentsContext] ✅ Complete finalizado via polling');
                 // 🆕 EMITE SOCKET para atualizar calendário imediatamente
                 socketManager.emit('appointmentUpdated', { appointmentId: id });
                 await refreshAppointments();
             } else {
-                console.warn('[AppointmentsContext] ⚠️ Polling falhou, fazendo refresh manual');
+                console.warn('[AppointmentsContext] ⚠️ Polling expirou, fazendo refresh manual');
                 await refreshAppointments();
             }
             
-            return { ...result, _isAsyncProcessing: true, _completed: done };
+            return { ...result, _isAsyncProcessing: true, _completed: pollResult.success };
         }
 
         // Legado: Invalida caches e emite socket
@@ -325,18 +337,24 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // 🚀 V2: Se for processamento async, aguarda polling completar
         if (result?.data?.status?.startsWith('processing')) {
             console.log('[AppointmentsContext] V2: Cancelamento em processamento, aguardando polling...');
-            const done = await pollAppointmentStatus(id, 10);
+            const pollResult = await pollAppointmentStatus(id, 10);
             
-            if (done) {
+            if (pollResult.wasLockReleased) {
+                // 🔴 Worker falhou, lock foi liberado. Não fechar modal!
+                console.warn('[AppointmentsContext] ⚠️ Cancelamento falhou - lock liberado. Usuário deve tentar novamente.');
+                return { ...result, _isAsyncProcessing: true, _completed: false, _lockReleased: true };
+            }
+            
+            if (pollResult.success) {
                 console.log('[AppointmentsContext] ✅ Cancelamento finalizado via polling');
                 socketManager.emit('appointmentUpdated', { appointmentId: id });
                 await refreshAppointments();
             } else {
-                console.warn('[AppointmentsContext] ⚠️ Polling falhou, fazendo refresh manual');
+                console.warn('[AppointmentsContext] ⚠️ Polling expirou, fazendo refresh manual');
                 await refreshAppointments();
             }
             
-            return { ...result, _isAsyncProcessing: true, _completed: done };
+            return { ...result, _isAsyncProcessing: true, _completed: pollResult.success };
         }
         
         // Legado: Invalida caches e emite socket

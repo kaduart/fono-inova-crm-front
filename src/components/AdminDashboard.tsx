@@ -187,25 +187,7 @@ export default function AdminDashboard() {
     // 🗓️ Estado para controle do range de datas do calendário
     const [calendarDateRange, setCalendarDateRange] = useState<{ startDate?: string; endDate?: string }>({});
     
-    // 🎯 Listener para abrir modal de agendamento a partir da tabela financeira
-    useEffect(() => {
-        const handleOpenAppointmentModal = (event: CustomEvent) => {
-            const { appointmentId, patientId, date } = event.detail;
-            console.log('[AdminDashboard] Evento openAppointmentModal recebido:', { appointmentId, patientId, date });
-            
-            // Muda para a aba do calendário
-            setActiveTab('Calendário');
-            
-            // Abre o modal de agendamento
-            setOpenModalAppointement(true);
-        };
-
-        window.addEventListener('openAppointmentModal', handleOpenAppointmentModal as EventListener);
-        
-        return () => {
-            window.removeEventListener('openAppointmentModal', handleOpenAppointmentModal as EventListener);
-        };
-    }, []);
+    // 🎯 Listener removido - modal de agendamento agora abre direto no PaymentPage
     
     // 🎯 Estado para identificar o tipo de usuário
     const [userRole, setUserRole] = useState<string | null>(null);
@@ -419,7 +401,17 @@ export default function AdminDashboard() {
                 reason,
                 notifyPatient: true
             };
-            await cancelAppointment(appointmentId, cancelParams);
+            const result = await cancelAppointment(appointmentId, cancelParams);
+            
+            // 🔴 WORKER FALHOU: Lock foi liberado automaticamente
+            if (result?._lockReleased) {
+                toast.error('❌ Worker falhou ou foi reiniciado. Por favor, tente novamente.', { 
+                    id: `cancel-error-${appointmentId}`,
+                    autoClose: false
+                });
+                throw new Error('WORKER_FAILED');
+            }
+            
             toast.success('Agendamento cancelado!');
             // 🔄 Força refresh para garantir atualização imediata na tela
             fetchAppointments({ ...calendarDateRange, force: true });
@@ -449,6 +441,17 @@ export default function AdminDashboard() {
 
             // Verifica se processou com sucesso
             const completed = result?._isAsyncProcessing ? result._completed : true;
+            const lockReleased = result?._lockReleased;
+            
+            // 🔴 WORKER FALHOU: Lock foi liberado automaticamente - usuário precisa tentar de novo
+            if (lockReleased) {
+                toast.error('❌ Worker falhou ou foi reiniciado. Por favor, tente novamente.', { 
+                    id: `error-${appointmentId}`,
+                    autoClose: false
+                });
+                // ❌ NÃO fecha o modal
+                throw new Error('WORKER_FAILED');
+            }
             
             if (completed) {
                 toast.success('Agendamento finalizado com sucesso!', { id: `success-${appointmentId}` });

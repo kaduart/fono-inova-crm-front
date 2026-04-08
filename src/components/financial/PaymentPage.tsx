@@ -16,6 +16,7 @@ import { formatDateToDMY } from '../../utils/dateFormat';
 import { IDoctor } from '../../utils/types/types';
 import { AddPaymentModal } from './AddPaymentModal';
 import { EditPaymentModal } from './EditPaymentModal';
+import AppointmentDetailModal from '../calendar/appointmentDetailModal';
 import { PaymentActionIcons } from './PaymentAction';
 import { PaymentsFilters } from './PaymentsFilters';
 import FinancialSummaryCard from './PaymentsSummary';
@@ -306,6 +307,13 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment, registerAppointme
     const [loading, setLoading] = useState<boolean>(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
     const [paymentToEdit, setPaymentToEdit] = useState<FinancialRecord | undefined>(undefined);
+    
+    // 🆕 NOVO: Modal de agendamento (para registros de appointment)
+    const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
+    const [appointmentToEdit, setAppointmentToEdit] = useState<any>(null);
+    
+    // 🆕 NOVO: Referência para funções do calendário (mock por enquanto)
+    const mockDoctors = doctors || [];
     const [error, setError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -445,16 +453,35 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment, registerAppointme
         // 🚨 IMPORTANTE: Se for um registro de appointment, abre o modal de agendamento
         if ((payment as any).__isAppointmentRecord) {
             console.log(`[PaymentPage] Registro é um appointment, abrindo modal de agendamento:`, payment.__appointmentId);
-            toast.info('Este registro é um agendamento. Abrindo edição de agendamento...');
             
-            // Dispara evento para abrir o modal de agendamento
-            window.dispatchEvent(new CustomEvent('openAppointmentModal', {
-                detail: {
-                    appointmentId: (payment as any).__appointmentId,
-                    patientId: payment.patientId,
-                    date: payment.date,
+            // Formata o appointment para o modal
+            const formattedAppointment = {
+                id: (payment as any).__appointmentId,
+                _id: (payment as any).__appointmentId,
+                title: payment.patient?.fullName || 'Agendamento',
+                patient: payment.patient,
+                doctor: payment.doctor,
+                date: payment.date,
+                time: payment.appointment?.time || '10:00',
+                startTime: payment.appointment?.time || '10:00',
+                start: new Date(payment.date),
+                end: new Date(new Date(payment.date).getTime() + 40 * 60000),
+                sessionValue: payment.amount,
+                paymentAmount: payment.amount,
+                paymentMethod: payment.paymentMethod,
+                billingType: payment.billingType,
+                serviceType: payment.serviceType,
+                specialty: payment.specialty,
+                operationalStatus: payment.appointment?.status || 'scheduled',
+                clinicalStatus: 'pending',
+                extendedProps: {
+                    ...payment,
+                    __isAppointmentRecord: true
                 }
-            }));
+            };
+            
+            setAppointmentToEdit(formattedAppointment);
+            setIsAppointmentModalOpen(true);
             return;
         }
         
@@ -1056,13 +1083,38 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment, registerAppointme
             )}
         </div>
 
-        {/* Modais (sem alterações) */}
+        {/* Modais */}
         {isEditModalOpen && paymentToEdit && (
             <EditPaymentModal
                 payment={paymentToEdit}
                 isOpen={isEditModalOpen}
                 onClose={() => setIsEditModalOpen(false)}
                 onSave={handleUpdateAmount}
+            />
+        )}
+        
+        {/* 🆕 NOVO: Modal de Agendamento (para registros de appointment) */}
+        {isAppointmentModalOpen && appointmentToEdit && (
+            <AppointmentDetailModal
+                isOpen={isAppointmentModalOpen}
+                onClose={() => setIsAppointmentModalOpen(false)}
+                event={appointmentToEdit}
+                doctors={mockDoctors}
+                onCancelAppointment={async (id, reason) => {
+                    console.log('Cancelar agendamento:', id, reason);
+                    toast.success('Agendamento cancelado');
+                    setIsAppointmentModalOpen(false);
+                }}
+                onCompleteAppointment={async (id, data) => {
+                    console.log('Completar agendamento:', id, data);
+                    toast.success('Agendamento completado');
+                    setIsAppointmentModalOpen(false);
+                }}
+                onEditAppointment={async (id, data) => {
+                    console.log('Editar agendamento:', id, data);
+                    toast.success('Agendamento atualizado');
+                    setIsAppointmentModalOpen(false);
+                }}
             />
         )}
         {isAddModalOpen && (

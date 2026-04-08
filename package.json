@@ -7,10 +7,14 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest",
+    "test": "vitest run",
     "test:run": "vitest run",
+    "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "test:safety": "vitest run src/components/financial/__tests__/PaymentPage.appointment.test.tsx --watchAll=false",
+    "test:all": "vitest run --watchAll=false",
+    "test:pre-deploy": "npm run test:all"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
