@@ -76,7 +76,14 @@ class SocketManager {
         }
     }
 
-    private ensureSocket(): Socket {
+    private ensureSocket(): Socket | null {
+        // 🆕 NÃO conectar se não estiver autenticado (evita erros antes do login)
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        if (!token) {
+            logger.info("🔌 [socket] Usuário não autenticado, pulando conexão socket");
+            return null;
+        }
+
         if (this.socket?.connected) return this.socket;
 
         // Socket existe mas não conectado: se ainda está tentando conectar, retorna sem limpar
@@ -101,6 +108,8 @@ class SocketManager {
             path: "/socket.io/",
             autoConnect: true,
             forceNew: false,
+            // 🆕 Auth token para conexão autenticada
+            auth: { token }
         });
 
         s.on("connect", () => {
@@ -250,6 +259,14 @@ class SocketManager {
 
     // ✅ on() armazena handler persistente e registra no socket atual
     on(event: string, handler: AnyHandler): Unsubscribe {
+        // 🆕 Se não tem token, não registra handler (será registrado após login)
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        if (!token) {
+            logger.info(`🔌 [socket] Delaying handler for "${event}" until login`);
+            // Retorna função vazia - handler será registrado após login
+            return () => {};
+        }
+
         // Log quando o evento for recebido
         const wrappedHandler = (payload: any) => {
             handler(payload);
@@ -263,6 +280,11 @@ class SocketManager {
 
         // DEPOIS: Garante socket e registra
         const s = this.ensureSocket();
+        
+        // 🆕 Se não conseguiu conectar (sem auth), retorna função vazia
+        if (!s) {
+            return () => {};
+        }
         
         // Registra no socket atual (pode ser novo ou existente)
         s.on(event, wrappedHandler);
@@ -305,6 +327,12 @@ class SocketManager {
     }
 
     emit(event: string, data?: any) {
+        // 🆕 Só emite se estiver autenticado
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        if (!token) {
+            logger.warn(`🔌 [socket] Cannot emit "${event}" - not authenticated`);
+            return;
+        }
         if (this.socket?.connected) {
             this.socket.emit(event, data);
         }
