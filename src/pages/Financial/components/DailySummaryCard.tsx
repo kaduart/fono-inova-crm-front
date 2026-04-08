@@ -40,6 +40,7 @@ interface DailyClosing {
             totalReceived: number;
             totalExpected: number;
             totalRevenue: number;
+            totalProduction?: number;  // 🆕 Produção total
             byMethod: {
                 dinheiro: number;
                 pix: number;
@@ -51,6 +52,13 @@ interface DailyClosing {
             received: number;
             pending: number;
             sessionsCount: number;
+        };
+        cashFlow?: {  // 🆕 Separação clara do caixa
+            cashInToday: number;
+            advancePayments: number;
+            realTodaySessions: number;
+            packageConsumption: number;
+            insuranceProduction: number;
         };
     };
     timelines?: {
@@ -165,7 +173,13 @@ export const DailySummaryCard = ({ enabled = true }: DailySummaryCardProps) => {
         );
     }
 
-    const { appointments, financial, insurance } = data.summary;
+    const { appointments, financial, insurance, cashFlow } = data.summary;
+
+    // 🎯 SEPARAÇÃO CLARA DOS 3 CONCEITOS FINANCEIROS
+    const caixaReal = cashFlow?.cashInToday || financial?.totalReceived || 0;
+    const producaoTotal = financial?.totalProduction || financial?.totalExpected || 0;
+    const aReceber = insurance?.pending || 0;
+    const particularRecebido = cashFlow?.realTodaySessions || 0;
 
     return (
         <>
@@ -174,7 +188,7 @@ export const DailySummaryCard = ({ enabled = true }: DailySummaryCardProps) => {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                     <div className="flex items-center gap-2">
                         <Calendar className="w-5 h-5 text-blue-600" />
-                        <h3 className="font-semibold text-gray-900">Resumo do Dia</h3>
+                        <h3 className="font-semibold text-gray-900">Fechamento do Dia</h3>
                     </div>
                     
                     <div className="flex items-center gap-3">
@@ -193,86 +207,115 @@ export const DailySummaryCard = ({ enabled = true }: DailySummaryCardProps) => {
                     </div>
                 </div>
 
-                {/* Cards Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {/* Caixa - CLICÁVEL */}
+                {/* 🎯 3 BLOCOS PRINCIPAIS - SEPARAÇÃO CLARA */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    {/* 💰 1. CAIXA - Dinheiro real que entrou */}
                     <div 
-                        className="bg-emerald-50 rounded-lg p-4 cursor-pointer hover:bg-emerald-100 transition-colors relative group"
+                        className="bg-emerald-50 rounded-xl p-5 border-2 border-emerald-100 cursor-pointer hover:bg-emerald-100 transition-colors relative group"
                         onClick={handleOpenCashModal}
                     >
-                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Eye className="w-4 h-4 text-emerald-600" />
+                        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Eye className="w-5 h-5 text-emerald-600" />
                         </div>
-                        <div className="flex items-center gap-2 mb-2">
-                            <DollarSign className="w-4 h-4 text-emerald-600" />
-                            <span className="text-sm text-gray-600">Caixa</span>
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="p-2 bg-emerald-200 rounded-lg">
+                                <DollarSign className="w-5 h-5 text-emerald-700" />
+                            </div>
+                            <span className="text-sm font-medium text-emerald-800">CAIXA REAL</span>
                         </div>
-                        <p className="text-xl font-bold text-emerald-700">
-                            {formatCurrency(financial?.totalReceived || 0)}
+                        <p className="text-3xl font-bold text-emerald-700">
+                            {formatCurrency(caixaReal)}
                         </p>
-                        <p className="text-xs text-emerald-600 mt-1 font-medium">👆 Clique para detalhes</p>
+                        <div className="mt-3 space-y-1">
+                            <p className="text-xs text-emerald-600">
+                                💵 Dinheiro, Pix, Cartão
+                            </p>
+                            <p className="text-xs text-emerald-700 font-medium">
+                                👆 Clique para detalhes
+                            </p>
+                        </div>
                     </div>
 
-                    {/* Produção */}
-                    <div className="bg-blue-50 rounded-lg p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                            <TrendingUp className="w-4 h-4 text-blue-600" />
-                            <span className="text-sm text-gray-600">Produção</span>
+                    {/* 📊 2. PRODUÇÃO - Tudo que foi feito */}
+                    <div className="bg-blue-50 rounded-xl p-5 border-2 border-blue-100">
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="p-2 bg-blue-200 rounded-lg">
+                                <TrendingUp className="w-5 h-5 text-blue-700" />
+                            </div>
+                            <span className="text-sm font-medium text-blue-800">PRODUÇÃO</span>
                         </div>
-                        <p className="text-xl font-bold text-blue-700">
-                            {formatCurrency(financial?.totalExpected || 0)}
+                        <p className="text-3xl font-bold text-blue-700">
+                            {formatCurrency(producaoTotal)}
                         </p>
-                        <p className="text-xs text-gray-500">
-                            {formatCurrency(insurance?.production || 0)} convênio
-                        </p>
+                        <div className="mt-3 space-y-1">
+                            <p className="text-xs text-blue-600">
+                                Particular: {formatCurrency(particularRecebido)}
+                            </p>
+                            <p className="text-xs text-blue-600">
+                                Convênio: {formatCurrency(insurance?.production || 0)}
+                            </p>
+                        </div>
                     </div>
 
-                    {/* Realizados */}
-                    <div className="bg-purple-50 rounded-lg p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                            <Users className="w-4 h-4 text-purple-600" />
-                            <span className="text-sm text-gray-600">Realizados</span>
+                    {/* 🧾 3. A RECEBER - Convênio pendente */}
+                    <div className="bg-amber-50 rounded-xl p-5 border-2 border-amber-100">
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="p-2 bg-amber-200 rounded-lg">
+                                <CreditCard className="w-5 h-5 text-amber-700" />
+                            </div>
+                            <span className="text-sm font-medium text-amber-800">A RECEBER</span>
                         </div>
-                        <p className="text-xl font-bold text-purple-700">
-                            {appointments?.attended || 0}
+                        <p className="text-3xl font-bold text-amber-700">
+                            {formatCurrency(aReceber)}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <div className="mt-3 space-y-1">
+                            <p className="text-xs text-amber-600">
+                                🏥 Convênios pendentes
+                            </p>
+                            <p className="text-xs text-amber-700">
+                                {insurance?.sessionsCount || 0} sessões a faturar
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 📋 Resumo Operacional Secundário */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                    {/* Atendimentos */}
+                    <div className="bg-gray-50 rounded-lg p-3 text-center">
+                        <p className="text-xs text-gray-500 mb-1">Atendimentos</p>
+                        <p className="text-xl font-bold text-gray-800">{appointments?.total || 0}</p>
+                        <p className="text-xs text-gray-400">
+                            {appointments?.attended || 0} realizados
+                        </p>
+                    </div>
+                    
+                    {/* Taxa de Comparecimento */}
+                    <div className="bg-gray-50 rounded-lg p-3 text-center">
+                        <p className="text-xs text-gray-500 mb-1">Comparecimento</p>
+                        <p className="text-xl font-bold text-gray-800">
+                            {appointments?.total > 0 
+                                ? Math.round((appointments?.attended || 0) / appointments?.total * 100) 
+                                : 0}%
+                        </p>
+                        <p className="text-xs text-gray-400">
                             {appointments?.canceled || 0} faltas
                         </p>
                     </div>
 
-                    {/* Pendente */}
-                    <div className="bg-amber-50 rounded-lg p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                            <CreditCard className="w-4 h-4 text-amber-600" />
-                            <span className="text-sm text-gray-600">Pendente</span>
-                        </div>
-                        <p className="text-xl font-bold text-amber-700">
-                            {formatCurrency((financial?.totalExpected || 0) - (financial?.totalReceived || 0))}
+                    {/* Por método de pagamento */}
+                    <div className="bg-gray-50 rounded-lg p-3 text-center">
+                        <p className="text-xs text-gray-500 mb-1">Pix</p>
+                        <p className="text-lg font-bold text-gray-800">
+                            {formatCurrency(financial?.byMethod?.pix || 0)}
                         </p>
-                        <p className="text-xs text-gray-500">a receber</p>
                     </div>
-                </div>
 
-                {/* Formas de pagamento */}
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                    <p className="text-sm text-gray-600 mb-2">Formas de pagamento:</p>
-                    <div className="flex flex-wrap gap-3">
-                        {(financial?.byMethod?.pix || 0) > 0 && (
-                            <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-                                PIX: {formatCurrency(financial.byMethod.pix)}
-                            </span>
-                        )}
-                        {(financial?.byMethod?.dinheiro || 0) > 0 && (
-                            <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-                                Dinheiro: {formatCurrency(financial.byMethod.dinheiro)}
-                            </span>
-                        )}
-                        {(financial?.byMethod?.cartão || 0) > 0 && (
-                            <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-                                Cartão: {formatCurrency(financial.byMethod.cartão)}
-                            </span>
-                        )}
+                    <div className="bg-gray-50 rounded-lg p-3 text-center">
+                        <p className="text-xs text-gray-500 mb-1">Dinheiro</p>
+                        <p className="text-lg font-bold text-gray-800">
+                            {formatCurrency(financial?.byMethod?.dinheiro || 0)}
+                        </p>
                     </div>
                 </div>
 

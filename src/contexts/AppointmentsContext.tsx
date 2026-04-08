@@ -322,16 +322,21 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const cancelAppointment = useCallback(async (id: string, params: any) => {
         const result = await appointmentService.cancel(id, params);
 
-        // 🚀 V2: Se for processamento async, inicia polling
+        // 🚀 V2: Se for processamento async, aguarda polling completar
         if (result?.data?.status?.startsWith('processing')) {
-            console.log('[AppointmentsContext] V2: Cancelamento em processamento, iniciando polling...');
-            pollAppointmentStatus(id, 10).then((done) => {
-                if (done) {
-                    console.log('[AppointmentsContext] Cancelamento finalizado via polling');
-                    refreshAppointments();
-                }
-            });
-            return { ...result, _isAsyncProcessing: true };
+            console.log('[AppointmentsContext] V2: Cancelamento em processamento, aguardando polling...');
+            const done = await pollAppointmentStatus(id, 10);
+            
+            if (done) {
+                console.log('[AppointmentsContext] ✅ Cancelamento finalizado via polling');
+                socketManager.emit('appointmentUpdated', { appointmentId: id });
+                await refreshAppointments();
+            } else {
+                console.warn('[AppointmentsContext] ⚠️ Polling falhou, fazendo refresh manual');
+                await refreshAppointments();
+            }
+            
+            return { ...result, _isAsyncProcessing: true, _completed: done };
         }
         
         // Legado: Invalida caches e emite socket
