@@ -434,6 +434,31 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment, registerAppointme
 
     const handleEditAmount = (paymentId: string) => {
         const payment = allPayments.find(p => p._id === paymentId);
+        
+        // 🔴 VALIDAÇÃO: Verifica se o pagamento existe
+        if (!payment) {
+            console.error(`[PaymentPage] Pagamento não encontrado com ID: ${paymentId}`);
+            toast.error('Pagamento não encontrado. Verifique se o ID está correto.');
+            return;
+        }
+        
+        // 🚨 IMPORTANTE: Se for um registro de appointment, abre o modal de agendamento
+        if ((payment as any).__isAppointmentRecord) {
+            console.log(`[PaymentPage] Registro é um appointment, abrindo modal de agendamento:`, payment.__appointmentId);
+            toast.info('Este registro é um agendamento. Abrindo edição de agendamento...');
+            
+            // Dispara evento para abrir o modal de agendamento
+            window.dispatchEvent(new CustomEvent('openAppointmentModal', {
+                detail: {
+                    appointmentId: (payment as any).__appointmentId,
+                    patientId: payment.patientId,
+                    date: payment.date,
+                }
+            }));
+            return;
+        }
+        
+        console.log(`[PaymentPage] Abrindo edição de pagamento:`, payment);
         setPaymentToEdit(payment);
         setIsEditModalOpen(true);
     };

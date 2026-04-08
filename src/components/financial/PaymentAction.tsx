@@ -117,8 +117,8 @@ export const PaymentActionIcons = ({
                         </div>
                     )}
 
-                    {/* ✅ BOTÃO EDITAR - SEMPRE DISPONÍVEL (exceto cancelado) */}
-                    {payment.status !== 'canceled' && (
+                    {/* ✅ BOTÃO EDITAR */}
+                    {payment.status !== 'canceled' && !(payment as any).__isAppointmentRecord && (
                         <button
                             onClick={() => {
                                 onEditAmount(payment._id);
@@ -127,6 +127,20 @@ export const PaymentActionIcons = ({
                             className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-blue-50 text-blue-700 transition-colors"
                         >
                             <Edit size={16} /> Editar Valor
+                        </button>
+                    )}
+                    
+                    {/* 🚨 BOTÃO EDITAR AGENDAMENTO (quando for registro de appointment) */}
+                    {(payment as any).__isAppointmentRecord && (
+                        <button
+                            onClick={() => {
+                                onEditAmount(payment._id);
+                                setOpen(false);
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-amber-50 text-amber-700 transition-colors"
+                            title="Editar no calendário"
+                        >
+                            <Edit size={16} /> Editar Agendamento
                         </button>
                     )}
 

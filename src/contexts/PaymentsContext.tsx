@@ -149,6 +149,9 @@ export const PaymentsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                     : { _id: '', fullName: appt.professionalName || '' },
                 appointment: { date: appt.date || '', time: appt.time || '', status: appt.operationalStatus || '' },
                 advanceSessions: [],
+                // 🚨 IMPORTANTE: Marca que veio de appointment (não é um payment real)
+                __isAppointmentRecord: true,
+                __appointmentId: appt.id || appt._id,
             }));
 
             // 🎯 Calcula stats

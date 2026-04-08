@@ -24,6 +24,9 @@ export interface FinancialRecord {
     advancedSessions: string[];
     patient?: { _id: string; fullName?: string; email?: string; phoneNumber?: string };
     appointment?: { date: string; time: string; status: string };
+    // 🚨 Campos para identificar registros de appointment (não são payments reais)
+    __isAppointmentRecord?: boolean;
+    __appointmentId?: string;
 }
 
 export interface Summary {

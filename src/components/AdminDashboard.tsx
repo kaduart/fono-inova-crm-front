@@ -187,6 +187,26 @@ export default function AdminDashboard() {
     // 🗓️ Estado para controle do range de datas do calendário
     const [calendarDateRange, setCalendarDateRange] = useState<{ startDate?: string; endDate?: string }>({});
     
+    // 🎯 Listener para abrir modal de agendamento a partir da tabela financeira
+    useEffect(() => {
+        const handleOpenAppointmentModal = (event: CustomEvent) => {
+            const { appointmentId, patientId, date } = event.detail;
+            console.log('[AdminDashboard] Evento openAppointmentModal recebido:', { appointmentId, patientId, date });
+            
+            // Muda para a aba do calendário
+            setActiveTab('Calendário');
+            
+            // Abre o modal de agendamento
+            setOpenModalAppointement(true);
+        };
+
+        window.addEventListener('openAppointmentModal', handleOpenAppointmentModal as EventListener);
+        
+        return () => {
+            window.removeEventListener('openAppointmentModal', handleOpenAppointmentModal as EventListener);
+        };
+    }, []);
+    
     // 🎯 Estado para identificar o tipo de usuário
     const [userRole, setUserRole] = useState<string | null>(null);
     

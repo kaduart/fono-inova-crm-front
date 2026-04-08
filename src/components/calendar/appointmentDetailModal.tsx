@@ -245,6 +245,43 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         }
     }, [isOpen]);
 
+    // 🔄 SINCRONIZA TODOS OS CAMPOS QUANDO ENTRAR NA ABA DE EDIÇÃO
+    useEffect(() => {
+        if (activeTab === 'edit' && event) {
+            console.log('📝 [Modal] Entrando na aba de edição - sincronizando todos os campos...');
+            
+            // Força a sincronização de todos os estados com o evento
+            setEditedAppointment(prev => ({
+                ...prev,
+                doctorId: event.doctor?.id || event.doctor?._id || prev.doctorId || '',
+                patientId: event.patient?.id || event.patient?._id || prev.patientId || '',
+                date: event.date ? new Date(event.date).toLocaleDateString('sv-SE') : prev.date,
+                time: event.startTime || prev.time,
+                reason: event.reason || prev.reason || '',
+                serviceType: event.serviceType || prev.serviceType || 'individual_session',
+                sessionType: event.specialty || event.sessionType || prev.sessionType || 'fonoaudiologia',
+                operationalStatus: translateStatus(event.operationalStatus || 'scheduled', 'operational'),
+                clinicalStatus: translateStatus(event.clinicalStatus || 'pending', 'clinical')
+            }));
+            
+            // Sincroniza campos de pagamento
+            setServiceType(event.serviceType || 'individual_session');
+            setBillingType(event.billingType || 'particular');
+            setPaymentAmount(event.sessionValue || event.paymentAmount || 0);
+            setPaymentMethod(event.paymentMethod || 'dinheiro');
+            setInsuranceProvider(event.insuranceProvider || '');
+            setInsuranceValue(event.insuranceValue || 0);
+            setAuthorizationCode(event.authorizationCode || '');
+            
+            console.log('✅ [Modal] Campos sincronizados:', {
+                doctorId: event.doctor?.id || event.doctor?._id,
+                paymentMethod: event.paymentMethod,
+                billingType: event.billingType,
+                serviceType: event.serviceType
+            });
+        }
+    }, [activeTab, event]);
+
     if (!isOpen || !event) return null;
 
     // 🔧 FUNÇÃO PARA OBTER CONFIGURAÇÃO VISUAL TRADUZIDA
@@ -818,7 +855,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     Profissional *
                                 </label>
                                 <Select
-                                    value={editedAppointment.doctorId}
+                                    value={editedAppointment.doctorId || event?.doctor?.id || event?.doctor?._id || ''}
                                     onChange={(e) => handleFieldChange('doctorId', e.target.value)}
                                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
                                 >
@@ -995,7 +1032,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                             type="button"
                                             onClick={() => setBillingType('particular')}
                                             className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
-                                                billingType === 'particular'
+                                                (billingType || event?.billingType || 'particular') === 'particular'
                                                     ? 'bg-green-600 text-white'
                                                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                             }`}
@@ -1006,7 +1043,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                             type="button"
                                             onClick={() => setBillingType('convenio')}
                                             className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
-                                                billingType === 'convenio'
+                                                (billingType || event?.billingType) === 'convenio'
                                                     ? 'bg-blue-600 text-white'
                                                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                             }`}
@@ -1025,7 +1062,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                             </Label>
                                             <InputCurrency
                                                 name="paymentAmount"
-                                                value={paymentAmount}
+                                                value={paymentAmount || event?.sessionValue || event?.paymentAmount || 0}
                                                 onChange={(e) => setPaymentAmount(Number(e.target.value))}
                                                 className="w-full p-3 bg-white border border-gray-300 rounded-lg"
                                             />
@@ -1035,14 +1072,16 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                                 Método de Pagamento
                                             </Label>
                                             <Select
-                                                value={paymentMethod}
+                                                value={paymentMethod || event?.paymentMethod || 'dinheiro'}
                                                 onChange={(e) => setPaymentMethod(e.target.value)}
                                                 className="w-full p-3 bg-white border border-gray-300 rounded-lg"
                                             >
                                                 <option value="dinheiro">Dinheiro</option>
                                                 <option value="pix">PIX</option>
-                                                <option value="cartão">Cartão</option>
-                                                <option value="transferência">Transferência</option>
+                                                <option value="cartao">Cartão</option>
+                                                <option value="credito">Cartão de Crédito</option>
+                                                <option value="debito">Cartão de Débito</option>
+                                                <option value="transferencia">Transferência</option>
                                             </Select>
                                         </div>
                                     </div>
