@@ -89,13 +89,18 @@ class SocketManager {
         logger.info("🔌 [socket] Conectando em:", url);
 
         const s = io(url, {
-            transports: ["websocket", "polling"],
+            // 🆕 IMPORTANTE: Polling primeiro (mais confiável no Render), depois upgrade para WebSocket
+            transports: ["polling", "websocket"],
             reconnection: true,
             reconnectionAttempts: Infinity,
             reconnectionDelay: 1000,
             reconnectionDelayMax: 10000,
             timeout: 20000,
             withCredentials: true,
+            // 🆕 Configurações adicionais para funcionar no Render
+            path: "/socket.io/",
+            autoConnect: true,
+            forceNew: false,
         });
 
         s.on("connect", () => {

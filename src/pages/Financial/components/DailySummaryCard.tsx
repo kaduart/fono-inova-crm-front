@@ -11,6 +11,8 @@ import { formatCurrency } from '../../../utils/format';
 import API from '../../../services/api';
 import { useDailyCash } from '../../../hooks/useDailyCash';
 import DailyCashModal from './DailyCashModal';
+import ProductionModal from './ProductionModal';
+import ReceivablesModal from './ReceivablesModal';
 import { socketManager } from '../../../utils/socketManager';
 
 interface AppointmentTimeline {
@@ -79,6 +81,8 @@ export const DailySummaryCard = ({ enabled = true }: DailySummaryCardProps) => {
     });
     
     const [modalOpen, setModalOpen] = useState(false);
+    const [productionModalOpen, setProductionModalOpen] = useState(false);
+    const [receivablesModalOpen, setReceivablesModalOpen] = useState(false);
     const dailyCash = useDailyCash();
 
     const fetchClosing = async (opts?: { silent?: boolean; delay?: number }) => {
@@ -144,9 +148,19 @@ export const DailySummaryCard = ({ enabled = true }: DailySummaryCardProps) => {
     }, [date]);
 
     const handleOpenCashModal = async () => {
-        console.log('[DailySummary] Abrindo modal para:', date);
+        console.log('[DailySummary] Abrindo modal de caixa para:', date);
         setModalOpen(true);
         await dailyCash.fetchDailyCash(date);
+    };
+
+    const handleOpenProductionModal = () => {
+        console.log('[DailySummary] Abrindo modal de produção para:', date);
+        setProductionModalOpen(true);
+    };
+
+    const handleOpenReceivablesModal = () => {
+        console.log('[DailySummary] Abrindo modal de a receber para:', date);
+        setReceivablesModalOpen(true);
     };
 
     if (loading) {
@@ -237,7 +251,13 @@ export const DailySummaryCard = ({ enabled = true }: DailySummaryCardProps) => {
                     </div>
 
                     {/* 📊 2. PRODUÇÃO - Tudo que foi feito */}
-                    <div className="bg-blue-50 rounded-xl p-5 border-2 border-blue-100">
+                    <div 
+                        className="bg-blue-50 rounded-xl p-5 border-2 border-blue-100 cursor-pointer hover:bg-blue-100 transition-colors relative group"
+                        onClick={handleOpenProductionModal}
+                    >
+                        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Eye className="w-5 h-5 text-blue-600" />
+                        </div>
                         <div className="flex items-center gap-2 mb-3">
                             <div className="p-2 bg-blue-200 rounded-lg">
                                 <TrendingUp className="w-5 h-5 text-blue-700" />
@@ -254,11 +274,20 @@ export const DailySummaryCard = ({ enabled = true }: DailySummaryCardProps) => {
                             <p className="text-xs text-blue-600">
                                 Convênio: {formatCurrency(insurance?.production || 0)}
                             </p>
+                            <p className="text-xs text-blue-700 font-medium">
+                                👆 Clique para detalhes
+                            </p>
                         </div>
                     </div>
 
                     {/* 🧾 3. A RECEBER - Convênio pendente */}
-                    <div className="bg-amber-50 rounded-xl p-5 border-2 border-amber-100">
+                    <div 
+                        className="bg-amber-50 rounded-xl p-5 border-2 border-amber-100 cursor-pointer hover:bg-amber-100 transition-colors relative group"
+                        onClick={handleOpenReceivablesModal}
+                    >
+                        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Eye className="w-5 h-5 text-amber-600" />
+                        </div>
                         <div className="flex items-center gap-2 mb-3">
                             <div className="p-2 bg-amber-200 rounded-lg">
                                 <CreditCard className="w-5 h-5 text-amber-700" />
@@ -274,6 +303,9 @@ export const DailySummaryCard = ({ enabled = true }: DailySummaryCardProps) => {
                             </p>
                             <p className="text-xs text-amber-700">
                                 {insurance?.sessionsCount || 0} sessões a faturar
+                            </p>
+                            <p className="text-xs text-amber-800 font-medium">
+                                👆 Clique para detalhes
                             </p>
                         </div>
                     </div>
@@ -390,7 +422,7 @@ export const DailySummaryCard = ({ enabled = true }: DailySummaryCardProps) => {
                 </div>
             </div>
 
-            {/* Modal */}
+            {/* Modais */}
             <DailyCashModal
                 open={modalOpen}
                 onClose={() => {
@@ -407,6 +439,57 @@ export const DailySummaryCard = ({ enabled = true }: DailySummaryCardProps) => {
                 }}
                 loading={dailyCash.loading}
                 onRefresh={dailyCash.refresh}
+            />
+
+            <ProductionModal
+                open={productionModalOpen}
+                onClose={() => setProductionModalOpen(false)}
+                date={date}
+                data={{
+                    total: producaoTotal,
+                    particular: particularRecebido,
+                    convenio: insurance?.production || 0,
+                    pacote: cashFlow?.packageConsumption || 0,
+                    count: appointments?.attended || 0,
+                    items: (data?.timelines?.appointments || [])
+                        .filter(apt => apt.operationalStatus === 'completed')
+                        .map(apt => ({
+                            id: apt.id,
+                            patient: apt.patient,
+                            doctor: apt.doctor,
+                            service: apt.service,
+                            value: apt.sessionValue,
+                            type: apt.isConvenio ? 'convenio' : (apt.isPackage ? 'pacote' : 'particular'),
+                            time: apt.time,
+                            status: apt.operationalStatus
+                        }))
+                }}
+            />
+
+            <ReceivablesModal
+                open={receivablesModalOpen}
+                onClose={() => setReceivablesModalOpen(false)}
+                date={date}
+                data={{
+                    total: aReceber,
+                    pending: insurance?.pending || 0,
+                    billed: 0,
+                    received: insurance?.received || 0,
+                    count: insurance?.sessionsCount || 0,
+                    items: (data?.timelines?.appointments || [])
+                        .filter(apt => apt.isConvenio && apt.operationalStatus === 'completed')
+                        .map(apt => ({
+                            id: apt.id,
+                            patient: apt.patient,
+                            doctor: apt.doctor,
+                            service: apt.service,
+                            value: apt.sessionValue,
+                            insuranceProvider: 'Convênio',
+                            date: date,
+                            time: apt.time,
+                            status: 'pending' as const
+                        }))
+                }}
             />
         </>
     );
