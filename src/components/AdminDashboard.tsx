@@ -534,8 +534,27 @@ export default function AdminDashboard() {
         console.log('🔄 [AdminDashboard] Editando agendamento:', appointmentId, updatedData);
         try {
             const result = await updateAppointment(appointmentId, updatedData);
-            console.log('✅ [AdminDashboard] Agendamento atualizado na API:', result);
-            toast.success('Agendamento atualizado!');
+            
+            // 🔍 DEBUG: Loga o resultado
+            console.log('✅ [AdminDashboard] Resultado do update:', {
+                status: result?.data?.status,
+                success: result?.success
+            });
+
+            // 🚨 VERIFICAÇÃO: Só considera sucesso se EXPLICITAMENTE retornar success
+            const isSuccess = result?.success === true || result?.data?._id || result?.data?.appointment;
+            
+            if (!isSuccess) {
+                console.error('❌ [AdminDashboard] Update retornou sem sucesso explícito:', result);
+                toast.error('❌ Falha ao atualizar. Tente novamente.', { 
+                    id: `edit-error-${appointmentId}`,
+                    autoClose: false
+                });
+                throw new Error('UPDATE_FAILED');
+            }
+            
+            console.log('✅ [AdminDashboard] Agendamento atualizado na API');
+            toast.success('✅ Agendamento atualizado!');
             console.log('📅 [AdminDashboard] Chamando fetchAppointments com range:', calendarDateRange);
             await fetchAppointments(calendarDateRange);
             console.log('✅ [AdminDashboard] fetchAppointments concluído');

@@ -403,6 +403,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         }
 
         setIsEditing(true);
+        setProcessingState({ isProcessing: true, message: 'Atualizando agendamento...' });
+        
         try {
             // 🔧 TRADUZ OS STATUS DE VOLTA PARA INGLÊS ANTES DE ENVIAR PARA API
             const operationalStatusEN = Object.keys(STATUS_TRANSLATIONS.operational).find(
@@ -447,8 +449,15 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             console.log('📤 [Modal] Chamando onEditAppointment com:', { id: event.id, data: appointmentData });
             await onEditAppointment(event.id, appointmentData);
             console.log('✅ [Modal] onEditAppointment retornou com sucesso');
+        } catch (err: any) {
+            console.error('❌ [Modal] Erro ao editar:', err);
+            toast.error(err?.message || 'Erro ao atualizar agendamento', { 
+                id: `edit-error-${event.id}` 
+            });
+            throw err; // Re-lança pro AdminDashboard tratar
         } finally {
             setIsEditing(false);
+            setProcessingState(null);
         }
     };
 
