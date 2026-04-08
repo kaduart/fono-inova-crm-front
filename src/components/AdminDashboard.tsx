@@ -439,13 +439,29 @@ export default function AdminDashboard() {
             // 🚀 V2: O contexto já faz polling internamente e aguarda completação
             const result = await completeAppointment(appointmentId, data);
 
-            // Verifica se processou com sucesso
-            const completed = result?._isAsyncProcessing ? result._completed : true;
-            const lockReleased = result?._lockReleased;
+            // 🔍 DEBUG: Loga o resultado completo
+            console.log('[AdminDashboard] Resultado do complete:', {
+                status: result?.data?.status,
+                _isAsyncProcessing: result?._isAsyncProcessing,
+                _completed: result?._completed,
+                _lockReleased: result?._lockReleased
+            });
+
+            // 🚨 VERIFICAÇÃO DE SEGURANÇA: Só considera completado se EXPLICITAMENTE retornar _completed === true
+            // Se for processamento async, OBRIGATORIAMENTE precisa ter _completed === true
+            const isAsync = result?._isAsyncProcessing === true;
+            const asyncCompleted = result?._completed === true;
+            const lockReleased = result?._lockReleased === true;
+            
+            // ✅ REGRA: Só está completo se:
+            // 1. For async E _completed === true, OU
+            // 2. Não for async (legado) E status não for processing
+            const isProcessingStatus = result?.data?.status?.startsWith('processing');
+            const completed = isAsync ? asyncCompleted : !isProcessingStatus;
             
             // 🔴 WORKER FALHOU: Lock foi liberado automaticamente - usuário precisa tentar de novo
             if (lockReleased) {
-                toast.error('❌ Worker falhou ou foi reiniciado. Por favor, tente novamente.', { 
+                toast.error('❌ Falha no processamento. Por favor, tente novamente.', { 
                     id: `error-${appointmentId}`,
                     autoClose: false
                 });
@@ -453,8 +469,19 @@ export default function AdminDashboard() {
                 throw new Error('WORKER_FAILED');
             }
             
+            // 🚨 AINDA PROCESSANDO: Não deveria chegar aqui (o contexto deveria aguardar), mas por segurança:
+            if (isProcessingStatus && !isAsync) {
+                console.warn('[AdminDashboard] ⚠️ Status é processing mas não é async - aguardando polling...');
+                toast.info('⏳ Processando... Aguarde a confirmação.', { 
+                    id: `processing-${appointmentId}`,
+                    autoClose: false
+                });
+                // ❌ NÃO fecha o modal
+                throw new Error('STILL_PROCESSING');
+            }
+            
             if (completed) {
-                toast.success('Agendamento finalizado com sucesso!', { id: `success-${appointmentId}` });
+                toast.success('✅ Agendamento finalizado com sucesso!', { id: `success-${appointmentId}` });
                 
                 // ⏳ AGUARDA backend persistir (evita cache)
                 await new Promise(resolve => setTimeout(resolve, 300));

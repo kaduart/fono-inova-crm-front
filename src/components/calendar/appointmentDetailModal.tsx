@@ -107,6 +107,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     const [isCompleting, setIsCompleting] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [isConverting, setIsConverting] = useState(false);
+    const [processingState, setProcessingState] = useState<{ isProcessing: boolean; message: string } | null>(null);
     const [confirmedAbsence, setConfirmedAbsence] = useState(false);
     const [editedAppointment, setEditedAppointment] = useState({
         doctorId: '',
@@ -339,6 +340,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         }
         
         setIsCompleting(true);
+        setProcessingState({ isProcessing: true, message: 'Finalizando atendimento...' });
+        
         try {
             // Chama o complete com parâmetros extras se for adicionar ao saldo
             if (addToBalance) {
@@ -352,7 +355,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 // Completa normalmente
                 await onCompleteAppointment(event.id);
             }
-            // Sucesso: o modal fecha via closeModalSignal do pai
+            // ✅ Sucesso: o modal fecha via closeModalSignal do pai
         } catch (err: any) {
             // 🐛 CORREÇÃO: Modal fica aberto quando dá erro
             console.error('❌ [Modal] Erro ao completar:', err);
@@ -373,6 +376,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             // Importante: NÃO fecha o modal aqui! Usuário precisa ver o erro e tentar de novo
         } finally {
             setIsCompleting(false);
+            setProcessingState(null);
         }
     };
 
@@ -1270,7 +1274,34 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full flex flex-col md:flex-row md:min-h-[600px] max-h-[90vh] overflow-hidden border-2 border-gray-200">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full flex flex-col md:flex-row md:min-h-[600px] max-h-[90vh] overflow-hidden border-2 border-gray-200 relative">
+                
+                {/* 🔄 OVERLAY DE PROCESSAMENTO */}
+                {processingState?.isProcessing && (
+                    <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center rounded-3xl">
+                        <div className="relative">
+                            {/* Spinner animado */}
+                            <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin" />
+                            {/* Ícone no centro */}
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <CheckCircle className="w-6 h-6 text-green-600" />
+                            </div>
+                        </div>
+                        <h3 className="mt-6 text-xl font-bold text-gray-800">
+                            {processingState.message}
+                        </h3>
+                        <p className="mt-2 text-gray-500 text-center max-w-xs">
+                            Isso pode levar alguns segundos.
+                            <br />
+                            Por favor, não feche esta janela.
+                        </p>
+                        {/* Barra de progresso simulada */}
+                        <div className="mt-6 w-64 h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-green-500 to-cyan-500 animate-pulse rounded-full" 
+                                 style={{ width: '60%', animation: 'progress 2s ease-in-out infinite' }} />
+                        </div>
+                    </div>
+                )}
                 {/* Header Mobile */}
                 <div className="md:hidden bg-gradient-to-r from-green-600 via-green-500 to-cyan-500 p-6 text-white rounded-t-3xl">
                     <div className="flex items-center justify-between mb-4">
