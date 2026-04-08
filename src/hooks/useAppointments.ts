@@ -39,15 +39,22 @@ export const useAppointments = () => {
     const isMounted = useRef(true);
 
     // ✅ FIX: fetchAppointments usando V2 (sempre)
-    const fetchAppointments = useCallback(async (filters?: { startDate?: string; endDate?: string; light?: boolean }) => {
+    const fetchAppointments = useCallback(async (filters?: { startDate?: string; endDate?: string; light?: boolean; force?: boolean }) => {
         try {
             // 🚀 V2: Usa endpoint V2 otimizado
-            const response = await appointmentService.list({
+            // 🔥 FORCE: Adiciona timestamp para evitar cache do backend
+            const params: any = {
                 startDate: filters?.startDate,
                 endDate: filters?.endDate,
                 limit: filters?.light ? 200 : 100,
                 light: filters?.light
-            });
+            };
+            
+            if (filters?.force) {
+                params._t = Date.now(); // Timestamp para bust cache
+            }
+            
+            const response = await appointmentService.list(params);
             // V2 retorna { success, data: { appointments, pagination } }
             setAppointments(response.data.data?.appointments || response.data.data || []);
         } catch (error) {

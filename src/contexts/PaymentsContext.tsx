@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import API from '../services/api';
 import { FinancialRecord } from '../services/paymentService';
+import { socketManager } from '../utils/socketManager';
 
 interface PaymentsStats {
     produced: number;
@@ -204,6 +205,39 @@ export const PaymentsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setStats(null);
         setCurrentMonth(null);
     }, []);
+
+    // 🔄 Socket listeners para atualização em tempo real
+    useEffect(() => {
+        const handleAppointmentCompleted = (data: any) => {
+            console.log('[PaymentsContext] Socket appointmentCompleted:', data);
+            // 🔄 Atualiza se o mês atual for o do appointment
+            if (currentMonth) {
+                const today = new Date().toISOString().slice(0, 7);
+                if (currentMonth === today) {
+                    loadPayments(currentMonth);
+                }
+            }
+        };
+
+        const handleAppointmentUpdated = (data: any) => {
+            console.log('[PaymentsContext] Socket appointmentUpdated:', data);
+            // 🔄 Atualiza se o mês atual for o do appointment
+            if (currentMonth) {
+                const today = new Date().toISOString().slice(0, 7);
+                if (currentMonth === today) {
+                    loadPayments(currentMonth);
+                }
+            }
+        };
+
+        const unsubCompleted = socketManager.on('appointmentCompleted', handleAppointmentCompleted);
+        const unsubUpdated = socketManager.on('appointmentUpdated', handleAppointmentUpdated);
+
+        return () => {
+            unsubCompleted();
+            unsubUpdated();
+        };
+    }, [currentMonth, loadPayments]);
 
     return (
         <PaymentsContext.Provider

@@ -87,11 +87,13 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             }
             
             // 🚀 V2: Usa listagem da V2 com todos os campos (inclui paymentMethod)
+            // 🔥 Cache bust quando force=true
             const response = await appointmentService.list({
                 limit: 500,
                 // ❌ REMOVIDO: light: true - precisamos de todos os campos incluindo paymentMethod
                 ...(effectiveFilters?.startDate && { startDate: effectiveFilters.startDate }),
                 ...(effectiveFilters?.endDate && { endDate: effectiveFilters.endDate }),
+                ...(forceRefresh && { _t: Date.now() }), // 🔥 Cache bust
             });
             
             // 🛡️ IGNORA resposta se já teve nova requisição (race condition)
@@ -292,21 +294,22 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const completeAppointment = useCallback(async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
         const result = await appointmentService.complete(id, data);
 
-        // 🚀 V2: Se for processamento async, inicia polling
+        // 🚀 V2: Se for processamento async, aguarda polling completar
         if (result?.data?.status?.startsWith('processing')) {
-            console.log('[AppointmentsContext] V2: Complete em processamento, iniciando polling...');
-            pollAppointmentStatus(id, 10).then((done) => {
-                if (done) {
-                    console.log('[AppointmentsContext] ✅ Complete finalizado via polling');
-                    // 🆕 EMITE SOCKET para atualizar calendário imediatamente
-                    socketManager.emit('appointmentUpdated', { appointmentId: id });
-                    refreshAppointments();
-                } else {
-                    console.warn('[AppointmentsContext] ⚠️ Polling falhou, fazendo refresh manual');
-                    refreshAppointments();
-                }
-            });
-            return { ...result, _isAsyncProcessing: true };
+            console.log('[AppointmentsContext] V2: Complete em processamento, aguardando polling...');
+            const done = await pollAppointmentStatus(id, 10);
+            
+            if (done) {
+                console.log('[AppointmentsContext] ✅ Complete finalizado via polling');
+                // 🆕 EMITE SOCKET para atualizar calendário imediatamente
+                socketManager.emit('appointmentUpdated', { appointmentId: id });
+                await refreshAppointments();
+            } else {
+                console.warn('[AppointmentsContext] ⚠️ Polling falhou, fazendo refresh manual');
+                await refreshAppointments();
+            }
+            
+            return { ...result, _isAsyncProcessing: true, _completed: done };
         }
 
         // Legado: Invalida caches e emite socket

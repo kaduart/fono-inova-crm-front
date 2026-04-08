@@ -11,6 +11,7 @@ import { formatCurrency } from '../../../utils/format';
 import API from '../../../services/api';
 import { useDailyCash } from '../../../hooks/useDailyCash';
 import DailyCashModal from './DailyCashModal';
+import { socketManager } from '../../../utils/socketManager';
 
 interface AppointmentTimeline {
     id: string;
@@ -72,16 +73,24 @@ export const DailySummaryCard = ({ enabled = true }: DailySummaryCardProps) => {
     const [modalOpen, setModalOpen] = useState(false);
     const dailyCash = useDailyCash();
 
-    const fetchClosing = async () => {
-        setLoading(true);
+    const fetchClosing = async (opts?: { silent?: boolean; delay?: number }) => {
+        if (!opts?.silent) setLoading(true);
+        
+        // ⏳ Delay opcional para garantir que backend processou
+        if (opts?.delay) {
+            await new Promise(r => setTimeout(r, opts.delay));
+        }
+        
         try {
-            const res = await API.get(`/v2/daily-closing?date=${date}`);
+            // 🔥 Cache bust para garantir dados frescos
+            const timestamp = Date.now();
+            const res = await API.get(`/v2/daily-closing?date=${date}&_t=${timestamp}`);
             setData(res.data.data);
             console.log('[DailySummary] Dados carregados:', res.data.data);
         } catch (err) {
             console.error('Erro ao carregar fechamento:', err);
         } finally {
-            setLoading(false);
+            if (!opts?.silent) setLoading(false);
         }
     };
 
@@ -93,12 +102,36 @@ export const DailySummaryCard = ({ enabled = true }: DailySummaryCardProps) => {
     useEffect(() => {
         const handleCashRefresh = (event: CustomEvent) => {
             console.log('💰 [DailySummary] Evento cash:refresh:', event.detail);
-            fetchClosing();
+            // 🔄 Atualização sutil: pequeno delay + silent (não mostra loading)
+            fetchClosing({ silent: true, delay: 300 });
         };
 
         window.addEventListener('cash:refresh', handleCashRefresh as EventListener);
         return () => {
             window.removeEventListener('cash:refresh', handleCashRefresh as EventListener);
+        };
+    }, [date]);
+
+    // 🔄 Socket listener para atualização em tempo real (suave)
+    useEffect(() => {
+        const handleAppointmentCompleted = (data: any) => {
+            console.log('💰 [DailySummary] Socket appointmentCompleted:', data);
+            // 🔄 Atualização sutil após completar agendamento
+            fetchClosing({ silent: true, delay: 500 });
+        };
+
+        const handleAppointmentUpdated = (data: any) => {
+            console.log('💰 [DailySummary] Socket appointmentUpdated:', data);
+            // 🔄 Atualização sutil após atualizar agendamento
+            fetchClosing({ silent: true, delay: 300 });
+        };
+
+        const unsubCompleted = socketManager.on('appointmentCompleted', handleAppointmentCompleted);
+        const unsubUpdated = socketManager.on('appointmentUpdated', handleAppointmentUpdated);
+
+        return () => {
+            unsubCompleted();
+            unsubUpdated();
         };
     }, [date]);
 

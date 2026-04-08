@@ -622,8 +622,13 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 };
 
                 console.log("📤 Enviando pacote de convênio:", convenioData);
-                await packageService.createConvenioPackage(convenioData);
+                const convenioResponse = await packageService.createConvenioPackage(convenioData);
+                // 🔥 Extrai o ID do pacote criado (pode vir em package._id ou package.packageId)
+                const newPackageId = convenioResponse?.package?._id 
+                    || convenioResponse?.package?.packageId 
+                    || convenioResponse?._id;
                 toast.success(`Pacote de convênio criado com sucesso! 💚`);
+                onSubmit(newPackageId);
             } else if (packageType === 'liminar') {
                 // ⚖️ Payload para liminar
                 const liminarData = {
@@ -637,8 +642,13 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 };
 
                 console.log("📤 Enviando pacote liminar:", liminarData);
-                await packageService.createPackage(liminarData);
+                const liminarResponse = await packageService.createPackage(liminarData);
+                // 🔥 Extrai o ID do pacote criado
+                const newPackageId = liminarResponse?.data?.package?._id 
+                    || liminarResponse?.data?.package?.packageId 
+                    || liminarResponse?.data?._id;
                 toast.success(`Pacote liminar criado com sucesso! ⚖️`);
+                onSubmit(newPackageId);
             } else {
                 // Fluxo normal (therapy)
                 const therapyData = {

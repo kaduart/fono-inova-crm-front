@@ -30,6 +30,7 @@ const PlanningTab = lazy(() => import('./tabs/PlanningTab'));
 const VisaoGeralEstrategicaTab = lazy(() => import('./tabs/VisaoGeralEstrategicaTab'));
 const AnaliseProjecaoTab = lazy(() => import('./tabs/AnaliseProjecaoTab'));
 const DailySummaryCard = lazy(() => import('./components/DailySummaryCard'));
+const CashflowTab = lazy(() => import('./CashflowTab'));
 
 // 🔄 Skeleton de loading para tabs
 const TabSkeleton = () => (
@@ -81,6 +82,7 @@ const FinancialDashboard = ({
         { id: 'pagamentos', label: 'Pagamentos', icon: <DollarSign size={18} /> },  // 🧑‍💼 Secretária
         { id: 'despesas', label: 'Despesas', icon: <Receipt size={18} /> },
         { id: 'convenios', label: 'Convênios', icon: <CreditCard size={18} /> },
+        { id: 'fluxo-caixa', label: 'Fluxo de Caixa', icon: <ArrowLeftRight size={18} /> },  // 🆕 NOVO
         { id: 'metas-v2', label: 'Metas', icon: <TrendingUp size={18} /> },
         { id: 'extrato', label: 'Dashboard', icon: <BarChart3 size={18} /> },  // 📊 Dashboard completo
     ];
@@ -129,6 +131,8 @@ const FinancialDashboard = ({
                 return <ExpensesTab />;
             case 'convenios':
                 return <InsuranceTab />;
+            case 'fluxo-caixa':
+                return <CashflowTab />;
             case 'extrato':
                 return <EntradasSaidasTab />;
             default:

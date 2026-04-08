@@ -240,6 +240,17 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         }
     }, [closeModalSignal]);
 
+    // 🔄 ESCUTA EVENTO GLOBAL de refresh de appointments
+    useEffect(() => {
+        const handleRefresh = () => {
+            console.log('🔄 [EnhancedCalendar] Evento appointments:refresh recebido');
+            onRefreshAppointments?.();
+        };
+        
+        window.addEventListener('appointments:refresh', handleRefresh);
+        return () => window.removeEventListener('appointments:refresh', handleRefresh);
+    }, [onRefreshAppointments]);
+
     // 🔄 ATUALIZA selectedEvent quando appointments mudam e modal está aberto
     useEffect(() => {
         if (selectedEvent && isAppointmentDetailModalOpen) {
@@ -310,6 +321,15 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             }
         }
     }, [appointments, selectedEvent?.id, isAppointmentDetailModalOpen]);
+
+    // 🔄 FORÇA ATUALIZAÇÃO DO FULLCALENDAR quando appointments mudam
+    useEffect(() => {
+        const calendarApi = calendarRef.current?.getApi();
+        if (calendarApi) {
+            console.log('🔄 [EnhancedCalendar] Forçando refetchEvents no FullCalendar');
+            calendarApi.refetchEvents();
+        }
+    }, [appointments]);
 
     const getPaymentStatusConfig = useCallback((paymentStatus: string) => {
         return PAYMENT_STATUS_CONFIG[paymentStatus as keyof typeof PAYMENT_STATUS_CONFIG] || PAYMENT_STATUS_CONFIG.pending;

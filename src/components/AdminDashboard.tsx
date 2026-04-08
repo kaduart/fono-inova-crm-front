@@ -423,42 +423,45 @@ export default function AdminDashboard() {
     const handleCompleteAppointment = useCallback(async (appointmentId: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
         try {
             console.log('[AdminDashboard] Completando agendamento:', appointmentId, data);
+            
+            // 🚀 V2: O contexto já faz polling internamente e aguarda completação
             const result = await completeAppointment(appointmentId, data);
 
-            // 🚀 V2: Se for processamento async (status 202), inicia polling
-            if (result?._isAsyncProcessing) {
-                toast.info(result._message || 'Finalizando agendamento...', { id: `processing-${appointmentId}` });
-                console.log('[AdminDashboard] V2: Polling para atualização...');
-
-                const completed = await pollAppointmentStatus(appointmentId, 10); // 10 tentativas = ~30 segundos
-
-                if (completed) {
-                    toast.success('Agendamento finalizado com sucesso!', { id: `success-${appointmentId}` });
-                    
-                    // ✅ SÓ FECHA O MODAL SE DEU CERTO
-                    await fetchAppointments({ ...calendarDateRange, force: true });
-                    await refreshDashboard();
-                    setCloseModalSignal(prev => prev + 1);
-                    
-                    // 🆕 DISPARA EVENTO para atualizar Card Caixa
-                    window.dispatchEvent(new CustomEvent('cash:refresh', { 
-                        detail: { appointmentId, timestamp: Date.now() } 
-                    }));
-                } else {
-                    // 🚨 FALHOU: Não fecha o modal, usuário pode tentar de novo
-                    toast.error('❌ Falha ao finalizar. Tente novamente.', { 
-                        id: `error-${appointmentId}`,
-                        autoClose: false // Não some sozinho
-                    });
-                    // ❌ NÃO fecha o modal - deixa usuário tentar de novo
-                    throw new Error('PROCESSING_FAILED');
-                }
-            } else {
-                // Legado: Sucesso imediato
-                toast.success('Agendamento marcado como concluído!');
+            // Verifica se processou com sucesso
+            const completed = result?._isAsyncProcessing ? result._completed : true;
+            
+            if (completed) {
+                toast.success('Agendamento finalizado com sucesso!', { id: `success-${appointmentId}` });
+                
+                // ⏳ AGUARDA backend persistir (evita cache)
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                // ✅ SÓ FECHA O MODAL SE DEU CERTO
                 await fetchAppointments({ ...calendarDateRange, force: true });
                 await refreshDashboard();
+                
+                // ⏳ AGUARDA estado propagar
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
                 setCloseModalSignal(prev => prev + 1);
+                
+                // 🆕 DISPARA EVENTO para atualizar Card Caixa
+                window.dispatchEvent(new CustomEvent('cash:refresh', { 
+                    detail: { appointmentId, timestamp: Date.now() } 
+                }));
+                
+                // 🔄 DISPARA EVENTO global para atualizar calendário
+                window.dispatchEvent(new CustomEvent('appointments:refresh', { 
+                    detail: { appointmentId, timestamp: Date.now() } 
+                }));
+            } else {
+                // 🚨 FALHOU: Não fecha o modal, usuário pode tentar de novo
+                toast.error('❌ Falha ao finalizar. Tente novamente.', { 
+                    id: `error-${appointmentId}`,
+                    autoClose: false // Não some sozinho
+                });
+                // ❌ NÃO fecha o modal - deixa usuário tentar de novo
+                throw new Error('PROCESSING_FAILED');
             }
         } catch (error) {
             console.log('Erro ao Completar agendamento:', error);
@@ -475,7 +478,7 @@ export default function AdminDashboard() {
             // 🚨 IMPORTANTE: Lança erro para o modal saber que falhou
             throw error;
         }
-    }, [completeAppointment, pollAppointmentStatus, fetchAppointments, calendarDateRange, refreshDashboard, chat]);
+    }, [completeAppointment, fetchAppointments, calendarDateRange, refreshDashboard, chat]);
 
     const handleEditAppointment = useCallback(async (appointmentId: string, updatedData: UpdateAppointmentParams) => {
         console.log('🔄 [AdminDashboard] Editando agendamento:', appointmentId, updatedData);
