@@ -48,7 +48,8 @@ function buildPreview(payload: MessageNewPayload): string {
 }
 
 function getEventTimestamp(payload: MessageNewPayload): string {
-    const raw = payload.timestamp ?? Date.now();
+    // 🆕 Prioriza timestampMs (número) se existir, senão usa timestamp
+    const raw = payload.timestampMs ?? payload.timestamp ?? Date.now();
     const ms = typeof raw === "number" ? raw : new Date(raw).getTime();
     return new Date(ms).toISOString();
 }
@@ -370,6 +371,12 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
                 });
                 
                 setContacts((prev) => {
+                    console.log('[ContactsContext] 🔄 setContacts chamado:', {
+                        prevCount: prev.length,
+                        contactId,
+                        found: prev.some(c => c._id === contactId)
+                    });
+                    
                     const updated = prev.map((c) =>
                         c._id === contactId
                             ? {
@@ -384,7 +391,11 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
                     );
                     // ✅ Reordena pra mensagem nova ir pro topop
                     const sorted = sortByLastMessage(updated);
-                    console.log('[ContactsContext] ✅ Contatos atualizados:', sorted.length);
+                    console.log('[ContactsContext] ✅ Contatos atualizados e ordenados:', {
+                        total: sorted.length,
+                        topContact: sorted[0]?._id,
+                        targetPosition: sorted.findIndex(c => c._id === contactId)
+                    });
                     return sorted;
                 });
 

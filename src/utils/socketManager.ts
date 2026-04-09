@@ -17,6 +17,7 @@ type MessageNewPayload = {
     from?: string;
     to?: string;
     timestamp?: number | string;
+    timestampMs?: number;
     direction?: "inbound" | "outbound" | string;
     status?: string;
     contactId?: string;

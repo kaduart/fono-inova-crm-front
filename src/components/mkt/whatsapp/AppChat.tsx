@@ -95,7 +95,7 @@ const AppChat: React.FC = () => {
         
         let debounceTimer: ReturnType<typeof setTimeout> | null = null;
         let lastUpdate = 0;
-        const MIN_UPDATE_INTERVAL = 5000; // Máximo 1 atualização a cada 5s
+        const MIN_UPDATE_INTERVAL = 2000; // Máximo 1 atualização a cada 2s (mais responsivo)
         
         const unsubscribe = socketManager.onMessageNew((payload) => {
             const now = Date.now();

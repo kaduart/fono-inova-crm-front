@@ -91,10 +91,15 @@ export function useChatMessages(contact: Contact | null, leadId?: string) {
             seenIdsRef.current.add(msgId);
 
             // Formata a mensagem
+            // 🆕 Usa timestampMs (número) se disponível, senão fallback para timestamp
+            const msgTimestamp = payload.timestampMs 
+                ? new Date(payload.timestampMs) 
+                : payload.timestamp ? new Date(payload.timestamp) : new Date();
+            
             const newMessage: Message = {
                 id: msgId,
                 text: payload.text || payload.content || payload.caption || '',
-                timestamp: payload.timestamp ? new Date(payload.timestamp) : new Date(),
+                timestamp: msgTimestamp,
                 status: payload.status || 'sent',
                 fromMe: payload.direction === 'outbound',
                 type: (payload.type as any) || 'text',
