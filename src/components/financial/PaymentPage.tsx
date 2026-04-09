@@ -283,7 +283,7 @@ interface PaymentPageProps {
     enabled?: boolean;
 }
 
-const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment, registerAppointmentAndPayemntFuture, enabled = true }: PaymentPageProps) => {
+const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentProp, registerAppointmentAndPayemntFuture, enabled = true }: PaymentPageProps) => {
     // 🚀 SOURCE OF TRUTH: Context API (padrão do projeto)
     const { 
         payments: allPayments = [], 
@@ -520,6 +520,13 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment, registerAppointme
             setIsEditModalOpen(false);
             setPaymentToEdit(undefined);
 
+            // 🔄 RECARREGA LISTA para refletir mudanças no backend
+            const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+            if (range) {
+                await loadPaymentsList({ startDate: range.start, endDate: range.end });
+            }
+            fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
+
             toast.success('💚 Pagamento atualizado!');
 
         } catch (error) {
@@ -573,6 +580,13 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment, registerAppointme
             financialStatus: newPaymentData.updatedPackage?.financialStatus
         }));
 
+        // 🔄 RECARREGA LISTA para mostrar novo pagamento
+        const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+        if (range) {
+            await loadPaymentsList({ startDate: range.start, endDate: range.end });
+        }
+        fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
+
         toast.success("Pacote atualizado com o novo pagamento 💚");
     };
 
@@ -592,6 +606,19 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment, registerAppointme
     const handleOpen360 = (patientId: string) => {
         setSelectedPatient360Id(patientId);
         setIs360ModalOpen(true);
+    };
+
+    // 🔄 Wrapper para onCancelPayment que recarrega a lista após cancelamento
+    const handleCancelPayment = async (paymentId: string) => {
+        if (onCancelPaymentProp) {
+            await onCancelPaymentProp(paymentId);
+            // 🔄 RECARREGA LISTA após cancelar pagamento
+            const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+            if (range) {
+                await loadPaymentsList({ startDate: range.start, endDate: range.end });
+            }
+            fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
+        }
     };
 
     return (
@@ -1015,7 +1042,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment, registerAppointme
                                                 payment={payment}
                                                 onMarkAsPaid={() => onMarkAsPaid(payment)}
                                                 registerAppointmentAndPayemntFuture={() => registerAppointmentAndPayemntFuture(payment)}
-                                                onCancelPayment={onCancelPayment}
+                                                onCancelPayment={handleCancelPayment}
                                                 onEditAmount={handleEditAmount}
                                                 onAddPaymentToPackage={(pkg) => {
                                                     setSelectedPackage(pkg);
@@ -1097,23 +1124,49 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment, registerAppointme
         {isAppointmentModalOpen && appointmentToEdit && (
             <AppointmentDetailModal
                 isOpen={isAppointmentModalOpen}
-                onClose={() => setIsAppointmentModalOpen(false)}
+                onClose={() => {
+                    setIsAppointmentModalOpen(false);
+                    // 🔄 RECARREGA LISTA quando fechar o modal (após edição)
+                    const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+                    if (range) {
+                        loadPaymentsList({ startDate: range.start, endDate: range.end });
+                    }
+                    fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
+                }}
                 event={appointmentToEdit}
                 doctors={mockDoctors}
                 onCancelAppointment={async (id, reason) => {
                     console.log('Cancelar agendamento:', id, reason);
                     toast.success('Agendamento cancelado');
                     setIsAppointmentModalOpen(false);
+                    // 🔄 RECARREGA LISTA após cancelar
+                    const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+                    if (range) {
+                        await loadPaymentsList({ startDate: range.start, endDate: range.end });
+                    }
+                    fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
                 }}
                 onCompleteAppointment={async (id, data) => {
                     console.log('Completar agendamento:', id, data);
                     toast.success('Agendamento completado');
                     setIsAppointmentModalOpen(false);
+                    // 🔄 RECARREGA LISTA após completar
+                    const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+                    if (range) {
+                        await loadPaymentsList({ startDate: range.start, endDate: range.end });
+                    }
+                    fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
                 }}
                 onEditAppointment={async (id, data) => {
                     console.log('Editar agendamento:', id, data);
                     toast.success('Agendamento atualizado');
                     setIsAppointmentModalOpen(false);
+                    // 🔄 RECARREGA LISTA após editar
+                    const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+                    if (range) {
+                        await loadPaymentsList({ startDate: range.start, endDate: range.end });
+                    }
+                    fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
                 }}
             />
         )}

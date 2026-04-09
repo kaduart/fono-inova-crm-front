@@ -72,7 +72,8 @@ export const usePixSocket = ({
                 patientName: pix?.payer || "Desconhecido",
             });
             notifRef.current.onPaymentRefresh?.();
-            notifRef.current.onCalendarRefresh?.();
+            // 🚫 REMOVIDO: Não atualiza calendário automaticamente para evitar reload sozinho
+            // notifRef.current.onCalendarRefresh?.();
         };
 
         // 📅 PRÉ-AGENDAMENTOS
@@ -115,22 +116,24 @@ export const usePixSocket = ({
         };
 
         // 📅 AGENDAMENTOS (criados/atualizados/deletados pela agenda externa ou CRM)
+        // 🚫 REMOVIDOS: Eventos que causavam reload sozinho no calendário
+        // Agora o usuário precisa atualizar manualmente (F5 ou trocar de aba)
         const onAppointmentCreated = (data: any) => {
-            logger.info("📅 [SOCKET] appointmentCreated", data);
-            notifRef.current.onCalendarRefresh?.();
+            logger.info("📅 [SOCKET] appointmentCreated (ignorando refresh automático)", data);
+            // notifRef.current.onCalendarRefresh?.();
             notifRef.current.onPaymentRefresh?.();
         };
 
         const onAppointmentUpdated = (data: any) => {
-            logger.info("✏️ [SOCKET] appointmentUpdated", data);
+            logger.info("✏️ [SOCKET] appointmentUpdated (ignorando refresh automático)", data);
             invalidateCache('payments');
-            notifRef.current.onCalendarRefresh?.();
+            // notifRef.current.onCalendarRefresh?.();
             notifRef.current.onPaymentRefresh?.();
         };
 
         const onAppointmentDeleted = (data: any) => {
-            logger.info("🗑️ [SOCKET] appointmentDeleted", data);
-            notifRef.current.onCalendarRefresh?.();
+            logger.info("🗑️ [SOCKET] appointmentDeleted (ignorando refresh automático)", data);
+            // notifRef.current.onCalendarRefresh?.();
             notifRef.current.onPaymentRefresh?.();
         };
 

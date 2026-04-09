@@ -12,6 +12,7 @@ import PatientBalanceModal from '../patients/PatientBalanceModal';
 import { Label } from '../ui/Label';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Select } from '../ui/Select';
+import API from '../../services/api';
 
 interface AppointmentDetailModalProps {
     isOpen: boolean;
@@ -101,6 +102,50 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     onConvertPreAgendamento,
     onRefreshAppointments
 }) => {
+    // 🐛 DEBUG: Log para verificar se doctors está chegando
+    console.log('🐛 [AppointmentDetailModal] doctors:', doctors?.length, doctors);
+    console.log('🐛 [AppointmentDetailModal] event:', event);
+    console.log('🐛 [AppointmentDetailModal] event.doctor:', event?.doctor);
+    
+    // 🆕 BUSCAR LISTA DE PROFISSIONAIS do backend quando o modal abrir
+    const [allDoctors, setAllDoctors] = useState<IDoctor[]>(doctors || []);
+    const [loadingDoctors, setLoadingDoctors] = useState(false);
+    
+    useEffect(() => {
+        if (isOpen && (!doctors || doctors.length === 0)) {
+            console.log('🔄 [AppointmentDetailModal] Buscando lista de profissionais...');
+            setLoadingDoctors(true);
+            API.get('/doctors?active=true')
+                .then(response => {
+                    const docs = response.data?.data || response.data || [];
+                    console.log('✅ [AppointmentDetailModal] Profissionais carregados:', docs.length);
+                    setAllDoctors(docs.map((d: any) => ({
+                        _id: d._id || d.id,
+                        fullName: d.fullName || d.name,
+                        specialty: d.specialty || ''
+                    })));
+                })
+                .catch(err => {
+                    console.error('❌ [AppointmentDetailModal] Erro ao buscar profissionais:', err);
+                })
+                .finally(() => setLoadingDoctors(false));
+        } else {
+            setAllDoctors(doctors || []);
+        }
+    }, [isOpen, doctors]);
+    
+    // Combina a lista com o doctor do agendamento (se não estiver na lista)
+    const doctorsList = [...allDoctors];
+    if (event?.doctor && !doctorsList.find(d => d._id === event.doctor?.id)) {
+        doctorsList.push({
+            _id: event.doctor.id,
+            fullName: event.doctor.fullName,
+            specialty: ''
+        } as IDoctor);
+    }
+    
+    console.log('🐛 [AppointmentDetailModal] doctorsList:', doctorsList?.length, doctorsList);
+    
     const [activeTab, setActiveTab] = useState<'details' | 'confirm' | 'cancel' | 'edit'>('details');
     const [cancelReason, setCancelReason] = useState('');
     const [isCancelling, setIsCancelling] = useState(false);
@@ -161,11 +206,12 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             const translatedOperationalStatus = translateStatus(event.operationalStatus || 'scheduled', 'operational');
             const translatedClinicalStatus = translateStatus(event.clinicalStatus || 'pending', 'clinical');
 
-            console.log('📝 [Modal] Setando doctorId:', event.doctor?.id);
-            console.log('📝 [Modal] Setando patientId:', event.patient?.id);
+            console.log('📝 [Modal] Setando doctorId:', event.doctor?.id || event.doctor?._id);
+            console.log('📝 [Modal] Setando patientId:', event.patient?.id || event.patient?._id);
+            console.log('📝 [Modal] Event.doctor completo:', JSON.stringify(event.doctor, null, 2));
 
             setEditedAppointment({
-                doctorId: event.doctor?.id || '',
+                doctorId: event.doctor?.id || event.doctor?._id || '',
                 patientId: event.patient?.id || '',
                 date: eventDate,
                 time: eventTime,
@@ -245,6 +291,49 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             setConfirmedAbsence(false);
         }
     }, [isOpen]);
+    
+    // 🔄 ESCUTA EVENTO GLOBAL de atualização de dados
+    useEffect(() => {
+        const handleDataUpdated = async (e: any) => {
+            console.log('🔄 [Modal] Evento appointments:data-updated recebido:', e.detail);
+            // Força atualização dos dados quando o appointment for atualizado
+            if (event && e.detail?.appointmentId === event.id) {
+                console.log('🔄 [Modal] Buscando dados atualizados do appointment...');
+                try {
+                    const response = await API.get(`/api/v2/appointments/${event.id}`);
+                    if (response.data?.success && response.data?.data) {
+                        const updatedData = response.data.data;
+                        console.log('✅ [Modal] Dados atualizados recebidos:', updatedData);
+                        
+                        // Atualiza campos de pagamento com os dados mais recentes
+                        setPaymentMethod(updatedData.paymentMethod || updatedData.payment?.method || 'dinheiro');
+                        setBillingType(updatedData.billingType || updatedData.payment?.type || 'particular');
+                        setPaymentAmount(
+                            updatedData.sessionValue || 
+                            updatedData.payment?.amount || 
+                            updatedData.paymentAmount || 0
+                        );
+                        setInsuranceProvider(updatedData.insuranceProvider || updatedData.convenio?.provider || '');
+                        setInsuranceValue(updatedData.insuranceValue || updatedData.convenio?.value || 0);
+                        setAuthorizationCode(updatedData.authorizationCode || updatedData.convenio?.authorizationCode || '');
+                        
+                        // Atualiza o evento localmente também (se possível)
+                        if (updatedData.doctor?._id) {
+                            setEditedAppointment(prev => ({
+                                ...prev,
+                                doctorId: updatedData.doctor._id
+                            }));
+                        }
+                    }
+                } catch (error) {
+                    console.error('❌ [Modal] Erro ao buscar dados atualizados:', error);
+                }
+            }
+        };
+        
+        window.addEventListener('appointments:data-updated', handleDataUpdated);
+        return () => window.removeEventListener('appointments:data-updated', handleDataUpdated);
+    }, [event]);
 
     // 🔄 SINCRONIZA TODOS OS CAMPOS QUANDO ENTRAR NA ABA DE EDIÇÃO
     useEffect(() => {
@@ -868,17 +957,27 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     Profissional *
                                 </label>
                                 <Select
-                                    value={editedAppointment.doctorId || event?.doctor?.id || event?.doctor?._id || ''}
+                                    value={editedAppointment.doctorId || ''}
                                     onChange={(e) => handleFieldChange('doctorId', e.target.value)}
                                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
+                                    disabled={loadingDoctors}
                                 >
-                                    <option value="">Selecione um profissional</option>
-                                    {doctors.map(doctor => (
+                                    <option value="">
+                                        {loadingDoctors 
+                                            ? 'Carregando profissionais...' 
+                                            : 'Selecione um profissional'}
+                                    </option>
+                                    {doctorsList?.map(doctor => (
                                         <option key={doctor._id} value={doctor._id}>
                                             {doctor.fullName}
                                         </option>
                                     ))}
                                 </Select>
+                                {loadingDoctors ? (
+                                    <p className="text-xs text-blue-500 mt-1">
+                                        ⏳ Carregando lista de profissionais...
+                                    </p>
+                                ) : null}
                             </div>
 
                             <div className="space-y-2">
@@ -1091,7 +1190,6 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                             >
                                                 <option value="dinheiro">Dinheiro</option>
                                                 <option value="pix">PIX</option>
-                                                <option value="cartao">Cartão</option>
                                                 <option value="credito">Cartão de Crédito</option>
                                                 <option value="debito">Cartão de Débito</option>
                                                 <option value="transferencia">Transferência</option>

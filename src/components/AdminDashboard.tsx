@@ -20,7 +20,8 @@ import usePayment from '../hooks/usePayment';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
 import doctorService, { CreateDoctorParams } from '../services/doctorService';
 import { createPayment, FinancialRecord, getPaymentsV2, updatePayment } from '../services/paymentService';
-import { usePixSocket } from '../hooks/usePixSocket';
+// 🚫 REMOVIDO: import do usePixSocket para evitar reload automático
+// import { usePixSocket } from '../hooks/usePixSocket';
 import AddAdminContent from './admin/AddAdminContent';
 import AdminHeader from './admin/AdminHeader';
 import DashboardContentOptimized from './admin/DashboardContentOptimized';
@@ -249,7 +250,10 @@ export default function AdminDashboard() {
         }
     }, [fetchAppointments, calendarDateRange.startDate, calendarDateRange.endDate, hasLoadedAppointments]);
 
-    // 🔄 Atualizar calendário em tempo real (só se já carregou)
+    // 🚫 REMOVIDO: Atualização automática do calendário via socket
+    // Agora o usuário precisa atualizar manualmente (F5 ou trocar de aba)
+    // Isso evita reloads sozinhos que atrapalham o trabalho
+    /*
     usePixSocket({
         onCalendarRefresh: useCallback(() => {
             if (hasLoadedAppointments && calendarDateRange.startDate && calendarDateRange.endDate) {
@@ -257,6 +261,7 @@ export default function AdminDashboard() {
             }
         }, [fetchAppointments, calendarDateRange, hasLoadedAppointments]),
     });
+    */
 
     // 🎯 Pacientes já são carregados pela API V2
     // Não precisa chamar refresh no mount
@@ -537,12 +542,14 @@ export default function AdminDashboard() {
             
             // 🔍 DEBUG: Loga o resultado
             console.log('✅ [AdminDashboard] Resultado do update:', {
-                status: result?.data?.status,
-                success: result?.success
+                status: result?.status,
+                data: result?.data,
+                success: result?.data?.success
             });
 
             // 🚨 VERIFICAÇÃO: Só considera sucesso se EXPLICITAMENTE retornar success
-            const isSuccess = result?.success === true || result?.data?._id || result?.data?.appointment;
+            // Axios retorna a resposta em result.data
+            const isSuccess = result?.data?.success === true || result?.data?.data?._id || result?.data?.data?.appointment;
             
             if (!isSuccess) {
                 console.error('❌ [AdminDashboard] Update retornou sem sucesso explícito:', result);
@@ -556,7 +563,12 @@ export default function AdminDashboard() {
             console.log('✅ [AdminDashboard] Agendamento atualizado na API');
             toast.success('✅ Agendamento atualizado!');
             console.log('📅 [AdminDashboard] Chamando fetchAppointments com range:', calendarDateRange);
-            await fetchAppointments(calendarDateRange);
+            // 🔄 Força refresh com timestamp para evitar cache
+            await fetchAppointments({ ...calendarDateRange, force: true });
+            // 🔄 Dispara evento global para atualizar componentes
+            window.dispatchEvent(new CustomEvent('appointments:data-updated', { 
+                detail: { appointmentId, timestamp: Date.now() } 
+            }));
             console.log('✅ [AdminDashboard] fetchAppointments concluído');
             setCloseModalSignal(prev => prev + 1); // ✅ só fecha se sucesso
             console.log('🔔 [AdminDashboard] closeModalSignal incrementado');
@@ -805,7 +817,11 @@ export default function AdminDashboard() {
         modalShouldClose, closeModalSignal, refreshDashboard]);
 
     const calendarProps = useMemo(() => ({
-        doctors: doctorsOverview,
+        // 🐛 FIX: Mapear doctorsOverview para ter fullName em vez de name
+        doctors: (doctorsOverview?.map(d => ({ 
+            ...d, 
+            fullName: d.name || d.fullName 
+        })) || []) as any,
         patients,
         appointments,
         onDateClick: () => { },

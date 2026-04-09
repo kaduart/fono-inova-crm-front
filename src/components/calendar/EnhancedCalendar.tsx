@@ -240,7 +240,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         }
     }, [closeModalSignal]);
 
-    // 🔄 ESCUTA EVENTO GLOBAL de refresh de appointments
+    // 🚫 REMOVIDO: Evento global de refresh automático
+    // Agora o usuário precisa atualizar manualmente (F5 ou trocar de aba)
+    /*
     useEffect(() => {
         const handleRefresh = () => {
             console.log('🔄 [EnhancedCalendar] Evento appointments:refresh recebido');
@@ -250,6 +252,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         window.addEventListener('appointments:refresh', handleRefresh);
         return () => window.removeEventListener('appointments:refresh', handleRefresh);
     }, [onRefreshAppointments]);
+    */
 
     // 🔄 ATUALIZA selectedEvent quando appointments mudam e modal está aberto
     useEffect(() => {
@@ -372,6 +375,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         console.log('👤 [Calendar] Patient:', data.patient);
         console.log('👨‍⚕️ [Calendar] Doctor:', data.doctor);
         console.log('🆔 [Calendar] patientId:', data.patient?._id || data.patient?.id, 'doctorId:', data.doctor?._id || data.doctor?.id);
+        console.log('🔍 [Calendar] freshAppointment:', freshAppointment);
+        console.log('🔍 [Calendar] extendedProps.doctor:', extendedProps.doctor);
 
         // 🔧 CORREÇÃO: Usa patientId/doctorId como fallback quando objeto não tem ID
         const patientId = data.patient?._id || data.patient?.id || extendedProps.patientId || '';

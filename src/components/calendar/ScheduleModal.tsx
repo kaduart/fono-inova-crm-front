@@ -32,7 +32,7 @@ const initialDataValues: IAppointment = {
     status: 'agendado',
     notes: '',
     paymentAmount: 0,
-    paymentMethod: 'cartao',
+    paymentMethod: 'credito',
     insuranceGuideId: undefined, // ID da guia selecionada (opcional)
 };
 const ScheduleModal: React.FC<ScheduleModalProps> = ({
@@ -83,7 +83,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
             ...formState,
             date: mergedDate,
             paymentAmount: 200,
-            paymentMethod: 'cartao',
+            paymentMethod: 'credito',
             sessionType: 'fonoaudiologia' as TherapyType,
             // Se insuranceGuideId está presente, incluir no payload
             ...(formState.insuranceGuideId && { insuranceGuideId: formState.insuranceGuideId }),

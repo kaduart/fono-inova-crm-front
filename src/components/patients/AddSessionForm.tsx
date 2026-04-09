@@ -199,10 +199,11 @@ export function AddSessionForm({ onSubmit, onClose, patient, doctors }: AddSessi
                         className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-blue-400 transition-all"
                     >
                         <option value="">Não informado</option>
-                        <option value="cartao">Cartão</option>
                         <option value="dinheiro">Dinheiro</option>
-                        <option value="transferencia">Transferência</option>
                         <option value="pix">PIX</option>
+                        <option value="credito">Cartão de Crédito</option>
+                        <option value="debito">Cartão de Débito</option>
+                        <option value="transferencia">Transferência</option>
                         <option value="boleto">Boleto</option>
                     </select>
                 </div>
