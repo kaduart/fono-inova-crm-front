@@ -48,6 +48,7 @@ import {
     TableRow,
 } from '@mui/material';
 import { useFinancialMetrics } from '../../../hooks/useFinancialMetrics';
+import { useFinancialDashboard } from '../../../hooks/useFinancialDashboard';  // 🆕 NOVO
 import { useExpenses } from '../../../hooks/useExpenses';
 import { useProvisionamento } from '../../../hooks/useProvisionamento';
 import { FinancialLoadingDashboard } from '../components/FinancialLoading';
@@ -79,6 +80,9 @@ const VisaoGeralEstrategicaTab = () => {
     const years = Array.from({ length: 3 }, (_, i) => moment().tz(TIMEZONE).year() - i);
 
     const { data, isLoading, error } = useFinancialMetrics(startDate, endDate);
+    
+    // 🆕 NOVO: Dashboard com dados por especialidade
+    const { data: dashboardData, loading: dashboardLoading, fetchDashboard } = useFinancialDashboard();
 
     const { totals: expenseTotals, loading: expensesLoading, fetchExpenses } = useExpenses();
     const { taxasCartao, fetchTaxasCartao } = useProvisionamento();
@@ -91,6 +95,11 @@ const VisaoGeralEstrategicaTab = () => {
     useEffect(() => {
         fetchExpenses({ startDate, endDate, limit: 1000 });
     }, [startDate, endDate, fetchExpenses]);
+    
+    // 🆕 NOVO: Busca dashboard financeiro com dados por especialidade
+    useEffect(() => {
+        fetchDashboard(selectedMonth + 1, selectedYear, 'month');
+    }, [selectedMonth, selectedYear, fetchDashboard]);
 
     // Métricas calculadas dos dados unificados
     const metrics = useMemo(() => {
@@ -790,6 +799,106 @@ const VisaoGeralEstrategicaTab = () => {
                                     {formatCurrency(metrics.producao / metrics.sessoes)}
                                 </Typography>
                             </Box>
+                        </Box>
+                    )}
+                    
+                    {/* 🆕 SEÇÃO: Performance por Especialidade */}
+                    {dashboardData?.analitico?.porEspecialidade && dashboardData.analitico.porEspecialidade.length > 0 && (
+                        <Box mt={4}>
+                            <Paper elevation={2} sx={{ p: 3, borderRadius: 2 }}>
+                                <Typography variant="h6" fontWeight="bold" mb={3} display="flex" alignItems="center" gap={1}>
+                                    <LocalHospital color="primary" />
+                                    Performance por Especialidade
+                                </Typography>
+                                
+                                <TableContainer>
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow sx={{ backgroundColor: 'grey.100' }}>
+                                                <TableCell sx={{ fontWeight: 'bold' }}>Especialidade</TableCell>
+                                                <TableCell align="center" sx={{ fontWeight: 'bold' }}>Sessões</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Produção</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Ticket Médio</TableCell>
+                                                <TableCell align="center" sx={{ fontWeight: 'bold' }}>Pacientes</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>% do Total</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {dashboardData.analitico.porEspecialidade
+                                                .sort((a, b) => b.producao - a.producao)
+                                                .map((esp, idx) => {
+                                                    const totalProducao = dashboardData.analitico.porEspecialidade.reduce((sum, e) => sum + e.producao, 0);
+                                                    const percentual = totalProducao > 0 ? (esp.producao / totalProducao) * 100 : 0;
+                                                    
+                                                    return (
+                                                        <TableRow key={idx} hover>
+                                                            <TableCell sx={{ textTransform: 'capitalize' }}>
+                                                                {esp.especialidade}
+                                                            </TableCell>
+                                                            <TableCell align="center">
+                                                                <Chip size="small" label={esp.sessoes} color="primary" variant="outlined" />
+                                                            </TableCell>
+                                                            <TableCell align="right" sx={{ fontWeight: 'medium' }}>
+                                                                {formatCurrency(esp.producao)}
+                                                            </TableCell>
+                                                            <TableCell align="right">
+                                                                {formatCurrency(esp.ticketMedio)}
+                                                            </TableCell>
+                                                            <TableCell align="center">
+                                                                {esp.pacientesUnicos}
+                                                            </TableCell>
+                                                            <TableCell align="right">
+                                                                <Box display="flex" alignItems="center" justifyContent="flex-end" gap={1}>
+                                                                    <LinearProgress 
+                                                                        variant="determinate" 
+                                                                        value={percentual}
+                                                                        sx={{ width: 60, height: 6, borderRadius: 3 }}
+                                                                    />
+                                                                    <Typography variant="body2" sx={{ minWidth: 45 }}>
+                                                                        {percentual.toFixed(1)}%
+                                                                    </Typography>
+                                                                </Box>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                                
+                                {/* Resumo */}
+                                <Box mt={3} p={2} bgcolor="primary.light" borderRadius={1}>
+                                    <Grid container spacing={2}>
+                                        <Grid item xs={12} md={4}>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Total de Especialidades
+                                            </Typography>
+                                            <Typography variant="h6" fontWeight="bold">
+                                                {dashboardData.analitico.porEspecialidade.length}
+                                            </Typography>
+                                        </Grid>
+                                        <Grid item xs={12} md={4}>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Total de Sessões
+                                            </Typography>
+                                            <Typography variant="h6" fontWeight="bold">
+                                                {dashboardData.analitico.porEspecialidade.reduce((sum, e) => sum + e.sessoes, 0)}
+                                            </Typography>
+                                        </Grid>
+                                        <Grid item xs={12} md={4}>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Ticket Médio Geral
+                                            </Typography>
+                                            <Typography variant="h6" fontWeight="bold">
+                                                {formatCurrency(
+                                                    dashboardData.analitico.porEspecialidade.reduce((sum, e) => sum + e.producao, 0) /
+                                                    dashboardData.analitico.porEspecialidade.reduce((sum, e) => sum + e.sessoes, 0) || 0
+                                                )}
+                                            </Typography>
+                                        </Grid>
+                                    </Grid>
+                                </Box>
+                            </Paper>
                         </Box>
                     )}
                 </Box>

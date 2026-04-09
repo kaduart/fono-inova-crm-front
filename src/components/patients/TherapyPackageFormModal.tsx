@@ -233,7 +233,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         }
     }, [packageType, realPatientId]);
 
-    // 🔄 Buscar sessões pendentes — só quando especialidade estiver selecionada
+    // 🔄 Buscar DÉBITOS pendentes do balance — só quando especialidade estiver selecionada
     useEffect(() => {
         if (!realPatientId || packageType !== 'therapy' || !formData.sessionType) {
             setPendingSessions([]);
@@ -242,11 +242,25 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         }
         const fetchPending = async () => {
             try {
-                const res = await API.get(`/patients/${realPatientId}/sessions/pending`, {
+                // 🆕 NOVO: Busca no PatientBalance (fonte correta)
+                const res = await API.get(`/patients/${realPatientId}/balance/details`, {
                     params: { specialty: formData.sessionType }
                 });
-                const raw = res.data?.data || res.data || [];
-                const sessions = [...raw].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                const raw = res.data?.data || [];
+                
+                // Adapta formato para compatibilidade com UI existente
+                const debits = raw.map((t: any) => ({
+                    _id: t._id,
+                    date: t.transactionDate,
+                    time: '',  // balance não tem hora
+                    sessionValue: t.amount,
+                    specialty: t.specialty,
+                    doctorName: null,
+                    description: t.description,
+                    appointmentId: t.appointmentId
+                }));
+                
+                const sessions = [...debits].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
                 setPendingSessions(sessions);
                 setSelectedPendingIds(sessions.map((s: any) => s._id));
 
@@ -654,7 +668,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 const therapyData = {
                     ...packageData,
                     patientId: realPatientId,
-                    sessionType: formData.sessionType as any // Type assertion para compatibilidade
+                    sessionType: formData.sessionType as any, // Type assertion para compatibilidade
+                    selectedDebts: selectedPendingIds // 🆕 IDs dos débitos selecionados para quitar
                 };
                 if (initialData?._id) {
                     // Edição
@@ -1025,6 +1040,11 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     <p className="text-xs text-amber-700">
                                         Selecione quais deseja cobrir com este pacote:
                                     </p>
+                                    {selectedPendingIds.length > 0 && (
+                                        <p className="text-xs text-emerald-700 mt-1">
+                                            💡 Os débitos selecionados serão quitados automaticamente ao criar o pacote
+                                        </p>
+                                    )}
                                     <div className="space-y-1">
                                         {pendingSessions.map(s => (
                                             <label key={s._id} className="flex items-center gap-2 cursor-pointer hover:bg-amber-100 rounded px-1 py-0.5">
