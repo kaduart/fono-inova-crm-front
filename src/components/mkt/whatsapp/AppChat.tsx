@@ -80,6 +80,14 @@ const AppChat: React.FC = () => {
         setPendingContactPhone(null);
     }, [pendingContactPhone, contacts, setPendingContactPhone]);
 
+    // 🚀 FORÇAR CARREGAMENTO AO MONTAR: Sempre carrega contatos quando entra no chat
+    useEffect(() => {
+        console.log('[AppChat] 🚀 Componente montado, forçando carregamento de contatos...');
+        if (refreshContacts) {
+            refreshContacts(true); // true = force refresh
+        }
+    }, []); // Executa apenas uma vez ao montar
+
     // 🔔 Atualizar lista de contatos quando chegar mensagem nova via socket
     // 🛡️ DEBOUNCE: Evita múltiplas atualizações rápidas
     useEffect(() => {
@@ -208,7 +216,14 @@ const AppChat: React.FC = () => {
                         <AmandaStatusBadge />
 
                         <Button
-                            onClick={refreshContacts}
+                            onClick={() => {
+                                console.log('[AppChat] Botão Atualizar clicado, refreshContacts:', typeof refreshContacts);
+                                if (refreshContacts) {
+                                    refreshContacts(true);
+                                } else {
+                                    console.error('[AppChat] refreshContacts não está definido!');
+                                }
+                            }}
                             className="bg-emerald-600 hover:bg-emerald-700..."
                         >
                             <RefreshCw size={18} />

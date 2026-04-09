@@ -103,7 +103,11 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
     const shouldLoadContacts = () => {
         const path = window.location.pathname;
         // Só carrega em rotas de chat/whatsapp ou se já estiver com contatos carregados
-        const isWhatsAppRoute = path.includes('/whatsapp') || path.includes('/chat') || path.includes('/atendimento');
+        const isWhatsAppRoute = path.includes('/whatsapp') || 
+                               path.includes('/chat') || 
+                               path.includes('/atendimento') ||
+                               path.includes('/gestao') ||
+                               path.includes('/marketing');
         return isWhatsAppRoute;
     };
 
@@ -115,13 +119,13 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
             return;
         }
         
-        // 🛡️ Só carrega em rotas do WhatsApp (otimização)
-        if (!shouldLoadContacts()) {
-            console.log('[ContactsContext] Fora da rota WhatsApp, skip load');
+        // 🛡️ Só carrega em rotas do WhatsApp (otimização) - MAS ignora se force=true
+        if (!force && !shouldLoadContacts()) {
+            console.log('[ContactsContext] Fora da rota WhatsApp, skip load (use force=true para ignorar)');
             return;
         }
 
-        // 🛡️ Proteção contra chamadas muito frequentes
+        // 🛡️ Proteção contra chamadas muito frequentes (ignora se force=true)
         const now = Date.now();
         if (!force && !isInitialLoadRef.current && (now - lastRefreshRef.current) < MIN_REFRESH_INTERVAL) {
             console.log(`[ContactsContext] Chamada ignorada (muito frequente - última há ${now - lastRefreshRef.current}ms)`);
