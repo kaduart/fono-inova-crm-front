@@ -9,6 +9,7 @@ import { useGmb } from '../../hooks/useGmb';
 import API from '../../services/api';
 import GmbAssistedPublishModal from './GmbAssistedPublishModal';
 import GmbIntelligencePanel from './GmbIntelligencePanel';
+import GmbConversionDashboard from './GmbConversionDashboard';
 
 // Ícones
 const RefreshIcon = () => (
@@ -91,6 +92,7 @@ const GmbDashboard = () => {
   const [selectedEspecialidade, setSelectedEspecialidade] = useState<string>('');
   const [customTheme, setCustomTheme] = useState<string>('');
   const [selectedType, setSelectedType] = useState<string>('daily');
+  const [activeTab, setActiveTab] = useState<'posts' | 'inteligencia' | 'conversao'>('posts');
 
   useEffect(() => {
     API.get('/gmb/make/status')
@@ -486,224 +488,286 @@ const GmbDashboard = () => {
         </div>
       )}
 
-      {/* 🧠 Painel de Inteligência */}
-      <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-200">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="text-2xl">🧠</span>
-          <h3 className="text-lg font-bold text-gray-900">Motor Inteligente GMB</h3>
-          <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
-            Analisa agenda, vendas e reviews
-          </span>
-        </div>
-        <GmbIntelligencePanel 
-          onSuggestionAccepted={(post) => {
-            setAssistedModal({ open: true, post });
-            refresh();
-          }}
-        />
-      </div>
-
-      {/* Lista de posts */}
+      {/* 🗂️ Sistema de Abas */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Posts {loading && <span className="text-gray-400 text-sm font-normal">(carregando...)</span>}
-          </h3>
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('posts')}
+            className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'posts'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            Posts
+            <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">
+              {stats?.total || 0}
+            </span>
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('inteligencia')}
+            className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'inteligencia'
+                ? 'border-purple-600 text-purple-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <span className="text-base">🧠</span>
+            Inteligência
+            <span className="px-2 py-0.5 bg-purple-100 text-purple-600 text-xs rounded-full">
+              IA
+            </span>
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('conversao')}
+            className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'conversao'
+                ? 'border-green-600 text-green-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <span className="text-base">🎯</span>
+            Conversão
+            <span className="px-2 py-0.5 bg-green-100 text-green-600 text-xs rounded-full">
+              Métricas
+            </span>
+          </button>
         </div>
 
-        {loading ? (
-          <div className="p-8 space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="animate-pulse flex gap-4">
-                <div className="w-24 h-24 bg-gray-200 rounded-lg" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-gray-200 rounded w-1/4" />
-                  <div className="h-3 bg-gray-200 rounded w-3/4" />
-                  <div className="h-3 bg-gray-200 rounded w-1/2" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : posts.length === 0 && generatingCount === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            <div className="mb-4">
-              <svg className="w-16 h-16 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-            </div>
-            <p className="text-lg font-medium text-gray-900 mb-1">Nenhum post encontrado</p>
-            <p className="text-sm mb-4">Clique em "Gerar Post" para criar o primeiro.</p>
-            <div className="text-xs text-green-600">
-              💚 Tudo gratuito - sem custos de API!
-            </div>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-200">
-            {/* Skeletons de gerações em andamento */}
-            {generatingCount > 0 && [...Array(generatingCount)].map((_, i) => (
-              <div key={`skel-${i}`} className="p-4 bg-green-50/40 animate-pulse">
-                <div className="flex gap-4 items-center">
-                  <div className="w-24 h-24 flex-shrink-0 bg-green-100 rounded-lg flex items-center justify-center">
-                    <div className="w-6 h-6 border-2 border-green-400/40 border-t-green-500 rounded-full animate-spin" />
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 bg-green-400 rounded-full animate-pulse" />
-                      <span className="text-xs font-medium text-green-700">Gerando post + imagem...</span>
-                    </div>
-                    <div className="h-3 bg-green-100 rounded w-3/4" />
-                    <div className="h-3 bg-green-100 rounded w-1/2" />
-                    <div className="h-3 bg-green-100 rounded w-2/3" />
-                  </div>
-                </div>
-              </div>
-            ))}
-            {console.log('[GMB DEBUG] Total posts:', posts.length, 'First post status:', posts[0]?.status) || true}
-            {posts.map((post: any) => (
-              <div key={post._id} className="p-4 hover:bg-gray-50">
-                <div className="flex gap-4">
-                  {/* Thumbnail */}
-                  <div 
-                    className="w-24 h-24 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden cursor-pointer"
-                    onClick={() => handlePreview(post)}
-                  >
-                    {post.mediaUrl ? (
-                      <img src={post.mediaUrl} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400">
-                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                    )}
-                  </div>
+        {/* Conteúdo das Abas */}
+        <div className="p-6">
+          {activeTab === 'posts' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Posts {loading && <span className="text-gray-400 text-sm font-normal">(carregando...)</span>}
+                </h3>
 
-                  {/* Conteúdo */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h4 className="font-medium text-gray-900 truncate">{post.title || 'Sem título'}</h4>
-                        <div className="flex items-center gap-2 mt-1">
-                          <StatusBadge status={post.status} />
-                          <span className="text-xs text-gray-500">
-                            {new Date(post.createdAt).toLocaleDateString('pt-BR')}
-                          </span>
-                          {post.aiModel === 'template-gratuito' && (
-                            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
-                              Gratuito
-                            </span>
-                          )}
+                {loading ? (
+                  <div className="p-8 space-y-4">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="animate-pulse flex gap-4">
+                        <div className="w-24 h-24 bg-gray-200 rounded-lg" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 bg-gray-200 rounded w-1/4" />
+                          <div className="h-3 bg-gray-200 rounded w-3/4" />
+                          <div className="h-3 bg-gray-200 rounded w-1/2" />
                         </div>
                       </div>
-                      
-                      {/* Ações */}
-                      <div className="flex items-center gap-1">
-                        {/* Editar - todos menos falhos/cancelados */}
-                        {(post.status !== 'failed' && post.status !== 'cancelled') && (
-                          <button
-                            onClick={() => handleEdit(post)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                            title="Editar"
-                          >
-                            <EditIcon />
-                          </button>
-                        )}
-
-                        {/* Publicar via Make */}
-                        {(post.status === 'scheduled' || post.status === 'draft') && (
-                          <button
-                            onClick={() => handlePublish(post._id)}
-                            disabled={publishingId === post._id}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                            title={makeStatus?.configured ? 'Enviar ao Make para publicar no Google' : 'Make não configurado'}
-                          >
-                            {publishingId === post._id ? (
-                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            ) : (
-                              <PlayIcon />
-                            )}
-                            {makeStatus?.configured ? 'Publicar via Make' : 'Publicar'}
-                          </button>
-                        )}
-
-                        {/* Republicar - para posts já publicados ou falhos */}
-                        {console.log('[DEBUG GMB] Post:', post._id, 'Status:', post.status, 'Title:', post.title?.substring(0, 30)) || true}
-                        {(post.status === 'published' || post.status === 'failed') && (
-                          <button
-                            onClick={() => handleRepublish(post._id, post.title)}
-                            disabled={republishingId === post._id}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600 disabled:opacity-50"
-                            title="Republicar no Google Meu Negócio"
-                          >
-                            {republishingId === post._id ? (
-                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            ) : (
-                              <RepublishIcon />
-                            )}
-                            Republicar
-                          </button>
-                        )}
-
-                        {/* 🤖 Publicar no Google - modo assistido (status 'ready') */}
-                        {post.status === 'ready' && (
-                          <button
-                            onClick={() => handleOpenAssistedModal(post)}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
-                            title="Abrir assistente de publicação"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                            Publicar no Google
-                          </button>
-                        )}
-                        
-                        {/* Preview - todos os posts */}
-                        <button
-                          onClick={() => handlePreview(post)}
-                          className="px-3 py-1.5 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50"
-                          title="Ver post"
-                        >
-                          Ver
-                        </button>
-
-                        {/* Deletar */}
-                        <button
-                          onClick={() => handleDelete(post._id, post.title)}
-                          disabled={deletingId === post._id}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                          title="Deletar"
-                        >
-                          {deletingId === post._id ? (
-                            <div className="w-4 h-4 border-2 border-red-600/30 border-t-red-600 rounded-full animate-spin" />
-                          ) : (
-                            <TrashIcon />
-                          )}
-                        </button>
-                      </div>
+                    ))}
+                  </div>
+                ) : posts.length === 0 && generatingCount === 0 ? (
+                  <div className="p-8 text-center text-gray-500">
+                    <div className="mb-4">
+                      <svg className="w-16 h-16 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      </svg>
                     </div>
-
-                    <p className="text-sm text-gray-600 mt-2 line-clamp-2">{post.content}</p>
-
-                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                      {post.scheduledAt && (
-                        <span className="flex items-center gap-1">
-                          <ClockIcon />
-                          {new Date(post.scheduledAt).toLocaleString('pt-BR')}
-                        </span>
-                      )}
-                      {post.ctaUrl && (
-                        <span className="truncate max-w-xs">
-                          → {post.ctaUrl.replace('https://www.clinicafonoinova.com.br/', '/')}
-                        </span>
-                      )}
+                    <p className="text-lg font-medium text-gray-900 mb-1">Nenhum post encontrado</p>
+                    <p className="text-sm mb-4">Clique em "Gerar Post" para criar o primeiro.</p>
+                    <div className="text-xs text-green-600">
+                      💚 Tudo gratuito - sem custos de API!
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="divide-y divide-gray-200">
+                    {/* Skeletons de gerações em andamento */}
+                    {generatingCount > 0 && [...Array(generatingCount)].map((_, i) => (
+                      <div key={`skel-${i}`} className="p-4 bg-green-50/40 animate-pulse">
+                        <div className="flex gap-4 items-center">
+                          <div className="w-24 h-24 flex-shrink-0 bg-green-100 rounded-lg flex items-center justify-center">
+                            <div className="w-6 h-6 border-2 border-green-400/40 border-t-green-500 rounded-full animate-spin" />
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <div className="h-3 w-3 bg-green-400 rounded-full animate-pulse" />
+                              <span className="text-xs font-medium text-green-700">Gerando post + imagem...</span>
+                            </div>
+                            <div className="h-3 bg-green-100 rounded w-3/4" />
+                            <div className="h-3 bg-green-100 rounded w-1/2" />
+                            <div className="h-3 bg-green-100 rounded w-2/3" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {console.log('[GMB DEBUG] Total posts:', posts.length, 'First post status:', posts[0]?.status) || true}
+                    {posts.map((post: any) => (
+                      <div key={post._id} className="p-4 hover:bg-gray-50">
+                        <div className="flex gap-4">
+                          {/* Thumbnail */}
+                          <div 
+                            className="w-24 h-24 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden cursor-pointer"
+                            onClick={() => handlePreview(post)}
+                          >
+                            {post.mediaUrl ? (
+                              <img src={post.mediaUrl} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Conteúdo */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <h4 className="font-medium text-gray-900 truncate">{post.title || 'Sem título'}</h4>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <StatusBadge status={post.status} />
+                                  <span className="text-xs text-gray-500">
+                                    {new Date(post.createdAt).toLocaleDateString('pt-BR')}
+                                  </span>
+                                  {post.aiModel === 'template-gratuito' && (
+                                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                                      Gratuito
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {/* Ações */}
+                              <div className="flex items-center gap-1">
+                                {/* Editar - todos menos falhos/cancelados */}
+                                {(post.status !== 'failed' && post.status !== 'cancelled') && (
+                                  <button
+                                    onClick={() => handleEdit(post)}
+                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                                    title="Editar"
+                                  >
+                                    <EditIcon />
+                                  </button>
+                                )}
+
+                                {/* Publicar via Make */}
+                                {(post.status === 'scheduled' || post.status === 'draft') && (
+                                  <button
+                                    onClick={() => handlePublish(post._id)}
+                                    disabled={publishingId === post._id}
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                                    title={makeStatus?.configured ? 'Enviar ao Make para publicar no Google' : 'Make não configurado'}
+                                  >
+                                    {publishingId === post._id ? (
+                                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                      <PlayIcon />
+                                    )}
+                                    {makeStatus?.configured ? 'Publicar via Make' : 'Publicar'}
+                                  </button>
+                                )}
+
+                                {/* Republicar - para posts já publicados ou falhos */}
+                                {console.log('[DEBUG GMB] Post:', post._id, 'Status:', post.status, 'Title:', post.title?.substring(0, 30)) || true}
+                                {(post.status === 'published' || post.status === 'failed') && (
+                                  <button
+                                    onClick={() => handleRepublish(post._id, post.title)}
+                                    disabled={republishingId === post._id}
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600 disabled:opacity-50"
+                                    title="Republicar no Google Meu Negócio"
+                                  >
+                                    {republishingId === post._id ? (
+                                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                      <RepublishIcon />
+                                    )}
+                                    Republicar
+                                  </button>
+                                )}
+
+                                {/* 🤖 Publicar no Google - modo assistido (status 'ready') */}
+                                {post.status === 'ready' && (
+                                  <button
+                                    onClick={() => handleOpenAssistedModal(post)}
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                                    title="Abrir assistente de publicação"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    </svg>
+                                    Publicar no Google
+                                  </button>
+                                )}
+                                
+                                {/* Preview - todos os posts */}
+                                <button
+                                  onClick={() => handlePreview(post)}
+                                  className="px-3 py-1.5 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50"
+                                  title="Ver post"
+                                >
+                                  Ver
+                                </button>
+
+                                {/* Deletar */}
+                                <button
+                                  onClick={() => handleDelete(post._id, post.title)}
+                                  disabled={deletingId === post._id}
+                                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                                  title="Deletar"
+                                >
+                                  {deletingId === post._id ? (
+                                    <div className="w-4 h-4 border-2 border-red-600/30 border-t-red-600 rounded-full animate-spin" />
+                                  ) : (
+                                    <TrashIcon />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+
+                            <p className="text-sm text-gray-600 mt-2 line-clamp-2">{post.content}</p>
+
+                            <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                              {post.scheduledAt && (
+                                <span className="flex items-center gap-1">
+                                  <ClockIcon />
+                                  {new Date(post.scheduledAt).toLocaleString('pt-BR')}
+                                </span>
+                              )}
+                              {post.ctaUrl && (
+                                <span className="truncate max-w-xs">
+                                  → {post.ctaUrl.replace('https://www.clinicafonoinova.com.br/', '/')}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          )}
+
+          {activeTab === 'inteligencia' && (
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-200">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-2xl">🧠</span>
+                <h3 className="text-lg font-bold text-gray-900">Motor Inteligente GMB</h3>
+                <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
+                  Analisa agenda, vendas e reviews
+                </span>
+              </div>
+              <GmbIntelligencePanel 
+                onSuggestionAccepted={(post) => {
+                  setAssistedModal({ open: true, post });
+                  refresh();
+                }}
+              />
+            </div>
+          )}
+
+          {activeTab === 'conversao' && (
+            <GmbConversionDashboard />
+          )}
+        </div>
       </div>
 
       {/* Modal de Preview */}
