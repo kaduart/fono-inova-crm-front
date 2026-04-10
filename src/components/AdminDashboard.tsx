@@ -41,6 +41,7 @@ const AppChat = lazy(() => import('./mkt/whatsapp/AppChat'));
 // Componentes de abas específicas - só carregam quando a aba é aberta
 const ObservabilityDashboard = lazy(() => import('./admin/ObservabilityDashboard'));
 const AmandaMetricsDashboard = lazy(() => import('./admin/AmandaMetricsDashboard'));
+const SystemMonitorDashboard = lazy(() => import('./admin/SystemMonitorDashboard'));
 const ManageDoctors = lazy(() => import('./ManageDoctors/ManageDoctors'));
 const DoctorFormModal = lazy(() => import('./ManageDoctors/DoctorFormModal'));
 const PatientModal = lazy(() => import('./patients/PatientModal').then(m => ({ default: m.PatientModal })));
@@ -969,6 +970,14 @@ export default function AdminDashboard() {
                     <TabErrorBoundary tabName="Amanda AI">
                         <Suspense fallback={<TabSkeleton />}>
                             <AmandaMetricsDashboard />
+                        </Suspense>
+                    </TabErrorBoundary>
+                );
+            case 'Monitor':
+                return (
+                    <TabErrorBoundary tabName="Monitor do Sistema">
+                        <Suspense fallback={<TabSkeleton />}>
+                            <SystemMonitorDashboard />
                         </Suspense>
                     </TabErrorBoundary>
                 );

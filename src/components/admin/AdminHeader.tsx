@@ -50,7 +50,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
         activeTab === "Leads" || activeTab === "Analytics" || activeTab === "SocialMedia" || activeTab === "ROI";
     
     const isSistemaActive =
-        activeTab === "Observability" || activeTab === "AmandaMetrics";
+        activeTab === "Observability" || activeTab === "AmandaMetrics" || activeTab === "Monitor";
 
     const handleLogout = async () => {
         await authLogout();
@@ -258,6 +258,16 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                             <span className="text-xs text-gray-500">Decisões RULE / HYBRID / AI</span>
                                         </div>
                                     </NavDropdownItem>
+                                    <NavDropdownItem
+                                        active={activeTab === "Monitor"}
+                                        onClick={() => handleTabChange("Monitor")}
+                                        icon={<Activity className="h-4 w-4 text-blue-500" />}
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-gray-800">Monitor</span>
+                                            <span className="text-xs text-gray-500">Memória, filas e health</span>
+                                        </div>
+                                    </NavDropdownItem>
                                 </div>
                             )}
                         </div>
@@ -452,6 +462,15 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                     }`}
                             >
                                 <Activity size={18} className="text-orange-400" /> Observabilidade
+                            </button>
+                            <button
+                                onClick={() => handleMobileTabChange("Monitor")}
+                                className={`flex items-center gap-3 w-full px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "Monitor"
+                                        ? "bg-emerald-600 text-white"
+                                        : "text-emerald-100 hover:bg-emerald-700"
+                                    }`}
+                            >
+                                <Activity size={18} className="text-blue-400" /> Monitor
                             </button>
                         </div>
 
