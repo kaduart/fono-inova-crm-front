@@ -1,5 +1,5 @@
 import { Calendar, DollarSign, User, Users, X } from 'lucide-react';
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import DatePicker, { registerLocale } from 'react-datepicker';
 
 import { ptBR } from "date-fns/locale";
@@ -11,6 +11,7 @@ import { INSURANCE_PROVIDERS, getProviderById } from '../../constants/insuranceP
 import { toDateString } from '../../utils/dateUtils';
 import { IDoctor, IPatient, ScheduleAppointment } from '../../utils/types/types';
 import patientService from '../../services/patientService';
+import doctorService from '../../services/doctorService';
 import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
 import { Label } from '../ui/Label';
@@ -71,6 +72,35 @@ const ScheduleAppointmentModal = ({
     // 👇 NOVO: pacientes buscados do backend
     const [searchedPatients, setSearchedPatients] = useState<IPatient[]>([]);
     const [isSearching, setIsSearching] = useState(false);
+
+    // 👇 NOVO: Buscar doutores quando modal abrir (se não vier dos props)
+    const [localDoctors, setLocalDoctors] = useState<IDoctor[]>([]);
+    const [isLoadingDoctors, setIsLoadingDoctors] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            // Se não tem doutores nos props, busca do backend
+            if (!doctors || doctors.length === 0) {
+                setIsLoadingDoctors(true);
+                doctorService.getActiveDoctors()
+                    .then(response => {
+                        const docs = (response?.data?.data?.doctors || 
+                                      response?.data?.data || 
+                                      response?.data || 
+                                      []) as IDoctor[];
+                        setLocalDoctors(docs);
+                    })
+                    .catch(() => toast.error('Erro ao carregar profissionais'))
+                    .finally(() => setIsLoadingDoctors(false));
+            }
+        }
+    }, [isOpen, doctors]);
+
+    // 👇 Combina doutores dos props com os locais (prioriza props)
+    const availableDoctors = useMemo(() => {
+        if (doctors && doctors.length > 0) return doctors;
+        return localDoctors;
+    }, [doctors, localDoctors]);
 
     // 🏥 CONVÊNIO
     const [billingType, setBillingType] = useState<'particular' | 'convenio'>('particular');
@@ -178,10 +208,14 @@ const ScheduleAppointmentModal = ({
     }, [initialData?.patientId, patients]);
 
     // 🆕 Fecha o modal quando o sinal é emitido (após sucesso no agendamento)
+    // ✅ CORREÇÃO: Só fecha quando o sinal MUDA, não quando é > 0 inicialmente
+    const prevCloseSignalRef = useRef(closeModalSignal);
     useEffect(() => {
-        if (closeModalSignal && closeModalSignal > 0 && onClose) {
+        if (closeModalSignal !== prevCloseSignalRef.current && 
+            closeModalSignal && closeModalSignal > 0 && onClose) {
             onClose();
         }
+        prevCloseSignalRef.current = closeModalSignal;
     }, [closeModalSignal, onClose]);
 
     useEffect(() => {
@@ -421,10 +455,13 @@ const ScheduleAppointmentModal = ({
                             name="doctorId"
                             value={formData.doctorId}
                             onChange={handleChange}
-                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            disabled={isLoadingDoctors}
+                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                         >
-                            <option value="">Selecione um profissional</option>
-                            {doctors?.map(doctor => (
+                            <option value="">
+                                {isLoadingDoctors ? 'Carregando...' : 'Selecione um profissional'}
+                            </option>
+                            {availableDoctors.map(doctor => (
                                 <option key={doctor._id} value={doctor._id}>
                                     {doctor.fullName} - {doctor.specialty}
                                 </option>
