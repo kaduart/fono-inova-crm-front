@@ -273,6 +273,8 @@ const DailyCashModal: React.FC<DailyCashModalProps> = ({
                                     <TableHead>
                                         <TableRow sx={{ bgcolor: '#F9FAFB' }}>
                                             <TableCell sx={{ py: 1 }}>Paciente</TableCell>
+                                            <TableCell sx={{ py: 1 }}>Hora</TableCell>
+                                            <TableCell sx={{ py: 1 }}>Serviço</TableCell>
                                             <TableCell sx={{ py: 1 }}>Forma</TableCell>
                                             <TableCell align="right" sx={{ py: 1 }}>Valor</TableCell>
                                         </TableRow>
@@ -280,59 +282,66 @@ const DailyCashModal: React.FC<DailyCashModalProps> = ({
                                     <TableBody>
                                         {data.lista.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={3} align="center" sx={{ py: 3 }}>
+                                                <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
                                                     <Typography variant="body2" color="text.secondary">
                                                         Nenhum pagamento encontrado
                                                     </Typography>
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
-                                            data.lista.map((payment) => {
-                                                const patientName = payment.patientName || payment.patient || 'Paciente';
-                                                const method = payment.method || payment.paymentMethod || '';
-                                                const billingType = (payment.billingType || '').toLowerCase();
-                                                const isConvenio = billingType === 'convenio' || method.toLowerCase().includes('convenio');
-                                                const isPacote = billingType === 'pacote' || billingType === 'package';
+                                            data.lista.map((payment: any) => {
+                                                const isConvenio = payment.tipo === 'Convênio';
+                                                const isPacote = payment.tipo === 'Pacote';
                                                 
                                                 return (
-                                                    <TableRow key={payment._id || payment.id} hover>
+                                                    <TableRow key={payment.id} hover>
                                                         <TableCell>
                                                             <Typography variant="body2" fontWeight="500">
-                                                                {patientName}
+                                                                {payment.paciente}
                                                             </Typography>
-                                                            {payment.notes && (
-                                                                <Typography variant="caption" color="text.secondary">
-                                                                    {payment.notes}
+                                                            {payment.especialidade && payment.especialidade !== '-' && (
+                                                                <Typography variant="caption" color="text.secondary" display="block">
+                                                                    {payment.especialidade}
                                                                 </Typography>
                                                             )}
                                                         </TableCell>
                                                         <TableCell>
-                                                            <Box display="flex" gap={0.5} flexWrap="wrap">
-                                                                <Chip 
-                                                                    label={getMethodLabel(method, billingType)}
-                                                                    size="small"
-                                                                    variant="outlined"
-                                                                    sx={{ fontSize: '0.7rem', height: 24 }}
-                                                                />
+                                                            <Typography variant="body2" color="text.secondary">
+                                                                {payment.hora}
+                                                            </Typography>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Box display="flex" alignItems="center" gap={0.5}>
+                                                                <Typography variant="body2">
+                                                                    {payment.servico}
+                                                                </Typography>
                                                                 {isConvenio && (
                                                                     <Chip 
                                                                         label="Convênio"
                                                                         size="small"
-                                                                        sx={{ fontSize: '0.7rem', height: 24, bgcolor: '#FEF3C7', color: '#D97706' }}
+                                                                        sx={{ fontSize: '0.65rem', height: 20, bgcolor: '#FEF3C7', color: '#D97706' }}
                                                                     />
                                                                 )}
                                                                 {isPacote && (
                                                                     <Chip 
                                                                         label="Pacote"
                                                                         size="small"
-                                                                        sx={{ fontSize: '0.7rem', height: 24, bgcolor: '#EDE9FE', color: '#7C3AED' }}
+                                                                        sx={{ fontSize: '0.65rem', height: 20, bgcolor: '#EDE9FE', color: '#7C3AED' }}
                                                                     />
                                                                 )}
                                                             </Box>
                                                         </TableCell>
+                                                        <TableCell>
+                                                            <Chip 
+                                                                label={payment.metodo}
+                                                                size="small"
+                                                                variant="outlined"
+                                                                sx={{ fontSize: '0.7rem', height: 24 }}
+                                                            />
+                                                        </TableCell>
                                                         <TableCell align="right">
                                                             <Typography variant="body2" fontWeight="bold" color="success.main">
-                                                                {formatCurrency(payment.amount)}
+                                                                {formatCurrency(payment.valor)}
                                                             </Typography>
                                                         </TableCell>
                                                     </TableRow>
