@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import axios from 'axios';
+import API from '../../services/api';
 import {
     Box,
     Card,
@@ -69,7 +69,7 @@ export default function SystemMonitorDashboard() {
 
     const fetchHealth = useCallback(async () => {
         try {
-            const res = await axios.get('/health/full', { timeout: 5000 });
+            const res = await API.get('/health/full', { timeout: 5000 });
             setData(res.data);
             setError(null);
         } catch (err: any) {
@@ -91,11 +91,12 @@ export default function SystemMonitorDashboard() {
         return `${h}h ${m}m`;
     };
 
-    const heapPercentValue = data
+    const heapPercentValue = data?.memory?.heapPercent
         ? parseFloat(data.memory.heapPercent.replace('%', ''))
         : 0;
 
     const getHeapColor = () => {
+        if (!data?.memory) return 'info';
         if (heapPercentValue >= 85) return 'error';
         if (heapPercentValue >= 70) return 'warning';
         return 'success';
@@ -121,7 +122,18 @@ export default function SystemMonitorDashboard() {
         );
     }
 
-    const totalWaiting = Object.values(data.queues).reduce(
+    // 🛡️ Verifica se memory existe (proteção contra dados incompletos)
+    if (!data.memory) {
+        return (
+            <Box sx={{ p: 3 }}>
+                <Alert severity="warning">
+                    Dados do monitor incompletos. Tente recarregar a página.
+                </Alert>
+            </Box>
+        );
+    }
+
+    const totalWaiting = Object.values(data.queues || {}).reduce(
         (sum, q) => sum + (q.waiting || 0),
         0
     );
