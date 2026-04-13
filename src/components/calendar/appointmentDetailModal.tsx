@@ -2,6 +2,7 @@ import { ptBR } from 'date-fns/locale';
 import { Building2, Calendar, CheckCircle, ClipboardCheck, Clock, DollarSign, PencilIcon, Stethoscope, User, X, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+import { safeCompleteAppointment } from '../../utils/appointmentCompleteGuard';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import ReactInputMask from 'react-input-mask';
 import { INSURANCE_PROVIDERS, getProviderById } from '../../constants/insuranceProviders';
@@ -427,23 +428,34 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             });
             return;
         }
-        
+
         setIsCompleting(true);
         setProcessingState({ isProcessing: true, message: 'Finalizando atendimento...' });
         
         try {
-            // Chama o complete com parâmetros extras se for adicionar ao saldo
-            if (addToBalance) {
-                console.log('💰 [Modal] Completando com saldo devedor:', debitAmount);
-                await onCompleteAppointment(event.id, {
-                    addToBalance: true,
-                    balanceAmount: debitAmount,
-                    balanceDescription: debitDescription
-                });
-            } else {
-                // Completa normalmente
-                await onCompleteAppointment(event.id);
-            }
+            // 🛡️ GUARD FINANCEIRO + execução segura
+            const didProceed = safeCompleteAppointment(
+                event?.extendedProps || {},
+                async () => {
+                    if (addToBalance) {
+                        console.log('💰 [Modal] Completando com saldo devedor:', debitAmount);
+                        await onCompleteAppointment(event.id, {
+                            addToBalance: true,
+                            balanceAmount: debitAmount,
+                            balanceDescription: debitDescription
+                        });
+                    } else {
+                        await onCompleteAppointment(event.id);
+                    }
+                },
+                (guard) => {
+                    toast.error(guard.message, { id: `guard-${event.id}`, autoClose: 6000 });
+                    setIsCompleting(false);
+                    setProcessingState({ isProcessing: false, message: '' });
+                }
+            );
+            
+            if (!didProceed) return;
             // ✅ Sucesso: o modal fecha via closeModalSignal do pai
         } catch (err: any) {
             // 🐛 CORREÇÃO: Modal fica aberto quando dá erro
