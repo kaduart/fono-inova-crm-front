@@ -14,8 +14,8 @@ export const NotificationBellSimple: React.FC = () => {
   useEffect(() => {
     fetchNotifications();
     
-    // Atualizar a cada 30s
-    const interval = setInterval(fetchNotifications, 30000);
+    // 🔥 Atualizar a cada 60s (era 30s)
+    const interval = setInterval(fetchNotifications, 60000);
     return () => clearInterval(interval);
   }, []);
 

@@ -20,17 +20,52 @@ import { useState } from 'react';
 import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
 
+// 🔧 Helper para lazy loading com retry em caso de falha de chunk
+const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) => {
+  return lazy(() => {
+    let attempts = 0;
+    
+    const tryLoad = (): Promise<any> => {
+      attempts++;
+      return importFn().catch((error: any) => {
+        const isChunkError = error?.name === 'TypeError' || 
+                           error?.message?.includes('Failed to fetch dynamically imported module') ||
+                           error?.message?.includes('load failed');
+        
+        if (isChunkError) {
+          console.warn(`[FinancialDashboard] Chunk load failed (attempt ${attempts}/${retries})`);
+          
+          if (attempts < retries) {
+            return new Promise((resolve) => {
+              setTimeout(() => {
+                resolve(tryLoad());
+              }, delay * attempts);
+            });
+          }
+          
+          console.error('[FinancialDashboard] Chunk failed after all retries. Reloading page...');
+          window.location.reload();
+          return new Promise(() => {});
+        }
+        
+        throw error;
+      });
+    };
+    
+    return tryLoad();
+  });
+};
+
 // 🚀 LAZY LOAD: Só carrega quando a aba for ativada
-const PaymentPage = lazy(() => import('../../components/financial/PaymentPage'));
-const ExpensesTab = lazy(() => import('./tabs/ExpensesTab'));
-const EntradasSaidasTab = lazy(() => import('./tabs/EntradasSaidasTab'));
-const GoalsTab = lazy(() => import('./tabs/GoalsTab'));
-const InsuranceTab = lazy(() => import('./tabs/InsuranceTab'));
-const PlanningTab = lazy(() => import('./tabs/PlanningTab'));
-const VisaoGeralEstrategicaTab = lazy(() => import('./tabs/VisaoGeralEstrategicaTab'));
-const AnaliseProjecaoTab = lazy(() => import('./tabs/AnaliseProjecaoTab'));
-const DailySummaryCard = lazy(() => import('./components/DailySummaryCard'));
-const CashflowTab = lazy(() => import('./CashflowTab'));
+const PaymentPage = lazyWithRetry(() => import('../../components/financial/PaymentPage'));
+const ExpensesTab = lazyWithRetry(() => import('./tabs/ExpensesTab'));
+const EntradasSaidasTab = lazyWithRetry(() => import('./tabs/EntradasSaidasTab'));
+const GoalsTab = lazyWithRetry(() => import('./tabs/GoalsTab'));
+const InsuranceTab = lazyWithRetry(() => import('./tabs/InsuranceTab'));
+const PlanningTab = lazyWithRetry(() => import('./tabs/PlanningTab'));
+const VisaoGeralEstrategicaTab = lazyWithRetry(() => import('./tabs/VisaoGeralEstrategicaTab'));
+const AnaliseProjecaoTab = lazyWithRetry(() => import('./tabs/AnaliseProjecaoTab'));
+const UnifiedCashflowTab = lazyWithRetry(() => import('./UnifiedCashflowTab'));
 
 // 🔄 Skeleton de loading para tabs
 const TabSkeleton = () => (
@@ -78,11 +113,10 @@ const FinancialDashboard = ({
 
     // Configuração das tabs operacionais
     const operacionalTabs = [
-        { id: 'caixa', label: 'Caixa', icon: <LayoutDashboard size={18} /> },
+        { id: 'caixa-unificado', label: 'Caixa & Fluxo', icon: <LayoutDashboard size={18} /> },  // 🆕 UNIFICADO
         { id: 'pagamentos', label: 'Pagamentos', icon: <DollarSign size={18} /> },  // 🧑‍💼 Secretária
         { id: 'despesas', label: 'Despesas', icon: <Receipt size={18} /> },
         { id: 'convenios', label: 'Convênios', icon: <CreditCard size={18} /> },
-        { id: 'fluxo-caixa', label: 'Fluxo de Caixa', icon: <ArrowLeftRight size={18} /> },  // 🆕 NOVO
         { id: 'metas-v2', label: 'Metas', icon: <TrendingUp size={18} /> },
         { id: 'extrato', label: 'Dashboard', icon: <BarChart3 size={18} /> },  // 📊 Dashboard completo
     ];
@@ -110,10 +144,6 @@ const FinancialDashboard = ({
     // 🎯 Renderiza apenas a aba ativa (lazy loaded)
     const renderOperacionalTab = () => {
         switch (currentTabId) {
-            case 'resumo-dia':
-                return <DailySummaryCard />;
-            case 'caixa':
-                return <DailySummaryCard />;
             case 'metas-v2':
                 return <GoalsTab />;
             case 'pagamentos':
@@ -131,12 +161,12 @@ const FinancialDashboard = ({
                 return <ExpensesTab />;
             case 'convenios':
                 return <InsuranceTab />;
-            case 'fluxo-caixa':
-                return <CashflowTab />;
+            case 'caixa-unificado':
+                return <UnifiedCashflowTab />;
             case 'extrato':
                 return <EntradasSaidasTab />;
             default:
-                return <DailySummaryCard />;
+                return <UnifiedCashflowTab />;
         }
     };
 

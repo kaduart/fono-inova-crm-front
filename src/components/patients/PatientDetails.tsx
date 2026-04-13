@@ -56,7 +56,7 @@ const PatientDetails = ({ patients }: PatientDetailsProps) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetch(`${BASE_URL}/patients/${id}`, {
+        fetch(`${BASE_URL}/v2/patients/${id}`, {
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -66,6 +66,8 @@ const PatientDetails = ({ patients }: PatientDetailsProps) => {
                 if (!res.ok) throw new Error('Falha ao carregar dados');
                 return res.json();
             })
+            // 🔥 V2: Resposta tem estrutura { data: { ...patientData } }
+            .then((response) => response.data?.data || response.data)
             .then((data: IPatient) => {
                 setIPatient(data);
 

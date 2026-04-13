@@ -2,6 +2,45 @@ import { Box, Paper, Skeleton, Typography, useTheme } from '@mui/material';
 import { BarChart3, CalendarPlus } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+
+// 🔧 Helper para lazy loading com retry em caso de falha de chunk
+const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) => {
+  return lazy(() => {
+    let attempts = 0;
+    
+    const tryLoad = (): Promise<any> => {
+      attempts++;
+      return importFn().catch((error: any) => {
+        // Se for erro de chunk não encontrado (atualização de build)
+        const isChunkError = error?.name === 'TypeError' || 
+                           error?.message?.includes('Failed to fetch dynamically imported module') ||
+                           error?.message?.includes('load failed');
+        
+        if (isChunkError) {
+          console.warn(`[AdminDashboard] Chunk load failed (attempt ${attempts}/${retries})`);
+          
+          // Se ainda tem tentativas, aguarda e tenta novamente
+          if (attempts < retries) {
+            return new Promise((resolve) => {
+              setTimeout(() => {
+                resolve(tryLoad());
+              }, delay * attempts); // Backoff exponencial simples
+            });
+          }
+          
+          // Última tentativa falhou - provavelmente novo deploy, recarrega a página
+          console.error('[AdminDashboard] Chunk failed after all retries. Reloading page...');
+          window.location.reload();
+          return new Promise(() => {}); // Nunca resolve, aguarda o reload
+        }
+        
+        throw error;
+      });
+    };
+    
+    return tryLoad();
+  });
+};
 import { FinancialLoading, FinancialLoadingDashboard } from '../pages/Financial/components/FinancialLoading';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -28,27 +67,27 @@ import DashboardContentOptimized from './admin/DashboardContentOptimized';
 import ProfileContent from './admin/ProfileContent';
 
 // 🚀 LAZY LOADING - Todos os componentes pesados só carregam quando necessário
-const FinancialDashboard = lazy(() => import('../pages/Financial/FinancialDashboard'));
+const FinancialDashboard = lazyWithRetry(() => import('../pages/Financial/FinancialDashboard'));
 
-const FollowupPage = lazy(() => import('../pages/FollowupPage'));
-const PreAgendamentosPage = lazy(() => import('../pages/Secretaria/PreAgendamentosPage'));
-const EnhancedCalendar = lazy(() => import('./calendar/EnhancedCalendar'));
-const SiteAnalyticsDashboard = lazy(() => import('./Dashboard/SiteAnalyticsDashboard'));
-const MarketingDashboard = lazy(() => import('./Dashboard/MarketingDashboard'));
-const RevenueTab = lazy(() => import('./Dashboard/RevenueTab'));
-const AppChat = lazy(() => import('./mkt/whatsapp/AppChat'));
+const FollowupPage = lazyWithRetry(() => import('../pages/FollowupPage'));
+const PreAgendamentosPage = lazyWithRetry(() => import('../pages/Secretaria/PreAgendamentosPage'));
+const EnhancedCalendar = lazyWithRetry(() => import('./calendar/EnhancedCalendar'));
+const SiteAnalyticsDashboard = lazyWithRetry(() => import('./Dashboard/SiteAnalyticsDashboard'));
+const MarketingDashboard = lazyWithRetry(() => import('./Dashboard/MarketingDashboard'));
+const RevenueTab = lazyWithRetry(() => import('./Dashboard/RevenueTab'));
+const AppChat = lazyWithRetry(() => import('./mkt/whatsapp/AppChat'));
 
 // Componentes de abas específicas - só carregam quando a aba é aberta
-const ObservabilityDashboard = lazy(() => import('./admin/ObservabilityDashboard'));
-const AmandaMetricsDashboard = lazy(() => import('./admin/AmandaMetricsDashboard'));
-const SystemMonitorDashboard = lazy(() => import('./admin/SystemMonitorDashboard'));
-const ManageDoctors = lazy(() => import('./ManageDoctors/ManageDoctors'));
-const DoctorFormModal = lazy(() => import('./ManageDoctors/DoctorFormModal'));
-const PatientModal = lazy(() => import('./patients/PatientModal').then(m => ({ default: m.PatientModal })));
+const ObservabilityDashboard = lazyWithRetry(() => import('./admin/ObservabilityDashboard'));
+const AmandaMetricsDashboard = lazyWithRetry(() => import('./admin/AmandaMetricsDashboard'));
+const SystemMonitorDashboard = lazyWithRetry(() => import('./admin/SystemMonitorDashboard'));
+const ManageDoctors = lazyWithRetry(() => import('./ManageDoctors/ManageDoctors'));
+const DoctorFormModal = lazyWithRetry(() => import('./ManageDoctors/DoctorFormModal'));
+const PatientModal = lazyWithRetry(() => import('./patients/PatientModal').then(m => ({ default: m.PatientModal })));
 
 // Modais lazy loaded
-const AdvancedPaymentModal = lazy(() => import('./financial/AdvancedPaymentModal').then(m => ({ default: m.AdvancedPaymentModal })));
-const PaymentModal = lazy(() => import('./financial/PaymentModal').then(m => ({ default: m.PaymentModal })));
+const AdvancedPaymentModal = lazyWithRetry(() => import('./financial/AdvancedPaymentModal').then(m => ({ default: m.AdvancedPaymentModal })));
+const PaymentModal = lazyWithRetry(() => import('./financial/PaymentModal').then(m => ({ default: m.PaymentModal })));
 
 // 🎯 Componente de loading para Suspense (padronizado com FinancialDashboard)
 const TabSkeleton = () => (

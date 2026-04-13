@@ -65,7 +65,7 @@ export const NotificationBellWorking: React.FC = () => {
   // Carregar ao montar
   useEffect(() => {
     fetchPreAgendamentos();
-    const interval = setInterval(fetchPreAgendamentos, 30000);
+    const interval = setInterval(fetchPreAgendamentos, 60000); // 🔥 60s em vez de 30s
     return () => clearInterval(interval);
   }, []);
 

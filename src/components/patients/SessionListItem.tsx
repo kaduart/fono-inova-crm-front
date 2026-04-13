@@ -158,15 +158,15 @@ export const SessionListItem = ({
 
             {/* Informações da sessão */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
-                {/* Data e Horário */}
+                {/* 🎯 Data e Horário - Destaque melhorado */}
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 text-sm text-gray-600 bg-white/50 px-3 py-2 rounded-lg border border-gray-200">
+                    <div className="flex items-center gap-2 text-sm bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-200">
                         <CalendarCheck className="w-4 h-4 text-emerald-600" />
                         {isDateValid ? (
                             <>
-                                <span className="font-medium text-gray-900">{formatDateToDMY(dateStr)}</span>
-                                <span className="text-gray-400">•</span>
-                                <span className="text-gray-900">{timeStr}</span>
+                                <span className="font-bold text-emerald-900">{formatDateToDMY(dateStr)}</span>
+                                <span className="text-emerald-400 font-bold">às</span>
+                                <span className="font-bold text-emerald-900">{timeStr}</span>
                             </>
                         ) : (
                             <span className="text-gray-500">Data não informada</span>
@@ -177,7 +177,7 @@ export const SessionListItem = ({
                 {/* Informações adicionais */}
                 <div className="flex flex-wrap gap-2">
                     {/* Falta justificada */}
-                    {session.status === 'canceled' && (
+                    {(session.status === 'canceled' || session.status === 'cancelled') && (
                         <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 text-amber-700 rounded-lg border border-amber-200 text-sm">
                             <FileText className="w-4 h-4" />
                             <span>Falta justificada:</span>
@@ -237,7 +237,10 @@ const getCardStyle = (status: string, isOverdue: boolean, isToday: boolean) => {
         case 'pending': 
             return 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-200 shadow-sm hover:shadow-md';
         case 'canceled': 
+        case 'cancelled': 
             return 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200 shadow-sm hover:shadow-md';
+        case 'unpaid':
+            return 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200 shadow-sm hover:shadow-md';
         default: 
             return 'bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200 shadow-sm hover:shadow-md';
     }
@@ -247,7 +250,11 @@ const getIconBackground = (status: string) => {
     switch (status) {
         case 'completed': return 'bg-emerald-100 text-emerald-600';
         case 'pending': return 'bg-blue-100 text-blue-600';
-        case 'canceled': return 'bg-red-100 text-red-600';
+        case 'canceled': 
+        case 'cancelled': 
+            return 'bg-red-100 text-red-600';
+        case 'unpaid':
+            return 'bg-amber-100 text-amber-600';
         case 'scheduled': return 'bg-cyan-100 text-cyan-600';
         default: return 'bg-gray-100 text-gray-600';
     }
@@ -266,7 +273,10 @@ const getStatusIcon = (status: string, isPaid?: boolean) => {
         case 'pending':
             return <BookOpenText className={iconClass} />;
         case 'canceled':
+        case 'cancelled':
             return <XCircle className={iconClass} />;
+        case 'unpaid':
+            return <Clock4 className={iconClass} />;
         case 'scheduled':
             return <Clock4 className={iconClass} />;
         default:
@@ -280,7 +290,11 @@ const getStatusBarColor = (status: string, isPaid?: boolean) => {
     switch (status) {
         case 'completed': return 'bg-gradient-to-r from-emerald-500 to-green-500';
         case 'pending': return 'bg-gradient-to-r from-blue-500 to-cyan-500';
-        case 'canceled': return 'bg-gradient-to-r from-red-500 to-pink-500';
+        case 'canceled': 
+        case 'cancelled': 
+            return 'bg-gradient-to-r from-red-500 to-pink-500';
+        case 'unpaid':
+            return 'bg-gradient-to-r from-amber-500 to-yellow-500';
         case 'scheduled': return 'bg-gradient-to-r from-cyan-500 to-blue-500';
         default: return 'bg-gradient-to-r from-gray-400 to-gray-500';
     }
@@ -302,6 +316,16 @@ const StatusBadge = ({ status, isPaid }: { status: string, isPaid?: boolean }) =
             icon: <XCircle className="w-4 h-4" />,
             text: 'Cancelada',
             color: 'text-red-700 bg-red-100 border-red-200'
+        },
+        cancelled: {
+            icon: <XCircle className="w-4 h-4" />,
+            text: 'Cancelada',
+            color: 'text-red-700 bg-red-100 border-red-200'
+        },
+        unpaid: {
+            icon: <Clock4 className="w-4 h-4" />,
+            text: 'Pendente',
+            color: 'text-amber-700 bg-amber-100 border-amber-200'
         },
         scheduled: {
             icon: <Clock4 className="w-4 h-4" />,

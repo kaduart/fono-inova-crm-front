@@ -127,11 +127,14 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
                                     onChange={handleChange}
                                 >
                                     <option value="">Selecione paciente</option>
-                                    {patients?.map(pt => (
-                                        <option key={pt._id} value={pt._id}>
-                                            {pt.fullName}
-                                        </option>
-                                    ))}
+                                    {patients?.map(pt => {
+                                        const id = pt.patientId || pt._id;
+                                        return (
+                                            <option key={id} value={id}>
+                                                {pt.fullName}
+                                            </option>
+                                        );
+                                    })}
                                 </Select>
                             </div>
 

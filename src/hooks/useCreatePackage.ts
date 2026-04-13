@@ -9,6 +9,7 @@
 
 import { useState, useCallback } from 'react';
 import { api } from '@/services/api';
+import { packageService } from '@/services/packageService';
 import { useErrorHandler } from './useErrorHandler';
 
 export type PackageType = 'therapy' | 'convenio' | 'liminar';
@@ -22,6 +23,12 @@ interface BasePackageValues {
   sessionValue: number;
   specialty: string;
   sessionType: string;
+  // Campos de planejamento do cuidado (opcionais)
+  selectedSlots?: Array<{date: string, time: string}>;
+  durationMonths?: number;
+  sessionsPerWeek?: number;
+  date?: string;
+  time?: string;
 }
 
 interface TherapyPackageValues extends BasePackageValues {
@@ -48,7 +55,13 @@ export type CreatePackageValues =
   | LiminarPackageValues;
 
 interface UseCreatePackageReturn {
-  create: (values: CreatePackageValues) => Promise<string>;
+  create: (values: CreatePackageValues & {
+    selectedSlots?: Array<{date: string, time: string}>;
+    durationMonths?: number;
+    sessionsPerWeek?: number;
+    date?: string;
+    time?: string;
+  }) => Promise<string>;
   isLoading: boolean;
   error: string | null;
 }
@@ -102,29 +115,57 @@ export const useCreatePackage = (): UseCreatePackageReturn => {
   const [error, setError] = useState<string | null>(null);
   const { handleError } = useErrorHandler();
 
-  const buildPayload = useCallback((values: CreatePackageValues) => {
+  const buildPayload = useCallback((values: CreatePackageValues & { 
+    selectedSlots?: Array<{date: string, time: string}>;
+    durationMonths?: number;
+    sessionsPerWeek?: number;
+    date?: string;
+    time?: string;
+  }) => {
+    // 🔥 V2 PAYLOAD FORMAT: Converte tipos frontend para backend V2
+    // Frontend: therapy | convenio | liminar
+    // Backend V2: package | convenio | liminar
+    
+    // Converte selectedSlots para schedule (formato V2)
+    const schedule = values.selectedSlots?.map(slot => ({
+      date: slot.date,
+      time: slot.time
+    })) || [];
+    
+    // Base com todos os campos clínicos pertinentes ao cuidado
     const base = {
       patientId: values.patientId,
       doctorId: values.doctorId,
       totalSessions: values.totalSessions,
       sessionValue: values.sessionValue,
       specialty: values.specialty,
-      sessionType: values.sessionType,
+      sessionType: values.sessionType, // ✅ Campo clínico necessário
+      // Campos de planejamento do cuidado
+      durationMonths: values.durationMonths || Math.ceil(values.totalSessions / 4),
+      sessionsPerWeek: values.sessionsPerWeek || 1,
+      date: values.date || (schedule[0]?.date),
+      time: values.time || (schedule[0]?.time),
+      schedule, // ✅ V2 espera schedule array
     };
 
     let payload: Record<string, any>;
 
     switch (values.type) {
       case 'therapy':
+        // V2: type='package' + model='per_session'|'prepaid'
+        // Campos de agendamento são importantes para o cuidado
         payload = {
           ...base,
-          type: 'therapy',
+          type: 'package',
+          model: values.paymentType === 'per-session' ? 'per_session' : 'prepaid',
+          // Mantém campos clínicos/operacionais
           paymentType: values.paymentType,
           paymentMethod: values.paymentMethod,
         };
         break;
 
       case 'convenio':
+        // V2: type='convenio' + insuranceGuideId
         payload = {
           ...base,
           type: 'convenio',
@@ -133,6 +174,7 @@ export const useCreatePackage = (): UseCreatePackageReturn => {
         break;
 
       case 'liminar':
+        // V2: type='liminar' + liminarProcessNumber
         payload = {
           ...base,
           type: 'liminar',
@@ -146,16 +188,16 @@ export const useCreatePackage = (): UseCreatePackageReturn => {
         throw new Error(`Tipo de pacote inválido: ${(values as any).type}`);
     }
 
-    // 🔥 ANTI-BUG: Remove paymentType se não for therapy
-    if (payload.type !== 'therapy') {
-      delete payload.paymentType;
-      delete payload.paymentMethod;
-    }
-
     return payload;
   }, []);
 
-  const create = useCallback(async (values: CreatePackageValues): Promise<string> => {
+  const create = useCallback(async (values: CreatePackageValues & {
+    selectedSlots?: Array<{date: string, time: string}>;
+    durationMonths?: number;
+    sessionsPerWeek?: number;
+    date?: string;
+    time?: string;
+  }): Promise<string> => {
     setIsLoading(true);
     setError(null);
 
@@ -168,9 +210,11 @@ export const useCreatePackage = (): UseCreatePackageReturn => {
         totalSessions: payload.totalSessions
       });
 
-      const response = await api.post('/packages', payload);
+      // 🚀 V2: Usa packageService que automaticamente chama /v2/packages
+      const result = await packageService.createPackage(payload);
       
-      const packageId = response.data?.packageId || response.data?.data?.packageId;
+      // V2 retorna DTO com data.packageId ou diretamente packageId
+      const packageId = result?.data?.packageId || result?.packageId;
       
       if (!packageId) {
         throw new Error('Backend não retornou packageId');

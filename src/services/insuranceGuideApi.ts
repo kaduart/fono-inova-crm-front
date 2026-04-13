@@ -73,7 +73,7 @@ export const getGuides = async (
     if (filters?.status) params.append('status', filters.status);
     if (filters?.insurance) params.append('insurance', filters.insurance);
 
-    const response = await API.get(`/insurance-guides?${params.toString()}`);
+    const response = await API.get(`/v2/insurance-guides?${params.toString()}`);
 
     return response.data.data?.guides || [];
   } catch (error: any) {
@@ -86,7 +86,7 @@ export const getGuides = async (
  */
 export const getGuide = async (id: string): Promise<InsuranceGuide> => {
   try {
-    const response = await API.get(`/insurance-guides/${id}`);
+    const response = await API.get(`/v2/insurance-guides/${id}`);
     return response.data.data;
   } catch (error: any) {
     throw new Error(extractErrorMessage(error, 'Erro ao buscar guia'));
@@ -98,7 +98,7 @@ export const getGuide = async (id: string): Promise<InsuranceGuide> => {
  */
 export const createGuide = async (data: CreateGuideData): Promise<InsuranceGuide> => {
   try {
-    const response = await API.post('/insurance-guides', data);
+    const response = await API.post('/v2/insurance-guides', data);
     return response.data.data;
   } catch (error: any) {
     const errorCode = extractErrorCode(error);
@@ -126,7 +126,7 @@ export const updateGuide = async (
   data: UpdateGuideData
 ): Promise<InsuranceGuide> => {
   try {
-    const response = await API.put(`/insurance-guides/${id}`, data);
+    const response = await API.put(`/v2/insurance-guides/${id}`, data);
     return response.data.data;
   } catch (error: any) {
     const errorCode = extractErrorCode(error);
@@ -144,7 +144,7 @@ export const updateGuide = async (
  */
 export const cancelGuide = async (id: string): Promise<void> => {
   try {
-    await API.delete(`/insurance-guides/${id}`);
+    await API.delete(`/v2/insurance-guides/${id}`);
   } catch (error: any) {
     throw new Error(extractErrorMessage(error, 'Erro ao cancelar guia'));
   }
@@ -159,8 +159,8 @@ export const getBalance = async (
 ): Promise<InsuranceGuideBalance> => {
   try {
     const url = specialty
-      ? `/insurance-guides/patient/${patientId}/balance?specialty=${specialty}`
-      : `/insurance-guides/patient/${patientId}/balance`;
+      ? `/v2/insurance-guides/patient/${patientId}/balance?specialty=${specialty}`
+      : `/v2/insurance-guides/patient/${patientId}/balance`;
 
     const response = await API.get(url);
     return response.data.data;

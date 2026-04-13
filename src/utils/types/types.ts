@@ -131,6 +131,12 @@ export interface ITherapyPackage {
     liminarCreditBalance?: number;
     liminarTotalCredit?: number;
     recognizedRevenue?: number;
+    
+    // 🔍 Campos de busca (denormalizados da view)
+    searchFields?: {
+        patientName?: string;
+        doctorName?: string;
+    };
 }
 
 // export Interface da resposta paginada

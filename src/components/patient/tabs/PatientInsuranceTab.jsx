@@ -55,21 +55,43 @@ const PatientInsuranceTab = ({ patientId }) => {
     specialty: selectedSpecialty === 'all' ? undefined : selectedSpecialty
   });
 
-  // Especialidades disponíveis
-  const specialties = useMemo(() => {
-    const unique = [...new Set(guides.map(g => g.specialty))];
-    return unique.sort();
+  // 🎯 FILTRAR GUIAS: 
+  // 1. Não mostrar guias vinculadas a pacotes (status='linked' ou packageId !== null)
+  // 🎯 TODAS as guias disponíveis (sem filtro de especialidade)
+  // Usado para calcular especialidades e contagens nos tabs
+  const allAvailableGuides = useMemo(() => {
+    return guides
+      .filter(g => g.status !== 'linked' && !g.packageId)
+      .map(g => ({
+        ...g,
+        remaining: g.remaining ?? (g.totalSessions - (g.usedSessions || 0)),
+        usedSessions: g.usedSessions || 0
+      }));
   }, [guides]);
 
-  // Agrupamento de guias
+  // Especialidades disponíveis (calculadas a partir de TODAS as guias disponíveis)
+  const specialties = useMemo(() => {
+    const unique = [...new Set(allAvailableGuides.map(g => g.specialty))];
+    return unique.sort();
+  }, [allAvailableGuides]);
+
+  console.log('Guias carregadas:', guides);
+
+  // 🎯 GUIAS FILTRADAS por especialidade selecionada
+  const availableGuides = useMemo(() => {
+    return allAvailableGuides
+      .filter(g => selectedSpecialty === 'all' || g.specialty === selectedSpecialty);
+  }, [allAvailableGuides, selectedSpecialty]);
+
+  // Agrupamento de guias (usando apenas guias disponíveis)
   const groupedGuides = useMemo(() => {
-    const active = guides.filter(g => g.status === 'active' && g.remaining > 0);
-    const exhausted = guides.filter(g => g.status === 'exhausted' || (g.status === 'active' && g.remaining === 0));
-    const expired = guides.filter(g => g.status === 'expired');
-    const cancelled = guides.filter(g => g.status === 'cancelled');
+    const active = availableGuides.filter(g => g.status === 'active' && g.remaining > 0);
+    const exhausted = availableGuides.filter(g => g.status === 'exhausted' || (g.status === 'active' && g.remaining === 0));
+    const expired = availableGuides.filter(g => g.status === 'expired');
+    const cancelled = availableGuides.filter(g => g.status === 'cancelled');
 
     return { active, exhausted, expired, cancelled };
-  }, [guides]);
+  }, [availableGuides]);
 
   // Handlers
   const handleOpenMenu = (event, guide) => {
@@ -83,6 +105,12 @@ const PatientInsuranceTab = ({ patientId }) => {
   };
 
   const handleEdit = () => {
+    // 🎯 Segurança: não permitir editar guias vinculadas a pacotes
+    if (selectedGuide.status === 'linked' || selectedGuide.packageId) {
+      toast.error('Não é possível editar guia vinculada a um pacote');
+      handleCloseMenu();
+      return;
+    }
     if (selectedGuide.usedSessions > 0) {
       toast.error('Não é possível editar guia já utilizada');
       handleCloseMenu();
@@ -95,6 +123,12 @@ const PatientInsuranceTab = ({ patientId }) => {
 
   const handleCancelGuide = async () => {
     if (!selectedGuide) return;
+    // 🎯 Segurança: não permitir cancelar guias vinculadas a pacotes
+    if (selectedGuide.status === 'linked' || selectedGuide.packageId) {
+      toast.error('Não é possível cancelar guia vinculada a um pacote');
+      handleCloseMenu();
+      return;
+    }
     try {
       await cancelGuide(selectedGuide._id);
       toast.success('Guia cancelada com sucesso');
@@ -216,19 +250,30 @@ const PatientInsuranceTab = ({ patientId }) => {
                   py: 0.5,
                   px: 2,
                   color: '#666',
-                  '&.Mui-selected': { color: '#1976d2', fontWeight: 500 }
+                  borderRadius: '6px',
+                  '&.Mui-selected': { 
+                    color: '#fff', 
+                    fontWeight: 600,
+                    backgroundColor: '#1976d2'
+                  }
                 },
-                '& .MuiTabs-indicator': { backgroundColor: '#1976d2' }
+                '& .MuiTabs-indicator': { display: 'none' }
               }}
             >
-              <Tab label="Todas" value="all" />
-              {specialties.map(specialty => (
-                <Tab
-                  key={specialty}
-                  label={specialty.charAt(0).toUpperCase() + specialty.slice(1).replace('-', ' ')}
-                  value={specialty}
-                />
-              ))}
+              <Tab 
+                label={`Todas (${allAvailableGuides.length})`} 
+                value="all" 
+              />
+              {specialties.map(specialty => {
+                const count = allAvailableGuides.filter(g => g.specialty === specialty).length;
+                return (
+                  <Tab
+                    key={specialty}
+                    label={`${specialty.charAt(0).toUpperCase() + specialty.slice(1).replace('-', ' ')} (${count})`}
+                    value={specialty}
+                  />
+                );
+              })}
             </Tabs>
           )}
         </Box>
@@ -291,6 +336,23 @@ const PatientInsuranceTab = ({ patientId }) => {
             </Box>
           </CardContent>
         </Card>
+      )}
+
+      {/* Estado vazio quando filtro não retorna guias */}
+      {availableGuides.length === 0 && (
+        <Box sx={{ 
+          textAlign: 'center', 
+          py: 6,
+          color: 'grey.500'
+        }}>
+          <Typography variant="body1" sx={{ mb: 1 }}>
+            Nenhuma guia encontrada
+            {selectedSpecialty !== 'all' && ` para ${selectedSpecialty}`}
+          </Typography>
+          <Typography variant="body2" color="grey.400">
+            Tente selecionar outra especialidade ou cadastre uma nova guia
+          </Typography>
+        </Box>
       )}
 
       {/* Listas de guias */}
@@ -417,22 +479,27 @@ const GuideSection = ({ title, count, guides, color, onOpenMenu }) => {
 // Componente de card individual (redesenhado com fundo clarinho)
 // ----------------------------------------------------------------------
 const GuideCard = ({ guide, onOpenMenu }) => {
-  const percentage = (guide.remaining / guide.totalSessions) * 100;
+  // 🎯 Garantir que temos remaining calculado
+  const remaining = guide.remaining ?? (guide.totalSessions - (guide.usedSessions || 0));
+  const usedSessions = guide.usedSessions || 0;
+  const percentage = (remaining / guide.totalSessions) * 100;
   const daysUntilExpiration = differenceInDays(parseISO(guide.expiresAt), new Date());
   const isUrgent = daysUntilExpiration <= 7 && daysUntilExpiration >= 0;
   const isExpiringSoon = daysUntilExpiration <= 30 && daysUntilExpiration > 0;
 
   // Cor do status (usada em badges e bordas sutis)
   const statusColor =
+    guide.status === 'linked' ? '#7c4dff' :  // 🎯 Nova cor para guias vinculadas
     guide.status === 'cancelled' ? '#9e9e9e' :
       guide.status === 'expired' ? '#d32f2f' :
-        guide.status === 'exhausted' || guide.remaining === 0 ? '#d32f2f' :
+        guide.status === 'exhausted' || remaining === 0 ? '#d32f2f' :
           percentage <= 20 ? '#ed6c02' : '#2e7d32';
 
   const statusLabel =
+    guide.status === 'linked' ? 'Vinculada a Pacote' :  // 🎯 Novo label
     guide.status === 'cancelled' ? 'Cancelada' :
       guide.status === 'expired' ? 'Expirada' :
-        guide.status === 'exhausted' || guide.remaining === 0 ? 'Esgotada' : 'Ativa';
+        guide.status === 'exhausted' || remaining === 0 ? 'Esgotada' : 'Ativa';
 
   // Formatação amigável
   const specialtyFormatted = guide.specialty
@@ -482,28 +549,36 @@ const GuideCard = ({ guide, onOpenMenu }) => {
           }}
         />
 
-        <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
-          {/* Header com número e menu */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <CardContent sx={{ p: 3, '&:last-child': { pb: 3 }, pt: 4 }}>
+          {/* Header reorganizado: Número + Status + Menu */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+            {/* Número da guia (à esquerda) */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
               <FileText size={18} className="text-gray-400" />
               <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'grey.800' }}>
                 #{guide.number}
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            
+            {/* Status (no meio) */}
+            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
               <Chip
                 label={statusLabel}
                 size="small"
                 sx={{
                   height: '24px',
                   fontSize: '0.7rem',
-                  fontWeight: 500,
-                  backgroundColor: `${statusColor}15`,
+                  fontWeight: 600,
+                  backgroundColor: `${statusColor}20`,
                   color: statusColor,
-                  border: 'none'
+                  border: `1px solid ${statusColor}40`,
+                  borderRadius: '6px'
                 }}
               />
+            </Box>
+            
+            {/* Menu de ações (à direita) */}
+            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
               <IconButton
                 size="small"
                 onClick={(e) => onOpenMenu(e, guide)}
@@ -539,10 +614,10 @@ const GuideCard = ({ guide, onOpenMenu }) => {
                 Sessões
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 600, color: 'grey.800' }}>
-                {guide.remaining} / {guide.totalSessions}
+                {remaining} / {guide.totalSessions}
               </Typography>
               <Typography variant="caption" sx={{ color: 'grey.500', fontSize: '0.65rem' }}>
-                {guide.usedSessions} usadas
+                {usedSessions} usadas
               </Typography>
             </Box>
             <Box sx={{ p: 1.5, bgcolor: 'grey.50', borderRadius: 2 }}>
@@ -615,12 +690,12 @@ const GuideCard = ({ guide, onOpenMenu }) => {
             </Box>
           )}
 
-          {/* Badge de "Nova" se não utilizada */}
-          {guide.usedSessions === 0 && guide.status === 'active' && (
+          {/* Badge de "Nova" se não utilizada - posicionado à esquerda para não sobrepor menu */}
+          {usedSessions === 0 && guide.status === 'active' && (
             <Box sx={{
               position: 'absolute',
               top: 12,
-              right: 12,
+              left: 12,
               bgcolor: '#e3f2fd',
               color: '#1976d2',
               px: 1,
@@ -629,7 +704,8 @@ const GuideCard = ({ guide, onOpenMenu }) => {
               fontSize: '0.6rem',
               fontWeight: 600,
               border: '1px solid',
-              borderColor: '#1976d2'
+              borderColor: '#1976d2',
+              zIndex: 1
             }}>
               ✨ Nova
             </Box>

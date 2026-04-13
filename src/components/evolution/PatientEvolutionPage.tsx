@@ -20,8 +20,9 @@ const PatientEvolutionPage = ({ patientId, patients }) => {
         const fetchPatientData = async () => {
             try {
                 setIsLoading(true);
-                const response = await API.get(`/patients/${patientId}`);
-                setPatient(response.data);
+                const response = await API.get(`/v2/patients/${patientId}`);
+                // 🔥 V2: Resposta tem estrutura { data: { ...patientData } }
+                setPatient(response.data?.data || response.data);
                 setIsLoading(false);
             } catch (error) {
                 console.error('Erro ao carregar dados do paciente:', error);

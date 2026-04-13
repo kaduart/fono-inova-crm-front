@@ -155,7 +155,7 @@ const ObservabilityDashboard = () => {
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 30000);
+        const interval = setInterval(fetchData, 120000); // 🔥 2min em vez de 30s
         return () => clearInterval(interval);
     }, [fetchData]);
 

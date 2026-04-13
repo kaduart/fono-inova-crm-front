@@ -4,6 +4,10 @@ import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./index.css";
 import App from "./App";
+import { interceptApiCalls } from "./utils/payloadDebugger";
+
+// 🔥 ATIVA DEBUGGER DE PAYLOAD V2
+interceptApiCalls();
 
 import { AuthProvider } from "./contexts/AuthContext";
 import { ContactsProvider } from "./contexts/ContactsContext";

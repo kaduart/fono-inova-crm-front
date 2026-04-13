@@ -39,7 +39,7 @@ export default function AvailabilityPage() {
 
             setLoading(true);
             try {
-                const response = await axios.get(`${BASE_URL}/appointments/available-slots`, {
+                const response = await axios.get(`${BASE_URL}/v2/appointments/available-slots`, {
                     params: {
                         doctorId: selectedDoctor,
                         date: selectedDate.format('YYYY-MM-DD'),

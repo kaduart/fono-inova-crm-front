@@ -10,6 +10,7 @@ import {
 } from '../utils/types/types';
 import API from './api';
 import { extractErrorMessage } from '../utils/errorUtils';
+import { debugPayload } from '../utils/payloadDebugger';
 
 export type CreatePackageParams = {
   patientId: string;
@@ -105,18 +106,118 @@ export type UseSessionParams = {
 };
 
 /**
- * Flag para controlar uso de V2 (event-driven)
- * true = usa /api/v2/packages (CQRS + Event Sourcing)
- * false = usa /packages (legado)
+ * Helper para extrair dados do DTO V2
  */
-const USE_V2 = false;
+const extractV2Data = <T>(response: any): T => {
+  const dto = response.data;
+  // DTO V2: extrai data quando presente
+  if (dto?.meta?.version === 'v2' && dto.success) {
+    return dto.data as T;
+  }
+  return dto as T;
+};
+
+/**
+ * 🔥 Sanitiza payload para V2 - mantém apenas campos válidos
+ * Preserva dados clínicos/operacionais importantes para o cuidado
+ */
+const sanitizeV2Payload = (data: any): any => {
+  // Campos válidos para V2 (incluindo campos clínicos do legado)
+  const validFields = [
+    // Identificação
+    'patientId',
+    'doctorId',
+    // Campos clínicos
+    'specialty',
+    'sessionType',
+    'totalSessions',
+    'sessionValue',
+    'totalValue',
+    // Tipo e modelo V2
+    'type',           // package | convenio | liminar | insurance | legal
+    'model',          // per_session | prepaid (para package)
+    // Agendamento (importante para o cuidado)
+    'date',
+    'time',
+    'schedule',       // Array de {date, time}
+    'durationMonths',
+    'sessionsPerWeek',
+    'calculationMode',
+    'selectedSlots',
+    // Financeiro
+    'paymentType',
+    'paymentMethod',
+    'payments',
+    'modality',       // presencial | online
+    // Convênio
+    'insuranceGuideId',
+    // Liminar
+    'liminarProcessNumber',
+    'liminarCourt',
+    'liminarTotalCredit',
+    // Opcional
+    'notes',
+    'startDate',
+    'endDate',
+    'idempotencyKey',
+  ];
+  
+  const sanitized: any = {};
+  for (const field of validFields) {
+    if (data[field] !== undefined) {
+      sanitized[field] = data[field];
+    }
+  }
+  
+  // Garante campos obrigatórios padrão
+  if (!sanitized.name && sanitized.type) {
+    sanitized.name = `Pacote ${sanitized.type}`;
+  }
+  if (!sanitized.modality) {
+    sanitized.modality = 'presencial';
+  }
+  
+  return sanitized;
+};
 
 export const packageService = {
+  // 🔥 LOCK V2 MODE: Todas as operações usam /api/v2/packages
+  
   // Operações com Pacotes
-  createPackage: async (data: CreatePackageParams) => {
+  createPackage: async (data: CreatePackageParams & { type?: string; paymentType?: string }) => {
     try {
-      const endpoint = USE_V2 ? '/v2/packages' : '/packages';
-      const response = await API.post<ITherapyPackage>(endpoint, data);
+      // 🔥 DEBUG: Loga payload original
+      debugPayload('createPackage INPUT', data);
+      
+      // 🔥 MAPEAMENTO V2: Converte tipo frontend para backend V2
+      // Frontend: therapy | convenio | liminar
+      // Backend V2: package | convenio | liminar
+      let v2Payload: any = { ...data };
+      
+      if (data.type === 'therapy') {
+        v2Payload = {
+          ...v2Payload,
+          type: 'package',
+          model: data.paymentType === 'per-session' ? 'per_session' : 'prepaid',
+        };
+      } else if (data.type === 'convenio') {
+        v2Payload = {
+          ...v2Payload,
+          type: 'convenio',
+        };
+      } else if (data.type === 'liminar') {
+        v2Payload = {
+          ...v2Payload,
+          type: 'liminar',
+        };
+      }
+      
+      // Sanitiza payload para remover campos legado
+      const sanitized = sanitizeV2Payload(v2Payload);
+      debugPayload('createPackage OUTPUT (sanitized)', sanitized);
+      
+      const response = await API.post<ITherapyPackage>('/v2/packages', sanitized);
+      // Retorna DTO completo para hook extrair packageId
       return response.data;
     } catch (error) {
       console.error('Erro na requisição:', error.config?.data);
@@ -127,7 +228,11 @@ export const packageService = {
   // Criar pacote de convênio
   createConvenioPackage: async (data: CreateConvenioPackageParams) => {
     try {
-      const response = await API.post<any>('/convenio-packages', data);
+      const response = await API.post<any>('/v2/packages', {
+        ...data,
+        type: 'convenio',
+        billingType: 'convenio'
+      });
       return response.data;
     } catch (error) {
       console.error('Erro ao criar pacote de convênio:', error.config?.data);
@@ -136,26 +241,40 @@ export const packageService = {
   },
 
   getPackage: async (id: string) => {
-    const endpoint = USE_V2 ? `/v2/packages/${id}` : `/packages/${id}`;
-    return API.get<ITherapyPackage>(endpoint);
+    const response = await API.get<ITherapyPackage>(`/v2/packages/${id}`);
+    return extractV2Data(response);
   },
 
-  updatePackage: async (id: string, data: UpdatePackageParams) => {
-    const endpoint = USE_V2 ? `/v2/packages/${id}` : `/packages/${id}`;
-    // V2 usa PUT (event-driven), V1 usa PATCH
-    return USE_V2 
-      ? API.put<ITherapyPackage>(endpoint, data)
-      : API.patch<ITherapyPackage>(endpoint, data);
+  updatePackage: async (id: string, data: UpdatePackageParams & { type?: string; paymentType?: string }) => {
+    // 🔥 MAPEAMENTO V2 para update
+    let v2Payload: any = { ...data };
+    
+    if (data.type === 'therapy') {
+      v2Payload = {
+        ...v2Payload,
+        type: 'package',
+        model: data.paymentType === 'per-session' ? 'per_session' : 'prepaid',
+      };
+    } else if (data.type === 'convenio') {
+      v2Payload.type = 'convenio';
+    } else if (data.type === 'liminar') {
+      v2Payload.type = 'liminar';
+    }
+    
+    const sanitized = sanitizeV2Payload(v2Payload);
+    const response = await API.put<ITherapyPackage>(`/v2/packages/${id}`, sanitized);
+    return extractV2Data(response);
   },
 
   deletePackage: async (id: string) => {
-    const endpoint = USE_V2 ? `/v2/packages/${id}` : `/packages/${id}`;
-    return API.delete<{ message: string }>(endpoint);
+    const response = await API.delete<{ message: string }>(`/v2/packages/${id}`);
+    return extractV2Data(response);
   },
 
   listPackages: async (params: PaginationParams & { patientId: string }) => {
-    const endpoint = USE_V2 ? '/v2/packages' : '/packages';
-    return API.get<IPaginatedPackageResponse>(endpoint, {
+    console.log('[packageService] listPackages chamado:', params);
+    
+    const response = await API.get<IPaginatedPackageResponse>('/v2/packages', {
       params: {
         page: params.page || 1,
         limit: params.limit || 10,
@@ -166,11 +285,19 @@ export const packageService = {
         patientId: params.patientId
       }
     });
+    
+    console.log('[packageService] listPackages response:', response.data);
+    
+    const data = extractV2Data(response);
+    console.log('[packageService] listPackages extracted:', data);
+    
+    return data;
   },
 
   // Operações com Pagamentos
   createPayment: async (packageId: string, data: CreatePaymentParams) => {
-    return API.post<IPayment>(`/packages/${packageId}/payments`, data);
+    const response = await API.post<IPayment>(`/v2/packages/${packageId}/payments`, data);
+    return extractV2Data(response);
   },
 
   // Operações Especiais
@@ -180,59 +307,67 @@ export const packageService = {
     startDate?: Date;
     endDate?: Date;
   }) => {
-    return API.get<ITherapyPackage[]>('/packages/search', {
+    const response = await API.get<ITherapyPackage[]>('/v2/packages/search', {
       params: {
         ...filters,
         startDate: filters.startDate?.toISOString(),
         endDate: filters.endDate?.toISOString()
       }
     });
+    return extractV2Data(response);
   },
 
   getPackageSessions: async (packageId: string) => {
-    return API.get<ISession[]>(`/packages/${packageId}/sessions`);
+    const response = await API.get<ISession[]>(`/v2/packages/${packageId}/sessions`);
+    return extractV2Data(response);
   },
 
   getPackagePayments: async (packageId: string) => {
-    return API.get<IPayment[]>(`/packages/${packageId}/payments`);
+    const response = await API.get<IPayment[]>(`/v2/packages/${packageId}/payments`);
+    return extractV2Data(response);
   },
 
   // Operações com Sessões
   createSession: async (packageId: string, data: CreateSessionParams) => {
-    return API.post<ISession>(`/packages/${packageId}/sessions`, data);
+    const response = await API.post<ISession>(`/v2/packages/${packageId}/sessions`, data);
+    return extractV2Data(response);
   },
 
   updateSession: async (packageId: string, data: ISession) => {
     if (data.status !== 'canceled') {
       data.confirmedAbsence = null;
     }
-    return API.put<ISession>(`/packages/${packageId}/sessions/${data.sessionId}`, data);
+    const response = await API.put<ISession>(`/v2/packages/${packageId}/sessions/${data.sessionId}`, data);
+    return extractV2Data(response);
   },
 
   addSession: async (packageId: string, sessionData: any) => {
-    const response = await API.post(`/packages/${packageId}/add-session`, sessionData);
-    return response.data;
+    const response = await API.post(`/v2/packages/${packageId}/sessions`, sessionData);
+    return extractV2Data(response);
   },
 
   // Operação para "usar" uma sessão e atualizar pagamento
   useSession: async (packageId: string, data: UseSessionParams) => {
-    return API.patch<ISession>(`/packages/${packageId}/use-session`, data);
+    const response = await API.patch<ISession>(`/v2/packages/${packageId}/use-session`, data);
+    return extractV2Data(response);
   },
 
   // 🔄 Cancelamento em massa de sessões (com lista específica)
   bulkCancelSessions: async (packageId: string, sessionIds: string[], confirmedAbsence: boolean = false) => {
-    return API.post<{ success: boolean; message: string; canceledCount: number }>(
-      `/packages/${packageId}/sessions/bulk-cancel`,
+    const response = await API.post<{ success: boolean; message: string; canceledCount: number }>(
+      `/v2/packages/${packageId}/sessions/bulk-cancel`,
       { sessionIds, confirmedAbsence }
     );
+    return extractV2Data(response);
   },
 
   // 🚀 Cancelar TODAS as sessões do pacote (mais simples, mais rápido)
   cancelAllSessions: async (packageId: string, confirmedAbsence: boolean = false) => {
-    return API.post<{ success: boolean; message: string; canceledCount: number }>(
-      `/packages/${packageId}/cancel-all-sessions`,
+    const response = await API.post<{ success: boolean; message: string; canceledCount: number }>(
+      `/v2/packages/${packageId}/cancel-all-sessions`,
       { confirmedAbsence }
     );
+    return extractV2Data(response);
   },
 }
 

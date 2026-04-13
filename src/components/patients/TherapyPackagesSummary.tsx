@@ -2,7 +2,8 @@ import { Info, Package, Plus, ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { useAppointmentsContext } from '../../contexts/AppointmentsContext';
-import packagesService, { packageService, UseSessionParams, validatePayment } from '../../services/packageService';
+import { packageService, UseSessionParams, validatePayment } from '../../services/packageService';
+// 🚫 LEGADO BLOQUEADO: packagesService foi removido. Use packageService (V2)
 import { IDoctors, IPatient, ITherapyPackage } from '../../utils/types/types';
 import TherapyPackageCard from './TherapyPackageCard';
 import TherapyPackageDetails from './TherapyPackageDetails';
@@ -49,14 +50,15 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                 patientId: realPatientId,
             };
 
-            const res = await packagesService.listPackages(params);
+            const res = await packageService.listPackages(params);
 
-            const responseData = res?.data || {};
+            // 🔥 V2: O service já extrai o DTO, então 'res' já é o data
+            const responseData = res || {};
             const packageData = (
                 Array.isArray(responseData)
                     ? responseData
-                    : Array.isArray(responseData.data)
-                        ? responseData.data
+                    : Array.isArray(responseData.packages)
+                        ? responseData.packages  // ✅ V2: packages está em responseData.packages
                         : responseData.data?.packages || []
             ).filter(pkg => pkg);
 

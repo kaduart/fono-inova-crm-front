@@ -120,8 +120,9 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
             try {
                 setLoading(true);
                 setError(null);
-                const response = await API.get(`/patients/${actualPatientId}`);
-                setPatient(response.data);
+                const response = await API.get(`/v2/patients/${actualPatientId}`);
+                // 🔥 V2: Resposta tem estrutura { data: { ...patientData } }
+                setPatient(response.data?.data || response.data);
             } catch (error) {
                 console.error('Erro ao buscar paciente:', error);
                 setError('Erro ao carregar dados do paciente');

@@ -872,7 +872,7 @@ export default function PatientDashboard() {
           {activeTab === 'Dashboard' && renderDashboard()}
           {activeTab === 'Appointment Booking' && renderAppointmentBooking()}
           {activeTab === 'Management Packages' && renderManagePackages()}
-          {activeTab === 'Insurance Guides' && patientId && <PatientInsuranceTab patientId={patientId} />}
+          {activeTab === 'Insurance Guides' && (patientInfo?.patientId || patientId) && <PatientInsuranceTab patientId={patientInfo?.patientId || patientId} />}
           {activeTab === 'Evolution' && renderEvolution()}
         </div>
       </main>

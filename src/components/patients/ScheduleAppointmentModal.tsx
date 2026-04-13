@@ -418,7 +418,7 @@ const ScheduleAppointmentModal = ({
 
                         {/* Dropdown dinâmico */}
                         {patientSearch.length > 0 && filteredPatients.length > 0 && (
-                            <ul className="absolute z-50 w-full mt-1 max-h-56 overflow-auto bg-white border border-gray-300 rounded-lg shadow-md">
+                            <ul className="absolute z-10 w-full mt-1 max-h-40 overflow-auto bg-white border border-gray-300 rounded-lg shadow-md">
                                 {filteredPatients.map((patient, index) => (
                                     <li
                                         key={patient._id || `${patient.fullName}-${index}`}
@@ -437,7 +437,7 @@ const ScheduleAppointmentModal = ({
                         )}
 
                         {patientSearch.length > 0 && filteredPatients.length === 0 && (
-                            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-md px-3 py-2 text-sm text-gray-500">
+                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-md px-3 py-2 text-sm text-gray-500">
                                 {isSearching 
                                     ? 'Buscando...' 
                                     : patientSearch.length < 2 

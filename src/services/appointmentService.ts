@@ -271,7 +271,7 @@ export const appointmentService = {
 
     // Consultas
     getAvailableSlots: async (payload: AvailableSlotsParams) => {
-        return API.get<any>(`/appointments/available-slots?doctorId=${payload.doctorId}&date=${payload.date}`);
+        return API.get<any>(`/v2/appointments/available-slots?doctorId=${payload.doctorId}&date=${payload.date}`);
     },
 
     getDoctorSchedule: async (doctorId: string, date: Date) => {

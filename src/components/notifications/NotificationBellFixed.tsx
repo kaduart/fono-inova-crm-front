@@ -77,9 +77,10 @@ export const NotificationBellFixed: React.FC = () => {
     setLoading(false);
   };
 
+  // 🔥 OTIMIZAÇÃO: Aumentar intervalo de 30s para 60s (já tem socket pra atualização em tempo real)
   useEffect(() => {
     fetchPreAgendamentos();
-    const interval = setInterval(fetchPreAgendamentos, 30000);
+    const interval = setInterval(fetchPreAgendamentos, 60000); // 60s em vez de 30s
     return () => clearInterval(interval);
   }, []);
 

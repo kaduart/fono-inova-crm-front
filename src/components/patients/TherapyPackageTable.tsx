@@ -44,6 +44,8 @@ export default function TherapyPackageTable({ packages, currentPage, totalPages,
             <table className="min-w-full table-auto bg-white rounded-lg shadow-md text-sm">
                 <thead className="bg-gray-200 text-gray-600">
                     <tr>
+                        {/* 🎯 Nova coluna: Paciente */}
+                        <th className="p-3 text-left font-semibold">Paciente</th>
                         <th className="p-3 text-left font-semibold">Profissional</th>
                         <th className="p-3 text-left font-semibold">Especialidade</th>
                         <th className="p-3 text-center font-semibold">Sessões</th>
@@ -59,7 +61,9 @@ export default function TherapyPackageTable({ packages, currentPage, totalPages,
                 <tbody className="text-gray-700">
                     {packages.map((pkg) => {
                         const doctor = (pkg as any).doctor;
-                        const doctorName = doctor?.fullName || '—';
+                        const doctorName = doctor?.fullName || pkg.searchFields?.doctorName || '—';
+                        // 🎯 Nome do paciente (searchFields como fallback)
+                        const patientName = pkg.searchFields?.patientName || '—';
                         const firstSession = (pkg.sessions as any[]).find(s => s?.date);
                         const financialStatus = (pkg as any).financialStatus || (
                             pkg.balance <= 0 ? 'paid' :
@@ -69,7 +73,9 @@ export default function TherapyPackageTable({ packages, currentPage, totalPages,
 
                         return (
                             <tr key={pkg._id} className="border-t border-gray-200 hover:bg-gray-50 transition-colors">
-                                <td className="p-3 font-medium">{doctorName}</td>
+                                {/* 🎯 Nome do paciente */}
+                                <td className="p-3 font-medium text-emerald-900">{patientName}</td>
+                                <td className="p-3">{doctorName}</td>
                                 <td className="p-3 capitalize">{pkg.sessionType}</td>
                                 <td className="p-3 text-center">
                                     <span className={`font-semibold ${pkg.sessionsDone >= pkg.totalSessions ? 'text-green-600' : 'text-blue-600'}`}>

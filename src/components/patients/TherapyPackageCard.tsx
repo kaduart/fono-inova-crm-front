@@ -93,7 +93,7 @@ export default function TherapyPackageCard({
   };
 
   // 🔥 NOVO: Funções para seleção de sessões
-  const scheduledSessions = pack.sessions?.filter(s => s.status === 'scheduled') || [];
+  const scheduledSessions = pack.sessions?.filter(s => s.status === 'scheduled' || s.status === 'unpaid') || [];
   
   const toggleSessionSelection = (sessionId: string) => {
     setSelectedSessionIds(prev => {
@@ -208,6 +208,12 @@ export default function TherapyPackageCard({
         color: 'bg-red-50 text-red-700 border-red-200',
         label: 'Cancelado',
         icon: Sprout
+      },
+      cancelled: {
+        // mantém contraste diferente para erro, mas ainda “puxando” verde no texto
+        color: 'bg-red-50 text-red-700 border-red-200',
+        label: 'Cancelado',
+        icon: Sprout
       }
     };
 
@@ -251,7 +257,10 @@ export default function TherapyPackageCard({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-gray-900">{patient.fullName}</h3>
+                {/* 🎯 Usa searchFields.patientName como fallback se patient.fullName não estiver disponível */}
+                <h3 className="font-semibold text-gray-900">
+                  {patient?.fullName || pack.searchFields?.patientName || 'Paciente não identificado'}
+                </h3>
                 {pack.type === 'convenio' && (
                   <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
                     CONVÊNIO
@@ -263,7 +272,11 @@ export default function TherapyPackageCard({
                   </span>
                 )}
               </div>
-              <p className="text-sm text-gray-500 capitalize">{pack.sessionType?.toLowerCase()}</p>
+              {/* 🎯 Mostra o nome do profissional também (searchFields.doctorName) */}
+              <p className="text-sm text-gray-500">
+                {pack.searchFields?.doctorName || 'Profissional não identificado'} • {' '}
+                <span className="capitalize">{pack.sessionType?.toLowerCase()}</span>
+              </p>
               {pack.type === 'convenio' && pack.insuranceProvider && (
                 <p className="text-xs text-blue-600 font-medium mt-1">
                   {pack.insuranceProvider.replace(/-/g, ' ').toUpperCase()}
@@ -378,8 +391,17 @@ export default function TherapyPackageCard({
                 {new Intl.NumberFormat('pt-BR', {
                   style: 'currency',
                   currency: 'BRL'
-                }).format(pack.totalPaid)}
+                }).format(pack.totalValue || 0)}
               </div>
+              {/* 🎯 Mostrar Valor Pago se houver */}
+              {(pack.totalPaid || 0) > 0 && (
+                <div className="text-xs text-emerald-600 mt-1">
+                  Pago: {new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
+                  }).format(pack.totalPaid)}
+                </div>
+              )}
             </div>
           )}
 
@@ -670,7 +692,7 @@ export default function TherapyPackageCard({
                   // 🔥 NOVO: Props de seleção (só para agendadas)
                   isSelected={selectedSessionIds.has(session._id)}
                   onToggleSelect={() => toggleSessionSelection(session._id)}
-                  canSelect={session.status === 'scheduled'}
+                  canSelect={session.status === 'scheduled' || session.status === 'unpaid'}
                 />
               ))}
           </div>

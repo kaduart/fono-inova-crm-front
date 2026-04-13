@@ -29,7 +29,11 @@ import {
     Server,
     Clock,
     HardDrive,
-    Layers
+    Layers,
+    Package,
+    TrendingUp,
+    TrendingDown,
+    Zap
 } from 'lucide-react';
 
 interface QueueCounts {
@@ -38,6 +42,23 @@ interface QueueCounts {
     completed?: number;
     failed?: number;
     delayed?: number;
+}
+
+interface PackageV2Metrics {
+    status: string;
+    summary?: {
+        totalRequests: number;
+        avgResponseTime: number;
+        avgTransactionTime: number;
+        successRate: number;
+        grade: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'SLOW';
+    };
+    vsLegacy?: {
+        improvement: string;
+        faster: boolean;
+    };
+    message?: string;
+    error?: string;
 }
 
 interface HealthData {
@@ -56,11 +77,12 @@ interface HealthData {
         status: 'healthy' | 'warning' | 'critical';
     };
     queues: Record<string, QueueCounts>;
+    packageV2?: PackageV2Metrics;
     env: string;
     timestamp: string;
 }
 
-const REFRESH_INTERVAL = 10_000; // 10s
+const REFRESH_INTERVAL = 60_000; // 🔥 60s em vez de 10s
 
 export default function SystemMonitorDashboard() {
     const [data, setData] = useState<HealthData | null>(null);
@@ -227,6 +249,68 @@ export default function SystemMonitorDashboard() {
                             <Typography variant="caption" color="textSecondary">
                                 Memória residente do processo
                             </Typography>
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                {/* 📦 Package V2 Metrics */}
+                <Grid item xs={12} md={3}>
+                    <Card sx={{ 
+                        bgcolor: data.packageV2?.summary?.grade === 'EXCELLENT' ? '#e8f5e9' : 
+                                 data.packageV2?.summary?.grade === 'GOOD' ? '#e3f2fd' :
+                                 data.packageV2?.summary?.grade === 'FAIR' ? '#fff3e0' : 
+                                 data.packageV2?.summary?.grade === 'SLOW' ? '#ffebee' : 'inherit'
+                    }}>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                                <Package size={20} className="text-blue-500" />
+                                <Typography color="textSecondary">
+                                    Package V2
+                                </Typography>
+                            </Box>
+                            
+                            {data.packageV2?.summary ? (
+                                <>
+                                    <Typography variant="h4" fontWeight="bold">
+                                        {data.packageV2.summary.avgResponseTime}ms
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                                        {data.packageV2.summary.grade === 'EXCELLENT' && <Zap size={14} className="text-green-600" />}
+                                        {data.packageV2.summary.grade === 'GOOD' && <TrendingUp size={14} className="text-blue-600" />}
+                                        {data.packageV2.summary.grade === 'SLOW' && <TrendingDown size={14} className="text-red-600" />}
+                                        <Typography 
+                                            variant="caption" 
+                                            color={
+                                                data.packageV2.summary.grade === 'EXCELLENT' ? 'success.main' :
+                                                data.packageV2.summary.grade === 'GOOD' ? 'primary.main' :
+                                                data.packageV2.summary.grade === 'FAIR' ? 'warning.main' :
+                                                'error.main'
+                                            }
+                                            fontWeight="bold"
+                                        >
+                                            {data.packageV2.summary.grade}
+                                        </Typography>
+                                    </Box>
+                                    {data.packageV2.vsLegacy?.faster && (
+                                        <Typography variant="caption" color="success.main" sx={{ display: 'block', mt: 0.5 }}>
+                                            {data.packageV2.vsLegacy.improvement} vs legado
+                                        </Typography>
+                                    )}
+                                </>
+                            ) : data.packageV2?.status === 'no_data' ? (
+                                <>
+                                    <Typography variant="h6" color="textSecondary">
+                                        Sem dados
+                                    </Typography>
+                                    <Typography variant="caption" color="textSecondary">
+                                        Execute criações de package
+                                    </Typography>
+                                </>
+                            ) : (
+                                <Typography variant="caption" color="textSecondary">
+                                    Métricas não disponíveis
+                                </Typography>
+                            )}
                         </CardContent>
                     </Card>
                 </Grid>

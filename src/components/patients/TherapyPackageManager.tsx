@@ -1,6 +1,7 @@
 import { Package as PackageIcon, Plus, Filter, Search, Users, Calendar, DollarSign, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
-import packagesService from '../../services/packageService';
+import { packageService } from '../../services/packageService';
+// 🚫 LEGADO BLOQUEADO: packagesService removido. Use packageService (V2)
 import { IDoctor, IPatient, ITherapyPackage } from '../../utils/types/types';
 import TherapyPackageFormModal from './TherapyPackageFormModal';
 import TherapyPackageTable from './TherapyPackageTable';
@@ -32,7 +33,7 @@ export default function TherapyPackageManager({ packages, patient, doctors, tota
         setLoading(true);
 
         try {
-            await packagesService.deletePackage(id);
+            await packageService.deletePackage(id);
             onRefresh();
         } catch (err) {
             console.error('Erro ao excluir:', err);

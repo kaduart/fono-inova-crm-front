@@ -237,8 +237,8 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
     const unsubNotification = socketManager.on('notification:new', handleNewNotification);
     const unsubPreAgendamento = socketManager.on('preagendamento:new', handlePreAgendamentoRealtime);
 
-    // Polling suave para manter badge atualizado (a cada 30s)
-    const interval = setInterval(fetchUnreadCount, 30000);
+    // 🔥 Polling suave para manter badge atualizado (a cada 60s, era 30s)
+    const interval = setInterval(fetchUnreadCount, 60000);
 
     return () => {
       unsubNotification();

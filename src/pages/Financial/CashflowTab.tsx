@@ -1,20 +1,24 @@
-import { Alert, Box, Card, CardContent, Chip, Grid, MenuItem, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, Divider, Avatar } from '@mui/material';
+import { Alert, Box, Card, CardContent, Chip, Grid, MenuItem, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, Divider, Avatar, LinearProgress, Tabs, Tab, Badge } from '@mui/material';
 import { FinancialLoading } from './components/FinancialLoading';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useEffect, useState } from 'react';
-import { CashflowSummary, cashflowService } from '../../services/cashflowService';
+import { CashflowSummary, cashflowService, CashflowV2Response } from '../../services/cashflowService';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import ReceiptIcon from '@mui/icons-material/Receipt';
+import WarningIcon from '@mui/icons-material/Warning';
+import PhoneIcon from '@mui/icons-material/Phone';
 
 const CashflowTab = () => {
     const [summary, setSummary] = useState<CashflowSummary | null>(null);
+    const [dailyCashflow, setDailyCashflow] = useState<CashflowV2Response | null>(null);
     const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState(0);
     const [filters, setFilters] = useState({
-        period: 'month', // mudar pra month como padrão já que temos dados do mês
+        period: 'day', // Padrão é 'day' para usar o novo endpoint V2
         date: new Date().toISOString().split('T')[0],
         month: new Date().getMonth() + 1,
         year: new Date().getFullYear()
@@ -27,14 +31,21 @@ const CashflowTab = () => {
     const loadData = async () => {
         setLoading(true);
         try {
-            const params = filters.period === 'day'
-                ? { period: 'day', date: filters.date }
-                : { period: 'month', month: filters.month, year: filters.year };
-
-            const res = await cashflowService.getSummary(params);
-            setSummary(res.data);
+            if (filters.period === 'day') {
+                // 🆕 NOVO: Usa endpoint V2 para caixa diário
+                const res = await cashflowService.getDailyCashflow(filters.date);
+                setDailyCashflow(res.data);
+                setSummary(null);
+            } else {
+                // Usa endpoint antigo para períodos maiores
+                const params = { period: 'month', month: filters.month, year: filters.year };
+                const res = await cashflowService.getSummary(params);
+                setSummary(res.data);
+                setDailyCashflow(null);
+            }
         } catch (error) {
             console.error('Erro ao carregar dados:', error);
+            setDailyCashflow(null);
             setSummary(null);
         } finally {
             setLoading(false);
@@ -137,6 +148,9 @@ const CashflowTab = () => {
 
             {loading ? (
                 <FinancialLoading cardCount={4} />
+            ) : dailyCashflow ? (
+                // 🆕 NOVO: Visualização do Caixa Diário V2
+                <DailyCashflowView data={dailyCashflow.data} formatCurrency={formatCurrency} />
             ) : summary ? (
                 <>
                     {/* Cards Financeiros - Redesenhados com dados reais da API */}
@@ -414,6 +428,252 @@ const CashflowTab = () => {
                 </>
             ) : (
                 <FinancialLoading cardCount={4} />
+            )}
+        </Box>
+    );
+};
+
+// 🆕 NOVO: Componente para visualização do Caixa Diário V2
+interface DailyCashflowViewProps {
+    data: CashflowV2Response['data'];
+    formatCurrency: (value: number) => string;
+}
+
+const DailyCashflowView = ({ data, formatCurrency }: DailyCashflowViewProps) => {
+    const [activeTab, setActiveTab] = useState(0);
+
+    const caixa = data.caixa;
+    const producao = data.producao;
+    const comparativos = data.comparativos;
+    const pendentes = data.pendentesCobranca || [];
+
+    return (
+        <Box>
+            {/* Cards Principais */}
+            <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ mb: 3 }}>
+                {/* Caixa Total */}
+                <Grid item xs={12} sm={6} md={3}>
+                    <Card elevation={0} sx={{ border: '1px solid', borderColor: '#16A34A30', borderRadius: 2, bgcolor: '#16A34A08' }}>
+                        <CardContent>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                💰 Caixa do Dia
+                            </Typography>
+                            <Typography variant="h4" fontWeight="bold" color="#16A34A">
+                                {formatCurrency(caixa.total)}
+                            </Typography>
+                            <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                {caixa.pix > 0 && <Chip size="small" label={`Pix: ${formatCurrency(caixa.pix)}`} color="success" variant="outlined" />}
+                                {caixa.cartao > 0 && <Chip size="small" label={`Card: ${formatCurrency(caixa.cartao)}`} color="primary" variant="outlined" />}
+                                {caixa.dinheiro > 0 && <Chip size="small" label={`Din: ${formatCurrency(caixa.dinheiro)}`} color="warning" variant="outlined" />}
+                            </Box>
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                {/* Produção */}
+                <Grid item xs={12} sm={6} md={3}>
+                    <Card elevation={0} sx={{ border: '1px solid', borderColor: '#3B82F630', borderRadius: 2, bgcolor: '#3B82F608' }}>
+                        <CardContent>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                📊 Produção Total
+                            </Typography>
+                            <Typography variant="h4" fontWeight="bold" color="#3B82F6">
+                                {formatCurrency(producao.total)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                {producao.quantidadeAtendimentos} atendimentos • Ticket médio: {formatCurrency(producao.ticketMedio)}
+                            </Typography>
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                {/* A Receber */}
+                <Grid item xs={12} sm={6} md={3}>
+                    <Card elevation={0} sx={{ border: '1px solid', borderColor: '#F59E0B30', borderRadius: 2, bgcolor: '#F59E0B08' }}>
+                        <CardContent>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                ⏳ A Receber
+                            </Typography>
+                            <Typography variant="h4" fontWeight="bold" color="#F59E0B">
+                                {formatCurrency(producao.aReceber)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                Taxa de eficiência: {producao.taxaEficiencia}%
+                            </Typography>
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                {/* Comparativo */}
+                <Grid item xs={12} sm={6} md={3}>
+                    <Card elevation={0} sx={{ border: '1px solid', borderColor: comparativos.variacaoVsOntem >= 0 ? '#16A34A30' : '#DC262630', borderRadius: 2, bgcolor: comparativos.variacaoVsOntem >= 0 ? '#16A34A08' : '#DC262608' }}>
+                        <CardContent>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                📈 vs Ontem
+                            </Typography>
+                            <Typography variant="h4" fontWeight="bold" color={comparativos.variacaoVsOntem >= 0 ? '#16A34A' : '#DC2626'}>
+                                {comparativos.variacaoVsOntem >= 0 ? '+' : ''}{comparativos.variacaoVsOntem}%
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                Ontem: {formatCurrency(comparativos.ontem)} • Média: {formatCurrency(comparativos.mediaDiariaMes)}
+                            </Typography>
+                        </CardContent>
+                    </Card>
+                </Grid>
+            </Grid>
+
+            {/* Tabs para navegação */}
+            <Paper sx={{ mb: 2 }}>
+                <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} variant="scrollable">
+                    <Tab label="Transações" />
+                    <Tab label={pendentes.length > 0 ? `Pendentes (${pendentes.length})` : 'Pendentes'} />
+                    <Tab label="Por Especialidade" />
+                    <Tab label="Projeção Mensal" />
+                </Tabs>
+            </Paper>
+
+            {/* Tab 0: Transações */}
+            {activeTab === 0 && (
+                <Paper sx={{ p: 2 }}>
+                    <Typography variant="h6" gutterBottom>💳 Transações do Dia</Typography>
+                    <Table size="small">
+                        <TableHead>
+                            <TableRow>
+                                <TableCell>Hora</TableCell>
+                                <TableCell>Paciente</TableCell>
+                                <TableCell>Serviço</TableCell>
+                                <TableCell>Método</TableCell>
+                                <TableCell align="right">Valor</TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {data.transacoes?.map((t) => (
+                                <TableRow key={t.id}>
+                                    <TableCell>{t.hora}</TableCell>
+                                    <TableCell>{t.paciente}</TableCell>
+                                    <TableCell>
+                                        <Chip size="small" label={t.servico} variant="outlined" />
+                                    </TableCell>
+                                    <TableCell>{t.metodo}</TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 'bold', color: '#16A34A' }}>
+                                        {formatCurrency(t.valor)}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                            {!data.transacoes?.length && (
+                                <TableRow>
+                                    <TableCell colSpan={5} align="center">Nenhuma transação hoje</TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </Paper>
+            )}
+
+            {/* Tab 1: Pendentes */}
+            {activeTab === 1 && (
+                <Paper sx={{ p: 2 }}>
+                    <Typography variant="h6" gutterBottom>
+                        ⚠️ Pendentes de Cobrança ({pendentes.length})
+                    </Typography>
+                    {pendentes.length > 0 ? (
+                        <Table size="small">
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell>Horário</TableCell>
+                                    <TableCell>Paciente</TableCell>
+                                    <TableCell>Telefone</TableCell>
+                                    <TableCell>Profissional</TableCell>
+                                    <TableCell align="right">Valor</TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {pendentes.map((p) => (
+                                    <TableRow key={p.id}>
+                                        <TableCell>{p.horario}</TableCell>
+                                        <TableCell>{p.paciente}</TableCell>
+                                        <TableCell>
+                                            {p.telefone !== '-' && (
+                                                <Chip 
+                                                    size="small" 
+                                                    icon={<PhoneIcon fontSize="small" />}
+                                                    label={p.telefone} 
+                                                    variant="outlined"
+                                                    onClick={() => window.open(`https://wa.me/55${p.telefone?.replace(/\D/g, '')}`, '_blank')}
+                                                />
+                                            )}
+                                        </TableCell>
+                                        <TableCell>{p.professional}</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 'bold', color: '#F59E0B' }}>
+                                            {formatCurrency(p.valor)}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    ) : (
+                        <Alert severity="success">🎉 Nenhum pagamento pendente hoje!</Alert>
+                    )}
+                </Paper>
+            )}
+
+            {/* Tab 2: Por Especialidade */}
+            {activeTab === 2 && (
+                <Paper sx={{ p: 2 }}>
+                    <Typography variant="h6" gutterBottom>🏥 Produção por Especialidade</Typography>
+                    <Grid container spacing={2}>
+                        {producao.porEspecialidade?.map((esp) => (
+                            <Grid item xs={12} sm={6} md={4} key={esp.nome}>
+                                <Card variant="outlined">
+                                    <CardContent>
+                                        <Typography variant="subtitle1" fontWeight="bold">{esp.nome}</Typography>
+                                        <Typography variant="h5" color="primary">{formatCurrency(esp.total)}</Typography>
+                                        <Box sx={{ mt: 1 }}>
+                                            <Typography variant="caption" display="block">
+                                                {esp.quantidade} atendimentos • Ticket: {formatCurrency(Number(esp.ticketMedio))}
+                                            </Typography>
+                                            <LinearProgress 
+                                                variant="determinate" 
+                                                value={(esp.recebido / esp.total) * 100} 
+                                                sx={{ mt: 1 }}
+                                            />
+                                            <Typography variant="caption" color="text.secondary">
+                                                {formatCurrency(esp.recebido)} recebido • {formatCurrency(esp.pendente)} pendente
+                                            </Typography>
+                                        </Box>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        ))}
+                    </Grid>
+                </Paper>
+            )}
+
+            {/* Tab 3: Projeção */}
+            {activeTab === 3 && (
+                <Paper sx={{ p: 2 }}>
+                    <Typography variant="h6" gutterBottom>📊 Projeção Mensal</Typography>
+                    <Grid container spacing={3}>
+                        <Grid item xs={12} sm={6}>
+                            <Card>
+                                <CardContent>
+                                    <Typography color="text.secondary">Total Acumulado (até hoje)</Typography>
+                                    <Typography variant="h4">{formatCurrency(comparativos.totalAcumuladoMes)}</Typography>
+                                    <Typography variant="caption">Dia {comparativos.diasDecorridos} do mês</Typography>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                            <Card>
+                                <CardContent>
+                                    <Typography color="text.secondary">Projeção para o Mês</Typography>
+                                    <Typography variant="h4">{formatCurrency(comparativos.projecaoMes)}</Typography>
+                                    <Typography variant="caption">Baseado na média diária</Typography>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    </Grid>
+                </Paper>
             )}
         </Box>
     );

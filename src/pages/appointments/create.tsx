@@ -26,11 +26,13 @@ const CreateAppointmentPage: React.FC = () => {
             try {
                 const [specialtiesRes, patientsRes] = await Promise.all([
                     API.get<Specialty[]>('/specialties'),
-                    API.get<any[]>('/patients')
+                    API.get<any[]>('/v2/patients?limit=1000')  // 🔥 V2: Lista de pacientes
                 ]);
 
                 setSpecialties(specialtiesRes.data);
-                setPatients(patientsRes.data);
+                // 🔥 V2: Resposta tem estrutura diferente { data: { patients: [...] } }
+                const patientsData = patientsRes.data?.data?.patients || patientsRes.data || [];
+                setPatients(patientsData);
                 setLoading(false);
             } catch (error) {
                 console.error('Erro ao carregar dados:', error);

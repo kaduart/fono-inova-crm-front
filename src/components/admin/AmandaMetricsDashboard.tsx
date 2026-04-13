@@ -124,7 +124,7 @@ const AmandaMetricsDashboard = () => {
 
   useEffect(() => {
     fetchMetrics();
-    const interval = setInterval(fetchMetrics, 30_000); // auto-refresh 30s
+    const interval = setInterval(fetchMetrics, 120_000); // 🔥 2min em vez de 30s
     return () => clearInterval(interval);
   }, [fetchMetrics]);
 

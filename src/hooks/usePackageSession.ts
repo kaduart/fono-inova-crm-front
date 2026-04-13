@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import API from '../services/api';
+import { packageService } from '../services/packageService';
 import { invalidateCache } from '../utils/cacheManager';
 import { extractErrorMessage } from '../utils/errorUtils';
 
@@ -30,34 +31,36 @@ const useTherapyPackage = () => {
 
   return {
     loading,
+    // 🚀 V2: Usa packageService em vez de chamar API direto
     createPackage: (data: any) => 
       withTransaction(
-        () => API.post('/therapy-packages', data), 
+        () => packageService.createPackage(data), 
         'Pacote criado',
         ['dashboard', 'patients']
       ),
+    // 🚀 V2: Usa packageService
     addPayment: (packageId: string, payment: any) =>
       withTransaction(
-        () => API.post(`/therapy-packages/${packageId}/payments`, payment), 
+        () => packageService.createPayment(packageId, payment), 
         'Pagamento registrado',
         ['dashboard', 'patients']
       ),
     generateReport: () =>
       withTransaction(
-        () => API.get('/therapy-packages/reports/financial'), 
+        () => API.get('/v2/packages/reports/financial'), 
         'Relatório gerado'
       ),
-    // 🚀 Nova função para atualizar package
+    // 🚀 V2: Usa packageService
     updatePackage: (packageId: string, data: any) =>
       withTransaction(
-        () => API.patch(`/therapy-packages/${packageId}`, data),
+        () => packageService.updatePackage(packageId, data),
         'Pacote atualizado',
         ['dashboard', 'patients']
       ),
-    // 🚀 Nova função para deletar package
+    // 🚀 V2: Usa packageService
     deletePackage: (packageId: string) =>
       withTransaction(
-        () => API.delete(`/therapy-packages/${packageId}`),
+        () => packageService.deletePackage(packageId),
         'Pacote removido',
         ['dashboard', 'patients']
       )

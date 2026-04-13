@@ -88,6 +88,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     // ⚖️ Estados para pacotes liminar
     const [liminarProcessNumber, setLiminarProcessNumber] = useState('');
     const [liminarCourt, setLiminarCourt] = useState('');
+    const [liminarTotalCredit, setLiminarTotalCredit] = useState(0);
     const [availableGuides, setAvailableGuides] = useState<InsuranceGuide[]>([]);
     const [selectedGuide, setSelectedGuide] = useState<string>('');
     const [loadingGuides, setLoadingGuides] = useState(false);
@@ -154,6 +155,9 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             const sessionValue = Number(formData.sessionValue);
             if (!sessionValue || sessionValue < 0.01) {
                 baseErrors.sessionValue = "Valor por sessão deve ser maior que zero";
+            }
+            if (!liminarTotalCredit || liminarTotalCredit < 0.01) {
+                baseErrors.liminarTotalCredit = "Valor total do crédito é obrigatório";
             }
         }
 
@@ -575,6 +579,12 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             // ============================================================
             // 🔹 Monta o payload final
             // ============================================================
+            // 🔄 Converte selectedSlots para schedule (formato V2)
+            const schedule = unique.map((slot: {date: string, time: string}) => ({
+                date: slot.date,
+                time: slot.time
+            }));
+            
             const packageData = {
                 patientId: realPatientId,
                 doctorId: formData.doctorId,
@@ -596,7 +606,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 date: formData.date,
                 time: formData.time,
                 calculationMode,
-                selectedSlots: unique, // ✅ datas reais geradas
+                schedule, // ✅ V2: envia schedule em vez de selectedSlots
                 pendingSessionIds: selectedPendingIds, // 🔄 sessões pendentes a absorver
                 // 🔥 Só envia pagamentos se NÃO for per-session
                 payments: formData.paymentType === 'per-session'
@@ -652,7 +662,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     type: 'liminar',
                     liminarProcessNumber: liminarProcessNumber || undefined,
                     liminarCourt: liminarCourt || undefined,
-                    liminarMode: 'hybrid'
+                    liminarMode: 'hybrid',
+                    liminarTotalCredit: liminarTotalCredit || (formData.totalSessions * formData.sessionValue)
                 };
 
                 console.log("📤 Enviando pacote liminar:", liminarData);
@@ -667,6 +678,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 // Fluxo normal (therapy)
                 const therapyData = {
                     ...packageData,
+                    type: 'therapy', // 🔥 IMPORTANTE: Define o tipo para o hook useCreatePackage
                     patientId: realPatientId,
                     sessionType: formData.sessionType as any, // Type assertion para compatibilidade
                     selectedDebts: selectedPendingIds // 🆕 IDs dos débitos selecionados para quitar
@@ -814,6 +826,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             formData.doctorId &&
             formData.sessionType &&
             formData.sessionValue > 0 &&
+            liminarTotalCredit > 0 &&
             formData.date &&
             formData.time &&
             (calculationMode === 'sessions'
@@ -1018,6 +1031,22 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                 placeholder="Ex: 1ª Vara Cível de Anápolis"
                                                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                                             />
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Valor Total do Crédito (R$) *
+                                            </label>
+                                            <InputCurrency
+                                                value={liminarTotalCredit}
+                                                onChange={(e) => setLiminarTotalCredit(Number(e.target.value) || 0)}
+                                                min="0"
+                                                step="0.01"
+                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                                            />
+                                            <p className="text-xs text-amber-600 mt-2">
+                                                💡 Valor total liberado pela liminar judicial. Será consumido à medida que as sessões forem realizadas.
+                                            </p>
                                         </div>
                                     </div>
                                     
