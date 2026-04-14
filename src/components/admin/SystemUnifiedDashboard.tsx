@@ -1,14 +1,11 @@
 /**
  * SystemUnifiedDashboard
  *
- * Une Monitor + Observability em uma única aba "Sistema".
- * - Infraestrutura (Redis, Mongo, memória, filas)
- * - Eventos & Alertas (dead letters, recentes, reprocessar)
- * - Diagnóstico de fluxo (correlationId)
+ * Layout profissional unificado: Score → Alertas → Infra/Filas/Domínios → Eventos → DLQ → Diagnóstico
+ * Hierarquia visual forte, leitura de cima para baixo, ação direta.
  */
 
-import { useState, useCallback, useEffect } from 'react';
-import axios from 'axios';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import API from '../../services/api';
 import { toast } from 'react-toastify';
 import { useSystemHealthCtx } from '../../contexts/SystemHealthContext';
@@ -16,16 +13,17 @@ import { extractErrorMessage } from '../../utils/errorUtils';
 import type { DomainHealth } from '../../utils/systemHealthResolver';
 import {
     Box, Card, CardContent, Grid, Typography, Chip, Alert, Skeleton,
-    Button, Divider, Tooltip, Tabs, Tab, TextField, LinearProgress,
+    Button, Divider, Tooltip, TextField, LinearProgress,
     Dialog, DialogTitle, DialogContent, Stepper, Step, StepLabel, StepContent,
     Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
     CircularProgress,
 } from '@mui/material';
 import {
-    Activity, Server, Clock, HardDrive, Layers, Database, Wifi,
+    Activity, Server, Clock, Layers, Database, Wifi,
     ExternalLink, AlertTriangle, CheckCircle2, XCircle, RefreshCw,
     Search, Zap, RotateCcw, Check,
 } from 'lucide-react';
+import { Tabs, Tab } from '@mui/material';
 
 // ─── Tipos locais ─────────────────────────────────────────────────────────────
 
@@ -54,8 +52,18 @@ interface EventFlow {
     timeline: Array<{
         id: string; eventId: string; eventType: string; status: string;
         aggregateType: string; timestamp: string;
-        processingTime: number | null; errorInfo?: any;
+        processingTime: number | null; errorInfo?: { errorMessage?: string; stack?: string; [k: string]: unknown };
     }>;
+}
+
+interface DeadLetterItem {
+    eventId: string;
+    eventType: string;
+    aggregateType: string;
+    attempts: number;
+    createdAt: string;
+    error?: { message?: string; code?: string; stackPreview?: string | null } | null;
+    metadata?: { source?: string | null; correlationId?: string | null };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -87,7 +95,7 @@ function scoreColor(score: number): string {
 
 function statusLabel(status: string) {
     if (status === 'healthy') return { text: 'Saudável', color: 'success' as const };
-    if (status === 'degraded') return { text: 'Degradado', color: 'warning' as const };
+    if (status === 'degraded' || status === 'warning') return { text: 'Atenção', color: 'warning' as const };
     if (status === 'critical') return { text: 'Crítico', color: 'error' as const };
     return { text: 'Desconhecido', color: 'default' as const };
 }
@@ -110,44 +118,611 @@ function eventStatusColor(s: string): 'success' | 'error' | 'warning' | 'default
     return 'default';
 }
 
-const DOMAIN_LABELS: Record<string, string> = {
-    payment: '💳 Financeiro', appointment: '📅 Agendamentos',
-    session: '🩺 Sessões', patient: '👤 Pacientes',
-    lead: '📊 Leads', followup: '📩 Follow-up',
-    notification: '🔔 Notificações', package: '📦 Pacotes',
-    expense: '🧾 Despesas', balance: '💰 Saldo',
-    system: '⚙️ Sistema',
-};
+interface ScoreItem { label: string; delta: number; emoji: string; }
+
+function buildScoreBreakdown(
+    health: ReturnType<typeof useSystemHealthCtx>['health'],
+    rawMetrics: ReturnType<typeof useSystemHealthCtx>['rawMetrics'],
+    domains: ReturnType<typeof useSystemHealthCtx>['rawDomains']
+): ScoreItem[] {
+    if (!health || !rawMetrics) return [];
+    const items: ScoreItem[] = [];
+    const memStatus = health.infra.memory.status;
+    if (memStatus === 'critical') items.push({ label: 'Memória crítica', delta: -25, emoji: '🧠' });
+    else if (memStatus === 'warning') items.push({ label: 'Memória elevada', delta: -10, emoji: '🧠' });
+
+    const dl = rawMetrics.overview.deadLetters || 0;
+    if (dl > 0) items.push({ label: `${dl} dead letter(s)`, delta: -Math.min(20, dl * 5), emoji: '💀' });
+
+    const failing = domains.filter(d => {
+        const rate = typeof d.successRate === 'string' ? parseFloat(d.successRate) : d.successRate;
+        return d.counts.total > 0 && rate < 20;
+    });
+    if (failing.length) items.push({ label: `${failing.length} domínio(s) falhando`, delta: -failing.length * 10, emoji: '🔥' });
+
+    const slow = domains.filter(d => {
+        const rate = typeof d.successRate === 'string' ? parseFloat(d.successRate) : d.successRate;
+        return d.counts.total > 0 && rate >= 20 && rate < 60;
+    });
+    if (slow.length) items.push({ label: `${slow.length} domínio(s) lento(s)`, delta: -slow.length * 5, emoji: '🐢' });
+
+    const backlog = health.infra.queueBacklog;
+    if (backlog > 50) items.push({ label: `Backlog alto (${backlog})`, delta: -10, emoji: '📥' });
+    else if (backlog > 20) items.push({ label: `Backlog moderado (${backlog})`, delta: -5, emoji: '📥' });
+
+    const err1h = rawMetrics.overview.errorsLastHour || 0;
+    if (err1h > 10) items.push({ label: `${err1h} erros na última hora`, delta: -10, emoji: '⚠️' });
+    else if (err1h > 0) items.push({ label: `${err1h} erro(s) recente(s)`, delta: -5, emoji: '⚠️' });
+
+    return items;
+}
+
+function queueDelta(current: number, previous?: number): { value: string; color: string } | null {
+    if (previous === undefined || previous === current) return null;
+    const diff = current - previous;
+    if (diff > 0) return { value: `↑ +${diff}`, color: '#ef4444' };
+    return { value: `↓ ${diff}`, color: '#22c55e' };
+}
 
 const REFRESH_INTERVAL = 30_000;
 
-// ─── Componente ───────────────────────────────────────────────────────────────
+// ─── Sub-componentes visuais ─────────────────────────────────────────────────
+
+function SystemScoreCard({ score, status, items, collectedAt, headline }: {
+    score: number; status: string; items: ScoreItem[]; collectedAt?: string; headline?: string;
+}) {
+    const sl = statusLabel(status);
+    const tooltip = (
+        <Box sx={{ p: 1, maxWidth: 280 }}>
+            <Typography variant="caption" fontWeight="bold" sx={{ display: 'block', mb: 1 }}>Decomposição do Score</Typography>
+            {items.length === 0 ? (
+                <Typography variant="caption">Nenhuma penalidade — sistema saudável ✓</Typography>
+            ) : (
+                <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                    {items.map((it, i) => (
+                        <Typography component="li" key={i} variant="caption" sx={{ display: 'list-item', mb: 0.25 }}>
+                            {it.emoji} {it.label}: <strong style={{ color: it.delta < 0 ? '#fca5a5' : '#86efac' }}>{it.delta > 0 ? '+' : ''}{it.delta}</strong>
+                        </Typography>
+                    ))}
+                </Box>
+            )}
+            <Divider sx={{ my: 1, borderColor: 'rgba(255,255,255,0.2)' }} />
+            <Typography variant="caption">Base 100 + penalidades = <strong>{score}</strong></Typography>
+        </Box>
+    );
+
+    return (
+        <Tooltip title={tooltip} arrow placement="bottom-start">
+            <Card sx={{ height: '100%', borderRadius: 3, border: `2px solid ${scoreColor(score)}`, cursor: 'help', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <Box>
+                        <Chip label={sl.text} color={sl.color} size="small" sx={{ fontWeight: 'bold', mb: 1 }} />
+                        <Typography variant="body2" color="text.secondary">
+                            {collectedAt ? `Coletado às ${new Date(collectedAt).toLocaleTimeString()}` : '—'}
+                        </Typography>
+                    </Box>
+                    <Box sx={{ mt: 2 }}>
+                        <Typography variant="h1" fontWeight="bold" sx={{ color: scoreColor(score), lineHeight: 1, fontSize: { xs: '3rem', md: '4.5rem' } }}>
+                            {score}
+                        </Typography>
+                        <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>/ 100</Typography>
+                    </Box>
+                    <Typography variant="body2" sx={{ mt: 2, color: '#475569' }}>
+                        {headline || (status === 'healthy' ? 'Sistema operando normalmente' : 'Verificação em andamento')}
+                    </Typography>
+                </CardContent>
+            </Card>
+        </Tooltip>
+    );
+}
+
+function AlertsCard({ alerts, counts }: { alerts: { level: 'error' | 'warning' | 'info'; title: string; detail: string; action?: string }[]; counts: { error: number; warning: number; info: number } }) {
+    return (
+        <Card sx={{ height: '100%', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', bgcolor: counts.error > 0 ? '#fff7f7' : counts.warning > 0 ? '#fffbeb' : '#f8fafc' }}>
+            <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                    <Typography variant="h6" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <AlertTriangle size={18} /> Alertas
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        {counts.error > 0 && <Chip size="small" color="error" label={counts.error} />}
+                        {counts.warning > 0 && <Chip size="small" color="warning" label={counts.warning} />}
+                    </Box>
+                </Box>
+                <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1.5, overflowY: 'auto', maxHeight: 180 }}>
+                    {alerts.length === 0 ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#22c55e' }}>
+                            <CheckCircle2 size={18} />
+                            <Typography variant="body2">Nenhum alerta ativo</Typography>
+                        </Box>
+                    ) : (
+                        alerts.slice(0, 5).map((a, i) => (
+                            <Box key={i} sx={{ p: 1.5, borderRadius: 2, bgcolor: a.level === 'error' ? '#fef2f2' : a.level === 'warning' ? '#fff7ed' : '#eff6ff', border: `1px solid ${a.level === 'error' ? '#fca5a5' : a.level === 'warning' ? '#fed7aa' : '#bfdbfe'}` }}>
+                                <Typography variant="body2" fontWeight="bold" color={a.level === 'error' ? 'error.main' : a.level === 'warning' ? 'warning.main' : 'info.main'}>
+                                    {a.title}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{a.detail}</Typography>
+                                {a.action && <Typography variant="caption" sx={{ display: 'block', mt: 0.25, fontWeight: 500, color: '#2563eb' }}>Ação: {a.action}</Typography>}
+                            </Box>
+                        ))
+                    )}
+                </Box>
+            </CardContent>
+        </Card>
+    );
+}
+
+function InfraCard({ raw, heapPct, heapColor }: { raw: RawMonitorData | null; heapPct: number; heapColor: 'error' | 'warning' | 'success' }) {
+    if (!raw) return (
+        <Card sx={{ height: '100%', borderRadius: 3 }}>
+            <CardContent><Skeleton variant="rectangular" height={140} /></CardContent>
+        </Card>
+    );
+    return (
+        <Card sx={{ height: '100%', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+            <CardContent>
+                <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Server size={16} /> Infra
+                </Typography>
+                <Box sx={{ mb: 2 }}>
+                    <Typography variant="caption" color="text.secondary">Memória Heap</Typography>
+                    <Typography variant="h5" fontWeight="bold">{raw.memory.heapUsed} / {raw.memory.heapTotal}</Typography>
+                    <LinearProgress variant="determinate" value={Math.min(heapPct, 100)} color={heapColor} sx={{ height: 6, borderRadius: 1, mt: 0.5 }} />
+                    <Typography variant="caption" color={`${heapColor}.main`} sx={{ fontWeight: 600 }}>{heapPct}% utilizado</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    <Chip size="small" icon={<Database size={14} />} label={raw.mongodb.status === 'ok' ? 'MongoDB OK' : 'MongoDB Erro'} color={raw.mongodb.status === 'ok' ? 'success' : 'error'} variant="outlined" />
+                    <Chip size="small" icon={<Wifi size={14} />} label={raw.redis.status === 'ok' ? 'Redis OK' : 'Redis Erro'} color={raw.redis.status === 'ok' ? 'success' : 'error'} variant="outlined" />
+                    <Chip size="small" icon={<Clock size={14} />} label={`Uptime ${formatUptime(raw.uptimeSeconds)}`} variant="outlined" />
+                </Box>
+            </CardContent>
+        </Card>
+    );
+}
+
+function QueuesCard({ raw, totalWaiting, totalActive, totalFailed, queueHistory }: {
+    raw: RawMonitorData | null; totalWaiting: number; totalActive: number; totalFailed: number; queueHistory: Record<string, QueueStat>;
+}) {
+    if (!raw) return (
+        <Card sx={{ height: '100%', borderRadius: 3 }}>
+            <CardContent><Skeleton variant="rectangular" height={140} /></CardContent>
+        </Card>
+    );
+    const topQueue = raw.queues.slice().sort((a, b) => (b.waiting || 0) - (a.waiting || 0))[0];
+    const topDelta = topQueue ? queueDelta(topQueue.waiting || 0, queueHistory[topQueue.name]?.waiting) : null;
+
+    return (
+        <Card sx={{ height: '100%', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+            <CardContent>
+                <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Layers size={16} /> Filas BullMQ
+                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">Aguardando</Typography>
+                    <Typography variant="body1" fontWeight="bold">{totalWaiting} {topDelta && <Typography component="span" variant="caption" sx={{ color: topDelta.color, fontWeight: 600, ml: 0.5 }}>{topDelta.value}</Typography>}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">Processando</Typography>
+                    <Typography variant="body1" fontWeight="bold">{totalActive}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
+                    <Typography variant="caption" color="text.secondary">Falharam</Typography>
+                    <Typography variant="body1" fontWeight="bold" color={totalFailed > 0 ? 'error.main' : 'inherit'}>{totalFailed}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {raw.queues.slice(0, 4).map(q => {
+                        const hasIssue = (q.failed || 0) > 0 || ((q.waiting || 0) > 200 && (q.active || 0) === 0);
+                        return <Chip key={q.name} size="small" label={q.name.split('-')[0]} color={hasIssue ? 'error' : 'default'} variant="outlined" />;
+                    })}
+                    {raw.queues.length > 4 && <Chip size="small" label={`+${raw.queues.length - 4}`} variant="outlined" />}
+                </Box>
+            </CardContent>
+        </Card>
+    );
+}
+
+function DomainsCard({ domains }: { domains: DomainHealth[] }) {
+    const withData = useMemo(() => domains.filter(d => d.totalEvents > 0).sort((a, b) => {
+        const order = { failing: 0, slow: 1, ok: 2, idle: 3, unknown: 4 };
+        return order[a.status] - order[b.status];
+    }), [domains]);
+
+    return (
+        <Card sx={{ height: '100%', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+            <CardContent>
+                <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Activity size={16} /> Domínios
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                    {withData.slice(0, 5).map(d => {
+                        const chip = domainStatusChip(d);
+                        return (
+                            <Box key={d.key} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Typography variant="body2" fontWeight="medium">{d.icon} {d.label}</Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Typography variant="caption" color={d.successRate < 60 ? 'error.main' : d.successRate < 85 ? 'warning.main' : 'success.main'} fontWeight="bold">{d.successRate}%</Typography>
+                                    <Chip size="small" label={chip.label} color={chip.color} />
+                                </Box>
+                            </Box>
+                        );
+                    })}
+                    {withData.length === 0 && <Typography variant="caption" color="text.secondary">Nenhum domínio com eventos recentes</Typography>}
+                </Box>
+            </CardContent>
+        </Card>
+    );
+}
+
+function RecentEventsBlock({ recent, loading }: { recent: { eventType: string; status: string; timestamp: string; correlationId?: string }[]; loading: boolean }) {
+    return (
+        <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+            <CardContent>
+                <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" sx={{ mb: 2 }}>📜 Eventos Recentes</Typography>
+                {loading ? <Skeleton variant="rectangular" height={120} /> : recent.length === 0 ? (
+                    <Alert severity="info" sx={{ borderRadius: 2 }}>Nenhum evento nos últimos 5 minutos.</Alert>
+                ) : (
+                    <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+                        <Table size="small">
+                            <TableHead>
+                                <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                                    {['Horário', 'Evento', 'Status', 'Correlation ID'].map(h => (
+                                        <TableCell key={h} sx={{ fontWeight: 'bold', fontSize: '0.75rem', textTransform: 'uppercase', color: '#6b7280' }}>{h}</TableCell>
+                                    ))}
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {recent.slice(0, 10).map((event, i) => (
+                                    <TableRow key={i} hover>
+                                        <TableCell sx={{ color: '#6b7280', fontSize: '0.8rem' }}>{new Date(event.timestamp).toLocaleTimeString()}</TableCell>
+                                        <TableCell><code style={{ fontSize: '0.78rem', background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>{event.eventType}</code></TableCell>
+                                        <TableCell><Chip size="small" label={event.status} color={eventStatusColor(event.status)} /></TableCell>
+                                        <TableCell>
+                                            {event.correlationId && (
+                                                <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
+                                                    {event.correlationId.substring(0, 14)}…
+                                                </Typography>
+                                            )}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+function DeadLettersBlock({ count, items, reprocessing, onRetry, result }: { count: number; items: DeadLetterItem[]; reprocessing: boolean; onRetry: () => void; result: { requeued: number } | null }) {
+    if (count === 0) return null;
+
+    const workerLabel = (eventType: string) => {
+        if (eventType.includes('APPOINTMENT')) return 'appointmentWorker.js / createAppointmentWorker.js';
+        if (eventType.includes('PAYMENT')) return 'paymentWorker.js';
+        if (eventType.includes('PATIENT')) return 'patientWorker.js';
+        return 'worker desconhecido';
+    };
+
+    return (
+        <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', bgcolor: '#fff7f7', border: '1px solid #fca5a5' }}>
+            <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+                    <Box>
+                        <Typography variant="h6" fontWeight="bold" color="error.main" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <XCircle size={22} /> Dead Letters ({count})
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            Esses eventos não serão processados automaticamente. Requerem ação manual.
+                        </Typography>
+                        {result && (
+                            <Typography variant="body2" color="success.main" sx={{ mt: 0.5, fontWeight: 600 }}>
+                                ✓ {result.requeued} evento(s) reenfileirado(s)
+                            </Typography>
+                        )}
+                    </Box>
+                    <Button variant="contained" color="error" size="small"
+                        startIcon={reprocessing ? <CircularProgress size={14} color="inherit" /> : <RotateCcw size={16} />}
+                        onClick={onRetry} disabled={reprocessing}>
+                        {reprocessing ? 'Reprocessando...' : 'Reprocessar todos'}
+                    </Button>
+                </Box>
+
+                <Grid container spacing={2}>
+                    {items.map(dl => (
+                        <Grid item xs={12} md={6} key={dl.eventId}>
+                            <Box sx={{ p: 2, bgcolor: '#fff', borderRadius: 2, border: '1px solid #fecaca' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                                    <code style={{ fontSize: '0.8rem', background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>{dl.eventType}</code>
+                                    <Chip size="small" label={`${dl.attempts || 0} tentativas`} color="error" variant="outlined" />
+                                </Box>
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                                    Worker: <strong>{workerLabel(dl.eventType)}</strong>
+                                </Typography>
+                                {dl.error?.message && (
+                                    <Alert severity="error" sx={{ borderRadius: 1, py: 0.5 }} icon={<XCircle size={16} />}>
+                                        <Typography variant="caption" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+                                            {dl.error.message}
+                                        </Typography>
+                                        {dl.error.stackPreview && (
+                                            <Typography variant="caption" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', color: 'text.secondary', mt: 0.25, display: 'block' }}>
+                                                {dl.error.stackPreview}
+                                            </Typography>
+                                        )}
+                                    </Alert>
+                                )}
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                                    {new Date(dl.createdAt).toLocaleString()}
+                                </Typography>
+                            </Box>
+                        </Grid>
+                    ))}
+                </Grid>
+            </CardContent>
+        </Card>
+    );
+}
+
+function FlowDiagnosticBlock({ correlationId, setCorrelationId, loading, onSearch }: {
+    correlationId: string; setCorrelationId: (v: string) => void; loading: boolean; onSearch: () => void;
+}) {
+    return (
+        <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+            <CardContent>
+                <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Search size="16" /> Diagnóstico de Fluxo
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <TextField
+                        size="small"
+                        placeholder="Digite o correlationId..."
+                        value={correlationId}
+                        onChange={e => setCorrelationId(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && onSearch()}
+                        sx={{ width: { xs: '100%', sm: 320 } }}
+                    />
+                    <Button variant="contained" size="small" onClick={onSearch} disabled={loading}>
+                        {loading ? <CircularProgress size={16} /> : 'Buscar Fluxo'}
+                    </Button>
+                </Box>
+            </CardContent>
+        </Card>
+    );
+}
+
+function MetricsTab({ extras, rawDomains, loading }: { extras: ReturnType<typeof useSystemHealthCtx>['extras']; rawDomains: ReturnType<typeof useSystemHealthCtx>['rawDomains']; loading: boolean }) {
+    if (loading) return <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 3 }} />;
+    return (
+        <Grid container spacing={2}>
+            <Grid item xs={12} sm={6} md={3}>
+                <Card sx={{ height: '100%', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                    <CardContent>
+                        <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Success Rate (1h)</Typography>
+                        <Typography variant="h4" fontWeight="bold" sx={{ my: 0.5, color: (extras.successRate?.last1h ?? 100) >= 85 ? '#22c55e' : (extras.successRate?.last1h ?? 100) >= 60 ? '#f59e0b' : '#ef4444' }}>
+                            {(extras.successRate?.last1h ?? 0).toFixed(1)}%
+                        </Typography>
+                    </CardContent>
+                </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+                <Card sx={{ height: '100%', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                    <CardContent>
+                        <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Success Rate (24h)</Typography>
+                        <Typography variant="h4" fontWeight="bold" sx={{ my: 0.5, color: (extras.successRate?.last24h ?? 100) >= 85 ? '#22c55e' : (extras.successRate?.last24h ?? 100) >= 60 ? '#f59e0b' : '#ef4444' }}>
+                            {(extras.successRate?.last24h ?? 0).toFixed(1)}%
+                        </Typography>
+                    </CardContent>
+                </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+                <Card sx={{ height: '100%', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                    <CardContent>
+                        <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Error Rate (1h)</Typography>
+                        <Typography variant="h4" fontWeight="bold" sx={{ my: 0.5, color: (extras.errorRate?.last1h ?? 0) > 5 ? '#ef4444' : (extras.errorRate?.last1h ?? 0) > 1 ? '#f59e0b' : '#22c55e' }}>
+                            {(extras.errorRate?.last1h ?? 0).toFixed(1)}%
+                        </Typography>
+                    </CardContent>
+                </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+                <Card sx={{ height: '100%', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                    <CardContent>
+                        <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Tempo Médio (P95)</Typography>
+                        <Typography variant="h4" fontWeight="bold" sx={{ my: 0.5 }}>
+                            {formatDuration(extras.processingTime?.p95Ms ?? 0)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">avg: {formatDuration(extras.processingTime?.avgMs ?? 0)}</Typography>
+                    </CardContent>
+                </Card>
+            </Grid>
+
+            {extras.appointmentStats && (
+                <Grid item xs={12} md={6}>
+                    <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                        <CardContent>
+                            <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" sx={{ mb: 2 }}>Appointment Health</Typography>
+                            <Box sx={{ display: 'flex', gap: 2 }}>
+                                <Box sx={{ flex: 1, p: 2, borderRadius: 2, bgcolor: extras.appointmentStats.retryableNotFound > 0 ? '#fffbeb' : '#f0fdf4', border: `1px solid ${extras.appointmentStats.retryableNotFound > 0 ? '#fcd34d' : '#bbf7d0'}` }}>
+                                    <Typography variant="caption" color="text.secondary">Race Conditions (retryable)</Typography>
+                                    <Typography variant="h5" fontWeight="bold" color={extras.appointmentStats.retryableNotFound > 0 ? 'warning.main' : 'success.main'}>{extras.appointmentStats.retryableNotFound}</Typography>
+                                </Box>
+                                <Box sx={{ flex: 1, p: 2, borderRadius: 2, bgcolor: extras.appointmentStats.permanentNotFound > 0 ? '#fef2f2' : '#f0fdf4', border: `1px solid ${extras.appointmentStats.permanentNotFound > 0 ? '#fca5a5' : '#bbf7d0'}` }}>
+                                    <Typography variant="caption" color="text.secondary">Permanent NOT_FOUND</Typography>
+                                    <Typography variant="h5" fontWeight="bold" color={extras.appointmentStats.permanentNotFound > 0 ? 'error.main' : 'success.main'}>{extras.appointmentStats.permanentNotFound}</Typography>
+                                </Box>
+                            </Box>
+                        </CardContent>
+                    </Card>
+                </Grid>
+            )}
+
+            {extras.topFailingEventTypes.length > 0 && (
+                <Grid item xs={12} md={extras.appointmentStats ? 6 : 12}>
+                    <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                        <CardContent>
+                            <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" sx={{ mb: 2 }}>Top Eventos com Falha</Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                {extras.topFailingEventTypes.map((ft, i) => (
+                                    <Box key={i} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, borderRadius: 2, bgcolor: '#fef2f2', border: '1px solid #fecaca' }}>
+                                        <code style={{ fontSize: '0.8rem', background: '#fff', padding: '2px 6px', borderRadius: 4 }}>{ft.eventType}</code>
+                                        <Chip size="small" color="error" label={`${ft.count} falha(s)`} />
+                                    </Box>
+                                ))}
+                            </Box>
+                        </CardContent>
+                    </Card>
+                </Grid>
+            )}
+
+            <Grid item xs={12}>
+                <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                    <CardContent>
+                        <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" sx={{ mb: 2 }}>Domínios Detalhados</Typography>
+                        <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+                            <Table size="small">
+                                <TableHead>
+                                    <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                                        {['Domínio', 'Total', 'Processados', 'Falhas', 'Success Rate'].map(h => (
+                                            <TableCell key={h} sx={{ fontWeight: 'bold', fontSize: '0.75rem', textTransform: 'uppercase', color: '#6b7280' }}>{h}</TableCell>
+                                        ))}
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {rawDomains.map((d, i) => {
+                                        const rate = typeof d.successRate === 'string' ? parseFloat(d.successRate) : d.successRate;
+                                        return (
+                                            <TableRow key={i} hover>
+                                                <TableCell>{d.domain}</TableCell>
+                                                <TableCell>{d.counts.total}</TableCell>
+                                                <TableCell>{d.counts.processed}</TableCell>
+                                                <TableCell>{d.counts.failed}</TableCell>
+                                                <TableCell>
+                                                    <Chip size="small" label={`${rate.toFixed(1)}%`} color={rate >= 85 ? 'success' : rate >= 60 ? 'warning' : 'error'} />
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </CardContent>
+                </Card>
+            </Grid>
+        </Grid>
+    );
+}
+
+function QueuesTab({ raw, queueHistory }: { raw: RawMonitorData | null; queueHistory: Record<string, QueueStat> }) {
+    if (!raw) return <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 3 }} />;
+    return (
+        <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+            <CardContent>
+                <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" sx={{ mb: 2 }}>Filas BullMQ — Detalhe Completo</Typography>
+                <Grid container spacing={1.5}>
+                    {raw.queues.map((q) => {
+                        const hasFail = (q.failed || 0) > 0;
+                        const isStuck = (q.waiting || 0) > 200 && (q.active || 0) === 0;
+                        const prev = queueHistory[q.name];
+                        const wDelta = queueDelta(q.waiting ?? 0, prev?.waiting);
+                        const fDelta = queueDelta(q.failed ?? 0, prev?.failed);
+                        const aDelta = queueDelta(q.active ?? 0, prev?.active);
+                        return (
+                            <Grid item xs={12} sm={6} md={4} lg={3} key={q.name}>
+                                <Box sx={{ p: 2, border: `1px solid ${hasFail || isStuck ? '#fca5a5' : '#e5e7eb'}`, borderRadius: 2, bgcolor: hasFail || isStuck ? '#fff7f7' : 'background.paper' }}>
+                                    <Tooltip title={q.name}>
+                                        <Typography variant="body2" fontWeight="bold" noWrap sx={{ display: 'block', mb: 1 }}>{q.name}</Typography>
+                                    </Tooltip>
+                                    {q.error ? (
+                                        <Typography variant="caption" color="error">Erro: {q.error}</Typography>
+                                    ) : (
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                    <Chip size="small" label={`W ${q.waiting ?? 0}`} color={(q.waiting || 0) > 20 ? 'warning' : 'default'} variant="outlined" />
+                                                    {wDelta && <Typography variant="caption" sx={{ color: wDelta.color, fontWeight: 600, fontSize: '0.65rem' }}>{wDelta.value}</Typography>}
+                                                </Box>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                    <Chip size="small" label={`A ${q.active ?? 0}`} color={(q.active || 0) > 0 ? 'primary' : 'default'} variant="outlined" />
+                                                    {aDelta && <Typography variant="caption" sx={{ color: aDelta.color, fontWeight: 600, fontSize: '0.65rem' }}>{aDelta.value}</Typography>}
+                                                </Box>
+                                            </Box>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                                                <Chip size="small" label={`C ${q.completed ?? 0}`} color="success" variant="outlined" />
+                                                {(q.failed || 0) > 0 && (
+                                                    <>
+                                                        <Chip size="small" label={`F ${q.failed}`} color="error" />
+                                                        {fDelta && <Typography variant="caption" sx={{ color: fDelta.color, fontWeight: 600, fontSize: '0.65rem' }}>{fDelta.value}</Typography>}
+                                                    </>
+                                                )}
+                                                {(q.delayed || 0) > 0 && <Chip size="small" label={`D ${q.delayed}`} color="warning" variant="outlined" />}
+                                                {(q.total || 0) > 0 && <Chip size="small" label={`T ${q.total}`} variant="outlined" />}
+                                            </Box>
+                                        </Box>
+                                    )}
+                                </Box>
+                            </Grid>
+                        );
+                    })}
+                </Grid>
+            </CardContent>
+        </Card>
+    );
+}
+
+// ─── Componente principal ────────────────────────────────────────────────────
 
 export default function SystemUnifiedDashboard() {
     const {
-        health, rawMetrics, rawDomains, rawAlerts, recent,
-        healthScore, systemStatus, loadingHealth, refresh, lastFetchAt
+        health, rawMetrics, rawDomains, recent,
+        healthScore, systemStatus, extras, loadingHealth, refresh, lastFetchAt
     } = useSystemHealthCtx();
 
     const [raw, setRaw] = useState<RawMonitorData | null>(null);
     const [rawLoading, setRawLoading] = useState(true);
-    const [rawError, setRawError] = useState<string | null>(null);
+    const [, setRawError] = useState<string | null>(null);
+    const [queueHistory, setQueueHistory] = useState<Record<string, QueueStat>>({});
 
-    const [activeSection, setActiveSection] = useState(0);
     const [correlationId, setCorrelationId] = useState('');
     const [flowLoading, setFlowLoading] = useState(false);
     const [eventFlow, setEventFlow] = useState<EventFlow | null>(null);
     const [flowDialogOpen, setFlowDialogOpen] = useState(false);
     const [reprocessing, setReprocessing] = useState(false);
     const [reprocessResult, setReprocessResult] = useState<{ requeued: number } | null>(null);
+    const [deadLetters, setDeadLetters] = useState<DeadLetterItem[]>([]);
+    const [loadingDeadLetters, setLoadingDeadLetters] = useState(false);
+    const [innerTab, setInnerTab] = useState(0);
+
+    const fetchDeadLetters = useCallback(async () => {
+        try {
+            setLoadingDeadLetters(true);
+            const res = await API.get('/api/observability/dead-letters?limit=20');
+            setDeadLetters(res.data?.data || []);
+        } catch {
+            // silencioso — o contador já vem do system-health
+        } finally {
+            setLoadingDeadLetters(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchDeadLetters();
+    }, [fetchDeadLetters]);
 
     const fetchRaw = useCallback(async () => {
         try {
             const res = await API.get('/admin/system-monitor', { timeout: 8000 });
-            setRaw(res.data);
+            const data: RawMonitorData = res.data;
+            setRaw(prev => {
+                if (prev) {
+                    const nextHistory: Record<string, QueueStat> = {};
+                    prev.queues.forEach(q => { nextHistory[q.name] = q; });
+                    setQueueHistory(nextHistory);
+                }
+                return data;
+            });
             setRawError(null);
-        } catch (err: any) {
-            setRawError(err?.message || 'Erro ao buscar métricas do sistema');
+        } catch (err) {
+            setRawError(err instanceof Error ? err.message : 'Erro ao buscar métricas do sistema');
         } finally {
             setRawLoading(false);
         }
@@ -165,26 +740,26 @@ export default function SystemUnifiedDashboard() {
         setReprocessing(true);
         setReprocessResult(null);
         try {
-            const res = await axios.post('/api/observability/dead-letters/retry-batch');
+            const res = await API.post('/observability/dead-letters/retry-batch');
             const requeued = res.data?.data?.success ?? res.data?.success ?? 0;
             setReprocessResult({ requeued });
             toast.success(`${requeued} evento(s) reenfileirado(s) com sucesso`);
-            setTimeout(refresh, 2000);
-        } catch (err: any) {
+            setTimeout(() => { refresh(); fetchDeadLetters(); }, 2000);
+        } catch (err) {
             toast.error(extractErrorMessage(err, 'Erro ao reprocessar dead letters'));
         } finally {
             setReprocessing(false);
         }
-    }, [refresh]);
+    }, [refresh, fetchDeadLetters]);
 
     const handleSearchFlow = useCallback(async () => {
         if (!correlationId.trim()) { toast.warn('Digite um correlationId'); return; }
         setFlowLoading(true);
         try {
-            const res = await axios.get(`/api/observability/flow/${correlationId}`);
+            const res = await API.get(`/observability/flow/${correlationId}`);
             setEventFlow(res.data.data);
             setFlowDialogOpen(true);
-        } catch (err: any) {
+        } catch (err) {
             toast.error(extractErrorMessage(err, 'Fluxo não encontrado'));
         } finally {
             setFlowLoading(false);
@@ -192,22 +767,6 @@ export default function SystemUnifiedDashboard() {
     }, [correlationId]);
 
     const loading = rawLoading || loadingHealth;
-
-    // ── Loading global ────────────────────────────────────────────────────────
-    if (loading && !raw && !rawMetrics) {
-        return (
-            <Box sx={{ p: 3 }}>
-                <Skeleton variant="rectangular" height={140} sx={{ mb: 2, borderRadius: 2 }} />
-                <Grid container spacing={2}>
-                    {[1,2,3,4,5,6].map(i => (
-                        <Grid item xs={12} md={4} key={i}>
-                            <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 2 }} />
-                        </Grid>
-                    ))}
-                </Grid>
-            </Box>
-        );
-    }
 
     const heapUsed = raw ? parseMB(raw.memory.heapUsed) : 0;
     const heapTotal = raw ? parseMB(raw.memory.heapTotal) : 0;
@@ -218,18 +777,50 @@ export default function SystemUnifiedDashboard() {
     const totalWaiting = raw?.queues?.reduce((s, q) => s + (q.waiting || 0), 0) ?? 0;
     const totalFailed  = raw?.queues?.reduce((s, q) => s + (q.failed  || 0), 0) ?? 0;
     const totalActive  = raw?.queues?.reduce((s, q) => s + (q.active  || 0), 0) ?? 0;
-    const stuckQueues  = raw?.queues?.filter(q => (q.waiting || 0) > 200 && (q.active || 0) === 0) ?? [];
 
-    const sl = health ? statusLabel(health.status) : null;
-    const displayScore = healthScore ?? health?.score ?? null;
+    const displayScore = healthScore ?? health?.score ?? 0;
     const displayStatus = systemStatus ?? health?.status ?? 'unknown';
+    const scoreItems = buildScoreBreakdown(health, rawMetrics, rawDomains);
 
-    const totalFailures = rawMetrics
-        ? (rawMetrics.byStatus.failed ?? 0) + (rawMetrics.byStatus.dead_letter ?? 0)
-        : 0;
+    const allAlerts: Array<{ level: 'error' | 'warning' | 'info'; title: string; detail: string; action?: string }> = useMemo(() => {
+        const stuck = raw?.queues?.filter(q => (q.waiting || 0) > 200 && (q.active || 0) === 0) ?? [];
+        const list = [
+            ...(health?.alerts || []),
+            ...(raw?.redis.status !== 'ok' ? [{ level: 'error' as const, title: 'Redis com problema', detail: raw?.redis.message || 'Conexão Redis/Valkey falhou' }] : []),
+            ...(raw?.mongodb.status !== 'ok' ? [{ level: 'error' as const, title: 'MongoDB com problema', detail: raw?.mongodb.message || 'Ping ao MongoDB falhou' }] : []),
+            ...(stuck.length > 0 ? [{ level: 'warning' as const, title: 'Fila possivelmente travada', detail: stuck.map(q => q.name).join(', ') }] : []),
+        ];
+        const priority = { error: 0, warning: 1, info: 2 };
+        list.sort((a, b) => priority[a.level] - priority[b.level]);
+        return list;
+    }, [health?.alerts, raw]);
+
+    const alertCounts = {
+        error: allAlerts.filter(a => a.level === 'error').length,
+        warning: allAlerts.filter(a => a.level === 'warning').length,
+        info: allAlerts.filter(a => a.level === 'info').length,
+    };
+
+    const deadLettersCount = rawMetrics?.overview.deadLetters ?? 0;
+    const displayDeadLetters = deadLetters.length > 0 ? deadLetters : [];
+
+    if (loading && !raw && !rawMetrics) {
+        return (
+            <Box sx={{ p: 3 }}>
+                <Skeleton variant="rectangular" height={160} sx={{ mb: 2, borderRadius: 3 }} />
+                <Grid container spacing={2}>
+                    {[1,2,3,4,5,6].map(i => (
+                        <Grid item xs={12} md={i <= 2 ? 6 : 4} key={i}>
+                            <Skeleton variant="rectangular" height={i <= 2 ? 200 : 160} sx={{ borderRadius: 3 }} />
+                        </Grid>
+                    ))}
+                </Grid>
+            </Box>
+        );
+    }
 
     return (
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: { xs: 2, md: 3 }, pb: 6 }}>
             {/* ── HEADER ─────────────────────────────────────────────────────── */}
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -255,401 +846,88 @@ export default function SystemUnifiedDashboard() {
                 </Box>
             </Box>
 
-            {/* ── STATUS GLOBAL + SCORE ─────────────────────────────────────── */}
-            {displayScore !== null && (
-                <Card sx={{ mb: 3, border: `2px solid ${scoreColor(displayScore)}`, borderRadius: 2 }}>
-                    <CardContent>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-                            <Box>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                                    <Chip label={sl?.text} color={sl?.color} size="small" sx={{ fontWeight: 'bold' }} />
-                                    <Typography variant="body2" color="text.secondary">
-                                        Coletado às {new Date(health?.collectedAt || Date.now()).toLocaleTimeString()}
-                                    </Typography>
-                                </Box>
-                                <Typography variant="body1" sx={{ mt: 0.5 }}>
-                                    {health?.headline || (displayStatus === 'healthy' ? 'Sistema operando normalmente' : 'Verificação em andamento')}
-                                </Typography>
-                            </Box>
-                            <Box sx={{ textAlign: 'center', minWidth: 80 }}>
-                                <Typography variant="h3" fontWeight="bold" sx={{ color: scoreColor(displayScore) }}>
-                                    {displayScore}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">/ 100</Typography>
-                            </Box>
-                        </Box>
-                    </CardContent>
-                </Card>
-            )}
+            {/* ── LINHA 1: SCORE + ALERTAS ───────────────────────────────────── */}
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid item xs={12} md={7}>
+                    <SystemScoreCard
+                        score={displayScore}
+                        status={displayStatus}
+                        items={scoreItems}
+                        collectedAt={health?.collectedAt}
+                        headline={health?.headline}
+                    />
+                </Grid>
+                <Grid item xs={12} md={5}>
+                    <AlertsCard alerts={allAlerts} counts={alertCounts} />
+                </Grid>
+            </Grid>
 
-            {/* ── ALERTAS ────────────────────────────────────────────────────── */}
-            {health?.alerts.map((a, i) => (
-                <Alert key={i} severity={a.level === 'error' ? 'error' : a.level === 'warning' ? 'warning' : 'info'}
-                    sx={{ mb: 1.5, borderRadius: 2 }}
-                    icon={a.level === 'error' ? <XCircle size={18} /> : <AlertTriangle size={18} />}>
-                    <Typography variant="subtitle2" fontWeight="bold">{a.title}</Typography>
-                    <Typography variant="body2">{a.detail}</Typography>
-                    <Typography variant="caption" sx={{ mt: 0.5, display: 'block', fontWeight: 500 }}>Ação: {a.action}</Typography>
-                </Alert>
-            ))}
-
-            {raw?.redis.status !== 'ok' && (
-                <Alert severity="error" sx={{ mb: 1.5, borderRadius: 2 }}>
-                    <Typography fontWeight="bold">Redis com problema</Typography>
-                    <Typography variant="body2">{raw?.redis.message || 'Conexão Redis/Valkey falhou'}</Typography>
-                </Alert>
-            )}
-            {raw?.mongodb.status !== 'ok' && (
-                <Alert severity="error" sx={{ mb: 1.5, borderRadius: 2 }}>
-                    <Typography fontWeight="bold">MongoDB com problema</Typography>
-                    <Typography variant="body2">{raw?.mongodb.message || 'Ping ao MongoDB falhou'}</Typography>
-                </Alert>
-            )}
-            {stuckQueues.length > 0 && (
-                <Alert severity="warning" sx={{ mb: 1.5, borderRadius: 2 }}>
-                    <Typography fontWeight="bold">Fila possivelmente travada</Typography>
-                    <Typography variant="body2">{stuckQueues.map(q => q.name).join(', ')}</Typography>
-                </Alert>
-            )}
-
-            {/* ── ABAS DE SEÇÃO ──────────────────────────────────────────────── */}
-            <Tabs value={activeSection} onChange={(_, v) => setActiveSection(v)} sx={{ mb: 3, borderBottom: '1px solid #e5e7eb' }}>
+            {/* ── TABS INTERNAS ──────────────────────────────────────────────── */}
+            <Tabs value={innerTab} onChange={(_, v) => setInnerTab(v)} sx={{ mb: 2, borderBottom: '1px solid #e5e7eb' }}>
                 <Tab label="Visão Geral" icon={<Activity size={15} />} iconPosition="start" />
-                <Tab label="Infraestrutura" icon={<Server size={15} />} iconPosition="start" />
-                <Tab label="Eventos & Alertas" icon={<Zap size={15} />} iconPosition="start" />
-                <Tab label="Diagnóstico de Fluxo" icon={<Search size={15} />} iconPosition="start" />
+                <Tab label="Métricas Detalhadas" icon={<Zap size={15} />} iconPosition="start" />
+                <Tab label="Filas BullMQ" icon={<Layers size={15} />} iconPosition="start" />
             </Tabs>
 
-            {/* ── SEÇÃO 0: VISÃO GERAL ──────────────────────────────────────── */}
-            {activeSection === 0 && (
-                <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6} md={3}>
-                        <Card sx={{ height: '100%', borderLeft: '4px solid #3b82f6' }}>
-                            <CardContent>
-                                <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Total de Eventos</Typography>
-                                <Typography variant="h3" fontWeight="bold" sx={{ my: 0.5 }}>
-                                    {rawMetrics?.overview.totalEvents.toLocaleString() || '—'}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">Última hora: <strong>{rawMetrics?.overview.lastHour ?? 0}</strong></Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                        <Card sx={{ height: '100%', borderLeft: '4px solid #22c55e' }}>
-                            <CardContent>
-                                <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Processados</Typography>
-                                <Typography variant="h3" fontWeight="bold" color="success.main" sx={{ my: 0.5 }}>
-                                    {(rawMetrics?.byStatus.processed ?? 0).toLocaleString()}
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                        <Card sx={{ height: '100%', borderLeft: `4px solid ${totalFailures > 0 ? '#ef4444' : '#22c55e'}` }}>
-                            <CardContent>
-                                <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Falhas</Typography>
-                                <Typography variant="h3" fontWeight="bold" color={totalFailures > 0 ? 'error.main' : 'success.main'} sx={{ my: 0.5 }}>
-                                    {totalFailures}
-                                </Typography>
-                                <Typography variant="caption" color={rawMetrics?.overview.errorsLastHour ? 'error.main' : 'text.secondary'}>
-                                    Última hora: {rawMetrics?.overview.errorsLastHour ?? 0} erros
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                        <Card sx={{ height: '100%', borderLeft: `4px solid ${(rawMetrics?.byStatus.pending ?? 0) > 100 ? '#f59e0b' : '#6b7280'}` }}>
-                            <CardContent>
-                                <Typography variant="caption" color="text.secondary" fontWeight="bold" textTransform="uppercase">Pendentes</Typography>
-                                <Typography variant="h3" fontWeight="bold" color={(rawMetrics?.byStatus.pending ?? 0) > 100 ? 'warning.main' : 'text.primary'} sx={{ my: 0.5 }}>
-                                    {(rawMetrics?.byStatus.pending ?? 0).toLocaleString()}
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-
-                    {/* Domínios */}
-                    {health && health.domains.filter(d => d.totalEvents > 0).length > 0 && (
-                        <Grid item xs={12}>
-                            <Card>
-                                <CardContent>
-                                    <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" sx={{ mb: 2 }}>Saúde por Domínio</Typography>
-                                    <Grid container spacing={2}>
-                                        {health.domains
-                                            .filter(d => d.totalEvents > 0)
-                                            .sort((a, b) => {
-                                                const order = { failing: 0, slow: 1, ok: 2, idle: 3, unknown: 4 };
-                                                return order[a.status] - order[b.status];
-                                            })
-                                            .map(d => {
-                                                const chip = domainStatusChip(d);
-                                                const hasIssue = d.status === 'failing' || d.status === 'slow';
-                                                return (
-                                                    <Grid item xs={12} sm={6} md={4} key={d.key}>
-                                                        <Box sx={{ p: 2, border: `1px solid ${hasIssue ? '#fca5a5' : '#e5e7eb'}`, borderRadius: 2, bgcolor: hasIssue ? '#fff7f7' : 'background.paper', height: '100%' }}>
-                                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                                                                <Typography variant="subtitle2" fontWeight="bold">{d.icon} {d.label}</Typography>
-                                                                <Chip label={chip.label} color={chip.color} size="small" />
-                                                            </Box>
-                                                            <Box sx={{ display: 'flex', gap: 2, mb: 1, flexWrap: 'wrap' }}>
-                                                                <Box><Typography variant="caption" color="text.secondary">Taxa de sucesso</Typography>
-                                                                    <Typography variant="body2" fontWeight="bold" color={d.successRate < 30 ? 'error.main' : d.successRate < 70 ? 'warning.main' : 'success.main'}>{d.successRate}%</Typography></Box>
-                                                                <Box><Typography variant="caption" color="text.secondary">Eventos</Typography>
-                                                                    <Typography variant="body2" fontWeight="bold">{d.totalEvents}</Typography></Box>
-                                                            </Box>
-                                                            {d.impact && <Typography variant="caption" color={hasIssue ? 'error.main' : 'text.secondary'} sx={{ display: 'block', mt: 0.5 }}>⚠️ {d.impact}</Typography>}
-                                                            {d.action && <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontWeight: 600, color: '#2563eb' }}>Ação: {d.action}</Typography>}
-                                                        </Box>
-                                                    </Grid>
-                                                );
-                                            })}
-                                    </Grid>
-                                </CardContent>
-                            </Card>
+            {innerTab === 0 && (
+                <>
+                    {/* ── LINHA 2: INFRA + FILAS + DOMÍNIOS ──────────────────────────── */}
+                    <Grid container spacing={2} sx={{ mb: 2 }}>
+                        <Grid item xs={12} md={4}>
+                            <InfraCard raw={raw} heapPct={heapPct} heapColor={heapColor} />
                         </Grid>
-                    )}
-                </Grid>
-            )}
-
-            {/* ── SEÇÃO 1: INFRAESTRUTURA ───────────────────────────────────── */}
-            {activeSection === 1 && raw && (
-                <Grid container spacing={2}>
-                    <Grid item xs={12} md={4}>
-                        <Card sx={{ height: '100%' }}>
-                            <CardContent>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                                    <HardDrive size={18} className="text-gray-500" />
-                                    <Typography variant="subtitle2" color="text.secondary" fontWeight="bold">Memória Heap</Typography>
-                                </Box>
-                                <Typography variant="h4" fontWeight="bold">{raw.memory.heapUsed} / {raw.memory.heapTotal}</Typography>
-                                <Box sx={{ mt: 1.5 }}>
-                                    <LinearProgress variant="determinate" value={Math.min(heapPct, 100)} color={heapColor} sx={{ height: 8, borderRadius: 1 }} />
-                                    <Typography variant="caption" color={`${heapColor}.main`} sx={{ mt: 0.5, display: 'block', fontWeight: 600 }}>{heapPct}% utilizado</Typography>
-                                </Box>
-                                <Divider sx={{ my: 1.5 }} />
-                                <Typography variant="caption" color="text.secondary">RSS total: {raw.memory.rss}</Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                        <Card sx={{ height: '100%' }}>
-                            <CardContent>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                                    <Clock size={18} className="text-gray-500" />
-                                    <Typography variant="subtitle2" color="text.secondary" fontWeight="bold">Uptime da API</Typography>
-                                </Box>
-                                <Typography variant="h4" fontWeight="bold">{formatUptime(raw.uptimeSeconds)}</Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                        <Card sx={{ height: '100%' }}>
-                            <CardContent>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                                    <Layers size={18} className="text-gray-500" />
-                                    <Typography variant="subtitle2" color="text.secondary" fontWeight="bold">Filas BullMQ</Typography>
-                                    <Chip label={`${raw.totalQueues ?? '?'} filas`} size="small" variant="outlined" />
-                                </Box>
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <Typography variant="body2" color="text.secondary">Aguardando</Typography>
-                                        <Chip size="small" label={totalWaiting} color={totalWaiting > 20 ? 'warning' : 'default'} variant="outlined" />
-                                    </Box>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <Typography variant="body2" color="text.secondary">Processando</Typography>
-                                        <Chip size="small" label={totalActive} color={totalActive > 0 ? 'primary' : 'default'} variant="outlined" />
-                                    </Box>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <Typography variant="body2" color="text.secondary">Falharam</Typography>
-                                        <Chip size="small" label={totalFailed} color={totalFailed > 0 ? 'error' : 'success'} variant="outlined" />
-                                    </Box>
-                                </Box>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-
-                    <Grid item xs={12} md={6}>
-                        <Card sx={{ bgcolor: raw.redis.status === 'ok' ? '#f0fdf4' : '#fef2f2', height: '100%' }}>
-                            <CardContent>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                                    <Wifi size={18} className={raw.redis.status === 'ok' ? 'text-green-600' : 'text-red-600'} />
-                                    <Typography variant="subtitle2" color="text.secondary" fontWeight="bold">Redis</Typography>
-                                </Box>
-                                <Typography variant="h6" fontWeight="bold" color={raw.redis.status === 'ok' ? 'success.main' : 'error.main'}>
-                                    {raw.redis.status === 'ok' ? 'Conectado' : 'Erro'}
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                        <Card sx={{ bgcolor: raw.mongodb.status === 'ok' ? '#f0fdf4' : '#fef2f2', height: '100%' }}>
-                            <CardContent>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                                    <Database size={18} className={raw.mongodb.status === 'ok' ? 'text-green-600' : 'text-red-600'} />
-                                    <Typography variant="subtitle2" color="text.secondary" fontWeight="bold">MongoDB</Typography>
-                                </Box>
-                                <Typography variant="h6" fontWeight="bold" color={raw.mongodb.status === 'ok' ? 'success.main' : 'error.main'}>
-                                    {raw.mongodb.status === 'ok' ? 'OK' : 'Erro'}
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-
-                    <Grid item xs={12}>
-                        <Card>
-                            <CardContent>
-                                <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" sx={{ mb: 2 }}>Filas BullMQ — Detalhe</Typography>
-                                <Grid container spacing={1.5}>
-                                    {raw.queues.map((q) => {
-                                        const hasFail = (q.failed || 0) > 0;
-                                        const isStuck = (q.waiting || 0) > 200 && (q.active || 0) === 0;
-                                        return (
-                                            <Grid item xs={12} sm={6} md={4} lg={3} key={q.name}>
-                                                <Box sx={{ p: 1.5, border: `1px solid ${hasFail || isStuck ? '#fca5a5' : '#e5e7eb'}`, borderRadius: 2, bgcolor: hasFail || isStuck ? '#fff7f7' : 'background.paper' }}>
-                                                    <Tooltip title={q.name}>
-                                                        <Typography variant="caption" fontWeight="bold" noWrap sx={{ display: 'block', mb: 1 }}>{q.name}</Typography>
-                                                    </Tooltip>
-                                                    {q.error ? (
-                                                        <Typography variant="caption" color="error">Erro: {q.error}</Typography>
-                                                    ) : (
-                                                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                                                            <Chip size="small" label={`W ${q.waiting ?? 0}`} color={(q.waiting || 0) > 20 ? 'warning' : 'default'} variant="outlined" />
-                                                            <Chip size="small" label={`A ${q.active ?? 0}`} color={(q.active || 0) > 0 ? 'primary' : 'default'} variant="outlined" />
-                                                            <Chip size="small" label={`C ${q.completed ?? 0}`} color="success" variant="outlined" />
-                                                            {(q.failed || 0) > 0 && <Chip size="small" label={`F ${q.failed}`} color="error" />}
-                                                            {(q.delayed || 0) > 0 && <Chip size="small" label={`D ${q.delayed}`} color="warning" variant="outlined" />}
-                                                        </Box>
-                                                    )}
-                                                </Box>
-                                            </Grid>
-                                        );
-                                    })}
-                                </Grid>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                </Grid>
-            )}
-
-            {/* ── SEÇÃO 2: EVENTOS & ALERTAS ────────────────────────────────── */}
-            {activeSection === 2 && (
-                <Grid container spacing={2}>
-                    {/* Reprocessar dead letters */}
-                    {(rawMetrics?.overview.deadLetters ?? 0) > 0 && (
-                        <Grid item xs={12}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 0, p: 2, bgcolor: '#fff7ed', borderRadius: 2, border: '1px solid #fed7aa' }}>
-                                <Box sx={{ flex: 1 }}>
-                                    <Typography variant="subtitle2" fontWeight="bold" color="warning.dark">
-                                        {rawMetrics!.overview.deadLetters} evento(s) em dead letter
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary">Esses eventos não serão processados automaticamente.</Typography>
-                                    {reprocessResult && (
-                                        <Typography variant="caption" color="success.main" sx={{ display: 'block', fontWeight: 600 }}>✓ {reprocessResult.requeued} evento(s) reenfileirado(s)</Typography>
-                                    )}
-                                </Box>
-                                <Button variant="contained" color="warning" size="small"
-                                    startIcon={reprocessing ? <CircularProgress size={14} color="inherit" /> : <RotateCcw size={15} />}
-                                    onClick={handleReprocessDeadLetters} disabled={reprocessing} sx={{ whiteSpace: 'nowrap' }}>
-                                    {reprocessing ? 'Reprocessando...' : 'Reprocessar agora'}
-                                </Button>
-                            </Box>
+                        <Grid item xs={12} md={4}>
+                            <QueuesCard
+                                raw={raw}
+                                totalWaiting={totalWaiting}
+                                totalActive={totalActive}
+                                totalFailed={totalFailed}
+                                queueHistory={queueHistory}
+                            />
                         </Grid>
-                    )}
-
-                    {/* Alertas brutos do backend */}
-                    <Grid item xs={12}>
-                        <Card>
-                            <CardContent>
-                                <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" sx={{ mb: 2 }}>Alertas Ativos</Typography>
-                                {rawAlerts.length === 0 ? (
-                                    <Alert severity="success" icon={<CheckCircle2 size={22} />} sx={{ borderRadius: 2 }}>
-                                        Nenhum alerta ativo no momento.
-                                    </Alert>
-                                ) : (
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                                        {rawAlerts.map((a, i) => (
-                                            <Alert key={i}
-                                                severity={a.level === 'error' ? 'error' : a.level === 'warning' ? 'warning' : 'info'}
-                                                sx={{ borderRadius: 2 }}
-                                                icon={a.level === 'error' ? <XCircle size={18} /> : <AlertTriangle size={18} />}>
-                                                <Typography variant="subtitle2" fontWeight="bold">{a.message}</Typography>
-                                                {a.count !== undefined && <Typography variant="caption" color="text.secondary">Quantidade: {a.count}</Typography>}
-                                            </Alert>
-                                        ))}
-                                    </Box>
-                                )}
-                            </CardContent>
-                        </Card>
+                        <Grid item xs={12} md={4}>
+                            <DomainsCard domains={health?.domains || []} />
+                        </Grid>
                     </Grid>
 
-                    {/* Eventos recentes */}
-                    <Grid item xs={12}>
-                        <Card>
-                            <CardContent>
-                                <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" sx={{ mb: 2 }}>Eventos Recentes (últimos 5 min)</Typography>
-                                {recent.length === 0 ? (
-                                    <Alert severity="info" sx={{ borderRadius: 2 }}>Nenhum evento nos últimos 5 minutos.</Alert>
-                                ) : (
-                                    <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
-                                        <Table size="small">
-                                            <TableHead>
-                                                <TableRow sx={{ bgcolor: '#f8fafc' }}>
-                                                    {['Horário', 'Evento', 'Status', 'Correlation ID'].map(h => (
-                                                        <TableCell key={h} sx={{ fontWeight: 'bold', fontSize: '0.75rem', textTransform: 'uppercase', color: '#6b7280' }}>{h}</TableCell>
-                                                    ))}
-                                                </TableRow>
-                                            </TableHead>
-                                            <TableBody>
-                                                {recent.map((event, i) => (
-                                                    <TableRow key={i} hover>
-                                                        <TableCell sx={{ color: '#6b7280', fontSize: '0.8rem' }}>{new Date(event.timestamp).toLocaleTimeString()}</TableCell>
-                                                        <TableCell>
-                                                            <code style={{ fontSize: '0.78rem', background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>{event.eventType}</code>
-                                                        </TableCell>
-                                                        <TableCell><Chip size="small" label={event.status} color={eventStatusColor(event.status)} /></TableCell>
-                                                        <TableCell>
-                                                            {event.correlationId && (
-                                                                <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
-                                                                    {event.correlationId.substring(0, 14)}…
-                                                                </Typography>
-                                                            )}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </TableContainer>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                </Grid>
+                    {/* ── LINHA 3: EVENTOS RECENTES ──────────────────────────────────── */}
+                    <Box sx={{ mb: 2 }}>
+                        <RecentEventsBlock recent={recent} loading={loadingHealth} />
+                    </Box>
+
+                    {/* ── LINHA 4: DEAD LETTERS ──────────────────────────────────────── */}
+                    <Box sx={{ mb: 2 }}>
+                        {loadingDeadLetters && deadLettersCount === 0 ? (
+                            <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 3 }} />
+                        ) : (
+                            <DeadLettersBlock
+                                count={deadLettersCount}
+                                items={displayDeadLetters}
+                                reprocessing={reprocessing}
+                                onRetry={handleReprocessDeadLetters}
+                                result={reprocessResult}
+                            />
+                        )}
+                    </Box>
+
+                    {/* ── LINHA 5: DIAGNÓSTICO DE FLUXO ──────────────────────────────── */}
+                    <Box sx={{ mb: 2 }}>
+                        <FlowDiagnosticBlock
+                            correlationId={correlationId}
+                            setCorrelationId={setCorrelationId}
+                            loading={flowLoading}
+                            onSearch={handleSearchFlow}
+                        />
+                    </Box>
+                </>
             )}
 
-            {/* ── SEÇÃO 3: DIAGNÓSTICO DE FLUXO ─────────────────────────────── */}
-            {activeSection === 3 && (
-                <Grid container spacing={2}>
-                    <Grid item xs={12}>
-                        <Card>
-                            <CardContent>
-                                <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" sx={{ mb: 2 }}>Buscar Fluxo por Correlation ID</Typography>
-                                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-                                    <TextField
-                                        size="small"
-                                        placeholder="Digite o correlationId..."
-                                        value={correlationId}
-                                        onChange={e => setCorrelationId(e.target.value)}
-                                        onKeyPress={e => e.key === 'Enter' && handleSearchFlow()}
-                                        sx={{ width: 320 }}
-                                    />
-                                    <Button variant="contained" size="small" onClick={handleSearchFlow} disabled={flowLoading}>
-                                        {flowLoading ? <CircularProgress size={16} /> : 'Buscar Fluxo'}
-                                    </Button>
-                                </Box>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                </Grid>
+            {innerTab === 1 && (
+                <MetricsTab extras={extras} rawDomains={rawDomains} loading={loadingHealth} />
+            )}
+
+            {innerTab === 2 && (
+                <QueuesTab raw={raw} queueHistory={queueHistory} />
             )}
 
             {/* ── DIALOG: FLUXO DE EVENTOS ──────────────────────────────────── */}
@@ -685,33 +963,68 @@ export default function SystemUnifiedDashboard() {
                                 </CardContent>
                             </Card>
                             <Stepper orientation="vertical" nonLinear>
-                                {eventFlow.timeline.map(event => (
-                                    <Step key={event.id} active expanded>
-                                        <StepLabel StepIconComponent={() => (
-                                            event.status === 'processed' ? <Check className="text-green-500" size={18} /> :
-                                            event.status === 'failed'    ? <XCircle className="text-red-500" size={18} /> :
-                                            <Clock className="text-yellow-500" size={18} />
-                                        )}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <code style={{ fontSize: '0.8rem' }}>{event.eventType}</code>
-                                                <Chip size="small" label={event.status} color={eventStatusColor(event.status)} />
-                                            </Box>
-                                        </StepLabel>
-                                        <StepContent>
-                                            <Typography variant="caption" color="text.secondary" display="block">
-                                                {event.aggregateType} · {new Date(event.timestamp).toLocaleString()}
-                                            </Typography>
-                                            {event.processingTime && (
-                                                <Typography variant="caption" color="success.main" display="block">
-                                                    Processado em {formatDuration(event.processingTime)}
-                                                </Typography>
-                                            )}
-                                            {event.errorInfo && (
-                                                <Alert severity="error" sx={{ mt: 1 }}>{event.errorInfo.errorMessage}</Alert>
-                                            )}
-                                        </StepContent>
-                                    </Step>
-                                ))}
+                                {eventFlow.timeline.map((event, idx) => {
+                                    const isError = event.status === 'failed' || event.status === 'dead_letter';
+                                    const retryMatch = event.errorInfo?.errorMessage?.match(/attempt\s+(\d+)\/(\d+)/);
+                                    const retryText = retryMatch ? `Tentativa ${retryMatch[1]}/${retryMatch[2]}` : null;
+                                    return (
+                                        <Step key={event.id} active expanded sx={{ '& .MuiStepContent-root': { borderLeft: `2px solid ${isError ? '#ef4444' : '#e5e7eb'}` } }}>
+                                            <StepLabel StepIconComponent={() => (
+                                                <Box sx={{
+                                                    width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    bgcolor: event.status === 'processed' ? '#dcfce7' : event.status === 'failed' ? '#fee2e2' : '#fef9c3',
+                                                    border: `2px solid ${event.status === 'processed' ? '#22c55e' : event.status === 'failed' ? '#ef4444' : '#f59e0b'}`
+                                                }}>
+                                                    {event.status === 'processed' ? <Check size={14} color="#22c55e" /> :
+                                                     event.status === 'failed'    ? <XCircle size={14} color="#ef4444" /> :
+                                                     <Clock size={14} color="#f59e0b" />}
+                                                </Box>
+                                            )}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                                    <code style={{ fontSize: '0.8rem', background: isError ? '#fee2e2' : '#f1f5f9', padding: '2px 6px', borderRadius: 4, color: isError ? '#991b1b' : '#1e293b' }}>{event.eventType}</code>
+                                                    <Chip size="small" label={event.status} color={eventStatusColor(event.status)} />
+                                                    {retryText && <Chip size="small" variant="outlined" color="warning" label={retryText} />}
+                                                </Box>
+                                            </StepLabel>
+                                            <StepContent>
+                                                <Box sx={{ bgcolor: isError ? '#fef2f2' : '#f8fafc', p: 1.5, borderRadius: 2, mb: 1 }}>
+                                                    <Typography variant="caption" color="text.secondary" display="block">
+                                                        {event.aggregateType} · {new Date(event.timestamp).toLocaleString()}
+                                                    </Typography>
+                                                    {event.processingTime && (
+                                                        <Typography variant="caption" color={isError ? 'error.main' : 'success.main'} display="block">
+                                                            {isError ? 'Falhou' : 'Processado'} em {formatDuration(event.processingTime)}
+                                                        </Typography>
+                                                    )}
+                                                    {event.errorInfo && (
+                                                        <Alert severity="error" sx={{ mt: 1, borderRadius: 1 }} icon={<XCircle size={16} />}>
+                                                            <Typography variant="caption" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+                                                                {event.errorInfo.errorMessage}
+                                                            </Typography>
+                                                            {event.errorInfo.stack && (
+                                                                <Typography variant="caption" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', color: 'text.secondary', mt: 0.5, display: 'block' }}>
+                                                                    {typeof event.errorInfo.stack === 'string' ? event.errorInfo.stack.split('\n').slice(0, 3).join('\n') : ''}
+                                                                </Typography>
+                                                            )}
+                                                        </Alert>
+                                                    )}
+                                                </Box>
+                                                {idx < eventFlow.timeline.length - 1 && (
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1.5, mb: 1 }}>
+                                                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#cbd5e1' }} />
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {(() => {
+                                                                const next = eventFlow.timeline[idx + 1];
+                                                                const diff = new Date(next.timestamp).getTime() - new Date(event.timestamp).getTime();
+                                                                return diff > 0 ? `+ ${formatDuration(diff)}` : 'próximo evento';
+                                                            })()}
+                                                        </Typography>
+                                                    </Box>
+                                                )}
+                                            </StepContent>
+                                        </Step>
+                                    );
+                                })}
                             </Stepper>
                         </Box>
                     )}

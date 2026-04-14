@@ -13,7 +13,6 @@
  */
 
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
-import axios from 'axios';
 import API from '../services/api';
 import {
     resolveSystemHealth,
@@ -76,6 +75,14 @@ interface SystemHealthApiResponse {
     healthScore: number;
 }
 
+export interface HealthExtras {
+    successRate: { last1h: number; last24h: number } | null;
+    errorRate: { last1h: number; last24h: number } | null;
+    processingTime: { avgMs: number; p95Ms: number } | null;
+    topFailingEventTypes: { eventType: string; count: number }[];
+    appointmentStats: { retryableNotFound: number; permanentNotFound: number } | null;
+}
+
 interface SystemHealthContextValue {
     health:        SystemHealth | null;
     monitor:       RawMonitorData | null;
@@ -85,6 +92,7 @@ interface SystemHealthContextValue {
     recent:        ObsRecent[];
     healthScore:   number | null;
     systemStatus:  'healthy' | 'warning' | 'critical' | null;
+    extras:        HealthExtras;
     loadingHealth: boolean;
     loadingMonitor: boolean;
     refresh: () => void;
@@ -105,6 +113,7 @@ export function SystemHealthProvider({ children }: { children: ReactNode }) {
     const [recent,         setRecent]         = useState<ObsRecent[]>([]);
     const [healthScore,    setHealthScore]    = useState<number | null>(null);
     const [systemStatus,   setSystemStatus]   = useState<'healthy' | 'warning' | 'critical' | null>(null);
+    const [extras,         setExtras]         = useState<HealthExtras>({ successRate: null, errorRate: null, processingTime: null, topFailingEventTypes: [], appointmentStats: null });
     const [loadingHealth,  setLoadingHealth]  = useState(true);
     const [loadingMonitor, setLoadingMonitor] = useState(true);
     const [lastFetchAt,    setLastFetchAt]    = useState<Date | null>(null);
@@ -112,8 +121,8 @@ export function SystemHealthProvider({ children }: { children: ReactNode }) {
     const fetchHealth = useCallback(async () => {
         try {
             const [shRes, healthRes] = await Promise.allSettled([
-                axios.get<{ data: SystemHealthApiResponse }>('/api/observability/system-health'),
-                axios.get<{ data?: RawHealth } & RawHealth>('/api/health/full'),
+                API.get<{ data: SystemHealthApiResponse }>('/api/observability/system-health'),
+                API.get<{ data?: RawHealth } & RawHealth>('/api/health/full'),
             ]);
 
             const sh = shRes.status === 'fulfilled' ? shRes.value.data.data : null;
@@ -170,6 +179,13 @@ export function SystemHealthProvider({ children }: { children: ReactNode }) {
                 setRecent(sh.recentEvents ?? []);
                 setHealthScore(sh.healthScore ?? null);
                 setSystemStatus(sh.status ?? null);
+                setExtras({
+                    successRate: sh.successRate ?? null,
+                    errorRate: sh.errorRate ?? null,
+                    processingTime: sh.processingTime ?? null,
+                    topFailingEventTypes: sh.topFailingEventTypes ?? [],
+                    appointmentStats: sh.appointment ?? null,
+                });
                 setHealth(resolveSystemHealth(rawHealth, metrics, domains, alerts));
             }
 
@@ -212,7 +228,7 @@ export function SystemHealthProvider({ children }: { children: ReactNode }) {
     return (
         <SystemHealthContext.Provider value={{
             health, monitor, rawMetrics, rawDomains, rawAlerts, recent,
-            healthScore, systemStatus,
+            healthScore, systemStatus, extras,
             loadingHealth, loadingMonitor,
             refresh, lastFetchAt,
         }}>
