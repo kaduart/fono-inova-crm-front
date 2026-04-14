@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import usePayment from '../../hooks/usePayment';
 
 import { usePaymentsContext } from '../../contexts/PaymentsContext';
+import { useAppointmentsContext } from '../../contexts/AppointmentsContext';
 import {
     exportCSV,
     exportPDF,
@@ -22,7 +23,6 @@ import { PaymentsFilters } from './PaymentsFilters';
 import FinancialSummaryCard from './PaymentsSummary';
 import { Patient360Modal } from '../../pages/Financial/components/Patient360Modal';
 import { FinancialTableLoading } from '../../pages/Financial/components/FinancialLoading';
-import api from '../../services/api';
 
 // ─── Status map for appointment badges ──────────────────────────────────────
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
@@ -124,13 +124,13 @@ const NewPatientsPeriodCard = ({
     selectedPeriod,
     customStartDate,
     customEndDate,
+    appointments,
 }: {
     selectedPeriod: string;
     customStartDate: string;
     customEndDate: string;
+    appointments: any[];
 }) => {
-    const [newPatients, setNewPatients] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
 
     const dateRange = useMemo(
@@ -138,27 +138,19 @@ const NewPatientsPeriodCard = ({
         [selectedPeriod, customStartDate, customEndDate]
     );
 
-    useEffect(() => {
-        if (!dateRange) return;
-        setLoading(true);
-        // 🚀 V2: Usa listagem otimizada
-        const queryParams = new URLSearchParams();
-        queryParams.append('startDate', dateRange.start);
-        queryParams.append('endDate', dateRange.end);
-        queryParams.append('light', 'true');
-        
-        api.get(`/v2/appointments?${queryParams.toString()}`)
-            .then(res => {
-                const data = res.data?.data || res.data || [];
-                // Filtra novos pacientes no frontend (primeira consulta do paciente)
-                const novosPacientes = (Array.isArray(data) ? data : []).filter((apt: any) => 
-                    apt.isFirstVisit === true || apt.patientType === 'novo'
-                );
-                setNewPatients(novosPacientes);
-            })
-            .catch(() => setNewPatients([]))
-            .finally(() => setLoading(false));
-    }, [dateRange]);
+    const { newPatients, loading } = useMemo(() => {
+        if (!dateRange || !appointments.length) {
+            return { newPatients: [], loading: false };
+        }
+        const filtered = appointments.filter((apt: any) => {
+            const aptDate = apt.date ? new Date(apt.date).toISOString().split('T')[0] : '';
+            return aptDate >= dateRange.start && aptDate <= dateRange.end;
+        });
+        const novosPacientes = filtered.filter((apt: any) => 
+            apt.isFirstVisit === true || apt.patientType === 'novo'
+        );
+        return { newPatients: novosPacientes, loading: false };
+    }, [dateRange, appointments]);
 
     if (!dateRange) return null;
 
@@ -289,22 +281,16 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
         payments: allPayments = [], 
         setPayments: setAllPayments = () => {},
         updatePayment: updatePaymentContext,
-        loadPayments,
-        currentMonth: contextMonth
     } = usePaymentsContext();
     
-    const currentMonth = new Date().toISOString().substring(0, 7);
+    // 🚀 NOVO: Usa AppointmentsContext como fonte única de dados
+    const { appointments, fetchAppointments, isLoading: appointmentsLoading } = useAppointmentsContext();
     
-    // 🚀 PaymentPage gerencia seu próprio carregamento via loadPaymentsList
-    // Não chama loadPayments do contexto para evitar race condition
-    // useEffect(() => {
-    //     if (contextMonth !== currentMonth) {
-    //         loadPayments(currentMonth);
-    //     }
-    // }, [contextMonth, currentMonth, loadPayments]);
+    const [appointmentRecords, setAppointmentRecords] = useState<FinancialRecord[]>([]);
     
     const [filteredPayments, setFilteredPayments] = useState<FinancialRecord[]>([]);
-    const [loading, setLoading] = useState<boolean>(false);
+    // 🚀 Loading vem do AppointmentsContext (fonte única)
+    const loading = appointmentsLoading;
     const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
     const [paymentToEdit, setPaymentToEdit] = useState<FinancialRecord | undefined>(undefined);
     
@@ -342,32 +328,25 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
         fetchPaymentTotals,
     } = usePayment();
 
-    // Busca agendamentos como lista financeira (V2 - otimizado)
-    const loadPaymentsList = useCallback(async (params: { startDate?: string; endDate?: string } = {}) => {
-        setLoading(true);
-        try {
-            // 🚀 V2: Usa listagem otimizada
-            const queryParams = new URLSearchParams();
-            if (params.startDate) queryParams.append('startDate', params.startDate);
-            if (params.endDate) queryParams.append('endDate', params.endDate);
-            queryParams.append('limit', '500');
-            // light=true para campos essenciais (mais rápido)
-            queryParams.append('light', 'true');
-            
-            const res = await api.get(`/v2/appointments?${queryParams.toString()}`);
-            const raw = res.data?.data || res.data || [];
-            console.log('[PaymentPage] API V2 retornou:', raw.length, 'agendamentos');
-            const mapped: FinancialRecord[] = (Array.isArray(raw) ? raw : [])
-                .map(mapAppointmentToRecord)
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            console.log('[PaymentPage] Mapeados para:', mapped.length, 'registros');
-            setAllPayments(mapped); // ✅ Context API
-        } catch (err) {
-            console.error('Erro ao carregar lista de pagamentos:', err);
-        } finally {
-            setLoading(false);
-        }
-    }, [setAllPayments]);
+    // 🚀 NOVO: Sincroniza appointments do contexto para FinancialRecords
+    useEffect(() => {
+        const mapped: FinancialRecord[] = (appointments || [])
+            .map(mapAppointmentToRecord)
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        console.log('[PaymentPage] AppointmentsContext mapeados:', mapped.length, 'registros');
+        setAppointmentRecords(mapped);
+        setAllPayments(mapped);
+    }, [appointments, setAllPayments]);
+
+    // 🚀 NOVO: Busca appointments no contexto de acordo com o período
+    const syncAppointments = useCallback(async (params: { startDate?: string; endDate?: string } = {}) => {
+        console.log('[PaymentPage] Sincronizando appointments via contexto:', params);
+        await fetchAppointments({ 
+            startDate: params.startDate, 
+            endDate: params.endDate,
+            force: false 
+        });
+    }, [fetchAppointments]);
 
     // 🔹 Carregar role do usuário
     useEffect(() => {
@@ -402,19 +381,11 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
     }, [patientParam, allPayments]);
 
     // 🔹 Carregar pagamentos de hoje quando a aba for ativada
-    // 🛡️ CORREÇÃO: Só carrega se não tiver dados (evita sobrescrever com resposta vazia)
     useEffect(() => {
         if (!enabled) return;
         
-        // Se já tem pagamentos carregados, não chama API de novo
-        if (allPayments.length > 0) {
-            console.log('[PaymentPage] Já tem', allPayments.length, 'pagamentos, pulando loadPaymentsList');
-            fetchPaymentTotals({ period: 'day' });
-            return;
-        }
-        
         const today = new Date().toISOString().split('T')[0];
-        loadPaymentsList({ startDate: today, endDate: today });
+        syncAppointments({ startDate: today, endDate: today });
         fetchPaymentTotals({ period: 'day' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [enabled]);
@@ -523,7 +494,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
             // 🔄 RECARREGA LISTA para refletir mudanças no backend
             const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
             if (range) {
-                await loadPaymentsList({ startDate: range.start, endDate: range.end });
+                await syncAppointments({ startDate: range.start, endDate: range.end });
             }
             fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
 
@@ -583,7 +554,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
         // 🔄 RECARREGA LISTA para mostrar novo pagamento
         const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
         if (range) {
-            await loadPaymentsList({ startDate: range.start, endDate: range.end });
+            await syncAppointments({ startDate: range.start, endDate: range.end });
         }
         fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
 
@@ -615,7 +586,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
             // 🔄 RECARREGA LISTA após cancelar pagamento
             const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
             if (range) {
-                await loadPaymentsList({ startDate: range.start, endDate: range.end });
+                await syncAppointments({ startDate: range.start, endDate: range.end });
             }
             fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
         }
@@ -671,7 +642,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                                     } else {
                                         fetchPaymentTotals({ period: chip.key as any });
                                         const range = computeDateRange(chip.key, '', '');
-                                        if (range) loadPaymentsList({ startDate: range.start, endDate: range.end });
+                                        if (range) syncAppointments({ startDate: range.start, endDate: range.end });
                                     }
                                 }}
                                 className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
@@ -697,7 +668,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                                 const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
                                 const endDate = new Date(year, month, 0).toISOString().split('T')[0];
                                 fetchPaymentTotals({ period: 'custom', startDate, endDate });
-                                loadPaymentsList({ startDate, endDate });
+                                syncAppointments({ startDate, endDate });
                             } else if (value === 'last_week') {
                                 const now = new Date();
                                 const dayOfWeek = now.getDay();
@@ -711,7 +682,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                                 const lwStart = lastMonday.toISOString().split('T')[0];
                                 const lwEnd = lastSunday.toISOString().split('T')[0];
                                 fetchPaymentTotals({ period: 'custom', startDate: lwStart, endDate: lwEnd });
-                                loadPaymentsList({ startDate: lwStart, endDate: lwEnd });
+                                syncAppointments({ startDate: lwStart, endDate: lwEnd });
                             } else if (value === 'last_month') {
                                 const now = new Date();
                                 const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -720,13 +691,13 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                                 const sd = firstDayLastMonth.toISOString().split('T')[0];
                                 const ed = lastDayLastMonth.toISOString().split('T')[0];
                                 fetchPaymentTotals({ period: 'custom', startDate: sd, endDate: ed });
-                                loadPaymentsList({ startDate: sd, endDate: ed });
+                                syncAppointments({ startDate: sd, endDate: ed });
                             } else if (value === 'custom') {
                                 return;
                             } else {
                                 fetchPaymentTotals({ period: value as 'day' | 'week' | 'month' | 'year' | 'all' });
                                 const range = computeDateRange(value, '', '');
-                                if (range) loadPaymentsList({ startDate: range.start, endDate: range.end });
+                                if (range) syncAppointments({ startDate: range.start, endDate: range.end });
                             }
                         }}
                     >
@@ -785,7 +756,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                                             startDate: new Date(customStartDate).toISOString(),
                                             endDate: new Date(customEndDate + 'T23:59:59').toISOString()
                                         });
-                                        loadPaymentsList({ startDate: customStartDate, endDate: customEndDate });
+                                        syncAppointments({ startDate: customStartDate, endDate: customEndDate });
                                     } else {
                                         toast.warning('Selecione as datas inicial e final');
                                     }
@@ -883,6 +854,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                             selectedPeriod={selectedPeriod}
                             customStartDate={customStartDate}
                             customEndDate={customEndDate}
+                            appointments={appointments}
                         />
                     </div>
                 </div>
@@ -1129,7 +1101,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                     // 🔄 RECARREGA LISTA quando fechar o modal (após edição)
                     const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
                     if (range) {
-                        loadPaymentsList({ startDate: range.start, endDate: range.end });
+                        syncAppointments({ startDate: range.start, endDate: range.end });
                     }
                     fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
                 }}
@@ -1142,7 +1114,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                     // 🔄 RECARREGA LISTA após cancelar
                     const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
                     if (range) {
-                        await loadPaymentsList({ startDate: range.start, endDate: range.end });
+                        await syncAppointments({ startDate: range.start, endDate: range.end });
                     }
                     fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
                 }}
@@ -1153,7 +1125,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                     // 🔄 RECARREGA LISTA após completar
                     const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
                     if (range) {
-                        await loadPaymentsList({ startDate: range.start, endDate: range.end });
+                        await syncAppointments({ startDate: range.start, endDate: range.end });
                     }
                     fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
                 }}
@@ -1164,7 +1136,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                     // 🔄 RECARREGA LISTA após editar
                     const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
                     if (range) {
-                        await loadPaymentsList({ startDate: range.start, endDate: range.end });
+                        await syncAppointments({ startDate: range.start, endDate: range.end });
                     }
                     fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
                 }}

@@ -310,7 +310,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         serviceType: updatedAppt.serviceType || prev.serviceType,
                         sessionType: updatedAppt.sessionType || updatedAppt.specialty || prev.sessionType,
                         specialty: updatedAppt.specialty || prev.specialty,
-                        reason: updatedAppt.reason || prev.reason,
+                        reason: updatedAppt.reason || updatedAppt.notes || prev.reason,
                         notes: updatedAppt.notes || prev.notes,
                         // Datas
                         date: updatedAppt.date ? new Date(updatedAppt.date) : prev.date,
@@ -400,7 +400,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             backgroundColor: event.backgroundColor,
             borderColor: event.borderColor,
             start: formattedDate,
-            reason: data.reason || extendedProps.reason || "",
+            reason: data.reason || data.notes || extendedProps.reason || extendedProps.notes || "",
+            notes: data.notes || extendedProps.notes || "",
             billingType: data.billingType || extendedProps.billingType || 'particular',
             insuranceProvider: data.insuranceProvider || extendedProps.insuranceProvider || '',
             insuranceValue: data.insuranceValue || extendedProps.insuranceValue || 0,
@@ -410,7 +411,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             sessionValue: data.sessionValue || data.paymentAmount || extendedProps.sessionValue || extendedProps.paymentAmount || 0,
             paymentMethod: data.paymentMethod || extendedProps.paymentMethod || 'dinheiro',
             specialty: data.specialty || data.sessionType || extendedProps.specialty || extendedProps.sessionType || '',
-            __isPreAgendamento: data.__isPreAgendamento || extendedProps.__isPreAgendamento || false
+            __isPreAgendamento: data.__isPreAgendamento || extendedProps.__isPreAgendamento || false,
+            package: data.package || extendedProps.package || null
         };
 
         console.log('📤 [Calendar] selectedEventData:', selectedEventData);
@@ -611,7 +613,14 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         const doctorName = arg.event.extendedProps.doctorName || arg.event.extendedProps.doctor?.fullName || 'Profissional';
 
         const packageData = arg.event.extendedProps.package;
-        const hasPackage = !!packageData;
+        // 🛡️ CORREÇÃO: Só considera pacote se for objeto populado com dados válidos
+        const hasPackage = !!packageData && typeof packageData === 'object' && (
+            typeof packageData.totalSessions === 'number' ||
+            typeof packageData.sessionsDone === 'number' ||
+            typeof packageData.sessionsRemaining === 'number' ||
+            typeof packageData.sessionValue === 'number' ||
+            typeof packageData.type === 'string'
+        );
 
         // 💰 SALDO DEVEDOR DO PACIENTE
         const patientBalance = arg.event.extendedProps.patientBalance || 0;

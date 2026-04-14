@@ -12,9 +12,6 @@ import {
     CreditCard,
     ArrowLeftRight,
     LayoutDashboard,
-    TrendingUp,
-    TrendingUp as TrendingUpIcon,
-    ClipboardList,
 } from 'lucide-react';
 import { useState } from 'react';
 import { FinancialRecord } from '../../services/paymentService';
@@ -59,13 +56,11 @@ const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) 
 // 🚀 LAZY LOAD: Só carrega quando a aba for ativada
 const PaymentPage = lazyWithRetry(() => import('../../components/financial/PaymentPage'));
 const ExpensesTab = lazyWithRetry(() => import('./tabs/ExpensesTab'));
-const EntradasSaidasTab = lazyWithRetry(() => import('./tabs/EntradasSaidasTab'));
-const GoalsTab = lazyWithRetry(() => import('./tabs/GoalsTab'));
 const InsuranceTab = lazyWithRetry(() => import('./tabs/InsuranceTab'));
 const PlanningTab = lazyWithRetry(() => import('./tabs/PlanningTab'));
-const VisaoGeralEstrategicaTab = lazyWithRetry(() => import('./tabs/VisaoGeralEstrategicaTab'));
 const AnaliseProjecaoTab = lazyWithRetry(() => import('./tabs/AnaliseProjecaoTab'));
 const UnifiedCashflowTab = lazyWithRetry(() => import('./UnifiedCashflowTab'));
+const DashboardV3Tab = lazyWithRetry(() => import('./tabs/DashboardV3Tab'));
 
 // 🔄 Skeleton de loading para tabs
 const TabSkeleton = () => (
@@ -113,18 +108,16 @@ const FinancialDashboard = ({
 
     // Configuração das tabs operacionais
     const operacionalTabs = [
-        { id: 'caixa-unificado', label: 'Caixa & Fluxo', icon: <LayoutDashboard size={18} /> },  // 🆕 UNIFICADO
-        { id: 'pagamentos', label: 'Pagamentos', icon: <DollarSign size={18} /> },  // 🧑‍💼 Secretária
+        { id: 'dashboard-v3', label: 'Dashboard', icon: <BarChart3 size={18} /> },  // 🆕 V3 único dashboard inteligente
+        { id: 'caixa-unificado', label: 'Caixa & Fluxo', icon: <LayoutDashboard size={18} /> },
+        { id: 'pagamentos', label: 'Pagamentos', icon: <DollarSign size={18} /> },
         { id: 'despesas', label: 'Despesas', icon: <Receipt size={18} /> },
         { id: 'convenios', label: 'Convênios', icon: <CreditCard size={18} /> },
-        { id: 'metas-v2', label: 'Metas', icon: <TrendingUp size={18} /> },
-        { id: 'extrato', label: 'Dashboard', icon: <BarChart3 size={18} /> },  // 📊 Dashboard completo
     ];
 
     // Configuração das tabs estratégicas
     const estrategicoTabs = [
-        { id: 'dashboard-exec', label: 'Dashboard Executivo', icon: <BarChart3 size={18} /> },
-        { id: 'metas-provisao', label: 'Metas & Provisão', icon: <Target size={18} /> },
+        { id: 'dashboard-v3', label: 'Dashboard', icon: <BarChart3 size={18} /> },  // 🆕 V3 também no estratégico
         { id: 'analise-projecao', label: 'Análise & Projeção', icon: <PieChart size={18} /> },
         { id: 'planejamento', label: 'Planejamento Anual', icon: <Calendar size={18} /> },
     ];
@@ -144,8 +137,8 @@ const FinancialDashboard = ({
     // 🎯 Renderiza apenas a aba ativa (lazy loaded)
     const renderOperacionalTab = () => {
         switch (currentTabId) {
-            case 'metas-v2':
-                return <GoalsTab />;
+            case 'dashboard-v3':
+                return <DashboardV3Tab />;
             case 'pagamentos':
                 return (
                     <PaymentPage
@@ -163,25 +156,21 @@ const FinancialDashboard = ({
                 return <InsuranceTab />;
             case 'caixa-unificado':
                 return <UnifiedCashflowTab />;
-            case 'extrato':
-                return <EntradasSaidasTab />;
             default:
-                return <UnifiedCashflowTab />;
+                return <DashboardV3Tab />;
         }
     };
 
     const renderEstrategicoTab = () => {
         switch (currentTabId) {
-            case 'dashboard-exec':
-                return <VisaoGeralEstrategicaTab />;
-            case 'metas-provisao':
-                return <GoalsTab />;
+            case 'dashboard-v3':
+                return <DashboardV3Tab />;
             case 'analise-projecao':
                 return <AnaliseProjecaoTab />;
             case 'planejamento':
                 return <PlanningTab />;
             default:
-                return <VisaoGeralEstrategicaTab />;
+                return <DashboardV3Tab />;
         }
     };
 

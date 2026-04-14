@@ -216,7 +216,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 patientId: event.patient?.id || '',
                 date: eventDate,
                 time: eventTime,
-                reason: event.reason || '',
+                reason: event.reason || event.notes || '',
                 operationalStatus: translatedOperationalStatus,
                 clinicalStatus: translatedClinicalStatus,
                 serviceType: event.serviceType || 'individual_session',
@@ -319,12 +319,18 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         setAuthorizationCode(updatedData.authorizationCode || updatedData.convenio?.authorizationCode || '');
                         
                         // Atualiza o evento localmente também (se possível)
-                        if (updatedData.doctor?._id) {
-                            setEditedAppointment(prev => ({
-                                ...prev,
-                                doctorId: updatedData.doctor._id
-                            }));
-                        }
+                        setEditedAppointment(prev => ({
+                            ...prev,
+                            doctorId: updatedData.doctor?._id || prev.doctorId,
+                            patientId: updatedData.patient?._id || prev.patientId,
+                            date: updatedData.date ? new Date(updatedData.date).toLocaleDateString('sv-SE') : prev.date,
+                            time: updatedData.time || prev.time,
+                            reason: updatedData.notes || updatedData.reason || prev.reason || '',
+                            operationalStatus: translateStatus(updatedData.operationalStatus || prev.operationalStatus || 'scheduled', 'operational'),
+                            clinicalStatus: translateStatus(updatedData.clinicalStatus || prev.clinicalStatus || 'pending', 'clinical'),
+                            serviceType: updatedData.serviceType || prev.serviceType || 'individual_session',
+                            sessionType: updatedData.specialty || updatedData.sessionType || prev.sessionType || 'fonoaudiologia'
+                        }));
                     }
                 } catch (error) {
                     console.error('❌ [Modal] Erro ao buscar dados atualizados:', error);
@@ -348,7 +354,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 patientId: event.patient?.id || event.patient?._id || prev.patientId || '',
                 date: event.date ? new Date(event.date).toLocaleDateString('sv-SE') : prev.date,
                 time: event.startTime || prev.time,
-                reason: event.reason || prev.reason || '',
+                reason: event.reason || event.notes || prev.reason || '',
                 serviceType: event.serviceType || prev.serviceType || 'individual_session',
                 sessionType: event.specialty || event.sessionType || prev.sessionType || 'fonoaudiologia',
                 operationalStatus: translateStatus(event.operationalStatus || 'scheduled', 'operational'),
@@ -435,7 +441,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         try {
             // 🛡️ GUARD FINANCEIRO + execução segura
             const didProceed = safeCompleteAppointment(
-                event?.extendedProps || {},
+                {
+                    billingType: event?.billingType,
+                    package: event?.package,
+                    sessionValue: event?.sessionValue ?? event?.paymentAmount ?? null,
+                },
                 async () => {
                     if (addToBalance) {
                         console.log('💰 [Modal] Completando com saldo devedor:', debitAmount);
@@ -525,7 +535,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 patientId: editedAppointment.patientId,
                 date: editedAppointment.date,
                 time: editedAppointment.time,
-                reason: editedAppointment.reason,
+                notes: editedAppointment.reason,
                 operationalStatus: operationalStatusEN,
                 clinicalStatus: clinicalStatusEN === 'scheduled' ? 'pending' : clinicalStatusEN,
                 // 🆕 NOVO: Dados de serviço e pagamento

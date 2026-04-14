@@ -14,7 +14,7 @@ export interface AppointmentCompleteGuardPackage {
 
 export interface AppointmentCompleteGuardInput {
   billingType?: string;
-  package?: AppointmentCompleteGuardPackage;
+  package?: AppointmentCompleteGuardPackage | string;
   sessionValue?: number | null;
 }
 
@@ -36,11 +36,15 @@ function getSessionValue(appointment: AppointmentCompleteGuardInput): { hasValue
   return { hasValue, value: hasValue ? Number(raw) : 0 };
 }
 
-function getPackageRemaining(pkg?: AppointmentCompleteGuardPackage): number | null {
-  if (!pkg) return null;
+function getPackageRemaining(pkg?: AppointmentCompleteGuardPackage | string): number | null {
+  // 🛡️ CORREÇÃO: Se package vier como string (ObjectId não populado), não podemos calcular saldo
+  if (!pkg || typeof pkg === 'string') {
+    console.warn('[Guard] Package não populado - pulando validação de saldo');
+    return null;
+  }
   if (typeof pkg.sessionsRemaining === 'number') return pkg.sessionsRemaining;
-  const total = pkg.totalSessions || 0;
-  const done = pkg.sessionsDone || 0;
+  const total = typeof pkg.totalSessions === 'number' ? pkg.totalSessions : 0;
+  const done = typeof pkg.sessionsDone === 'number' ? pkg.sessionsDone : 0;
   return total - done;
 }
 
@@ -50,7 +54,12 @@ function getPackageRemaining(pkg?: AppointmentCompleteGuardPackage): number | nu
 export function validateAppointmentComplete(appointment: AppointmentCompleteGuardInput): GuardResult {
   const billingType = appointment.billingType || 'particular';
   const pkg = appointment.package;
-  const hasPackage = !!pkg;
+  // 🛡️ CORREÇÃO: Só considera 'hasPackage' se for objeto populado com dados válidos
+  const hasPackage = !!pkg && typeof pkg === 'object' && (
+    typeof pkg.sessionsRemaining === 'number' ||
+    typeof pkg.totalSessions === 'number' ||
+    typeof pkg.sessionsDone === 'number'
+  );
   const { hasValue: hasSessionValue, value: sessionValue } = getSessionValue(appointment);
   const remaining = getPackageRemaining(pkg);
 

@@ -1,5 +1,4 @@
 // Componente de loading padronizado para as tabs do FinancialDashboard
-// Baseado no design do VisaoGeralEstrategicaTab
 
 import { Box, Grid, LinearProgress, Skeleton } from '@mui/material';
 

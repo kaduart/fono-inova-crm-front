@@ -25,7 +25,7 @@ interface Payment {
  * ⚠️ CRÍTICO: Extrai valor real do pagamento
  * Convênios têm amount=0, valor real está em insurance.grossAmount
  * 
- * Usado em: EntradasSaidasTab.tsx
+ * Usado em: frontend financeiro
  */
 function getPaymentValue(payment: Payment): number {
     if (payment.billingType === 'convenio' || payment.paymentMethod === 'convenio') {
@@ -36,7 +36,7 @@ function getPaymentValue(payment: Payment): number {
 
 /**
  * Calcula taxa de cartão baseada na bandeira e parcelas
- * Usado em: EntradasSaidasTab.tsx
+ * Usado em: frontend financeiro
  */
 interface TaxaCartao {
     bandeira: string;
@@ -66,7 +66,7 @@ function calcularTaxaCartao(valor: number, bandeira: string, parcelas: number = 
 
 /**
  * Separa pagamentos em Caixa vs A Receber
- * Usado em: EntradasSaidasTab.tsx
+ * Usado em: frontend financeiro
  */
 interface SeparacaoValores {
     caixa: number;

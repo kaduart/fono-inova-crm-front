@@ -205,7 +205,6 @@ export default function AdminDashboard() {
         payment?: FinancialRecord;
     }>({ mode: 'create' });
     const [showAdvancedPayment, setShowAdvancedPayment] = useState(false);
-    const [hasLoadedPayments, setHasLoadedPayments] = useState(false);
     const [hasLoadedAppointments, setHasLoadedAppointments] = useState(false);
 
     // 🗓️ Carrega agendamentos SÓ quando abrir aba Calendário pela primeira vez
@@ -682,17 +681,7 @@ export default function AdminDashboard() {
         setShowAdvancedPayment(true);
     }, []);
 
-    // 🔄 Load payments via Context (cache inteligente por mês)
     const currentMonth = new Date().toISOString().substring(0, 7);
-
-     // 🚀 Carrega pagamentos SÓ quando abrir aba Financeiro pela primeira vez
-     // O context gerencia o cache (não recarrega se já tiver do mesmo mês)
-    useEffect(() => {
-        if (activeTab === 'Financeiro' && !hasLoadedPayments) {
-            loadPayments(currentMonth);
-            setHasLoadedPayments(true);
-        }
-    }, [activeTab, hasLoadedPayments, loadPayments, currentMonth]);
 
     const handleCreatePayment = useCallback(async (data: any) => {
         try {

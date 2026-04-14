@@ -287,7 +287,7 @@ export interface ScheduleAppointment {
     duration?: number;
 
     // 🏥 Convênio
-    billingType?: 'particular' | 'convenio';
+    billingType?: 'particular' | 'convenio' | 'package' | 'liminar' | string;
     insuranceProvider?: string;
     insuranceValue?: number;
     authorizationCode?: string;
@@ -340,6 +340,7 @@ export interface SelectedEvent {
     operationalStatus?: string;
     clinicalStatus?: string;
     reason?: string;
+    notes?: string;
 
     formattedDate: string;
     backgroundColor: string;
@@ -361,6 +362,9 @@ export interface SelectedEvent {
     
     // 🆕 INDICADOR DE PRÉ-AGENDAMENTO
     __isPreAgendamento?: boolean;
+
+    // 🆕 DADOS DO PACOTE
+    package?: any;
 }
 
 export interface SlotBookingPayload {

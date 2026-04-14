@@ -1,0 +1,623 @@
+import { useState } from 'react';
+import {
+  LayoutDashboard,
+  DollarSign,
+  Briefcase,
+  Receipt,
+  Target,
+  Lightbulb,
+  TrendingUp,
+  TrendingDown,
+  Users,
+  AlertCircle,
+  CheckCircle2,
+  Info,
+  Calendar,
+  Clock,
+  ArrowUpRight,
+  ArrowDownRight,
+  Zap
+} from 'lucide-react';
+import { useCurrentMonthDashboardV3 } from '../../../hooks/useFinancialDashboardV3';
+import { FinancialLoading } from '../components/FinancialLoading';
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+
+const getMetaColor = (status: string) => {
+  switch (status) {
+    case 'verde': return 'success';
+    case 'amarelo-verde': return 'warning';
+    case 'amarelo': return 'warning';
+    default: return 'error';
+  }
+};
+
+const getMetaBg = (status: string) => {
+  switch (status) {
+    case 'verde': return 'bg-emerald-100';
+    case 'amarelo-verde': return 'bg-amber-100';
+    case 'amarelo': return 'bg-amber-100';
+    default: return 'bg-rose-100';
+  }
+};
+
+const DashboardV3Tab = () => {
+  const [activeTab, setActiveTab] = useState(0);
+  const { data, resumo, loading, error } = useCurrentMonthDashboardV3();
+
+  if (loading) return <FinancialLoading />;
+  if (error) return <div className="p-4 rounded-lg bg-rose-50 text-rose-700 border border-rose-200">{error}</div>;
+  if (!data || !resumo) return <div className="p-4 rounded-lg bg-sky-50 text-sky-700 border border-sky-200">Nenhum dado disponível</div>;
+
+  const { cash, revenue, expenses, metas, profissionais, insights, comparativos, riscoOperacional, acoesExecutivas, drillDown } = data;
+  const totalCaixa = cash.total;
+  const totalProducao = revenue.total;
+  const lucro = totalCaixa - expenses.total;
+
+  // 🎯 RITMO OPERACIONAL — card herói
+  const RitmoCard = () => {
+    const pctEsperado = metas.ritmo.percentualEsperado;
+    const pctRealizado = metas.ritmo.percentualRealizado;
+    const diff = pctRealizado - pctEsperado;
+    const isAtrasado = diff < 0;
+    const bgClass = getMetaBg(metas.statusMeta);
+    const progressColor = 
+      metas.statusMeta === 'verde' ? 'bg-emerald-500' :
+      metas.statusMeta === 'amarelo-verde' ? 'bg-amber-500' :
+      metas.statusMeta === 'amarelo' ? 'bg-amber-500' : 'bg-rose-500';
+
+    return (
+      <div className={`p-4 md:p-6 rounded-2xl mb-6 border ${bgClass} border-gray-200 shadow-sm`}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+          <div className="md:col-span-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">RITMO OPERACIONAL REAL</span>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-4xl md:text-5xl font-extrabold text-gray-900">{pctRealizado.toFixed(1)}%</span>
+              <span className="text-xl text-gray-500">/ {pctEsperado.toFixed(1)}% esperado</span>
+            </div>
+            <p className="text-gray-600 mt-2">
+              {isAtrasado
+                ? `Você está ${Math.abs(diff).toFixed(1)} pontos percentuais abaixo do ritmo necessário para bater a meta.`
+                : `Você está ${diff.toFixed(1)} pontos percentuais acima do ritmo esperado. Continue assim!`}
+            </p>
+            <div className="mt-4">
+              <div className="h-3 w-full bg-gray-200 rounded-full overflow-hidden">
+                <div className={`h-full ${progressColor} rounded-full transition-all`} style={{ width: `${Math.min(pctRealizado, 100)}%` }}></div>
+              </div>
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>Realizado</span>
+                <span>Meta mensal</span>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <MetricRow label="Esperado até hoje" value={formatCurrency(metas.ritmo.esperadoAteAgora)} />
+            <MetricRow label="Realizado" value={formatCurrency(metas.ritmo.realizadoAteAgora)} />
+            <MetricRow
+              label="Diferença"
+              value={formatCurrency(metas.ritmo.diferenca)}
+              valueColor={metas.ritmo.diferenca >= 0 ? 'text-emerald-600' : 'text-rose-600'}
+            />
+            <MetricRow label="Gap diário necessário" value={formatCurrency(metas.gap.porDia)} />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderVisaoGeral = () => (
+    <div>
+      <RitmoCard />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <MetricCard title="Caixa" value={formatCurrency(totalCaixa)} icon={<DollarSign size={20} />} color="emerald" />
+        <MetricCard title="Produção" value={formatCurrency(totalProducao)} icon={<Briefcase size={20} />} color="blue" />
+        <MetricCard title="Despesas" value={formatCurrency(expenses.total)} icon={<Receipt size={20} />} color="rose" />
+        <MetricCard title="Lucro" value={formatCurrency(lucro)} icon={<TrendingUp size={20} />} color={lucro >= 0 ? 'emerald' : 'rose'} />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <h3 className="text-lg font-bold text-gray-800 mb-3">Projeção de Fechamento</h3>
+          <div className="flex items-center gap-3 mb-4">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${metas.projecao.bateMeta ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+              {metas.projecao.bateMeta ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
+            </div>
+            <div>
+              <span className="text-2xl font-bold text-gray-900">{formatCurrency(metas.projecao.final)}</span>
+              <p className="text-sm text-gray-500">vs meta de {formatCurrency(metas.configuracao.metaMensal)}</p>
+            </div>
+          </div>
+          <div className={`p-3 rounded-lg ${metas.projecao.bateMeta ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'} text-sm`}>
+            {metas.projecao.bateMeta
+              ? '✅ Projeção indica que a meta será atingida.'
+              : `⚠️ Faltam ${formatCurrency(metas.gap.valor)} para bater a meta com ${metas.gap.diasRestantes} dias restantes.`}
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <h3 className="text-lg font-bold text-gray-800 mb-3">Resumo do Dia</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-gray-500">Caixa hoje</p>
+              <span className="text-2xl font-bold text-gray-900">{formatCurrency(metas.realizado.hoje)}</span>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Meta diária</p>
+              <span className="text-2xl font-bold text-gray-900">{formatCurrency(metas.configuracao.metaDiariaNecessaria)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderCaixa = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <h3 className="text-lg font-bold text-gray-800 mb-4">Por Tipo</h3>
+        <BreakdownList items={[
+          { label: 'Particular', value: cash.breakdown.particular, color: 'blue' },
+          { label: 'Pacote', value: cash.breakdown.pacote, color: 'purple' },
+          { label: 'Convênio', value: cash.breakdown.convenio, color: 'sky' },
+          { label: 'Liminar', value: cash.breakdown.liminar, color: 'amber' },
+        ]} total={totalCaixa} />
+      </div>
+      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <h3 className="text-lg font-bold text-gray-800 mb-4">Por Método</h3>
+        <BreakdownList items={[
+          { label: 'Dinheiro', value: cash.byMethod.dinheiro, color: 'emerald' },
+          { label: 'Cartão', value: cash.byMethod.cartao, color: 'blue' },
+          { label: 'PIX', value: cash.byMethod.pix, color: 'sky' },
+          { label: 'Outros', value: cash.byMethod.outros, color: 'gray' },
+        ]} total={totalCaixa} />
+      </div>
+    </div>
+  );
+
+  const renderProducao = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <h3 className="text-lg font-bold text-gray-800 mb-4">Por Tipo</h3>
+        <BreakdownList items={[
+          { label: 'Particular', value: revenue.byMethod.particular, color: 'blue' },
+          { label: 'Pacote', value: revenue.byMethod.pacote, color: 'purple' },
+          { label: 'Convênio', value: revenue.byMethod.convenio, color: 'sky' },
+          { label: 'Liminar', value: revenue.byMethod.liminar, color: 'amber' },
+        ]} total={totalProducao} />
+      </div>
+      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <h3 className="text-lg font-bold text-gray-800 mb-4">Recebido vs Pendente</h3>
+        <div className="mb-5">
+          <p className="text-sm text-gray-500">Recebido</p>
+          <span className="text-3xl font-bold text-emerald-600">{formatCurrency(revenue.byMethod.recebido)}</span>
+        </div>
+        <div>
+          <p className="text-sm text-gray-500">Pendente</p>
+          <span className="text-3xl font-bold text-rose-600">{formatCurrency(revenue.byMethod.pendente)}</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderDespesas = () => {
+    const comissoes = expenses.breakdown?.comissoes || 0;
+    const outrasDespesas = expenses.breakdown?.expenses || expenses.total;
+    return (
+      <div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <MetricCard title="Total de Despesas" value={formatCurrency(expenses.total)} icon={<Receipt size={20} />} color="rose" />
+          <MetricCard title="Outras Despesas" value={formatCurrency(outrasDespesas)} icon={<Info size={20} />} color="sky" />
+          <MetricCard title="Comissões Terapeutas" value={formatCurrency(comissoes)} icon={<Users size={20} />} color="amber" />
+          <MetricCard title="Impacto no Caixa" value={`${((expenses.total / (totalCaixa || 1)) * 100).toFixed(1)}%`} icon={<TrendingDown size={20} />} color="amber" />
+        </div>
+        {expenses.breakdown && expenses.breakdown.detalheComissoes.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Comissões por Profissional</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {expenses.breakdown.detalheComissoes.map((c) => (
+                <div key={c.doctorId} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <p className="font-semibold text-gray-800">{c.doctorName}</p>
+                  <p className="text-sm text-gray-500">{c.sessions} sessões</p>
+                  <p className="text-xl font-bold text-gray-900 mt-2">{formatCurrency(c.total)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderMetas = () => (
+    <div>
+      <RitmoCard />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <h3 className="text-lg font-bold text-gray-800 mb-3">Status da Meta</h3>
+          <div className="flex items-center gap-3 mb-4">
+            <span className={`px-3 py-1 rounded-full text-sm font-bold uppercase ${
+              metas.statusMeta === 'verde' ? 'bg-emerald-100 text-emerald-700' :
+              metas.statusMeta === 'amarelo-verde' ? 'bg-amber-100 text-amber-700' :
+              metas.statusMeta === 'amarelo' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+            }`}>
+              {metas.statusMeta.replace('-', ' ')}
+            </span>
+            <span className="text-gray-600">{metas.ritmo.percentualRealizado.toFixed(1)}% realizado · {metas.ritmo.percentualEsperado.toFixed(1)}% esperado</span>
+          </div>
+          <hr className="my-4" />
+          <div className="space-y-3">
+            <MetricRow label="Meta mensal" value={formatCurrency(metas.configuracao.metaMensal)} />
+            <MetricRow label="Realizado" value={formatCurrency(metas.realizado.mes)} />
+            <MetricRow label="Projeção final" value={formatCurrency(metas.projecao.final)} />
+            <MetricRow label="Falta para meta" value={formatCurrency(metas.gap.valor)} valueColor="text-rose-600" />
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Metas por Tipo de Receita</h3>
+          {Object.entries(metas.porTipo).map(([tipo, dados]) => {
+            const pctMeta = dados.meta > 0 ? Math.min((dados.realizado / dados.meta) * 100, 100) : 0;
+            const progressColor = pctMeta >= 80 ? 'bg-emerald-500' : pctMeta >= 50 ? 'bg-amber-500' : 'bg-rose-500';
+            return (
+              <div key={tipo} className="mb-4">
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="font-semibold capitalize text-gray-700">{tipo}</span>
+                  <span className="text-gray-500">{formatCurrency(dados.realizado)} / {formatCurrency(dados.meta)}</span>
+                </div>
+                <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                  <div className={`h-full ${progressColor} rounded-full`} style={{ width: `${pctMeta}%` }}></div>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">{pctMeta.toFixed(1)}% da meta · {dados.percentualDoTotal}% do caixa total</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderDecisaoExecutiva = () => {
+    const getRiscoColor = (nivel: string) => {
+      switch (nivel) {
+        case 'alto': return { badge: 'rose', bg: 'bg-rose-50' };
+        case 'medio': return { badge: 'amber', bg: 'bg-amber-50' };
+        default: return { badge: 'emerald', bg: 'bg-emerald-50' };
+      }
+    };
+    const risco = getRiscoColor(riscoOperacional.nivel);
+
+    const getAcaoIcon = (tipo: string) => {
+      if (tipo.includes('particular')) return <DollarSign size={18} />;
+      if (tipo.includes('convenio')) return <Briefcase size={18} />;
+      if (tipo.includes('agenda')) return <Calendar size={18} />;
+      if (tipo.includes('profissional')) return <Users size={18} />;
+      return <Zap size={18} />;
+    };
+
+    const getAcaoColor = (prioridade: string) => {
+      switch (prioridade) {
+        case 'alta': return 'rose';
+        case 'media': return 'amber';
+        default: return 'emerald';
+      }
+    };
+
+    const getProfStatusColor = (status: string) => {
+      switch (status) {
+        case 'top': return 'emerald';
+        case 'regular': return 'amber';
+        default: return 'rose';
+      }
+    };
+
+    return (
+      <div className="space-y-8">
+        {/* Risco Operacional */}
+        <div className={`p-5 rounded-xl border ${risco.bg} border-gray-200 shadow-sm`}>
+          <div className="flex items-center gap-3 mb-3">
+            <AlertCircle size={28} className={`text-${risco.badge}-600`} />
+            <div>
+              <h3 className="text-lg font-bold text-gray-800">Risco Operacional</h3>
+              <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold uppercase bg-${risco.badge}-100 text-${risco.badge}-700`}>
+                {riscoOperacional.nivel}
+              </span>
+            </div>
+          </div>
+          <ul className="space-y-1 mb-3">
+            {riscoOperacional.motivos.map((m, i) => (
+              <li key={i} className="flex items-start gap-2 text-gray-700">
+                <ArrowUpRight size={16} className="mt-0.5 text-gray-400" />
+                <span>{m}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-sm text-gray-600"><strong>Impacto esperado:</strong> {riscoOperacional.impacto}</p>
+        </div>
+
+        {/* Ações Executivas */}
+        <div>
+          <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
+            <Zap size={22} /> Ações Executivas
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {acoesExecutivas.map((acao, idx) => {
+              const priorColor = getAcaoColor(acao.prioridade);
+              return (
+                <div key={idx} className={`border-l-4 border-${priorColor}-500 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden`}>
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className={`text-${priorColor}-600`}>{getAcaoIcon(acao.tipo)}</div>
+                      <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded-full bg-${priorColor}-100 text-${priorColor}-700`}>
+                        {acao.prioridade}
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-gray-800 mb-1">{acao.descricao}</h4>
+                    <p className="text-sm text-gray-600 mb-2">{acao.motivo}</p>
+                    {acao.impactoEstimado !== undefined && (
+                      <p className="text-sm font-semibold text-gray-800 mt-2">Impacto estimado: {formatCurrency(acao.impactoEstimado)}</p>
+                    )}
+                    {acao.impactoRisco && (
+                      <p className="text-sm font-semibold text-rose-600 mt-1">Risco: {acao.impactoRisco}</p>
+                    )}
+                    <div className="mt-3 p-2 bg-gray-50 rounded-md">
+                      <p className="text-xs text-gray-500">Ação sugerida</p>
+                      <p className="text-sm font-semibold text-gray-800">{acao.acaoSugerida}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Comparativos Mensais */}
+        <div>
+          <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
+            <TrendingUp size={22} /> Comparativos Mensais
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            {[
+              { label: 'Caixa', atual: comparativos.mesAtual.caixa, anterior: comparativos.mesAnterior.caixa, var: comparativos.variacao.caixa },
+              { label: 'Produção', atual: comparativos.mesAtual.producao, anterior: comparativos.mesAnterior.producao, var: comparativos.variacao.producao },
+              { label: 'Despesas', atual: comparativos.mesAtual.despesas, anterior: comparativos.mesAnterior.despesas, var: comparativos.variacao.despesas },
+            ].map((item, i) => {
+              const isPositivo = item.var > 0;
+              const isDespesa = item.label === 'Despesas';
+              const corVar = isDespesa ? (isPositivo ? 'text-rose-600' : 'text-emerald-600') : (isPositivo ? 'text-emerald-600' : 'text-rose-600');
+              return (
+                <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                  <p className="text-sm text-gray-500">{item.label}</p>
+                  <p className="text-2xl font-bold text-gray-900">{formatCurrency(item.atual)}</p>
+                  <div className="flex items-center gap-1 mt-2">
+                    {isPositivo ? <TrendingUp size={16} className={corVar} /> : <TrendingDown size={16} className={corVar} />}
+                    <span className={`text-sm font-semibold ${corVar}`}>{isPositivo ? '+' : ''}{item.var}% vs mês anterior</span>
+                  </div>
+                  <p className="text-xs text-gray-400">Anterior: {formatCurrency(item.anterior)}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Drill-down Profissionais */}
+        <div>
+          <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
+            <Users size={22} /> Performance por Profissional
+          </h3>
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <div className="min-w-[800px] grid grid-cols-7 gap-3 p-4 bg-gray-50 text-sm font-bold text-gray-600 border-b">
+                <span>Profissional</span>
+                <span>Receita</span>
+                <span>Atend.</span>
+                <span>Ticket Médio</span>
+                <span>Mix Particular</span>
+                <span>Comissão</span>
+                <span>Status</span>
+              </div>
+              {drillDown.profissionais.map((prof) => (
+                <div key={prof.id} className="min-w-[800px] grid grid-cols-7 gap-3 p-4 border-b last:border-b-0 items-center">
+                  <div>
+                    <p className="font-semibold text-gray-800">{prof.nome}</p>
+                    <p className="text-xs text-gray-500">{prof.especialidade}</p>
+                  </div>
+                  <span className="text-gray-700">{formatCurrency(prof.resumo.receita)}</span>
+                  <span className="text-gray-700">{prof.resumo.atendimentos}</span>
+                  <span className="text-gray-700">{formatCurrency(prof.resumo.ticketMedio)}</span>
+                  <span className="text-gray-700">{prof.mix.particular.toFixed(0)}%</span>
+                  <span className="text-gray-700">{formatCurrency(prof.comissao?.total || 0)}</span>
+                  <span className={`inline-block w-fit px-2 py-0.5 rounded-full text-xs font-bold uppercase ${
+                    prof.diagnostico.status === 'top' ? 'bg-emerald-100 text-emerald-700' :
+                    prof.diagnostico.status === 'regular' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                  }`}>
+                    {prof.diagnostico.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderInsights = () => (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-3">
+            <Lightbulb size={22} /> Insights
+          </h3>
+          <ul className="space-y-2">
+            {insights.insights.map((text, idx) => (
+              <li key={idx} className="flex items-start gap-2 text-gray-700">
+                <Info size={18} className="text-blue-500 shrink-0 mt-0.5" />
+                <span>{text}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-3">
+            <AlertCircle size={22} /> Alertas
+          </h3>
+          {insights.alertas.length === 0 ? (
+            <div className="p-3 rounded-lg bg-emerald-50 text-emerald-800 text-sm">
+              ✅ Tudo certo — Nenhum alerta crítico no momento.
+            </div>
+          ) : (
+            insights.alertas.map((alerta, idx) => (
+              <div key={idx} className={`p-3 rounded-lg mb-2 text-sm ${
+                alerta.nivel === 'alto' ? 'bg-rose-50 text-rose-800' :
+                alerta.nivel === 'medio' ? 'bg-amber-50 text-amber-800' : 'bg-sky-50 text-sky-800'
+              }`}>
+                <p className="font-semibold">{alerta.mensagem}</p>
+                <p className="text-xs mt-1">Ação: {alerta.acao}</p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-4">
+          <Users size={22} /> Ranking de Profissionais
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {profissionais.ranking.slice(0, 5).map((prof, idx) => (
+            <div key={prof.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-bold">#{idx+1}</div>
+                <h4 className="font-bold text-gray-800">{prof.nome}</h4>
+              </div>
+              <p className="text-sm text-gray-500">{prof.especialidade}</p>
+              <hr className="my-3" />
+              <div className="space-y-1 text-sm">
+                <p>Realizado: <strong>{formatCurrency(prof.realizado)}</strong></p>
+                <p>Produção: <strong>{formatCurrency(prof.producao)}</strong></p>
+                <p>Eficiência: <strong>{prof.eficiencia}%</strong></p>
+                <p>Produtividade: <strong>{prof.produtividade}%</strong></p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {insights.recomendacoes.length > 0 && (
+        <div className="bg-gray-50 rounded-xl border border-gray-200 p-5 shadow-sm">
+          <h3 className="text-lg font-bold text-gray-800 mb-3">Recomendações</h3>
+          <ul className="space-y-2">
+            {insights.recomendacoes.map((text, idx) => (
+              <li key={idx} className="flex items-start gap-2 text-gray-700">
+                <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+                <span>{text}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+
+  const tabs = [
+    { label: 'Decisão Executiva', icon: <Zap size={18} /> },
+    { label: 'Visão Geral', icon: <LayoutDashboard size={18} /> },
+    { label: 'Caixa', icon: <DollarSign size={18} /> },
+    { label: 'Produção', icon: <Briefcase size={18} /> },
+    { label: 'Despesas', icon: <Receipt size={18} /> },
+    { label: 'Metas', icon: <Target size={18} /> },
+    { label: 'Insights', icon: <Lightbulb size={18} /> },
+  ];
+
+  return (
+    <div className="w-full max-w-7xl mx-auto px-4 py-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-5 overflow-x-auto">
+        <div className="flex gap-1 p-1 border-b">
+          {tabs.map((t, i) => (
+            <button
+              key={i}
+              onClick={() => setActiveTab(i)}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                activeTab === i
+                  ? 'bg-gray-900 text-white shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              {t.icon}
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4">
+        {activeTab === 0 && renderDecisaoExecutiva()}
+        {activeTab === 1 && renderVisaoGeral()}
+        {activeTab === 2 && renderCaixa()}
+        {activeTab === 3 && renderProducao()}
+        {activeTab === 4 && renderDespesas()}
+        {activeTab === 5 && renderMetas()}
+        {activeTab === 6 && renderInsights()}
+      </div>
+    </div>
+  );
+};
+
+// Componentes auxiliares (apenas visuais, sem lógica alterada)
+const MetricCard = ({ title, value, icon, color }: { title: string; value: string; icon: React.ReactNode; color: string }) => {
+  const colorMap: Record<string, string> = {
+    emerald: 'border-emerald-500 text-emerald-600',
+    blue: 'border-blue-500 text-blue-600',
+    rose: 'border-rose-500 text-rose-600',
+    sky: 'border-sky-500 text-sky-600',
+    amber: 'border-amber-500 text-amber-600',
+    purple: 'border-purple-500 text-purple-600',
+    gray: 'border-gray-500 text-gray-600',
+  };
+  return (
+    <div className={`bg-white rounded-xl border-l-4 ${colorMap[color]} border border-gray-200 p-4 shadow-sm h-full`}>
+      <div className={`flex items-center gap-2 mb-1 ${colorMap[color]}`}>
+        {icon}
+        <span className="text-sm text-gray-500">{title}</span>
+      </div>
+      <span className="text-2xl font-bold text-gray-900">{value}</span>
+    </div>
+  );
+};
+
+const MetricRow = ({ label, value, valueColor = 'text-gray-900' }: { label: string; value: string; valueColor?: string }) => (
+  <div className="flex justify-between text-sm">
+    <span className="text-gray-500">{label}</span>
+    <span className={`font-semibold ${valueColor}`}>{value}</span>
+  </div>
+);
+
+const BreakdownList = ({ items, total }: { items: Array<{ label: string; value: number; color: string }>; total: number }) => {
+  const colorBar: Record<string, string> = {
+    blue: 'bg-blue-500',
+    purple: 'bg-purple-500',
+    sky: 'bg-sky-500',
+    amber: 'bg-amber-500',
+    emerald: 'bg-emerald-500',
+    gray: 'bg-gray-500',
+  };
+  return (
+    <div className="space-y-4">
+      {items.map((item, idx) => {
+        const pct = total > 0 ? (item.value / total) * 100 : 0;
+        return (
+          <div key={idx}>
+            <div className="flex justify-between text-sm mb-1">
+              <span className="text-gray-700">{item.label}</span>
+              <span className="font-semibold text-gray-900">{formatCurrency(item.value)}</span>
+            </div>
+            <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+              <div className={`h-full ${colorBar[item.color]} rounded-full`} style={{ width: `${pct}%` }}></div>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">{pct.toFixed(1)}%</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+export default DashboardV3Tab;
