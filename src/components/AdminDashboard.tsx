@@ -55,6 +55,7 @@ import { useAdmin } from '../hooks/useAdmin';
 import { useDashboard } from '../hooks/useDashboard';
 import { usePatients } from '../hooks/usePatients';
 import { usePaymentsContext } from '../contexts/PaymentsContext';
+import { SystemHealthProvider } from '../contexts/SystemHealthContext';
 import usePayment from '../hooks/usePayment';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
 import doctorService, { CreateDoctorParams } from '../services/doctorService';
@@ -78,9 +79,8 @@ const RevenueTab = lazyWithRetry(() => import('./Dashboard/RevenueTab'));
 const AppChat = lazyWithRetry(() => import('./mkt/whatsapp/AppChat'));
 
 // Componentes de abas específicas - só carregam quando a aba é aberta
-const ObservabilityDashboard = lazyWithRetry(() => import('./admin/ObservabilityDashboard'));
 const AmandaMetricsDashboard = lazyWithRetry(() => import('./admin/AmandaMetricsDashboard'));
-const SystemMonitorDashboard = lazyWithRetry(() => import('./admin/SystemMonitorDashboard'));
+const SystemUnifiedDashboard = lazyWithRetry(() => import('./admin/SystemUnifiedDashboard'));
 const ManageDoctors = lazyWithRetry(() => import('./ManageDoctors/ManageDoctors'));
 const DoctorFormModal = lazyWithRetry(() => import('./ManageDoctors/DoctorFormModal'));
 const PatientModal = lazyWithRetry(() => import('./patients/PatientModal').then(m => ({ default: m.PatientModal })));
@@ -156,6 +156,13 @@ export default function AdminDashboard() {
     const setActiveTab = useCallback((tab: string) => {
         setSearchParams({ tab });
     }, [setSearchParams]);
+
+    // 🔄 Migra URLs antigas (Observability / Monitor) para a aba unificada Sistema
+    useEffect(() => {
+        if (activeTab === 'Observability' || activeTab === 'Monitor') {
+            setSearchParams({ tab: 'Sistema' });
+        }
+    }, [activeTab, setSearchParams]);
     const [openMenu, setOpenMenu] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [showAdminPassword, setShowAdminPassword] = useState(false);
@@ -599,18 +606,17 @@ export default function AdminDashboard() {
                 throw new Error('UPDATE_FAILED');
             }
             
-            console.log('✅ [AdminDashboard] Agendamento atualizado na API');
+            console.log('✅ [handleEdit] API ok — iniciando refresh de lista');
             toast.success('✅ Agendamento atualizado!');
-            console.log('📅 [AdminDashboard] Chamando fetchAppointments com range:', calendarDateRange);
-            // 🔄 Força refresh com timestamp para evitar cache
+            console.log('📥 [handleEdit] fetchAppointments START — range:', calendarDateRange);
             await fetchAppointments({ ...calendarDateRange, force: true });
-            // 🔄 Dispara evento global para atualizar componentes
-            window.dispatchEvent(new CustomEvent('appointments:data-updated', { 
-                detail: { appointmentId, timestamp: Date.now() } 
+            console.log('📥 [handleEdit] fetchAppointments DONE — appointments state vai atualizar');
+            // Evento informativo (nenhum componente deve re-disparar fetch ao ouvir isso)
+            window.dispatchEvent(new CustomEvent('appointments:data-updated', {
+                detail: { appointmentId, timestamp: Date.now() }
             }));
-            console.log('✅ [AdminDashboard] fetchAppointments concluído');
-            setCloseModalSignal(prev => prev + 1); // ✅ só fecha se sucesso
-            console.log('🔔 [AdminDashboard] closeModalSignal incrementado');
+            console.log('🔔 [handleEdit] closeModalSignal++');
+            setCloseModalSignal(prev => prev + 1);
             
             // 🆕 Se status foi alterado para completed, atualiza Card Caixa
             if (updatedData.operationalStatus === 'completed' || updatedData.clinicalStatus === 'completed') {
@@ -985,11 +991,11 @@ export default function AdminDashboard() {
                         </Suspense>
                     </TabErrorBoundary>
                 );
-            case 'Observability':
+            case 'Sistema':
                 return (
-                    <TabErrorBoundary tabName="Observabilidade">
+                    <TabErrorBoundary tabName="Sistema">
                         <Suspense fallback={<TabSkeleton />}>
-                            <ObservabilityDashboard />
+                            <SystemUnifiedDashboard />
                         </Suspense>
                     </TabErrorBoundary>
                 );
@@ -1001,14 +1007,7 @@ export default function AdminDashboard() {
                         </Suspense>
                     </TabErrorBoundary>
                 );
-            case 'Monitor':
-                return (
-                    <TabErrorBoundary tabName="Monitor do Sistema">
-                        <Suspense fallback={<TabSkeleton />}>
-                            <SystemMonitorDashboard />
-                        </Suspense>
-                    </TabErrorBoundary>
-                );
+
             default:
                 return <div>Conteúdo não encontrado</div>;
         }
@@ -1107,6 +1106,7 @@ export default function AdminDashboard() {
     );
 
     return (
+        <SystemHealthProvider>
         <div className="min-h-screen bg-gray-100 text-gray-800">
             <AdminHeader
                 activeTab={activeTab}
@@ -1197,5 +1197,6 @@ export default function AdminDashboard() {
                 </Suspense>
             )}
         </div>
+        </SystemHealthProvider>
     );
 }

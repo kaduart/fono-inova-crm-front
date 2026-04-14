@@ -19,6 +19,7 @@ type TherapyPackagesSummaryProps = {
 export default function TherapyPackagesSummary({ patient, doctors }: TherapyPackagesSummaryProps) {
     const { fetchAppointments } = useAppointmentsContext();
     const [packages, setPackages] = useState<ITherapyPackage[]>([]);
+    const [activeTab, setActiveTab] = useState<'active' | 'inactive'>('active');
     const [showManager, setShowManager] = useState(false);
     const [selectedPackage, setSelectedPackage] = useState<ITherapyPackage | null>(null);
     const [editing, setEditing] = useState(false);
@@ -45,8 +46,7 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
         try {
             const params = {
                 page: 1,
-                limit: 10,
-                status: "active",
+                limit: 100,
                 patientId: realPatientId,
             };
 
@@ -195,6 +195,10 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
         setEditing(false);
     };
 
+    const activePackages = packages.filter(pkg => pkg.status === 'active');
+    const inactivePackages = packages.filter(pkg => pkg.status !== 'active');
+    const displayedPackages = activeTab === 'active' ? activePackages : inactivePackages;
+
     // Função para iniciar edição do pacote
     const handleEditPackage = () => {
         setViewMode('edit');
@@ -223,8 +227,10 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
 
                     <div className="flex items-center gap-4">
                         <div className="bg-white rounded-xl p-4 border border-emerald-200 min-w-[120px] text-center">
-                            <div className="text-2xl font-bold text-emerald-600">{packages.length}</div>
-                            <div className="text-sm text-gray-600">Pacotes</div>
+                            <div className="text-2xl font-bold text-emerald-600">{displayedPackages.length}</div>
+                            <div className="text-sm text-gray-600">
+                                {activeTab === 'active' ? 'Ativos' : 'Inativos'}
+                            </div>
                         </div>
 
                         <button
@@ -243,48 +249,83 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
             </div>
 
 
-            {/* 🔥 Accordion Principal - Todos os Pacotes */}
+            {/* 🔥 Abas Ativos / Inativos */}
             {!loading && packages.length > 0 && (
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-                    {/* Header do Accordion */}
-                    <button
-                        onClick={() => setIsAccordionOpen(!isAccordionOpen)}
-                        className="w-full px-6 py-4 flex items-center justify-between bg-gradient-to-r from-emerald-50 to-green-50 hover:from-emerald-100 hover:to-green-100 transition-colors"
-                    >
-                        <div className="flex items-center gap-3">
-                            <Package className="w-6 h-6 text-emerald-600" />
-                            <span className="font-semibold text-gray-900">Pacotes do Paciente</span>
-                            <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-sm font-medium">
-                                {packages.length}
-                            </span>
+                    {/* Header com Tabs */}
+                    <div className="w-full px-6 py-4 flex items-center justify-between bg-gradient-to-r from-emerald-50 to-green-50">
+                        <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-3">
+                                <Package className="w-6 h-6 text-emerald-600" />
+                                <span className="font-semibold text-gray-900">Pacotes do Paciente</span>
+                                <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-sm font-medium">
+                                    {packages.length}
+                                </span>
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => {
+                                        setActiveTab('active');
+                                        setIsAccordionOpen(true);
+                                    }}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                        activeTab === 'active'
+                                            ? 'bg-emerald-600 text-white'
+                                            : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                                    }`}
+                                >
+                                    Ativos ({activePackages.length})
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setActiveTab('inactive');
+                                        setIsAccordionOpen(true);
+                                    }}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                        activeTab === 'inactive'
+                                            ? 'bg-gray-600 text-white'
+                                            : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                                    }`}
+                                >
+                                    Inativos ({inactivePackages.length})
+                                </button>
+                            </div>
                         </div>
-                        <div className={`transform transition-transform duration-300 ${isAccordionOpen ? 'rotate-180' : ''}`}>
+                        <button
+                            onClick={() => setIsAccordionOpen(!isAccordionOpen)}
+                            className={`transform transition-transform duration-300 ${isAccordionOpen ? 'rotate-180' : ''}`}
+                        >
                             <ChevronDown className="w-5 h-5 text-emerald-600" />
-                        </div>
-                    </button>
+                        </button>
+                    </div>
 
                     {/* Conteúdo do Accordion */}
                     {isAccordionOpen && (
                         <div className="p-6">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                            {packages.map(pkg => (
-                                <TherapyPackageCard
-                                    key={pkg._id}
-                                    pack={pkg}
-                                    patient={patient}
-                                    doctors={doctors}
-                                    onUseSession={handleUseSession}
-                                    onRegisterPayment={handleRegisterPayment}
-                                    onCardClick={handleViewPackage}
-                                    isExpanded={expandedPackageId === pkg._id} // 🔥 Controla expansão
-                                    onToggleExpand={(expanded) => {
-                                        // 🔥 Fecha outros e abre o clicado
-                                        setExpandedPackageId(expanded ? pkg._id : null);
-                                    }}
-                                    onRefresh={fetchBasicPackages} // 🔥 NOVO: Para recarregar após cancelamento em lote
-                                />
-                            ))}
-                            </div>
+                            {displayedPackages.length > 0 ? (
+                                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                                {displayedPackages.map(pkg => (
+                                    <TherapyPackageCard
+                                        key={pkg._id}
+                                        pack={pkg}
+                                        patient={patient}
+                                        doctors={doctors}
+                                        onUseSession={handleUseSession}
+                                        onRegisterPayment={handleRegisterPayment}
+                                        onCardClick={handleViewPackage}
+                                        isExpanded={expandedPackageId === pkg._id}
+                                        onToggleExpand={(expanded) => {
+                                            setExpandedPackageId(expanded ? pkg._id : null);
+                                        }}
+                                        onRefresh={fetchBasicPackages}
+                                    />
+                                ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 text-gray-500">
+                                    Nenhum pacote {activeTab === 'active' ? 'ativo' : 'inativo'} encontrado.
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -298,11 +339,11 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                         Nenhum pacote encontrado
                     </h3>
                     <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                        {patient.fullName} não possui pacotes de terapia ativos no momento.
+                        {patient.fullName} não possui pacotes de terapia no momento.
                     </p>
                     <button
                         onClick={() => {
-                            setExpandedPackageId(null); // 🔥 Fecha accordion
+                            setExpandedPackageId(null);
                             setShowManager(true);
                         }}
                         className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-xl hover:from-emerald-700 hover:to-green-700 transition-all duration-200 font-medium flex items-center gap-2 mx-auto"

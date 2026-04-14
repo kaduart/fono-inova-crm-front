@@ -268,14 +268,32 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 setPendingSessions(sessions);
                 setSelectedPendingIds(sessions.map((s: any) => s._id));
 
-                // Auto-sugerir data inicial = semana seguinte à última sessão absorvida
+                // Auto-sugerir data inicial = PRIMEIRA sessão em débito (âncora correta)
                 if (sessions.length > 0) {
-                    const lastDate = new Date(sessions[sessions.length - 1].date);
-                    lastDate.setUTCDate(lastDate.getUTCDate() + 7);
-                    const yyyy = lastDate.getUTCFullYear();
-                    const mm = String(lastDate.getUTCMonth() + 1).padStart(2, '0');
-                    const dd = String(lastDate.getUTCDate()).padStart(2, '0');
-                    setFormData(prev => ({ ...prev, date: `${yyyy}-${mm}-${dd}` }));
+                    const firstDebt = sessions[0];
+                    const firstDate = new Date(firstDebt.date);
+                    const yyyy = firstDate.getUTCFullYear();
+                    const mm = String(firstDate.getUTCMonth() + 1).padStart(2, '0');
+                    const dd = String(firstDate.getUTCDate()).padStart(2, '0');
+                    
+                    // Tenta buscar horário do appointment associado ao primeiro débito
+                    let firstTime = formData.time || '';
+                    if (firstDebt.appointmentId) {
+                        try {
+                            const apptRes = await appointmentService.getById(firstDebt.appointmentId);
+                            if (apptRes?.time) {
+                                firstTime = apptRes.time;
+                            }
+                        } catch {
+                            // silencioso
+                        }
+                    }
+                    
+                    setFormData(prev => ({ 
+                        ...prev, 
+                        date: `${yyyy}-${mm}-${dd}`,
+                        ...(firstTime ? { time: firstTime } : {})
+                    }));
                 }
             } catch {
                 // silencioso — não é crítico
@@ -549,41 +567,51 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     : (formData.durationMonths || 0) * 4 * (formData.sessionsPerWeek || 0);
 
             // ============================================================
-            // 📅 Gera as datas reais — sessões absorvidas já contam, não criar slots para elas
+            // 📅 Gera as datas reais — prioridade: backend suggest-slots quando há débitos
             // ============================================================
-            const absorbedCount = selectedPendingIds.length;
-            const newSlotsNeeded = Math.max(totalSessions - absorbedCount, 0);
+            let schedule: { date: string; time: string }[] = [];
 
-            let generatedSlots: { date: string; time: string }[] = [];
-
-            if (newSlotsNeeded > 0) {
-                generatedSlots = generateSessionDates({
-                    startDate: formData.date,
-                    startTime: formData.time,
-                    totalSessions: newSlotsNeeded,
-                    sessionsPerWeek: formData.sessionsPerWeek,
-                    selectedSlots,
-                    sameDaySessions,
-                    dailySessionTimes
-                });
+            if (selectedPendingIds.length > 0 && packageType === 'therapy') {
+                // 🧠 Usa backend para calcular slots corretamente com débitos como âncora
+                try {
+                    const suggestRes = await API.post('/v2/packages/suggest-slots', {
+                        patientId: realPatientId,
+                        specialty: formData.sessionType,
+                        totalSessions,
+                        sessionsPerWeek: formData.sessionsPerWeek,
+                        time: formData.time,
+                        selectedDebtIds: selectedPendingIds
+                    });
+                    const backendSlots = suggestRes.data?.data?.slots || [];
+                    schedule = backendSlots.map((s: any) => ({ date: s.date, time: s.time }));
+                    console.log("📅 Slots sugeridos pelo backend:", schedule);
+                } catch (suggestErr: any) {
+                    toast.error(suggestErr?.response?.data?.message || 'Erro ao sugerir agenda. Verifique os dados.');
+                    setIsLoading(false);
+                    return;
+                }
+            } else {
+                // Fallback: geração local (sem débitos ou outros tipos de pacote)
+                const absorbedCount = selectedPendingIds.length;
+                const newSlotsNeeded = Math.max(totalSessions - absorbedCount, 0);
+                let generatedSlots: { date: string; time: string }[] = [];
+                if (newSlotsNeeded > 0) {
+                    generatedSlots = generateSessionDates({
+                        startDate: formData.date,
+                        startTime: formData.time,
+                        totalSessions: newSlotsNeeded,
+                        sessionsPerWeek: formData.sessionsPerWeek,
+                        selectedSlots,
+                        sameDaySessions,
+                        dailySessionTimes
+                    });
+                }
+                const unique = Array.from(
+                    new Map(generatedSlots.map((s) => [`${s.date}|${s.time}`, s])).values()
+                ).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+                schedule = unique.map((slot) => ({ date: slot.date, time: slot.time }));
+                console.log("📅 Slots gerados localmente:", schedule);
             }
-
-            // 🔹 Remove duplicatas e ordena (garantia extra)
-            const unique = Array.from(
-                new Map(generatedSlots.map((s) => [`${s.date}|${s.time}`, s])).values()
-            ).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
-
-            console.log("📅 Slots gerados (preview antes do envio):");
-            console.table(unique);
-
-            // ============================================================
-            // 🔹 Monta o payload final
-            // ============================================================
-            // 🔄 Converte selectedSlots para schedule (formato V2)
-            const schedule = unique.map((slot: {date: string, time: string}) => ({
-                date: slot.date,
-                time: slot.time
-            }));
             
             const packageData = {
                 patientId: realPatientId,
@@ -642,7 +670,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     patientId: realPatientId,
                     doctorId: formData.doctorId,
                     insuranceGuideId: selectedGuide,
-                    selectedSlots: unique
+                    selectedSlots: schedule
                 };
 
                 console.log("📤 Enviando pacote de convênio:", convenioData);

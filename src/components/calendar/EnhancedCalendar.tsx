@@ -325,13 +325,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         }
     }, [appointments, selectedEvent?.id, isAppointmentDetailModalOpen]);
 
-    // 🔄 FORÇA ATUALIZAÇÃO DO FULLCALENDAR quando appointments mudam
+    // ℹ️ appointments já chegam via prop — FullCalendar re-renderiza automaticamente.
+    // refetchEvents() foi removido pois causava segundo fetch desnecessário após cada save.
     useEffect(() => {
-        const calendarApi = calendarRef.current?.getApi();
-        if (calendarApi) {
-            console.log('🔄 [EnhancedCalendar] Forçando refetchEvents no FullCalendar');
-            calendarApi.refetchEvents();
-        }
+        console.log(`📥 [EnhancedCalendar] appointments prop atualizada — ${appointments?.length ?? 0} itens (FullCalendar vai re-renderizar via prop, sem refetch)`);
     }, [appointments]);
 
     const getPaymentStatusConfig = useCallback((paymentStatus: string) => {

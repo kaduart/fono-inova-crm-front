@@ -50,7 +50,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
         activeTab === "Leads" || activeTab === "Analytics" || activeTab === "SocialMedia" || activeTab === "ROI";
     
     const isSistemaActive =
-        activeTab === "Observability" || activeTab === "AmandaMetrics" || activeTab === "Monitor";
+        activeTab === "Sistema" || activeTab === "AmandaMetrics";
 
     const handleLogout = async () => {
         await authLogout();
@@ -239,13 +239,13 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                             {openMenu === "sistema" && (
                                 <div className="absolute z-10 mt-2 w-56 rounded-lg shadow-xl bg-white border border-emerald-200 py-2">
                                     <NavDropdownItem
-                                        active={activeTab === "Observability"}
-                                        onClick={() => handleTabChange("Observability")}
+                                        active={activeTab === "Sistema"}
+                                        onClick={() => handleTabChange("Sistema")}
                                         icon={<Activity className="h-4 w-4 text-orange-500" />}
                                     >
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-gray-800">Observabilidade</span>
-                                            <span className="text-xs text-gray-500">Eventos e métricas</span>
+                                            <span className="text-sm font-medium text-gray-800">Sistema</span>
+                                            <span className="text-xs text-gray-500">Observabilidade, eventos e health</span>
                                         </div>
                                     </NavDropdownItem>
                                     <NavDropdownItem
@@ -256,16 +256,6 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         <div className="flex flex-col">
                                             <span className="text-sm font-medium text-gray-800">Amanda AI</span>
                                             <span className="text-xs text-gray-500">Decisões RULE / HYBRID / AI</span>
-                                        </div>
-                                    </NavDropdownItem>
-                                    <NavDropdownItem
-                                        active={activeTab === "Monitor"}
-                                        onClick={() => handleTabChange("Monitor")}
-                                        icon={<Activity className="h-4 w-4 text-blue-500" />}
-                                    >
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-gray-800">Monitor</span>
-                                            <span className="text-xs text-gray-500">Memória, filas e health</span>
                                         </div>
                                     </NavDropdownItem>
                                 </div>
@@ -455,22 +445,22 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         <div className="space-y-1">
                             <p className="px-4 pt-2 pb-1 text-xs text-emerald-300 font-semibold uppercase tracking-wide">Sistema</p>
                             <button
-                                onClick={() => handleMobileTabChange("Observability")}
-                                className={`flex items-center gap-3 w-full px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "Observability"
+                                onClick={() => handleMobileTabChange("Sistema")}
+                                className={`flex items-center gap-3 w-full px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "Sistema"
                                         ? "bg-emerald-600 text-white"
                                         : "text-emerald-100 hover:bg-emerald-700"
                                     }`}
                             >
-                                <Activity size={18} className="text-orange-400" /> Observabilidade
+                                <Activity size={18} className="text-orange-400" /> Sistema
                             </button>
                             <button
-                                onClick={() => handleMobileTabChange("Monitor")}
-                                className={`flex items-center gap-3 w-full px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "Monitor"
+                                onClick={() => handleMobileTabChange("AmandaMetrics")}
+                                className={`flex items-center gap-3 w-full px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "AmandaMetrics"
                                         ? "bg-emerald-600 text-white"
                                         : "text-emerald-100 hover:bg-emerald-700"
                                     }`}
                             >
-                                <Activity size={18} className="text-blue-400" /> Monitor
+                                <MessageCircle size={18} className="text-emerald-400" /> Amanda AI
                             </button>
                         </div>
 
