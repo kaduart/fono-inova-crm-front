@@ -121,8 +121,8 @@ export function SystemHealthProvider({ children }: { children: ReactNode }) {
     const fetchHealth = useCallback(async () => {
         try {
             const [shRes, healthRes] = await Promise.allSettled([
-                API.get<{ data: SystemHealthApiResponse }>('/api/observability/system-health'),
-                API.get<{ data?: RawHealth } & RawHealth>('/api/health/full'),
+                API.get<{ data: SystemHealthApiResponse }>('/observability/system-health'),
+                API.get<{ data?: RawHealth } & RawHealth>('/health/full'),
             ]);
 
             const sh = shRes.status === 'fulfilled' ? shRes.value.data.data : null;

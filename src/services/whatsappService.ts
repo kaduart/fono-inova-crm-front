@@ -65,36 +65,45 @@ export async function fetchContacts(
 ): Promise<ContactsResponse> {
     const { page = 1, limit = 50, search = "" } = options;
 
-    const params = new URLSearchParams({
-        page: String(page),
-        limit: String(limit),
-        ...(search && { search }),
-    });
-
-    const res = await API.get(`/whatsapp/contacts?${params}`);
-
-    // ✅ backend novo (correto)
-    if (res.data?.success && Array.isArray(res.data.data)) {
-        return {
-            data: res.data.data,
-            pagination: res.data.pagination,
-        };
+    // Busca via texto ainda usa V1 (ChatProjection não indexa conteúdo de mensagem)
+    if (search) {
+        const params = new URLSearchParams({ page: String(page), limit: String(limit), search });
+        const res = await API.get(`/whatsapp/contacts?${params}`);
+        if (res.data?.success && Array.isArray(res.data.data)) return { data: res.data.data, pagination: res.data.pagination };
+        if (Array.isArray(res.data)) return { data: res.data, pagination: { page: 1, limit: res.data.length, total: res.data.length, hasMore: false } };
+        throw new Error("Formato inesperado ao buscar contatos");
     }
 
-    // ⚠️ fallback REAL (backend antigo)
-    if (Array.isArray(res.data)) {
+    // V2: ChatProjection (inbox rápido, ordenado por lastMessageAt)
+    const skip = (page - 1) * limit;
+    const params = new URLSearchParams({ limit: String(limit), skip: String(skip) });
+    const res = await API.get(`/v2/chat/inbox?${params}`);
+
+    if (res.data?.success && Array.isArray(res.data.data)) {
+        // Mapeia ChatProjection → formato Contact esperado pelo ContactsContext
+        const data = res.data.data.map((c: any) => ({
+            _id: c.contactId || c.leadId,
+            name: c.contactName || c.phone || 'Desconhecido',
+            phone: c.phone || '',
+            lastMessage: c.lastMessage || '',
+            lastMessageAt: c.lastMessageAt || null,
+            unreadCount: c.unreadCount || 0,
+            leadId: c.leadId,
+        }));
+
+        const pg = res.data.pagination;
         return {
-            data: res.data,
+            data,
             pagination: {
-                page: 1,
-                limit: res.data.length,
-                total: res.data.length,
-                hasMore: false,
+                page,
+                limit,
+                total: pg?.total ?? data.length,
+                hasMore: pg?.hasMore ?? false,
             },
         };
     }
 
-    throw new Error("Formato inesperado ao buscar contatos");
+    throw new Error("Formato inesperado ao buscar inbox V2");
 }
 
 
@@ -130,6 +139,22 @@ export async function deleteContact(id: string): Promise<void> {
 // =========================
 // MENSAGENS
 // =========================
+
+// V2: busca mensagens por leadId (cursor-based, sem aggregation pesada)
+export async function getChatMessagesByLeadId(
+    leadId: string,
+    options: { cursor?: string; limit?: number } = {}
+): Promise<{ data: any[]; nextCursor: string | null; hasMore: boolean }> {
+    const { cursor, limit = 30 } = options;
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (cursor) params.set('cursor', cursor);
+    const res = await API.get(`/v2/chat/${leadId}/messages?${params}`);
+    return {
+        data: res.data?.data || [],
+        nextCursor: res.data?.nextCursor || null,
+        hasMore: res.data?.hasMore || false,
+    };
+}
 
 export async function getChatMessages(
     phone: string,

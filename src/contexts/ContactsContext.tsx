@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { fetchContacts, type Contact } from "../services/whatsappService";
+import API from "../services/api";
 import { logger } from "../utils/logger";
 import { normalizeE164BR } from "../utils/phone";
 import { socketManager, type MessageNewPayload } from "../utils/socketManager";
@@ -55,7 +56,15 @@ function getEventTimestamp(payload: MessageNewPayload): string {
 }
 
 export function ContactsProvider({ children }: { children: React.ReactNode }) {
-    const [contacts, setContacts] = useState<Contact[]>([]);
+    const [contacts, setContactsState] = useState<Contact[]>([]);
+    const contactsRef = useRef<Contact[]>([]);
+    const setContacts = useCallback((arg: Contact[] | ((prev: Contact[]) => Contact[])) => {
+        setContactsState(prev => {
+            const next = typeof arg === 'function' ? arg(prev) : arg;
+            contactsRef.current = next;
+            return next;
+        });
+    }, []);
     const [loading, setLoading] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
@@ -211,6 +220,11 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
 
     const markAsRead = useCallback((id: string) => {
         updateContact(id, { unreadCount: 0, hasNewMessage: false });
+        // Persiste no ChatProjection via V2 (fire-and-forget)
+        const contact = contactsRef.current.find(c => c._id === id);
+        if (contact?.leadId) {
+            API.post(`/v2/chat/${contact.leadId}/read`).catch(() => {});
+        }
     }, [updateContact]);
 
     const markAllAsRead = useCallback(() => {
@@ -297,6 +311,34 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
         // 🛡️ Rate limiting para refreshContacts quando contato não encontrado
         let lastSocketRefresh = 0;
         const SOCKET_REFRESH_COOLDOWN = 10000; // Mínimo 10s entre refreshes de socket
+
+        // 🆕 V2: chat:inbox:update vem do chatProjectionWorker após salvar ChatProjection no Mongo
+        // Chega ligeiramente depois de message:new e confirma dados do DB (unreadCount preciso)
+        const unsubInboxUpdate = socketManager.onChatInboxUpdate((data) => {
+            const phone = normalizeE164BR(data.phone || '');
+            const contactId = phone ? phoneIndexRef.current.get(phone) : undefined;
+            if (!contactId) return; // contato desconhecido — message:new já vai fazer refresh
+
+            const activeId = activeContactIdRef.current;
+            const isInbound = data.lastDirection === 'inbound';
+            const incUnread = isInbound && activeId !== contactId;
+
+            setContacts((prev) => {
+                const updated = prev.map((c) =>
+                    c._id === contactId
+                        ? {
+                            ...c,
+                            lastMessage: data.lastMessage ?? c.lastMessage,
+                            lastMessagePreview: data.lastMessage ?? c.lastMessagePreview,
+                            lastMessageAt: data.lastMessageAt ?? c.lastMessageAt,
+                            // usa unreadCount do DB apenas se for inbound e não estiver na conversa ativa
+                            unreadCount: incUnread ? (data.unreadCount ?? c.unreadCount) : c.unreadCount,
+                        }
+                        : c
+                );
+                return sortByLastMessage(updated);
+            });
+        });
 
         const unsub = socketManager.onMessageNew((payload) => {
             console.log('[ContactsContext] ⭐⭐⭐ SOCKET EVENTO RECEBIDO:', {
@@ -406,6 +448,7 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
 
         return () => {
             isMountedRef.current = false;
+            unsubInboxUpdate?.();
             unsub?.();
         };
     }, [refreshContacts]);

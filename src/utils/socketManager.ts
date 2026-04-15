@@ -322,6 +322,29 @@ class SocketManager {
         return this.on("system:alert", handler);
     }
 
+    // 🆕 V2: Atualização instantânea do inbox via ChatProjection (sem refetch)
+    onChatInboxUpdate(handler: AnyHandler<{
+        leadId: string;
+        phone?: string;
+        contactName?: string;
+        lastMessage?: string;
+        lastMessageAt?: string;
+        lastDirection?: 'inbound' | 'outbound';
+        unreadCount?: number;
+    }>): Unsubscribe {
+        return this.on("chat:inbox:update", handler);
+    }
+
+    // 🆕 V2: Nova mensagem em conversa específica (ChatWindow aberto)
+    onChatNewMessage(handler: AnyHandler<{
+        leadId: string;
+        direction?: 'inbound' | 'outbound';
+        lastMessage?: string;
+        lastMessageAt?: string;
+    }>): Unsubscribe {
+        return this.on("chat:new_message", handler);
+    }
+
     // ✅ Registra callback para evento de (re)conexão
     onReconnect(callback: () => void): Unsubscribe {
         return this.on("connect", callback);

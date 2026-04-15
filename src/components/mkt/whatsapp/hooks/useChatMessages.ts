@@ -1,7 +1,7 @@
 // hooks/useChatMessages.ts
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
-import { getChatMessages, loadMoreMessages, sendWhatsAppMedia, deleteWhatsAppMessage } from '../../../../services/whatsappService';
+import { getChatMessages, getChatMessagesByLeadId, loadMoreMessages, sendWhatsAppMedia, deleteWhatsAppMessage } from '../../../../services/whatsappService';
 import { socketManager } from '../../../../utils/socketManager';
 import { logger } from '../../../../utils/logger';
 import { uid } from '../../../../utils/uid';
@@ -24,6 +24,7 @@ export function useChatMessages(contact: Contact | null, leadId?: string) {
     const lastLoadRef = useRef<number>(0);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
+    const cursorRef = useRef<string | null>(null); // V2 cursor para paginação por leadId
 
     // Cleanup de URLs ao desmontar
     useEffect(() => {
@@ -131,17 +132,30 @@ export function useChatMessages(contact: Contact | null, leadId?: string) {
         };
     }, [contact?.phone]);
 
-    // Carregar mensagens
+    // Carregar mensagens — usa V2 (leadId) quando disponível
     const loadMessages = useCallback(async (phone: string) => {
-        if (!phone) return;
+        if (!phone && !leadId) return;
 
         setLoading(true);
         setError('');
+        cursorRef.current = null;
 
         try {
-            let msgs = await getChatMessages(phone);
+            let msgs: any[];
+            let hasMore = false;
 
-            if (!msgs) {
+            if (leadId) {
+                // V2: cursor-based, sem aggregation pesada
+                const result = await getChatMessagesByLeadId(leadId, { limit: 30 });
+                msgs = result.data;
+                hasMore = result.hasMore;
+                cursorRef.current = result.nextCursor;
+            } else {
+                msgs = await getChatMessages(phone);
+                hasMore = msgs.length >= 50;
+            }
+
+            if (!msgs || msgs.length === 0) {
                 setMessages([]);
                 setHasMoreMessages(false);
                 return;
@@ -154,47 +168,60 @@ export function useChatMessages(contact: Contact | null, leadId?: string) {
             });
 
             const formatted = msgs.map((m: any) => formatMessage(m, phone));
-            
+
             formatted.forEach((msg: Message) => {
                 seenIdsRef.current.add(msg.id);
             });
 
             setMessages(formatted);
-            setHasMoreMessages(msgs.length >= 50);
+            setHasMoreMessages(hasMore);
         } catch (err: any) {
             logger.error("Erro ao carregar mensagens:", err);
             setError(err.message || "Erro ao carregar mensagens");
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [leadId]);
 
-    // Carregar mais mensagens
+    // Carregar mais mensagens (V2 cursor / V1 timestamp fallback)
     const handleLoadMore = useCallback(async () => {
-        if (!contact?.phone || loadingMore || !hasMoreMessages) return;
+        if (loadingMore || !hasMoreMessages) return;
+        if (!leadId && !contact?.phone) return;
 
         setLoadingMore(true);
         try {
-            const oldestMessage = messages[0];
-            const before = oldestMessage?.timestamp?.toISOString();
-            
-            const result = await loadMoreMessages(contact.phone, before);
-            const older = result.data || [];
-            
-            if (!older || older.length === 0) {
-                setHasMoreMessages(false);
-                return;
-            }
+            if (leadId) {
+                // V2: cursor-based
+                const result = await getChatMessagesByLeadId(leadId, {
+                    cursor: cursorRef.current || undefined,
+                    limit: 30,
+                });
+                const older = result.data || [];
+                cursorRef.current = result.nextCursor;
 
-            const formatted = older.map((m: any) => formatMessage(m, contact.phone));
-            setMessages(prev => [...formatted, ...prev]);
-            setHasMoreMessages(result.hasMore);
+                if (!older.length) { setHasMoreMessages(false); return; }
+
+                const formatted = older.map((m: any) => formatMessage(m, contact?.phone || ''));
+                setMessages(prev => [...formatted, ...prev]);
+                setHasMoreMessages(result.hasMore);
+            } else {
+                // V1 fallback
+                const before = messages[0]?.timestamp?.toISOString();
+                const result = await loadMoreMessages(contact!.phone, before);
+                const older = result.data || [];
+
+                if (!older.length) { setHasMoreMessages(false); return; }
+
+                const formatted = older.map((m: any) => formatMessage(m, contact!.phone));
+                setMessages(prev => [...formatted, ...prev]);
+                setHasMoreMessages(result.hasMore);
+            }
         } catch (err) {
             logger.error("Erro ao carregar mensagens antigas:", err);
         } finally {
             setLoadingMore(false);
         }
-    }, [contact?.phone, loadingMore, hasMoreMessages, messages]);
+    }, [leadId, contact?.phone, loadingMore, hasMoreMessages, messages]);
 
     // Enviar mensagem de texto
     const handleSendText = useCallback(async (text: string) => {
