@@ -38,7 +38,8 @@ const STATUS_TRANSLATIONS = {
         'completed': 'concluído',
         'canceled': 'cancelado',
         'absent': 'faltou',
-        'no_show': 'faltou'
+        'no_show': 'faltou',
+        'pre_agendado': 'pre_agendado'
     },
     clinical: {
         'pending': 'pendente',
@@ -65,7 +66,8 @@ const STATUS_VISUAL_CONFIG = {
         'em_andamento': { label: 'Em Andamento', color: '#f59e0b', icon: Clock },
         'concluído': { label: 'Concluído', color: '#22c55e', icon: CheckCircle },
         'cancelado': { label: 'Cancelado', color: '#6b7280', icon: XCircle },
-        'faltou': { label: 'Faltou', color: '#ef4444', icon: XCircle }
+        'faltou': { label: 'Faltou', color: '#ef4444', icon: XCircle },
+        'pre_agendado': { label: 'Pré-Agendado', color: '#ec4899', icon: Clock }
     },
     clinical: {
         'pendente': { label: 'Pendente', color: '#6b7280', icon: Clock },
@@ -147,7 +149,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     }
     
     console.log('🐛 [AppointmentDetailModal] doctorsList:', doctorsList?.length, doctorsList);
-    
+
     const [activeTab, setActiveTab] = useState<'details' | 'confirm' | 'cancel' | 'edit'>('details');
     const [cancelReason, setCancelReason] = useState('');
     const [isCancelling, setIsCancelling] = useState(false);
@@ -188,6 +190,28 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
     registerLocale("pt-BR", ptBR);
 
+        // 🚨 CORREÇÃO: Quando a especialidade muda, LIMPA o médico imediatamente se for incompatível
+    useEffect(() => {
+        if (activeTab === 'edit' && editedAppointment.sessionType && editedAppointment.doctorId) {
+            const isDoctorCompatible = doctorsList.some(
+                d => d._id === editedAppointment.doctorId &&
+                (d.specialty?.toLowerCase() === editedAppointment.sessionType.toLowerCase() || !d.specialty)
+            );
+            if (!isDoctorCompatible) {
+                console.log('🚨 [Modal] Médico incompatível com a especialidade, limpando seleção');
+                setEditedAppointment(prev => ({ ...prev, doctorId: '' }));
+            }
+        }
+    }, [editedAppointment.sessionType, activeTab, doctorsList]);
+
+    // 🚨 CORREÇÃO: SÓ mostra médicos compatíveis com a especialidade selecionada
+    const compatibleDoctors = doctorsList.filter(d =>
+        !editedAppointment.sessionType ||
+        !d.specialty ||
+        d.specialty?.toLowerCase() === editedAppointment.sessionType.toLowerCase()
+    );
+    
+    
     // 🔔 Log quando modal abre/fecha
     useEffect(() => {
         console.log(`🔔 [Modal] isOpen mudou: ${isOpen}`);
@@ -986,19 +1010,23 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     disabled={loadingDoctors}
                                 >
                                     <option value="">
-                                        {loadingDoctors 
-                                            ? 'Carregando profissionais...' 
+                                        {loadingDoctors
+                                            ? 'Carregando profissionais...'
                                             : 'Selecione um profissional'}
                                     </option>
-                                    {doctorsList?.map(doctor => (
+                                    {compatibleDoctors?.map(doctor => (
                                         <option key={doctor._id} value={doctor._id}>
-                                            {doctor.fullName}
+                                            {doctor.fullName} {doctor.specialty ? `(${doctor.specialty})` : ''}
                                         </option>
                                     ))}
                                 </Select>
                                 {loadingDoctors ? (
                                     <p className="text-xs text-blue-500 mt-1">
                                         ⏳ Carregando lista de profissionais...
+                                    </p>
+                                ) : editedAppointment.doctorId && !compatibleDoctors.find(d => d._id === editedAppointment.doctorId) ? (
+                                    <p className="text-xs text-red-500 mt-1 font-semibold">
+                                        ⚠️ Profissional incompatível com a especialidade selecionada
                                     </p>
                                 ) : null}
                             </div>

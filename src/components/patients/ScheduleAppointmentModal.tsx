@@ -277,7 +277,10 @@ const ScheduleAppointmentModal = ({
         setFormData(prev => ({ ...prev, serviceType: type }));
     };
 
-    const handleSubmit = () => {
+    const [submitError, setSubmitError] = useState<string | null>(null);
+
+    const handleSubmit = async () => {
+        setSubmitError(null);
         if (serviceType === 'package_session') {
             formData.paymentAmount = 0;
         }
@@ -304,7 +307,12 @@ const ScheduleAppointmentModal = ({
 
         console.log('🔴 PAYLOAD NO MODAL:', JSON.stringify(payload, null, 2));
 
-        onSave(payload);
+        try {
+            await onSave(payload);
+        } catch (err: any) {
+            const msg = err?.response?.data?.message || err?.message || 'Erro ao criar agendamento';
+            setSubmitError(msg);
+        }
     };
 
     const canSchedule = useMemo(() => {
@@ -374,9 +382,9 @@ const ScheduleAppointmentModal = ({
                     <X size={24} />
                 </button>
             </div>
-            {erroMessage && (
+            {(erroMessage || submitError) && (
                 <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 rounded">
-                    <p>{erroMessage}</p>
+                    <p>{erroMessage || submitError}</p>
                 </div>
             )}
 

@@ -404,12 +404,16 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             if (selectedAppointment) {
                 setFormData(prev => ({
                     ...prev,
+                    appointmentId: value,  // 🔗 salva o id para enviar ao backend
                     doctorId: selectedAppointment.doctor._id,
                     date: selectedAppointment.date,
                     time: selectedAppointment.time,
                     sessionType: selectedAppointment.specialty
                 }));
+            } else {
+                setFormData(prev => ({ ...prev, appointmentId: '' }));
             }
+            return;
         }
     };
 
@@ -709,7 +713,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     type: 'therapy', // 🔥 IMPORTANTE: Define o tipo para o hook useCreatePackage
                     patientId: realPatientId,
                     sessionType: formData.sessionType as any, // Type assertion para compatibilidade
-                    selectedDebts: selectedPendingIds // 🆕 IDs dos débitos selecionados para quitar
+                    selectedDebts: selectedPendingIds, // 🆕 IDs dos débitos selecionados para quitar
+                    appointmentId: formData.appointmentId || undefined  // 🔗 reutilizar agendamento existente
                 };
                 if (initialData?._id) {
                     // Edição

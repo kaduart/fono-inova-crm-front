@@ -182,7 +182,8 @@ export const PatientsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setLoading(true);
     setError(null);
     try {
-      const newPatient = await patientService.create(patientData);
+      const result = await patientService.create(patientData);
+      const newPatient = result.patient;
       console.log('✅ PatientsContext: Paciente criado');
       
       // Invalida e recarrega
@@ -204,7 +205,8 @@ export const PatientsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const updatePatient = useCallback(async (id: string, patientData: Partial<IPatient>): Promise<IPatient> => {
     setLoading(true);
     try {
-      const updatedPatient = await patientService.update(id, patientData);
+      const result = await patientService.update(id, patientData);
+      const updatedPatient = result.patient;
       console.log('✅ PatientsContext: Paciente atualizado');
       
       // Atualiza localmente para feedback imediato

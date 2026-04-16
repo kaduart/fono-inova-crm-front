@@ -125,6 +125,13 @@ export const faturarConvenioLote = (data: { paymentIds: string[]; dataFaturament
 export const receberConvenioLote = (data: { paymentIds: string[]; dataRecebimento: string }) =>
     API.post<{ success: boolean; data: any }>('/v2/financial/convenio/receber-lote', data);
 
+// 🆕 V2: Faturar / Receber convênio por sessionId (ledger + transaction garantidos)
+export const billInsuranceSession = (sessionId: string, data?: { billedAmount?: number; billedAt?: string; notes?: string }) =>
+    API.patch<{ success: boolean; data: any }>(`/v2/insurance/session/${sessionId}/bill`, data);
+
+export const receiveInsuranceSession = (sessionId: string, data: { receivedAmount: number; receivedDate?: string }) =>
+    API.patch<{ success: boolean; data: any }>(`/v2/insurance/session/${sessionId}/receive`, data);
+
 // CRUD básicos
 export const getPayments = (filters: Record<string, any> = {}) =>
     API.get<FinancialRecord[]>('/payments', { params: filters });

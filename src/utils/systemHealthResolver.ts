@@ -158,6 +158,12 @@ function domainImpact(d: RawDomain): { impact: string | null; action: string | n
             action: 'Inspecionar dead letters e logs do worker',
         };
     }
+    if (pending > 0) {
+        return {
+            impact: `${pending} evento(s) pendente(s) no domínio "${d.domain}" — worker está com atraso`,
+            action: 'Verificar se o worker está ativo e se a memória do servidor está elevada (heap alto = workers mais lentos)',
+        };
+    }
     return { impact: null, action: null };
 }
 

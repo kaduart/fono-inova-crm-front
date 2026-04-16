@@ -143,7 +143,8 @@ export const usePatients = () => {
             setLoading(true);
             setError(null);
 
-            const newPatient = await patientService.create(IPatient);
+            const result = await patientService.create(IPatient);
+            const newPatient = result.patient;
             // 🚀 Invalida cache e propaga para hooks relacionados
             invalidateCache('patients');
             await refreshData();
@@ -159,7 +160,8 @@ export const usePatients = () => {
     const updatePatient = async (id: string, IPatient: Partial<IPatient>) => {
         try {
             setLoading(true);
-            const updatedPatient = await patientService.update(id, IPatient);
+            const result = await patientService.update(id, IPatient);
+            const updatedPatient = result.patient;
             // 🚀 Invalida cache e propaga para hooks relacionados
             invalidateCache('patients');
             await refreshData();

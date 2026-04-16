@@ -444,6 +444,7 @@ export default function AdminDashboard() {
             toast.success('Agendamento criado com sucesso!');
         } catch (error: any) {
             toast.error(extractErrorMessage(error, 'Erro ao criar agendamento'));
+            throw error; // modal exibe o erro no banner
         }
     }, [createAppointment, fetchAppointments, calendarDateRange, refreshDashboard]);
 

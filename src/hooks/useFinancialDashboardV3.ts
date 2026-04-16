@@ -139,6 +139,32 @@ export interface IndicadoresV3 {
   statusMargem: 'bom' | 'atencao' | 'ruim';
 }
 
+export interface PendenteItemV3 {
+  sessionId: string;
+  paymentId?: string;
+  data: string;
+  hora?: string;
+  paciente: string;
+  valor: number;
+  status: string;
+  convenio?: string;
+  paymentMethod?: string;
+}
+
+export interface PendentesV3 {
+  total: number;
+  convenio: {
+    total: number;
+    count: number;
+    items: PendenteItemV3[];
+  };
+  particular: {
+    total: number;
+    count: number;
+    items: PendenteItemV3[];
+  };
+}
+
 export interface DrillDownV3 {
   profissionais: DrillDownProfissionalV3[];
   resumoGeral: {
@@ -177,6 +203,7 @@ export interface DashboardV3Data {
       pendente: number;
     };
   };
+  pendentes?: PendentesV3;
   expenses: {
     total: number;
     count: number;
@@ -213,6 +240,7 @@ export interface DashboardV3Response {
     producao: number;
     producaoDetalhe: DashboardV3Data['revenue']['byMethod'];
     aReceber: { total: number; mesAtual: number; historico: number };
+    pendentes?: PendentesV3;
     saldo: number;
     despesas: { total: number; count: number };
     metas: MetasV3;

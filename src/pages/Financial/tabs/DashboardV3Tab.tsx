@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard,
   DollarSign,
@@ -16,10 +16,19 @@ import {
   Clock,
   ArrowUpRight,
   ArrowDownRight,
-  Zap
+  Zap,
+  Send,
+  Check
 } from 'lucide-react';
 import { useFinancialDashboardV3 } from '../../../hooks/useFinancialDashboardV3';
 import { FinancialLoading } from '../components/FinancialLoading';
+import {
+  getInsuranceReceivables,
+  markInsuranceAsBilled,
+  receiveInsurancePayment,
+  InsuranceReceivableGroup
+} from '../../../services/paymentService';
+import { toast } from 'react-toastify';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -51,9 +60,50 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   const [activeTab, setActiveTab] = useState(0);
   const { data, resumo, loading, error, fetchDashboard } = useFinancialDashboardV3();
 
+  // 🆕 B: Pendências de convênio
+  const [pendingInsurance, setPendingInsurance] = useState<InsuranceReceivableGroup[]>([]);
+  const [loadingInsurance, setLoadingInsurance] = useState(false);
+
+  const fetchPendingInsurance = useCallback(async () => {
+    setLoadingInsurance(true);
+    try {
+      const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+      const res = await getInsuranceReceivables({ status: 'pending_billing', month: monthStr });
+      setPendingInsurance(res.data?.data || []);
+    } catch (err) {
+      console.error('Erro ao buscar convênios pendentes:', err);
+    } finally {
+      setLoadingInsurance(false);
+    }
+  }, [month, year]);
+
+  const handleBillInsurance = async (paymentId: string) => {
+    try {
+      await markInsuranceAsBilled(paymentId);
+      toast.success('Faturado com sucesso!');
+      fetchPendingInsurance();
+    } catch (err) {
+      toast.error('Erro ao faturar convênio');
+    }
+  };
+
+  const handleReceiveInsurance = async (paymentId: string, grossAmount: number) => {
+    try {
+      await receiveInsurancePayment(paymentId, {
+        receivedAmount: grossAmount,
+        receivedDate: new Date().toISOString().split('T')[0]
+      });
+      toast.success('Recebimento registrado!');
+      fetchPendingInsurance();
+    } catch (err) {
+      toast.error('Erro ao registrar recebimento');
+    }
+  };
+
   useEffect(() => {
     fetchDashboard(month, year);
-  }, [month, year, fetchDashboard]);
+    fetchPendingInsurance();
+  }, [month, year, fetchDashboard, fetchPendingInsurance]);
 
   if (loading) return <FinancialLoading />;
   if (error) return <div className="p-4 rounded-lg bg-rose-50 text-rose-700 border border-rose-200">{error}</div>;
@@ -405,6 +455,73 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                 </div>
               );
             })}
+          </div>
+        </div>
+
+        {/* 🆕 B: Pendências de Convênio */}
+        <div>
+          <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
+            <Briefcase size={22} /> Pendências de Convênio
+          </h3>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            {loadingInsurance ? (
+              <div className="p-6 text-center text-gray-500">Carregando...</div>
+            ) : pendingInsurance.length === 0 ? (
+              <div className="p-6 text-center text-emerald-600 font-medium">
+                ✅ Nenhum convênio pendente de faturamento
+              </div>
+            ) : (
+              <div className="divide-y">
+                {pendingInsurance.flatMap(g =>
+                  (g.patients || []).flatMap(p =>
+                    (p.payments || []).map(pay => ({
+                      provider: g._id,
+                      patientName: p.patientName,
+                      paymentId: pay.paymentId,
+                      grossAmount: pay.grossAmount,
+                      status: pay.status,
+                      paymentDate: pay.paymentDate
+                    }))
+                  )
+                ).slice(0, 5).map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 hover:bg-gray-50"
+                  >
+                    <div>
+                      <p className="font-semibold text-gray-800">{item.patientName}</p>
+                      <p className="text-sm text-gray-500">
+                        {item.provider} • {new Date(item.paymentDate).toLocaleDateString('pt-BR')} • {' '}
+                        <span className="font-medium text-gray-700">{formatCurrency(item.grossAmount)}</span>
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {item.status === 'pending_billing' && (
+                        <button
+                          onClick={() => handleBillInsurance(item.paymentId)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-amber-50 text-amber-700 hover:bg-amber-100 text-sm font-medium border border-amber-200"
+                        >
+                          <Send size={14} /> Faturar
+                        </button>
+                      )}
+                      {item.status === 'billed' && (
+                        <button
+                          onClick={() => handleReceiveInsurance(item.paymentId, item.grossAmount)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm font-medium border border-emerald-200"
+                        >
+                          <Check size={14} /> Receber
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {pendingInsurance.reduce((sum, g) => sum + (g.patients || []).reduce((pSum, p) => pSum + (p.payments || []).length, 0), 0) > 5 && (
+                  <div className="p-3 text-center text-sm text-gray-500">
+                    Vá para a aba <strong>Convênios</strong> para ver todos
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

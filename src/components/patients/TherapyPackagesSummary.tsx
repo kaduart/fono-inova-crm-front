@@ -1,5 +1,5 @@
 import { Info, Package, Plus, ChevronDown } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { useAppointmentsContext } from '../../contexts/AppointmentsContext';
 import { packageService, UseSessionParams, validatePayment } from '../../services/packageService';
@@ -33,9 +33,13 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
     const [isAccordionOpen, setIsAccordionOpen] = useState(true);
 
     const realPatientId = patient?.patientId || patient?._id;
+    const hasFetchedInitialRef = useRef<string | null>(null);
 
     useEffect(() => {
-        fetchBasicPackages();
+        if (realPatientId && hasFetchedInitialRef.current !== realPatientId) {
+            hasFetchedInitialRef.current = realPatientId;
+            fetchBasicPackages();
+        }
     }, [realPatientId]);
 
 

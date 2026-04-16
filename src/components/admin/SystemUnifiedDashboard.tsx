@@ -311,7 +311,7 @@ function QueuesCard({ raw, totalWaiting, totalActive, totalFailed, queueHistory 
                 </Box>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                     {raw.queues.slice(0, 4).map(q => {
-                        const hasIssue = (q.failed || 0) > 0 || ((q.waiting || 0) > 200 && (q.active || 0) === 0);
+                        const hasIssue = (q.failed || 0) > 0 || ((q.waiting || 0) > 0 && (q.active || 0) === 0 && (q.completed || 0) === 0);
                         return <Chip key={q.name} size="small" label={q.name.split('-')[0]} color={hasIssue ? 'error' : 'default'} variant="outlined" />;
                     })}
                     {raw.queues.length > 4 && <Chip size="small" label={`+${raw.queues.length - 4}`} variant="outlined" />}
@@ -321,7 +321,79 @@ function QueuesCard({ raw, totalWaiting, totalActive, totalFailed, queueHistory 
     );
 }
 
-function DomainsCard({ domains }: { domains: DomainHealth[] }) {
+function DomainDetailModal({ domain, open, onClose }: { domain: DomainHealth | null; open: boolean; onClose: () => void }) {
+    if (!domain) return null;
+    const chip = domainStatusChip(domain);
+    const rateColor = domain.successRate < 60 ? 'error.main' : domain.successRate < 85 ? 'warning.main' : 'success.main';
+
+    return (
+        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+            <DialogTitle>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Typography variant="h5">{domain.icon}</Typography>
+                    <Box>
+                        <Typography variant="h6" fontWeight="bold">{domain.label}</Typography>
+                        <Chip size="small" label={chip.label} color={chip.color} sx={{ mt: 0.5 }} />
+                    </Box>
+                </Box>
+            </DialogTitle>
+            <DialogContent>
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                    {[
+                        { label: 'Total de Eventos', sub: 'chegaram ao sistema',        value: domain.totalEvents, color: 'inherit' },
+                        { label: 'Processados',       sub: 'concluídos com sucesso',     value: domain.totalEvents - domain.failedEvents - domain.pendingEvents, color: 'success.main' },
+                        { label: 'Falhas',            sub: 'erros — ver dead letters',   value: domain.failedEvents, color: domain.failedEvents > 0 ? 'error.main' : 'text.secondary' },
+                        { label: 'Pendentes',         sub: 'na fila, aguardando worker', value: domain.pendingEvents, color: domain.pendingEvents > 0 ? 'warning.main' : 'text.secondary' },
+                    ].map(item => (
+                        <Grid item xs={6} sm={6} key={item.label}>
+                            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e5e7eb' }}>
+                                <Typography variant="caption" color="text.secondary" display="block" fontWeight="bold">{item.label}</Typography>
+                                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5, fontSize: '0.7rem' }}>{item.sub}</Typography>
+                                <Typography variant="h5" fontWeight="bold" color={item.color}>{item.value}</Typography>
+                            </Box>
+                        </Grid>
+                    ))}
+                </Grid>
+
+                <Box sx={{ mb: 2, p: 1.5, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">Taxa de Sucesso</Typography>
+                    <Typography variant="h6" fontWeight="bold" color={rateColor}>{domain.successRate}%</Typography>
+                </Box>
+
+                {domain.avgProcessingMs > 0 && (
+                    <Box sx={{ mb: 2, p: 1.5, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body2" color="text.secondary">Tempo Médio de Processamento</Typography>
+                        <Typography variant="body1" fontWeight="bold">
+                            {domain.avgProcessingMs < 1000 ? `${domain.avgProcessingMs}ms` : `${(domain.avgProcessingMs / 1000).toFixed(1)}s`}
+                        </Typography>
+                    </Box>
+                )}
+
+                {domain.impact && (
+                    <Alert severity="warning" sx={{ mb: 2, borderRadius: 2 }} icon={<AlertTriangle size={18} />}>
+                        <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>Impacto detectado</Typography>
+                        <Typography variant="body2">{domain.impact}</Typography>
+                    </Alert>
+                )}
+
+                {domain.action && (
+                    <Alert severity="info" sx={{ borderRadius: 2 }} icon={<Zap size={18} />}>
+                        <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>Ação recomendada</Typography>
+                        <Typography variant="body2">{domain.action}</Typography>
+                    </Alert>
+                )}
+
+                {!domain.impact && !domain.action && domain.status === 'ok' && (
+                    <Alert severity="success" sx={{ borderRadius: 2 }} icon={<CheckCircle2 size={18} />}>
+                        <Typography variant="body2">Domínio operando normalmente — nenhuma ação necessária.</Typography>
+                    </Alert>
+                )}
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function DomainsCard({ domains, onDomainClick }: { domains: DomainHealth[]; onDomainClick: (d: DomainHealth) => void }) {
     const withData = useMemo(() => domains.filter(d => d.totalEvents > 0).sort((a, b) => {
         const order = { failing: 0, slow: 1, ok: 2, idle: 3, unknown: 4 };
         return order[a.status] - order[b.status];
@@ -337,7 +409,16 @@ function DomainsCard({ domains }: { domains: DomainHealth[] }) {
                     {withData.slice(0, 5).map(d => {
                         const chip = domainStatusChip(d);
                         return (
-                            <Box key={d.key} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Box
+                                key={d.key}
+                                onClick={() => onDomainClick(d)}
+                                sx={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                    cursor: 'pointer', borderRadius: 2, px: 1, py: 0.5,
+                                    '&:hover': { bgcolor: '#f1f5f9' },
+                                    transition: 'background 0.15s',
+                                }}
+                            >
                                 <Typography variant="body2" fontWeight="medium">{d.icon} {d.label}</Typography>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                     <Typography variant="caption" color={d.successRate < 60 ? 'error.main' : d.successRate < 85 ? 'warning.main' : 'success.main'} fontWeight="bold">{d.successRate}%</Typography>
@@ -353,11 +434,18 @@ function DomainsCard({ domains }: { domains: DomainHealth[] }) {
     );
 }
 
-function RecentEventsBlock({ recent, loading }: { recent: { eventType: string; status: string; timestamp: string; correlationId?: string }[]; loading: boolean }) {
+function RecentEventsBlock({ recent, loading, onEventClick }: {
+    recent: { eventType: string; status: string; timestamp: string; correlationId?: string }[];
+    loading: boolean;
+    onEventClick: (correlationId: string) => void;
+}) {
     return (
         <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
             <CardContent>
-                <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" sx={{ mb: 2 }}>📜 Eventos Recentes</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                    <Typography variant="subtitle2" color="text.secondary" fontWeight="bold">📜 Eventos Recentes</Typography>
+                    <Typography variant="caption" color="text.secondary">Clique numa linha com Correlation ID para diagnosticar</Typography>
+                </Box>
                 {loading ? <Skeleton variant="rectangular" height={120} /> : recent.length === 0 ? (
                     <Alert severity="info" sx={{ borderRadius: 2 }}>Nenhum evento nos últimos 5 minutos.</Alert>
                 ) : (
@@ -371,20 +459,33 @@ function RecentEventsBlock({ recent, loading }: { recent: { eventType: string; s
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {recent.slice(0, 10).map((event, i) => (
-                                    <TableRow key={i} hover>
-                                        <TableCell sx={{ color: '#6b7280', fontSize: '0.8rem' }}>{new Date(event.timestamp).toLocaleTimeString()}</TableCell>
-                                        <TableCell><code style={{ fontSize: '0.78rem', background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>{event.eventType}</code></TableCell>
-                                        <TableCell><Chip size="small" label={event.status} color={eventStatusColor(event.status)} /></TableCell>
-                                        <TableCell>
-                                            {event.correlationId && (
-                                                <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
-                                                    {event.correlationId.substring(0, 14)}…
-                                                </Typography>
-                                            )}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
+                                {recent.slice(0, 10).map((event, i) => {
+                                    const hasCorrelation = !!event.correlationId;
+                                    return (
+                                        <TableRow
+                                            key={i}
+                                            hover
+                                            onClick={() => hasCorrelation && onEventClick(event.correlationId!)}
+                                            sx={{
+                                                cursor: hasCorrelation ? 'pointer' : 'default',
+                                                '&:hover': hasCorrelation ? { bgcolor: '#eff6ff' } : {},
+                                            }}
+                                        >
+                                            <TableCell sx={{ color: '#6b7280', fontSize: '0.8rem' }}>{new Date(event.timestamp).toLocaleTimeString()}</TableCell>
+                                            <TableCell><code style={{ fontSize: '0.78rem', background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>{event.eventType}</code></TableCell>
+                                            <TableCell><Chip size="small" label={event.status} color={eventStatusColor(event.status)} /></TableCell>
+                                            <TableCell>
+                                                {event.correlationId && (
+                                                    <Tooltip title="Clique para diagnosticar este fluxo">
+                                                        <Typography variant="caption" sx={{ fontFamily: 'monospace', color: '#2563eb', textDecoration: 'underline dotted', cursor: 'pointer' }}>
+                                                            {event.correlationId.substring(0, 14)}…
+                                                        </Typography>
+                                                    </Tooltip>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
                             </TableBody>
                         </Table>
                     </TableContainer>
@@ -490,7 +591,13 @@ function FlowDiagnosticBlock({ correlationId, setCorrelationId, loading, onSearc
     );
 }
 
-function MetricsTab({ extras, rawDomains, loading }: { extras: ReturnType<typeof useSystemHealthCtx>['extras']; rawDomains: ReturnType<typeof useSystemHealthCtx>['rawDomains']; loading: boolean }) {
+function MetricsTab({ extras, rawDomains, resolvedDomains, loading, onDomainClick }: {
+    extras: ReturnType<typeof useSystemHealthCtx>['extras'];
+    rawDomains: ReturnType<typeof useSystemHealthCtx>['rawDomains'];
+    resolvedDomains: DomainHealth[];
+    loading: boolean;
+    onDomainClick: (d: DomainHealth) => void;
+}) {
     if (loading) return <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 3 }} />;
     return (
         <Grid container spacing={2}>
@@ -590,8 +697,14 @@ function MetricsTab({ extras, rawDomains, loading }: { extras: ReturnType<typeof
                                 <TableBody>
                                     {rawDomains.map((d, i) => {
                                         const rate = typeof d.successRate === 'string' ? parseFloat(d.successRate) : d.successRate;
+                                        const resolved = (resolvedDomains ?? []).find(r => r.key === d.domain);
                                         return (
-                                            <TableRow key={i} hover>
+                                            <TableRow
+                                                key={i}
+                                                hover
+                                                onClick={() => resolved && onDomainClick(resolved)}
+                                                sx={{ cursor: resolved ? 'pointer' : 'default' }}
+                                            >
                                                 <TableCell>{d.domain}</TableCell>
                                                 <TableCell>{d.counts.total}</TableCell>
                                                 <TableCell>{d.counts.processed}</TableCell>
@@ -621,7 +734,7 @@ function QueuesTab({ raw, queueHistory }: { raw: RawMonitorData | null; queueHis
                 <Grid container spacing={1.5}>
                     {raw.queues.map((q) => {
                         const hasFail = (q.failed || 0) > 0;
-                        const isStuck = (q.waiting || 0) > 200 && (q.active || 0) === 0;
+                        const isStuck = (q.waiting || 0) > 0 && (q.active || 0) === 0 && (q.completed || 0) === 0;
                         const prev = queueHistory[q.name];
                         const wDelta = queueDelta(q.waiting ?? 0, prev?.waiting);
                         const fDelta = queueDelta(q.failed ?? 0, prev?.failed);
@@ -691,11 +804,13 @@ export default function SystemUnifiedDashboard() {
     const [deadLetters, setDeadLetters] = useState<DeadLetterItem[]>([]);
     const [loadingDeadLetters, setLoadingDeadLetters] = useState(false);
     const [innerTab, setInnerTab] = useState(0);
+    const [selectedDomain, setSelectedDomain] = useState<DomainHealth | null>(null);
+    const [domainModalOpen, setDomainModalOpen] = useState(false);
 
     const fetchDeadLetters = useCallback(async () => {
         try {
             setLoadingDeadLetters(true);
-            const res = await API.get('/api/observability/dead-letters?limit=20');
+            const res = await API.get('/observability/dead-letters?limit=20');
             setDeadLetters(res.data?.data || []);
         } catch {
             // silencioso — o contador já vem do system-health
@@ -735,6 +850,24 @@ export default function SystemUnifiedDashboard() {
     }, [fetchRaw]);
 
     const handleRefresh = () => { fetchRaw(); refresh(); };
+
+    const handleDomainClick = useCallback((d: DomainHealth) => {
+        setSelectedDomain(d);
+        setDomainModalOpen(true);
+    }, []);
+
+    const handleEventClick = useCallback((corrId: string) => {
+        setCorrelationId(corrId);
+        setInnerTab(0);
+        // small delay para scroll até o diagnóstico ficar visível
+        setTimeout(() => {
+            setFlowLoading(true);
+            API.get(`/observability/flow/${corrId}`)
+                .then(res => { setEventFlow(res.data.data); setFlowDialogOpen(true); })
+                .catch(err => toast.error(extractErrorMessage(err, 'Fluxo não encontrado')))
+                .finally(() => setFlowLoading(false));
+        }, 50);
+    }, []);
 
     const handleReprocessDeadLetters = useCallback(async () => {
         setReprocessing(true);
@@ -783,7 +916,7 @@ export default function SystemUnifiedDashboard() {
     const scoreItems = buildScoreBreakdown(health, rawMetrics, rawDomains);
 
     const allAlerts: Array<{ level: 'error' | 'warning' | 'info'; title: string; detail: string; action?: string }> = useMemo(() => {
-        const stuck = raw?.queues?.filter(q => (q.waiting || 0) > 200 && (q.active || 0) === 0) ?? [];
+        const stuck = raw?.queues?.filter(q => (q.waiting || 0) > 0 && (q.active || 0) === 0 && (q.completed || 0) === 0) ?? [];
         const list = [
             ...(health?.alerts || []),
             ...(raw?.redis.status !== 'ok' ? [{ level: 'error' as const, title: 'Redis com problema', detail: raw?.redis.message || 'Conexão Redis/Valkey falhou' }] : []),
@@ -886,13 +1019,13 @@ export default function SystemUnifiedDashboard() {
                             />
                         </Grid>
                         <Grid item xs={12} md={4}>
-                            <DomainsCard domains={health?.domains || []} />
+                            <DomainsCard domains={health?.domains || []} onDomainClick={handleDomainClick} />
                         </Grid>
                     </Grid>
 
                     {/* ── LINHA 3: EVENTOS RECENTES ──────────────────────────────────── */}
                     <Box sx={{ mb: 2 }}>
-                        <RecentEventsBlock recent={recent} loading={loadingHealth} />
+                        <RecentEventsBlock recent={recent} loading={loadingHealth} onEventClick={handleEventClick} />
                     </Box>
 
                     {/* ── LINHA 4: DEAD LETTERS ──────────────────────────────────────── */}
@@ -923,12 +1056,19 @@ export default function SystemUnifiedDashboard() {
             )}
 
             {innerTab === 1 && (
-                <MetricsTab extras={extras} rawDomains={rawDomains} loading={loadingHealth} />
+                <MetricsTab extras={extras} rawDomains={rawDomains} resolvedDomains={health?.domains || []} loading={loadingHealth} onDomainClick={handleDomainClick} />
             )}
 
             {innerTab === 2 && (
                 <QueuesTab raw={raw} queueHistory={queueHistory} />
             )}
+
+            {/* ── MODAL: DETALHE DO DOMÍNIO ─────────────────────────────────── */}
+            <DomainDetailModal
+                domain={selectedDomain}
+                open={domainModalOpen}
+                onClose={() => setDomainModalOpen(false)}
+            />
 
             {/* ── DIALOG: FLUXO DE EVENTOS ──────────────────────────────────── */}
             <Dialog open={flowDialogOpen} onClose={() => setFlowDialogOpen(false)} maxWidth="md" fullWidth>
