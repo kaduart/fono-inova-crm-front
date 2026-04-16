@@ -92,9 +92,12 @@ const ProjectionTooltip = ({ active, payload }: any) => {
 };
 
 // ─── Sub-aba: Projeção & Cenários ──────────────────────────────────────────
-const ProjecaoCenarios: React.FC = () => {
-    const [mes, setMes] = useState(new Date().getMonth() + 1);
-    const [ano, setAno] = useState(new Date().getFullYear());
+interface ProjecaoCenariosProps {
+    month: number;
+    year: number;
+}
+
+const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, year: ano }) => {
     const [pageRealizados, setPageRealizados] = useState(0);
     const [pageAgendados, setPageAgendados] = useState(0);
     const [pagePendentes, setPagePendentes] = useState(0);
@@ -110,7 +113,7 @@ const ProjecaoCenarios: React.FC = () => {
         setPagePendentes(0);
         setProjectionData([]);
         setProjectionMeta(null);
-    }, [mes, ano]);
+    }, [mes, ano, fetchDashboard]);
 
     // Busca projeção diária assim que o dashboard carrega (usa cenário esperado como alvo)
     useEffect(() => {
@@ -180,21 +183,9 @@ const ProjecaoCenarios: React.FC = () => {
         {/* Filtros */}
         <Box display="flex" justifyContent="flex-end" mb={2}>
             <Stack direction="row" spacing={1} alignItems="center">
-                <FormControl size="small" sx={{ minWidth: 120 }}>
-                    <Select value={mes} onChange={(e) => setMes(Number(e.target.value))}>
-                        {Array.from({ length: 12 }, (_, i) => (
-                            <MenuItem key={i + 1} value={i + 1}>
-                                {format(new Date(2024, i), 'MMMM', { locale: ptBR })}
-                            </MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
-                <FormControl size="small" sx={{ minWidth: 90 }}>
-                    <Select value={ano} onChange={(e) => setAno(Number(e.target.value))}>
-                        <MenuItem value={2025}>2025</MenuItem>
-                        <MenuItem value={2026}>2026</MenuItem>
-                    </Select>
-                </FormControl>
+                <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                    {format(new Date(ano, mes - 1), 'MMMM yyyy', { locale: ptBR })}
+                </Typography>
                 <IconButton size="small" onClick={() => fetchDashboard(mes, ano)}>
                     <RefreshCcw size={16} />
                 </IconButton>
@@ -502,7 +493,12 @@ const subTabs = [
     { label: 'Pacientes VIP',       icon: '👑' },
 ];
 
-const AnaliseProjecaoTab: React.FC = () => {
+interface AnaliseProjecaoTabProps {
+    month: number;
+    year: number;
+}
+
+const AnaliseProjecaoTab: React.FC<AnaliseProjecaoTabProps> = ({ month, year }) => {
     const [activeTab, setActiveTab] = useState(0);
     const [mountKey, setMountKey] = useState(0);
 
@@ -532,7 +528,7 @@ const AnaliseProjecaoTab: React.FC = () => {
                 ))}
             </Tabs>
 
-            {activeTab === 0 && <ProjecaoCenarios key={`proj-${mountKey}`} />}
+            {activeTab === 0 && <ProjecaoCenarios key={`proj-${mountKey}`} month={month} year={year} />}
             {activeTab === 1 && <DashboardEspecialidades key={`esp-${mountKey}`} />}
             {activeTab === 2 && <RankingProfissionais key={`rank-${mountKey}`} />}
             {activeTab === 3 && <ListaPacientesVIP key={`vip-${mountKey}`} />}

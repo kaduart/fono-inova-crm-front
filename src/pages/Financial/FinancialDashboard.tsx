@@ -1,7 +1,7 @@
 // src/pages/Financial/FinancialDashboard.tsx - VERSÃO OTIMIZADA COM LAZY LOADING
 
 import { Suspense, lazy } from 'react';
-import { Box, Paper, Tab, Tabs, Typography, useTheme, ToggleButton, ToggleButtonGroup, Skeleton } from '@mui/material';
+import { Box, Paper, Tab, Tabs, Typography, useTheme, ToggleButton, ToggleButtonGroup, Skeleton, FormControl, Select, MenuItem } from '@mui/material';
 import {
     Calendar,
     DollarSign,
@@ -90,6 +90,8 @@ const FinancialDashboard = ({
 }: FinancialDashboardProps) => {
     const [currentTab, setCurrentTab] = useState(0);
     const [viewMode, setViewMode] = useState<'operacional' | 'estrategico'>('operacional');
+    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const theme = useTheme();
 
     const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
@@ -138,7 +140,7 @@ const FinancialDashboard = ({
     const renderOperacionalTab = () => {
         switch (currentTabId) {
             case 'dashboard-v3':
-                return <DashboardV3Tab />;
+                return <DashboardV3Tab month={selectedMonth} year={selectedYear} />;
             case 'pagamentos':
                 return (
                     <PaymentPage
@@ -148,14 +150,16 @@ const FinancialDashboard = ({
                         registerAppointmentAndPayemntFuture={registerAppointmentAndPaymentFuture}
                         onCancelPayment={onCancelPayment}
                         enabled={true}
+                        month={selectedMonth}
+                        year={selectedYear}
                     />
                 );
             case 'despesas':
-                return <ExpensesTab />;
+                return <ExpensesTab month={selectedMonth} year={selectedYear} />;
             case 'convenios':
-                return <InsuranceTab />;
+                return <InsuranceTab month={selectedMonth} year={selectedYear} />;
             case 'caixa-unificado':
-                return <UnifiedCashflowTab />;
+                return <UnifiedCashflowTab month={selectedMonth} year={selectedYear} />;
             default:
                 return <DashboardV3Tab />;
         }
@@ -166,9 +170,9 @@ const FinancialDashboard = ({
             case 'dashboard-v3':
                 return <DashboardV3Tab />;
             case 'analise-projecao':
-                return <AnaliseProjecaoTab />;
+                return <AnaliseProjecaoTab month={selectedMonth} year={selectedYear} />;
             case 'planejamento':
-                return <PlanningTab />;
+                return <PlanningTab month={selectedMonth} year={selectedYear} />;
             default:
                 return <DashboardV3Tab />;
         }
@@ -216,6 +220,34 @@ const FinancialDashboard = ({
                     </div>
 
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center', width: { xs: '100%', md: 'auto' } }}>
+                        {/* Seletor global de mês/ano */}
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <FormControl size="small" sx={{ minWidth: 100 }}>
+                                <Select
+                                    value={selectedMonth}
+                                    onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                                    sx={{ bgcolor: 'background.paper', borderRadius: 1 }}
+                                >
+                                    {Array.from({ length: 12 }, (_, i) => (
+                                        <MenuItem key={i + 1} value={i + 1}>
+                                            {new Date(2000, i).toLocaleString('pt-BR', { month: 'short' })}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                            <FormControl size="small" sx={{ minWidth: 80 }}>
+                                <Select
+                                    value={selectedYear}
+                                    onChange={(e) => setSelectedYear(Number(e.target.value))}
+                                    sx={{ bgcolor: 'background.paper', borderRadius: 1 }}
+                                >
+                                    {[2024, 2025, 2026, 2027].map((y) => (
+                                        <MenuItem key={y} value={y}>{y}</MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Box>
+
                         <ToggleButtonGroup
                             value={viewMode}
                             exclusive

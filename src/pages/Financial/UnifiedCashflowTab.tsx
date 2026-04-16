@@ -29,27 +29,30 @@ interface DayData {
     atendimentos: number;
 }
 
-const UnifiedCashflowTab = () => {
+interface UnifiedCashflowTabProps {
+    month: number;
+    year: number;
+}
+
+const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
     const [dailyCashflow, setDailyCashflow] = useState<CashflowV2Response | null>(null);
     const [monthData, setMonthData] = useState<DayData[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState(0);
     const [viewMode, setViewMode] = useState<'day' | 'month'>('day');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
     // Carrega dados do dia selecionado
     useEffect(() => {
         loadDayData();
     }, [selectedDate]);
 
-    // Carrega dados do mês quando muda para visualização mensal
+    // Carrega dados do mês quando muda para visualização mensal ou quando o filtro global muda
     useEffect(() => {
         if (viewMode === 'month') {
             loadMonthData();
         }
-    }, [viewMode, selectedMonth, selectedYear]);
+    }, [viewMode, month, year]);
 
     const loadDayData = async () => {
         setLoading(true);
@@ -67,8 +70,8 @@ const UnifiedCashflowTab = () => {
         setLoading(true);
         try {
             // Busca dados de cada dia do mês para montar o fluxo
-            const start = startOfMonth(new Date(selectedYear, selectedMonth - 1));
-            const end = endOfMonth(new Date(selectedYear, selectedMonth - 1));
+            const start = startOfMonth(new Date(year, month - 1));
+            const end = endOfMonth(new Date(year, month - 1));
             const days = eachDayOfInterval({ start, end });
             
             const monthPromises = days.map(day => 
@@ -169,34 +172,9 @@ const UnifiedCashflowTab = () => {
                                 InputLabelProps={{ shrink: true }}
                             />
                         ) : (
-                            <>
-                                <TextField
-                                    select
-                                    label="Mês"
-                                    size="small"
-                                    value={selectedMonth}
-                                    onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                                    sx={{ minWidth: 100 }}
-                                >
-                                    {Array.from({ length: 12 }, (_, i) => (
-                                        <MenuItem key={i + 1} value={i + 1}>
-                                            {format(new Date(2024, i), 'MMMM', { locale: ptBR })}
-                                        </MenuItem>
-                                    ))}
-                                </TextField>
-                                <TextField
-                                    select
-                                    label="Ano"
-                                    size="small"
-                                    value={selectedYear}
-                                    onChange={(e) => setSelectedYear(Number(e.target.value))}
-                                    sx={{ minWidth: 80 }}
-                                >
-                                    {[2024, 2025, 2026].map((y) => (
-                                        <MenuItem key={y} value={y}>{y}</MenuItem>
-                                    ))}
-                                </TextField>
-                            </>
+                            <Typography variant="body1" fontWeight={500} color="text.primary">
+                                {format(new Date(year, month - 1), 'MMMM/yyyy', { locale: ptBR })}
+                            </Typography>
                         )}
                     </Box>
 
@@ -204,7 +182,7 @@ const UnifiedCashflowTab = () => {
                         icon={<CalendarTodayIcon />} 
                         label={viewMode === 'day' 
                             ? format(new Date(selectedDate), "dd 'de' MMMM", { locale: ptBR })
-                            : `${format(new Date(selectedYear, selectedMonth - 1), 'MMMM/yyyy', { locale: ptBR })}`
+                            : `${format(new Date(year, month - 1), 'MMMM/yyyy', { locale: ptBR })}`
                         }
                         color="primary"
                         variant="outlined"

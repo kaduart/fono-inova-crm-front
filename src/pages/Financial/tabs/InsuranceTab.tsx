@@ -77,7 +77,12 @@ const STATUS_CONFIG: Record<string, { color: string; bgColor: string; label: str
     glosa: { color: '#EF4444', bgColor: '#EF444410', label: 'Glosado' }
 };
 
-const InsuranceTab = () => {
+interface InsuranceTabProps {
+    month: number;
+    year: number;
+}
+
+const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const [subTab, setSubTab] = useState(0);
     const [receivables, setReceivables] = useState<InsuranceReceivableGroup[]>([]);
     const [allReceivables, setAllReceivables] = useState<InsuranceReceivableGroup[]>([]); // Todos os status para os cards
@@ -111,10 +116,11 @@ const InsuranceTab = () => {
     });
     const [selectedPatient360Id, setSelectedPatient360Id] = useState<string | null>(null);
     const [is360ModalOpen, setIs360ModalOpen] = useState(false);
-    const [selectedMonthYear, setSelectedMonthYear] = useState(() => {
-        const now = new Date();
-        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    });
+    const [selectedMonthYear, setSelectedMonthYear] = useState(`${year}-${String(month).padStart(2, '0')}`);
+
+    useEffect(() => {
+        setSelectedMonthYear(`${year}-${String(month).padStart(2, '0')}`);
+    }, [month, year]);
 
     // Estados para modal de faturamento em lote
     const [faturarLoteModalOpen, setFaturarLoteModalOpen] = useState(false);

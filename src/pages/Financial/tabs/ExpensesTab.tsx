@@ -68,19 +68,28 @@ const STATUS_CONFIG = {
   canceled: { color: '#EF4444', bgColor: '#EF444410', label: 'Cancelado', icon: XCircle }
 };
 
-const ExpensesTab = () => {
+interface ExpensesTabProps {
+  month: number;
+  year: number;
+}
+
+const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
   const { expenses, loading, totals, fetchExpenses, cancelExpense, generateCommissions } = useExpenses();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<any>(null);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   
   const [filters, setFilters] = useState({
-    month: new Date().getMonth() + 1,
-    year: new Date().getFullYear(),
+    month,
+    year,
     category: '',
     status: '',
     doctorId: ''
   });
+
+  useEffect(() => {
+    setFilters(prev => ({ ...prev, month, year }));
+  }, [month, year]);
 
   useEffect(() => {
     fetchExpenses(filters);

@@ -426,9 +426,11 @@ interface PaymentPageProps {
     registerAppointmentAndPayemntFuture?: (payment: FinancialRecord) => void;
     onCancelPayment?: (paymentId: string) => void;
     enabled?: boolean;
+    month?: number;
+    year?: number;
 }
 
-const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentProp, registerAppointmentAndPayemntFuture, enabled = true }: PaymentPageProps) => {
+const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentProp, registerAppointmentAndPayemntFuture, enabled = true, month, year }: PaymentPageProps) => {
     // 🚀 SOURCE OF TRUTH: Context API (padrão do projeto)
     const {
         payments: allPayments = [],
@@ -462,9 +464,15 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
     const [error, setError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
-    const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month' | 'year' | 'all' | 'last_week' | 'last_month' | 'custom'>('day');
+    const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month' | 'year' | 'all' | 'last_week' | 'last_month' | 'custom' | string>('day');
     const [customStartDate, setCustomStartDate] = useState<string>('');
     const [customEndDate, setCustomEndDate] = useState<string>('');
+
+    useEffect(() => {
+        if (month && year) {
+            setSelectedPeriod(`${year}-${String(month).padStart(2, '0')}`);
+        }
+    }, [month, year]);
 
     const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;

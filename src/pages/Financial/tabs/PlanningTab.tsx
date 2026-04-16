@@ -89,7 +89,12 @@ const STATUS_CONFIG = {
   behind: { color: '#EF4444', bgColor: '#EF444410', label: 'Atrasado', icon: Warning }
 };
 
-const PlanningTab = () => {
+interface PlanningTabProps {
+  month: number;
+  year: number;
+}
+
+const PlanningTab = ({ month, year }: PlanningTabProps) => {
   const { plannings, fetchPlannings, createPlanning, updatePlanning, deletePlanning, refreshAllPlannings, loading } = usePlanning();
   const { data: dashData, fetchDashboard } = useFinancialDashboard();
 
@@ -100,11 +105,12 @@ const PlanningTab = () => {
   
   const [selectedTab, setSelectedTab] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
   
-  const getCurrentMonthKey = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${d.getMonth() + 1}`;
-  };
-  const [selectedMonthKey, setSelectedMonthKey] = useState<string>(getCurrentMonthKey());
+  const getMonthKey = (m: number, y: number) => `${y}-${m}`;
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string>(getMonthKey(month, year));
+
+  useEffect(() => {
+    setSelectedMonthKey(getMonthKey(month, year));
+  }, [month, year]);
   
   const [formData, setFormData] = useState<PlanningFormData>({
     type: 'monthly',
@@ -125,12 +131,12 @@ const PlanningTab = () => {
   const [editingPlanning, setEditingPlanning] = useState<any>(null);
   const [deletingPlanning, setDeletingPlanning] = useState<any>(null);
 
-  // Gerar os últimos 3 meses para navegação
+  // Gerar meses para navegação (mês selecionado + 2 anteriores)
   const last3Months: MonthData[] = useMemo(() => {
     const months: MonthData[] = [];
-    const today = new Date();
+    const base = new Date(year, month - 1, 1);
     for (let i = 0; i < 3; i++) {
-      const d = subMonths(today, i);
+      const d = subMonths(base, i);
       months.push({
         month: d.getMonth() + 1,
         year: d.getFullYear(),
@@ -139,7 +145,7 @@ const PlanningTab = () => {
       });
     }
     return months;
-  }, []);
+  }, [month, year]);
 
   const getPlanningMonthYear = (planning: any) => {
     const startStr = planning.period.start;

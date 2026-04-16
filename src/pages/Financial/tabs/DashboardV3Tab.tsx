@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   DollarSign,
@@ -18,7 +18,7 @@ import {
   ArrowDownRight,
   Zap
 } from 'lucide-react';
-import { useCurrentMonthDashboardV3 } from '../../../hooks/useFinancialDashboardV3';
+import { useFinancialDashboardV3 } from '../../../hooks/useFinancialDashboardV3';
 import { FinancialLoading } from '../components/FinancialLoading';
 
 const formatCurrency = (value: number) =>
@@ -42,9 +42,18 @@ const getMetaBg = (status: string) => {
   }
 };
 
-const DashboardV3Tab = () => {
+interface DashboardV3TabProps {
+  month: number;
+  year: number;
+}
+
+const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   const [activeTab, setActiveTab] = useState(0);
-  const { data, resumo, loading, error } = useCurrentMonthDashboardV3();
+  const { data, resumo, loading, error, fetchDashboard } = useFinancialDashboardV3();
+
+  useEffect(() => {
+    fetchDashboard(month, year);
+  }, [month, year, fetchDashboard]);
 
   if (loading) return <FinancialLoading />;
   if (error) return <div className="p-4 rounded-lg bg-rose-50 text-rose-700 border border-rose-200">{error}</div>;
