@@ -160,6 +160,11 @@ const sanitizeV2Payload = (data: any): any => {
     'startDate',
     'endDate',
     'idempotencyKey',
+    'name',
+    // Agendamento existente (reutilizar avulso)
+    'appointmentId',
+    // Débitos pendentes a quitar
+    'selectedDebts',
   ];
   
   const sanitized: any = {};

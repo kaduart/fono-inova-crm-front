@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import moment from 'moment';
 import 'moment/locale/pt-br';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import ReactInputMask from 'react-input-mask';
 import { toast } from 'react-toastify';
@@ -78,6 +78,7 @@ type FormErrors = Partial<Record<keyof FormState | "payments" | "slots" | "selec
 export default function TherapyPackageFormModal({ initialData, patient, doctors, onClose, onSubmit }: Props) {
     const [errors, setErrors] = useState<FormErrors>({});
     const [formData, setFormData] = useState(initialFormState);
+    const selectedAppointmentIdRef = useRef<string>(''); // ref para garantir valor no submit
     const [appointments, setAppointments] = useState<IAppointment[]>([]);
     const [calculationMode, setCalculationMode] = useState('duration');
     const [isLoading, setIsLoading] = useState(false);
@@ -400,19 +401,19 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
         // 🔹 Sincroniza o agendamento escolhido, se aplicável
         if (name === 'appointmentId') {
-            const selectedAppointment = appointments.find(a => a._id === value);
-            if (selectedAppointment) {
-                setFormData(prev => ({
-                    ...prev,
-                    appointmentId: value,  // 🔗 salva o id para enviar ao backend
-                    doctorId: selectedAppointment.doctor._id,
+            console.log('[handleChange] appointmentId selecionado:', value);
+            selectedAppointmentIdRef.current = value; // 🔗 ref sempre atualizado
+            const selectedAppointment = appointments.find(a => (a._id || a.id) === value);
+            setFormData(prev => ({
+                ...prev,
+                appointmentId: value,
+                ...(selectedAppointment && {
+                    doctorId: selectedAppointment.doctor?._id || selectedAppointment.doctorId,
                     date: selectedAppointment.date,
                     time: selectedAppointment.time,
                     sessionType: selectedAppointment.specialty
-                }));
-            } else {
-                setFormData(prev => ({ ...prev, appointmentId: '' }));
-            }
+                })
+            }));
             return;
         }
     };
@@ -714,8 +715,9 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     patientId: realPatientId,
                     sessionType: formData.sessionType as any, // Type assertion para compatibilidade
                     selectedDebts: selectedPendingIds, // 🆕 IDs dos débitos selecionados para quitar
-                    appointmentId: formData.appointmentId || undefined  // 🔗 reutilizar agendamento existente
+                    appointmentId: selectedAppointmentIdRef.current || formData.appointmentId || undefined  // 🔗 reutilizar agendamento existente
                 };
+                console.log('[SUBMIT] ref:', selectedAppointmentIdRef.current, '| formData.appointmentId:', formData.appointmentId, '| therapyData.appointmentId:', therapyData.appointmentId);
                 if (initialData?._id) {
                     // Edição
                     await packageService.updatePackage(initialData._id, therapyData);
@@ -1154,8 +1156,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                         <option value="">Selecione um agendamento</option>
                                         {appointments.map((appt) => (
                                             <option
-                                                key={appt._id}
-                                                value={appt._id}
+                                                key={appt._id || appt.id}
+                                                value={appt._id || appt.id}
                                                 className="text-sm"
                                             >
                                                 {formatAppointmentDate(appt.date)} - {appt.time || 'Horário não definido'} •
