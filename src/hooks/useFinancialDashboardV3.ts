@@ -53,6 +53,8 @@ export interface ProfissionalV3 {
   convenio: number;
   pacote: number;
   liminar: number;
+  lucro: number;
+  margem: number;
   ticketMedio: number;
   eficiencia: number;
   produtividade: number;
@@ -128,6 +130,15 @@ export interface DrillDownProfissionalV3 {
   };
 }
 
+export interface IndicadoresV3 {
+  lucro: number;
+  margemPercentual: number;
+  pontoEquilibrio: number;
+  pontoEquilibrioVsMeta: number;
+  statusLucro: 'positivo' | 'negativo';
+  statusMargem: 'bom' | 'atencao' | 'ruim';
+}
+
 export interface DrillDownV3 {
   profissionais: DrillDownProfissionalV3[];
   resumoGeral: {
@@ -181,6 +192,7 @@ export interface DashboardV3Data {
     lista: ProfissionalV3[];
     ranking: ProfissionalV3[];
     rankingPorProducao: ProfissionalV3[];
+    rankingPorLucro: ProfissionalV3[];
     mediaProducao: number;
     totalProfissionais: number;
   };
@@ -189,6 +201,7 @@ export interface DashboardV3Data {
   riscoOperacional: RiscoOperacionalV3;
   acoesExecutivas: AcaoExecutivaV3[];
   drillDown: DrillDownV3;
+  indicadores: IndicadoresV3;
 }
 
 export interface DashboardV3Response {
@@ -204,6 +217,7 @@ export interface DashboardV3Response {
     despesas: { total: number; count: number };
     metas: MetasV3;
     profissionais: ProfissionalV3[];
+    indicadores: IndicadoresV3;
   };
   data: DashboardV3Data;
 }

@@ -50,10 +50,9 @@ const DashboardV3Tab = () => {
   if (error) return <div className="p-4 rounded-lg bg-rose-50 text-rose-700 border border-rose-200">{error}</div>;
   if (!data || !resumo) return <div className="p-4 rounded-lg bg-sky-50 text-sky-700 border border-sky-200">Nenhum dado disponível</div>;
 
-  const { cash, revenue, expenses, metas, profissionais, insights, comparativos, riscoOperacional, acoesExecutivas, drillDown } = data;
+  const { cash, revenue, expenses, metas, profissionais, insights, comparativos, riscoOperacional, acoesExecutivas, drillDown, indicadores } = data;
   const totalCaixa = cash.total;
   const totalProducao = revenue.total;
-  const lucro = totalCaixa - expenses.total;
 
   // 🎯 RITMO OPERACIONAL — card herói
   const RitmoCard = () => {
@@ -112,8 +111,8 @@ const DashboardV3Tab = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <MetricCard title="Caixa" value={formatCurrency(totalCaixa)} icon={<DollarSign size={20} />} color="emerald" />
         <MetricCard title="Produção" value={formatCurrency(totalProducao)} icon={<Briefcase size={20} />} color="blue" />
-        <MetricCard title="Despesas" value={formatCurrency(expenses.total)} icon={<Receipt size={20} />} color="rose" />
-        <MetricCard title="Lucro" value={formatCurrency(lucro)} icon={<TrendingUp size={20} />} color={lucro >= 0 ? 'emerald' : 'rose'} />
+        <MetricCard title="Despesas Totais" subtitle="Inclui comissões" value={formatCurrency(expenses.total)} icon={<Receipt size={20} />} color="rose" />
+        <MetricCard title="Lucro" value={formatCurrency(indicadores?.lucro ?? totalCaixa - expenses.total)} icon={<TrendingUp size={20} />} color={(indicadores?.lucro ?? totalCaixa - expenses.total) >= 0 ? 'emerald' : 'rose'} />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
@@ -204,9 +203,9 @@ const DashboardV3Tab = () => {
     return (
       <div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <MetricCard title="Total de Despesas" value={formatCurrency(expenses.total)} icon={<Receipt size={20} />} color="rose" />
-          <MetricCard title="Outras Despesas" value={formatCurrency(outrasDespesas)} icon={<Info size={20} />} color="sky" />
-          <MetricCard title="Comissões Terapeutas" value={formatCurrency(comissoes)} icon={<Users size={20} />} color="amber" />
+          <MetricCard title="Total (Despesas + Comissões)" value={formatCurrency(expenses.total)} icon={<Receipt size={20} />} color="rose" />
+          <MetricCard title="Despesas Cadastradas" subtitle="Só as da lista" value={formatCurrency(outrasDespesas)} icon={<Info size={20} />} color="sky" />
+          <MetricCard title="Comissões Terapeutas" subtitle="Calculadas das sessões" value={formatCurrency(comissoes)} icon={<Users size={20} />} color="amber" />
           <MetricCard title="Impacto no Caixa" value={`${((expenses.total / (totalCaixa || 1)) * 100).toFixed(1)}%`} icon={<TrendingDown size={20} />} color="amber" />
         </div>
         {expenses.breakdown && expenses.breakdown.detalheComissoes.length > 0 && (
@@ -229,7 +228,28 @@ const DashboardV3Tab = () => {
 
   const renderMetas = () => (
     <div>
-      <RitmoCard />
+      {indicadores && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <MetricCard
+            title="Lucro"
+            value={formatCurrency(indicadores.lucro)}
+            icon={<TrendingUp size={20} />}
+            color={indicadores.statusLucro === 'positivo' ? 'emerald' : 'rose'}
+          />
+          <MetricCard
+            title="Margem"
+            value={`${indicadores.margemPercentual}%`}
+            icon={<TrendingUp size={20} />}
+            color={indicadores.statusMargem === 'bom' ? 'emerald' : indicadores.statusMargem === 'atencao' ? 'amber' : 'rose'}
+          />
+          <MetricCard
+            title="Ponto de Equilíbrio"
+            value={indicadores.pontoEquilibrio === 0 ? 'Alcançado' : formatCurrency(indicadores.pontoEquilibrio)}
+            icon={<Target size={20} />}
+            color={indicadores.pontoEquilibrio === 0 ? 'emerald' : 'amber'}
+          />
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
           <h3 className="text-lg font-bold text-gray-800 mb-3">Status da Meta</h3>
@@ -252,20 +272,31 @@ const DashboardV3Tab = () => {
           </div>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Metas por Tipo de Receita</h3>
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="text-lg font-bold text-gray-800">Metas por Tipo de Receita</h3>
+          </div>
+          <p className="text-xs text-gray-500 mb-4">Formato: <span className="font-medium text-gray-700">Realizado / Meta</span></p>
           {Object.entries(metas.porTipo).map(([tipo, dados]) => {
             const pctMeta = dados.meta > 0 ? Math.min((dados.realizado / dados.meta) * 100, 100) : 0;
             const progressColor = pctMeta >= 80 ? 'bg-emerald-500' : pctMeta >= 50 ? 'bg-amber-500' : 'bg-rose-500';
+            const temMeta = dados.meta > 0;
             return (
               <div key={tipo} className="mb-4">
                 <div className="flex justify-between text-sm mb-1">
                   <span className="font-semibold capitalize text-gray-700">{tipo}</span>
-                  <span className="text-gray-500">{formatCurrency(dados.realizado)} / {formatCurrency(dados.meta)}</span>
+                  <span className="text-gray-500">
+                    {temMeta
+                      ? `${formatCurrency(dados.realizado)} / ${formatCurrency(dados.meta)}`
+                      : `${formatCurrency(dados.realizado)} · sem meta definida`}
+                  </span>
                 </div>
                 <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
                   <div className={`h-full ${progressColor} rounded-full`} style={{ width: `${pctMeta}%` }}></div>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">{pctMeta.toFixed(1)}% da meta · {dados.percentualDoTotal}% do caixa total</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {temMeta ? `${pctMeta.toFixed(1)}% da meta · ` : ''}
+                  {dados.percentualDoTotal}% do caixa total
+                </p>
               </div>
             );
           })}
@@ -501,6 +532,30 @@ const DashboardV3Tab = () => {
         </div>
       </div>
 
+      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-4">
+          <TrendingUp size={22} /> Ranking por Lucro
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {profissionais.rankingPorLucro?.slice(0, 5).map((prof, idx) => (
+            <div key={prof.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${prof.lucro >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>#{idx+1}</div>
+                <h4 className="font-bold text-gray-800">{prof.nome}</h4>
+              </div>
+              <p className="text-sm text-gray-500">{prof.especialidade}</p>
+              <hr className="my-3" />
+              <div className="space-y-1 text-sm">
+                <p>Lucro: <strong className={prof.lucro >= 0 ? 'text-emerald-600' : 'text-rose-600'}>{formatCurrency(prof.lucro)}</strong></p>
+                <p>Margem: <strong>{prof.margem}%</strong></p>
+                <p>Produção: <strong>{formatCurrency(prof.producao)}</strong></p>
+                <p>Comissão: <strong>{formatCurrency(prof.comissao?.total || 0)}</strong></p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {insights.recomendacoes.length > 0 && (
         <div className="bg-gray-50 rounded-xl border border-gray-200 p-5 shadow-sm">
           <h3 className="text-lg font-bold text-gray-800 mb-3">Recomendações</h3>
@@ -562,7 +617,7 @@ const DashboardV3Tab = () => {
 };
 
 // Componentes auxiliares (apenas visuais, sem lógica alterada)
-const MetricCard = ({ title, value, icon, color }: { title: string; value: string; icon: React.ReactNode; color: string }) => {
+const MetricCard = ({ title, subtitle, value, icon, color }: { title: string; subtitle?: string; value: string; icon: React.ReactNode; color: string }) => {
   const colorMap: Record<string, string> = {
     emerald: 'border-emerald-500 text-emerald-600',
     blue: 'border-blue-500 text-blue-600',
@@ -579,6 +634,7 @@ const MetricCard = ({ title, value, icon, color }: { title: string; value: strin
         <span className="text-sm text-gray-500">{title}</span>
       </div>
       <span className="text-2xl font-bold text-gray-900">{value}</span>
+      {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
     </div>
   );
 };

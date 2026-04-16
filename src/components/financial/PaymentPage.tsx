@@ -120,17 +120,22 @@ function computeDateRange(period: string, customStart: string, customEnd: string
     return null;
 }
 
-// ─── Componente: Card de Leads ───────────────────────────────────────────────
-const LeadsPeriodCard = ({
+// ─── Componente: Card de Pacientes (Leads + Novos) ──────────────────────────
+const PatientsSummaryCard = ({
     leads,
+    novos,
     periodRange,
     loading: externalLoading = false,
+    onOpenNewPatients,
 }: {
     leads: any[];
+    novos: any[];
     periodRange: { start: string; end: string } | null;
     loading?: boolean;
+    onOpenNewPatients?: () => void;
 }) => {
-    const [modalOpen, setModalOpen] = useState(false);
+    const [leadsModalOpen, setLeadsModalOpen] = useState(false);
+    const [newPatientsModalOpen, setNewPatientsModalOpen] = useState(false);
     const theme = useTheme();
 
     if (!periodRange) return null;
@@ -158,12 +163,13 @@ const LeadsPeriodCard = ({
                         letterSpacing: '-0.02em'
                     }}
                 >
-                    Pacientes do dia
+                    Pacientes
                 </Typography>
             </Box>
 
             <Grid container spacing={2} sx={{ flex: 1 }}>
-                <Grid item xs={12} sx={{ display: 'flex' }}>
+                {/* Agendamentos do dia */}
+                <Grid item xs={12} sm={6} sx={{ display: 'flex' }}>
                     <Box
                         sx={{
                             backgroundColor: '#FDF2F8',
@@ -181,7 +187,7 @@ const LeadsPeriodCard = ({
                             textAlign: 'center',
                             '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.08)' },
                         }}
-                        onClick={() => leads.length > 0 && setModalOpen(true)}
+                        onClick={() => leads.length > 0 && setLeadsModalOpen(true)}
                     >
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                             <svg xmlns="http://www.w3.org/2000/svg" width={20} height={20} viewBox="0 0 20 20" fill="#DB2777">
@@ -211,6 +217,56 @@ const LeadsPeriodCard = ({
                         )}
                     </Box>
                 </Grid>
+
+                {/* Pacientes Novos Cadastrados */}
+                <Grid item xs={12} sm={6} sx={{ display: 'flex' }}>
+                    <Box
+                        sx={{
+                            backgroundColor: '#ECFDF5',
+                            borderRadius: 2,
+                            p: 2.5,
+                            border: '1px solid #059669',
+                            cursor: 'pointer',
+                            width: '100%',
+                            height: '100%',
+                            boxSizing: 'border-box',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.08)' },
+                        }}
+                        onClick={() => novos.length > 0 && onOpenNewPatients?.()}
+                    >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width={20} height={20} viewBox="0 0 20 20" fill="#059669">
+                                <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
+                            </svg>
+                            <Typography variant="caption" sx={{ color: '#059669', fontWeight: 600 }}>
+                                Pacientes Novos Cadastrados
+                            </Typography>
+                        </Box>
+
+                        {externalLoading ? (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-500" />
+                            </Box>
+                        ) : (
+                            <>
+                                <Typography variant="h4" sx={{ fontWeight: 700, color: '#059669', fontSize: '1.5rem' }}>
+                                    {novos.length}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: 'grey.500' }}>
+                                    {novos.length === 1 ? 'novo paciente' : 'novos pacientes'}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: '#059669', mt: 0.5, display: 'block' }}>
+                                    {novos.length > 0 ? 'Clique para ver detalhes' : 'Nenhum paciente novo no período'}
+                                </Typography>
+                            </>
+                        )}
+                    </Box>
+                </Grid>
             </Grid>
 
             {/* Total */}
@@ -229,19 +285,20 @@ const LeadsPeriodCard = ({
                     Total do Período
                 </Typography>
                 <Typography variant="h6" sx={{ fontWeight: 700, color: 'grey.800' }}>
-                    {leads.length || 0}
+                    {(leads.length || 0) + (novos.length || 0)}
                 </Typography>
             </Box>
 
-            {modalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setModalOpen(false)}>
+            {/* Modal de Leads */}
+            {leadsModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setLeadsModalOpen(false)}>
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between p-6 border-b border-gray-100">
                             <div>
                                 <h3 className="text-xl font-bold text-gray-900">Agendamentos do Período</h3>
                                 <p className="text-sm text-gray-500 mt-1">Período: {periodRange.start} a {periodRange.end}</p>
                             </div>
-                            <button onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">✕</button>
+                            <button onClick={() => setLeadsModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">✕</button>
                         </div>
                         <div className="overflow-y-auto p-6">
                             {leads.length === 0 ? (
@@ -283,132 +340,10 @@ const LeadsPeriodCard = ({
                     </div>
                 </div>
             )}
-        </Box>
-    );
-};
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ─── Componente: Card de Pacientes Novos ────────────────────────────────────
-const NewPatientsPeriodCard = ({
-    novos,
-    periodRange,
-    loading: externalLoading = false,
-    onOpen,
-}: {
-    novos: any[];
-    periodRange: { start: string; end: string } | null;
-    loading?: boolean;
-    onOpen?: () => void;
-}) => {
-    const [modalOpen, setModalOpen] = useState(false);
-
-    const newPatients = novos;
-
-    if (!periodRange) return null;
-
-    const theme = useTheme();
-
-    return (
-        <Box
-            sx={{
-                backgroundColor: 'white',
-                borderRadius: 3,
-                boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-                p: 3,
-                border: `1px solid ${theme.palette.divider}`,
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-            }}
-        >
-            {/* Header */}
-            <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={3}>
-                <Typography
-                    variant="h5"
-                    sx={{
-                        fontWeight: 700,
-                        color: 'grey.900',
-                        letterSpacing: '-0.02em'
-                    }}
-                >
-                    Pacientes Novos
-                </Typography>
-            </Box>
-
-            <Grid container spacing={2} sx={{ flex: 1 }}>
-                <Grid item xs={12} sx={{ display: 'flex' }}>
-                    <Box
-                        sx={{
-                            backgroundColor: '#ECFDF5',
-                            borderRadius: 2,
-                            p: 2.5,
-                            border: '1px solid #059669',
-                            cursor: 'pointer',
-                            width: '100%',
-                            height: '100%',
-                            boxSizing: 'border-box',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            textAlign: 'center',
-                            '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.08)' },
-                        }}
-                        onClick={() => newPatients.length > 0 && onOpen?.()}
-                    >
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width={20} height={20} viewBox="0 0 20 20" fill="#059669">
-                                <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
-                            </svg>
-                            <Typography variant="caption" sx={{ color: '#059669', fontWeight: 600 }}>
-                                Pacientes Novos Cadastrados
-                            </Typography>
-                        </Box>
-
-                        {externalLoading ? (
-                            <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-500" />
-                            </Box>
-                        ) : (
-                            <>
-                                <Typography variant="h4" sx={{ fontWeight: 700, color: '#059669', fontSize: '1.5rem' }}>
-                                    {newPatients.length}
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: 'grey.500' }}>
-                                    {newPatients.length === 1 ? 'novo paciente' : 'novos pacientes'}
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: '#059669', mt: 0.5, display: 'block' }}>
-                                    {newPatients.length > 0 ? 'Clique para ver detalhes' : 'Nenhum paciente novo no período'}
-                                </Typography>
-                            </>
-                        )}
-                    </Box>
-                </Grid>
-            </Grid>
-
-            {/* Total */}
-            <Box
-                sx={{
-                    mt: 2,
-                    p: 2,
-                    bgcolor: 'grey.50',
-                    borderRadius: 2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                }}
-            >
-                <Typography variant="body2" sx={{ color: 'grey.600', fontWeight: 500 }}>
-                    Total do Período
-                </Typography>
-                <Typography variant="h6" sx={{ fontWeight: 700, color: 'grey.800' }}>
-                    {newPatients.length || 0}
-                </Typography>
-            </Box>
 
             {/* Modal de Pacientes Novos */}
-            {modalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setModalOpen(false)}>
+            {newPatientsModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setNewPatientsModalOpen(false)}>
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between p-6 border-b border-gray-100">
                             <div>
@@ -418,7 +353,7 @@ const NewPatientsPeriodCard = ({
                                 </p>
                             </div>
                             <button
-                                onClick={() => setModalOpen(false)}
+                                onClick={() => setNewPatientsModalOpen(false)}
                                 className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
                             >
                                 ✕
@@ -426,11 +361,11 @@ const NewPatientsPeriodCard = ({
                         </div>
 
                         <div className="overflow-y-auto p-6">
-                            {newPatients.length === 0 ? (
+                            {novos.length === 0 ? (
                                 <p className="text-center text-gray-500 py-8">Nenhum paciente novo encontrado.</p>
                             ) : (
                                 <div className="space-y-3">
-                                    {newPatients.map((patient: any) => (
+                                    {novos.map((patient: any) => (
                                         <div key={patient._id} className="bg-gray-50 rounded-lg p-4 border border-gray-100 hover:bg-gray-100 transition-colors">
                                             <div className="flex items-start justify-between">
                                                 <div>
@@ -472,7 +407,7 @@ const NewPatientsPeriodCard = ({
 
                         <div className="p-6 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
                             <p className="text-sm text-gray-600 text-center">
-                                Total de <strong>{newPatients.length}</strong> paciente{newPatients.length !== 1 ? 's' : ''} novo{newPatients.length !== 1 ? 's' : ''} no período
+                                Total de <strong>{novos.length}</strong> paciente{novos.length !== 1 ? 's' : ''} novo{novos.length !== 1 ? 's' : ''} no período
                             </p>
                         </div>
                     </div>
@@ -1062,9 +997,9 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                     </div>
                 </div>
 
-                {/* Cards de resumo (FinancialSummaryCard + LeadsPeriodCard + NewPatientsPeriodCard) */}
+                {/* Cards de resumo */}
                 {paymentTotals && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-stretch">
+                    <div className="grid grid-cols-1 gap-3 items-stretch">
                         <div className="h-full">
                             <FinancialSummaryCard
                                 data={{
@@ -1088,21 +1023,6 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                                                     ? 'Este Mês'
                                                     : new Date().toLocaleDateString('pt-BR')
                                 }
-                            />
-                        </div>
-                        <div className="h-full">
-                            <LeadsPeriodCard
-                                leads={analyticsData?.leads || []}
-                                periodRange={computeDateRange(selectedPeriod, customStartDate, customEndDate)}
-                                loading={analyticsLoading}
-                            />
-                        </div>
-                        <div className="h-full">
-                            <NewPatientsPeriodCard
-                                novos={analyticsData?.novos || []}
-                                periodRange={computeDateRange(selectedPeriod, customStartDate, customEndDate)}
-                                loading={analyticsLoading}
-                                onOpen={() => handleOpenNewPatients()}
                             />
                         </div>
                     </div>
