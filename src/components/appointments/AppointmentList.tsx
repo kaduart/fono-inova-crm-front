@@ -41,9 +41,9 @@ export default function AppointmentList({
                 >
                     <div className="flex justify-between items-center">
                         <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-1">
+                            <div className="flex items-center gap-3 mb-1 flex-wrap">
                                 <h3 className="font-semibold text-gray-900 text-base group-hover:text-green-600 transition-colors">
-                                    {appointment.patient.fullName}
+                                    {appointment.patient?.fullName || appointment.patientInfo?.fullName || 'Desconhecido'}
                                 </h3>
                                 {/* 🚀 V2: Usa helper para status visual correto */}
                                 {(() => {
@@ -57,6 +57,17 @@ export default function AppointmentList({
                                         </span>
                                     );
                                 })()}
+                                {/* 🆕 Lifecycle badges */}
+                                {appointment.isFirstVisit && (
+                                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                        Novo paciente
+                                    </span>
+                                )}
+                                {appointment.isReturningAfter45Days && (
+                                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+                                        Retorno 45+ dias
+                                    </span>
+                                )}
                             </div>
                             
                             <p className="text-sm text-gray-600 flex items-center gap-2">

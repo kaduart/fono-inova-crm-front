@@ -16,13 +16,23 @@ export interface Specialty {
 }
 
 export interface Appointment {
-    id: string;
-    patientId: string;
-    date: Date;
+    _id: string;
+    id?: string;
+    patientId?: string;
+    patient?: { fullName?: string; [key: string]: any };
+    patientInfo?: { fullName?: string; [key: string]: any };
+    doctor?: { fullName?: string; [key: string]: any };
+    date: Date | string;
+    time?: string;
     duration: number;
-    specialty: string;
-    reason: string;
-    status: 'scheduled' | 'completed' | 'canceled';
+    specialty?: string;
+    reason?: string;
+    status?: 'scheduled' | 'completed' | 'canceled';
+    operationalStatus?: string;
+    clinicalStatus?: string;
+    isFirstVisit?: boolean;
+    isReturningAfter45Days?: boolean;
+    [key: string]: any;
 }
 
 export interface Evolution {

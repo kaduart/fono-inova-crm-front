@@ -6,7 +6,6 @@ import { toast } from 'react-toastify';
 import { BASE_URL } from '../constants/constants';
 import { useAuthNavigation } from '../hooks/useAuthNavigation';
 import { extractErrorMessage } from '../utils/errorUtils';
-import SessionExpiryHandler from './SessionExpiryHandler';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 
 const Login = () => {
@@ -75,19 +74,6 @@ const Login = () => {
     }
   }, [searchParams]);
 
-  // Handler para evento de sessão expirada
-  useEffect(() => {
-    const handleSessionExpired = () => {
-      setSessionExpired(true);
-      toast.info('Sua sessão expirou. Por favor, faça login novamente.');
-    };
-
-    window.addEventListener('sessionExpired', handleSessionExpired);
-
-    return () => {
-      window.removeEventListener('sessionExpired', handleSessionExpired);
-    };
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -180,9 +166,6 @@ const Login = () => {
 
   return (
     <div className='min-h-screen flex flex-row'>
-      {/* Componente para manipular expiração de sessão */}
-      <SessionExpiryHandler />
-
       <div className="hidden md:flex w-1/2 bg-white justify-center items-center relative h-screen overflow-hidden">
         <div className="flex flex-col justify-center items-center gap-5">
           <div className="relative h-[50vh] w-[50vh]">

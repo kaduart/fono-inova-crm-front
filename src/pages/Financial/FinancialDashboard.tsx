@@ -108,11 +108,11 @@ const FinancialDashboard = ({
 
     // Configuração das tabs operacionais
     const operacionalTabs = [
-        { id: 'dashboard-v3', label: 'Dashboard', icon: <BarChart3 size={18} /> },  // 🆕 V3 único dashboard inteligente
         { id: 'caixa-unificado', label: 'Caixa & Fluxo', icon: <LayoutDashboard size={18} /> },
         { id: 'pagamentos', label: 'Pagamentos', icon: <DollarSign size={18} /> },
-        { id: 'despesas', label: 'Despesas', icon: <Receipt size={18} /> },
         { id: 'convenios', label: 'Convênios', icon: <CreditCard size={18} /> },
+        { id: 'despesas', label: 'Despesas', icon: <Receipt size={18} /> },
+        { id: 'dashboard-v3', label: 'Dashboard', icon: <BarChart3 size={18} /> },  // 🆕 V3 único dashboard inteligente
     ];
 
     // Configuração das tabs estratégicas

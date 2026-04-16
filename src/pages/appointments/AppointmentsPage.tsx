@@ -1,8 +1,9 @@
 // pages/appointments/AppointmentsPage.tsx
 // 🚀 Tela de Appointments com integração V2 real (React Query)
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppointments } from '../../hooks/useAppointments';
+import { useAppointmentsByType } from '../../hooks/useAppointmentsByType';
 import { PollingIndicator, StatusBadge } from '../../components/appointments/PollingIndicator';
 import { 
   Calendar, 
@@ -15,7 +16,9 @@ import {
   RefreshCw,
   Plus,
   Search,
-  Loader2
+  Loader2,
+  Sparkles,
+  RotateCcw
 } from 'lucide-react';
 import { getStatusConfig, canComplete, canCancel } from '../../utils/appointmentStatus';
 import { extractErrorMessage } from '../../utils/errorUtils';
@@ -34,6 +37,12 @@ export default function AppointmentsPage() {
     completing: isCompleting,
     canceling: isCanceling
   } = useAppointments();
+
+  const { data: todayAnalytics, loading: analyticsLoading, fetchToday } = useAppointmentsByType();
+
+  useEffect(() => {
+    fetchToday();
+  }, [fetchToday]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
@@ -175,6 +184,64 @@ export default function AppointmentsPage() {
           ))}
         </div>
 
+        {/* 🆕 Destaques do dia (analytics) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-gradient-to-br from-pink-50 to-white rounded-xl shadow-sm border border-pink-100 p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-pink-100 rounded-full flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-pink-600" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm text-pink-700 font-medium">Leads (hoje)</p>
+                <p className="text-2xl font-bold text-pink-900">
+                  {analyticsLoading ? '-' : (todayAnalytics?.leads?.length ?? 0)}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-gradient-to-br from-emerald-50 to-white rounded-xl shadow-sm border border-emerald-100 p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-sm text-emerald-700 font-medium">Novos pacientes (hoje)</p>
+                <p className="text-2xl font-bold text-emerald-900">
+                  {analyticsLoading ? '-' : (todayAnalytics?.novos?.length ?? 0)}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-gradient-to-br from-amber-50 to-white rounded-xl shadow-sm border border-amber-100 p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                <RotateCcw className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-sm text-amber-700 font-medium">Retorno 45+ dias (hoje)</p>
+                <p className="text-2xl font-bold text-amber-900">
+                  {analyticsLoading ? '-' : (todayAnalytics?.retornos45?.length ?? 0)}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-gradient-to-br from-blue-50 to-white rounded-xl shadow-sm border border-blue-100 p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <User className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm text-blue-700 font-medium">Total criados hoje</p>
+                <p className="text-2xl font-bold text-blue-900">
+                  {analyticsLoading ? '-' : (todayAnalytics?.all?.length ?? 0)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Loading */}
         {isLoading && (
           <div className="flex items-center justify-center py-12">
@@ -223,6 +290,16 @@ export default function AppointmentsPage() {
                             status={appointment.operationalStatus}
                             isProcessing={isProcessing(appointment._id)}
                           />
+                          {appointment.isFirstVisit && (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                              Novo paciente
+                            </span>
+                          )}
+                          {appointment.isReturningAfter45Days && (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+                              Retorno 45+ dias
+                            </span>
+                          )}
                         </div>
                         
                         <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-gray-600">

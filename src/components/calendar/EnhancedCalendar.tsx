@@ -600,8 +600,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
     // 🔹 RENDERIZAÇÃO DE EVENTOS (memoizada)
     const renderEventContent = useCallback((arg: any) => {
-        const paymentStatus = arg.event.extendedProps.paymentStatus || 'pending';
-        const operationalStatus = arg.event.extendedProps.operationalStatus || 'scheduled';
+        // 🎯 BUSCA DADOS ATUALIZADOS diretamente do estado React para evitar stale extendedProps
+        const liveAppt = appointments.find(a => (a._id || a.id) === arg.event.id);
+        const paymentStatus = liveAppt?.paymentStatus || arg.event.extendedProps.paymentStatus || 'pending';
+        const operationalStatus = liveAppt?.operationalStatus || arg.event.extendedProps.operationalStatus || 'scheduled';
 
         const paymentConfig = arg.event.extendedProps.paymentConfig || getPaymentStatusConfig(paymentStatus);
         const operationalConfig = arg.event.extendedProps.operationalConfig || getOperationalStatusConfig(operationalStatus);
@@ -932,7 +934,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 </Paper>
             </Tooltip>
         );
-    }, [getPaymentStatusConfig, getOperationalStatusConfig]);
+    }, [getPaymentStatusConfig, getOperationalStatusConfig, appointments]);
 
     const handleOpenSchedule = (appointment: IAppointment | null = null, modeType: 'create' | 'edit' = 'create') => {
         setAppointmentData(appointment);

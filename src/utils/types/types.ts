@@ -471,6 +471,10 @@ export interface IAppointment {
     addedToBalance?: boolean;  // Se foi adicionado ao saldo devedor
     balanceAmount?: number;  // Valor adicionado ao saldo
     balanceDescription?: string;  // Descrição do saldo
+
+    // 🆕 Lifecycle flags calculadas no backend
+    isFirstVisit?: boolean;
+    isReturningAfter45Days?: boolean;
 }
 
 export interface IAppointmentResponse extends Omit<IAppointment, 'patient' | 'doctor'> {

@@ -2,6 +2,7 @@ import { Box, Paper, Skeleton, Typography, useTheme } from '@mui/material';
 import { BarChart3, CalendarPlus } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import moment from 'moment-timezone';
 
 // 🔧 Helper para lazy loading com retry em caso de falha de chunk
 const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) => {
@@ -223,9 +224,12 @@ export default function AdminDashboard() {
             const endOfWeek = new Date(today.setDate(today.getDate() - today.getDay() + 6));
             
             const formatDate = (d: Date) => d.toISOString().split('T')[0];
+            // 🎯 FIX: Buscar apenas o mês atual em vez de uma janela grande
+            const monthStart = moment().startOf('month').toDate();
+            const monthEnd = moment().endOf('month').toDate();
             setCalendarDateRange({
-                startDate: formatDate(startOfWeek),
-                endDate: formatDate(endOfWeek)
+                startDate: formatDate(monthStart),
+                endDate: formatDate(monthEnd)
             });
             setHasLoadedAppointments(true);
         }
@@ -794,26 +798,23 @@ export default function AdminDashboard() {
 
     // 🗓️ Handler para quando o usuário muda de mês no calendário
     const handleMonthChange = useCallback((startDate: Date, endDate: Date) => {
-        const formatDateForAPI = (date: Date): string => {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        };
-        const startDateStr = formatDateForAPI(startDate);
-        const endDateStr = formatDateForAPI(endDate);
+        // 🎯 FIX: O FullCalendar passa a grade visível (ex: 30/03 a 02/05).
+        // Pegamos o meio do intervalo para garantir o mês correto (abril, não março).
+        const middleDate = new Date(startDate.getTime() + (endDate.getTime() - startDate.getTime()) / 2);
+        const monthStart = moment(middleDate).startOf('month').format('YYYY-MM-DD');
+        const monthEnd = moment(middleDate).endOf('month').format('YYYY-MM-DD');
 
         // ✅ FIX: Apenas atualiza o estado - o useEffect cuidará do fetch
         setCalendarDateRange(prev => {
-            if (prev.startDate === startDateStr && prev.endDate === endDateStr) {
+            if (prev.startDate === monthStart && prev.endDate === monthEnd) {
                 console.log('🏥 AdminDashboard: Range igual, ignorando');
                 return prev;
             }
             console.log('🏥 AdminDashboard: Atualizando calendarDateRange', {
-                startDate: startDateStr,
-                endDate: endDateStr
+                startDate: monthStart,
+                endDate: monthEnd
             });
-            return { startDate: startDateStr, endDate: endDateStr };
+            return { startDate: monthStart, endDate: monthEnd };
         });
     }, []);  // ✅ Removido fetchAppointments das dependências
 

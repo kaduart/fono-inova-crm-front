@@ -89,7 +89,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     const bottomRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
-        if (!onLoadMore || !hasMore) return;
+        // 🛡️ Não dispara loadMore quando há busca ativa —
+        // a lista filtrada é pequena, o sentinel fica sempre visível
+        // e causa loop infinito de requisições ao backend.
+        if (!onLoadMore || !hasMore || searchTerm.trim()) return;
 
         const rootEl = listRef.current;
         const targetEl = bottomRef.current;
@@ -98,20 +101,20 @@ const Sidebar: React.FC<SidebarProps> = ({
         const io = new IntersectionObserver(
             (entries) => {
                 const first = entries[0];
-                if (first?.isIntersecting && hasMore && !isLoadingMore) {
+                if (first?.isIntersecting && hasMore && !isLoadingMore && !searchTerm.trim()) {
                     onLoadMore();
                 }
             },
             {
-                root: rootEl,            // importante: o scroll container
-                rootMargin: "250px",     // chama antes de bater no fim
+                root: rootEl,
+                rootMargin: "100px",
                 threshold: 0,
             }
         );
 
         io.observe(targetEl);
         return () => io.disconnect();
-    }, [onLoadMore, hasMore, isLoadingMore]);
+    }, [onLoadMore, hasMore, isLoadingMore, searchTerm]);
 
     return (
         <div className={`${className} flex flex-col h-full bg-gradient-to-b from-gray-900 to-gray-800`}>

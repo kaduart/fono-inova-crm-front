@@ -294,6 +294,51 @@ export const appointmentService = {
         });
     },
 
+    // 📊 Analytics: agendamentos do dia enriquecidos com flags de lifecycle
+    getAppointmentsByType: async (params: {
+        date?: string;
+        startDate?: string;
+        endDate?: string;
+        doctorId?: string;
+        specialty?: string;
+        mode?: 'createdAt' | 'date';
+    } = {}) => {
+        const queryParams = new URLSearchParams();
+        if (params.date) queryParams.append('date', params.date);
+        if (params.startDate) queryParams.append('startDate', params.startDate);
+        if (params.endDate) queryParams.append('endDate', params.endDate);
+        if (params.doctorId) queryParams.append('doctorId', params.doctorId);
+        if (params.specialty) queryParams.append('specialty', params.specialty);
+        if (params.mode) queryParams.append('mode', params.mode);
+        // Cache busting sem disparar preflight CORS
+        queryParams.append('_t', Date.now().toString());
+
+        return API.get<{
+            success: boolean;
+            mode: string;
+            dateField: string;
+            period: {
+                date: string;
+                startDate: string | null;
+                endDate: string | null;
+            };
+            summary: {
+                total: number;
+                leads: { count: number; percentage: number };
+                novos: { count: number; percentage: number };
+                retornos45: { count: number; percentage: number };
+                recorrentes: { count: number; percentage: number };
+            };
+            details: {
+                leads: IAppointment[];
+                novos: IAppointment[];
+                retornos45: IAppointment[];
+                recorrentes: IAppointment[];
+                all: IAppointment[];
+            };
+        }>(`/analytics/appointments/by-type?${queryParams.toString()}`);
+    },
+
     // Relatórios
     getDailySummary: async (date: Date) => {
         return API.get<{

@@ -34,6 +34,9 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data, perio
         boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
         p: 3,
         border: `1px solid ${theme.palette.divider}`,
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       {/* Header */}
@@ -54,7 +57,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data, perio
       </Box>
 
       {/* Cards Grid */}
-      <Grid container spacing={2}>
+      <Grid container spacing={2} sx={{ flex: 1 }}>
         {/* Recebido */}
         <Grid item xs={12} sm={6}>
           <Box
@@ -63,6 +66,13 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data, perio
               borderRadius: 2,
               p: 2.5,
               border: '1px solid #059669',
+              height: '100%',
+              boxSizing: 'border-box',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -81,13 +91,20 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data, perio
         </Grid>
 
         {/* Pendente */}
-        <Grid item xs={12} sm={6}>
+        <Grid item xs={14} sm={6}>
           <Box
             sx={{
               backgroundColor: '#FFFBEB',
               borderRadius: 2,
               p: 2.5,
               border: '1px solid #D97706',
+              height: '100%',
+              boxSizing: 'border-box',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>

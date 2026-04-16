@@ -77,14 +77,15 @@ const STATUS_VISUAL_CONFIG = {
 };
 
 // 🔧 FUNÇÕES DE TRADUÇÃO
-const translateStatus = (status: string, type: 'operational' | 'clinical' | 'payment' = 'operational'): string => {
+const translateStatus = (status: string | undefined | null, type: 'operational' | 'clinical' | 'payment' = 'operational'): string => {
+    if (!status) return '';
     return STATUS_TRANSLATIONS[type]?.[status] || status;
 };
 
-const getStatusConfig = (status: string, type: 'operational' | 'clinical' = 'operational') => {
+const getStatusConfig = (status: string | undefined | null, type: 'operational' | 'clinical' = 'operational') => {
     const translatedStatus = translateStatus(status, type);
     return STATUS_VISUAL_CONFIG[type]?.[translatedStatus] || {
-        label: translatedStatus.charAt(0).toUpperCase() + translatedStatus.slice(1),
+        label: translatedStatus ? translatedStatus.charAt(0).toUpperCase() + translatedStatus.slice(1) : 'Desconhecido',
         color: '#9ca3af',
         icon: Clock
     };

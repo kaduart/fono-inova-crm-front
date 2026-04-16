@@ -82,13 +82,12 @@ export const CalendarTab = ({
     const handleMonthChange = useCallback(async (startDate: Date, endDate: Date) => {
         setAppointmentsLoading(true); // 🆕 INICIA LOADING
         
-        const formatDate = (date: Date): string => {
-            return moment(date).format('YYYY-MM-DD');
-        };
-
+        // 🎯 FIX: O FullCalendar passa a grade visível (ex: 30/03 a 02/05).
+        // Pegamos o meio do intervalo para garantir o mês correto (abril, não março).
+        const middleDate = new Date(startDate.getTime() + (endDate.getTime() - startDate.getTime()) / 2);
         const newRange = {
-            startDate: formatDate(startDate),
-            endDate: formatDate(endDate)
+            startDate: moment(middleDate).startOf('month').format('YYYY-MM-DD'),
+            endDate: moment(middleDate).endOf('month').format('YYYY-MM-DD')
         };
 
         setDateRange(newRange);
