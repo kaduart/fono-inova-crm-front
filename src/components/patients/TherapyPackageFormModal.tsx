@@ -401,7 +401,6 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
         // 🔹 Sincroniza o agendamento escolhido, se aplicável
         if (name === 'appointmentId') {
-            console.log('[handleChange] appointmentId selecionado:', value);
             selectedAppointmentIdRef.current = value; // 🔗 ref sempre atualizado
             const selectedAppointment = appointments.find(a => (a._id || a.id) === value);
             setFormData(prev => ({
@@ -717,7 +716,6 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     selectedDebts: selectedPendingIds, // 🆕 IDs dos débitos selecionados para quitar
                     appointmentId: selectedAppointmentIdRef.current || formData.appointmentId || undefined  // 🔗 reutilizar agendamento existente
                 };
-                console.log('[SUBMIT] ref:', selectedAppointmentIdRef.current, '| formData.appointmentId:', formData.appointmentId, '| therapyData.appointmentId:', therapyData.appointmentId);
                 if (initialData?._id) {
                     // Edição
                     await packageService.updatePackage(initialData._id, therapyData);
