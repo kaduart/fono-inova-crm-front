@@ -21,7 +21,7 @@ import {
 import {
     Activity, Server, Clock, Layers, Database, Wifi,
     ExternalLink, AlertTriangle, CheckCircle2, XCircle, RefreshCw,
-    Search, Zap, RotateCcw, Check,
+    Search, Zap, RotateCcw, Check, FileWarning,
 } from 'lucide-react';
 import { Tabs, Tab } from '@mui/material';
 
@@ -550,8 +550,21 @@ function DeadLettersBlock({ count, items, reprocessing, onRetry, result }: { cou
                                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
                                         Worker: <strong>{workerLabel(dl.eventType)}</strong>
                                     </Typography>
+                                    {dl.error?.code && (
+                                        <Chip
+                                            size="small"
+                                            label={dl.error.code}
+                                            color={['SCHEMA_MISMATCH','MISSING_REQUIRED_FIELD','INVALID_FIELD_TYPE','UNKNOWN_EVENT_TYPE'].includes(dl.error.code) ? 'warning' : 'error'}
+                                            variant="outlined"
+                                            sx={{ mb: 1, fontFamily: 'monospace', fontSize: '0.7rem' }}
+                                        />
+                                    )}
                                     {dl.error?.message && (
-                                        <Alert severity="error" sx={{ borderRadius: 1, py: 0.5 }} icon={<XCircle size={16} />}>
+                                        <Alert
+                                            severity={['SCHEMA_MISMATCH','MISSING_REQUIRED_FIELD','INVALID_FIELD_TYPE','UNKNOWN_EVENT_TYPE'].includes(dl.error.code) ? 'warning' : 'error'}
+                                            sx={{ borderRadius: 1, py: 0.5 }}
+                                            icon={['SCHEMA_MISMATCH','MISSING_REQUIRED_FIELD','INVALID_FIELD_TYPE','UNKNOWN_EVENT_TYPE'].includes(dl.error.code) ? <FileWarning size={16} /> : <XCircle size={16} />}
+                                        >
                                             <Typography variant="caption" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
                                                 {dl.error.message}
                                             </Typography>
