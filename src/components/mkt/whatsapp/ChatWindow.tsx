@@ -218,7 +218,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
             try {
                 // Busca pré-agendamentos pelo telefone
                 const phone = contact.phone.replace(/\D/g, '');
-                const response = await fetch(`/api/v2/pre-agendamento?phone=${phone}&operationalStatus=novo,em_analise,contatado`);
+                const response = await fetch(`/api/v2/pre-appointments?phone=${phone}&operationalStatus=novo,em_analise,contatado`);
                 if (response.ok) {
                     const data = await response.json();
                     setPreAgendamentos(data.data || []);

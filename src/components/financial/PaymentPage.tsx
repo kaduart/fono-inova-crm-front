@@ -1007,7 +1007,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
 
                 {/* Cards de resumo */}
                 {paymentTotals && (
-                    <div className="grid grid-cols-1 gap-3 items-stretch">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
                         <div className="h-full">
                             <FinancialSummaryCard
                                 data={{
@@ -1031,6 +1031,15 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                                                     ? 'Este Mês'
                                                     : new Date().toLocaleDateString('pt-BR')
                                 }
+                            />
+                        </div>
+                        <div className="h-full">
+                            <PatientsSummaryCard
+                                leads={analyticsData?.leads || []}
+                                novos={analyticsData?.novos || []}
+                                periodRange={computeDateRange(selectedPeriod, customStartDate, customEndDate)}
+                                loading={analyticsLoading}
+                                onOpenNewPatients={handleOpenNewPatients}
                             />
                         </div>
                     </div>

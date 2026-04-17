@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { MessageCircle, X } from 'lucide-react';
+import notifySound from '../../assets/notify1.wav';
 import { socketManager } from '../../utils/socketManager';
 
 interface MessageNotification {
@@ -28,6 +29,12 @@ export const WhatsAppMessagePopup: React.FC = () => {
     };
 
     console.log('[WhatsAppPopup] 🔔 Adicionando notificação:', newNotification);
+
+    // Tocar som de notificação
+    try {
+      const audio = new Audio(notifySound);
+      audio.play().catch(() => {});
+    } catch {}
 
     setNotifications(prev => [newNotification, ...prev].slice(0, 3)); // Max 3 notificações
 

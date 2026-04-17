@@ -198,7 +198,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                     {/* Cards Principais - Caixa e Produção */}
                     <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ mb: 3 }}>
                         {/* Caixa Total */}
-                        <Grid item xs={12} sm={6} md={3}>
+                        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                             <Card elevation={0} sx={{ border: '1px solid', borderColor: '#16A34A30', borderRadius: 2, bgcolor: '#16A34A08', height: '100%' }}>
                                 <CardContent>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -226,7 +226,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                         </Grid>
 
                         {/* Produção */}
-                        <Grid item xs={12} sm={6} md={3}>
+                        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                             <Card elevation={0} sx={{ border: '1px solid', borderColor: '#3B82F630', borderRadius: 2, bgcolor: '#3B82F608', height: '100%' }}>
                                 <CardContent>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -246,7 +246,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                         </Grid>
 
                         {/* A Receber */}
-                        <Grid item xs={12} sm={6} md={3}>
+                        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                             <Card elevation={0} sx={{ border: '1px solid', borderColor: '#F59E0B30', borderRadius: 2, bgcolor: '#F59E0B08', height: '100%' }}>
                                 <CardContent>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -266,7 +266,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                         </Grid>
 
                         {/* Comparativo */}
-                        <Grid item xs={12} sm={6} md={3}>
+                        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                             <Card elevation={0} sx={{ 
                                 border: '1px solid', 
                                 borderColor: data.comparativos.variacaoVsOntem >= 0 ? '#16A34A30' : '#DC262630', 
@@ -415,7 +415,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                             {data.pacotesAtendidos?.length > 0 ? (
                                 <Grid container spacing={2}>
                                     {data.pacotesAtendidos.map((p) => (
-                                        <Grid item xs={12} sm={6} md={4} key={p.id}>
+                                        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={p.id}>
                                             <Card variant="outlined">
                                                 <CardContent>
                                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -457,7 +457,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                             {data.conveniosAtendidos?.length > 0 ? (
                                 <Grid container spacing={2}>
                                     {data.conveniosAtendidos.map((c) => (
-                                        <Grid item xs={12} sm={6} md={4} key={c.id}>
+                                        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={c.id}>
                                             <Card variant="outlined">
                                                 <CardContent>
                                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -492,7 +492,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                             <Typography variant="h6" gutterBottom>🏥 Produção por Especialidade</Typography>
                             <Grid container spacing={2}>
                                 {data.producao.porEspecialidade?.map((esp) => (
-                                    <Grid item xs={12} sm={6} md={4} key={esp.nome}>
+                                    <Grid size={{ xs: 12, sm: 6, md: 4 }} key={esp.nome}>
                                         <Card variant="outlined">
                                             <CardContent>
                                                 <Typography variant="subtitle1" fontWeight="bold">{esp.nome}</Typography>
@@ -528,7 +528,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                 <Box>
                     {/* Cards Resumo do Mês */}
                     <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ mb: 3 }}>
-                        <Grid item xs={12} sm={6} md={3}>
+                        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                             <Card elevation={0} sx={{ border: '1px solid', borderColor: '#16A34A30', borderRadius: 2, bgcolor: '#16A34A08' }}>
                                 <CardContent>
                                     <Typography variant="body2" color="text.secondary">Total em Caixa</Typography>
@@ -542,7 +542,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                             </Card>
                         </Grid>
 
-                        <Grid item xs={12} sm={6} md={3}>
+                        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                             <Card elevation={0} sx={{ border: '1px solid', borderColor: '#3B82F630', borderRadius: 2, bgcolor: '#3B82F608' }}>
                                 <CardContent>
                                     <Typography variant="body2" color="text.secondary">Produção Total</Typography>
@@ -556,7 +556,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                             </Card>
                         </Grid>
 
-                        <Grid item xs={12} sm={6} md={3}>
+                        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                             <Card elevation={0} sx={{ border: '1px solid', borderColor: '#F59E0B30', borderRadius: 2, bgcolor: '#F59E0B08' }}>
                                 <CardContent>
                                     <Typography variant="body2" color="text.secondary">Média Diária</Typography>
@@ -570,7 +570,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                             </Card>
                         </Grid>
 
-                        <Grid item xs={12} sm={6} md={3}>
+                        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                             <Card elevation={0} sx={{ border: '1px solid', borderColor: '#7C3AED30', borderRadius: 2, bgcolor: '#7C3AED08' }}>
                                 <CardContent>
                                     <Typography variant="body2" color="text.secondary">Ticket Médio</Typography>

@@ -46,7 +46,7 @@ export const NotificationBellDebug: React.FC = () => {
   const fetchPreAgendamentos = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/v2/pre-agendamento?limit=50', {
+      const response = await fetch('/api/v2/pre-appointments?limit=50', {
         headers: { 'Authorization': `Bearer ${API_TOKEN}` }
       });
       

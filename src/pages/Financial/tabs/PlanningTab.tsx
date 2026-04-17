@@ -106,6 +106,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
   const [selectedTab, setSelectedTab] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
   
   const getMonthKey = (m: number, y: number) => `${y}-${m}`;
+  const getCurrentMonthKey = () => getMonthKey(new Date().getMonth() + 1, new Date().getFullYear());
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>(getMonthKey(month, year));
 
   useEffect(() => {
@@ -457,7 +458,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
             )}
           </Box>
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Card variant="outlined" sx={{ borderRadius: 2, height: '100%' }}>
                 <CardContent sx={{ p: 2 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -476,7 +477,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Card variant="outlined" sx={{ borderRadius: 2, height: '100%' }}>
                 <CardContent sx={{ p: 2 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -500,7 +501,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Card variant="outlined" sx={{ borderRadius: 2, height: '100%' }}>
                 <CardContent sx={{ p: 2 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -522,7 +523,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Card variant="outlined" sx={{ borderRadius: 2, height: '100%' }}>
                 <CardContent sx={{ p: 2 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -758,7 +759,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
         </DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={3}>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 select
                 label="Tipo de Meta"
@@ -771,7 +772,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                 <MenuItem value="monthly">Mensal</MenuItem>
               </TextField>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 select
                 label="Mês"
@@ -786,7 +787,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                 ))}
               </TextField>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 select
                 label="Ano"
@@ -801,7 +802,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
             </Grid>
 
             {formData.type === 'weekly' && (
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Alert severity="info" sx={{ mt: 1 }}>
                   <strong>Geração automática de semanas</strong><br />
                   Informe a <strong>meta mensal total</strong>. O sistema cria <strong>4 semanas</strong> automaticamente.
@@ -809,13 +810,13 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
               </Grid>
             )}
 
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Typography variant="h6" gutterBottom sx={{ mt: 2, color: '#8B5CF6', fontWeight: 600 }}>
                 {formData.type === 'weekly' ? 'Meta Mensal Total (dividida automaticamente)' : 'Metas Principais'}
               </Typography>
             </Grid>
 
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 label={formData.type === 'weekly' ? 'Meta Mensal Total (R$)' : 'Meta de Receita (R$)'}
                 type="number"
@@ -828,7 +829,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                 InputProps={{ startAdornment: 'R$' }}
               />
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 label="Total de Sessões"
                 type="number"
@@ -840,7 +841,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                 }))}
               />
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 label="Horas de Trabalho"
                 type="number"
@@ -854,7 +855,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
             </Grid>
 
             {formData.type !== 'weekly' && (<>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="h6" gutterBottom sx={{ mt: 2, color: '#8B5CF6', fontWeight: 600 }}>
                   Distribuição por Especialidade
                 </Typography>
@@ -862,20 +863,20 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                   Total: {totalSpecialtySessions} sessões / {formatCurrency(totalSpecialtyRevenue)}
                 </Typography>
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <TextField label="Especialidade" value={newSpecialty.specialty} onChange={(e) => setNewSpecialty(prev => ({ ...prev, specialty: e.target.value }))} placeholder="Ex: Fonoaudiologia" />
               </Grid>
-              <Grid item xs={12} md={3}>
+              <Grid size={{ xs: 12, md: 3 }}>
                 <TextField label="Sessões" type="number" value={newSpecialty.sessions} onChange={(e) => setNewSpecialty(prev => ({ ...prev, sessions: Number(e.target.value) }))} />
               </Grid>
-              <Grid item xs={12} md={3}>
+              <Grid size={{ xs: 12, md: 3 }}>
                 <TextField label="Receita Esperada" type="number" value={newSpecialty.revenue} onChange={(e) => setNewSpecialty(prev => ({ ...prev, revenue: Number(e.target.value) }))} InputProps={{ startAdornment: 'R$' }} />
               </Grid>
-              <Grid item xs={12} md={2}>
+              <Grid size={{ xs: 12, md: 2 }}>
                 <Button variant="outlined" onClick={handleAddSpecialty} fullWidth sx={{ height: '100%', borderColor: '#8B5CF6', color: '#8B5CF6' }}>Adicionar</Button>
               </Grid>
               {formData.bySpecialty.length > 0 && (
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                     {formData.bySpecialty.map((spec, idx) => (
                       <Chip key={idx} label={`${spec.specialty}: ${spec.sessions} sessões (${formatCurrency(spec.revenue)})`}
@@ -887,7 +888,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
               )}
             </>)}
 
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 label="Observações"
                 multiline
@@ -931,7 +932,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
         </DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={3}>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Card sx={{ width: '100%', bgcolor: '#10B98110', border: '1px solid #10B98130' }}>
                 <CardContent>
                   <Typography variant="h4" fontWeight="bold" color="#10B981">
@@ -943,7 +944,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Card sx={{ width: '100%', bgcolor: '#3B82F610', border: '1px solid #3B82F630' }}>
                 <CardContent>
                   <Typography variant="h4" fontWeight="bold" color="#3B82F6">
@@ -955,7 +956,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Card sx={{ width: '100%', bgcolor: '#F59E0B10', border: '1px solid #F59E0B30' }}>
                 <CardContent>
                   <Typography variant="h4" fontWeight="bold" color="#F59E0B">
@@ -968,7 +969,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
               </Card>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="h6" gutterBottom sx={{ mt: 2, color: '#10B981', fontWeight: 600 }}>
                 💰 Receita por Paciente
               </Typography>
@@ -1016,7 +1017,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
               </TableContainer>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="h6" gutterBottom sx={{ mt: 2, color: '#F59E0B', fontWeight: 600 }}>
                 📦 Pacotes Fechados
               </Typography>
@@ -1089,14 +1090,14 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
         </DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={3}>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField select label="Tipo de Meta" fullWidth value={formData.type} disabled>
                 <MenuItem value="daily">Diária</MenuItem>
                 <MenuItem value="weekly">Semanal</MenuItem>
                 <MenuItem value="monthly">Mensal</MenuItem>
               </TextField>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField select label="Mês" fullWidth value={formData.month} disabled>
                 {Array.from({ length: 12 }, (_, i) => (
                   <MenuItem key={i + 1} value={i + 1}>
@@ -1105,7 +1106,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                 ))}
               </TextField>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField select label="Ano" fullWidth value={formData.year} disabled>
                 {[2025, 2026, 2027].map(y => (
                   <MenuItem key={y} value={y}>{y}</MenuItem>
@@ -1113,13 +1114,13 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
               </TextField>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Typography variant="h6" gutterBottom sx={{ mt: 2, color: '#8B5CF6', fontWeight: 600 }}>
                 Metas Principais
               </Typography>
             </Grid>
 
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 label="Meta de Receita (R$)"
                 type="number"
@@ -1132,7 +1133,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                 InputProps={{ startAdornment: 'R$' }}
               />
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 label="Total de Sessões"
                 type="number"
@@ -1144,7 +1145,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                 }))}
               />
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 label="Horas de Trabalho"
                 type="number"
@@ -1157,7 +1158,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 label="Observações"
                 multiline
@@ -1267,7 +1268,7 @@ const PlanningCard = ({
         : { main: '#6B7280', bg: '#F3F4F6', border: '#E5E7EB' };
 
   return (
-    <Grid item xs={12} md={isMonthly ? 12 : 6} lg={isMonthly ? 12 : 4}>
+    <Grid size={{ xs: 12, md: isMonthly ? 12 : 6, lg: isMonthly ? 12 : 4 }}>
       <Card
         elevation={0}
         sx={{
@@ -1311,7 +1312,7 @@ const PlanningCard = ({
 
           {/* Métricas */}
           <Grid container spacing={1.5} sx={{ mb: 2 }}>
-            <Grid item xs={6}>
+            <Grid size={{ xs: 6 }}>
               <Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#F9FAFB' }}>
                 <Typography variant="caption" color="text.secondary" display="block">
                   Meta Receita
@@ -1321,7 +1322,7 @@ const PlanningCard = ({
                 </Typography>
               </Paper>
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={{ xs: 6 }}>
               <Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#F9FAFB' }}>
                 <Typography variant="caption" color="text.secondary" display="block">
                   Realizado
@@ -1382,7 +1383,7 @@ const PlanningCard = ({
                 Detalhes
               </Typography>
               <Grid container spacing={1}>
-                <Grid item xs={6}>
+                <Grid size={{ xs: 6 }}>
                   <Typography variant="caption" color="text.secondary">
                     Horas Previstas
                   </Typography>
@@ -1390,7 +1391,7 @@ const PlanningCard = ({
                     {planning.targets?.workHours || 0}h
                   </Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={{ xs: 6 }}>
                   <Typography variant="caption" color="text.secondary">
                     Horas Trabalhadas
                   </Typography>
@@ -1398,7 +1399,7 @@ const PlanningCard = ({
                     {planning.actual?.workedHours?.toFixed(1) || 0}h
                   </Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={{ xs: 6 }}>
                   <Typography variant="caption" color="text.secondary">
                     Sessões Previstas
                   </Typography>
@@ -1406,7 +1407,7 @@ const PlanningCard = ({
                     {planning.targets?.totalSessions || 0}
                   </Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={{ xs: 6 }}>
                   <Typography variant="caption" color="text.secondary">
                     Sessões Realizadas
                   </Typography>
