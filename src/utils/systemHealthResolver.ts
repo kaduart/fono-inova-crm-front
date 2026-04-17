@@ -187,13 +187,15 @@ export function resolveSystemHealth(
     const partial = !health || !metrics;
 
     // ── Infra ────────────────────────────────────────────────────────────────
-    const heapPercent = health
-        ? Math.round((health.memory.heapUsedMB / health.memory.heapTotalMB) * 100)
+    // Usa RSS como métrica principal (mais representativa do uso real de RAM)
+    const rssMB = health?.memory.rssMB ?? 0;
+    const rssPercent = health?.memory.heapTotalMB
+        ? Math.round((rssMB / (health.memory.heapTotalMB * 2 + 512)) * 100) // heurística visual
         : 0;
 
     const memStatus: InfraHealth['memory']['status'] =
-        heapPercent >= 90 ? 'critical' :
-        heapPercent >= 75 ? 'warning' : 'ok';
+        rssMB >= 2048 ? 'critical' :
+        rssMB >= 1024 ? 'warning' : 'ok';
 
     const queueBacklog = health
         ? Object.values(health.queues).reduce((sum, q) => sum + (q.waiting ?? 0) + (q.delayed ?? 0), 0)
@@ -201,9 +203,9 @@ export function resolveSystemHealth(
 
     const infra: InfraHealth = {
         memory: {
-            usedMB: health?.memory.heapUsedMB ?? 0,
-            totalMB: health?.memory.heapTotalMB ?? 0,
-            percent: heapPercent,
+            usedMB: rssMB,
+            totalMB: health?.memory.heapTotalMB ? health.memory.heapTotalMB * 2 + 512 : 0,
+            percent: Math.min(100, rssPercent),
             status: memStatus,
         },
         redis: 'unknown',   // health/full não retorna redis separado — mantém unknown

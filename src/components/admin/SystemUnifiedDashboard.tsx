@@ -496,7 +496,7 @@ function RecentEventsBlock({ recent, loading, onEventClick }: {
 }
 
 function DeadLettersBlock({ count, items, reprocessing, onRetry, result }: { count: number; items: DeadLetterItem[]; reprocessing: boolean; onRetry: () => void; result: { requeued: number } | null }) {
-    if (count === 0) return null;
+    const hasItems = count > 0;
 
     const workerLabel = (eventType: string) => {
         if (eventType.includes('APPOINTMENT')) return 'appointmentWorker.js / createAppointmentWorker.js';
@@ -506,15 +506,17 @@ function DeadLettersBlock({ count, items, reprocessing, onRetry, result }: { cou
     };
 
     return (
-        <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', bgcolor: '#fff7f7', border: '1px solid #fca5a5' }}>
+        <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', bgcolor: hasItems ? '#fff7f7' : '#fafafa', border: `1px solid ${hasItems ? '#fca5a5' : '#e5e7eb'}` }}>
             <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, mb: 2 }}>
                     <Box>
-                        <Typography variant="h6" fontWeight="bold" color="error.main" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="h6" fontWeight="bold" color={hasItems ? 'error.main' : 'text.secondary'} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <XCircle size={22} /> Dead Letters ({count})
                         </Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                            Esses eventos não serão processados automaticamente. Requerem ação manual.
+                            {hasItems
+                                ? 'Esses eventos não serão processados automaticamente. Requerem ação manual.'
+                                : 'Nenhum evento em dead letter no momento. Quando houver, você poderá reprocessá-los aqui.'}
                         </Typography>
                         {result && (
                             <Typography variant="body2" color="success.main" sx={{ mt: 0.5, fontWeight: 600 }}>
@@ -522,43 +524,52 @@ function DeadLettersBlock({ count, items, reprocessing, onRetry, result }: { cou
                             </Typography>
                         )}
                     </Box>
-                    <Button variant="contained" color="error" size="small"
-                        startIcon={reprocessing ? <CircularProgress size={14} color="inherit" /> : <RotateCcw size={16} />}
-                        onClick={onRetry} disabled={reprocessing}>
-                        {reprocessing ? 'Reprocessando...' : 'Reprocessar todos'}
-                    </Button>
+                    <Tooltip
+                        title={hasItems ? 'Reenvia todos os eventos em dead letter para suas filas originais' : 'Não há dead letters para reprocessar'}
+                        arrow
+                    >
+                        <span>
+                            <Button variant="contained" color="error" size="small"
+                                startIcon={reprocessing ? <CircularProgress size={14} color="inherit" /> : <RotateCcw size={16} />}
+                                onClick={onRetry} disabled={reprocessing || !hasItems}>
+                                {reprocessing ? 'Reprocessando...' : 'Reprocessar todos'}
+                            </Button>
+                        </span>
+                    </Tooltip>
                 </Box>
 
-                <Grid container spacing={2}>
-                    {items.map(dl => (
-                        <Grid item xs={12} md={6} key={dl.eventId}>
-                            <Box sx={{ p: 2, bgcolor: '#fff', borderRadius: 2, border: '1px solid #fecaca' }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-                                    <code style={{ fontSize: '0.8rem', background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>{dl.eventType}</code>
-                                    <Chip size="small" label={`${dl.attempts || 0} tentativas`} color="error" variant="outlined" />
-                                </Box>
-                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                                    Worker: <strong>{workerLabel(dl.eventType)}</strong>
-                                </Typography>
-                                {dl.error?.message && (
-                                    <Alert severity="error" sx={{ borderRadius: 1, py: 0.5 }} icon={<XCircle size={16} />}>
-                                        <Typography variant="caption" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
-                                            {dl.error.message}
-                                        </Typography>
-                                        {dl.error.stackPreview && (
-                                            <Typography variant="caption" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', color: 'text.secondary', mt: 0.25, display: 'block' }}>
-                                                {dl.error.stackPreview}
+                {hasItems && (
+                    <Grid container spacing={2}>
+                        {items.map(dl => (
+                            <Grid item xs={12} md={6} key={dl.eventId}>
+                                <Box sx={{ p: 2, bgcolor: '#fff', borderRadius: 2, border: '1px solid #fecaca' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                                        <code style={{ fontSize: '0.8rem', background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>{dl.eventType}</code>
+                                        <Chip size="small" label={`${dl.attempts || 0} tentativas`} color="error" variant="outlined" />
+                                    </Box>
+                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                                        Worker: <strong>{workerLabel(dl.eventType)}</strong>
+                                    </Typography>
+                                    {dl.error?.message && (
+                                        <Alert severity="error" sx={{ borderRadius: 1, py: 0.5 }} icon={<XCircle size={16} />}>
+                                            <Typography variant="caption" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+                                                {dl.error.message}
                                             </Typography>
-                                        )}
-                                    </Alert>
-                                )}
-                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                                    {new Date(dl.createdAt).toLocaleString()}
-                                </Typography>
-                            </Box>
-                        </Grid>
-                    ))}
-                </Grid>
+                                            {dl.error.stackPreview && (
+                                                <Typography variant="caption" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', color: 'text.secondary', mt: 0.25, display: 'block' }}>
+                                                    {dl.error.stackPreview}
+                                                </Typography>
+                                            )}
+                                        </Alert>
+                                    )}
+                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                                        {new Date(dl.createdAt).toLocaleString()}
+                                    </Typography>
+                                </Box>
+                            </Grid>
+                        ))}
+                    </Grid>
+                )}
             </CardContent>
         </Card>
     );
