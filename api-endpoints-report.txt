@@ -1,0 +1,10 @@
+🔎 Varredura de APIs no frontend
+==============================
+
+📌 V1 endpoints encontrados:
+
+📌 Apenas patients:
+
+📌 Payments:
+
+📌 Packages:

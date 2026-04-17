@@ -708,21 +708,33 @@ export default function AdminDashboard() {
 
     const handleUpdatePayment = useCallback(async (data: any) => {
         try {
-            if (paymentContext.payment?._id) {
-                await updatePayment(paymentContext.payment._id, data);
-                fetchAppointments(calendarDateRange);
-                toast.success('Pagamento atualizado com sucesso!');
-
-                setTimeout(() => {
-                    setPaymentModalOpen(false);
-                    setPaymentContext({ mode: 'create' });
-                    loadPayments(currentMonth);
-                }, 300);
+            const payment = paymentContext.payment;
+            if (!payment?._id) {
+                toast.error('Nenhum pagamento selecionado');
+                return;
             }
+
+            // 🚨 GARANTIA: se não tem payment real, não pode dar PATCH
+            if ((payment as any).__isAppointmentRecord && !(payment as any).__hasPayment) {
+                toast.info('💳 Este agendamento não possui pagamento para editar. Registre primeiro.');
+                return;
+            }
+
+            // 🚨 GARANTIA: usa paymentId real, nunca appointmentId
+            const targetId = (payment as any).__realPaymentId || payment._id;
+            await updatePayment(targetId, data);
+            fetchAppointments(calendarDateRange);
+            toast.success('Pagamento atualizado com sucesso!');
+
+            setTimeout(() => {
+                setPaymentModalOpen(false);
+                setPaymentContext({ mode: 'create' });
+                loadPayments(currentMonth);
+            }, 300);
         } catch (error) {
             toast.error('Erro ao atualizar pagamento');
         }
-    }, [paymentContext.payment?._id, fetchAppointments, calendarDateRange, loadPayments, currentMonth]);
+    }, [paymentContext.payment, fetchAppointments, calendarDateRange, loadPayments, currentMonth]);
 
     // 🚀 OTIMIZAÇÃO: Não carrega pagamentos no reload inicial
     // Só carrega quando necessário (lazy loading na aba Financeiro)
@@ -743,25 +755,38 @@ export default function AdminDashboard() {
 
     const handleMarkAsPaid = useCallback(async (payment: FinancialRecord) => {
         try {
-            await markAsPaid(payment._id);        // <- não existe response.ok aqui
+            // 🚨 GARANTIA: se não tem payment real, não pode marcar como pago via PATCH
+            if ((payment as any).__isAppointmentRecord && !(payment as any).__hasPayment) {
+                toast.info('💳 Este agendamento ainda não possui pagamento registrado.');
+                return;
+            }
+
+            const targetId = (payment as any).__realPaymentId || payment._id;
+            await markAsPaid(targetId);
             toast.success('Pagamento marcado como pago!');
             await Promise.all([loadPayments(currentMonth), fetchAppointments(calendarDateRange)]);
         } catch (error: any) {
             console.error('Erro ao marcar pagamento:', error);
-            console.log('Erro ao marcar pagamentosssssssss:', error);
             toast.error(extractErrorMessage(error, 'Erro ao marcar pagamento'));
         }
     }, [markAsPaid, fetchAppointments, calendarDateRange, loadPayments, currentMonth]);
 
     const handleCancelPayment = useCallback(async (paymentId: string) => {
         try {
+            // 🚨 GARANTIA: se não tem payment real, não há o que cancelar
+            const payment = allPayments.find(p => p._id === paymentId);
+            if (payment && (payment as any).__isAppointmentRecord && !(payment as any).__hasPayment) {
+                toast.info('💳 Este agendamento não possui pagamento para cancelar.');
+                return;
+            }
+
             await updatePayment(paymentId, { status: 'canceled' });
             loadPayments(currentMonth);
             toast.success('Pagamento cancelado com sucesso!');
         } catch (error) {
             toast.error('Erro ao cancelar pagamento');
         }
-    }, [loadPayments, currentMonth]);
+    }, [loadPayments, currentMonth, allPayments]);
 
     const handleEspecialidadeToggle = useCallback((id: string) => {
         setPatientToEdit(prev => {

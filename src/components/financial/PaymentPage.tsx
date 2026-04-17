@@ -46,8 +46,12 @@ function mapPaymentStatus(ps: string | undefined): string {
 
 function mapAppointmentToRecord(appt: any): FinancialRecord {
     const dateStr = appt.date ? new Date(appt.date).toISOString().split('T')[0] : '';
+    const isPackageAppointment = !!(appt.package?._id || appt.package) || appt.serviceType === 'package_session';
+    const hasPayment = !!(appt.payment?._id || appt.payment);
+    const realPaymentId = appt.payment?._id?.toString?.() || appt.payment?.toString?.() || null;
+
     return {
-        _id: appt.id || appt._id,  // ✅ Backend retorna 'id', não '_id'
+        _id: realPaymentId || appt.id || appt._id,
         date: dateStr,
         description: appt.notes || '',
         amount: appt.sessionValue || appt.insuranceValue || 0,
@@ -74,6 +78,11 @@ function mapAppointmentToRecord(appt: any): FinancialRecord {
             : { _id: '', fullName: appt.professionalName || 'Desconhecido' },
         appointment: { date: appt.date || '', time: appt.time || '', status: appt.operationalStatus || '' },
         advanceSessions: [],
+        __isAppointmentRecord: true,
+        __appointmentId: appt.id || appt._id,
+        __hasPayment: hasPayment,
+        __realPaymentId: realPaymentId || undefined,
+        __isPackageAppointment: isPackageAppointment,
     };
 }
 
@@ -598,11 +607,44 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
             return;
         }
 
-        // 🚨 IMPORTANTE: Se for um registro de appointment, abre o modal de agendamento
-        if ((payment as any).__isAppointmentRecord) {
-            console.log(`[PaymentPage] Registro é um appointment, abrindo modal de agendamento:`, payment.__appointmentId);
+        // 🚨 Se for appointment sem payment real, abre modal de registrar pagamento
+        if ((payment as any).__isAppointmentRecord && !(payment as any).__hasPayment) {
+            console.log(`[PaymentPage] Registro é um appointment sem payment, abrindo modal de agendamento para registrar:`, payment.__appointmentId);
 
-            // Formata o appointment para o modal
+            const formattedAppointment = {
+                id: (payment as any).__appointmentId,
+                _id: (payment as any).__appointmentId,
+                title: payment.patient?.fullName || 'Agendamento',
+                patient: payment.patient,
+                doctor: payment.doctor,
+                date: payment.date,
+                time: payment.appointment?.time || '10:00',
+                startTime: payment.appointment?.time || '10:00',
+                start: new Date(payment.date),
+                end: new Date(new Date(payment.date).getTime() + 40 * 60000),
+                sessionValue: payment.amount,
+                paymentAmount: payment.amount,
+                paymentMethod: payment.paymentMethod,
+                billingType: payment.billingType,
+                serviceType: payment.serviceType,
+                specialty: payment.specialty,
+                operationalStatus: payment.appointment?.status || 'scheduled',
+                clinicalStatus: 'pending',
+                extendedProps: {
+                    ...payment,
+                    __isAppointmentRecord: true
+                }
+            };
+
+            setAppointmentToEdit(formattedAppointment);
+            setIsAppointmentModalOpen(true);
+            return;
+        }
+
+        // 🚨 Se for appointment COM payment real, também abre modal de agendamento (fluxo legado)
+        if ((payment as any).__isAppointmentRecord && (payment as any).__hasPayment) {
+            console.log(`[PaymentPage] Registro é um appointment com payment, abrindo modal de agendamento:`, payment.__appointmentId);
+
             const formattedAppointment = {
                 id: (payment as any).__appointmentId,
                 _id: (payment as any).__appointmentId,
@@ -648,7 +690,10 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
         specialty: string;
     }) => {
         try {
-            const response = await updatePayment(data.id, {
+            // 🚨 GARANTIA: usa o paymentId real, nunca o appointmentId
+            const targetPaymentId = paymentToEdit?.__realPaymentId || data.id;
+
+            const response = await updatePayment(targetPaymentId, {
                 amount: data.amount,
                 date: data.date,
                 status: data.status,
@@ -662,7 +707,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
 
             // ✅ Atualiza Context (Source of Truth)
             updatePaymentContext(updated);
-            setFilteredPayments(prev => prev.map(p => p._id === data.id ? updated : p));
+            setFilteredPayments(prev => prev.map(p => p._id === targetPaymentId ? updated : p));
 
             // ✅ Fecha modal
             setIsEditModalOpen(false);

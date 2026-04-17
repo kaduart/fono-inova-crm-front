@@ -27,6 +27,10 @@ export interface FinancialRecord {
     // 🚨 Campos para identificar registros de appointment (não são payments reais)
     __isAppointmentRecord?: boolean;
     __appointmentId?: string;
+    // 🚨 Flag para saber se tem payment real editável
+    __hasPayment?: boolean;
+    __realPaymentId?: string;
+    __isPackageAppointment?: boolean;
 }
 
 export interface Summary {

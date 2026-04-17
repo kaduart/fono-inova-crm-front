@@ -54,11 +54,14 @@ function getPackageRemaining(pkg?: AppointmentCompleteGuardPackage | string): nu
 export function validateAppointmentComplete(appointment: AppointmentCompleteGuardInput): GuardResult {
   const billingType = appointment.billingType || 'particular';
   const pkg = appointment.package;
-  // 🛡️ CORREÇÃO: Só considera 'hasPackage' se for objeto populado com dados válidos
-  const hasPackage = !!pkg && typeof pkg === 'object' && (
-    typeof pkg.sessionsRemaining === 'number' ||
-    typeof pkg.totalSessions === 'number' ||
-    typeof pkg.sessionsDone === 'number'
+  // 🛡️ CORREÇÃO: Considera pacote mesmo quando vier como string (ObjectId não populado)
+  const hasPackage = !!pkg && (
+    typeof pkg === 'string' ||
+    (typeof pkg === 'object' && (
+      typeof pkg.sessionsRemaining === 'number' ||
+      typeof pkg.totalSessions === 'number' ||
+      typeof pkg.sessionsDone === 'number'
+    ))
   );
   const { hasValue: hasSessionValue, value: sessionValue } = getSessionValue(appointment);
   const remaining = getPackageRemaining(pkg);

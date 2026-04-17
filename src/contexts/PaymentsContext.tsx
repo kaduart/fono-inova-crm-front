@@ -124,35 +124,44 @@ export const PaymentsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             }
             
             // 🎯 Converte appointments para FinancialRecord
-            const mappedPayments: FinancialRecord[] = appointments.map((appt: any) => ({
-                _id: appt.id || appt._id,  // Backend retorna 'id', não '_id'
-                date: appt.date ? new Date(appt.date).toISOString().split('T')[0] : '',
-                description: appt.notes || '',
-                amount: appt.sessionValue || appt.insuranceValue || 0,
-                paid: appt.paymentStatus === 'paid' || appt.paymentStatus === 'package_paid',
-                status: appt.paymentStatus === 'paid' ? 'paid' : appt.paymentStatus === 'partial' ? 'partial' : 'pending',
-                specialty: appt.specialty || '',
-                createdAt: appt.createdAt || '',
-                patientId: appt.patient?._id || '',
-                doctorId: appt.doctor?._id || '',
-                serviceType: appt.serviceType || 'session',
-                paymentMethod: appt.billingType === 'convenio' ? 'Convênio' : (appt.metadata?.paymentMethod || ''),
-                notes: appt.notes || '',
-                packageId: appt.package?._id || appt.package || '',
-                sessionId: appt.session?._id || appt.session || '',
-                advancedSessions: [],
-                patient: appt.patient
-                    ? { _id: appt.patient._id, fullName: appt.patient.fullName || appt.patient.nome || appt.patient.name || '' }
-                    : { _id: '', fullName: appt.patientName || 'Desconhecido' },
-                doctor: appt.doctor
-                    ? { _id: appt.doctor._id, fullName: appt.doctor.fullName || appt.doctor.nome || appt.doctor.name || '' }
-                    : { _id: '', fullName: appt.professionalName || '' },
-                appointment: { date: appt.date || '', time: appt.time || '', status: appt.operationalStatus || '' },
-                advanceSessions: [],
-                // 🚨 IMPORTANTE: Marca que veio de appointment (não é um payment real)
-                __isAppointmentRecord: true,
-                __appointmentId: appt.id || appt._id,
-            }));
+            const mappedPayments: FinancialRecord[] = appointments.map((appt: any) => {
+                const isPackageAppointment = !!(appt.package?._id || appt.package) || appt.serviceType === 'package_session';
+                const hasPayment = !!(appt.payment?._id || appt.payment);
+                const realPaymentId = appt.payment?._id?.toString?.() || appt.payment?.toString?.() || null;
+
+                return {
+                    _id: realPaymentId || appt.id || appt._id,
+                    date: appt.date ? new Date(appt.date).toISOString().split('T')[0] : '',
+                    description: appt.notes || '',
+                    amount: appt.sessionValue || appt.insuranceValue || 0,
+                    paid: appt.paymentStatus === 'paid' || appt.paymentStatus === 'package_paid',
+                    status: appt.paymentStatus === 'paid' ? 'paid' : appt.paymentStatus === 'partial' ? 'partial' : 'pending',
+                    specialty: appt.specialty || '',
+                    createdAt: appt.createdAt || '',
+                    patientId: appt.patient?._id || '',
+                    doctorId: appt.doctor?._id || '',
+                    serviceType: appt.serviceType || 'session',
+                    paymentMethod: appt.billingType === 'convenio' ? 'Convênio' : (appt.metadata?.paymentMethod || ''),
+                    notes: appt.notes || '',
+                    packageId: appt.package?._id || appt.package || '',
+                    sessionId: appt.session?._id || appt.session || '',
+                    advancedSessions: [],
+                    patient: appt.patient
+                        ? { _id: appt.patient._id, fullName: appt.patient.fullName || appt.patient.nome || appt.patient.name || '' }
+                        : { _id: '', fullName: appt.patientName || 'Desconhecido' },
+                    doctor: appt.doctor
+                        ? { _id: appt.doctor._id, fullName: appt.doctor.fullName || appt.doctor.nome || appt.doctor.name || '' }
+                        : { _id: '', fullName: appt.professionalName || '' },
+                    appointment: { date: appt.date || '', time: appt.time || '', status: appt.operationalStatus || '' },
+                    advanceSessions: [],
+                    // 🚨 IMPORTANTE: Marca que veio de appointment (não é um payment real)
+                    __isAppointmentRecord: true,
+                    __appointmentId: appt.id || appt._id,
+                    __hasPayment: hasPayment,
+                    __realPaymentId: realPaymentId || undefined,
+                    __isPackageAppointment: isPackageAppointment,
+                };
+            });
 
             // 🎯 Calcula stats
             const statsData: PaymentsStats = {
