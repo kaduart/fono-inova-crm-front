@@ -15,6 +15,7 @@ import {
     updatePayment
 } from '../../services/paymentService';
 import { formatDateToDMY } from '../../utils/dateFormat';
+import { appointmentService } from '../../services/appointmentService';
 import { IDoctor } from '../../utils/types/types';
 import { AddPaymentModal } from './AddPaymentModal';
 import { EditPaymentModal } from './EditPaymentModal';
@@ -1359,15 +1360,18 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                         fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
                     }}
                     onEditAppointment={async (id, data) => {
-                        console.log('Editar agendamento:', id, data);
-                        toast.success('Agendamento atualizado');
-                        setIsAppointmentModalOpen(false);
-                        // 🔄 RECARREGA LISTA após editar
-                        const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
-                        if (range) {
-                            await syncAppointments({ startDate: range.start, endDate: range.end });
+                        try {
+                            await appointmentService.update(id, data);
+                            toast.success('Agendamento atualizado');
+                            setIsAppointmentModalOpen(false);
+                            const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+                            if (range) {
+                                await syncAppointments({ startDate: range.start, endDate: range.end });
+                            }
+                            fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
+                        } catch (err: any) {
+                            toast.error(err?.response?.data?.message || 'Erro ao atualizar agendamento');
                         }
-                        fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
                     }}
                 />
             )}

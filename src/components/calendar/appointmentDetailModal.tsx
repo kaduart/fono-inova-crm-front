@@ -634,11 +634,31 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             </div>
                         )}
                         
+                        {/* 🚨 ALERTA: Sessão de pacote ainda sem pagamento */}
+                        {(event?.extendedProps?.__isPackageAppointment || event?.extendedProps?.serviceType === 'package_session') && !event?.extendedProps?.__hasPayment && (
+                            <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl border border-amber-200">
+                                <DollarSign className="w-4 h-4 text-amber-600" />
+                                <span className="font-medium text-sm text-amber-800">
+                                    💳 Sessão do pacote ainda não paga. O pagamento pode ser registrado ao concluir ou manualmente.
+                                </span>
+                            </div>
+                        )}
+
                         {event?.extendedProps?.paymentStatus && (
-                            <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-100">
-                                <DollarSign className="w-4 h-4 text-green-600" />
+                            <div className={`flex items-center gap-2 p-3 rounded-xl border ${event.extendedProps.paymentStatus === 'paid' || event.extendedProps.paymentStatus === 'package_paid'
+                                ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-100'
+                                : event.extendedProps.paymentStatus === 'partial'
+                                    ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-100'
+                                    : 'bg-gradient-to-r from-red-50 to-rose-50 border-red-100'
+                            }`}>
+                                <DollarSign className={`w-4 h-4 ${event.extendedProps.paymentStatus === 'paid' || event.extendedProps.paymentStatus === 'package_paid'
+                                    ? 'text-green-600'
+                                    : event.extendedProps.paymentStatus === 'partial'
+                                        ? 'text-yellow-600'
+                                        : 'text-red-600'
+                                }`} />
                                 <span className="font-medium text-sm text-gray-700">Status Financeiro:</span>
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${event.extendedProps.paymentStatus === 'paid'
+                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${event.extendedProps.paymentStatus === 'paid' || event.extendedProps.paymentStatus === 'package_paid'
                                     ? 'bg-green-100 text-green-800 border border-green-200'
                                     : event.extendedProps.paymentStatus === 'partial'
                                         ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
@@ -1176,8 +1196,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         </div>
 
                         {/* 🆕 NOVO: Seção de Pagamento */}
-                        {serviceType !== 'package_session' && (
-                            <div className="bg-green-50 p-4 rounded-lg border border-green-100 mt-6">
+                        <div className="bg-green-50 p-4 rounded-lg border border-green-100 mt-6">
                                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                                     <span className="bg-green-100 p-2 rounded-full">
                                         <DollarSign size={18} className="text-green-600" />
@@ -1306,7 +1325,6 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     </div>
                                 )}
                             </div>
-                        )}
                     </div>
                 );
 

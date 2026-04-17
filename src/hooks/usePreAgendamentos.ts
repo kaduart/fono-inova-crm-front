@@ -122,7 +122,7 @@ export const usePreAgendamentos = (): UsePreAgendamentosReturn => {
         if (value) params.append(key, String(value));
       });
 
-      const response = await api.get(`/pre-agendamento?${params.toString()}`);
+      const response = await api.get(`/v2/pre-appointments?${params.toString()}`);
       setPreAgendamentos(response.data.data);
       setPagination(response.data.pagination);
     } catch (error) {
@@ -135,7 +135,7 @@ export const usePreAgendamentos = (): UsePreAgendamentosReturn => {
   const fetchStats = useCallback(async () => {
     setLoadingStats(true);
     try {
-      const response = await api.get('/pre-agendamento/stats/dashboard');
+      const response = await api.get('/v2/pre-appointments/stats/dashboard');
       setStats(response.data.data);
     } catch (error) {
       console.error('Erro ao buscar stats:', error);
@@ -145,22 +145,23 @@ export const usePreAgendamentos = (): UsePreAgendamentosReturn => {
   }, []);
 
   const importar = useCallback(async (id: string, data: ImportarData) => {
-    const response = await api.post(`/pre-agendamento/${id}/importar`, data);
+    // 🔄 V2: confirmação usa POST /confirm no engine
+    const response = await api.post(`/v2/pre-appointments/${id}/confirm`, data);
     return response.data;
   }, []);
 
   const descartar = useCallback(async (id: string, reason: string) => {
-    const response = await api.post(`/pre-agendamento/${id}/descartar`, { reason });
+    const response = await api.post(`/v2/pre-appointments/${id}/discard`, { reason });
     return response.data;
   }, []);
 
   const registrarContato = useCallback(async (id: string, data: { channel: string; success: boolean; notes?: string }) => {
-    const response = await api.post(`/pre-agendamento/${id}/contact`, data);
+    const response = await api.post(`/v2/pre-appointments/${id}/contact`, data);
     return response.data;
   }, []);
 
   const atribuir = useCallback(async (id: string, userId?: string) => {
-    const response = await api.post(`/pre-agendamento/${id}/assign`, { userId });
+    const response = await api.post(`/v2/pre-appointments/${id}/assign`, { userId });
     return response.data;
   }, []);
 

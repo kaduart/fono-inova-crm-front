@@ -44,12 +44,13 @@ export const PaymentActionIcons = ({
         if (payment.status === 'paid' || payment.status === 'canceled') {
             return false;
         }
-        
-        // ⚠️ NÃO PODE marcar como pago se for sessão de pacote
-        if (payment.serviceType === 'package_session') {
+
+        // 🚨 NÃO PODE marcar como pago se for appointment SEM payment real
+        // (deve registrar o pagamento primeiro, não marcar direto)
+        if ((payment as any).__isAppointmentRecord && !(payment as any).__hasPayment) {
             return false;
         }
-        
+
         return true;
     };
 
@@ -57,8 +58,8 @@ export const PaymentActionIcons = ({
     const getMarkAsPaidTooltip = () => {
         if (payment.status === 'paid') return 'Já está pago';
         if (payment.status === 'canceled') return 'Pagamento cancelado';
-        if (payment.serviceType === 'package_session') {
-            return 'Sessões de pacote devem ser pagas através do pacote';
+        if ((payment as any).__isAppointmentRecord && !(payment as any).__hasPayment) {
+            return 'Registre o pagamento antes de marcar como pago';
         }
         return 'Marcar como pago';
     };

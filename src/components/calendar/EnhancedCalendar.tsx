@@ -487,7 +487,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
             const eventObj = {
                 id: appt._id || appt.id,
-                title: `${appt.patient?.fullName || 'Paciente'} - ${appt.doctor?.fullName || 'Profissional'}`,
+                title: `${appt.patient?.fullName || appt.patientInfo?.fullName || 'Paciente'} - ${appt.doctor?.fullName || 'Profissional'}`,
                 start: startDate,
                 end: endDate,
                 extendedProps: {
