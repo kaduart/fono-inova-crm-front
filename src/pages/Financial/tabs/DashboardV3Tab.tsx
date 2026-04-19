@@ -65,6 +65,7 @@ interface DashboardV3TabProps {
 
 const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   const [activeTab, setActiveTab] = useState(0);
+  const [rankingSubTab, setRankingSubTab] = useState(0);
   const { data, resumo, loading, error, fetchDashboard } = useFinancialDashboardV3();
 
   // 🆕 B: Pendências de convênio
@@ -561,7 +562,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
               className="text-left p-5 bg-white rounded-xl border border-rose-200 shadow-sm hover:shadow-md hover:border-rose-400 transition-all"
             >
               <p className="text-xs font-semibold uppercase tracking-wide text-rose-500 mb-1">Débito do Mês</p>
-              <p className="text-3xl font-extrabold text-gray-900">{formatCurrency(resumo?.realizadasNaoPagas || 0)}</p>
+              <p className="text-3xl font-extrabold text-gray-900">{formatCurrency(resumo?.pendentes?.vencidos?.total || 0)}</p>
               <p className="text-sm text-gray-500 mt-1">Sessões realizadas sem pagamento este mês → clique para ver</p>
             </button>
             <button
@@ -817,6 +818,40 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     </div>
   );
 
+  const renderRankingTab = () => {
+    const subTabs = [
+      { label: 'Por Especialidade', icon: <Users size={16} /> },
+      { label: 'Ranking', icon: <ArrowUpRight size={16} /> },
+      { label: 'Pacientes VIP', icon: <Check size={16} /> },
+    ];
+
+    return (
+      <div>
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-5 overflow-x-auto">
+          <div className="flex gap-1 p-1 border-b">
+            {subTabs.map((t, i) => (
+              <button
+                key={i}
+                onClick={() => setRankingSubTab(i)}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                  rankingSubTab === i
+                    ? 'bg-gray-900 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {t.icon}
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {rankingSubTab === 0 && <DashboardEspecialidades />}
+        {rankingSubTab === 1 && <RankingProfissionais />}
+        {rankingSubTab === 2 && <ListaPacientesVIP />}
+      </div>
+    );
+  };
+
   const tabs = [
     { label: 'Decisão Executiva', icon: <Zap size={18} /> },
     { label: 'Visão Geral', icon: <LayoutDashboard size={18} /> },
@@ -826,9 +861,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     { label: 'Metas', icon: <Target size={18} /> },
     { label: 'Projeção & Cenários', icon: <TrendingUp size={18} /> },
     { label: 'Insights', icon: <Lightbulb size={18} /> },
-    { label: 'Por Especialidade', icon: <Users size={18} /> },
-    { label: 'Ranking', icon: <ArrowUpRight size={18} /> },
-    { label: 'Pacientes VIP', icon: <Check size={18} /> },
+    { label: 'Ranking', icon: <TrendingUp size={18} /> },
   ];
 
   return (
@@ -861,9 +894,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
         {activeTab === 5 && renderMetas()}
         {activeTab === 6 && <ProjecaoCenarios month={month} year={year} />}
         {activeTab === 7 && renderInsights()}
-        {activeTab === 8 && <DashboardEspecialidades />}
-        {activeTab === 9 && <RankingProfissionais />}
-        {activeTab === 10 && <ListaPacientesVIP />}
+        {activeTab === 8 && renderRankingTab()}
       </div>
 
       {/* ── Modal de Débitos ── */}
@@ -871,7 +902,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
       const isMes = debitosModalType === 'mes';
       const isLoading = isMes ? loadingDebitosMes : loadingDebitosTotal;
       const rows = isMes ? debitosMesData : debitosTotalData;
-      const totalVal = isMes ? (resumo?.pendentes?.total || 0) : debitosTotalValue;
+      const totalVal = isMes ? (resumo?.pendentes?.vencidos?.total || 0) : debitosTotalValue;
       const title = isMes ? `Débito do Mês — ${String(month).padStart(2,'0')}/${year}` : 'Débito Total (histórico)';
 
       const statusLabel: Record<string, string> = {
@@ -950,7 +981,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                                     return (
                                       <tr key={item._id || i}>
                                         <td className="px-8 py-2 text-gray-500 w-28">
-                                          {item.data ? new Date(item.data).toLocaleDateString('pt-BR') : '—'}
+                                          {item.data ? `${new Date(item.data).toLocaleDateString('pt-BR')} ${item.time || '-'}` : '—'}
                                         </td>
                                         <td className="px-4 py-2">
                                           <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${sc}`}>
@@ -1017,7 +1048,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                                   const tc = tipoColor[item.tipo || ''] || 'bg-gray-100 text-gray-600';
                                   return (
                                     <tr key={item._id || i}>
-                                      <td className="px-8 py-2 text-gray-500 w-28">{item.date ? new Date(item.date).toLocaleDateString('pt-BR') : '—'}</td>
+                                      <td className="px-8 py-2 text-gray-500 w-28">{item.date ? `${new Date(item.date).toLocaleDateString('pt-BR')} ${item.time || '-'}` : '—'}</td>
                                       <td className="px-4 py-2">
                                         <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${tc}`}>
                                           {tipoLabel[item.tipo || ''] || item.tipo || '—'}

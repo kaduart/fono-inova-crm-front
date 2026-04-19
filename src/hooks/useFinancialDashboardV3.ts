@@ -183,6 +183,19 @@ export interface PendentesV3 {
     count: number;
     items: PendenteItemV3[];
   };
+  vencidos?: {
+    total: number;
+    convenio: {
+      total: number;
+      count: number;
+      items: PendenteItemV3[];
+    };
+    particular: {
+      total: number;
+      count: number;
+      items: PendenteItemV3[];
+    };
+  };
   v2_financial?: {
     total: number;
     count: number;
@@ -268,7 +281,6 @@ export interface DashboardV3Response {
     producao: number;
     producaoDetalhe: DashboardV3Data['revenue']['byMethod'];
     aReceber: { total: number; mesAtual: number; historico: number };
-    realizadasNaoPagas?: number;
     pendentes?: PendentesV3;
     saldo: number;
     despesas: { total: number; count: number };
