@@ -107,7 +107,7 @@ export default function TherapyEvolution({
         if (!selectedPatientId) return;
 
         try {
-            const response = await API.get(`/evolutions/patient/${selectedPatientId}`);
+            const response = await API.get(`/v2/evolutions/patient/${selectedPatientId}`);
             setEvaluations(response.data);
         } catch (error) {
             console.error('Erro ao carregar avaliações:', error);
@@ -119,7 +119,7 @@ export default function TherapyEvolution({
         if (!selectedPatientId) return; // ✅ usa o ID, não o objeto
 
         try {
-            const response = await API.get(`/evolutions/chart/${selectedPatientId}`);
+            const response = await API.get(`/v2/evolutions/chart/${selectedPatientId}`);
             setChartData(response.data);
         } catch (error) {
             console.error('Erro ao carregar dados gráficos:', error);
@@ -132,7 +132,7 @@ export default function TherapyEvolution({
 
         try {
             setIsLoadingProgress(true);
-            const response = await API.get(`/evolutions/patient/${selectedPatientId}/progress`);
+            const response = await API.get(`/v2/evolutions/patient/${selectedPatientId}/progress`);
             setProgressData(response.data);
         } catch (error) {
             console.error('Erro ao carregar progresso do plano terapêutico:', error);
@@ -291,7 +291,7 @@ export default function TherapyEvolution({
 
             console.log('📤 Enviando payload:', JSON.stringify(payload, null, 2));
 
-            const response = await API.post('/evolutions', payload);
+            const response = await API.post('/v2/evolutions', payload);
 
             if (response.status >= 200 && response.status < 300) {
                 await loadEvaluations();
@@ -337,7 +337,7 @@ export default function TherapyEvolution({
 
         try {
             setDeletingId(evaluationId);
-            await API.delete(`/evolutions/${evaluationId}`);
+            await API.delete(`/v2/evolutions/${evaluationId}`);
             setEvaluations(prev => prev.filter((e: any) => e._id !== evaluationId));
             toast.success('Avaliação excluída com sucesso! 💚');
             await loadProgressData();

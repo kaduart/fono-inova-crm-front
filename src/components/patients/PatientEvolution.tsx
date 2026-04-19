@@ -151,9 +151,9 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
 
 
     const handleSaveEvolution = (data: any) => {
-        axios.post('/api/evolutions', data)
+        axios.post('/api/v2/evolutions', data)
             .then(() => {
-                axios.get(`/api/evolutions/${patientId}`)
+                axios.get(`/api/v2/evolutions/${patientId}`)
                     .then(response => setEvolutions(response.data))
                     .catch(error => console.error('Error fetching evolutions after saving:', error));
             })
@@ -174,7 +174,7 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
 
     const handleFormSubmit = async (formData: any) => {
         try {
-            await axios.post('/api/evolutions', {
+            await axios.post('/api/v2/evolutions', {
                 ...formData,
                 patientId
             });

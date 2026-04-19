@@ -48,7 +48,7 @@ const TherapyManagementPage: React.FC = () => {
 
             console.log('Criando evolução:', evolutionData);
 
-            const response = await API.post('/evolutions', evolutionData);
+            const response = await API.post('/v2/evolutions', evolutionData);
 
             console.log('Evolução criada:', response.data);
             alert('Plano terapêutico salvo com sucesso!');

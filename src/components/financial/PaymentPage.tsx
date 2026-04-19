@@ -19,6 +19,7 @@ import { appointmentService } from '../../services/appointmentService';
 import { IDoctor } from '../../utils/types/types';
 import { AddPaymentModal } from './AddPaymentModal';
 import { EditPaymentModal } from './EditPaymentModal';
+import { PaymentModal } from './PaymentModal';
 import AppointmentDetailModal from '../calendar/appointmentDetailModal';
 import { PaymentActionIcons } from './PaymentAction';
 import { PaymentsFilters } from './PaymentsFilters';
@@ -55,9 +56,11 @@ function mapAppointmentToRecord(appt: any): FinancialRecord {
         _id: realPaymentId || appt.id || appt._id,
         date: dateStr,
         description: appt.notes || '',
-        amount: appt.sessionValue || appt.insuranceValue || 0,
-        paid: appt.paymentStatus === 'paid' || appt.paymentStatus === 'package_paid',
-        status: mapPaymentStatus(appt.paymentStatus),
+        // 💰 V2 RULE: Payment.amount é a fonte de verdade. Nunca usar sessionValue.
+        amount: appt.payment?.amount || appt.paymentAmount || appt.valor || 0,
+        // 💰 Fonte de verdade: Payment.status
+        paid: appt.payment?.status === 'paid' || appt.payment?.status === 'package_paid',
+        status: mapPaymentStatus(appt.payment?.status || appt.paymentStatus),
         specialty: appt.specialty || '',
         createdAt: appt.createdAt || '',
         patientId: appt.patient?._id || '',
@@ -66,7 +69,7 @@ function mapAppointmentToRecord(appt: any): FinancialRecord {
         billingType: appt.billingType || 'particular',
         paymentMethod: appt.billingType === 'convenio'
             ? 'Convênio'
-            : (appt.metadata?.paymentMethod || ''),
+            : (appt.paymentMethod || appt.metadata?.paymentMethod || ''),
         notes: appt.notes || '',
         packageId: appt.package?._id || appt.package || '',
         sessionId: appt.session?._id || appt.session || '',
@@ -601,82 +604,11 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
     const handleEditAmount = (paymentId: string) => {
         const payment = allPayments.find(p => p._id === paymentId);
 
-        // 🔴 VALIDAÇÃO: Verifica se o pagamento existe
         if (!payment) {
-            console.error(`[PaymentPage] Pagamento não encontrado com ID: ${paymentId}`);
-            toast.error('Pagamento não encontrado. Verifique se o ID está correto.');
+            toast.error('Registro não encontrado.');
             return;
         }
 
-        // 🚨 Se for appointment sem payment real, abre modal de registrar pagamento
-        if ((payment as any).__isAppointmentRecord && !(payment as any).__hasPayment) {
-            console.log(`[PaymentPage] Registro é um appointment sem payment, abrindo modal de agendamento para registrar:`, payment.__appointmentId);
-
-            const formattedAppointment = {
-                id: (payment as any).__appointmentId,
-                _id: (payment as any).__appointmentId,
-                title: payment.patient?.fullName || 'Agendamento',
-                patient: payment.patient,
-                doctor: payment.doctor,
-                date: payment.date,
-                time: payment.appointment?.time || '10:00',
-                startTime: payment.appointment?.time || '10:00',
-                start: new Date(payment.date),
-                end: new Date(new Date(payment.date).getTime() + 40 * 60000),
-                sessionValue: payment.amount,
-                paymentAmount: payment.amount,
-                paymentMethod: payment.paymentMethod,
-                billingType: payment.billingType,
-                serviceType: payment.serviceType,
-                specialty: payment.specialty,
-                operationalStatus: payment.appointment?.status || 'scheduled',
-                clinicalStatus: 'pending',
-                extendedProps: {
-                    ...payment,
-                    __isAppointmentRecord: true
-                }
-            };
-
-            setAppointmentToEdit(formattedAppointment);
-            setIsAppointmentModalOpen(true);
-            return;
-        }
-
-        // 🚨 Se for appointment COM payment real, também abre modal de agendamento (fluxo legado)
-        if ((payment as any).__isAppointmentRecord && (payment as any).__hasPayment) {
-            console.log(`[PaymentPage] Registro é um appointment com payment, abrindo modal de agendamento:`, payment.__appointmentId);
-
-            const formattedAppointment = {
-                id: (payment as any).__appointmentId,
-                _id: (payment as any).__appointmentId,
-                title: payment.patient?.fullName || 'Agendamento',
-                patient: payment.patient,
-                doctor: payment.doctor,
-                date: payment.date,
-                time: payment.appointment?.time || '10:00',
-                startTime: payment.appointment?.time || '10:00',
-                start: new Date(payment.date),
-                end: new Date(new Date(payment.date).getTime() + 40 * 60000),
-                sessionValue: payment.amount,
-                paymentAmount: payment.amount,
-                paymentMethod: payment.paymentMethod,
-                billingType: payment.billingType,
-                serviceType: payment.serviceType,
-                specialty: payment.specialty,
-                operationalStatus: payment.appointment?.status || 'scheduled',
-                clinicalStatus: 'pending',
-                extendedProps: {
-                    ...payment,
-                    __isAppointmentRecord: true
-                }
-            };
-
-            setAppointmentToEdit(formattedAppointment);
-            setIsAppointmentModalOpen(true);
-            return;
-        }
-
-        console.log(`[PaymentPage] Abrindo edição de pagamento:`, payment);
         setPaymentToEdit(payment);
         setIsEditModalOpen(true);
     };
@@ -1314,11 +1246,28 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
 
             {/* Modais */}
             {isEditModalOpen && paymentToEdit && (
-                <EditPaymentModal
+                <PaymentModal
+                    open={isEditModalOpen}
+                    onClose={() => { setIsEditModalOpen(false); setPaymentToEdit(undefined); }}
                     payment={paymentToEdit}
-                    isOpen={isEditModalOpen}
-                    onClose={() => setIsEditModalOpen(false)}
-                    onSave={handleUpdateAmount}
+                    doctors={mockDoctors}
+                    onPaymentSuccess={async (data) => {
+                        const targetId = paymentToEdit.__realPaymentId || paymentToEdit._id;
+                        await updatePayment(targetId, {
+                            amount: data.amount,
+                            paymentMethod: data.paymentMethod,
+                            serviceType: data.serviceType,
+                            specialty: data.specialty,
+                            status: data.status,
+                            notes: data.notes,
+                        });
+                        setIsEditModalOpen(false);
+                        setPaymentToEdit(undefined);
+                        const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+                        if (range) await syncAppointments({ startDate: range.start, endDate: range.end });
+                        fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
+                        toast.success('Pagamento atualizado!');
+                    }}
                 />
             )}
 
@@ -1436,7 +1385,8 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                                             <div className="text-right md:text-right">
                                                 <span className="text-xs uppercase tracking-wide text-gray-400">{apt.specialty}</span>
                                                 <p className="font-semibold text-gray-900">
-                                                    R$ {apt.sessionValue?.toFixed(2) || '0.00'}
+                                                    {/* 💰 V2 RULE: exibir paymentAmount (Payment), não sessionValue */}
+                                                    R$ {(apt.payment?.amount || apt.paymentAmount || apt.valor || 0).toFixed(2)}
                                                 </p>
                                                 <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${apt.operationalStatus === 'pre_agendado'
                                                         ? 'bg-pink-100 text-pink-700'

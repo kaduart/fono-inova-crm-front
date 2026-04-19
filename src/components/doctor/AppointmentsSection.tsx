@@ -58,6 +58,7 @@ const PAYMENT_BADGE: Record<string, { label: string; bg: string; text: string }>
     pending: { label: 'Pendente', bg: 'bg-red-600', text: 'text-white' },
     package_paid: { label: 'Pacote', bg: 'bg-green-600', text: 'text-white' },
     partial: { label: 'Parcial', bg: 'bg-amber-500', text: 'text-white' },
+    unknown: { label: 'Não verif.', bg: 'bg-gray-400', text: 'text-white' },
     advanced: { label: 'Adiant.', bg: 'bg-blue-600', text: 'text-white' },
 };
 
@@ -141,7 +142,8 @@ const AppointmentsSection: React.FC<AppointmentsSectionProps> = memo(({ calendar
     const renderEventContent = useCallback((arg: any) => {
         const extendedProps = arg.event.extendedProps;
         const operationalStatus = extendedProps.operationalStatus || 'scheduled';
-        const paymentStatus = extendedProps.paymentStatus || 'pending';
+        // 💰 Fonte de verdade: Payment.status
+        const paymentStatus = extendedProps.payment?.status || extendedProps.paymentStatus || 'unknown';
         
         const borderColor = OPERATIONAL_COLORS[operationalStatus] || '#3b82f6';
         const paymentBadge = PAYMENT_BADGE[paymentStatus] || PAYMENT_BADGE.pending;

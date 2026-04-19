@@ -151,6 +151,26 @@ export interface PendenteItemV3 {
   paymentMethod?: string;
 }
 
+export interface V2FinancialPatientGroup {
+  patient: { _id: string; fullName: string; phone?: string; email?: string };
+  patientId: string;
+  total: number;
+  count: number;
+  items: Array<{
+    _id: string;
+    amount: number;
+    status: string;
+    paymentMethod: string;
+    billingType: string;
+    data: string;
+    hora?: string;
+    specialty: string;
+    doctor: { _id: string; fullName: string; specialty?: string } | null;
+    appointment: { _id: string; date: string; time?: string; operationalStatus?: string; sessionType?: string } | null;
+    notes?: string;
+  }>;
+}
+
 export interface PendentesV3 {
   total: number;
   convenio: {
@@ -162,6 +182,14 @@ export interface PendentesV3 {
     total: number;
     count: number;
     items: PendenteItemV3[];
+  };
+  v2_financial?: {
+    total: number;
+    count: number;
+    byPatient: Record<string, V2FinancialPatientGroup>;
+    byDoctor: Record<string, any>;
+    bySpecialty: Record<string, any>;
+    byBillingType: { particular: any; convenio: any };
   };
 }
 
@@ -240,6 +268,7 @@ export interface DashboardV3Response {
     producao: number;
     producaoDetalhe: DashboardV3Data['revenue']['byMethod'];
     aReceber: { total: number; mesAtual: number; historico: number };
+    realizadasNaoPagas?: number;
     pendentes?: PendentesV3;
     saldo: number;
     despesas: { total: number; count: number };

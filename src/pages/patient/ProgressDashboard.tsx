@@ -50,7 +50,7 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ patientId }) => {
     const fetchProgress = async () => {
         try {
             setLoading(true);
-            const response = await API.get(`/evolutions/patient/${patientId}/progress`);
+            const response = await API.get(`/v2/evolutions/patient/${patientId}/progress`);
             setData(response.data);
         } catch (error) {
             console.error('Erro ao buscar progresso:', error);

@@ -1,16 +1,13 @@
 // src/pages/Financial/FinancialDashboard.tsx - VERSÃO OTIMIZADA COM LAZY LOADING
 
 import { Suspense, lazy } from 'react';
-import { Box, Paper, Tab, Tabs, Typography, useTheme, ToggleButton, ToggleButtonGroup, Skeleton, FormControl, Select, MenuItem } from '@mui/material';
+import { Box, Paper, Tab, Tabs, Typography, useTheme, Skeleton, FormControl, Select, MenuItem } from '@mui/material';
 import {
     Calendar,
     DollarSign,
-    PieChart,
-    Target,
     BarChart3,
     Receipt,
     CreditCard,
-    ArrowLeftRight,
     LayoutDashboard,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -58,7 +55,6 @@ const PaymentPage = lazyWithRetry(() => import('../../components/financial/Payme
 const ExpensesTab = lazyWithRetry(() => import('./tabs/ExpensesTab'));
 const InsuranceTab = lazyWithRetry(() => import('./tabs/InsuranceTab'));
 const PlanningTab = lazyWithRetry(() => import('./tabs/PlanningTab'));
-const AnaliseProjecaoTab = lazyWithRetry(() => import('./tabs/AnaliseProjecaoTab'));
 const UnifiedCashflowTab = lazyWithRetry(() => import('./UnifiedCashflowTab'));
 const DashboardV3Tab = lazyWithRetry(() => import('./tabs/DashboardV3Tab'));
 
@@ -89,7 +85,6 @@ const FinancialDashboard = ({
     onCancelPayment
 }: FinancialDashboardProps) => {
     const [currentTab, setCurrentTab] = useState(0);
-    const [viewMode, setViewMode] = useState<'operacional' | 'estrategico'>('operacional');
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const theme = useTheme();
@@ -98,46 +93,26 @@ const FinancialDashboard = ({
         setCurrentTab(newValue);
     };
 
-    const handleViewModeChange = (
-        _event: React.MouseEvent<HTMLElement>,
-        newMode: 'operacional' | 'estrategico',
-    ) => {
-        if (newMode !== null) {
-            setViewMode(newMode);
-            setCurrentTab(0);
-        }
-    };
-
-    // Configuração das tabs operacionais
-    const operacionalTabs = [
+    const allTabs = [
         { id: 'caixa-unificado', label: 'Caixa & Fluxo', icon: <LayoutDashboard size={18} /> },
         { id: 'pagamentos', label: 'Pagamentos', icon: <DollarSign size={18} /> },
         { id: 'convenios', label: 'Convênios', icon: <CreditCard size={18} /> },
         { id: 'despesas', label: 'Despesas', icon: <Receipt size={18} /> },
-        { id: 'dashboard-v3', label: 'Dashboard', icon: <BarChart3 size={18} /> },  // 🆕 V3 único dashboard inteligente
-    ];
-
-    // Configuração das tabs estratégicas
-    const estrategicoTabs = [
-        { id: 'dashboard-v3', label: 'Dashboard', icon: <BarChart3 size={18} /> },  // 🆕 V3 também no estratégico
-        { id: 'analise-projecao', label: 'Análise & Projeção', icon: <PieChart size={18} /> },
+        { id: 'dashboard-v3', label: 'Dashboard', icon: <BarChart3 size={18} /> },
         { id: 'planejamento', label: 'Planejamento Anual', icon: <Calendar size={18} /> },
     ];
 
-    const currentTabs = viewMode === 'operacional' ? operacionalTabs : estrategicoTabs;
-    const currentTabId = currentTabs[currentTab]?.id;
+    const currentTabId = allTabs[currentTab]?.id;
 
-    // 🎯 Renderiza apenas a aba ativa (lazy loaded)
     const renderActiveTab = () => {
         return (
             <Suspense fallback={<TabSkeleton />}>
-                {viewMode === 'operacional' ? renderOperacionalTab() : renderEstrategicoTab()}
+                {renderTab()}
             </Suspense>
         );
     };
 
-    // 🎯 Renderiza apenas a aba ativa (lazy loaded)
-    const renderOperacionalTab = () => {
+    const renderTab = () => {
         switch (currentTabId) {
             case 'dashboard-v3':
                 return <DashboardV3Tab month={selectedMonth} year={selectedYear} />;
@@ -160,21 +135,10 @@ const FinancialDashboard = ({
                 return <InsuranceTab month={selectedMonth} year={selectedYear} />;
             case 'caixa-unificado':
                 return <UnifiedCashflowTab month={selectedMonth} year={selectedYear} />;
-            default:
-                return <DashboardV3Tab />;
-        }
-    };
-
-    const renderEstrategicoTab = () => {
-        switch (currentTabId) {
-            case 'dashboard-v3':
-                return <DashboardV3Tab />;
-            case 'analise-projecao':
-                return <AnaliseProjecaoTab month={selectedMonth} year={selectedYear} />;
             case 'planejamento':
                 return <PlanningTab month={selectedMonth} year={selectedYear} />;
             default:
-                return <DashboardV3Tab />;
+                return <DashboardV3Tab month={selectedMonth} year={selectedYear} />;
         }
     };
 
@@ -196,25 +160,18 @@ const FinancialDashboard = ({
                         <div
                             className="p-3 rounded-2xl"
                             style={{
-                                backgroundColor: viewMode === 'estrategico' 
-                                    ? 'rgba(139, 92, 246, 0.15)' 
-                                    : 'rgba(55, 171, 135, 0.15)',
+                                backgroundColor: 'rgba(55, 171, 135, 0.15)',
                                 backdropFilter: 'blur(10px)'
                             }}
                         >
-                            <DollarSign 
-                                size={28} 
-                                style={{ color: viewMode === 'estrategico' ? '#8B5CF6' : '#00B57A' }} 
-                            />
+                            <DollarSign size={28} style={{ color: '#00B57A' }} />
                         </div>
                         <div>
                             <Typography variant="h4" fontWeight="bold" color="grey.800" gutterBottom>
                                 Painel Financeiro
                             </Typography>
                             <Typography variant="body1" color="grey.600" sx={{ opacity: 0.8 }}>
-                                {viewMode === 'operacional'
-                                    ? ' Dia a dia: lançamentos, despesas, convênios e extrato'
-                                    : ' Estratégia: dashboard executivo, metas, inteligência financeira, BI e planejamento'}
+                                Dia a dia: lançamentos, despesas, convênios, extrato e análise estratégica
                             </Typography>
                         </div>
                     </div>
@@ -248,39 +205,6 @@ const FinancialDashboard = ({
                             </FormControl>
                         </Box>
 
-                        <ToggleButtonGroup
-                            value={viewMode}
-                            exclusive
-                            onChange={handleViewModeChange}
-                            aria-label="modo de visualização"
-                            size="small"
-                            sx={{
-                                width: { xs: '100%', md: 'auto' },
-                                bgcolor: 'background.paper',
-                                borderRadius: 2,
-                                border: '1px solid',
-                                borderColor: 'divider',
-                                '& .MuiToggleButton-root': {
-                                    flex: 1,
-                                    px: { xs: 2, md: 3 },
-                                    py: 1,
-                                    border: 'none',
-                                    borderRadius: 1,
-                                    fontWeight: 600,
-                                    textTransform: 'none',
-                                    '&.Mui-selected': {
-                                        bgcolor: viewMode === 'estrategico' ? '#8B5CF6' : '#10B981',
-                                        color: 'white',
-                                        '&:hover': {
-                                            bgcolor: viewMode === 'estrategico' ? '#7C3AED' : '#059669',
-                                        }
-                                    }
-                                }
-                            }}
-                        >
-                            <ToggleButton value="operacional">Operacional</ToggleButton>
-                            <ToggleButton value="estrategico">Estratégico</ToggleButton>
-                        </ToggleButtonGroup>
                     </Box>
                 </div>
             </Paper>
@@ -298,7 +222,7 @@ const FinancialDashboard = ({
                         '& .MuiTabs-flexContainer': { gap: 1, px: 1 }
                     }}
                 >
-                    {currentTabs.map((tab, index) => (
+                    {allTabs.map((tab, index) => (
                         <Tab
                             key={tab.id}
                             label={tab.label}

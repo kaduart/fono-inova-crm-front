@@ -3,10 +3,12 @@ import { Paper, Typography, useTheme } from "@mui/material";
 import { AnimatePresence } from "framer-motion";
 import {
   BarChart3,
+  DollarSign,
   MessageCircle,
   Plus,
   RefreshCw,
   Search,
+  TrendingUp,
   Users,
   X
 } from "lucide-react";
@@ -885,6 +887,114 @@ const FollowupPage = () => {
                       {historyMetrics.taxaConversao?.toFixed(1)}%
                     </div>
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* 🔥 ROI POR ORIGEM (Lead → Patient → Revenue) */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-base font-semibold text-slate-800">
+                    ROI por Origem de Lead
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Conversão de leads em pacientes e receita gerada por canal de aquisição.
+                  </p>
+                </div>
+                {analyticsData?.roi?.summary && (
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <div className="text-xs text-slate-500">Taxa de conversão</div>
+                      <div className="text-lg font-bold text-emerald-600">
+                        {((analyticsData.roi.summary.overallConversionRate || 0) * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs text-slate-500">Receita total</div>
+                      <div className="text-lg font-bold text-amber-600">
+                        {new Intl.NumberFormat("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        }).format(analyticsData.roi.summary.totalRevenue || 0)}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {analyticsLoading && (
+                <div className="text-sm text-slate-500">Carregando métricas de ROI...</div>
+              )}
+
+              {analyticsError && !analyticsLoading && (
+                <div className="text-sm text-red-500">{analyticsError}</div>
+              )}
+
+              {analyticsData?.roi?.data && !analyticsLoading && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200">
+                        <th className="text-left px-3 py-2 font-semibold text-slate-600">Origem</th>
+                        <th className="text-right px-3 py-2 font-semibold text-slate-600">Leads</th>
+                        <th className="text-right px-3 py-2 font-semibold text-slate-600">Convertidos</th>
+                        <th className="text-right px-3 py-2 font-semibold text-slate-600">Conversão</th>
+                        <th className="text-right px-3 py-2 font-semibold text-slate-600">Agend.</th>
+                        <th className="text-right px-3 py-2 font-semibold text-slate-600">Receita</th>
+                        <th className="text-right px-3 py-2 font-semibold text-slate-600">Média/Lead</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {analyticsData.roi.data.map((row: any) => (
+                        <tr key={row.origin} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-3 py-2 font-medium text-slate-800 capitalize">
+                            <span className="inline-flex items-center gap-2">
+                              <TrendingUp size={14} className="text-teal-500" />
+                              {row.origin === "web_app" ? "Site" :
+                               row.origin === "google_ads" ? "Google Ads" :
+                               row.origin === "desconhecido" ? "Desconhecido" : row.origin}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-right text-slate-700">{row.totalLeads}</td>
+                          <td className="px-3 py-2 text-right text-emerald-600 font-medium">{row.totalConverted}</td>
+                          <td className="px-3 py-2 text-right">
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                (row.conversionRate || 0) >= 0.3
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : (row.conversionRate || 0) >= 0.15
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "bg-red-100 text-red-700"
+                              }`}
+                            >
+                              {((row.conversionRate || 0) * 100).toFixed(1)}%
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-right text-slate-700">{row.totalAppointments}</td>
+                          <td className="px-3 py-2 text-right font-medium text-slate-800">
+                            {new Intl.NumberFormat("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            }).format(row.totalRevenue || 0)}
+                          </td>
+                          <td className="px-3 py-2 text-right text-slate-500">
+                            {new Intl.NumberFormat("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            }).format(row.avgRevenuePerLead || 0)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {(!analyticsData?.roi?.data || analyticsData.roi.data.length === 0) && !analyticsLoading && !analyticsError && (
+                <div className="text-sm text-slate-400 text-center py-6">
+                  <DollarSign size={24} className="mx-auto mb-2 opacity-50" />
+                  Nenhum dado de ROI encontrado para o período.
                 </div>
               )}
             </div>

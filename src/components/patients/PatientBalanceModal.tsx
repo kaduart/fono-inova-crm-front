@@ -1,7 +1,7 @@
 // src/components/patients/PatientBalanceModal.tsx
 // Modal para visualizar e gerenciar a conta corrente do paciente
 
-import { ArrowDownCircle, ArrowUpCircle, CheckCircle, DollarSign, History, Plus, Trash2, Wallet, X, CheckSquare, Square, Calculator, Pencil } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, CheckCircle, DollarSign, History, Plus, Trash2, Wallet, X, CheckSquare, Square, Calculator, Pencil, AlertTriangle } from 'lucide-react';
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { getBalanceV2, addBalanceDebitV2 } from '../../services/balanceService';
 import usePayment from '../../hooks/usePayment';
@@ -121,6 +121,9 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
     
     const [activeTab, setActiveTab] = useState<'pending' | 'paid' | 'add'>('pending');
     
+    // 🆕 Card de especialidade selecionado (filtra lista abaixo)
+    const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(null);
+        
     // Form states
     const [transactionType, setTransactionType] = useState<'debit' | 'payment'>('debit');
     const [amount, setAmount] = useState(0);
@@ -148,6 +151,9 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
         const total = paymentMethods.reduce((sum, pm) => sum + pm.amount, 0);
         setCustomPaymentAmount(total);
     }, [paymentMethods]);
+
+    // 🆕 Ao abrir modal, NÃO seleciona card automaticamente — mostra todos os débitos do ledger
+    // O usuário clica no card para filtrar por especialidade
     
     // 💰 Pagamento rápido de débito específico
     const [payingTransaction, setPayingTransaction] = useState<Transaction | null>(null);
@@ -191,12 +197,20 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
         return { pendingDebits: pending, paidDebits: paid, payments: paymentList };
     }, [balance]);
 
+    // 🆕 Filtra pendingDebits (ledger) por especialidade do card clicado
+    const filteredPendingDebits = useMemo(() => {
+        if (!selectedSpecialty) return pendingDebits;
+        return pendingDebits.filter((t: Transaction) =>
+            t.appointmentId?.doctor?.specialty?.toLowerCase() === selectedSpecialty.toLowerCase()
+        );
+    }, [pendingDebits, selectedSpecialty]);
+    
     // Calcula total selecionado
     const selectedTotal = useMemo(() => {
-        return pendingDebits
+        return filteredPendingDebits
             .filter((t: Transaction) => selectedDebits.has(t._id || ''))
             .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
-    }, [pendingDebits, selectedDebits]);
+    }, [filteredPendingDebits, selectedDebits]);
 
     // Toggle seleção de débito
     const toggleDebitSelection = (debitId: string) => {
@@ -213,10 +227,10 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
 
     // Selecionar todos
     const selectAllDebits = () => {
-        if (selectedDebits.size === pendingDebits.length) {
+        if (selectedDebits.size === filteredPendingDebits.length) {
             setSelectedDebits(new Set());
         } else {
-            setSelectedDebits(new Set(pendingDebits.map((t: Transaction) => t._id || '')));
+            setSelectedDebits(new Set(filteredPendingDebits.map((t: Transaction) => t._id || '')));
         }
     };
 
@@ -318,7 +332,7 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
 
         setIsSubmitting(true);
         try {
-            const selectedDebitsList = pendingDebits.filter((t: Transaction) => 
+            const selectedDebitsList = filteredPendingDebits.filter((t: Transaction) => 
                 selectedDebits.has(t._id || '')
             );
             
@@ -564,25 +578,34 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                         </button>
                     </div>
                     
-                    {/* Saldo atual */}
+                    {/* Saldo atual — fonte de verdade: V2 (Payments), fallback: ledger */}
                     <div className="mt-6 p-4 bg-white/20 rounded-xl backdrop-blur-sm">
                         <p className="text-sm text-amber-100">Saldo Atual</p>
-                        <p className={`text-2xl sm:text-3xl font-bold ${
-                            (balance?.currentBalance || 0) > 0 
-                                ? 'text-red-200' 
-                                : (balance?.currentBalance || 0) < 0 
-                                    ? 'text-green-200' 
-                                    : 'text-white'
-                        }`}>
-                            {formatCurrency(balance?.currentBalance || 0)}
-                        </p>
-                        <p className="text-xs text-amber-100 mt-1">
-                            {(balance?.currentBalance || 0) > 0
-                                ? '⚠️ Paciente deve este valor'
-                                : (balance?.currentBalance || 0) < 0
-                                    ? '✅ Paciente tem crédito'
-                                    : 'Sem saldo pendente'}
-                        </p>
+                        {(() => {
+                            const v2Total = balance?.v2_financial?.totalPendentes || 0;
+                            const ledgerTotal = balance?.currentBalance || 0;
+                            const displayTotal = v2Total > 0 ? v2Total : ledgerTotal;
+                            return (
+                                <>
+                                    <p className={`text-2xl sm:text-3xl font-bold ${
+                                        displayTotal > 0 
+                                            ? 'text-red-200' 
+                                            : displayTotal < 0 
+                                                ? 'text-green-200' 
+                                                : 'text-white'
+                                    }`}>
+                                        {formatCurrency(displayTotal)}
+                                    </p>
+                                    <p className="text-xs text-amber-100 mt-1">
+                                        {displayTotal > 0
+                                            ? '⚠️ Paciente deve este valor'
+                                            : displayTotal < 0
+                                                ? '✅ Paciente tem crédito'
+                                                : 'Sem saldo pendente'}
+                                    </p>
+                                </>
+                            );
+                        })()}
                     </div>
                 </div>
 
@@ -598,9 +621,9 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                     >
                         <ArrowDownCircle className="w-4 h-4" />
                         Pendentes
-                        {pendingDebits.length > 0 && (
+                        {(balance?.v2_financial?.count || pendingDebits.length) > 0 && (
                             <span className="ml-1 px-2 py-0.5 text-xs bg-red-500 text-white rounded-full">
-                                {pendingDebits.length}
+                                {balance?.v2_financial?.count || pendingDebits.length}
                             </span>
                         )}
                     </button>
@@ -634,19 +657,43 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                         <ModalSpinner />
                     ) : activeTab === 'pending' ? (
                         <div className="space-y-4">
+                            {/* 🆕 CARDS POR ESPECIALIDADE (V2) — topo da aba, estilo igual ao da interface */}
+                            {balance?.v2_financial?.bySpecialty && Object.keys(balance.v2_financial.bySpecialty).length > 0 && (
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    {Object.entries(balance.v2_financial.bySpecialty).map(([spec, group]: [string, any]) => {
+                                        const isSelected = selectedSpecialty === spec;
+                                        return (
+                                            <button
+                                                key={spec}
+                                                onClick={() => setSelectedSpecialty(isSelected ? null : spec)}
+                                                className={`p-4 rounded-xl border text-left transition-all ${
+                                                    isSelected
+                                                        ? 'bg-gray-800 border-emerald-500/50 shadow-lg shadow-emerald-500/10'
+                                                        : 'bg-gray-800/50 border-gray-700 hover:bg-gray-800 hover:border-gray-600'
+                                                }`}
+                                            >
+                                                <p className={`text-xs uppercase tracking-wider font-medium ${isSelected ? 'text-emerald-400' : 'text-gray-400'}`}>{spec}</p>
+                                                <p className={`text-xl font-bold mt-1 ${isSelected ? 'text-white' : 'text-gray-100'}`}>{formatCurrency(group.total)}</p>
+                                                <p className="text-xs text-gray-500 mt-1">{group.count} sessão(ões)</p>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
                             {/* Barra de ações */}
-                            {pendingDebits.length > 0 && (
+                            {filteredPendingDebits.length > 0 && (
                                 <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                     <button
                                         onClick={selectAllDebits}
                                         className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900"
                                     >
-                                        {selectedDebits.size === pendingDebits.length ? (
+                                        {selectedDebits.size === filteredPendingDebits.length ? (
                                             <CheckSquare className="w-5 h-5 text-amber-600" />
                                         ) : (
                                             <Square className="w-5 h-5 text-gray-400" />
                                         )}
-                                        {selectedDebits.size === pendingDebits.length 
+                                        {selectedDebits.size === filteredPendingDebits.length 
                                             ? 'Desmarcar todos' 
                                             : 'Selecionar todos'}
                                     </button>
@@ -699,16 +746,70 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                                 </div>
                             )}
                             
-                            {pendingDebits.length === 0 ? (
-                                <div className="text-center py-8 text-gray-500">
-                                    <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-400" />
-                                    <p>Sem débitos pendentes</p>
-                                    <p className="text-sm text-gray-400 mt-1">
-                                        Paciente está em dia!
-                                    </p>
-                                </div>
-                            ) : (
-                                pendingDebits.map((transaction: Transaction, index: number) => (
+                            {(() => {
+                                // 🆕 Se card selecionado e V2 tem items → mostra items do V2 filtrados
+                                const v2Items = selectedSpecialty && balance?.v2_financial?.items
+                                    ? balance.v2_financial.items.filter((item: any) => item.specialty === selectedSpecialty)
+                                    : [];
+                                const showV2 = selectedSpecialty && v2Items.length > 0;
+                                const listItems = showV2 ? v2Items : filteredPendingDebits;
+                                const isV2 = showV2;
+                                
+                                if (listItems.length === 0) return (
+                                    <div className="text-center py-8 text-gray-500">
+                                        <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-400" />
+                                        <p>Sem débitos pendentes</p>
+                                        <p className="text-sm text-gray-400 mt-1">
+                                            Paciente está em dia!
+                                        </p>
+                                    </div>
+                                );
+                                
+                                return isV2 ? (
+                                    // Lista V2 com estilo igual ao ledger
+                                    v2Items.map((item: any, index: number) => (
+                                        <div
+                                            key={item._id || index}
+                                            className="p-4 rounded-xl border border-red-200 dark:border-red-800 bg-red-50/30 dark:bg-red-900/10"
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                <div className="mt-1 flex-shrink-0">
+                                                    <Square className="w-5 h-5 text-gray-400" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="flex items-start gap-3 min-w-0 flex-1">
+                                                            <ArrowDownCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                                                                    {item.doctor?.fullName || 'Profissional não informado'}
+                                                                </p>
+                                                                <div className="mt-1.5 space-y-0.5">
+                                                                    <p className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                                                                        <span className="font-medium">Especialidade:</span>
+                                                                        <span className="text-gray-800 dark:text-gray-300">{item.specialty || '—'}</span>
+                                                                    </p>
+                                                                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                                                                        {item.data ? new Date(item.data).toLocaleDateString('pt-BR') : '—'}
+                                                                    </p>
+                                                                    {item.notes && (
+                                                                        <p className="text-xs text-gray-500">{item.notes}</p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right flex-shrink-0">
+                                                            <p className="text-lg font-bold text-red-600 dark:text-red-400">
+                                                                {formatCurrency(item.amount)}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    filteredPendingDebits.map((transaction: Transaction, index: number) => (
                                     <div
                                         key={transaction._id || index}
                                         className={`p-4 rounded-xl border transition-all ${
@@ -834,7 +935,8 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                                         </div>
                                     </div>
                                 ))
-                            )}
+                            )})()}
+
                         </div>
                     ) : activeTab === 'paid' ? (
                         <div className="space-y-4">
@@ -1195,7 +1297,7 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                                     Débitos selecionados ({selectedDebits.size}):
                                 </p>
                                 <div className="space-y-2 max-h-40 overflow-y-auto">
-                                    {pendingDebits
+                                    {filteredPendingDebits
                                         .filter((t: Transaction) => selectedDebits.has(t._id || ''))
                                         .map((t: Transaction) => (
                                             <div key={t._id} className="flex justify-between text-sm border-b border-amber-100 dark:border-amber-800/50 pb-1 last:border-0">

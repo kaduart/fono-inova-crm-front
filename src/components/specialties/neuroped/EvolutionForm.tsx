@@ -33,15 +33,16 @@ const NeuropedEvolutionForm: React.FC<NeuropedEvolutionFormProps> = ({ appointme
     e.preventDefault();
 
     try {
-      // Primeiro cria a evolução base
-      const evolutionRes = await API.post<{ id: string }>('/evolutions', {
+      // Cria a evolução com avaliação neuropediátrica
+      await API.post('/v2/evolutions', {
         appointmentId: appointment.id,
         specialty: 'neuroped',
-        content: formData
+        evaluationTypes: ['neuroped_assessment'],
+        evaluationAreas: formData.areas || [],
+        metrics: formData.metrics || [],
+        notes: formData.notes || '',
+        ...formData
       });
-
-      // Depois cria a avaliação neuropediátrica detalhada
-      await API.post(`/evolutions/${evolutionRes.data.id}/neuroped-assessment`, formData);
 
       alert('Avaliação neuropediátrica salva com sucesso!');
     } catch (error) {

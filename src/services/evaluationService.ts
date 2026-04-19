@@ -14,7 +14,7 @@ export const createEvaluation = async (
   },
 ) => {
   try {
-    const response = await API.post("evolutions/availables", data);
+    const response = await API.post("/v2/evolutions", data);
 
     return {
       success: true,
@@ -36,7 +36,7 @@ export const createEvaluation = async (
 
 export const updateEvaluation = async (id: string, data: any) => {
   try {
-    const response = await API.put(`/evolutions/${id}`, data);
+    const response = await API.put(`/v2/evolutions/${id}`, data);
     return response.data;
   } catch (error) {
     console.error("Erro ao atualizar avaliação:", error);
@@ -45,17 +45,17 @@ export const updateEvaluation = async (id: string, data: any) => {
 };
 
 export const getEvaluationsByPatient = async (patientId: string) => {
-  const response = await API.get(`/evolutions/patient/${patientId}`);
+  const response = await API.get(`/v2/evolutions/patient/${patientId}`);
 
   return response.data;
 };
 
 export const deleteEvaluation = async (id: string) => {
-  return API.delete(`/evolutions/${id}`).then((res) => res.data);
+  return API.delete(`/v2/evolutions/${id}`).then((res) => res.data);
 };
 
 export const getPatientProgress = (patientId: string) =>
-  API.get(`/evolutions/patient/${patientId}/progress`);
+  API.get(`/v2/evolutions/patient/${patientId}/progress`);
 
 // protocolService.ts
 export const getProtocols = (params?: { specialty?: string; active?: boolean }) =>

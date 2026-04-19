@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   LayoutDashboard,
   DollarSign,
@@ -18,10 +18,17 @@ import {
   ArrowDownRight,
   Zap,
   Send,
-  Check
+  Check,
+  X,
+  AlertTriangle
 } from 'lucide-react';
+import api from '../../../services/api';
 import { useFinancialDashboardV3 } from '../../../hooks/useFinancialDashboardV3';
 import { FinancialLoading } from '../components/FinancialLoading';
+import { ProjecaoCenarios } from './AnaliseProjecaoTab';
+import { DashboardEspecialidades } from '../components/DashboardEspecialidades';
+import { RankingProfissionais } from '../components/RankingProfissionais';
+import { ListaPacientesVIP } from '../components/ListaPacientesVIP';
 import {
   getInsuranceReceivables,
   markInsuranceAsBilled,
@@ -100,10 +107,87 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     }
   };
 
+  // Débitos: modal + dados totais
+  interface DebitoItem { _id: string; date: string; time?: string; paciente: string; paymentStatus: string; valor: number; tipo?: string; }
+  const [debitosModalOpen, setDebitosModalOpen] = useState(false);
+  const [debitosModalType, setDebitosModalType] = useState<'mes' | 'total'>('mes');
+  const [debitosTotalData, setDebitosTotalData] = useState<DebitoItem[]>([]);
+  const [debitosTotalValue, setDebitosTotalValue] = useState(0);
+  const [loadingDebitosTotal, setLoadingDebitosTotal] = useState(false);
+  const debitosTotalLoaded = useRef(false);
+
+  const fetchDebitosTotal = useCallback(async () => {
+    if (debitosTotalLoaded.current) return;
+    setLoadingDebitosTotal(true);
+    try {
+      const res = await api.get('/financial/dashboard/debitos');
+      setDebitosTotalData(res.data?.data || []);
+      setDebitosTotalValue(res.data?.total || 0);
+      debitosTotalLoaded.current = true;
+    } catch (err) {
+      console.error('Erro ao buscar débitos totais:', err);
+    } finally {
+      setLoadingDebitosTotal(false);
+    }
+  }, []);
+
+  const [debitosMesData, setDebitosMesData] = useState<DebitoItem[]>([]);
+  const [loadingDebitosMes, setLoadingDebitosMes] = useState(false);
+  const [openPatientGroups, setOpenPatientGroups] = useState<Set<string>>(new Set());
+
+  const fetchDebitosMes = useCallback(async () => {
+    setLoadingDebitosMes(true);
+    try {
+      const res = await api.get(`/financial/dashboard/debitos?month=${month}&year=${year}`);
+      setDebitosMesData(res.data?.data || []);
+    } catch (err) {
+      console.error('Erro ao buscar débitos do mês:', err);
+    } finally {
+      setLoadingDebitosMes(false);
+    }
+  }, [month, year]);
+
+  const openDebitosModal = (type: 'mes' | 'total') => {
+    setDebitosModalType(type);
+    if (type === 'total') {
+      fetchDebitosTotal();
+    } else {
+      // 🆕 Mostrar apenas vencidos (data <= hoje) no modal de débitos do mês
+      const allItems = [
+        ...(resumo?.pendentes?.vencidos?.particular?.items || []).map(item => ({ ...item, _tipo: item.paymentMethod || 'particular' })),
+        ...(resumo?.pendentes?.vencidos?.convenio?.items || []).map(item => ({ ...item, _tipo: 'convenio' })),
+      ].map(item => ({
+        _id: String(item.sessionId),
+        date: String(item.data),
+        time: item.hora,
+        paciente: item.paciente,
+        paymentStatus: item.status,
+        valor: item.valor,
+        tipo: (item as any)._tipo,
+      }));
+      setDebitosMesData(allItems);
+    }
+    setDebitosModalOpen(true);
+  };
+
+  const insuranceLoaded = useRef<string>('');
+
+  // Carrega dados principais ao montar ou mudar mês/ano
   useEffect(() => {
     fetchDashboard(month, year);
-    fetchPendingInsurance();
-  }, [month, year, fetchDashboard, fetchPendingInsurance]);
+    // Reseta flag de convênio para forçar re-fetch quando mês mudar
+    insuranceLoaded.current = '';
+  }, [month, year, fetchDashboard]);
+
+  // Lazy: só busca convênios quando o tab que os usa estiver ativo
+  useEffect(() => {
+    const key = `${month}-${year}`;
+    // Tab 0 (Decisão Executiva) tem seção de convênios pendentes
+    if (activeTab === 0 && insuranceLoaded.current !== key) {
+      insuranceLoaded.current = key;
+      fetchPendingInsurance();
+    }
+  }, [activeTab, month, year, fetchPendingInsurance]);
 
   if (loading) return <FinancialLoading />;
   if (error) return <div className="p-4 rounded-lg bg-rose-50 text-rose-700 border border-rose-200">{error}</div>;
@@ -167,11 +251,19 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   const renderVisaoGeral = () => (
     <div>
       <RitmoCard />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
         <MetricCard title="Caixa" value={formatCurrency(totalCaixa)} icon={<DollarSign size={20} />} color="emerald" />
         <MetricCard title="Produção" value={formatCurrency(totalProducao)} icon={<Briefcase size={20} />} color="blue" />
         <MetricCard title="Despesas Totais" subtitle="Inclui comissões" value={formatCurrency(expenses.total)} icon={<Receipt size={20} />} color="rose" />
         <MetricCard title="Lucro" value={formatCurrency(indicadores?.lucro ?? totalCaixa - expenses.total)} icon={<TrendingUp size={20} />} color={(indicadores?.lucro ?? totalCaixa - expenses.total) >= 0 ? 'emerald' : 'rose'} />
+        <MetricCard
+          title="Débitos do Mês"
+          subtitle="Sessões vencidas não pagas — clique para ver"
+          value={formatCurrency(resumo?.pendentes?.vencidos?.total || 0)}
+          icon={<AlertTriangle size={20} />}
+          color="amber"
+          onClick={() => openDebitosModal('mes')}
+        />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
@@ -458,6 +550,33 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           </div>
         </div>
 
+        {/* 🔴 Débitos de sessões */}
+        <div>
+          <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
+            <AlertTriangle size={22} className="text-rose-500" /> Débitos de Sessões
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <button
+              onClick={() => openDebitosModal('mes')}
+              className="text-left p-5 bg-white rounded-xl border border-rose-200 shadow-sm hover:shadow-md hover:border-rose-400 transition-all"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide text-rose-500 mb-1">Débito do Mês</p>
+              <p className="text-3xl font-extrabold text-gray-900">{formatCurrency(resumo?.realizadasNaoPagas || 0)}</p>
+              <p className="text-sm text-gray-500 mt-1">Sessões realizadas sem pagamento este mês → clique para ver</p>
+            </button>
+            <button
+              onClick={() => openDebitosModal('total')}
+              className="text-left p-5 bg-white rounded-xl border border-amber-200 shadow-sm hover:shadow-md hover:border-amber-400 transition-all"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-600 mb-1">Débito Total (histórico)</p>
+              <p className="text-3xl font-extrabold text-gray-900">
+                {loadingDebitosTotal ? '...' : formatCurrency(debitosTotalValue)}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">Todas as sessões realizadas em aberto → clique para ver</p>
+            </button>
+          </div>
+        </div>
+
         {/* 🆕 B: Pendências de Convênio */}
         <div>
           <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
@@ -705,7 +824,11 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     { label: 'Produção', icon: <Briefcase size={18} /> },
     { label: 'Despesas', icon: <Receipt size={18} /> },
     { label: 'Metas', icon: <Target size={18} /> },
+    { label: 'Projeção & Cenários', icon: <TrendingUp size={18} /> },
     { label: 'Insights', icon: <Lightbulb size={18} /> },
+    { label: 'Por Especialidade', icon: <Users size={18} /> },
+    { label: 'Ranking', icon: <ArrowUpRight size={18} /> },
+    { label: 'Pacientes VIP', icon: <Check size={18} /> },
   ];
 
   return (
@@ -736,14 +859,205 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
         {activeTab === 3 && renderProducao()}
         {activeTab === 4 && renderDespesas()}
         {activeTab === 5 && renderMetas()}
-        {activeTab === 6 && renderInsights()}
+        {activeTab === 6 && <ProjecaoCenarios month={month} year={year} />}
+        {activeTab === 7 && renderInsights()}
+        {activeTab === 8 && <DashboardEspecialidades />}
+        {activeTab === 9 && <RankingProfissionais />}
+        {activeTab === 10 && <ListaPacientesVIP />}
       </div>
+
+      {/* ── Modal de Débitos ── */}
+      {debitosModalOpen && (() => {
+      const isMes = debitosModalType === 'mes';
+      const isLoading = isMes ? loadingDebitosMes : loadingDebitosTotal;
+      const rows = isMes ? debitosMesData : debitosTotalData;
+      const totalVal = isMes ? (resumo?.pendentes?.total || 0) : debitosTotalValue;
+      const title = isMes ? `Débito do Mês — ${String(month).padStart(2,'0')}/${year}` : 'Débito Total (histórico)';
+
+      const statusLabel: Record<string, string> = {
+        pending: 'Pendente', pending_balance: 'Saldo pendente',
+        unpaid: 'Não pago', partial: 'Parcial',
+        pending_receipt: 'Aguard. recebimento',
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setDebitosModalOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col mx-4" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={20} className={isMes ? 'text-rose-500' : 'text-amber-500'} />
+                <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+              </div>
+              <button onClick={() => setDebitosModalOpen(false)} className="p-1 rounded-lg hover:bg-gray-100">
+                <X size={20} className="text-gray-500" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="overflow-auto flex-1">
+              {isLoading ? (
+                <div className="p-8 text-center text-gray-500">Carregando...</div>
+              ) : rows.length === 0 ? (
+                <div className="p-8 text-center text-emerald-600 font-medium">✅ Nenhum débito encontrado</div>
+              ) : (() => {
+                // 🆕 V2 FINANCIAL ENGINE: quando disponível, usa agrupamento por paciente do backend
+                const v2PatientGroups = isMes ? resumo?.pendentes?.v2_financial?.byPatient : null;
+                
+                if (v2PatientGroups && Object.keys(v2PatientGroups).length > 0) {
+                  const sortedV2Groups = Object.values(v2PatientGroups).sort((a: any, b: any) => b.total - a.total);
+                  return (
+                    <div className="divide-y divide-gray-100">
+                      {sortedV2Groups.map((group: any) => {
+                        const paciente = group.patient?.fullName || 'Desconhecido';
+                        const isOpen = openPatientGroups.has(paciente);
+                        const toggle = () => setOpenPatientGroups(prev => {
+                          const next = new Set(prev);
+                          isOpen ? next.delete(paciente) : next.add(paciente);
+                          return next;
+                        });
+                        return (
+                          <div key={group.patientId || paciente}>
+                            <button
+                              onClick={toggle}
+                              className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 text-left"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
+                                <span className="font-semibold text-gray-800">{paciente}</span>
+                                <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{group.count} sessão(ões)</span>
+                              </div>
+                              <span className="font-bold text-rose-600">{formatCurrency(group.total)}</span>
+                            </button>
+                            {isOpen && (
+                              <table className="w-full text-sm bg-gray-50">
+                                <thead className="text-xs text-gray-400 uppercase">
+                                  <tr>
+                                    <th className="px-8 py-1 text-left font-medium">Data</th>
+                                    <th className="px-4 py-1 text-left font-medium">Especialidade</th>
+                                    <th className="px-4 py-1 text-left font-medium">Status</th>
+                                    <th className="px-4 py-1 text-right font-medium">Valor</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                  {group.items.map((item: any, i: number) => {
+                                    const specColor: Record<string, string> = {
+                                      'Fonoaudiologia': 'bg-emerald-100 text-emerald-700',
+                                      'Psicologia': 'bg-violet-100 text-violet-700',
+                                      'Terapia Ocupacional': 'bg-orange-100 text-orange-700',
+                                    };
+                                    const sc = specColor[item.specialty] || 'bg-gray-100 text-gray-600';
+                                    return (
+                                      <tr key={item._id || i}>
+                                        <td className="px-8 py-2 text-gray-500 w-28">
+                                          {item.data ? new Date(item.data).toLocaleDateString('pt-BR') : '—'}
+                                        </td>
+                                        <td className="px-4 py-2">
+                                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${sc}`}>
+                                            {item.specialty || '—'}
+                                          </span>
+                                        </td>
+                                        <td className="px-4 py-2">
+                                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-700">
+                                            {statusLabel[item.status] || item.status}
+                                          </span>
+                                        </td>
+                                        <td className="px-4 py-2 text-right font-semibold text-gray-900">{formatCurrency(item.amount)}</td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+
+                // Fallback legacy (Appointment-based)
+                const groups = rows.reduce<Record<string, { items: typeof rows; total: number }>>((acc, item) => {
+                  const key = item.paciente || 'N/A';
+                  if (!acc[key]) acc[key] = { items: [], total: 0 };
+                  acc[key].items.push(item);
+                  acc[key].total += item.valor || 0;
+                  return acc;
+                }, {});
+                const sortedGroups = Object.entries(groups).sort((a, b) => b[1].total - a[1].total);
+
+                return (
+                  <div className="divide-y divide-gray-100">
+                    {sortedGroups.map(([paciente, group]) => {
+                      const isOpen = openPatientGroups.has(paciente);
+                      const toggle = () => setOpenPatientGroups(prev => {
+                        const next = new Set(prev);
+                        isOpen ? next.delete(paciente) : next.add(paciente);
+                        return next;
+                      });
+                      return (
+                        <div key={paciente}>
+                          <button
+                            onClick={toggle}
+                            className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 text-left"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
+                              <span className="font-semibold text-gray-800">{paciente}</span>
+                              <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{group.items.length} sessão(ões)</span>
+                            </div>
+                            <span className="font-bold text-rose-600">{formatCurrency(group.total)}</span>
+                          </button>
+                          {isOpen && (
+                            <table className="w-full text-sm bg-gray-50">
+                              <tbody className="divide-y divide-gray-100">
+                                {group.items.map((item, i) => {
+                                  const tipoLabel: Record<string, string> = { particular: 'Particular', convenio: 'Convênio', pacote: 'Pacote', pix: 'PIX', dinheiro: 'Dinheiro', cartão: 'Cartão' };
+                                  const tipoColor: Record<string, string> = { particular: 'bg-blue-100 text-blue-700', convenio: 'bg-sky-100 text-sky-700', pacote: 'bg-purple-100 text-purple-700' };
+                                  const tc = tipoColor[item.tipo || ''] || 'bg-gray-100 text-gray-600';
+                                  return (
+                                    <tr key={item._id || i}>
+                                      <td className="px-8 py-2 text-gray-500 w-28">{item.date ? new Date(item.date).toLocaleDateString('pt-BR') : '—'}</td>
+                                      <td className="px-4 py-2">
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${tc}`}>
+                                          {tipoLabel[item.tipo || ''] || item.tipo || '—'}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-2">
+                                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-700">
+                                          {statusLabel[item.paymentStatus] || item.paymentStatus}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-2 text-right font-semibold text-gray-900">{formatCurrency(item.valor)}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t flex justify-between items-center">
+              <span className="text-sm text-gray-500">{rows.length} sessão(ões)</span>
+              <span className="font-bold text-gray-900">Total: {formatCurrency(totalVal)}</span>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
     </div>
   );
 };
 
 // Componentes auxiliares (apenas visuais, sem lógica alterada)
-const MetricCard = ({ title, subtitle, value, icon, color }: { title: string; subtitle?: string; value: string; icon: React.ReactNode; color: string }) => {
+const MetricCard = ({ title, subtitle, value, icon, color, onClick }: { title: string; subtitle?: string; value: string; icon: React.ReactNode; color: string; onClick?: () => void }) => {
   const colorMap: Record<string, string> = {
     emerald: 'border-emerald-500 text-emerald-600',
     blue: 'border-blue-500 text-blue-600',
@@ -754,10 +1068,14 @@ const MetricCard = ({ title, subtitle, value, icon, color }: { title: string; su
     gray: 'border-gray-500 text-gray-600',
   };
   return (
-    <div className={`bg-white rounded-xl border-l-4 ${colorMap[color]} border border-gray-200 p-4 shadow-sm h-full`}>
+    <div
+      className={`bg-white rounded-xl border-l-4 ${colorMap[color]} border border-gray-200 p-4 shadow-sm h-full ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+      onClick={onClick}
+    >
       <div className={`flex items-center gap-2 mb-1 ${colorMap[color]}`}>
         {icon}
         <span className="text-sm text-gray-500">{title}</span>
+        {onClick && <span className="ml-auto text-xs opacity-50">↗</span>}
       </div>
       <span className="text-2xl font-bold text-gray-900">{value}</span>
       {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}

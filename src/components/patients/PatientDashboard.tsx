@@ -409,7 +409,7 @@ export default function PatientDashboard() {
   /* const submitEvaluation = async (data: EvaluationData, id?: string) => {
     try {
       if (id) {
-        await axios.put(`/api/evolutions/${id}`, data);
+        await axios.put(`/api/v2/evolutions/${id}`, data);
         toast.success('Avaliação atualizada!');
       } else {
         await axios.post('/api/evaluations/availables', {

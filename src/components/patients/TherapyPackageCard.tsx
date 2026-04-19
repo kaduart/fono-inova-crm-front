@@ -670,13 +670,20 @@ export default function TherapyPackageCard({
 
         {isExpanded && (
           <div className="px-6 pb-4 space-y-3 max-h-80 overflow-y-auto">
-            {pack.sessions && pack.sessions
+            {pack.sessions && [...pack.sessions]
               .sort((a, b) => {
-                if (a.date < b.date) return -1;
-                if (a.date > b.date) return 1;
-                if (a.time < b.time) return -1;
-                if (a.time > b.time) return 1;
-                return 0;
+                const dateA = new Date(a.date).getTime();
+                const dateB = new Date(b.date).getTime();
+
+                if (Number.isNaN(dateA) && Number.isNaN(dateB)) return 0;
+                if (Number.isNaN(dateA)) return 1;
+                if (Number.isNaN(dateB)) return -1;
+
+                if (dateA !== dateB) return dateA - dateB;
+
+                const timeA = a.time || '';
+                const timeB = b.time || '';
+                return timeA.localeCompare(timeB);
               })
               .map((session, sessionNumber) => (
                 <SessionListItem

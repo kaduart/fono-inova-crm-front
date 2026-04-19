@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     ResponsiveContainer, LineChart, Line, XAxis, YAxis,
     CartesianGrid, Tooltip as ChartTooltip, Legend, ReferenceLine
@@ -15,7 +15,8 @@ import { TrendingUp, Target, Calendar, RefreshCcw } from 'lucide-react';
 import { BarChart2, Trophy, Crown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useFinancialDashboard } from '../../../hooks/useFinancialDashboard';
+import { useFinancialDashboardV3 } from '../../../hooks/useFinancialDashboardV3';
+import { IAppointment } from '../../../utils/types/types';
 import { DashboardEspecialidades } from '../components/DashboardEspecialidades';
 import { RankingProfissionais } from '../components/RankingProfissionais';
 import { ListaPacientesVIP } from '../components/ListaPacientesVIP';
@@ -25,6 +26,13 @@ const PAGE_SIZE = 10;
 
 const formatCurrency = (val: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+
+const safeFormatDate = (dateStr: string | undefined, fmt: string) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T12:00');
+    if (isNaN(d.getTime())) return '—';
+    return format(d, fmt);
+};
 
 function Pagination({ total, page, onPage }: { total: number; page: number; onPage: (p: number) => void }) {
     const pages = Math.ceil(total / PAGE_SIZE);
@@ -97,15 +105,18 @@ interface ProjecaoCenariosProps {
     year: number;
 }
 
-const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, year: ano }) => {
+export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, year: ano }) => {
     const [pageRealizados, setPageRealizados] = useState(0);
     const [pageAgendados, setPageAgendados] = useState(0);
     const [pagePendentes, setPagePendentes] = useState(0);
     const [projectionData, setProjectionData] = useState<any[]>([]);
     const [projectionMeta, setProjectionMeta] = useState<any>(null);
+    const [appointments, setAppointments] = useState<IAppointment[]>([]);
+    const [appointmentsLoading, setAppointmentsLoading] = useState(false);
 
-    const { data: dashData, loading, fetchDashboard } = useFinancialDashboard();
+    const { data: dashData, loading: dashLoading, fetchDashboard } = useFinancialDashboardV3();
 
+    // Busca dashboard V3 + appointments transacionais em paralelo
     useEffect(() => {
         fetchDashboard(mes, ano);
         setPageRealizados(0);
@@ -113,16 +124,34 @@ const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, year: a
         setPagePendentes(0);
         setProjectionData([]);
         setProjectionMeta(null);
+
+        // 🚀 V2: busca appointments transacionais separadamente
+        setAppointmentsLoading(true);
+        const startDate = `${ano}-${String(mes).padStart(2, '0')}-01`;
+        const endDate = `${ano}-${String(mes).padStart(2, '0')}-${new Date(ano, mes, 0).getDate()}`;
+        api.get('/v2/appointments', {
+            params: { startDate, endDate, limit: 500, light: true }
+        }).then(res => {
+            const responseData = res.data?.data || res.data || {};
+            const appts = responseData.appointments || responseData;
+            setAppointments(Array.isArray(appts) ? appts : []);
+        }).catch(err => {
+            console.error('[ProjecaoCenarios] Erro ao buscar appointments:', err);
+            setAppointments([]);
+        }).finally(() => {
+            setAppointmentsLoading(false);
+        });
     }, [mes, ano, fetchDashboard]);
 
-    // Busca projeção diária assim que o dashboard carrega (usa cenário esperado como alvo)
+    // Busca projeção diária assim que o dashboard carrega (usa projeção final como alvo)
     useEffect(() => {
         if (!dashData) return;
+        const projecaoFinal = dashData?.metas?.projecao?.final || 0;
         api.get('/financial/dashboard/projection-daily', {
             params: {
                 month: mes,
                 year: ano,
-                projecaoFinal: dashData.cenarios?.realista?.valor || 0
+                projecaoFinal
             }
         }).then(res => {
             if (res.data?.success) {
@@ -130,23 +159,32 @@ const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, year: a
                 setProjectionMeta(res.data.meta);
             }
         }).catch(() => {}); // gráfico é complementar — falha silenciosa
-    }, [dashData]);
+    }, [dashData, mes, ano]);
 
-    const realizados = dashData?.detalhes?.realizados || [];
-    const agendados  = dashData?.detalhes?.agendados  || [];
-    const pendentes  = dashData?.detalhes?.pendentes  || [];
+    // Deriva listas do V2 a partir dos appointments transacionais
+    const realizados = useMemo(() =>
+        appointments.filter((a: IAppointment) => a.operationalStatus === 'completed'),
+    [appointments]);
+    const agendados = useMemo(() =>
+        appointments.filter((a: IAppointment) => ['scheduled', 'confirmed'].includes(a.operationalStatus || '')),
+    [appointments]);
+    // 📝 "Pendentes de confirmação" = agendados que ainda não foram confirmados
+    const pendentes = useMemo(() =>
+        appointments.filter((a: IAppointment) => a.operationalStatus === 'scheduled'),
+    [appointments]);
 
     const realizadosPage = realizados.slice(pageRealizados * PAGE_SIZE, (pageRealizados + 1) * PAGE_SIZE);
     const agendadosPage  = agendados.slice(pageAgendados  * PAGE_SIZE, (pageAgendados  + 1) * PAGE_SIZE);
     const pendentesPage  = pendentes.slice(pagePendentes  * PAGE_SIZE, (pagePendentes  + 1) * PAGE_SIZE);
 
+    const loading = dashLoading || appointmentsLoading;
     if (loading) return <FinancialLoading cardCount={3} />;
 
     // ── Cálculos estratégicos ──
-    const caixa = dashData?.resumo?.caixa || 0;
-    const metaValor = dashData?.meta?.valor || 0;
-    const percentualAtual = dashData?.meta?.percentualAtual || 0;
-    const cenarioEsperado = dashData?.cenarios?.realista?.valor || 0;
+    const caixa = dashData?.metas?.realizado?.mes || dashData?.cash?.total || 0;
+    const metaValor = dashData?.metas?.configuracao?.metaMensal || 0;
+    const percentualAtual = dashData?.metas?.ritmo?.percentualRealizado || 0;
+    const cenarioEsperado = dashData?.metas?.projecao?.final || 0;
 
     const hoje = new Date();
     const diasNoMes = new Date(ano, mes, 0).getDate();
@@ -301,17 +339,17 @@ const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, year: a
                             Projeção de Fechamento
                         </Typography>
                         <Typography variant="h5" fontWeight="bold" color="primary.main">
-                            {formatCurrency(dashData?.cenarios?.realista?.valor)}
+                            {formatCurrency(dashData?.metas?.projecao?.final || 0)}
                         </Typography>
                     </Box>
                     <LinearProgress
                         variant="determinate"
-                        value={Math.min(dashData?.meta?.percentualAtual || 0, 100)}
+                        value={Math.min(dashData?.metas?.ritmo?.percentualRealizado || 0, 100)}
                         sx={{ height: 8, borderRadius: 4, mb: 1 }}
                     />
                     <Typography variant="caption" color="text.secondary">
-                        {(dashData?.meta?.percentualAtual || 0).toFixed(1)}% atingido
-                        {dashData?.meta?.gap > 0 && ` — faltam ${formatCurrency(dashData.meta?.gap)}`}
+                        {(dashData?.metas?.ritmo?.percentualRealizado || 0).toFixed(1)}% atingido
+                        {dashData?.metas?.gap?.valor > 0 && ` — faltam ${formatCurrency(dashData.metas.gap.valor)}`}
                     </Typography>
                 </Paper>
             </Grid>
@@ -321,7 +359,7 @@ const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, year: a
                         Insights
                     </Typography>
                     <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1.5, flexWrap: 'wrap' }}>
-                        {(dashData?.insights || []).length === 0 ? (
+                        {(dashData?.insights?.insights || []).length === 0 ? (
                             <Typography variant="caption" color="text.secondary">
                                 {metaValor === 0
                                     ? 'Configure uma meta para ver insights estratégicos.'
@@ -330,7 +368,7 @@ const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, year: a
                                     : 'Nenhuma ação urgente identificada.'}
                             </Typography>
                         ) : (
-                            dashData.insights.map((insight: any, idx: number) => (
+                            dashData.insights.insights.slice(0, 3).map((insight: string, idx: number) => (
                                 <Box
                                     key={idx}
                                     sx={{
@@ -338,21 +376,13 @@ const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, year: a
                                         minWidth: 140,
                                         p: 1.5,
                                         borderRadius: 2,
-                                        bgcolor: insight.tipo === 'error' ? '#ffebee' : insight.tipo === 'warning' ? '#fff3e0' : '#e8f5e9',
-                                        borderLeft: `3px solid ${insight.tipo === 'error' ? '#f44336' : insight.tipo === 'warning' ? '#ff9800' : '#4caf50'}`
+                                        bgcolor: idx === 0 ? '#ffebee' : idx === 1 ? '#fff3e0' : '#e8f5e9',
+                                        borderLeft: `3px solid ${idx === 0 ? '#f44336' : idx === 1 ? '#ff9800' : '#4caf50'}`
                                     }}
                                 >
                                     <Typography variant="body2" fontWeight="bold" color="text.primary">
-                                        {insight.titulo}
+                                        {insight}
                                     </Typography>
-                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                                        {insight.mensagem}
-                                    </Typography>
-                                    {insight.acao && (
-                                        <Typography variant="caption" display="block" mt={0.5} color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.7rem' }}>
-                                            → {insight.acao}
-                                        </Typography>
-                                    )}
                                 </Box>
                             ))
                         )}
@@ -361,16 +391,22 @@ const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, year: a
             </Grid>
         </Grid>
 
-        {/* Cenários de Fechamento */}
+        {/* Cenários de Fechamento — calculados no client a partir dos appointments V2 */}
         <Typography variant="h6" fontWeight="bold" gutterBottom>
             Cenários de Fechamento
         </Typography>
         <Grid container spacing={2} sx={{ mb: 4 }}>
-            {[
-                { label: 'PESSIMISTA', value: dashData?.cenarios?.pessimista?.valor, desc: '70% agendados + 20% pendentes', color: '#E53E3E' },
-                { label: 'ESPERADO', value: dashData?.cenarios?.realista?.valor, desc: 'Taxa histórica de conversão', color: '#3182CE' },
-                { label: 'OTIMISTA', value: dashData?.cenarios?.otimista?.valor, desc: '95% agendados + 70% pendentes', color: '#38A169' }
-            ].map((c, i) => (
+            {(() => {
+                // 💰 V2 RULE: usar paymentAmount (fonte Payment), NUNCA sessionValue
+                const valorAgendados = agendados.reduce((sum, a) => sum + (a.paymentAmount || 0), 0);
+                const valorPendentes = pendentes.reduce((sum, a) => sum + (a.paymentAmount || 0), 0);
+                const cen = [
+                    { label: 'PESSIMISTA', value: caixa + (valorAgendados * 0.7) + (valorPendentes * 0.2), desc: '70% agendados + 20% pendentes', color: '#E53E3E' },
+                    { label: 'ESPERADO', value: cenarioEsperado || caixa, desc: 'Taxa histórica de conversão', color: '#3182CE' },
+                    { label: 'OTIMISTA', value: caixa + (valorAgendados * 0.95) + (valorPendentes * 0.7), desc: '95% agendados + 70% pendentes', color: '#38A169' }
+                ];
+                return cen;
+            })().map((c, i) => (
                 <Grid item xs={12} sm={6} md={4} key={c.label}>
                     <Card variant="outlined" sx={{ borderLeft: `4px solid ${c.color}`, borderRadius: 2 }}>
                         <CardContent sx={{ p: 2 }}>
@@ -448,8 +484,8 @@ const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, year: a
         <Grid container spacing={3}>
             {[
                 { title: 'Realizados', data: realizados, page: pageRealizados, setPage: setPageRealizados, getValor: (apt: any) => apt.valor, getPaciente: (apt: any) => apt.paciente },
-                { title: 'Agendados confirmados', data: agendados, page: pageAgendados, setPage: setPageAgendados, getValor: (apt: any) => apt.sessionValue || apt.valor, getPaciente: (apt: any) => apt.paciente || apt.patientName },
-                { title: 'Pendentes de confirmação', data: pendentes, page: pagePendentes, setPage: setPagePendentes, getValor: (apt: any) => apt.sessionValue || apt.valor, getPaciente: (apt: any) => apt.paciente || apt.patientName }
+                { title: 'Agendados confirmados', data: agendados, page: pageAgendados, setPage: setPageAgendados, getValor: (apt: any) => apt.paymentAmount || 0, getPaciente: (apt: any) => apt.paciente || apt.patientName },
+                { title: 'Pendentes de confirmação', data: pendentes, page: pagePendentes, setPage: setPagePendentes, getValor: (apt: any) => apt.paymentAmount || 0, getPaciente: (apt: any) => apt.paciente || apt.patientName }
             ].map((tab, idx) => (
                 <Grid item xs={12} md={4} key={idx}>
                     <Paper sx={{ p: 2 }}>
@@ -467,7 +503,7 @@ const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, year: a
                             <TableBody>
                                 {tab.data.slice(tab.page * PAGE_SIZE, (tab.page + 1) * PAGE_SIZE).map((apt: any) => (
                                     <TableRow key={apt._id}>
-                                        <TableCell>{format(new Date(apt.data + 'T12:00'), 'dd/MM')}</TableCell>
+                                        <TableCell>{safeFormatDate(apt.data, 'dd/MM')}</TableCell>
                                         <TableCell sx={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {tab.getPaciente(apt) || '—'}
                                         </TableCell>

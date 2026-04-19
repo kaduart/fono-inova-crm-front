@@ -469,7 +469,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 {
                     billingType: event?.billingType,
                     package: event?.package,
-                    sessionValue: event?.sessionValue ?? event?.paymentAmount ?? null,
+                    sessionValue: (addToBalance && debitAmount > 0) ? debitAmount : (event?.sessionValue ?? event?.paymentAmount ?? null),
                 },
                 async () => {
                     if (addToBalance) {

@@ -66,6 +66,21 @@ export const followupService = {
     }
   },
 
+  // ===== ROI POR ORIGEM (Lead → Patient → Revenue) =====
+  async getRoiBySource(params?: { startDate?: string; endDate?: string; doctorId?: string }) {
+    try {
+      const response = await API.get("/v2/analytics/roi/roi-by-source", { params });
+      return {
+        success: true,
+        data: response.data,
+      };
+    } catch (error: any) {
+      console.error("Erro ao buscar ROI por origem:", error);
+      toast.error(extractErrorMessage(error, "Erro ao carregar ROI por origem."));
+      return { success: false, error };
+    }
+  },
+
   // ===== LISTAGEM E FILTROS =====
   async listByLead(leadId: string) {
     try {

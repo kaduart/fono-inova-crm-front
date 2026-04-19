@@ -196,21 +196,80 @@ export const getPaymentTotals = async (filters: {
     return res.data;
 };
 
+// ============================================================
+// 🚀 MIGRAÇÃO V2 — Adapter de Payments
+// ============================================================
+export const USE_V2_PAYMENT_WRITES = true;
+
+/**
+ * Converte payload V1 para contrato V2 de /v2/payments/request
+ * ⚠️ V2 ainda NÃO suporta advanceServices/isAdvancePayment
+ */
+export function buildPaymentPayloadV2(data: Partial<FinancialRecord>): {
+    type: string;
+    patientId: string;
+    amount: number;
+    paymentMethod: string;
+    notes?: string;
+    doctorId?: string;
+    appointmentId?: string;
+    [key: string]: any;
+} {
+    const type = data.appointment?._id || data.__appointmentId
+        ? 'appointment_payment'
+        : 'standalone';
+
+    return {
+        type,
+        patientId: data.patientId || data.patient?._id || '',
+        doctorId: data.doctorId || data.doctor?._id,
+        appointmentId: data.__appointmentId || data.appointment?._id,
+        amount: typeof data.amount === 'number' ? data.amount : 0,
+        paymentMethod: data.paymentMethod || 'pix',
+        notes: data.notes || data.description,
+    };
+}
+
+/**
+ * Detecta se o pagamento usa recursos ainda não suportados pelo V2
+ */
+function requiresV1(data: Partial<FinancialRecord>): boolean {
+    return !!(
+        data.advanceSessions?.length ||
+        data.advancedSessions?.length ||
+        (data as any).isAdvancePayment ||
+        (data as any).advanceServices?.length
+    );
+}
+
 export const getPayment = (id: string) =>
     API.get<FinancialRecord>(`/payments/${id}`);
 
-export const createPayment = (data: Partial<FinancialRecord>) =>
-    API.post<FinancialRecord>('/payments', data);
+export const createPayment = async (data: Partial<FinancialRecord>) => {
+    // 🚀 V2: pagamentos simples (sem advanceServices)
+    if (USE_V2_PAYMENT_WRITES && !requiresV1(data)) {
+        const v2Payload = buildPaymentPayloadV2(data);
+        console.log('[PaymentService] createPayment → V2 (standalone)', v2Payload);
+        const res = await API.post<{ success: boolean; data: any }>('/v2/payments/request', v2Payload);
+        return res.data?.data || res.data;
+    }
 
-export const updatePayment = (
+    // 🔄 Legado: pagamentos com advanceServices (V2 ainda não suporta)
+    console.log('[PaymentService] createPayment → V1 (advanceServices detected)');
+    const res = await API.post<FinancialRecord>('/payments', data);
+    return res.data;
+};
+
+export const updatePayment = async (
     id: string,
     data: {
         status?: 'pending' | 'paid' | 'canceled';
         amount?: number;
         date?: string | Date;
-        specialty?: string,
+        specialty?: string;
         paymentMethod?: string;
         serviceType?: string;
+        advanceServices?: any[];
     }
 ) => {
     const processedData = {
@@ -218,10 +277,38 @@ export const updatePayment = (
         date: data.date instanceof Date ? data.date.toISOString() : data.date
     };
 
-    return API.patch<FinancialRecord>(`/payments/${id}`, processedData);
+    // 🚀 V2: updates simples (sem advanceServices)
+    if (USE_V2_PAYMENT_WRITES && !data.advanceServices?.length) {
+        const v2Payload: any = {};
+        if (data.amount !== undefined) v2Payload.amount = data.amount;
+        if (data.paymentMethod !== undefined) v2Payload.paymentMethod = data.paymentMethod;
+        if (data.status !== undefined) v2Payload.status = data.status;
+        if (data.serviceType !== undefined) v2Payload.serviceType = data.serviceType;
+        if (data.specialty !== undefined) v2Payload.specialty = data.specialty;
+        if (data.date !== undefined) v2Payload.paymentDate = processedData.date;
+
+        if (Object.keys(v2Payload).length > 0) {
+            console.log('[PaymentService] updatePayment → V2', v2Payload);
+            const res = await API.patch<{ success: boolean; data: any }>(`/v2/payments/${id}`, v2Payload);
+            return res.data?.data || res.data;
+        }
+    }
+
+    // 🔄 Legado
+    console.log('[PaymentService] updatePayment → V1');
+    const res = await API.patch<FinancialRecord>(`/payments/${id}`, processedData);
+    return res.data;
 };
 
 export const markPaymentAsPaid = async (paymentId: string) => {
+    if (USE_V2_PAYMENT_WRITES) {
+        console.log('[PaymentService] markPaymentAsPaid → V2');
+        const res = await API.patch<{ success: boolean; data: any }>(`/v2/payments/${paymentId}`, {
+            status: 'paid'
+        });
+        return res.data?.data || res.data;
+    }
+
     const response = await API.patch(`/payments/${paymentId}/mark-as-paid`);
     return response.data;
 };

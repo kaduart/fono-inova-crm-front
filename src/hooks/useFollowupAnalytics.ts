@@ -13,19 +13,21 @@ export const useFollowupAnalytics = () => {
         try {
             setState(prev => ({ ...prev, loading: true, error: null }));
 
-            const [statsResponse, trendResponse, conversionResponse] = await Promise.all([
+            const [statsResponse, trendResponse, conversionResponse, roiResponse] = await Promise.all([
                 followupService.getMetrics(),
                 followupService.getTrend(7),
-                followupService.getConversionByOrigin()
+                followupService.getConversionByOrigin(),
+                followupService.getRoiBySource()
             ]);
 
             // Verifica se TODAS as respostas foram bem sucedidas
-            if (statsResponse.success && trendResponse.success && conversionResponse.success) {
+            if (statsResponse.success && trendResponse.success && conversionResponse.success && roiResponse.success) {
                 setState({
                     data: {
                         stats: statsResponse.data,
                         trend: trendResponse.data,
-                        conversion: conversionResponse.data
+                        conversion: conversionResponse.data,
+                        roi: roiResponse.data
                     },
                     loading: false,
                     error: null
@@ -36,6 +38,7 @@ export const useFollowupAnalytics = () => {
                     statsResponse.error?.message ||
                     trendResponse.error?.message ||
                     conversionResponse.error?.message ||
+                    roiResponse.error?.message ||
                     'Erro ao carregar analytics';
 
                 throw new Error(errorMessage);

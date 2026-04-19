@@ -134,8 +134,9 @@ export const PaymentsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                     date: appt.date ? new Date(appt.date).toISOString().split('T')[0] : '',
                     description: appt.notes || '',
                     amount: appt.sessionValue || appt.insuranceValue || 0,
-                    paid: appt.paymentStatus === 'paid' || appt.paymentStatus === 'package_paid',
-                    status: appt.paymentStatus === 'paid' ? 'paid' : appt.paymentStatus === 'partial' ? 'partial' : 'pending',
+                    // 💰 Fonte de verdade: Payment.status
+                    paid: appt.payment?.status === 'paid' || appt.payment?.status === 'package_paid',
+                    status: appt.payment?.status || appt.paymentStatus || 'pending',
                     specialty: appt.specialty || '',
                     createdAt: appt.createdAt || '',
                     patientId: appt.patient?._id || '',
