@@ -76,6 +76,13 @@ export const PAYMENT_STATUS_CONFIG = {
         bgColor: "rgba(235, 130, 219, 1)",
         textColor: "#7f1d1d",
     },
+    unknown: {
+        label: "Não verificado",
+        color: "#6b7280",
+        icon: Clock,
+        bgColor: "#f3f4f6",
+        textColor: "#374151",
+    },
 };
 
 export const OPERATIONAL_STATUS_VISUAL_CONFIG = {
@@ -169,6 +176,48 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     const [selectedEvent, setSelectedEvent] = useState<SelectedEvent | null>(null);
     const theme = useTheme();
 
+
+
+    // 🆕 Helper: filtra appointments por data (YYYY-MM-DD)
+    const getAppointmentsByDay = useCallback((dateStr: string) => {
+        return appointments.filter(appt => {
+            if (!appt.date) return false;
+            const apptDateStr = typeof appt.date === 'string'
+                ? (appt.date.includes('T') ? appt.date.split('T')[0] : appt.date)
+                : new Date(appt.date).toISOString().split('T')[0];
+            return apptDateStr === dateStr;
+        });
+    }, [appointments]);
+
+    // 🆕 Calcula progresso de sessões por pacote ("1/4", "2/4", etc.)
+    const packageProgressMap = useMemo(() => {
+        const map: Record<string, { current: number; total: number; text: string }> = {};
+        // Agrupa appointments de pacote por package ID
+        const byPackage: Record<string, IAppointment[]> = {};
+        appointments.forEach(appt => {
+            const pkgId = typeof appt.package === 'string' ? appt.package : (appt.package as any)?._id || (appt.package as any)?.id;
+            if (appt.serviceType === 'package_session' && pkgId) {
+                if (!byPackage[pkgId]) byPackage[pkgId] = [];
+                byPackage[pkgId].push(appt);
+            }
+        });
+        // Ordena cada grupo por data+hora e atribui posição
+        Object.entries(byPackage).forEach(([pkgId, group]) => {
+            group.sort((a, b) => {
+                const da = `${a.date || ''}T${a.time || '00:00'}`;
+                const db = `${b.date || ''}T${b.time || '00:00'}`;
+                return da.localeCompare(db);
+            });
+            group.forEach((appt, idx) => {
+                const apptId = appt._id || appt.id;
+                if (apptId) {
+                    map[apptId] = { current: idx + 1, total: group.length, text: `${idx + 1}/${group.length}` };
+                }
+            });
+        });
+        return map;
+    }, [appointments]);
+
     // ✅ CORREÇÃO: Apenas estado essencial, SEM loading automático
     // O loading automático estava causando re-renders infinitos
     const [currentViewDate, setCurrentViewDate] = useState<string>('');
@@ -176,6 +225,20 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     // 🆕 Estado para feriados do backend
     const [holidays, setHolidays] = useState<Record<string, Holiday>>({});
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+
+    // 🆕 Popup do dia com delay (dá tempo de arrastar mouse para dentro)
+    const [hoveredDay, setHoveredDay] = useState<string | null>(null);
+    const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const clearHoverTimeout = () => {
+        if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current);
+            hoverTimeoutRef.current = null;
+        }
+    };
+    const scheduleHide = () => {
+        clearHoverTimeout();
+        hoverTimeoutRef.current = setTimeout(() => setHoveredDay(null), 200);
+    };
 
     // 🆕 Busca feriados do backend quando o ano muda
     useEffect(() => {
@@ -331,6 +394,15 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         console.log(`📥 [EnhancedCalendar] appointments prop atualizada — ${appointments?.length ?? 0} itens (FullCalendar vai re-renderizar via prop, sem refetch)`);
     }, [appointments]);
 
+    // 💰 Fonte de verdade: Payment.status. NUNCA confiamos em appointment.paymentStatus
+    const getRealPaymentStatus = useCallback((appt: any): string => {
+        if (appt?.payment?.status) {
+            return appt.payment.status;
+        }
+        // Sem Payment associado: retorna unknown para não mentir
+        return 'unknown';
+    }, []);
+
     const getPaymentStatusConfig = useCallback((paymentStatus: string) => {
         return PAYMENT_STATUS_CONFIG[paymentStatus as keyof typeof PAYMENT_STATUS_CONFIG] || PAYMENT_STATUS_CONFIG.pending;
     }, []);
@@ -417,6 +489,53 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         setIsAppointmentDetailModalOpen(true);
     };
 
+    // 🆕 Abre modal de detalhe a partir de um appointment (usado pelo popover do dia)
+    const openAppointmentDetail = useCallback((appt: IAppointment) => {
+        const dateObj = typeof appt.date === 'string'
+            ? (appt.date.includes('T') ? new Date(appt.date) : new Date(appt.date + 'T' + (appt.time || '00:00')))
+            : new Date(appt.date);
+        const time = appt.time || '00:00';
+        const formattedDate = new Intl.DateTimeFormat("pt-BR", {
+            day: "2-digit", month: "2-digit", year: "numeric",
+            hour: "2-digit", minute: "2-digit",
+        }).format(dateObj);
+
+        const selectedEventData = {
+            id: appt._id || appt.id,
+            patient: {
+                id: appt.patient?._id || appt.patient?.id || '',
+                fullName: appt.patient?.fullName || appt.patientInfo?.fullName || "Paciente não informado"
+            },
+            doctor: {
+                id: appt.doctor?._id || appt.doctor?.id || '',
+                fullName: appt.doctor?.fullName || "Profissional não informado"
+            },
+            date: dateObj,
+            startTime: time,
+            operationalStatus: appt.operationalStatus || "scheduled",
+            clinicalStatus: appt.clinicalStatus || "pending",
+            formattedDate,
+            start: formattedDate,
+            reason: appt.reason || appt.notes || "",
+            notes: appt.notes || "",
+            billingType: appt.billingType || 'particular',
+            insuranceProvider: appt.insuranceProvider || '',
+            insuranceValue: appt.insuranceValue || 0,
+            authorizationCode: appt.authorizationCode || '',
+            serviceType: appt.serviceType || appt.sessionType || 'individual_session',
+            paymentAmount: appt.sessionValue || appt.paymentAmount || 0,
+            sessionValue: appt.sessionValue || appt.paymentAmount || 0,
+            paymentMethod: appt.paymentMethod || 'dinheiro',
+            specialty: appt.specialty || appt.sessionType || '',
+            __isPreAgendamento: (appt as any).__isPreAgendamento || false,
+            package: appt.package || null,
+            backgroundColor: '',
+            borderColor: ''
+        };
+        setSelectedEvent(selectedEventData);
+        setIsAppointmentDetailModalOpen(true);
+    }, []);
+
     // 🔹 MEMOIZAÇÃO DOS EVENTOS - Só recalcula quando appointments mudar
     const events = useMemo(() => {
         console.log('⚙️ Recalculando events:', appointments?.length || 0, 'appointments');
@@ -482,7 +601,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             }
             const endDate = new Date(startDate.getTime() + (appt.duration || 60) * 60000);
 
-            const paymentConfig = getPaymentStatusConfig(appt.paymentStatus || 'pending');
+            const paymentConfig = getPaymentStatusConfig(getRealPaymentStatus(appt));
             const operationalConfig = getOperationalStatusConfig(appt.operationalStatus || 'scheduled');
 
             const eventObj = {
@@ -492,6 +611,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 end: endDate,
                 extendedProps: {
                     ...appt,
+                    paymentStatus: getRealPaymentStatus(appt),
                     paymentConfig,
                     operationalConfig,
                     time: (appt.time || '').trim(),
@@ -584,9 +704,21 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         eventClassNames: "cursor-pointer hover:!opacity-90 transition-all duration-200",
         dayCellClassNames: "hover:bg-gray-50/50 transition-colors duration-200",
         windowResizeDelay: 100,
-        eventMinHeight: 240,
         eventShortHeight: false,
-        slotMinHeight: 140,
+        // Configurações específicas por view para evitar overflow no modo mensal
+        views: {
+            dayGridMonth: {
+                eventDisplay: 'none', // Oculta barras do FC — popup do dayCellContent trata o mês
+            },
+            timeGridWeek: {
+                eventMinHeight: 240,
+                slotMinHeight: 140,
+            },
+            timeGridDay: {
+                eventMinHeight: 240,
+                slotMinHeight: 140,
+            },
+        },
         datesSet: handleDatesSet,
         viewDidMount: (info: any) => {
             if (info.view.type === 'timeGridWeek' || info.view.type === 'timeGridDay') {
@@ -598,11 +730,340 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         }
     }), [handleDatesSet]);
 
+    // 🆕 COMPONENTE REUTILIZÁVEL: Card visual de agendamento (calendário + popup)
+    const AppointmentEventCard = React.memo(({ appointment, timeText, onClick, variant = 'compact' }: {
+        appointment: IAppointment;
+        timeText?: string;
+        onClick?: () => void;
+        variant?: 'compact' | 'expanded';
+    }) => {
+        const apptId = appointment._id || appointment.id || '';
+        const packageProgress = packageProgressMap[apptId];
+        const isExpanded = variant === 'expanded';
+        const paymentStatus = getRealPaymentStatus(appointment);
+        const operationalStatus = appointment.operationalStatus || 'scheduled';
+        const paymentConfig = getPaymentStatusConfig(paymentStatus);
+        const operationalConfig = getOperationalStatusConfig(operationalStatus);
+
+        const patientName = appointment.patient?.fullName || appointment.patientInfo?.fullName || 'Paciente';
+        const doctorName = appointment.doctor?.fullName || 'Profissional';
+
+        // 🎨 DADOS DO PACOTE — trata string (não populado) e objeto (populado)
+        const rawPackage = (appointment as any).package;
+        const hasPackage = !!rawPackage || appointment.serviceType === 'package_session';
+        const packageObj = typeof rawPackage === 'object' && rawPackage !== null ? rawPackage : null;
+        const packageId = typeof rawPackage === 'string' ? rawPackage : packageObj?._id || packageObj?.id || '';
+        const isLiminar = packageObj?.type === 'liminar';
+        const totalSessions = packageObj?.totalSessions ?? null;
+        const sessionsDone = packageObj?.sessionsDone ?? null;
+        const sessionsRemaining = packageObj?.sessionsRemaining ?? null;
+        const packageSessionValue = packageObj?.sessionValue ?? null;
+        const packageType = packageObj?.type || '';
+        const liminarCreditBalance = packageObj?.liminarCreditBalance ?? null;
+        const liminarProcessNumber = packageObj?.liminarProcessNumber || '';
+
+        const patientBalance = (appointment as any).patientBalance || 0;
+        const patientHasDebt = (appointment as any).patientHasDebt || false;
+
+        const serviceType = appointment.serviceType || appointment.sessionType || 'Sessão';
+        const specialty = appointment.specialty || '';
+        const sessionValue = appointment.sessionValue || appointment.paymentAmount || 0;
+        const reason = appointment.reason || appointment.notes || '';
+
+        const SERVICE_TYPE_LABELS: Record<string, string> = {
+            'individual_session': 'Sessão',
+            'package_session': 'Pacote',
+            'evaluation': 'Avaliação',
+            'neuropsych_evaluation': 'Neuropsico',
+            'return': 'Retorno',
+            'alignment': 'Alinhamento',
+            'meet': 'Reunião',
+            'tongue_tie_test': 'Teste Lingua'
+        };
+        const serviceLabel = SERVICE_TYPE_LABELS[serviceType] || serviceType;
+
+        const billingType = appointment.billingType;
+        const insuranceProvider = appointment.insuranceProvider;
+        const isConvenio = billingType === 'convenio' || (!!insuranceProvider && insuranceProvider !== '');
+        const insuranceProviderName = isConvenio
+            ? INSURANCE_PROVIDERS.find(p => p.id === insuranceProvider)?.name || insuranceProvider
+            : '';
+
+        const appointmentPaymentStatus = getRealPaymentStatus(appointment);
+        const financialStatus = appointmentPaymentStatus === 'package_paid' || appointmentPaymentStatus === 'paid'
+            ? 'paid'
+            : hasPackage && packageObj
+                ? packageObj.financialStatus || appointmentPaymentStatus || 'pending'
+                : appointmentPaymentStatus || 'pending';
+
+        const isPackageSessionPending = hasPackage && financialStatus === 'pending';
+
+        const PAYMENT_BADGE: Record<string, { label: string; icon: string; bg: string; text: string }> = {
+            paid: { label: 'Pago', icon: '$', bg: 'bg-green-600', text: 'text-white' },
+            pending: { label: 'Pendente', icon: '$', bg: 'bg-red-600', text: 'text-white' },
+            package_paid: { label: 'Pacote', icon: '📦', bg: 'bg-green-600', text: 'text-white' },
+            unknown: { label: 'Não verificado', icon: '?', bg: 'bg-gray-400', text: 'text-white' },
+            unknown: { label: 'Não verificado', icon: '?', bg: 'bg-gray-400', text: 'text-white' },
+            partial: { label: 'Parcial', icon: '⚠️', bg: 'bg-amber-500', text: 'text-white' },
+            advanced: { label: 'Adiant.', icon: '💵', bg: 'bg-blue-600', text: 'text-white' },
+            open: { label: 'Aberto', icon: '❌', bg: 'bg-red-600', text: 'text-white' },
+            overdue: { label: 'Vencido', icon: '🔴', bg: 'bg-rose-700', text: 'text-white' },
+            canceled: { label: 'Cancel.', icon: '⛔', bg: 'bg-gray-500', text: 'text-white' },
+        };
+
+        const OPERATIONAL_BADGE: Record<string, { label: string; bg: string; text: string }> = {
+            scheduled: { label: 'Agendado', bg: 'bg-blue-500', text: 'text-white' },
+            confirmed: { label: 'Confirm.', bg: 'bg-emerald-600', text: 'text-white' },
+            in_progress: { label: 'Andamento', bg: 'bg-orange-500', text: 'text-white' },
+            completed: { label: 'Concluído', bg: 'bg-green-700', text: 'text-white' },
+            canceled: { label: 'Cancel.', bg: 'bg-gray-600', text: 'text-white' },
+            absent: { label: 'Faltou', bg: 'bg-red-700', text: 'text-white' },
+            pre_agendado: { label: 'Pré-Agend.', bg: 'bg-pink-500', text: 'text-white' },
+        };
+
+        const paymentBadge = PAYMENT_BADGE[financialStatus] || PAYMENT_BADGE.pending;
+        const operationalBadge = OPERATIONAL_BADGE[operationalStatus] || OPERATIONAL_BADGE.scheduled;
+        const OperationalIcon = operationalConfig?.icon || Clock;
+
+        const fmtTime = (t: string) => {
+            if (!t) return '';
+            if (t.length === 5 && t.includes(':')) return t;
+            return t.toString().padStart(2, '0') + ':00';
+        };
+
+        // 🎨 Cor do card por tipo de atendimento
+        const getCardBackground = () => {
+            if (isPackageSessionPending) return 'linear-gradient(135deg, #fde047 0%, #f97316 100%)';
+            if (hasPackage && isLiminar) return 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)';
+            if (hasPackage) return 'linear-gradient(135deg, #9333ea 0%, #7e22ce 100%)';
+            if (isConvenio) return 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+            return 'linear-gradient(135deg, #a2ddbfff 0%, #1aac68ff 100%)';
+        };
+
+        return (
+            <Paper
+                elevation={2}
+                onClick={onClick}
+                className={`flex flex-col ${isExpanded ? 'p-5' : 'p-3'} rounded-xl w-full h-full relative transition-all duration-200 hover:shadow-lg cursor-pointer ${isPackageSessionPending ? 'animate-pulse' : ''}`}
+                style={{
+                    background: getCardBackground(),
+                    borderLeft: `8px solid ${operationalConfig.color}`,
+                    opacity: ['canceled', 'absent'].includes(operationalStatus) ? 0.7 : 1,
+                    minHeight: isExpanded ? '240px' : '170px',
+                    boxShadow: isPackageSessionPending
+                        ? '0 0 15px rgba(249, 115, 22, 0.6)'
+                        : undefined,
+                }}
+            >
+                {/* Linha superior: horário e status pagamento */}
+                <div className="flex justify-between items-start mb-2 gap-2">
+                    <span className={`${isExpanded ? 'text-base' : 'text-sm'} font-bold bg-white/90 text-gray-800 px-2 py-1 rounded-lg`}>
+                        {fmtTime(timeText || appointment.time || '')}
+                    </span>
+                    <div className={`${paymentBadge.bg} ${paymentBadge.text} px-2 py-1 rounded-lg ${isExpanded ? 'text-xs' : 'text-[10px]'} font-extrabold shadow-md flex items-center gap-1`}>
+                        <span>{paymentBadge.icon}</span>
+                        <span>{paymentBadge.label}</span>
+                    </div>
+                </div>
+
+                {/* Nome do paciente em destaque */}
+                <p className={`${isExpanded ? 'text-lg' : 'text-base'} font-bold truncate leading-tight text-gray-900 mb-1`}>
+                    {patientName}
+                </p>
+
+                {/* Profissional */}
+                <p className={`${isExpanded ? 'text-sm' : 'text-xs'} truncate text-gray-700 leading-tight mb-2`}>
+                    {doctorName}
+                </p>
+
+                {/* Linha de serviço + especialidade */}
+                <div className="flex flex-wrap gap-1 mb-2">
+                    {/* No card expandido de pacote/convênio, o bloco de info já identifica o tipo — evita redundância */}
+                    {!(isExpanded && (hasPackage || isConvenio)) && (
+                        <span className={`${isExpanded ? 'text-xs' : 'text-[10px]'} bg-white/80 px-2 py-0.5 rounded text-gray-800 font-medium`}>
+                            {serviceLabel}
+                        </span>
+                    )}
+                    {specialty && (
+                        <span className={`${isExpanded ? 'text-xs' : 'text-[10px]'} bg-white/80 px-2 py-0.5 rounded text-gray-800 font-medium capitalize`}>
+                            {specialty.replace('_', ' ')}
+                        </span>
+                    )}
+                </div>
+
+                {/* 🆕 INFO PERTINENTE DO AGENDAMENTO */}
+                {isExpanded && (
+                    <div className="mb-3 space-y-1.5">
+                        {/* Tipo de atendimento + detalhes */}
+                        {hasPackage && (
+                            <div className={`p-2 rounded-lg ${isLiminar ? 'bg-amber-100/80 border border-amber-300' : 'bg-purple-100/80 border border-purple-300'}`}>
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className={`text-xs font-bold ${isLiminar ? 'text-amber-800' : 'text-purple-800'}`}>
+                                        {isLiminar ? '⚖️ Liminar' : '📦 Pacote'}
+                                    </span>
+                                    {/* Sempre mostra badge de status (do pacote ou do appointment) */}
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${paymentBadge.bg} ${paymentBadge.text}`}>
+                                        {paymentBadge.label}
+                                    </span>
+                                </div>
+                                {/* Progresso do pacote: calculado no client (X/Y) ou do objeto populado */}
+                                {packageProgress ? (
+                                    <div className="text-[11px] text-gray-700">
+                                        <div className="flex justify-between mb-0.5">
+                                            <span>Sessão:</span>
+                                            <span className="font-bold">{packageProgress.text}</span>
+                                        </div>
+                                        <div className="w-full bg-white/60 rounded-full h-1.5 mt-1">
+                                            <div
+                                                className={`h-1.5 rounded-full ${isLiminar ? 'bg-amber-500' : 'bg-purple-500'}`}
+                                                style={{ width: `${Math.min(100, (packageProgress.current / packageProgress.total) * 100)}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                ) : totalSessions !== null ? (
+                                    <div className="text-[11px] text-gray-700">
+                                        <div className="flex justify-between mb-0.5">
+                                            <span>Progresso:</span>
+                                            <span className="font-bold">
+                                                {sessionsDone !== null ? `${sessionsDone}/${totalSessions}` : `${totalSessions} sessões`}
+                                            </span>
+                                        </div>
+                                        {sessionsDone !== null && totalSessions > 0 && (
+                                            <div className="w-full bg-white/60 rounded-full h-1.5 mt-1">
+                                                <div
+                                                    className={`h-1.5 rounded-full ${isLiminar ? 'bg-amber-500' : 'bg-purple-500'}`}
+                                                    style={{ width: `${Math.min(100, (sessionsDone / totalSessions) * 100)}%` }}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : null}
+                                {/* Valor: só mostra se > 0; senão indica que está incluso no pacote */}
+                                {(packageSessionValue ?? sessionValue ?? 0) > 0 ? (
+                                    <div className="text-[11px] text-gray-700 mt-1">
+                                        💰 Valor/sessão:{" "}
+                                        <span className="font-semibold">
+                                            R$ {(packageSessionValue ?? sessionValue ?? 0).toFixed(2)}
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <div className="text-[11px] text-gray-600 mt-1 italic">
+                                        🎁 Incluído no pacote
+                                    </div>
+                                )}
+                                {isLiminar && liminarProcessNumber && (
+                                    <div className="text-[10px] text-amber-700 mt-1">
+                                        ⚖️ Processo: {liminarProcessNumber}
+                                    </div>
+                                )}
+                                {isLiminar && liminarCreditBalance !== null && (
+                                    <div className="text-[10px] text-amber-700">
+                                        💳 Crédito: R$ {liminarCreditBalance.toFixed(2)}
+                                    </div>
+                                )}
+                                {/* Hint quando pacote não está populado */}
+                                {!packageObj && packageId && (
+                                    <div className="text-[10px] text-purple-600/70 mt-1 italic">
+                                        Sessão vinculada a pacote
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Convênio */}
+                        {isConvenio && (
+                            <div className="p-2 bg-blue-100/80 border border-blue-300 rounded-lg">
+                                <div className="text-xs font-bold text-blue-800 mb-0.5">🏥 Convênio</div>
+                                <div className="text-[11px] text-gray-700">
+                                    {insuranceProviderName && <div>{insuranceProviderName}</div>}
+                                    {appointment.insuranceValue > 0 && (
+                                        <div>Valor tabela: R$ {appointment.insuranceValue.toFixed(2)}</div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Particular com valor */}
+                        {!hasPackage && !isConvenio && sessionValue > 0 && (
+                            <div className="text-sm text-gray-800 font-semibold">
+                                💰 R$ {sessionValue.toFixed(2)}
+                            </div>
+                        )}
+
+                        {/* Notas/Observações */}
+                        {reason && (
+                            <div className="text-xs text-gray-700 italic bg-white/50 p-1.5 rounded">
+                                📝 {reason}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Valor ou motivo no modo compacto */}
+                {!isExpanded && !hasPackage && !isConvenio && sessionValue > 0 && (
+                    <p className={`text-[11px] text-gray-800 font-semibold mb-2`}>
+                        💰 R$ {sessionValue.toFixed(2)}
+                    </p>
+                )}
+                {!isExpanded && reason && !hasPackage && !isConvenio && sessionValue === 0 && (
+                    <p className={`text-[10px] text-gray-700 truncate italic mb-2`} title={reason}>
+                        📝 {reason.length > 25 ? reason.substring(0, 25) + '...' : reason}
+                    </p>
+                )}
+
+                {/* Badges adicionais */}
+                <div className="flex flex-wrap items-center gap-1 mt-auto">
+                    <div className={`${operationalBadge.bg} ${operationalBadge.text} px-2 py-0.5 rounded ${isExpanded ? 'text-[11px]' : 'text-[9px]'} font-bold flex items-center gap-1`}>
+                        <OperationalIcon size={isExpanded ? 12 : 9} />
+                        <span>{operationalBadge.label}</span>
+                    </div>
+                    {patientHasDebt && (
+                        <div className={`bg-red-600 text-white px-2 py-0.5 rounded ${isExpanded ? 'text-[11px]' : 'text-[9px]'} font-bold animate-pulse`} title={`Paciente deve R$ ${patientBalance.toFixed(2)}`}>
+                            ⚠️ R$ {patientBalance.toFixed(0)}
+                        </div>
+                    )}
+                    {isPackageSessionPending && (
+                        <div className="bg-amber-500 text-white px-2 py-0.5 rounded text-[9px] font-bold animate-pulse" title="Pacote - Receber hoje">
+                            💰 RECEBER
+                        </div>
+                    )}
+                    {/* Badges de tipo só no compacto — no expandido o bloco de info já cobre */}
+                    {!isExpanded && hasPackage && isConvenio && (
+                        <div className="bg-orange-600 text-white px-2 py-0.5 rounded text-[9px] font-bold">
+                            📦 Convênio
+                        </div>
+                    )}
+                    {!isExpanded && hasPackage && !isConvenio && isLiminar && (
+                        <div className="bg-amber-500 text-white px-2 py-0.5 rounded text-[9px] font-bold">
+                            ⚖️ Liminar
+                        </div>
+                    )}
+                    {!isExpanded && hasPackage && !isConvenio && !isLiminar && (
+                        <div className="bg-green-600 text-white px-2 py-0.5 rounded text-[9px] font-bold">
+                            📦 Pacote
+                        </div>
+                    )}
+                    {!isExpanded && !hasPackage && isConvenio && (
+                        <div className="bg-orange-600 text-white px-2 py-0.5 rounded text-[9px] font-bold">
+                            🏥 Convênio
+                        </div>
+                    )}
+                </div>
+            </Paper>
+        );
+    });
+
     // 🔹 RENDERIZAÇÃO DE EVENTOS (memoizada)
     const renderEventContent = useCallback((arg: any) => {
+        // 🎯 Na visualização mensal, não renderizamos cards individuais
+        // (o popup group-hover no dayCellContent já mostra os appointments)
+        if (arg.view.type === 'dayGridMonth') {
+            return <></>;
+        }
+
         // 🎯 BUSCA DADOS ATUALIZADOS diretamente do estado React para evitar stale extendedProps
         const liveAppt = appointments.find(a => (a._id || a.id) === arg.event.id);
-        const paymentStatus = liveAppt?.paymentStatus || arg.event.extendedProps.paymentStatus || 'pending';
+        const paymentStatus = getRealPaymentStatus(liveAppt) || getRealPaymentStatus(arg.event.extendedProps) || 'pending';
         const operationalStatus = liveAppt?.operationalStatus || arg.event.extendedProps.operationalStatus || 'scheduled';
 
         const paymentConfig = arg.event.extendedProps.paymentConfig || getPaymentStatusConfig(paymentStatus);
@@ -611,15 +1072,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         const patientName = arg.event.extendedProps.patientName || arg.event.extendedProps.patient?.fullName || 'Paciente';
         const doctorName = arg.event.extendedProps.doctorName || arg.event.extendedProps.doctor?.fullName || 'Profissional';
 
-        const packageData = arg.event.extendedProps.package;
-        // 🛡️ CORREÇÃO: Só considera pacote se for objeto populado com dados válidos
-        const hasPackage = !!packageData && typeof packageData === 'object' && (
-            typeof packageData.totalSessions === 'number' ||
-            typeof packageData.sessionsDone === 'number' ||
-            typeof packageData.sessionsRemaining === 'number' ||
-            typeof packageData.sessionValue === 'number' ||
-            typeof packageData.type === 'string'
-        );
+        // 🎨 DADOS DO PACOTE — trata string (não populado) e objeto (populado)
+        const rawPackage = arg.event.extendedProps.package;
+        const hasPackage = !!rawPackage || arg.event.extendedProps.serviceType === 'package_session';
+        const packageObj = typeof rawPackage === 'object' && rawPackage !== null ? rawPackage : null;
+        const isLiminar = packageObj?.type === 'liminar';
+        const packageId = typeof rawPackage === 'string' ? rawPackage : packageObj?._id || packageObj?.id || '';
 
         // 💰 SALDO DEVEDOR DO PACIENTE
         const patientBalance = arg.event.extendedProps.patientBalance || 0;
@@ -652,18 +1110,18 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         // 🆕 DADOS DE CONVÊNIO
         const billingType = arg.event.extendedProps.billingType;
         const insuranceProvider = arg.event.extendedProps.insuranceProvider;
-        // ✅ Mostra convênio se tiver insuranceProvider (mesmo se billingType estiver como particular)
-        const isConvenio = insuranceProvider && insuranceProvider !== '';
+        // ✅ Mostra convênio se tiver insuranceProvider ou billingType === 'convenio'
+        const isConvenio = billingType === 'convenio' || (!!insuranceProvider && insuranceProvider !== '');
         const insuranceProviderName = isConvenio
             ? INSURANCE_PROVIDERS.find(p => p.id === insuranceProvider)?.name || insuranceProvider
             : '';
 
         // Status financeiro: prioriza o status do agendamento, depois do pacote
-        const appointmentPaymentStatus = arg.event.extendedProps.paymentStatus;
+        const appointmentPaymentStatus = getRealPaymentStatus(arg.event.extendedProps);
         const financialStatus = appointmentPaymentStatus === 'package_paid' || appointmentPaymentStatus === 'paid'
             ? 'paid'  // Se o agendamento está pago, mostra pago
-            : hasPackage
-                ? packageData.financialStatus  // Senão, usa do pacote
+            : hasPackage && packageObj
+                ? packageObj.financialStatus || appointmentPaymentStatus || 'pending'
                 : appointmentPaymentStatus || 'pending';
 
         // 🔥 NOVO: Detecta sessão de pacote pendente (destaque especial)
@@ -746,29 +1204,36 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         </div>
 
                         {hasPackage && (
-                            <div className={`mb-3 p-2 rounded-lg ${packageData.type === 'liminar' ? 'bg-amber-700/30 border border-amber-500/30' : 'bg-slate-700/50'}`}>
+                            <div className={`mb-3 p-2 rounded-lg ${isLiminar ? 'bg-amber-700/30 border border-amber-500/30' : 'bg-slate-700/50'}`}>
                                 <div className="flex items-center justify-between mb-2">
-                                    <span className={`text-xs font-medium ${packageData.type === 'liminar' ? 'text-amber-300' : 'text-slate-300'}`}>
-                                        {packageData.type === 'liminar' ? '⚖️ Liminar' : '📦 Pacote'}
+                                    <span className={`text-xs font-medium ${isLiminar ? 'text-amber-300' : 'text-slate-300'}`}>
+                                        {isLiminar ? '⚖️ Liminar' : '📦 Pacote'}
                                     </span>
                                     <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${paymentBadge.bg} ${paymentBadge.text}`}>
-                                        {packageData.type === 'liminar' ? 'Crédito' : paymentBadge.label}
+                                        {isLiminar ? 'Crédito' : paymentBadge.label}
                                     </span>
                                 </div>
-                                <div className="text-[10px] text-slate-400 space-y-1">
-                                    <div>💰 Valor/sessão: R$ {packageData.sessionValue?.toFixed(2)}</div>
-                                    {packageData.type === 'liminar' ? (
-                                        <>
-                                            <div>⚖️ Crédito disp: R$ {packageData.liminarCreditBalance?.toFixed(2)}</div>
-                                            <div>✅ Reconhecido: R$ {packageData.recognizedRevenue?.toFixed(2)}</div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div>📊 Saldo: {packageData.balance} sessões</div>
-                                            <div>✅ Pago: R$ {packageData.totalPaid?.toFixed(2)}</div>
-                                        </>
-                                    )}
-                                </div>
+                                {packageObj && (
+                                    <div className="text-[10px] text-slate-400 space-y-1">
+                                        <div>💰 Valor/sessão: R$ {packageObj.sessionValue?.toFixed(2)}</div>
+                                        {isLiminar ? (
+                                            <>
+                                                <div>⚖️ Crédito disp: R$ {packageObj.liminarCreditBalance?.toFixed(2)}</div>
+                                                <div>✅ Reconhecido: R$ {packageObj.recognizedRevenue?.toFixed(2)}</div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div>📊 Sessões: {packageObj.sessionsDone ?? 0}/{packageObj.totalSessions ?? 0}</div>
+                                                <div>✅ Pago: R$ {packageObj.totalPaid?.toFixed(2)}</div>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                                {!packageObj && packageId && (
+                                    <div className="text-[10px] text-slate-500 italic">
+                                        Pacote (detalhes não carregados)
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -833,105 +1298,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     }
                 }}
             >
-                <Paper
-                    elevation={2}
-                    className={`flex flex-col p-3 rounded-xl w-full h-full relative transition-all duration-200 hover:shadow-lg ${isPackageSessionPending ? 'animate-pulse' : ''}`}
-                    style={{
-                        background: isPackageSessionPending 
-                            ? 'linear-gradient(135deg, #fde047 0%, #f97316 100%)' // 🟡🟠 Amarelo/Laranja pulsante
-                            : 'linear-gradient(135deg, #a2ddbfff 0%, #1aac68ff 100%)',
-                        borderLeft: `8px solid ${operationalConfig.color}`,
-                        opacity: ['canceled', 'absent'].includes(arg.event.extendedProps.operationalStatus) ? 0.7 : 1,
-                        minHeight: '170px',
-                        boxShadow: isPackageSessionPending 
-                            ? '0 0 15px rgba(249, 115, 22, 0.6)' // 🔥 Glow laranja
-                            : undefined,
-                    }}
-                >
-                    {/* Linha superior: horário e status pagamento */}
-                    <div className="flex justify-between items-start mb-2 gap-2">
-                        <span className="text-sm font-bold bg-white/90 text-gray-800 px-2 py-1 rounded-lg">
-                            {formatTime(arg.timeText)}
-                        </span>
-                        <div className={`${paymentBadge.bg} ${paymentBadge.text} px-2 py-1 rounded-lg text-[10px] font-extrabold shadow-md flex items-center gap-1`}>
-                            <span>{paymentBadge.icon}</span>
-                            <span>{paymentBadge.label}</span>
-                        </div>
-                    </div>
-
-                    {/* Nome do paciente em destaque */}
-                    <p className="text-base font-bold truncate leading-tight text-gray-900 mb-1">
-                        {patientName}
-                    </p>
-
-                    {/* Profissional */}
-                    <p className="text-xs truncate text-gray-700 leading-tight mb-2">
-                        {doctorName}
-                    </p>
-
-                    {/* Linha de serviço + especialidade */}
-                    <div className="flex flex-wrap gap-1 mb-2">
-                        <span className="text-[10px] bg-white/80 px-2 py-0.5 rounded text-gray-800 font-medium">
-                            {serviceLabel}
-                        </span>
-                        {specialty && (
-                            <span className="text-[10px] bg-white/80 px-2 py-0.5 rounded text-gray-800 font-medium capitalize">
-                                {specialty.replace('_', ' ')}
-                            </span>
-                        )}
-                    </div>
-
-                    {/* Valor ou motivo (se houver) */}
-                    {!hasPackage && !isConvenio && sessionValue > 0 && (
-                        <p className="text-[11px] text-gray-800 font-semibold mb-2">
-                            💰 R$ {sessionValue.toFixed(2)}
-                        </p>
-                    )}
-                    {reason && !hasPackage && !isConvenio && sessionValue === 0 && (
-                        <p className="text-[10px] text-gray-700 truncate italic mb-2" title={reason}>
-                            📝 {reason.length > 25 ? reason.substring(0, 25) + '...' : reason}
-                        </p>
-                    )}
-
-                    {/* Badges adicionais */}
-                    <div className="flex flex-wrap items-center gap-1 mt-auto">
-                        <div className={`${operationalBadge.bg} ${operationalBadge.text} px-2 py-0.5 rounded text-[9px] font-bold flex items-center gap-1`}>
-                            <OperationalIcon size={9} />
-                            <span>{operationalBadge.label}</span>
-                        </div>
-                        {patientHasDebt && (
-                            <div className="bg-red-600 text-white px-2 py-0.5 rounded text-[9px] font-bold animate-pulse" title={`Paciente deve R$ ${patientBalance.toFixed(2)}`}>
-                                ⚠️ R$ {patientBalance.toFixed(0)}
-                            </div>
-                        )}
-                        {/* 🔥 NOVO: Badge para sessão de pacote pendente */}
-                        {isPackageSessionPending && (
-                            <div className="bg-amber-500 text-white px-2 py-0.5 rounded text-[9px] font-bold animate-pulse" title="Pacote - Receber hoje">
-                                💰 RECEBER
-                            </div>
-                        )}
-                        {hasPackage && isConvenio && (
-                            <div className="bg-orange-600 text-white px-2 py-0.5 rounded text-[9px] font-bold">
-                                📦 Convênio
-                            </div>
-                        )}
-                        {hasPackage && !isConvenio && packageData?.type === 'liminar' && (
-                            <div className="bg-amber-500 text-white px-2 py-0.5 rounded text-[9px] font-bold">
-                                ⚖️ Liminar
-                            </div>
-                        )}
-                        {hasPackage && !isConvenio && packageData?.type !== 'liminar' && (
-                            <div className="bg-green-600 text-white px-2 py-0.5 rounded text-[9px] font-bold">
-                                📦 Pacote
-                            </div>
-                        )}
-                        {!hasPackage && isConvenio && (
-                            <div className="bg-orange-600 text-white px-2 py-0.5 rounded text-[9px] font-bold">
-                                🏥 Convênio
-                            </div>
-                        )}
-                    </div>
-                </Paper>
+                <div>
+                    <AppointmentEventCard
+                        appointment={liveAppt || arg.event.extendedProps}
+                        timeText={arg.timeText}
+                    />
+                </div>
             </Tooltip>
         );
     }, [getPaymentStatusConfig, getOperationalStatusConfig, appointments]);
@@ -962,6 +1334,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     '.fc-day-holiday .fc-daygrid-day-number': {
                         color: '#92400e !important', // amber-800
                         fontWeight: 'bold !important',
+                    },
+                    // 🎯 Esconde eventos na visualização mensal (popup group-hover já cobre)
+                    '.fc-dayGridMonth-view .fc-daygrid-event': {
+                        display: 'none !important',
                     },
                 }}
             />
@@ -1055,7 +1431,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                             {/* Days header */}
                             <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-                                {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
+                                {['Seg', 'Ter', 'Qua', 'Qui', 'Sex'].map((day) => (
                                     <Skeleton key={day} variant="text" width="100%" height={30} />
                                 ))}
                             </Box>
@@ -1109,9 +1485,13 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     expandRows={true}
                     dayMaxEventRows={4}
                     dayMaxEvents={true}
-                    eventDisplay="block"
-                    eventMinHeight={140}
                     eventShortHeight={false}
+                    eventDidMount={(arg) => {
+                        // Esconde barras do FC no modo mensal — popup do dayCellContent trata a visualização
+                        if (arg.view.type === 'dayGridMonth') {
+                            (arg.el as HTMLElement).style.display = 'none';
+                        }
+                    }}
                     dayCellClassNames={(arg) => {
                         const dateStr = arg.date.toISOString().split('T')[0];
                         return isHoliday(dateStr) ? 'fc-day-holiday' : '';
@@ -1120,6 +1500,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         const dateStr = arg.date.toISOString().split('T')[0];
                         const isHolidayDate = isHoliday(dateStr);
                         const holidayName = isHolidayDate ? getHolidayName(dateStr) : '';
+                        const dayAppts = getAppointmentsByDay(dateStr);
+                        const dayCount = dayAppts.length;
                         
                         // 🆕 Card de feriado expandido ocupando o espaço
                         if (isHolidayDate) {
@@ -1154,7 +1536,11 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         }
                         
                         return (
-                            <div className="flex flex-col items-end p-1 h-full">
+                            <div 
+                                className="flex flex-col items-end p-1 h-full relative"
+                                onMouseEnter={() => { clearHoverTimeout(); setHoveredDay(dateStr); }}
+                                onMouseLeave={scheduleHide}
+                            >
                                 <span
                                     className={`text-sm rounded-full w-7 h-7 flex items-center justify-center transition-all ${arg.isToday
                                         ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white font-bold shadow-lg transform scale-110'
@@ -1163,6 +1549,36 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 >
                                     {arg.dayNumberText}
                                 </span>
+                                {dayCount > 0 && (
+                                    <span
+                                        className="mt-1 inline-flex items-center justify-center px-1.5 py-0 rounded-full text-[10px] font-bold text-white bg-blue-600 pointer-events-none select-none"
+                                        style={{ minWidth: '18px', height: '18px' }}
+                                    >
+                                        {dayCount}
+                                    </span>
+                                )}
+                                {/* 🆕 DROPDOWN DO DIA — com delay de 400ms */}
+                                {dayCount > 0 && hoveredDay === dateStr && (
+                                    <div 
+                                        className={`absolute top-full z-[9999] w-[360px] max-h-[520px] overflow-auto bg-white rounded-xl shadow-2xl border border-gray-200 p-3 space-y-3 ${arg.date.getDay() <= 3 ? 'left-0' : 'right-0'}`}
+                                        style={{ marginTop: '6px' }}
+                                        onMouseEnter={clearHoverTimeout}
+                                        onMouseLeave={scheduleHide}
+                                    >
+                                        <div className="text-xs font-bold text-gray-700 px-1 py-1 border-b border-gray-100">
+                                            📅 {new Date(dateStr + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                                        </div>
+                                        {dayAppts.map((appt) => (
+                                            <AppointmentEventCard
+                                                key={appt._id || appt.id}
+                                                appointment={appt}
+                                                timeText={appt.time}
+                                                variant="expanded"
+                                                onClick={() => openAppointmentDetail(appt)}
+                                            />
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         );
                     }}
@@ -1259,6 +1675,36 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     .fc-timegrid-more-link {
                         top: 75px !important;
                         bottom: -102px !important;
+                    }
+                    /* 🆕 ESCONDE eventos individuais na view mensal para evitar página gigante */
+                    .fc-dayGridMonth-view .fc-daygrid-body-events {
+                        display: none !important;
+                    }
+                    .fc-dayGridMonth-view .fc-daygrid-event-harness {
+                        display: none !important;
+                    }
+                    .fc-dayGridMonth-view .fc-daygrid-day-events {
+                        min-height: 0 !important;
+                    }
+                    .fc-dayGridMonth-view .fc-daygrid-day-frame {
+                        min-height: 80px !important;
+                        overflow: visible !important;
+                    }
+                    .fc-dayGridMonth-view .fc-daygrid-day {
+                        overflow: visible !important;
+                        position: relative !important;
+                    }
+                    .fc-dayGridMonth-view .fc-daygrid-day:hover {
+                        z-index: 9999 !important;
+                    }
+                    .fc-dayGridMonth-view .fc-daygrid-body {
+                        overflow: visible !important;
+                    }
+                    .fc-dayGridMonth-view .fc-scroller {
+                        overflow: visible !important;
+                    }
+                    .fc-dayGridMonth-view {
+                        overflow: visible !important;
                     }
                 `}</style>
             </Box>
