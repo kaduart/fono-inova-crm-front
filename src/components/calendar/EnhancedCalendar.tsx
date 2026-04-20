@@ -6,6 +6,7 @@ import { Box, Button, GlobalStyles, Paper, Skeleton, Tooltip, Typography, useThe
 import { ptBR } from "date-fns/locale";
 import { AlertCircle, Calendar, CheckCircle, Clock, DollarSign, Plus, User, XCircle } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { INSURANCE_PROVIDERS } from '../../constants/insuranceProviders';
 import { OPERATIONAL_STATUS_CONFIG, StatusConfig } from '../../services/appointmentService';
 import { IAppointment, IDoctor, IPatient, ScheduleAppointment, SelectedEvent } from '../../utils/types/types';
@@ -230,6 +231,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
     // 🆕 Popup do dia com delay (dá tempo de arrastar mouse para dentro)
     const [hoveredDay, setHoveredDay] = useState<string | null>(null);
+    const [activePopup, setActivePopup] = useState<{ dateStr: string; dayAppts: IAppointment[]; rect: DOMRect } | null>(null);
     const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const clearHoverTimeout = () => {
         if (hoverTimeoutRef.current) {
@@ -239,7 +241,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     };
     const scheduleHide = () => {
         clearHoverTimeout();
-        hoverTimeoutRef.current = setTimeout(() => setHoveredDay(null), 200);
+        hoverTimeoutRef.current = setTimeout(() => {
+            setHoveredDay(null);
+            setActivePopup(null);
+        }, 200);
     };
 
     // 🆕 Busca feriados do backend quando o ano muda
@@ -1404,10 +1409,11 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 elevation={1}
                 sx={{
                     borderRadius: 3,
-                    overflow: 'hidden',
+                    overflow: 'visible',
                     border: `1px solid ${theme.palette.grey[200]}`,
                     background: 'white',
-                    position: 'relative', // 🆕 NOVO: Para posicionar o overlay
+                    position: 'relative',
+                    zIndex: 50,
                 }}
             >
                 {/* 🆕 NOVO: Skeleton de loading */}
@@ -1548,7 +1554,13 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             <div
                                 className="flex flex-col items-end p-1 h-full relative"
                                 style={hoveredDay === dateStr ? { zIndex: 9999, position: 'relative' } : undefined}
-                                onMouseEnter={() => { clearHoverTimeout(); setHoveredDay(dateStr); }}
+                                onMouseEnter={(e) => {
+                                    clearHoverTimeout();
+                                    setHoveredDay(dateStr);
+                                    if (dayCount > 0) {
+                                        setActivePopup({ dateStr, dayAppts, rect: e.currentTarget.getBoundingClientRect() });
+                                    }
+                                }}
                                 onMouseLeave={scheduleHide}
                             >
                                 <span
@@ -1566,28 +1578,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                     >
                                         {dayCount}
                                     </span>
-                                )}
-                                {/* 🆕 DROPDOWN DO DIA — com delay de 400ms */}
-                                {dayCount > 0 && hoveredDay === dateStr && (
-                                    <div 
-                                        className={`absolute top-full z-[9999] w-[360px] max-h-[520px] overflow-auto bg-white rounded-xl shadow-2xl border border-gray-200 p-3 space-y-3 ${arg.date.getDay() <= 3 ? 'left-0' : 'right-0'}`}
-                                        style={{ marginTop: '6px' }}
-                                        onMouseEnter={clearHoverTimeout}
-                                        onMouseLeave={scheduleHide}
-                                    >
-                                        <div className="text-xs font-bold text-gray-700 px-1 py-1 border-b border-gray-100">
-                                            📅 {new Date(dateStr + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
-                                        </div>
-                                        {[...dayAppts].sort((a, b) => (a.time || '').localeCompare(b.time || '')).map((appt) => (
-                                            <AppointmentEventCard
-                                                key={appt._id || appt.id}
-                                                appointment={appt}
-                                                timeText={appt.time}
-                                                variant="expanded"
-                                                onClick={() => openAppointmentDetail(appt)}
-                                            />
-                                        ))}
-                                    </div>
                                 )}
                             </div>
                         );
@@ -1741,6 +1731,36 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 doctors={doctors}
                 patients={patients}
             />
+
+            {/* 🆕 PORTAL: Popup do dia — renderiza fora do DOM para ficar acima de tudo */}
+            {activePopup && createPortal(
+                <div
+                    className="fixed z-[99999] w-[360px] max-h-[520px] overflow-auto bg-white rounded-xl shadow-2xl border border-gray-200 p-3 space-y-3"
+                    style={{
+                        top: activePopup.rect.bottom + 6,
+                        left: Math.min(
+                            activePopup.rect.left,
+                            window.innerWidth - 380
+                        ),
+                    }}
+                    onMouseEnter={clearHoverTimeout}
+                    onMouseLeave={scheduleHide}
+                >
+                    <div className="text-xs font-bold text-gray-700 px-1 py-1 border-b border-gray-100">
+                        📅 {new Date(activePopup.dateStr + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                    </div>
+                    {[...activePopup.dayAppts].sort((a, b) => (a.time || '').localeCompare(b.time || '')).map((appt) => (
+                        <AppointmentEventCard
+                            key={appt._id || appt.id}
+                            appointment={appt}
+                            timeText={appt.time}
+                            variant="expanded"
+                            onClick={() => openAppointmentDetail(appt)}
+                        />
+                    ))}
+                </div>,
+                document.body
+            )}
         </Box>
         </>
     );
