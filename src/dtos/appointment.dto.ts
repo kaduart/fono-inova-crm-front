@@ -11,52 +11,64 @@
 
 import { ScheduleAppointment } from '../utils/types/types';
 
-// Valores válidos de paymentMethod no backend V2
+// Valores válidos de paymentMethod no Appointment V2 (back/models/Appointment.js)
 const VALID_PAYMENT_METHODS = [
     'dinheiro',
     'pix',
-    'credit_card',
-    'debit_card',
-    'bank_transfer',
-    'card',
+    'credito',
+    'cartao_credito',
+    'debito',
+    'cartao_debito',
     'cartão',
-    'transferência',
+    'transferencia',
+    'transferencia_bancaria',
     'plano-unimed',
     'convenio',
+    'outro',
 ] as const;
 
 type ValidPaymentMethod = typeof VALID_PAYMENT_METHODS[number];
 
 /**
- * Normaliza paymentMethod para um valor aceito pelo backend.
- * Fallback: 'pix'
+ * Normaliza paymentMethod para um valor aceito pelo backend V2.
+ * Enum do Appointment: dinheiro, pix, credito, cartao_credito, debito, cartao_debito,
+ *                      cartão, transferencia, transferencia_bancaria, plano-unimed, convenio, outro
+ * Fallback: 'dinheiro'
  */
 function normalizePaymentMethod(method?: string | null): ValidPaymentMethod {
-    if (!method) return 'pix';
+    if (!method) return 'dinheiro';
 
     const map: Record<string, ValidPaymentMethod> = {
-        'credito': 'credit_card',
-        'crédito': 'credit_card',
-        'debito': 'debit_card',
-        'débito': 'debit_card',
-        'cartao': 'card',
-        'cartão': 'card',
-        'card': 'card',
+        'credito': 'credito',
+        'crédito': 'credito',
+        'credit_card': 'cartao_credito',
+        'cartao_credito': 'cartao_credito',
+        'debito': 'debito',
+        'débito': 'debito',
+        'debit_card': 'cartao_debito',
+        'cartao_debito': 'cartao_debito',
+        'cartao': 'cartão',
+        'cartão': 'cartão',
+        'card': 'cartão',
         'dinheiro': 'dinheiro',
+        'cash': 'dinheiro',
         'pix': 'pix',
-        'transferencia': 'bank_transfer',
-        'transferência': 'bank_transfer',
+        'transferencia': 'transferencia',
+        'transferência': 'transferencia',
+        'bank_transfer': 'transferencia_bancaria',
+        'transferencia_bancaria': 'transferencia_bancaria',
         'plano-unimed': 'plano-unimed',
         'convenio': 'convenio',
+        'outro': 'outro',
+        'other': 'outro',
     };
 
     const normalized = map[method.toLowerCase().trim()];
     if (normalized) return normalized;
 
-    // Se já é um dos válidos diretos
     if (VALID_PAYMENT_METHODS.includes(method as any)) return method as ValidPaymentMethod;
 
-    return 'pix';
+    return 'dinheiro';
 }
 
 /**

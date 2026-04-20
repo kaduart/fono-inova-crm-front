@@ -7,6 +7,7 @@ import {
 } from '../utils/types/types';
 import API from './api';
 import { extractErrorMessage } from '../utils/errorUtils';
+import { sanitizeAppointmentPayload } from '../dtos/appointment.dto';
 
 export interface StatusConfig {
     [key: string]: {
@@ -193,7 +194,11 @@ export const appointmentService = {
             ? { ...data, endTime: calculateEndTime(data.startTime, data.duration) }
             : data;
 
-        return API.put<IAppointmentResponse>(endpoint, payload);
+        // 🛡️ DTO: Sanitiza payload antes de enviar (normaliza paymentMethod, remove campos inválidos, etc.)
+        const sanitizedPayload = sanitizeAppointmentPayload(payload as any);
+        console.log('[AppointmentService] update sanitized payload:', sanitizedPayload);
+
+        return API.put<IAppointmentResponse>(endpoint, sanitizedPayload);
     },
 
     // 🚀 MIGRAÇÃO V2 - Flag de controle para delete
