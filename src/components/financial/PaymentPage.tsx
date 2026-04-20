@@ -139,15 +139,23 @@ const PatientsSummaryCard = ({
     leads,
     novos,
     periodRange,
+    selectedPeriod,
     loading: externalLoading = false,
     onOpenNewPatients,
 }: {
     leads: any[];
     novos: any[];
     periodRange: { start: string; end: string } | null;
+    selectedPeriod?: string;
     loading?: boolean;
     onOpenNewPatients?: () => void;
 }) => {
+    const periodLabel = selectedPeriod === 'day' ? 'Agendamentos do dia'
+        : selectedPeriod === 'week' ? 'Agendamentos da semana'
+        : selectedPeriod === 'last_week' ? 'Agendamentos semana passada'
+        : selectedPeriod === 'month' ? 'Agendamentos do mês'
+        : selectedPeriod === 'last_month' ? 'Agendamentos mês passado'
+        : 'Agendamentos do período';
     const [leadsModalOpen, setLeadsModalOpen] = useState(false);
     const [newPatientsModalOpen, setNewPatientsModalOpen] = useState(false);
     const theme = useTheme();
@@ -208,7 +216,7 @@ const PatientsSummaryCard = ({
                                 <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
                             </svg>
                             <Typography variant="caption" sx={{ color: '#DB2777', fontWeight: 600 }}>
-                                Agendamentos do dia
+                                {periodLabel}
                             </Typography>
                         </Box>
 
@@ -461,9 +469,6 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
     // 🆕 Analytics de novos pacientes / retornos 45+ dias (inclui pré-agendamentos)
     const { data: analyticsData, loading: analyticsLoading, fetch: fetchAnalytics } = useAppointmentsByType();
 
-    // 📅 Analytics fixos de HOJE (independente do período selecionado) — para o card "Agendamentos do dia"
-    const { data: todayAnalyticsData, fetch: fetchTodayAnalytics } = useAppointmentsByType();
-
     const [appointmentRecords, setAppointmentRecords] = useState<FinancialRecord[]>([]);
 
     const [filteredPayments, setFilteredPayments] = useState<PaymentDTO[]>([]);
@@ -584,7 +589,6 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
         const today = new Date().toISOString().split('T')[0];
         syncAppointments({ startDate: today, endDate: today });
         fetchPaymentTotals({ period: 'day' });
-        fetchTodayAnalytics({ startDate: today, endDate: today, mode: 'date' });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [enabled]);
 
@@ -1021,9 +1025,10 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                         </div>
                         <div className="h-full">
                             <PatientsSummaryCard
-                                leads={todayAnalyticsData?.leads || []}
+                                leads={analyticsData?.leads || []}
                                 novos={analyticsData?.novos || []}
                                 periodRange={computeDateRange(selectedPeriod, customStartDate, customEndDate)}
+                                selectedPeriod={selectedPeriod}
                                 loading={analyticsLoading}
                                 onOpenNewPatients={handleOpenNewPatients}
                             />
