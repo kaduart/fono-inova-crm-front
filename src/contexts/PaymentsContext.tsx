@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import API from '../services/api';
 import { FinancialRecord } from '../services/paymentService';
+import { mapAppointmentListResponseDTO } from '../dtos/appointment.response.dto';
+import { mapAppointmentDTOListToFinancialRecord } from '../dtos/payment.response.dto';
 import { socketManager } from '../utils/socketManager';
 
 interface PaymentsStats {
@@ -114,55 +116,18 @@ export const PaymentsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             
             // 🆕 V2: Extrai appointments da estrutura correta
             // V2 retorna: { success: true, data: { appointments: [...], pagination: {...} } }
-            const appointments = res.data?.data?.appointments || res.data?.appointments || res.data?.data || res.data || [];
+            const rawAppointments = res.data?.data?.appointments || res.data?.appointments || res.data?.data || res.data || [];
             
             // Garante que é array
-            if (!Array.isArray(appointments)) {
-                console.error('[PaymentsContext] appointments não é array:', appointments);
+            if (!Array.isArray(rawAppointments)) {
+                console.error('[PaymentsContext] appointments não é array:', rawAppointments);
                 setPayments([]);
                 return;
             }
             
-            // 🎯 Converte appointments para FinancialRecord
-            const mappedPayments: FinancialRecord[] = appointments.map((appt: any) => {
-                const isPackageAppointment = !!(appt.package?._id || appt.package) || appt.serviceType === 'package_session';
-                const hasPayment = !!(appt.payment?._id || appt.payment);
-                const realPaymentId = appt.payment?._id?.toString?.() || appt.payment?.toString?.() || null;
-
-                return {
-                    _id: realPaymentId || appt.id || appt._id,
-                    date: appt.date ? new Date(appt.date).toISOString().split('T')[0] : '',
-                    description: appt.notes || '',
-                    amount: appt.sessionValue || appt.insuranceValue || 0,
-                    // 💰 Fonte de verdade: Payment.status
-                    paid: appt.payment?.status === 'paid' || appt.payment?.status === 'package_paid',
-                    status: appt.payment?.status || appt.paymentStatus || 'pending',
-                    specialty: appt.specialty || '',
-                    createdAt: appt.createdAt || '',
-                    patientId: appt.patient?._id || '',
-                    doctorId: appt.doctor?._id || '',
-                    serviceType: appt.serviceType || 'session',
-                    paymentMethod: appt.billingType === 'convenio' ? 'Convênio' : (appt.metadata?.paymentMethod || ''),
-                    notes: appt.notes || '',
-                    packageId: appt.package?._id || appt.package || '',
-                    sessionId: appt.session?._id || appt.session || '',
-                    advancedSessions: [],
-                    patient: appt.patient
-                        ? { _id: appt.patient._id, fullName: appt.patient.fullName || appt.patient.nome || appt.patient.name || '' }
-                        : { _id: '', fullName: appt.patientName || 'Desconhecido' },
-                    doctor: appt.doctor
-                        ? { _id: appt.doctor._id, fullName: appt.doctor.fullName || appt.doctor.nome || appt.doctor.name || '' }
-                        : { _id: '', fullName: appt.professionalName || '' },
-                    appointment: { date: appt.date || '', time: appt.time || '', status: appt.operationalStatus || '' },
-                    advanceSessions: [],
-                    // 🚨 IMPORTANTE: Marca que veio de appointment (não é um payment real)
-                    __isAppointmentRecord: true,
-                    __appointmentId: appt.id || appt._id,
-                    __hasPayment: hasPayment,
-                    __realPaymentId: realPaymentId || undefined,
-                    __isPackageAppointment: isPackageAppointment,
-                };
-            });
+            // 🆕 DTO: Normaliza responses da API → AppointmentDTO → FinancialRecord
+            const appointmentDTOs = mapAppointmentListResponseDTO(rawAppointments);
+            const mappedPayments: FinancialRecord[] = mapAppointmentDTOListToFinancialRecord(appointmentDTOs);
 
             // 🎯 Calcula stats
             const statsData: PaymentsStats = {

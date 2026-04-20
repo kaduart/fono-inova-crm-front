@@ -1,0 +1,154 @@
+/**
+ * RESPONSE DTOs de Appointment — Desacopla frontend do schema do backend
+ *
+ * Problemas que resolve:
+ * 1. Backend retorna `patient` populado | `patientId` string | `patientInfo` → frontend usa `patient` (PatientDTO)
+ * 2. Backend retorna `doctor` populado | `doctorId` string | `professionalName` → frontend usa `doctor` (DoctorDTO)
+ * 3. Backend retorna `operationalStatus` | `status` | `state` → frontend usa `status`
+ * 4. Backend retorna `payment` objeto | `paymentStatus` string → frontend usa `paymentStatus` (fonte: Payment)
+ * 5. Backend retorna `sessionValue` | `paymentAmount` | `valor` → frontend usa `amount`
+ */
+
+import { PatientDTO, extractPatientId, extractPatientName } from './patient.response.dto';
+
+export interface DoctorDTO {
+    id: string;
+    name: string;
+    specialty?: string;
+    email?: string;
+    phone?: string;
+}
+
+export interface AppointmentDTO {
+    id: string;
+    date: string;           // ISO string
+    time?: string;
+    status: string;         // operationalStatus normalizado
+    clinicalStatus?: string;
+    patient: PatientDTO;
+    doctor: DoctorDTO;
+    amount?: number;        // sessionValue / paymentAmount normalizado
+    specialty?: string;
+    sessionType?: string;
+    serviceType?: string;
+    reason?: string;
+    notes?: string;
+    paymentStatus?: string; // fonte de verdade: Payment.status
+    isPackageSession?: boolean;
+    isFirstVisit?: boolean;
+    duration?: number;
+    isReturningAfter45Days?: boolean;
+    canceledReason?: string;
+    canceledAt?: string;
+    correlationId?: string;
+    raw: any;
+}
+
+function extractDoctorDTO(raw: any): DoctorDTO {
+    if (!raw) return { id: '', name: 'Desconhecido' };
+
+    // Objeto populado
+    if (typeof raw === 'object') {
+        return {
+            id: raw._id?.toString?.() || raw.id?.toString?.() || '',
+            name: raw.fullName || raw.name || raw.nome || 'Desconhecido',
+            specialty: raw.specialty || raw.specialties?.[0] || undefined,
+            email: raw.email || undefined,
+            phone: raw.phoneNumber || raw.phone || undefined,
+        };
+    }
+
+    // String ID (doctorId)
+    if (typeof raw === 'string') {
+        return { id: raw, name: 'Desconhecido' };
+    }
+
+    return { id: '', name: 'Desconhecido' };
+}
+
+function extractAppointmentStatus(raw: any): string {
+    return raw.operationalStatus || raw.status || raw.state || 'scheduled';
+}
+
+function extractAppointmentAmount(raw: any): number | undefined {
+    const val = raw.sessionValue ?? raw.paymentAmount ?? raw.valor ?? raw.amount;
+    return typeof val === 'number' && !isNaN(val) ? val : undefined;
+}
+
+function extractPaymentStatus(raw: any): string | undefined {
+    // Fonte de verdade: Payment.status (se payment populado)
+    if (raw.payment?.status) {
+        return raw.payment.status;
+    }
+    // Fallback para paymentStatus direto (menos confiável)
+    if (raw.paymentStatus) {
+        return raw.paymentStatus;
+    }
+    return undefined;
+}
+
+/**
+ * Mapeia response bruta de agendamento para AppointmentDTO estável.
+ */
+export function mapAppointmentResponseDTO(raw: any): AppointmentDTO {
+    if (!raw) {
+        return {
+            id: '',
+            date: '',
+            status: 'scheduled',
+            patient: { id: '', name: 'Desconhecido', debt: 0, totalPending: 0, particularPending: 0, convenioPending: 0, totalAppointments: 0, totalCompleted: 0, totalCanceled: 0, totalNoShow: 0, totalPackages: 0, raw: null },
+            doctor: { id: '', name: 'Desconhecido' },
+            raw: null,
+        };
+    }
+
+    // Paciente: pode ser objeto populado, string, ou vir em patientInfo
+    const patientRaw = raw.patient || raw.patientInfo || { _id: raw.patientId, fullName: raw.patientName };
+    const doctorRaw = raw.doctor || raw.professional || { _id: raw.doctorId, fullName: raw.professionalName };
+
+    return {
+        id: raw._id?.toString?.() || raw.id?.toString?.() || '',
+        date: raw.date || raw.start || '',
+        time: raw.time || raw.startTime || undefined,
+        status: extractAppointmentStatus(raw),
+        clinicalStatus: raw.clinicalStatus || undefined,
+        patient: {
+            id: extractPatientId(patientRaw),
+            name: extractPatientName(patientRaw),
+            debt: 0,
+            totalPending: 0,
+            particularPending: 0,
+            convenioPending: 0,
+            totalAppointments: 0,
+            totalCompleted: 0,
+            totalCanceled: 0,
+            totalNoShow: 0,
+            totalPackages: 0,
+            raw: patientRaw,
+        },
+        doctor: extractDoctorDTO(doctorRaw),
+        amount: extractAppointmentAmount(raw),
+        specialty: raw.specialty || raw.sessionType || undefined,
+        sessionType: raw.sessionType || undefined,
+        serviceType: raw.serviceType || undefined,
+        reason: raw.reason || raw.notes || undefined,
+        notes: raw.notes || undefined,
+        paymentStatus: extractPaymentStatus(raw),
+        isPackageSession: raw.serviceType === 'package_session' || !!raw.package || !!raw.packageId,
+        isFirstVisit: raw.isFirstVisit || false,
+        isReturningAfter45Days: raw.isReturningAfter45Days || false,
+        duration: raw.duration || undefined,
+        canceledReason: raw.canceledReason || undefined,
+        canceledAt: raw.canceledAt || undefined,
+        correlationId: raw.correlationId || undefined,
+        raw,
+    };
+}
+
+/**
+ * Mapeia lista de agendamentos brutos.
+ */
+export function mapAppointmentListResponseDTO(rawList: any[]): AppointmentDTO[] {
+    if (!Array.isArray(rawList)) return [];
+    return rawList.map(mapAppointmentResponseDTO);
+}

@@ -1,11 +1,11 @@
 // src/components/appointments/AppointmentList.tsx
 import { CheckCircle, XCircle, ArrowRight } from 'lucide-react';
-import { Appointment } from '../../utils/types';
+import { AppointmentDTO } from '../../dtos/appointment.response.dto';
 import { Button } from '../ui/Button';
 import { getAppointmentVisualStatus } from '../../utils/statusHelper';
 
 interface AppointmentListProps {
-    appointments: Appointment[];
+    appointments: AppointmentDTO[];
     onUpdateStatus: (appointmentId: string, status: string) => void;
     onPatientClick?: (patient: any) => void;
     compact?: boolean;

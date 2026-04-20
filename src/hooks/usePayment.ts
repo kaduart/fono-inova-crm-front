@@ -15,6 +15,7 @@ import {
   Summary
 } from '../services/paymentService';
 import { PaymentTotals } from '../utils/types/types';
+import { mapPaymentListResponseDTO } from '../dtos/payment.response.dto';
 import { invalidateCache, subscribeToCacheInvalidation } from '../utils/cacheManager';
 
 type PaymentFilters = Record<string, any>;
@@ -93,12 +94,12 @@ const usePayment = () => {
             page: filters.page || 1,
             limit: filters.limit || 50
           });
-          data = res.data.data;
+          data = mapPaymentListResponseDTO(res.data.data);
           console.log(`[usePayment] V2: ${data.length} pagamentos em ${res.data.meta?.executionTime || 'N/A'}`);
         } else {
           // Legado: populate pesado
           const res = await getPayments(filters);
-          data = res.data?.data || res.data;
+          data = mapPaymentListResponseDTO(res.data?.data || res.data);
         }
         
         if (isMounted.current) {

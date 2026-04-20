@@ -4,6 +4,7 @@ import { IAppointment } from '../utils/types/types';
 import { socketManager } from '../utils/socketManager';
 import { invalidateCache } from '../utils/cacheManager';
 import { extractErrorMessage } from '../utils/errorUtils';
+import { mapToCreateAppointmentDTO, mapToUpdateAppointmentDTO } from '../dtos/appointment.dto';
 
 interface AppointmentsContextData {
     appointments: IAppointment[];
@@ -262,7 +263,8 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }, []);
 
     const createAppointment = useCallback(async (data: any) => {
-        const result = await appointmentService.create(data);
+        const dto = mapToCreateAppointmentDTO(data);
+        const result = await appointmentService.create(dto);
 
         // 🚀 V2: Se for processamento async, inicia polling
         if (result?.data?.status?.startsWith('processing')) {
@@ -287,7 +289,8 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }, [pollAppointmentStatus, refreshAppointments]);
 
     const updateAppointment = useCallback(async (id: string, data: any) => {
-        const result = await appointmentService.update(id, data);
+        const dto = mapToUpdateAppointmentDTO(data);
+        const result = await appointmentService.update(id, dto);
         
         // 🚀 Invalida caches relacionados
         invalidateCache('dashboard');

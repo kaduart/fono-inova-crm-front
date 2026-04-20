@@ -3,6 +3,7 @@ import { BarChart3, CalendarPlus } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import moment from 'moment-timezone';
+import { mapToCreateAppointmentDTO } from '../dtos/appointment.dto';
 
 // 🔧 Helper para lazy loading com retry em caso de falha de chunk
 const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) => {
@@ -413,28 +414,13 @@ export default function AdminDashboard() {
     const handleNewAppointment = useCallback(async (appointmentData: ScheduleAppointment) => {
         const specialty = appointmentData.specialty || appointmentData.sessionType;
 
-        const payload: CreateAppointmentParams = {
-            patientId: appointmentData.patientId,
-            doctorId: appointmentData.doctorId,
-            date: appointmentData.date,
-            time: appointmentData.time,
+        const payload = mapToCreateAppointmentDTO({
+            ...appointmentData,
             specialty,
             sessionType: specialty,
-            serviceType: appointmentData.serviceType,
-            notes: appointmentData.notes,
-            paymentAmount: appointmentData.paymentAmount,
-            paymentMethod: appointmentData.paymentMethod,
-            reason: appointmentData.reason,
             clinicalStatus: 'pending',
             operationalStatus: 'scheduled',
-            packageId: appointmentData.packageId,
-            // 🏥 CONVÊNIO - ADICIONAR ESTAS 4 LINHAS:
-            billingType: appointmentData.billingType,
-            insuranceProvider: appointmentData.insuranceProvider,
-            insuranceValue: appointmentData.insuranceValue,
-            authorizationCode: appointmentData.authorizationCode,
-            insurance: appointmentData.insurance,
-        };
+        });
 
         try {
             await createAppointment(payload);

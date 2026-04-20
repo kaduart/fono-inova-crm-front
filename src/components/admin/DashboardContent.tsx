@@ -1,5 +1,6 @@
 import { Activity, ChevronDown, ChevronUp, Clock, Stethoscope, UserPlus, Users } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { mapPatientListResponseDTO } from '../../dtos/patient.response.dto';
 import BirthdayCard from '../patients/BirthdayCard';
 import PatientTable from '../patients/PatientTable';
 import { Button } from '../ui/Button';
@@ -91,7 +92,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({
                 {patientsTableOpen && (
                     <div className="p-4 bg-white">
                         <PatientTable
-                            patients={patients}
+                            patients={useMemo(() => mapPatientListResponseDTO(patients || []), [patients])}
                             onEditPatient={(patient) => {
                                 setPatientToEdit(patient);
                                 setIsModalOpen(true);

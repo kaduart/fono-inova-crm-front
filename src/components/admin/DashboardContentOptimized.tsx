@@ -10,6 +10,7 @@
 
 import { Activity, ChevronDown, ChevronUp, Clock, Stethoscope, UserPlus, Users, RefreshCw } from 'lucide-react';
 import React, { memo, useMemo, useState, useEffect, useCallback, useRef } from 'react';
+import { mapPatientListResponseDTO } from '../../dtos/patient.response.dto';
 import API from '../../services/api';
 import {
     DashboardStats,
@@ -211,7 +212,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     // Garantir que arrays existam
     const safeDoctors = doctors || [];
     const safeAppointments = upcomingAppointments || [];
-    const safePatients = patients || [];
+    const safePatients = useMemo(() => mapPatientListResponseDTO(patients || []), [patients]);
 
 
     const displayedDoctors = useMemo(() => {

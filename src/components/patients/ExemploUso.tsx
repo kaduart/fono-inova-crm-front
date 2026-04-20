@@ -3,26 +3,20 @@
 import { useState, useCallback, useEffect } from 'react';
 import PatientTable from './PatientTable';
 import patientService from '../../services/patientService';
-
-interface Patient {
-  _id: string;
-  fullName?: string;
-  phone?: string;
-  cpf?: string;
-  // ... outros campos
-}
+import { mapPatientListResponseDTO, PatientDTO } from '../../dtos/patient.response.dto';
 
 export default function PatientDashboard() {
-  const [patients, setPatients] = useState<Patient[]>([]);
+  const [patients, setPatients] = useState<PatientDTO[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [allPatients, setAllPatients] = useState<Patient[]>([]); // Cache inicial
+  const [allPatients, setAllPatients] = useState<PatientDTO[]>([]); // Cache inicial
 
   // 🚀 V2: Busca inicial (primeira vez) via Event-Driven API
   useEffect(() => {
     patientService.list({ limit: 50 })
       .then((result) => {
-        setPatients(result.patients);
-        setAllPatients(result.patients);
+        const dtos = mapPatientListResponseDTO(result.patients);
+        setPatients(dtos);
+        setAllPatients(dtos);
       })
       .catch((error) => {
         console.error('❌ Erro ao buscar pacientes:', error);
@@ -44,7 +38,7 @@ export default function PatientDashboard() {
         search: term, 
         limit: 100 
       });
-      setPatients(result.patients);
+      setPatients(mapPatientListResponseDTO(result.patients));
     } catch (error) {
       console.error('Erro na busca:', error);
     } finally {

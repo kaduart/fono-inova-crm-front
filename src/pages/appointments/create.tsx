@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import SpecialtySelector from '../../components/common/SpecialtySelector';
 import API from '../../services/api';
 import appointmentService from '../../services/appointmentService';
+import { mapToCreateAppointmentDTO } from '../../dtos/appointment.dto';
 import { Specialty } from '../../utils/types';
 
 const CreateAppointmentPage: React.FC = () => {
@@ -60,10 +61,10 @@ const CreateAppointmentPage: React.FC = () => {
             // Combinar data e hora
             const dateTime = new Date(`${formData.date}T${formData.time}`);
 
-            const appointmentData = {
+            const appointmentData = mapToCreateAppointmentDTO({
                 ...formData,
                 date: dateTime.toISOString()
-            };
+            });
 
             // 🚀 V2: Usar service com polling automático
             const response = await appointmentService.create(appointmentData);

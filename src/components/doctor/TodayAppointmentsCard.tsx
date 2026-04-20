@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import { Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import AppointmentList from '../appointments/AppointmentList';
+import { mapAppointmentListResponseDTO } from '../../dtos/appointment.response.dto';
 
 export default function TodayAppointmentsCard({
     appointments,
@@ -25,7 +26,7 @@ export default function TodayAppointmentsCard({
     onPatientClick?: (patient: any) => void; // ✅ NOVO
 }) {
     const theme = useTheme();
-    const appointmentsList = appointments ?? [];
+    const appointmentsList = mapAppointmentListResponseDTO(appointments ?? []);
     const displayedAppointments = showAll ? appointmentsList : appointmentsList.slice(0, 3);
 
     return (

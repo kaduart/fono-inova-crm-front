@@ -10,6 +10,7 @@ import appointmentService, {
 } from '../services/appointmentService';
 import { useAppointmentPolling } from './useAppointmentPolling';
 import { extractErrorMessage } from '../utils/errorUtils';
+import { mapToCreateAppointmentDTO } from '../dtos/appointment.dto';
 import { IAppointment } from '../utils/types/types';
 
 // 🔹 Cache para evitar recarregamentos desnecessários
@@ -70,7 +71,8 @@ export const useAppointments = () => {
         try {
             setLoading(true);
             setError(null);
-            const response = await appointmentService.create(data);
+            const dto = mapToCreateAppointmentDTO(data);
+            const response = await appointmentService.create(dto);
 
             // 🚀 V2: Se for 202 Accepted ou status de processamento, agendamento está em processamento
             if (response.status === 202 || response.data?.data?.status?.startsWith('processing')) {

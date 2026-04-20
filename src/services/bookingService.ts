@@ -9,6 +9,7 @@
 import API from './api';
 import { appointmentService } from './appointmentService';
 import { extractErrorMessage } from '../utils/errorUtils';
+import { mapToCreateAppointmentDTO } from '../dtos/appointment.dto';
 
 export interface BookAppointmentParams {
   patientId: string;
@@ -58,7 +59,7 @@ export const bookingService = {
     const { onProgress, onSuccess, onError, skipPolling } = options;
 
     // Prepara payload compatível com V2
-    const payload = {
+    const payload = mapToCreateAppointmentDTO({
       patientId: data.patientId,
       doctorId: data.doctorId,
       date: data.date,
@@ -68,7 +69,7 @@ export const bookingService = {
       clinicalStatus: 'pending',
       operationalStatus: 'scheduled',
       notes: data.notes
-    };
+    });
 
     try {
       // Usa o endpoint V2 de appointments

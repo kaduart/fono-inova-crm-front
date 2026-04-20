@@ -1,4 +1,5 @@
 import { PaymentTotalsResponse } from "../utils/types/types";
+import { buildPaymentPayloadV2 as buildPaymentPayloadV2FromDTO } from '../dtos/payment.dto';
 import API from "./api";
 
 export interface FinancialRecord {
@@ -205,29 +206,12 @@ export const USE_V2_PAYMENT_WRITES = true;
  * Converte payload V1 para contrato V2 de /v2/payments/request
  * ⚠️ V2 ainda NÃO suporta advanceServices/isAdvancePayment
  */
-export function buildPaymentPayloadV2(data: Partial<FinancialRecord>): {
-    type: string;
-    patientId: string;
-    amount: number;
-    paymentMethod: string;
-    notes?: string;
-    doctorId?: string;
-    appointmentId?: string;
-    [key: string]: any;
-} {
-    const type = data.appointment?._id || data.__appointmentId
-        ? 'appointment_payment'
-        : 'standalone';
-
-    return {
-        type,
-        patientId: data.patientId || data.patient?._id || '',
-        doctorId: data.doctorId || data.doctor?._id,
-        appointmentId: data.__appointmentId || data.appointment?._id,
-        amount: typeof data.amount === 'number' ? data.amount : 0,
-        paymentMethod: data.paymentMethod || 'pix',
-        notes: data.notes || data.description,
-    };
+/**
+ * @deprecated Use mapToCreatePaymentDTO de '../dtos/payment.dto' diretamente.
+ * Mantido para compatibilidade com imports existentes.
+ */
+export function buildPaymentPayloadV2(data: Partial<FinancialRecord>): ReturnType<typeof buildPaymentPayloadV2FromDTO> {
+    return buildPaymentPayloadV2FromDTO(data);
 }
 
 /**

@@ -8,6 +8,7 @@ import usePayment from '../../hooks/usePayment';
 import { InputCurrency } from '../ui/InputCurrency';
 import { ModalSpinner } from '../ui/LoadingSpinner';
 import { extractErrorMessage } from '../../utils/errorUtils';
+import { extractSessionId } from '../../dtos/payment.dto';
 
 interface PatientBalanceModalProps {
     isOpen: boolean;
@@ -361,8 +362,8 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                         amount: amountToPay,
                         paymentMethod: paymentMethod.method,
                         description: `Pagamento de: ${debit.description}`,
-                        sessionId: debit.sessionId?._id,
-                        appointmentId: debit.appointmentId?._id
+                        sessionId: extractSessionId(debit.sessionId),
+                        appointmentId: extractSessionId(debit.appointmentId)
                     });
                     
                     remainingForThisMethod -= amountToPay;

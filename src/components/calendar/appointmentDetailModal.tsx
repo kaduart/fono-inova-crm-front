@@ -8,6 +8,7 @@ import ReactInputMask from 'react-input-mask';
 import { INSURANCE_PROVIDERS, getProviderById } from '../../constants/insuranceProviders';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
 import { IDoctor, SelectedEvent } from '../../utils/types/types';
+import { mapToUpdateAppointmentDTO } from '../../dtos/appointment.dto';
 import { InputCurrency } from '../ui/InputCurrency';
 import PatientBalanceModal from '../patients/PatientBalanceModal';
 import { Label } from '../ui/Label';
@@ -555,7 +556,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             console.log('   - operationalStatus:', operationalStatusEN);
             console.log('   - clinicalStatus:', clinicalStatusEN);
 
-            const appointmentData = {
+            const appointmentData = mapToUpdateAppointmentDTO({
                 doctorId: editedAppointment.doctorId,
                 patientId: editedAppointment.patientId,
                 date: editedAppointment.date,
@@ -563,24 +564,23 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 notes: editedAppointment.reason,
                 operationalStatus: operationalStatusEN,
                 clinicalStatus: clinicalStatusEN === 'scheduled' ? 'pending' : clinicalStatusEN,
-                // 🆕 NOVO: Dados de serviço e pagamento
                 serviceType,
                 sessionType: editedAppointment.sessionType,
                 specialty: editedAppointment.sessionType,
                 billingType,
-                paymentAmount: billingType === 'particular' ? paymentAmount : 0,
-                sessionValue: billingType === 'particular' ? paymentAmount : 0,
+                paymentAmount: billingType === 'particular' ? paymentAmount : undefined,
+                sessionValue: billingType === 'particular' ? paymentAmount : undefined,
                 paymentMethod: billingType === 'particular' ? paymentMethod : 'convenio',
-                insuranceProvider: billingType === 'convenio' ? insuranceProvider : '',
-                insuranceValue: billingType === 'convenio' ? insuranceValue : 0,
-                authorizationCode: billingType === 'convenio' ? authorizationCode : '',
+                insuranceProvider,
+                insuranceValue,
+                authorizationCode,
                 insurance: billingType === 'convenio' && insuranceProvider ? {
                     provider: insuranceProvider,
                     grossAmount: insuranceValue || 0,
                     authorizationCode: authorizationCode || null,
                     status: 'pending_billing'
-                } : null
-            };
+                } : undefined
+            });
 
             console.log('📤 [Modal] Chamando onEditAppointment com:', { id: event.id, data: appointmentData });
             await onEditAppointment(event.id, appointmentData);

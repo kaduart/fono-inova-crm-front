@@ -15,6 +15,7 @@ import {
     updatePayment
 } from '../../services/paymentService';
 import { formatDateToDMY } from '../../utils/dateFormat';
+import { PaymentDTO, mapFinancialRecordListToPaymentDTO } from '../../dtos/payment.response.dto';
 import { appointmentService } from '../../services/appointmentService';
 import { IDoctor } from '../../utils/types/types';
 import { AddPaymentModal } from './AddPaymentModal';
@@ -446,10 +447,13 @@ interface PaymentPageProps {
 const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentProp, registerAppointmentAndPayemntFuture, enabled = true, month, year }: PaymentPageProps) => {
     // 🚀 SOURCE OF TRUTH: Context API (padrão do projeto)
     const {
-        payments: allPayments = [],
+        payments: allPaymentsRaw = [],
         setPayments: setAllPayments = () => { },
         updatePayment: updatePaymentContext,
     } = usePaymentsContext();
+
+    // 🆕 DTO: Normaliza FinancialRecord → PaymentDTO na borda
+    const allPayments = useMemo(() => mapFinancialRecordListToPaymentDTO(allPaymentsRaw), [allPaymentsRaw]);
 
     // 🚀 NOVO: Usa AppointmentsContext como fonte única de dados
     const { appointments, fetchAppointments, isLoading: appointmentsLoading } = useAppointmentsContext();
@@ -459,7 +463,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
 
     const [appointmentRecords, setAppointmentRecords] = useState<FinancialRecord[]>([]);
 
-    const [filteredPayments, setFilteredPayments] = useState<FinancialRecord[]>([]);
+    const [filteredPayments, setFilteredPayments] = useState<PaymentDTO[]>([]);
     // 🚀 Loading vem do AppointmentsContext (fonte única)
     const loading = appointmentsLoading;
     const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
@@ -559,7 +563,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
     useEffect(() => {
         if (patientParam && allPayments.length > 0) {
             const filtered = allPayments.filter(p =>
-                p.patient?.fullName?.toLowerCase().includes(patientParam.toLowerCase())
+                p.patient.name.toLowerCase().includes(patientParam.toLowerCase())
             );
 
             if (filtered.length > 0) {
@@ -602,7 +606,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
     }, [allPayments, selectedPeriod, customStartDate, customEndDate]);
 
     const handleEditAmount = (paymentId: string) => {
-        const payment = allPayments.find(p => p._id === paymentId);
+        const payment = allPayments.find(p => p.id === paymentId);
 
         if (!payment) {
             toast.error('Registro não encontrado.');
@@ -1084,22 +1088,22 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {currentPayments.map(payment => (
-                                        <tr key={payment._id} className="hover:bg-gray-50 transition-colors">
+                                        <tr key={payment.id} className="hover:bg-gray-50 transition-colors">
                                             <td className="px-3 py-2">
                                                 <div className="flex items-center gap-1.5 mb-1">
                                                     <User className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
                                                     <span
                                                         className="cursor-pointer hover:text-blue-600 hover:underline font-medium text-xs text-gray-900 truncate max-w-[130px]"
-                                                        title={payment.patient?.fullName}
-                                                        onClick={() => (payment.patient?.patientId || payment.patient?._id) && handleOpen360(payment.patient?.patientId || payment.patient?._id)}
+                                                        title={payment.patient.name}
+                                                        onClick={() => payment.patient.id && handleOpen360(payment.patient.id)}
                                                     >
-                                                        {payment.patient?.fullName}
+                                                        {payment.patient.name}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5">
                                                     <Stethoscope className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-                                                    <span className="text-xs text-gray-600 truncate max-w-[130px]" title={payment.doctor?.fullName}>
-                                                        {payment.doctor?.fullName}
+                                                    <span className="text-xs text-gray-600 truncate max-w-[130px]" title={payment.doctor?.name}>
+                                                        {payment.doctor?.name}
                                                     </span>
                                                 </div>
                                             </td>

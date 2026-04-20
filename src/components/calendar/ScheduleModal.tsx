@@ -83,7 +83,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
             ...formState,
             date: mergedDate,
             paymentAmount: 200,
-            paymentMethod: 'credito',
+            paymentMethod: 'credit_card',
             sessionType: 'fonoaudiologia' as TherapyType,
             // Se insuranceGuideId está presente, incluir no payload
             ...(formState.insuranceGuideId && { insuranceGuideId: formState.insuranceGuideId }),

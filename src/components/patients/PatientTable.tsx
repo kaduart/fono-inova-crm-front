@@ -3,48 +3,18 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { BsHourglass } from "react-icons/bs";
 import { Link } from "react-router-dom";
 import patientService from '../../services/patientService';
+import { PatientDTO } from '../../dtos/patient.response.dto';
 
 // ============================================================================
 // Tipos e interfaces
 // ============================================================================
 
-interface Patient {
-    _id: string;
-    fullName?: string;
-    phone?: string;
-    cpf?: string;
-    healthPlan?: {
-        name?: string;
-    };
-    nextAppointment?: {
-        date?: string;
-        doctor?: {
-            fullName?: string;
-            specialty?: string;
-        };
-    };
-    lastAppointment?: {
-        doctor?: {
-            specialty?: string;
-        };
-    };
-    packages?: Array<{
-        sessionType: string;
-        totalSessions: number;
-        sessionsDone: number;
-    }>;
-    balance?: {
-        current?: number;
-        lastUpdated?: string;
-    };
-}
-
 interface PatientTableProps {
-    patients?: Patient[];
-    onEditPatient?: (patient: Patient) => void;
-    onDeletePatient?: (patient: Patient) => void;
-    onPaymentAdvancedSuccess?: (patient: Patient) => void;
-    onRegisterPayment?: (patient: Patient) => void;
+    patients?: PatientDTO[];
+    onEditPatient?: (patient: PatientDTO) => void;
+    onDeletePatient?: (patient: PatientDTO) => void;
+    onPaymentAdvancedSuccess?: (patient: PatientDTO) => void;
+    onRegisterPayment?: (patient: PatientDTO) => void;
 }
 
 interface CardProps {
@@ -72,7 +42,7 @@ interface WhatsAppActionButtonsProps {
 }
 
 interface PackageAccordionProps {
-    packages: Patient['packages'];
+    packages: PatientDTO['packages'];
 }
 
 // ============================================================================
@@ -160,7 +130,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
     // ------------------------------------------------------------
     // Hooks (sempre no topo)
     // ------------------------------------------------------------
-    const [patients, setPatients] = useState<Patient[]>(initialPatients);
+    const [patients, setPatients] = useState<PatientDTO[]>(initialPatients);
     
     // Atualiza quando props mudam
     useEffect(() => {
@@ -409,22 +379,22 @@ const PatientTable: React.FC<PatientTableProps> = ({
 
                             <tbody className="bg-white divide-y divide-gray-50">
                                 {paginatedPatients.map((patient) => {
-                                    const isExpanded = expandedRows[patient._id];
+                                    const isExpanded = expandedRows[patient.id];
                                     return (
-                                        <React.Fragment key={patient._id}>
+                                        <React.Fragment key={patient.id}>
                                             <tr
                                                 className="hover:bg-gray-100 transition-colors cursor-pointer even:bg-green-50"
-                                                onClick={() => toggleRow(patient._id)}
+                                                onClick={() => toggleRow(patient.id)}
                                             >
                                                 {/* Paciente */}
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-700 font-medium text-sm">
-                                                            {patient.fullName?.charAt(0).toUpperCase()}
+                                                            {patient.name?.charAt(0).toUpperCase()}
                                                         </div>
                                                         <div>
                                                             <div className="font-medium text-gray-800 text-sm">
-                                                                {patient.fullName || '-'}
+                                                                {patient.name || '-'}
                                                             </div>
                                                             <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
                                                                 <Phone className="w-3 h-3" />
@@ -466,17 +436,27 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                 {/* Saldo */}
                                                 <td className="px-6 py-4">
                                                     {(() => {
-                                                        const saldo = patient.balance?.current ?? 0;
+                                                        const saldo = patient.debt ?? 0;
+                                                        const totalPending = patient.totalPending ?? 0;
+                                                        const totalPendingParticular = patient.totalPendingParticular ?? 0;
+                                                        const convenioPending = totalPending - totalPendingParticular;
                                                         if (saldo > 0) {
-                                                            // Débito (paciente deve) - VERMELHO PULSANTE
                                                             return (
-                                                                <span className="inline-flex items-center gap-1 text-red-600 font-semibold animate-pulse bg-red-100 px-2 py-1 rounded">
-                                                                    <DollarSign className="w-4 h-4" />
-                                                                    R$ {saldo.toFixed(2)}
-                                                                </span>
+                                                                <div className="flex flex-col gap-1">
+                                                                    {/* Débito real do paciente */}
+                                                                    <span className="inline-flex items-center gap-1 text-red-600 font-semibold animate-pulse bg-red-100 px-2 py-1 rounded">
+                                                                        <DollarSign className="w-4 h-4" />
+                                                                        R$ {saldo.toFixed(2)}
+                                                                    </span>
+                                                                    {/* Hint de convênio pendente */}
+                                                                    {convenioPending > 0.01 && (
+                                                                        <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                                                                            + R$ {convenioPending.toFixed(2)} convênio
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                             );
                                                         } else if (saldo < 0) {
-                                                            // Crédito (clínica deve) - VERDE
                                                             return (
                                                                 <span className="inline-flex items-center gap-1 text-green-700 font-medium">
                                                                     <DollarSign className="w-4 h-4" />
@@ -485,7 +465,14 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                             );
                                                         } else {
                                                             return (
-                                                                <span className="text-gray-400 text-xs">R$ 0,00</span>
+                                                                <div className="flex flex-col gap-1">
+                                                                    <span className="text-gray-400 text-xs">R$ 0,00</span>
+                                                                    {convenioPending > 0.01 && (
+                                                                        <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                                                                            + R$ {convenioPending.toFixed(2)} convênio
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                             );
                                                         }
                                                     })()}
@@ -504,7 +491,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                 <td className="px-6 py-4">
                                                     <div className="flex gap-2 justify-center">
                                                         <Link
-                                                            to={`/patient-dashboard/${patient.patientId || patient._id}`}
+                                                            to={`/patient-dashboard/${patient.patientId || patient.id}`}
                                                             title="Ver detalhes"
                                                             className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
                                                             onClick={(e) => e.stopPropagation()}
@@ -532,7 +519,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                             <Edit className="w-4 h-4" />
                                                         </button>
                                                         <Link
-                                                            to={`/patient-dashboard/${patient.patientId || patient._id}?tab=evolucoes`}
+                                                            to={`/patient-dashboard/${patient.patientId || patient.id}?tab=evolucoes`}
                                                             title="Ver evoluções"
                                                             className="p-1.5 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-md transition-colors"
                                                             onClick={(e) => e.stopPropagation()}
@@ -580,8 +567,8 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                                             ? patient.phone.slice(1)
                                                                             : patient.phone
                                                                     }
-                                                                    nome={patient.fullName}
-                                                                    profissional={patient.nextAppointment?.doctor?.fullName}
+                                                                    nome={patient.name}
+                                                                    profissional={patient.nextAppointment?.doctor?.name}
                                                                     data={
                                                                         patient.nextAppointment?.date
                                                                             ? new Date(patient.nextAppointment.date)

@@ -9,6 +9,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { INSURANCE_PROVIDERS } from '../../constants/insuranceProviders';
 import { OPERATIONAL_STATUS_CONFIG, StatusConfig } from '../../services/appointmentService';
 import { IAppointment, IDoctor, IPatient, ScheduleAppointment, SelectedEvent } from '../../utils/types/types';
+import { AppointmentDTO, mapAppointmentListResponseDTO } from '../../dtos/appointment.response.dto';
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
 import AppointmentDetailModal from './appointmentDetailModal';
 import API from '../../services/api';
@@ -176,7 +177,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     const [selectedEvent, setSelectedEvent] = useState<SelectedEvent | null>(null);
     const theme = useTheme();
 
-
+    // 🆕 DTO: Mapeia appointments para contrato estável
+    const appointmentDTOs = useMemo(() => mapAppointmentListResponseDTO(appointments || []), [appointments]);
 
     // 🆕 Helper: filtra appointments por data (YYYY-MM-DD)
     const getAppointmentsByDay = useCallback((dateStr: string) => {
@@ -399,7 +401,14 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         if (appt?.payment?.status) {
             return appt.payment.status;
         }
-        // Sem Payment associado: retorna unknown para não mentir
+        // 📦 Pacote pré-pago: não tem Payment individual (evita duplicação de caixa),
+        // mas está quitado no momento da compra do pacote
+        const rawPackage = appt?.package;
+        const hasPackage = !!rawPackage || appt?.serviceType === 'package_session';
+        if (hasPackage) {
+            return 'package_paid';
+        }
+        // Sem Payment associado e sem pacote: retorna unknown para não mentir
         return 'unknown';
     }, []);
 
@@ -422,7 +431,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         console.log('🗓️ [Calendar] Evento clicado:', event);
         
         // 🔄 BUSCA DADOS ATUALIZADOS DO APPOINTMENT (não usa extendedProps desatualizado)
-        const freshAppointment = appointments.find(a => (a._id || a.id) === event.id);
+        const freshAppointment = appointmentDTOs.find(a => a.id === event.id);
         console.log('📦 [Calendar] Dados frescos do appointment:', freshAppointment);
         
         // Usa dados atualizados se encontrou, senão usa extendedProps como fallback
@@ -546,11 +555,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             return [];
         }
 
-        const validAppointments = appointments.filter(appt => {
+        const validAppointments = appointmentDTOs.filter(appt => {
             const hasDate = !!appt.date;
             const hasTime = !!appt.time;
-            const hasId = !!(appt.id || appt._id);
-            const isValid = hasDate && hasTime && hasId;
+            const hasId = !!(appt.id);
+            const isNotCanceled = appt.status !== 'canceled' && appt.status !== 'cancelled';
+            const isValid = hasDate && hasTime && hasId && isNotCanceled;
             
             // 🆕 DEBUG: Log específico para o appointment da Luiza
             const apptId = appt._id || appt.id;
@@ -566,7 +576,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             }
             
             if (!isValid) {
-                console.log('❌ Appointment inválido:', appt._id || appt.id, { hasDate, hasTime, hasId });
+                console.log('❌ Appointment inválido:', appt.id, { hasDate, hasTime, hasId });
             }
             return isValid;
         });
@@ -574,7 +584,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         console.log('✅ Appointments válidos:', validAppointments.length);
 
         const mappedEvents = validAppointments.map((appt) => {
-            console.log('🔄 [Calendar] Mapeando appt:', appt._id || appt.id, 'Status:', appt.operationalStatus);
+            console.log('🔄 [Calendar] Mapeando appt:', appt.id, 'Status:', appt.status);
             
             const [hours, minutes] = appt.time!.split(':').map(Number);
             
@@ -605,8 +615,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             const operationalConfig = getOperationalStatusConfig(appt.operationalStatus || 'scheduled');
 
             const eventObj = {
-                id: appt._id || appt.id,
-                title: `${appt.patient?.fullName || appt.patientInfo?.fullName || 'Paciente'} - ${appt.doctor?.fullName || 'Profissional'}`,
+                id: appt.id,
+                title: `${appt.patient.name} - ${appt.doctor.name}`,
                 start: startDate,
                 end: endDate,
                 extendedProps: {
@@ -615,8 +625,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     paymentConfig,
                     operationalConfig,
                     time: (appt.time || '').trim(),
-                    patientName: appt.patient?.fullName || 'Paciente',
-                    doctorName: appt.doctor?.fullName || 'Profissional'
+                    patientName: appt.patient.name,
+                    doctorName: appt.doctor.name
                 },
                 backgroundColor: paymentConfig.bgColor,
                 borderColor: operationalConfig.color,
@@ -624,7 +634,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 borderWidth: 4
             };
             
-            console.log(`🎨 [Calendar] Evento criado: ${eventObj.id} | Status: ${appt.operationalStatus} | Cor: ${paymentConfig.bgColor}`);
+            console.log(`🎨 [Calendar] Evento criado: ${eventObj.id} | Status: ${appt.status} | Cor: ${paymentConfig.bgColor}`);
             
             return eventObj;
         });
@@ -634,7 +644,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         
         return mappedEvents;
 
-    }, [appointments, getPaymentStatusConfig, getOperationalStatusConfig]);
+    }, [appointmentDTOs, getPaymentStatusConfig, getOperationalStatusConfig]);
 
     // 🔹 Ref para rastrear o último range processado e evitar loops
     const lastDateRangeRef = useRef<string>('');
@@ -732,12 +742,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
     // 🆕 COMPONENTE REUTILIZÁVEL: Card visual de agendamento (calendário + popup)
     const AppointmentEventCard = React.memo(({ appointment, timeText, onClick, variant = 'compact' }: {
-        appointment: IAppointment;
+        appointment: AppointmentDTO;
         timeText?: string;
         onClick?: () => void;
         variant?: 'compact' | 'expanded';
     }) => {
-        const apptId = appointment._id || appointment.id || '';
+        const apptId = appointment.id;
         const packageProgress = packageProgressMap[apptId];
         const isExpanded = variant === 'expanded';
         const paymentStatus = getRealPaymentStatus(appointment);
@@ -745,8 +755,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         const paymentConfig = getPaymentStatusConfig(paymentStatus);
         const operationalConfig = getOperationalStatusConfig(operationalStatus);
 
-        const patientName = appointment.patient?.fullName || appointment.patientInfo?.fullName || 'Paciente';
-        const doctorName = appointment.doctor?.fullName || 'Profissional';
+        const patientName = appointment.patient?.name || appointment.patient?.fullName || 'Paciente';
+        const doctorName = appointment.doctor?.name || appointment.doctor?.fullName || 'Profissional';
 
         // 🎨 DADOS DO PACOTE — trata string (não populado) e objeto (populado)
         const rawPackage = (appointment as any).package;

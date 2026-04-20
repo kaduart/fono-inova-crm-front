@@ -9,6 +9,7 @@ import { usePatients } from '../../hooks/usePatients';
 import { CreateAppointmentParams } from '../../services/appointmentService';
 import { createEvaluation, deleteEvaluation, getEvaluationsByPatient, updateEvaluation } from '../../services/evaluationService';
 import patientService from '../../services/patientService';
+import { mapPatientResponseDTO } from '../../dtos/patient.response.dto';
 import doctorService from '../../services/doctorService';
 import { bookingService } from '../../services/bookingService';
 import { IAppointment, IDoctors, IPatient } from '../../utils/types/types';
@@ -184,8 +185,10 @@ export default function PatientDashboard() {
 
       // Usa V2 para leitura rápida via PatientsView (10-50ms)
       const patient = await patientService.getById(patientId);
-      setPatientInfo(patient);
-      setEditedInfo(patient);
+      const patientDTO = mapPatientResponseDTO(patient);
+      // Merge DTO com dados brutos para manter compatibilidade com IPatient
+      setPatientInfo({ ...patient, ...patientDTO, _id: patientDTO.id, fullName: patientDTO.name });
+      setEditedInfo({ ...patient, ...patientDTO, _id: patientDTO.id, fullName: patientDTO.name });
     } catch (error: any) {
       console.error('Erro ao buscar dados do paciente:', error);
       

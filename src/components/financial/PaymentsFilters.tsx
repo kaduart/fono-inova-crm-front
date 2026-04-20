@@ -34,7 +34,7 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
         console.log('[PaymentsFilters] Aplicando filtros:', filters, 'em', safePayments.length, 'registros');
         let result = safePayments.filter(payment => {
             // Filtro por profissional
-            if (filters.doctorId && payment.doctor?._id !== filters.doctorId) {
+            if (filters.doctorId && payment.doctor?.id !== filters.doctorId) {
                 return false;
             }
 
@@ -42,8 +42,8 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
             if (filters.patientId) {
                 const searchTerm = filters.patientId.toLowerCase();
                 const patientMatch =
-                    payment.patient?._id?.toLowerCase().includes(searchTerm) ||
-                    payment.patient?.fullName?.toLowerCase().includes(searchTerm) ||
+                    payment.patient?.id?.toLowerCase().includes(searchTerm) ||
+                    payment.patient?.name?.toLowerCase().includes(searchTerm) ||
                     (payment as any).patientName?.toLowerCase().includes(searchTerm);
 
                 if (!patientMatch) return false;
@@ -55,7 +55,7 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
             }
 
             // Filtro por método de pagamento
-            if (filters.paymentMethod && payment.paymentMethod !== filters.paymentMethod) {
+            if (filters.paymentMethod && payment.method !== filters.paymentMethod) {
                 return false;
             }
 

@@ -32,7 +32,8 @@ const defaultForm: ScheduleAppointment = {
     paymentMethod: 'dinheiro',
     status: 'agendado',
     serviceType: 'individual_session',
-    packageId: null,
+    // packageId omitido — será incluído apenas quando selecionado
+    // (evita enviar null para a API)
     billingType: 'particular',
     insuranceProvider: '',
     authorizationCode: '',
