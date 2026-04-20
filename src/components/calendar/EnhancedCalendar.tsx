@@ -803,7 +803,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             pending: { label: 'Pendente', icon: '$', bg: 'bg-red-600', text: 'text-white' },
             package_paid: { label: 'Pacote', icon: '📦', bg: 'bg-green-600', text: 'text-white' },
             unknown: { label: 'Não verificado', icon: '?', bg: 'bg-gray-400', text: 'text-white' },
-            unknown: { label: 'Não verificado', icon: '?', bg: 'bg-gray-400', text: 'text-white' },
             partial: { label: 'Parcial', icon: '⚠️', bg: 'bg-amber-500', text: 'text-white' },
             advanced: { label: 'Adiant.', icon: '💵', bg: 'bg-blue-600', text: 'text-white' },
             open: { label: 'Aberto', icon: '❌', bg: 'bg-red-600', text: 'text-white' },
