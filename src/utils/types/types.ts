@@ -379,6 +379,7 @@ export interface SlotBookingPayload {
 export interface IPatient {
     _id?: string;
     patientId?: string; // real Patient._id when returned from patients_view
+    balance?: { current: number; lastUpdated: string | null };
     fullName: string;
     dateOfBirth: string;
     birthCertificate: string;

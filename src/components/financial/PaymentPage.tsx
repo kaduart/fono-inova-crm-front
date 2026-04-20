@@ -461,6 +461,9 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
     // 🆕 Analytics de novos pacientes / retornos 45+ dias (inclui pré-agendamentos)
     const { data: analyticsData, loading: analyticsLoading, fetch: fetchAnalytics } = useAppointmentsByType();
 
+    // 📅 Analytics fixos de HOJE (independente do período selecionado) — para o card "Agendamentos do dia"
+    const { data: todayAnalyticsData, fetch: fetchTodayAnalytics } = useAppointmentsByType();
+
     const [appointmentRecords, setAppointmentRecords] = useState<FinancialRecord[]>([]);
 
     const [filteredPayments, setFilteredPayments] = useState<PaymentDTO[]>([]);
@@ -581,6 +584,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
         const today = new Date().toISOString().split('T')[0];
         syncAppointments({ startDate: today, endDate: today });
         fetchPaymentTotals({ period: 'day' });
+        fetchTodayAnalytics({ startDate: today, endDate: today, mode: 'date' });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [enabled]);
 
@@ -1017,7 +1021,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                         </div>
                         <div className="h-full">
                             <PatientsSummaryCard
-                                leads={analyticsData?.leads || []}
+                                leads={todayAnalyticsData?.leads || []}
                                 novos={analyticsData?.novos || []}
                                 periodRange={computeDateRange(selectedPeriod, customStartDate, customEndDate)}
                                 loading={analyticsLoading}

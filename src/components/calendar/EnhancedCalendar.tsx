@@ -1545,8 +1545,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         }
                         
                         return (
-                            <div 
+                            <div
                                 className="flex flex-col items-end p-1 h-full relative"
+                                style={hoveredDay === dateStr ? { zIndex: 9999, position: 'relative' } : undefined}
                                 onMouseEnter={() => { clearHoverTimeout(); setHoveredDay(dateStr); }}
                                 onMouseLeave={scheduleHide}
                             >
@@ -1577,7 +1578,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                         <div className="text-xs font-bold text-gray-700 px-1 py-1 border-b border-gray-100">
                                             📅 {new Date(dateStr + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
                                         </div>
-                                        {dayAppts.map((appt) => (
+                                        {[...dayAppts].sort((a, b) => (a.time || '').localeCompare(b.time || '')).map((appt) => (
                                             <AppointmentEventCard
                                                 key={appt._id || appt.id}
                                                 appointment={appt}
