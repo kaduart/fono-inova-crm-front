@@ -74,6 +74,19 @@ function normalizePaymentMethod(method?: string | null): ValidPaymentMethod {
 /**
  * Verifica se um valor é "vazio" (string vazia, null, undefined, NaN)
  */
+/**
+ * Resolve sessionValue com segurança.
+ * Se sessionValue > 0, usa ele. Senão, usa paymentAmount. Senão, 0.
+ * TRAVA o bug: sessionValue=0 quando paymentAmount>0 nunca passa.
+ */
+function resolveSessionValue(sessionValue?: number, paymentAmount?: number): number {
+    const sv = Number(sessionValue ?? 0);
+    const pa = Number(paymentAmount ?? 0);
+    if (sv > 0) return sv;
+    if (pa > 0) return pa;
+    return 0;
+}
+
 function isEmptyValue(value: unknown): boolean {
     if (value === null || value === undefined) return true;
     if (typeof value === 'string' && value.trim() === '') return true;
@@ -187,7 +200,7 @@ export function mapToCreateAppointmentDTO(data: Partial<ScheduleAppointment> & R
         clinicalStatus: data.clinicalStatus,
         billingType: data.billingType || 'particular',
         paymentAmount: data.paymentAmount,
-        sessionValue: data.sessionValue ?? data.paymentAmount,
+        sessionValue: resolveSessionValue(data.sessionValue, data.paymentAmount),
         paymentMethod: normalizePaymentMethod(data.paymentMethod),
     };
 
@@ -242,7 +255,7 @@ export function mapToUpdateAppointmentDTO(data: Partial<ScheduleAppointment> & R
         clinicalStatus: data.clinicalStatus,
         billingType: data.billingType || 'particular',
         paymentAmount: data.paymentAmount,
-        sessionValue: data.sessionValue ?? data.paymentAmount,
+        sessionValue: resolveSessionValue(data.sessionValue, data.paymentAmount),
         paymentMethod: data.paymentMethod ? normalizePaymentMethod(data.paymentMethod) : undefined,
         packageId: typeof data.packageId === 'string' && data.packageId.trim() !== '' ? data.packageId : undefined,
     }) as UpdateAppointmentDTO;
