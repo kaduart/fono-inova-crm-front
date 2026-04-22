@@ -677,7 +677,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     specialty: formData.sessionType,
                     totalSessions: schedule.length,
                     sessionValue: Number(formData.sessionValue) || 0,
-                    selectedSlots: schedule
+                    schedule
                 };
 
                 console.log("📤 Enviando pacote de convênio:", convenioData);

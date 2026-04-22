@@ -53,7 +53,7 @@ export type CreateConvenioPackageParams = {
   specialty: string;
   totalSessions: number;
   sessionValue: number;
-  selectedSlots: {
+  schedule: {
     date: string;
     time: string;
   }[];
