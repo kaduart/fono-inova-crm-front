@@ -78,6 +78,13 @@ export const PAYMENT_STATUS_CONFIG = {
         bgColor: "rgba(235, 130, 219, 1)",
         textColor: "#7f1d1d",
     },
+    pending_receipt: {
+        label: "Ag. Recibo",
+        color: "#f59e0b",
+        icon: Clock,
+        bgColor: "#fef3c7",
+        textColor: "#92400e",
+    },
     unknown: {
         label: "Não verificado",
         color: "#6b7280",
@@ -401,20 +408,21 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         console.log(`📥 [EnhancedCalendar] appointments prop atualizada — ${appointments?.length ?? 0} itens (FullCalendar vai re-renderizar via prop, sem refetch)`);
     }, [appointments]);
 
-    // 💰 Fonte de verdade: Payment.status. NUNCA confiamos em appointment.paymentStatus
+    // 💰 Fonte de verdade: Payment.status, depois paymentStatus do agendamento
     const getRealPaymentStatus = useCallback((appt: any): string => {
         if (appt?.payment?.status) {
             return appt.payment.status;
         }
-        // 📦 Pacote pré-pago: não tem Payment individual (evita duplicação de caixa),
-        // mas está quitado no momento da compra do pacote
-        const rawPackage = appt?.package;
-        const hasPackage = !!rawPackage || appt?.serviceType === 'package_session';
+        const hasPackage = !!appt?.package || appt?.serviceType === 'package_session';
         if (hasPackage) {
+            const ps = appt?.paymentStatus;
+            if (ps === 'paid') return 'package_paid';
+            if (ps === 'pending_receipt') return 'pending_receipt';
+            if (ps === 'pending') return 'pending';
+            // fallback para dados sem paymentStatus (legado)
             return 'package_paid';
         }
-        // Sem Payment associado e sem pacote: retorna unknown para não mentir
-        return 'unknown';
+        return appt?.paymentStatus || 'unknown';
     }, []);
 
     const getPaymentStatusConfig = useCallback((paymentStatus: string) => {
@@ -823,6 +831,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             open: { label: 'Aberto', icon: '❌', bg: 'bg-red-600', text: 'text-white' },
             overdue: { label: 'Vencido', icon: '🔴', bg: 'bg-rose-700', text: 'text-white' },
             canceled: { label: 'Cancel.', icon: '⛔', bg: 'bg-gray-500', text: 'text-white' },
+            pending_receipt: { label: 'Ag. Recibo', icon: '🕐', bg: 'bg-amber-500', text: 'text-white' },
         };
 
         const OPERATIONAL_BADGE: Record<string, { label: string; bg: string; text: string }> = {
@@ -1150,7 +1159,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             open: { label: 'Aberto', icon: '❌', bg: 'bg-red-600', text: 'text-white' },
             overdue: { label: 'Vencido', icon: '🔴', bg: 'bg-rose-700', text: 'text-white' },
             canceled: { label: 'Cancel.', icon: '⛔', bg: 'bg-gray-500', text: 'text-white' },
-            
+            pending_receipt: { label: 'Ag. Recibo', icon: '🕐', bg: 'bg-amber-500', text: 'text-white' },
         };
 
         const OPERATIONAL_BADGE: Record<string, { label: string; bg: string; text: string }> = {

@@ -390,11 +390,11 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-700 font-medium text-sm">
-                                                            {patient.name?.charAt(0).toUpperCase()}
+                                                            {patient.fullName?.charAt(0).toUpperCase()}
                                                         </div>
                                                         <div>
                                                             <div className="font-medium text-gray-800 text-sm">
-                                                                {patient.name || '-'}
+                                                                {patient.fullName || '-'}
                                                             </div>
                                                             <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
                                                                 <Phone className="w-3 h-3" />
