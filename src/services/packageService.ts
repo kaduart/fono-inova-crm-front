@@ -50,6 +50,9 @@ export type CreateConvenioPackageParams = {
   patientId: string;
   doctorId: string;
   insuranceGuideId: string;
+  specialty: string;
+  totalSessions: number;
+  sessionValue: number;
   selectedSlots: {
     date: string;
     time: string;

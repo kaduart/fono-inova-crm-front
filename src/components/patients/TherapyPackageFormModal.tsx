@@ -674,6 +674,9 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     patientId: realPatientId,
                     doctorId: formData.doctorId,
                     insuranceGuideId: selectedGuide,
+                    specialty: formData.sessionType,
+                    totalSessions: schedule.length,
+                    sessionValue: Number(formData.sessionValue) || 0,
                     selectedSlots: schedule
                 };
 
@@ -1570,9 +1573,23 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     )}
 
                                     {packageType === 'convenio' && (
-                                        <div className="p-3 bg-blue-100 rounded-lg text-sm text-blue-900">
-                                            <p className="font-medium">💳 Pagamento via Convênio</p>
-                                            <p className="text-xs mt-1">O paciente não realiza pagamento. O valor será faturado ao convênio.</p>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Valor por Sessão (R$) *</label>
+                                                <InputCurrency
+                                                    name="sessionValue"
+                                                    value={formData.sessionValue || 0}
+                                                    onChange={handleChange}
+                                                    min="0"
+                                                    step="0.01"
+                                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                                />
+                                                <p className="text-xs text-blue-600 mt-1">Valor que será faturado ao convênio por sessão.</p>
+                                            </div>
+                                            <div className="p-3 bg-blue-100 rounded-lg text-sm text-blue-900">
+                                                <p className="font-medium">💳 Pagamento via Convênio</p>
+                                                <p className="text-xs mt-1">O paciente não realiza pagamento. O valor será faturado ao convênio.</p>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
