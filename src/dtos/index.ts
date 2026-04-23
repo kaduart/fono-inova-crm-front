@@ -14,3 +14,4 @@ export * from './payment.dto';
 export * from './patient.response.dto';
 export * from './appointment.response.dto';
 export * from './payment.response.dto';
+export * from './session.response.dto';

@@ -2,7 +2,7 @@ import { PlusCircle, Save, UserX, Calendar, Clock, User, DollarSign, FileText, X
 import { useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
-import ReactInputMask from 'react-input-mask';
+// import ReactInputMask from 'react-input-mask';
 import { toast } from 'react-toastify';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
 import { IDoctor, ISession, THERAPY_TYPES, TherapyType } from '../../utils/types/types';
@@ -37,6 +37,14 @@ export const SessionModal = ({
     onClose,
     onSessionDataChange
 }: SessionModalProps) => {
+    console.log('[DEBUG] SessionModal received sessionData:', sessionData);
+    console.log('[DEBUG] SessionModal doctors array length:', doctors?.length);
+    console.log('[DEBUG] SessionModal doctorId:', sessionData?.doctorId);
+    console.log('[DEBUG] SessionModal date:', sessionData?.date);
+    console.log('[DEBUG] SessionModal paymentAmount:', sessionData?.paymentAmount);
+    console.log('[DEBUG] SessionModal notes:', sessionData?.notes);
+    const doctorMatch = doctors?.find(d => d._id === sessionData?.doctorId);
+    console.log('[DEBUG] SessionModal doctorMatch:', doctorMatch);
     const title = action === 'edit' ? 'Editar Sessão' : 'Registrar Uso da Sessão';
     const submitText = action === 'edit' ? 'Salvar Alterações' : 'Registrar Sessão';
     
@@ -79,6 +87,22 @@ export const SessionModal = ({
         if (!validateForm()) return;
         onSubmit();
     };
+
+    // Calcula datas para os DatePickers
+    const selectedDate = (() => {
+        if (!sessionData.date) return null;
+        const d = buildLocalDateOnly(sessionData.date);
+        return isNaN(d.getTime()) ? null : d;
+    })();
+
+    const selectedTime = (() => {
+        if (!sessionData.time || !sessionData.time.includes(':')) return null;
+        const [hours, minutes] = sessionData.time.split(':').map(Number);
+        if (isNaN(hours) || isNaN(minutes)) return null;
+        const date = new Date();
+        date.setHours(hours, minutes, 0, 0);
+        return isNaN(date.getTime()) ? null : date;
+    })();
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
@@ -141,21 +165,10 @@ export const SessionModal = ({
                                         <Calendar className="w-4 h-4 text-blue-600" />
                                         <span>Data *</span>
                                     </label>
-                                    <DatePicker
-                                        selected={sessionData.date ? buildLocalDateOnly(sessionData.date) : null}
-                                        onChange={(date: Date | null) => {
-                                            if (!date) return;
-                                            const formattedDate = date.toISOString().split('T')[0];
-                                            onSessionDataChange({ ...sessionData, date: formattedDate });
-                                        }}
-                                        customInput={
-                                            <ReactInputMask
-                                                mask="99/99/9999"
-                                                className="w-full py-3 px-4 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            />
-                                        }
-                                        placeholderText='dd/MM/yyyy'
-                                        dateFormat="dd/MM/yyyy"
+                                    <input
+                                        type="date"
+                                        value={sessionData.date || ''}
+                                        onChange={(e) => onSessionDataChange({ ...sessionData, date: e.target.value })}
                                         className="w-full py-3 px-4 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     />
                                 </div>
@@ -166,16 +179,7 @@ export const SessionModal = ({
                                         <span>Hora *</span>
                                     </label>
                                     <DatePicker
-                                        selected={
-                                            sessionData.time
-                                                ? (() => {
-                                                    const [hours, minutes] = sessionData.time.split(':').map(Number);
-                                                    const date = new Date();
-                                                    date.setHours(hours, minutes, 0, 0);
-                                                    return date;
-                                                })()
-                                                : null
-                                        }
+                                        selected={selectedTime}
                                         onChange={(date: Date | null) => {
                                             if (!date) return;
                                             const formattedTime = date
@@ -188,12 +192,6 @@ export const SessionModal = ({
                                         timeFormat="HH:mm"
                                         dateFormat="HH:mm"
                                         placeholderText="HH:MM"
-                                        customInput={
-                                            <ReactInputMask
-                                                mask="99:99"
-                                                className="w-full py-3 px-4 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                                            />
-                                        }
                                         className="w-full py-3 px-4 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                                     />
                                 </div>

@@ -3,6 +3,7 @@ import { packageService } from '../../services/packageService';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { IDoctors, IPatient, ISession, ITherapyPackage } from '../../utils/types/types';
+import { mapSessionResponseDTO, sessionDTOToISession } from '../../dtos/session.response.dto';
 import { SessionListItem } from './SessionListItem';
 import { SessionModal } from './SessionModal';
 
@@ -35,19 +36,22 @@ export default function TherapyPackageCard({
 
   const [modalAction, setModalAction] = useState<ModalAction>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedSession, setSelectedSession] = useState<ISession>({
+  const initialSessionState: ISession = {
     _id: '',
     date: '',
+    time: '',
     doctorId: '',
+    patientId: '',
     package: '',
     sessionType: 'fonoaudiologia',
     status: 'pending',
     paymentAmount: 0,
-    paymentMethod: 'dinheiro',
+    paymentMethod: '',
     notes: '',
     isPaid: true,
     confirmedAbsence: false
-  });
+  };
+  const [selectedSession, setSelectedSession] = useState<ISession>(initialSessionState);
   const [loading, setLoading] = useState(false);
   const [internalExpanded, setInternalExpanded] = useState(false);
   
@@ -66,9 +70,38 @@ export default function TherapyPackageCard({
     }
   };
 
-  const openModalWithAction = (action: 'edit' | 'use', session?: ISession) => {
+  const openModalWithAction = async (action: 'edit' | 'use', session?: ISession) => {
     setModalAction(action);
-    setSelectedSession(session || null);
+    if (session) {
+      // 🔄 Busca pacote detalhado para ter dados atualizados (paymentMethod, etc.)
+      let rawSession = session;
+      if (pack?._id) {
+        try {
+          const detail = await packageService.getPackage(pack._id);
+          if (detail?.sessions?.length) {
+            const found = detail.sessions.find(
+              (s: any) => s.sessionId?.toString?.() === session.sessionId || s._id?.toString?.() === session._id
+            );
+            if (found) rawSession = found;
+          }
+        } catch (e) {
+          console.warn('Falha ao buscar detalhe do pacote, usando dados locais', e);
+        }
+      }
+      const context = {
+        doctorId: pack.doctorId || (pack as any).doctor?._id?.toString?.() || (pack as any).doctor?.toString?.() || '',
+        patientId: pack.patientId || (pack as any).patient?._id?.toString?.() || (pack as any).patient?.toString?.() || '',
+        packageId: pack._id || (pack as any).packageId || '',
+        sessionValue: typeof pack.sessionValue === 'number' ? pack.sessionValue : 0,
+        sessionType: pack.sessionType || (pack as any).specialty || '',
+      };
+      const dto = mapSessionResponseDTO(rawSession, context);
+      const normalized = sessionDTOToISession(dto);
+      console.log('[DEBUG] openModalWithAction DTO - raw:', rawSession, 'context:', context, 'normalized:', normalized);
+      setSelectedSession(normalized);
+    } else {
+      setSelectedSession(initialSessionState);
+    }
     setIsModalOpen(true);
   };
 
@@ -84,9 +117,10 @@ export default function TherapyPackageCard({
     try {
       await onUseSession(pack._id, payload, modalAction);
       setIsModalOpen(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro:", err);
-      toast.error("Erro ao salvar sessão");
+      const apiMessage = err?.response?.data?.error || err?.response?.data?.message || err?.message;
+      toast.error(apiMessage || "Erro ao salvar sessão");
     } finally {
       setLoading(false);
     }
@@ -709,10 +743,11 @@ export default function TherapyPackageCard({
       {/* Modal */}
       {isModalOpen && (
         <SessionModal
+          key={selectedSession._id || 'new'}
           action={modalAction}
           onClose={() => {
             setIsModalOpen(false);
-            setSelectedSession(null);
+            setSelectedSession(initialSessionState);
           }}
           doctors={doctors}
           onSessionDataChange={(data) => setSelectedSession(data)}

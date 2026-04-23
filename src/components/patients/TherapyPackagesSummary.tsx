@@ -91,9 +91,12 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
 
     const handleUseSession = async (packId: string, sessionData: UseSessionParams, modalAction: string) => {
         try {
-            validatePayment(sessionData.paymentAmount, selectedPackage?.balance);
+            // Só valida pagamento ao REGISTRAR uso (não ao editar/reagendar)
+            if (modalAction === 'use' && sessionData.paymentAmount && sessionData.paymentAmount > 0) {
+                validatePayment(sessionData.paymentAmount, selectedPackage?.balance);
+            }
             const payload = {
-                patientId: sessionData.patient,
+                patientId: sessionData.patientId,
                 doctorId: sessionData.doctorId,
                 date: sessionData.date,
                 time: sessionData.time,
@@ -107,7 +110,7 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                 confirmedAbsence: sessionData.confirmedAbsence,
                 payment: {
                     amount: Number(sessionData.paymentAmount) || 0,
-                    method: sessionData.paymentMethod || 'dinheiro'
+                    method: sessionData.paymentMethod || ''
                 },
             };
 
@@ -123,9 +126,11 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
             // Recarrega os pacotes
             await fetchBasicPackages();
 
-        } catch (err) {
+        } catch (err: any) {
             console.error('Erro:', err);
-            toast.error(`Falha ao ${modalAction === 'edit' ? 'atualizar' : 'registrar'} sessão`);
+            const apiMessage = err?.response?.data?.error || err?.response?.data?.message || err?.message;
+            toast.error(apiMessage || `Falha ao ${modalAction === 'edit' ? 'atualizar' : 'registrar'} sessão`);
+            throw err; // Relança para o modal não fechar
         }
     }
 

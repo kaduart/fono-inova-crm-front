@@ -304,7 +304,7 @@ export const packageService = {
 
   // Operações com Pagamentos
   createPayment: async (packageId: string, data: CreatePaymentParams) => {
-    const response = await API.post<IPayment>(`/v2/packages/${packageId}/payments`, data);
+    const response = await API.post<IPayment>(`/packages/${packageId}/payments`, data);
     return extractV2Data(response);
   },
 
@@ -315,7 +315,7 @@ export const packageService = {
     startDate?: Date;
     endDate?: Date;
   }) => {
-    const response = await API.get<ITherapyPackage[]>('/v2/packages/search', {
+    const response = await API.get<ITherapyPackage[]>('/packages/search', {
       params: {
         ...filters,
         startDate: filters.startDate?.toISOString(),
@@ -326,18 +326,18 @@ export const packageService = {
   },
 
   getPackageSessions: async (packageId: string) => {
-    const response = await API.get<ISession[]>(`/v2/packages/${packageId}/sessions`);
+    const response = await API.get<ISession[]>(`/packages/${packageId}/sessions`);
     return extractV2Data(response);
   },
 
   getPackagePayments: async (packageId: string) => {
-    const response = await API.get<IPayment[]>(`/v2/packages/${packageId}/payments`);
+    const response = await API.get<IPayment[]>(`/packages/${packageId}/payments`);
     return extractV2Data(response);
   },
 
   // Operações com Sessões
   createSession: async (packageId: string, data: CreateSessionParams) => {
-    const response = await API.post<ISession>(`/v2/packages/${packageId}/sessions`, data);
+    const response = await API.post<ISession>(`/packages/${packageId}/sessions`, data);
     return extractV2Data(response);
   },
 
@@ -345,25 +345,26 @@ export const packageService = {
     if (data.status !== 'canceled') {
       data.confirmedAbsence = null;
     }
-    const response = await API.put<ISession>(`/v2/packages/${packageId}/sessions/${data.sessionId}`, data);
+    const sessionId = data.sessionId || data._id;
+    const response = await API.put<ISession>(`/packages/${packageId}/sessions/${sessionId}`, data);
     return extractV2Data(response);
   },
 
   addSession: async (packageId: string, sessionData: any) => {
-    const response = await API.post(`/v2/packages/${packageId}/sessions`, sessionData);
+    const response = await API.post(`/packages/${packageId}/sessions`, sessionData);
     return extractV2Data(response);
   },
 
   // Operação para "usar" uma sessão e atualizar pagamento
   useSession: async (packageId: string, data: UseSessionParams) => {
-    const response = await API.patch<ISession>(`/v2/packages/${packageId}/use-session`, data);
+    const response = await API.patch<ISession>(`/packages/${packageId}/use-session`, data);
     return extractV2Data(response);
   },
 
   // 🔄 Cancelamento em massa de sessões (com lista específica)
   bulkCancelSessions: async (packageId: string, sessionIds: string[], confirmedAbsence: boolean = false) => {
     const response = await API.post<{ success: boolean; message: string; canceledCount: number }>(
-      `/v2/packages/${packageId}/sessions/bulk-cancel`,
+      `/packages/${packageId}/sessions/bulk-cancel`,
       { sessionIds, confirmedAbsence }
     );
     return extractV2Data(response);
@@ -372,7 +373,7 @@ export const packageService = {
   // 🚀 Cancelar TODAS as sessões do pacote (mais simples, mais rápido)
   cancelAllSessions: async (packageId: string, confirmedAbsence: boolean = false) => {
     const response = await API.post<{ success: boolean; message: string; canceledCount: number }>(
-      `/v2/packages/${packageId}/cancel-all-sessions`,
+      `/packages/${packageId}/cancel-all-sessions`,
       { confirmedAbsence }
     );
     return extractV2Data(response);
@@ -381,7 +382,8 @@ export const packageService = {
 
 export const validatePayment = (amount: number, balance: number) => {
   if (amount <= 0) throw new Error("Valor deve ser maior que zero");
-  if (amount > balance) {
+  // Se não há saldo devedor (balance <= 0 = crédito ou zerado), não valida limite
+  if (balance > 0 && amount > balance) {
     throw new Error(
       `Valor excede saldo devedor. Saldo atual: ${balance.toLocaleString('pt-BR', {
         style: 'currency',
