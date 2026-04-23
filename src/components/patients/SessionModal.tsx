@@ -11,6 +11,7 @@ import InputCurrency from '../ui/InputCurrency';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/TextArea';
 
+
 interface SessionModalProps {
     action: 'edit' | 'use';
     sessionData: ISession;
@@ -58,6 +59,8 @@ export const SessionModal = ({
         );
         setIsFormValid(isValid);
     }, [sessionData.doctorId, sessionData.date, sessionData.time]);
+
+
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;

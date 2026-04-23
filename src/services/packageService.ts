@@ -114,7 +114,7 @@ export type UseSessionParams = {
 const extractV2Data = <T>(response: any): T => {
   const dto = response.data;
   // DTO V2: extrai data quando presente
-  if (dto?.meta?.version === 'v2' && dto.success) {
+  if (dto?.success && dto?.data !== undefined) {
     return dto.data as T;
   }
   return dto as T;

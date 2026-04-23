@@ -78,8 +78,9 @@ export default function TherapyPackageCard({
       if (pack?._id) {
         try {
           const detail = await packageService.getPackage(pack._id);
-          if (detail?.sessions?.length) {
-            const found = detail.sessions.find(
+          const pkg = detail?.package || detail;
+          if (pkg?.sessions?.length) {
+            const found = pkg.sessions.find(
               (s: any) => s.sessionId?.toString?.() === session.sessionId || s._id?.toString?.() === session._id
             );
             if (found) rawSession = found;
