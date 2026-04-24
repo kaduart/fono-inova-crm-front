@@ -58,6 +58,7 @@ import { useDashboard } from '../hooks/useDashboard';
 import { usePatients } from '../hooks/usePatients';
 import { usePaymentsContext } from '../contexts/PaymentsContext';
 import { SystemHealthProvider } from '../contexts/SystemHealthContext';
+import WhatsAppCriticalBanner from './admin/WhatsAppCriticalBanner';
 import usePayment from '../hooks/usePayment';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
 import doctorService, { CreateDoctorParams } from '../services/doctorService';
@@ -1121,6 +1122,7 @@ export default function AdminDashboard() {
     return (
         <SystemHealthProvider>
         <div className="min-h-screen bg-gray-100 text-gray-800">
+            <WhatsAppCriticalBanner />
             <AdminHeader
                 activeTab={activeTab}
                 openMenu={openMenu}

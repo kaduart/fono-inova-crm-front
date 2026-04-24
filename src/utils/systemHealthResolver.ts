@@ -242,15 +242,15 @@ export function resolveSystemHealth(
     if (memStatus === 'critical') {
         alerts.push({
             level: 'error',
-            title: `Memória crítica (${heapPercent}%)`,
-            detail: 'Heap acima de 90% — risco de instabilidade em jobs longos e filas de processamento',
+            title: `Memória crítica (${rssPercent}%)`,
+            detail: 'RSS acima de 2GB — risco de instabilidade em jobs longos e filas de processamento',
             action: 'Monitorar; reiniciar serviço se subir para 95%+',
         });
     } else if (memStatus === 'warning') {
         alerts.push({
             level: 'warning',
-            title: `Memória elevada (${heapPercent}%)`,
-            detail: 'Heap acima de 75% — fique atento a memory leaks',
+            title: `Memória elevada (${rssPercent}%)`,
+            detail: 'RSS acima de 1GB — fique atento a memory leaks',
             action: 'Observar tendência nos próximos 30 minutos',
         });
     }

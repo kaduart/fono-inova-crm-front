@@ -83,6 +83,20 @@ export interface HealthExtras {
     appointmentStats: { retryableNotFound: number; permanentNotFound: number } | null;
 }
 
+export interface WhatsAppHealth {
+    status: 'healthy' | 'warning' | 'critical';
+    timestamp: string;
+    checks: {
+        workersEnabled: boolean;
+        redisConnected: boolean;
+        inboundQueueOk: boolean;
+        persistenceQueueOk: boolean;
+        pendingEventsCritical: number;
+        pendingEventsWarning: number;
+        recentFailures: number;
+    };
+}
+
 interface SystemHealthContextValue {
     health:        SystemHealth | null;
     monitor:       RawMonitorData | null;
@@ -97,6 +111,8 @@ interface SystemHealthContextValue {
     loadingMonitor: boolean;
     refresh: () => void;
     lastFetchAt: Date | null;
+    whatsappHealth: WhatsAppHealth | null;
+    loadingWhatsapp: boolean;
 }
 
 const SystemHealthContext = createContext<SystemHealthContextValue | null>(null);
@@ -117,6 +133,8 @@ export function SystemHealthProvider({ children }: { children: ReactNode }) {
     const [loadingHealth,  setLoadingHealth]  = useState(true);
     const [loadingMonitor, setLoadingMonitor] = useState(true);
     const [lastFetchAt,    setLastFetchAt]    = useState<Date | null>(null);
+    const [whatsappHealth, setWhatsappHealth] = useState<WhatsAppHealth | null>(null);
+    const [loadingWhatsapp, setLoadingWhatsapp] = useState(true);
 
     const fetchHealth = useCallback(async () => {
         try {
@@ -208,10 +226,37 @@ export function SystemHealthProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
+    const fetchWhatsappHealth = useCallback(async () => {
+        try {
+            const res = await API.get<{ success: boolean; status: string; checks: WhatsAppHealth['checks'] }>('/observability/whatsapp-health');
+            setWhatsappHealth({
+                status: res.data.status as WhatsAppHealth['status'],
+                timestamp: new Date().toISOString(),
+                checks: res.data.checks,
+            });
+        } catch {
+            setWhatsappHealth({
+                status: 'critical',
+                timestamp: new Date().toISOString(),
+                checks: {
+                    workersEnabled: false,
+                    redisConnected: false,
+                    inboundQueueOk: false,
+                    persistenceQueueOk: false,
+                    pendingEvents: 0,
+                    recentFailures: 0,
+                },
+            });
+        } finally {
+            setLoadingWhatsapp(false);
+        }
+    }, []);
+
     const refresh = useCallback(() => {
         fetchHealth();
         fetchMonitor();
-    }, [fetchHealth, fetchMonitor]);
+        fetchWhatsappHealth();
+    }, [fetchHealth, fetchMonitor, fetchWhatsappHealth]);
 
     useEffect(() => {
         fetchHealth();
@@ -225,12 +270,24 @@ export function SystemHealthProvider({ children }: { children: ReactNode }) {
         return () => clearInterval(id);
     }, [fetchMonitor]);
 
+    // 🔄 Polling adaptativo do WhatsApp health
+    useEffect(() => {
+        fetchWhatsappHealth();
+        const interval =
+            whatsappHealth?.status === 'critical' ? 5_000 :
+            whatsappHealth?.status === 'warning' ? 10_000 :
+            15_000;
+        const id = setInterval(fetchWhatsappHealth, interval);
+        return () => clearInterval(id);
+    }, [fetchWhatsappHealth, whatsappHealth?.status]);
+
     return (
         <SystemHealthContext.Provider value={{
             health, monitor, rawMetrics, rawDomains, rawAlerts, recent,
             healthScore, systemStatus, extras,
             loadingHealth, loadingMonitor,
             refresh, lastFetchAt,
+            whatsappHealth, loadingWhatsapp,
         }}>
             {children}
         </SystemHealthContext.Provider>
