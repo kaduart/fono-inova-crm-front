@@ -43,12 +43,12 @@ export default function WhatsAppCriticalBanner() {
         ? 'Mensagens de leads não estão sendo processadas.'
         : 'Mensagens de leads estão com atraso no processamento.';
 
-    if (workersOff) {
-        title = '🚨 Workers desabilitados';
-        message = 'O servidor está rodando SEM os workers de processamento. Mensagens estão sendo perdidas.';
-    } else if (redisDown) {
+    if (redisDown) {
         title = '🚨 Redis desconectado';
         message = 'O sistema não consegue acessar as filas de processamento.';
+    } else if (workersOff && (checks.inboundCounts?.waiting || 0) > 5) {
+        title = '🚨 Workers inativos';
+        message = 'O crm-worker não está consumindo as filas. Mensagens estão acumulando.';
     } else if (hasPendingEvents) {
         title = isCritical
             ? `🚨 ${pendingCount} mensagens paradas`
