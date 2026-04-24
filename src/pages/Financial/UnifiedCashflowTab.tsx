@@ -414,33 +414,46 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                             </Typography>
                             {data.pacotesAtendidos?.length > 0 ? (
                                 <Grid container spacing={2}>
-                                    {data.pacotesAtendidos.map((p) => (
+                                    {data.pacotesAtendidos.map((p) => {
+                                        const isPrepaid = p.paymentModel === 'prepaid';
+                                        return (
                                         <Grid size={{ xs: 12, sm: 6, md: 4 }} key={p.id}>
-                                            <Card variant="outlined">
-                                                <CardContent>
-                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                                        <Typography variant="subtitle2" fontWeight="bold">
+                                            <Card variant="outlined" sx={{
+                                                borderLeft: `4px solid`,
+                                                borderLeftColor: isPrepaid ? 'info.main' : 'success.main',
+                                            }}>
+                                                <CardContent sx={{ pb: '12px !important' }}>
+                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+                                                        <Typography variant="subtitle2" fontWeight="bold" sx={{ flex: 1, mr: 1, lineHeight: 1.3 }}>
                                                             {p.paciente}
                                                         </Typography>
-                                                        <Chip 
-                                                            size="small" 
-                                                            label={p.statusPagamento}
-                                                            color={p.statusPagamento === 'Pago' ? 'success' : 'warning'}
+                                                        <Chip
+                                                            size="small"
+                                                            label={isPrepaid ? 'Pré-pago' : 'Pago hoje'}
+                                                            color={isPrepaid ? 'info' : 'success'}
+                                                            variant={isPrepaid ? 'outlined' : 'filled'}
                                                         />
                                                     </Box>
-                                                    <Typography variant="body2" color="text.secondary">
-                                                        {p.especialidade} • {p.professional}
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        {p.especialidade} • {p.horario}
                                                     </Typography>
-                                                    <Typography variant="body2" color="text.secondary">
-                                                        Horário: {p.horario}
+                                                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.75 }}>
+                                                        {p.professional}
                                                     </Typography>
-                                                    <Typography variant="h6" color="success.main" sx={{ mt: 1 }}>
-                                                        {formatCurrency(p.valor)}
-                                                    </Typography>
+                                                    <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                                                        <Typography variant="h6" fontWeight="bold"
+                                                            color={isPrepaid ? 'text.secondary' : 'success.main'}>
+                                                            {formatCurrency(p.valor)}
+                                                        </Typography>
+                                                        <Typography variant="caption" color={isPrepaid ? 'info.main' : 'success.dark'}>
+                                                            {isPrepaid ? 'crédito consumido' : 'recebido hoje'}
+                                                        </Typography>
+                                                    </Box>
                                                 </CardContent>
                                             </Card>
                                         </Grid>
-                                    ))}
+                                        );
+                                    })}
                                 </Grid>
                             ) : (
                                 <Alert severity="info">Nenhum pacote atendido hoje</Alert>
