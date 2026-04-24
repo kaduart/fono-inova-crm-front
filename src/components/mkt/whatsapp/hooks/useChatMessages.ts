@@ -36,63 +36,58 @@ export function useChatMessages(contact: Contact | null, leadId?: string) {
 
     // 🔧 FIX: Escutar mensagens novas em tempo real (Socket.io)
     useEffect(() => {
-        if (!contact?.phone) return;
+        if (!contact?._id) return;
 
-        logger.info(`[useChatMessages] Registrando listener Socket.io para ${contact.phone}`);
+        console.log(`[useChatMessages] 📡 Registrando listener para contactId=${contact._id} phone=${contact.phone}`);
 
         const unsubscribeNew = socketManager.onMessageNew((payload) => {
-            logger.info(`[useChatMessages] 📨 Socket recebeu message:new:`, payload);
-            
-            // 🎯 Verifica se a mensagem é deste contato (prioriza contactId)
-            const payloadContactId = payload.contactId || payload.contact?._id;
-            const isSameContactById = payloadContactId && contact._id === payloadContactId;
-            
-            // Fallback: comparação por telefone
-            // BUG FIX: para mensagens outbound (Amanda → cliente), o telefone do contato está em 'to',
-            // não em 'from'. Usar 'from' causava mismatch e mensagens enviadas não apareciam no chat.
-            const isOutbound = String(payload.direction || '').toLowerCase() === 'outbound';
-            const messagePhone = isOutbound
-                ? (payload.to || payload.from || '').replace(/\D/g, '')
-                : (payload.from || payload.to || '').replace(/\D/g, '');
-            const contactPhone = (contact.phone || '').replace(/\D/g, '');
-            const isMatchByPhone = messagePhone && contactPhone && (
-                messagePhone.includes(contactPhone) ||
-                contactPhone.includes(messagePhone) ||
-                messagePhone.replace(/^55/, '').includes(contactPhone.replace(/^55/, '')) ||
-                contactPhone.replace(/^55/, '').includes(messagePhone.replace(/^55/, ''))
-            );
-            
-            const isMatch = isSameContactById || isMatchByPhone;
-            
-            logger.info(`[useChatMessages] 🔍 Match check:`, {
-                isSameContactById,
-                isMatchByPhone,
-                isMatch,
-                messagePhone,
-                contactPhone,
-                payloadContactId,
-                contactId: contact._id
+            console.log(`[useChatMessages] 📨 message:new recebido:`, {
+                payloadContactId: payload.contactId,
+                payloadContact_id: payload.contact?._id,
+                myContactId: contact._id,
+                myPhone: contact.phone,
+                from: payload.from,
+                to: payload.to,
+                direction: payload.direction,
             });
             
-            if (!isMatch) {
-                logger.info(`[useChatMessages] ❌ Mensagem ignorada - não corresponde ao contato ${contact.phone}`);
-                return;
+            // 🎯 PRIORIDADE 1: Match por contactId (mais confiável)
+            const payloadContactId = payload.contactId || payload.contact?._id;
+            if (payloadContactId && String(contact._id) === String(payloadContactId)) {
+                console.log(`[useChatMessages] ✅ Match por contactId: ${contact._id}`);
+                // cai para adicionar mensagem abaixo
+            } else {
+                // Fallback: comparação por telefone (com normalização extra)
+                const msgFrom = String(payload.from || '').replace(/\D/g, '');
+                const msgTo = String(payload.to || '').replace(/\D/g, '');
+                const myPhone = String(contact.phone || '').replace(/\D/g, '');
+                
+                // Normaliza removendo prefixo 55 e trailing digits para comparar núcleo
+                const normalizeForMatch = (p: string) => p.replace(/^55/, '').replace(/\D/g, '');
+                const cores = [normalizeForMatch(msgFrom), normalizeForMatch(msgTo)];
+                const myCore = normalizeForMatch(myPhone);
+                
+                const isMatchByPhone = myCore.length >= 9 && cores.some(c => 
+                    c === myCore || c.includes(myCore) || myCore.includes(c)
+                );
+                
+                if (!isMatchByPhone) {
+                    console.log(`[useChatMessages] ❌ Não match por telefone. myCore=${myCore}, cores=${cores.join('|')}`);
+                    return;
+                }
+                console.log(`[useChatMessages] ✅ Match por telefone`);
             }
-            
-            logger.info(`[useChatMessages] ✅ Mensagem corresponde ao contato: ${contactPhone}`);
 
             // Evita duplicatas
             const msgId = payload.id || payload.wamid || uid('msg');
             if (seenIdsRef.current.has(msgId)) {
-                logger.debug(`[useChatMessages] Mensagem ${msgId} já existe, ignorando`);
+                console.log(`[useChatMessages] ⚠️ Mensagem ${msgId} já existe, ignorando`);
                 return;
             }
 
-            logger.info(`[useChatMessages] ✅ Nova mensagem recebida via Socket: ${msgId}`);
+            console.log(`[useChatMessages] 🆕 Nova mensagem aceita: ${msgId}`);
             seenIdsRef.current.add(msgId);
 
-            // Formata a mensagem
-            // 🆕 Usa timestampMs (número) se disponível, senão fallback para timestamp
             const msgTimestamp = payload.timestampMs 
                 ? new Date(payload.timestampMs) 
                 : payload.timestamp ? new Date(payload.timestamp) : new Date();
@@ -108,29 +103,26 @@ export function useChatMessages(contact: Contact | null, leadId?: string) {
                 mediaUrl: payload.mediaUrl || payload.url,
             };
 
-            // Adiciona à lista de mensagens
             setMessages(prev => {
-                // Evita adicionar duplicata se já existir
-                if (prev.some(m => m.id === msgId)) {
-                    return prev;
-                }
+                if (prev.some(m => m.id === msgId)) return prev;
+                console.log(`[useChatMessages] 💾 Adicionando mensagem ao chat. Total antes: ${prev.length}`);
                 return [...prev, newMessage];
             });
         });
 
         const unsubscribeDeleted = socketManager.onMessageDeleted((payload) => {
             if (payload.id) {
-                logger.info(`[useChatMessages] ❌ Mensagem deletada: ${payload.id}`);
+                console.log(`[useChatMessages] 🗑️ Mensagem deletada: ${payload.id}`);
                 setMessages(prev => prev.filter(m => m.id !== payload.id));
             }
         });
 
         return () => {
-            logger.info(`[useChatMessages] Removendo listeners Socket.io para ${contact.phone}`);
+            console.log(`[useChatMessages] 🧹 Removendo listeners para ${contact._id}`);
             unsubscribeNew();
             unsubscribeDeleted();
         };
-    }, [contact?.phone]);
+    }, [contact?._id, contact?.phone]);
 
     // Carregar mensagens — usa V2 (leadId) quando disponível
     const loadMessages = useCallback(async (phone: string) => {
