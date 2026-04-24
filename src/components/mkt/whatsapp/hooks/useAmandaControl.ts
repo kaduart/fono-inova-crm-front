@@ -25,7 +25,7 @@ export function useAmandaControl(contact: Contact | null) {
 
         try {
             setLoading(true);
-            const { data } = await API.post(`/followups/amanda-resume/${key}`, {});
+            const { data } = await API.post(`/whatsapp/amanda-resume/${key}`, {});
 
             if (data?.success) {
                 toast.success(data.message || "Amanda reativada");

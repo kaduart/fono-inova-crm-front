@@ -310,14 +310,18 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
         
         // 🛡️ Rate limiting para refreshContacts quando contato não encontrado
         let lastSocketRefresh = 0;
-        const SOCKET_REFRESH_COOLDOWN = 10000; // Mínimo 10s entre refreshes de socket
+        const SOCKET_REFRESH_COOLDOWN = 3000; // Mínimo 3s entre refreshes de socket
 
         // 🆕 V2: chat:inbox:update vem do chatProjectionWorker após salvar ChatProjection no Mongo
         // Chega ligeiramente depois de message:new e confirma dados do DB (unreadCount preciso)
         const unsubInboxUpdate = socketManager.onChatInboxUpdate((data) => {
             const phone = normalizeE164BR(data.phone || '');
             const contactId = phone ? phoneIndexRef.current.get(phone) : undefined;
-            if (!contactId) return; // contato desconhecido — message:new já vai fazer refresh
+            if (!contactId) {
+                // contato desconhecido — força refresh para aparecer na sidebar
+                refreshContacts();
+                return;
+            }
 
             const activeId = activeContactIdRef.current;
             const isInbound = data.lastDirection === 'inbound';
@@ -391,7 +395,11 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
                         console.warn('[ContactsContext] Contato não encontrado, fazendo refresh... Phone:', phone);
                         refreshContacts();
                     } else {
-                        console.log('[ContactsContext] Refresh ignorado (cooldown ativo)');
+                        // cooldown ativo, mas agenda refresh para garantir que apareça
+                        setTimeout(() => {
+                            console.warn('[ContactsContext] Refresh agendado pós-cooldown. Phone:', phone);
+                            refreshContacts();
+                        }, SOCKET_REFRESH_COOLDOWN);
                     }
                     return;
                 }

@@ -77,22 +77,24 @@ export function formatMessageTime(timestamp) {
 
     const diffDays = Math.floor((today - msgDate) / (1000 * 60 * 60 * 24));
 
-    // Hoje: mostra só hora
+    const h = String(date.getHours()).padStart(2, '0');
+    const m = String(date.getMinutes()).padStart(2, '0');
+    const time = `${h}:${m}`;
+    const dias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+    // Hoje: dia da semana + hora
     if (diffDays === 0) {
-        const h = String(date.getHours()).padStart(2, '0');
-        const m = String(date.getMinutes()).padStart(2, '0');
-        return `${h}:${m}`;
+        return `${dias[date.getDay()]} ${time}`;
     }
 
     // Ontem
     if (diffDays === 1) {
-        return 'Ontem';
+        return `Ontem ${time}`;
     }
 
     // Mesma semana (últimos 7 dias)
     if (diffDays < 7) {
-        const dias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-        return dias[date.getDay()];
+        return `${dias[date.getDay()]} ${time}`;
     }
 
     // Mesmo ano: dia e mês
@@ -129,9 +131,9 @@ export function formatMessageTimestamp(timestamp) {
     const m = String(date.getMinutes()).padStart(2, '0');
     const time = `${h}:${m}`;
 
-    // Hoje: só hora
+    // Hoje: prefixo + hora
     if (diffDays === 0) {
-        return time;
+        return `Hoje às ${time}`;
     }
 
     // Ontem

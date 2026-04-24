@@ -204,9 +204,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                                     <div className="flex items-start justify-between mb-1">
                                         <h3
                                             className={`font-semibold truncate mr-2 ${isActive ? "text-emerald-400" : "text-white"}`}
-                                            title={contact.name}
+                                            title={contact.name || contact.phone}
                                         >
-                                            {contact.name || "Sem nome"}
+                                            {contact.name || contact.phone || "Sem nome"}
                                         </h3>
 
                                         <span className={`text-xs whitespace-nowrap ${isActive ? "text-emerald-300" : "text-gray-500"}`}>

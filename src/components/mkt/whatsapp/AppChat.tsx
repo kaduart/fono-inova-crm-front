@@ -94,7 +94,7 @@ const AppChat: React.FC = () => {
     // 💬 Enviar mensagem
     const sendMessage = async (phone: string, text: string) => {
         try {
-            await sendWhatsAppText(phone, text);
+            await sendWhatsAppText(phone, text, undefined, active?.leadId);
         } catch (e) {
             console.error("[AppChat] Erro ao enviar:", e);
             throw new Error("Falha ao enviar mensagem");

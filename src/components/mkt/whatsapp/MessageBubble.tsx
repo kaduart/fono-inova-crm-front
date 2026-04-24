@@ -66,6 +66,7 @@ export default function MessageBubble({
   const handleMediaError = (mediaType: string) => {
     if (isDev) console.warn(`❌ ${mediaType} indisponível:`, mediaUrl);
     setHasError(true);
+    setIsLoading(false);
   };
 
   // Cores mais suaves para as bolhas

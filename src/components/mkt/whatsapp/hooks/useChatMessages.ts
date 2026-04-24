@@ -247,6 +247,7 @@ export function useChatMessages(contact: Contact | null, leadId?: string) {
             const { data } = await API.post("/whatsapp/send-text", {
                 phone: contact.phone,
                 text: cleanText,
+                ...(leadId && { leadId }),
             });
             
             if (data.success && data.messageId) {

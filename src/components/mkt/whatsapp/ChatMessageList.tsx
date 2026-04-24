@@ -5,6 +5,41 @@ import { LoadingSpinner } from '../../ui/LoadingSpinner';
 import MessageBubble from './MessageBubble';
 import type { Message, Contact } from './types/chat.types';
 
+function getDayLabel(timestamp: string | Date | null | undefined): string {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return '';
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const msgDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const diffDays = Math.floor((today.getTime() - msgDay.getTime()) / 86400000);
+
+    if (diffDays === 0) return 'Hoje';
+    if (diffDays === 1) return 'Ontem';
+    if (diffDays < 7) {
+        const dias = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+        return dias[date.getDay()];
+    }
+    const meses = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+    const label = `${date.getDate()} de ${meses[date.getMonth()]}`;
+    return date.getFullYear() !== now.getFullYear() ? `${label} de ${date.getFullYear()}` : label;
+}
+
+function getDayKey(timestamp: string | Date | null | undefined): string {
+    if (!timestamp) return '';
+    const d = new Date(timestamp);
+    return isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+const DateSeparator: React.FC<{ label: string }> = ({ label }) => (
+    <div className="flex items-center justify-center my-3">
+        <span className="bg-white/80 backdrop-blur-sm text-gray-500 text-xs font-medium px-3 py-1 rounded-full shadow-sm border border-gray-200/60">
+            {label}
+        </span>
+    </div>
+);
+
 interface ChatMessageListProps {
     messages: Message[];
     contact: Contact | null;
@@ -86,15 +121,25 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                     </div>
                 )}
 
-                {messages.map((message) => (
-                    <MessageItem
-                        key={message.id}
-                        message={message}
-                        contact={contact}
-                        isPending={pendingMessages.has(message.id)}
-                        onRetry={onRetry}
-                    />
-                ))}
+                {messages.reduce<React.ReactNode[]>((acc, message, idx) => {
+                    const currentKey = getDayKey(message.timestamp);
+                    const prevKey = idx > 0 ? getDayKey(messages[idx - 1].timestamp) : null;
+                    if (currentKey && currentKey !== prevKey) {
+                        acc.push(
+                            <DateSeparator key={`sep-${currentKey}`} label={getDayLabel(message.timestamp)} />
+                        );
+                    }
+                    acc.push(
+                        <MessageItem
+                            key={message.id}
+                            message={message}
+                            contact={contact}
+                            isPending={pendingMessages.has(message.id)}
+                            onRetry={onRetry}
+                        />
+                    );
+                    return acc;
+                }, [])}
                 <div ref={messagesEndRef} className="h-4" />
             </div>
         </div>

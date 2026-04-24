@@ -46,7 +46,8 @@ export interface Contact {
     name: string;
     phone: string;
     avatar?: string;
-    patientId?: string; // ✅ adicionar
+    patientId?: string;
+    leadId?: string;
     lastMessage?: string;
     lastMessageAt?: string;
     unreadCount?: number;
@@ -204,13 +205,15 @@ export async function loadMoreMessages(
 export async function sendWhatsAppText(
     phone: string,
     text: string,
-    userId?: string
+    userId?: string,
+    leadId?: string
 ) {
     const p = normalizeE164BR(phone);
     const res = await API.post("/whatsapp/send-text", {
         phone: p,
         text,
         ...(userId && { userId }),
+        ...(leadId && { leadId }),
     });
     return res.data; // { success, result, messageId }
 }

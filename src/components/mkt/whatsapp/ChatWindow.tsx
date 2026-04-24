@@ -338,7 +338,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
 
                     <div className="min-w-0">
                         <div className="font-semibold text-gray-900 truncate flex items-center gap-2">
-                            {contact?.name || "Sem nome"}
+                            {contact?.name || contact?.phone || "Sem nome"}
                             {!socketConnected && (
                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700">
                                     Offline
