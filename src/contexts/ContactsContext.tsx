@@ -395,24 +395,24 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
                     contactId = phoneIndexRef.current.get(phone);
                 }
                 
-                // Se não encontrou contato, faz refresh para buscar do servidor (com rate limit, só em rotas WhatsApp)
+                // Se não encontrou contato, adiciona localmente com dados do payload (não depende de refresh/rota)
                 if (!contactId) {
-                    if (!shouldLoadContacts()) {
-                        console.log('[ContactsContext] Contato não encontrado, mas fora da rota WhatsApp, ignorando...');
-                        return;
-                    }
-                    const now = Date.now();
-                    if (now - lastSocketRefresh > SOCKET_REFRESH_COOLDOWN) {
-                        lastSocketRefresh = now;
-                        console.warn('[ContactsContext] Contato não encontrado, fazendo refresh... Phone:', phone);
-                        refreshContacts();
-                    } else {
-                        // cooldown ativo, mas agenda refresh para garantir que apareça
-                        setTimeout(() => {
-                            console.warn('[ContactsContext] Refresh agendado pós-cooldown. Phone:', phone);
-                            refreshContacts();
-                        }, SOCKET_REFRESH_COOLDOWN);
-                    }
+                    console.log('[ContactsContext] ➕ Contato novo/desconhecido, adicionando localmente. Phone:', phone);
+                    const newContact: Contact = {
+                        _id: payload.contactId || `phone-${phone}`,
+                        phone: phone,
+                        name: payload.contactName || payload.contact?.name || `WhatsApp ${phone.slice(-4)}`,
+                        lastMessagePreview: preview,
+                        lastMessageAt: ts,
+                        hasNewMessage: true,
+                        unreadCount: 1,
+                        leadId: payload.leadId,
+                    };
+                    setContacts(prev => {
+                        const updated = [newContact, ...prev];
+                        rebuildIndex(updated);
+                        return sortByLastMessage(updated);
+                    });
                     return;
                 }
 

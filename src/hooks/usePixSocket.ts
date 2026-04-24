@@ -162,6 +162,7 @@ export const usePixSocket = ({
             const activeChatPhone = socketManager.getActiveChatPhone();
             const contactPhone = fromN || toN;
             if (activeChatPhone && contactPhone && activeChatPhone === contactPhone) {
+                console.log(`[usePixSocket] 🔕 Notificação suprimida — chat aberto para ${contactPhone}`);
                 return;
             }
 
