@@ -99,7 +99,13 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
         return [...list].sort((a, b) => {
             const timeA = a.lastMessageAt || a.updatedAt || a.createdAt || '';
             const timeB = b.lastMessageAt || b.updatedAt || b.createdAt || '';
-            return new Date(timeB).getTime() - new Date(timeA).getTime();
+            const msA = timeA ? new Date(timeA).getTime() : 0;
+            const msB = timeB ? new Date(timeB).getTime() : 0;
+            // 🛡️ Defesa contra NaN — datas inválidas caem pro final
+            if (Number.isNaN(msA) && Number.isNaN(msB)) return 0;
+            if (Number.isNaN(msA)) return 1;
+            if (Number.isNaN(msB)) return -1;
+            return msB - msA;
         });
     };
 
@@ -152,24 +158,24 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
             const res = await fetchContacts({ page: 1, limit: LIMIT });
             const list = res.data;
             
-            // 🛡️ Só atualiza se os dados realmente mudaram (compara por ID e lastMessageAt)
+            // 🛡️ Só atualiza se os dados realmente mudaram (compara por ID, não por índice)
             setContacts((prev) => {
-                const hasChanged = 
+                const prevMap = new Map(prev.map(c => [c._id, c]));
+                const hasChanged =
                     prev.length !== list.length ||
-                    list.some((newContact: Contact, idx: number) => {
-                        const oldContact = prev[idx];
+                    list.some((newContact: Contact) => {
+                        const oldContact = prevMap.get(newContact._id);
                         return (
                             !oldContact ||
-                            oldContact._id !== newContact._id ||
                             oldContact.lastMessageAt !== newContact.lastMessageAt ||
                             oldContact.unreadCount !== newContact.unreadCount
                         );
                     });
-                
+
                 if (!hasChanged && !isInitialLoadRef.current) {
                     return prev; // Dados iguais, mantém referência anterior
                 }
-                
+
                 console.log('[ContactsContext] Dados mudaram, atualizando...');
                 rebuildIndex(list);
                 return sortByLastMessage(list);
@@ -246,6 +252,8 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
 
         const handleAuthReady = () => {
             console.log('[ContactsContext] Auth ready, loading contacts...');
+            // 🔄 Reconecta socket agora que temos token
+            socketManager.initialize();
             if (shouldLoadContacts()) {
                 refreshContacts();
             }
@@ -315,8 +323,12 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
         // 🆕 V2: chat:inbox:update vem do chatProjectionWorker após salvar ChatProjection no Mongo
         // Chega ligeiramente depois de message:new e confirma dados do DB (unreadCount preciso)
         const unsubInboxUpdate = socketManager.onChatInboxUpdate((data) => {
-            const phone = normalizeE164BR(data.phone || '');
-            const contactId = phone ? phoneIndexRef.current.get(phone) : undefined;
+            // 🎯 Prioriza contactId do payload; fallback por telefone
+            let contactId: string | undefined = data.leadId;
+            if (!contactId) {
+                const phone = normalizeE164BR(data.phone || '');
+                contactId = phone ? phoneIndexRef.current.get(phone) : undefined;
+            }
             if (!contactId) {
                 // contato desconhecido — força refresh para aparecer na sidebar
                 refreshContacts();

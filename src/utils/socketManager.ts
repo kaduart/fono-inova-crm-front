@@ -260,31 +260,35 @@ class SocketManager {
 
     // ✅ on() armazena handler persistente e registra no socket atual
     on(event: string, handler: AnyHandler): Unsubscribe {
-        // 🆕 Se não tem token, não registra handler (será registrado após login)
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        if (!token) {
-            logger.info(`🔌 [socket] Delaying handler for "${event}" until login`);
-            // Retorna função vazia - handler será registrado após login
-            return () => {};
-        }
-
         // Log quando o evento for recebido
         const wrappedHandler = (payload: any) => {
             handler(payload);
         };
 
         // ✅ PRIMEIRO: Adiciona aos persistentHandlers ANTES de qualquer coisa
+        // (inclusive antes de verificar token — assim sobrevive a reconexões e login tardio)
         if (!this.persistentHandlers.has(event)) {
             this.persistentHandlers.set(event, new Set());
         }
         this.persistentHandlers.get(event)!.add(wrappedHandler);
 
+        // 🆕 Se não tem token, só retorna cleanup — handler já está salvo nos persistentHandlers
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        if (!token) {
+            logger.info(`🔌 [socket] Delaying handler for "${event}" until login`);
+            return () => {
+                this.persistentHandlers.get(event)?.delete(wrappedHandler);
+            };
+        }
+
         // DEPOIS: Garante socket e registra
         const s = this.ensureSocket();
         
-        // 🆕 Se não conseguiu conectar (sem auth), retorna função vazia
+        // 🆕 Se não conseguiu conectar, retorna cleanup — handler já está salvo
         if (!s) {
-            return () => {};
+            return () => {
+                this.persistentHandlers.get(event)?.delete(wrappedHandler);
+            };
         }
         
         // Registra no socket atual (pode ser novo ou existente)
