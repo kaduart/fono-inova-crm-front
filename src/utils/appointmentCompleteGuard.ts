@@ -10,6 +10,7 @@ export interface AppointmentCompleteGuardPackage {
   sessionsRemaining?: number;
   totalSessions?: number;
   sessionsDone?: number;
+  liminarCreditBalance?: number;
 }
 
 export interface AppointmentCompleteGuardInput {
@@ -27,6 +28,7 @@ export interface GuardResult {
 export const GuardErrorCodes = {
   SESSION_VALUE_REQUIRED: 'SESSION_VALUE_REQUIRED',
   LIMINAR_VALUE_REQUIRED: 'LIMINAR_VALUE_REQUIRED',
+  LIMINAR_INSUFFICIENT_BALANCE: 'LIMINAR_INSUFFICIENT_BALANCE',
   PACKAGE_EXHAUSTED: 'PACKAGE_EXHAUSTED',
 } as const;
 
@@ -83,16 +85,34 @@ export function validateAppointmentComplete(appointment: AppointmentCompleteGuar
     return { valid: true };
   }
 
-  // ⚖️ Liminar: exige valor > 0 para consumir crédito judicial
+  // ⚖️ Liminar: exige valor > 0 e saldo suficiente
   if (billingType === 'liminar') {
-    if (hasSessionValue && sessionValue > 0) {
+    if (!hasSessionValue || sessionValue <= 0) {
+      return {
+        valid: false,
+        errorCode: GuardErrorCodes.LIMINAR_VALUE_REQUIRED,
+        message: '⚖️ Liminar exige valor de sessão > 0 para consumo de crédito judicial. Edite o agendamento antes de completar.',
+      };
+    }
+
+    const balance = typeof (pkg as AppointmentCompleteGuardPackage)?.liminarCreditBalance === 'number'
+      ? (pkg as AppointmentCompleteGuardPackage).liminarCreditBalance!
+      : null;
+
+    if (balance === null) {
+      console.warn('[Guard] liminar sem liminarCreditBalance no payload - pulando validação de saldo');
       return { valid: true };
     }
-    return {
-      valid: false,
-      errorCode: GuardErrorCodes.LIMINAR_VALUE_REQUIRED,
-      message: '⚖️ Liminar exige valor de sessão > 0 para consumo de crédito judicial. Edite o agendamento antes de completar.',
-    };
+
+    if (balance < sessionValue) {
+      return {
+        valid: false,
+        errorCode: GuardErrorCodes.LIMINAR_INSUFFICIENT_BALANCE,
+        message: `⚖️ Saldo insuficiente. Disponível: R$ ${balance.toFixed(2)} | Sessão: R$ ${sessionValue.toFixed(2)}. Adicione crédito ao pacote para continuar.`,
+      };
+    }
+
+    return { valid: true };
   }
 
   // 💰 Particular / per-session: exige valor definido

@@ -209,7 +209,7 @@ const PatientsSummaryCard = ({
                             textAlign: 'center',
                             '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.08)' },
                         }}
-                        onClick={() => leads.length > 0 && setLeadsModalOpen(true)}
+                        onClick={() => (leads.length + novos.length) > 0 && setLeadsModalOpen(true)}
                     >
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                             <svg xmlns="http://www.w3.org/2000/svg" width={20} height={20} viewBox="0 0 20 20" fill="#DB2777">
@@ -227,13 +227,13 @@ const PatientsSummaryCard = ({
                         ) : (
                             <>
                                 <Typography variant="h4" sx={{ fontWeight: 700, color: '#DB2777', fontSize: '1.5rem' }}>
-                                    {leads.length}
+                                    {leads.length + novos.length}
                                 </Typography>
                                 <Typography variant="caption" sx={{ color: 'grey.500' }}>
-                                    {leads.length === 1 ? 'lead' : 'agendamentos'}
+                                    {leads.length + novos.length === 1 ? 'agendamento' : 'agendamentos'}
                                 </Typography>
                                 <Typography variant="caption" sx={{ color: '#DB2777', mt: 0.5, display: 'block' }}>
-                                    {leads.length > 0 ? 'Clique para ver detalhes' : 'Nenhum lead no período'}
+                                    {(leads.length + novos.length) > 0 ? 'Clique para ver detalhes' : 'Nenhum agendamento no período'}
                                 </Typography>
                             </>
                         )}
@@ -259,7 +259,7 @@ const PatientsSummaryCard = ({
                             textAlign: 'center',
                             '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.08)' },
                         }}
-                        onClick={() => novos.length > 0 && onOpenNewPatients?.()}
+                        onClick={() => (leads.length + novos.length) > 0 && onOpenNewPatients?.()}
                     >
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                             <svg xmlns="http://www.w3.org/2000/svg" width={20} height={20} viewBox="0 0 20 20" fill="#059669">
@@ -277,13 +277,13 @@ const PatientsSummaryCard = ({
                         ) : (
                             <>
                                 <Typography variant="h4" sx={{ fontWeight: 700, color: '#059669', fontSize: '1.5rem' }}>
-                                    {novos.length}
+                                    {leads.length + novos.length}
                                 </Typography>
                                 <Typography variant="caption" sx={{ color: 'grey.500' }}>
-                                    {novos.length === 1 ? 'novo paciente' : 'novos pacientes'}
+                                    {leads.length + novos.length === 1 ? 'novo paciente' : 'novos pacientes'}
                                 </Typography>
                                 <Typography variant="caption" sx={{ color: '#059669', mt: 0.5, display: 'block' }}>
-                                    {novos.length > 0 ? 'Clique para ver detalhes' : 'Nenhum paciente novo no período'}
+                                    {leads.length + novos.length > 0 ? 'Clique para ver detalhes' : 'Nenhum paciente novo no período'}
                                 </Typography>
                             </>
                         )}
@@ -323,31 +323,46 @@ const PatientsSummaryCard = ({
                             <button onClick={() => setLeadsModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">✕</button>
                         </div>
                         <div className="overflow-y-auto p-6">
-                            {leads.length === 0 ? (
-                                <p className="text-center text-gray-500 py-8">Nenhum lead encontrado.</p>
+                            {(leads.length + novos.length) === 0 ? (
+                                <p className="text-center text-gray-500 py-8">Nenhum agendamento encontrado.</p>
                             ) : (
                                 <div className="space-y-3">
-                                    {leads.map((lead: any) => (
-                                        <div key={lead._id} className="bg-gray-50 rounded-lg p-4 border border-gray-100 hover:bg-gray-100 transition-colors">
+                                    {leads.concat(novos).map((apt: any) => (
+                                        <div key={apt._id} className="bg-gray-50 rounded-lg p-4 border border-gray-100 hover:bg-gray-100 transition-colors">
                                             <div className="flex items-start justify-between">
                                                 <div>
-                                                    <p className="font-semibold text-gray-900">{lead.patientInfo?.fullName || 'Nome não informado'}</p>
+                                                    <p className="font-semibold text-gray-900">{apt.patientInfo?.fullName || apt.patient?.fullName || 'Nome não informado'}</p>
                                                     <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
                                                         <span className="flex items-center gap-1">
                                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                                                                 <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
                                                             </svg>
-                                                            {lead.patientInfo?.phone || 'Sem telefone'}
+                                                            {apt.patientInfo?.phone || apt.patient?.phone || 'Sem telefone'}
                                                         </span>
                                                         <span className="flex items-center gap-1">
                                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                                                                 <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
                                                             </svg>
-                                                            {lead.date ? new Date(lead.date).toLocaleDateString('pt-BR') : ''} {lead.time}
+                                                            {apt.date ? new Date(apt.date).toLocaleDateString('pt-BR') : ''} {apt.time}
                                                         </span>
                                                     </div>
+                                                    <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                                                        <span className="flex items-center gap-1">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                                                <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                                                            </svg>
+                                                            {apt.doctor?.fullName || apt.professionalName || 'Profissional não informado'}
+                                                        </span>
+                                                        {apt.specialty && (
+                                                            <span className="bg-green-200 text-green-700 px-1.5 py-0.5 rounded-full text-[10px] uppercase tracking-wide">
+                                                                {apt.specialty}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <span className="text-xs px-2 py-1 rounded-full font-medium bg-pink-100 text-pink-700">Pré-agendado</span>
+                                                <span className={`text-xs px-2 py-1 rounded-full font-medium ${apt.operationalStatus === 'pre_agendado' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                    {apt.operationalStatus === 'pre_agendado' ? 'Pré-agendado' : 'Agendado'}
+                                                </span>
                                             </div>
                                         </div>
                                     ))}
@@ -356,7 +371,7 @@ const PatientsSummaryCard = ({
                         </div>
                         <div className="p-6 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
                             <p className="text-sm text-gray-600 text-center">
-                                Total de <strong>{leads.length}</strong> agendamento{leads.length !== 1 ? 's' : ''} no período
+                                Total de <strong>{leads.length + novos.length}</strong> agendamento{(leads.length + novos.length) !== 1 ? 's' : ''} no período
                             </p>
                         </div>
                     </div>
@@ -492,12 +507,6 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
     const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month' | 'year' | 'all' | 'last_week' | 'last_month' | 'custom' | string>('day');
     const [customStartDate, setCustomStartDate] = useState<string>('');
     const [customEndDate, setCustomEndDate] = useState<string>('');
-
-    useEffect(() => {
-        if (month && year) {
-            setSelectedPeriod(`${year}-${String(month).padStart(2, '0')}`);
-        }
-    }, [month, year]);
 
     const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -706,9 +715,9 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
     };
 
     const handleOpenNewPatients = () => {
-        const novosList = analyticsData?.novos || [];
-        setSelectedAppointments(novosList);
-        if (novosList.length > 0) {
+        const allNovos = [...(analyticsData?.leads || []), ...(analyticsData?.novos || [])];
+        setSelectedAppointments(allNovos);
+        if (allNovos.length > 0) {
             setIsNewPatientsModalOpen(true);
         }
     };

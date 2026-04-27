@@ -1358,6 +1358,19 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         color: '#92400e !important', // amber-800
                         fontWeight: 'bold !important',
                     },
+                    // 🎯 Fundo azul claro para o dia de hoje (sobrescreve amarelo padrão do FC)
+                    '.fc-day-today': {
+                        backgroundColor: '#9ce0a2 !important', // blue-50
+                        '& .fc-daygrid-day-frame': {
+                            backgroundColor: '#9ce0a2 !important',
+                        },
+                        '& .fc-daygrid-day-top': {
+                            backgroundColor: '#9ce0a2 !important',
+                        },
+                        '& .fc-scrollgrid-sync-inner': {
+                            backgroundColor: '#9ce0a2 !important',
+                        },
+                    },
                     // 🎯 Esconde eventos na visualização mensal (popup group-hover já cobre)
                     '.fc-dayGridMonth-view .fc-daygrid-event': {
                         display: 'none !important',
@@ -1582,7 +1595,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 </span>
                                 {dayCount > 0 && (
                                     <span
-                                        className="mt-1 inline-flex items-center justify-center px-1.5 py-0 rounded-full text-[10px] font-bold text-white bg-blue-600 pointer-events-none select-none"
+                                        className="mt-1 inline-flex items-center justify-center px-1.5 py-0 rounded-full text-[10px] font-bold text-white bg-green-600 pointer-events-none select-none"
                                         style={{ minWidth: '18px', height: '18px' }}
                                     >
                                         {dayCount}

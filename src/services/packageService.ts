@@ -325,6 +325,11 @@ export const packageService = {
     return extractV2Data(response);
   },
 
+  addLiminarCredit: async (packageId: string, amount: number, reason?: string) => {
+    const response = await API.patch(`/v2/packages/${packageId}/credit`, { amount, reason });
+    return response.data;
+  },
+
   getPackageSessions: async (packageId: string) => {
     const response = await API.get<ISession[]>(`/packages/${packageId}/sessions`);
     return extractV2Data(response);

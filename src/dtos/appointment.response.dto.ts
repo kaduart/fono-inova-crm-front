@@ -35,6 +35,14 @@ export interface AppointmentDTO {
     notes?: string;
     paymentStatus?: string; // fonte de verdade: Payment.status
     isPackageSession?: boolean;
+    package?: {
+        _id?: string;
+        sessionsRemaining?: number;
+        totalSessions?: number;
+        sessionsDone?: number;
+        liminarCreditBalance?: number;
+        liminarTotalCredit?: number;
+    };
     isFirstVisit?: boolean;
     duration?: number;
     isReturningAfter45Days?: boolean;
@@ -135,6 +143,7 @@ export function mapAppointmentResponseDTO(raw: any): AppointmentDTO {
         notes: raw.notes || undefined,
         paymentStatus: extractPaymentStatus(raw),
         isPackageSession: raw.serviceType === 'package_session' || !!raw.package || !!raw.packageId,
+        package: typeof raw.package === 'object' && raw.package !== null ? raw.package : undefined,
         isFirstVisit: raw.isFirstVisit || false,
         isReturningAfter45Days: raw.isReturningAfter45Days || false,
         duration: raw.duration || undefined,

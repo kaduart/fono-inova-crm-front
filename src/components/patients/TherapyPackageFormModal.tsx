@@ -98,9 +98,19 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     const [sameDaySessions, setSameDaySessions] = useState(false);
     const [dailySessionTimes, setDailySessionTimes] = useState<string[]>(['16:00', '16:40']);
 
-    // 🔄 Sessões pendentes para absorção
-    const [pendingSessions, setPendingSessions] = useState<Array<{ _id: string; date: string; time: string; sessionValue: number; specialty: string; doctorName?: string }>>([]);
-    const [selectedPendingIds, setSelectedPendingIds] = useState<string[]>([]);
+    // 🆕 Estados para importação V2 (read-only / referência)
+    const [v2ImportedSessions, setV2ImportedSessions] = useState<Array<{
+        id: string;
+        v2PaymentId: string;
+        amount: number;
+        date: string;
+        time?: string;
+        specialty: string;
+        doctorName?: string;
+        status: string;
+        source: string;
+    }>>([]);
+    const [v2ImportLoading, setV2ImportLoading] = useState(false);
 
     // Calculados dinamicamente (compatível com string ou número)
     const toNumber = (v: any) => {
@@ -238,71 +248,6 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         }
     }, [packageType, realPatientId]);
 
-    // 🔄 Buscar DÉBITOS pendentes do balance — só quando especialidade estiver selecionada
-    useEffect(() => {
-        if (!realPatientId || packageType !== 'therapy' || !formData.sessionType) {
-            setPendingSessions([]);
-            setSelectedPendingIds([]);
-            return;
-        }
-        const fetchPending = async () => {
-            try {
-                // 🆕 NOVO: Busca no PatientBalance (fonte correta)
-                const res = await API.get(`/patients/${realPatientId}/balance/details`, {
-                    params: { specialty: formData.sessionType }
-                });
-                const raw = res.data?.data || [];
-                
-                // Adapta formato para compatibilidade com UI existente
-                const debits = raw.map((t: any) => ({
-                    _id: t._id,
-                    date: t.transactionDate,
-                    time: '',  // balance não tem hora
-                    sessionValue: t.amount,
-                    specialty: t.specialty,
-                    doctorName: null,
-                    description: t.description,
-                    appointmentId: t.appointmentId
-                }));
-                
-                const sessions = [...debits].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-                setPendingSessions(sessions);
-                setSelectedPendingIds(sessions.map((s: any) => s._id));
-
-                // Auto-sugerir data inicial = PRIMEIRA sessão em débito (âncora correta)
-                if (sessions.length > 0) {
-                    const firstDebt = sessions[0];
-                    const firstDate = new Date(firstDebt.date);
-                    const yyyy = firstDate.getUTCFullYear();
-                    const mm = String(firstDate.getUTCMonth() + 1).padStart(2, '0');
-                    const dd = String(firstDate.getUTCDate()).padStart(2, '0');
-                    
-                    // Tenta buscar horário do appointment associado ao primeiro débito
-                    let firstTime = formData.time || '';
-                    if (firstDebt.appointmentId) {
-                        try {
-                            const apptRes = await appointmentService.getById(firstDebt.appointmentId);
-                            if (apptRes?.time) {
-                                firstTime = apptRes.time;
-                            }
-                        } catch {
-                            // silencioso
-                        }
-                    }
-                    
-                    setFormData(prev => ({ 
-                        ...prev, 
-                        date: `${yyyy}-${mm}-${dd}`,
-                        ...(firstTime ? { time: firstTime } : {})
-                    }));
-                }
-            } catch {
-                // silencioso — não é crítico
-            }
-        };
-        fetchPending();
-    }, [realPatientId, packageType, formData.sessionType]);
-
     const fetchAppointmentsByPatient = async (patientId: string) => {
         setIsLoading(true);
         try {
@@ -359,6 +304,48 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             console.error(error);
         } finally {
             setLoadingGuides(false);
+        }
+    };
+
+    // 🆕 Handler: importa pendências do financeiro v2 (referência visual)
+    const handleImportFromV2 = async () => {
+        if (!realPatientId) return;
+        setV2ImportLoading(true);
+        try {
+            const res = await API.get(`/v2/balance/${realPatientId}`);
+            const items = res.data?.data?.v2_financial?.items || [];
+
+            const existingIds = new Set(
+                v2ImportedSessions
+                    .filter(s => s.source === 'V2_BALANCE')
+                    .map(s => s.v2PaymentId)
+            );
+
+            const newSessions = items
+                .filter((item: any) => !existingIds.has(item._id))
+                .map((item: any) => ({
+                    id: crypto.randomUUID(),
+                    source: 'V2_BALANCE',
+                    v2PaymentId: item._id,
+                    amount: item.amount,
+                    date: item.serviceDate,
+                    time: item.appointment?.time,
+                    specialty: item.specialty,
+                    doctorName: item.doctor?.fullName,
+                    status: 'PENDING',
+                }));
+
+            if (newSessions.length === 0) {
+                toast.info('Nenhuma pendência nova encontrada no financeiro v2');
+                return;
+            }
+
+            setV2ImportedSessions(prev => [...prev, ...newSessions]);
+            toast.success(`${newSessions.length} pendência(s) carregadas do financeiro v2`);
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || 'Erro ao buscar pendências v2');
+        } finally {
+            setV2ImportLoading(false);
         }
     };
 
@@ -571,51 +558,24 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     : (formData.durationMonths || 0) * 4 * (formData.sessionsPerWeek || 0);
 
             // ============================================================
-            // 📅 Gera as datas reais — prioridade: backend suggest-slots quando há débitos
+            // 📅 Gera as datas reais
             // ============================================================
             let schedule: { date: string; time: string }[] = [];
 
-            if (selectedPendingIds.length > 0 && packageType === 'therapy') {
-                // 🧠 Usa backend para calcular slots corretamente com débitos como âncora
-                try {
-                    const suggestRes = await API.post('/v2/packages/suggest-slots', {
-                        patientId: realPatientId,
-                        specialty: formData.sessionType,
-                        totalSessions,
-                        sessionsPerWeek: formData.sessionsPerWeek,
-                        time: formData.time,
-                        selectedDebtIds: selectedPendingIds
-                    });
-                    const backendSlots = suggestRes.data?.data?.slots || [];
-                    schedule = backendSlots.map((s: any) => ({ date: s.date, time: s.time }));
-                    console.log("📅 Slots sugeridos pelo backend:", schedule);
-                } catch (suggestErr: any) {
-                    toast.error(suggestErr?.response?.data?.message || 'Erro ao sugerir agenda. Verifique os dados.');
-                    setIsLoading(false);
-                    return;
-                }
-            } else {
-                // Fallback: geração local (sem débitos ou outros tipos de pacote)
-                const absorbedCount = selectedPendingIds.length;
-                const newSlotsNeeded = Math.max(totalSessions - absorbedCount, 0);
-                let generatedSlots: { date: string; time: string }[] = [];
-                if (newSlotsNeeded > 0) {
-                    generatedSlots = generateSessionDates({
-                        startDate: formData.date,
-                        startTime: formData.time,
-                        totalSessions: newSlotsNeeded,
-                        sessionsPerWeek: formData.sessionsPerWeek,
-                        selectedSlots,
-                        sameDaySessions,
-                        dailySessionTimes
-                    });
-                }
-                const unique = Array.from(
-                    new Map(generatedSlots.map((s) => [`${s.date}|${s.time}`, s])).values()
-                ).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
-                schedule = unique.map((slot) => ({ date: slot.date, time: slot.time }));
-                console.log("📅 Slots gerados localmente:", schedule);
-            }
+            const generatedSlots = generateSessionDates({
+                startDate: formData.date,
+                startTime: formData.time,
+                totalSessions,
+                sessionsPerWeek: formData.sessionsPerWeek,
+                selectedSlots,
+                sameDaySessions,
+                dailySessionTimes
+            });
+            const unique = Array.from(
+                new Map(generatedSlots.map((s) => [`${s.date}|${s.time}`, s])).values()
+            ).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+            schedule = unique.map((slot) => ({ date: slot.date, time: slot.time }));
+            console.log("📅 Slots gerados localmente:", schedule);
             
             const packageData = {
                 patientId: realPatientId,
@@ -639,7 +599,6 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 time: formData.time,
                 calculationMode,
                 schedule, // ✅ V2: envia schedule em vez de selectedSlots
-                pendingSessionIds: selectedPendingIds, // 🔄 sessões pendentes a absorver
                 // 🔥 Só envia pagamentos se NÃO for per-session
                 payments: formData.paymentType === 'per-session'
                     ? [] 
@@ -716,7 +675,6 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     type: 'therapy', // 🔥 IMPORTANTE: Define o tipo para o hook useCreatePackage
                     patientId: realPatientId,
                     sessionType: formData.sessionType as any, // Type assertion para compatibilidade
-                    selectedDebts: selectedPendingIds, // 🆕 IDs dos débitos selecionados para quitar
                     appointmentId: selectedAppointmentIdRef.current || formData.appointmentId || undefined  // 🔗 reutilizar agendamento existente
                 };
                 if (initialData?._id) {
@@ -1093,53 +1051,57 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 </div>
                             )}
 
-                            {/* 🔄 ALERTA: Sessões pendentes para absorção */}
-                            {packageType === 'therapy' && pendingSessions.length > 0 && (
-                                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-amber-600 text-base">⚠️</span>
-                                        <p className="text-sm font-semibold text-amber-800">
-                                            {pendingSessions.length} sessão(ões) pendente(s) encontrada(s)
-                                        </p>
+                            {/* 🔵 Financeiro v2 (NOVO - recomendado) */}
+                            {packageType === 'therapy' && (
+                                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <TrendingUp className="w-4 h-4 text-blue-600" />
+                                            <p className="text-sm font-semibold text-blue-800">
+                                                Financeiro v2
+                                            </p>
+                                            <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium">
+                                                recomendado
+                                            </span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={handleImportFromV2}
+                                            disabled={v2ImportLoading}
+                                            className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                                        >
+                                            {v2ImportLoading ? 'Buscando...' : 'Carregar pendências (v2)'}
+                                        </button>
                                     </div>
-                                    <p className="text-xs text-amber-700">
-                                        Selecione quais deseja cobrir com este pacote:
-                                    </p>
-                                    {selectedPendingIds.length > 0 && (
-                                        <p className="text-xs text-emerald-700 mt-1">
-                                            💡 Os débitos selecionados serão quitados automaticamente ao criar o pacote
-                                        </p>
-                                    )}
-                                    <div className="space-y-1">
-                                        {pendingSessions.map(s => (
-                                            <label key={s._id} className="flex items-center gap-2 cursor-pointer hover:bg-amber-100 rounded px-1 py-0.5">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedPendingIds.includes(s._id)}
-                                                    onChange={e => {
-                                                        if (e.target.checked) {
-                                                            setSelectedPendingIds(prev => [...prev, s._id]);
-                                                        } else {
-                                                            setSelectedPendingIds(prev => prev.filter(id => id !== s._id));
-                                                        }
-                                                    }}
-                                                    className="accent-amber-600"
-                                                />
-                                                <span className="text-xs text-amber-900">
-                                                    {(() => { const d = new Date(s.date); return `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${d.getUTCFullYear()}`; })()} às {s.time}
-                                                    {s.specialty ? ` — ${s.specialty}` : ''}
-                                                    {s.sessionValue ? ` — R$ ${Number(s.sessionValue).toFixed(2).replace('.', ',')}` : ''}
-                                                </span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                    {selectedPendingIds.length > 0 && (
-                                        <p className="text-xs text-amber-700 font-medium">
-                                            ✅ {selectedPendingIds.length} sessão(ões) serão absorvidas e marcadas como pagas pelo pacote.
+                                    {v2ImportedSessions.length > 0 ? (
+                                        <>
+                                            <p className="text-xs text-blue-700">
+                                                Referência visual do financeiro v2 (não quita automaticamente):
+                                            </p>
+                                            <div className="space-y-1">
+                                                {v2ImportedSessions.map(s => (
+                                                    <div key={s.id} className="flex items-center justify-between bg-white rounded px-2 py-1">
+                                                        <span className="text-xs text-blue-900">
+                                                            {s.date ? new Date(s.date).toLocaleDateString('pt-BR') : 'Sem data'}
+                                                            {s.time ? ` às ${s.time}` : ''}
+                                                            {s.specialty ? ` — ${s.specialty}` : ''}
+                                                            {s.amount ? ` — R$ ${Number(s.amount).toFixed(2).replace('.', ',')}` : ''}
+                                                            {s.doctorName ? ` (${s.doctorName})` : ''}
+                                                        </span>
+                                                        <span className="text-[10px] bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded">v2</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <p className="text-xs text-blue-600 italic">
+                                            Clique em "Carregar pendências (v2)" para visualizar débitos do novo financeiro.
                                         </p>
                                     )}
                                 </div>
                             )}
+
+
 
                             {/* Agendamento Existente */}
                             {packageType === 'therapy' && (
@@ -1311,11 +1273,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             placeholderText="dd/MM/yyyy"
                                             dateFormat="dd/MM/yyyy"
                                         />
-                                        {selectedPendingIds.length > 0 && (
-                                            <p className="mt-1 text-xs text-purple-600">
-                                                📌 Data da 1ª nova sessão — as {selectedPendingIds.length} sessão(ões) absorvidas já contam para o pacote.
-                                            </p>
-                                        )}
+
                                     </div>
 
                                     <div>
