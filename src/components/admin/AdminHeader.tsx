@@ -13,7 +13,7 @@ import {
     Users,
     X
 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { BsSoundwave } from "react-icons/bs";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
@@ -45,6 +45,29 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     const { logout: authLogout } = useAuth();
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+    const gestaoRef = useRef<HTMLDivElement>(null);
+    const vendasRef = useRef<HTMLDivElement>(null);
+    const sistemaRef = useRef<HTMLDivElement>(null);
+    const profileRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Node;
+            const clickedGestao = gestaoRef.current?.contains(target);
+            const clickedVendas = vendasRef.current?.contains(target);
+            const clickedSistema = sistemaRef.current?.contains(target);
+            const clickedProfile = profileRef.current?.contains(target);
+
+            if (!clickedGestao && !clickedVendas && !clickedSistema && !clickedProfile) {
+                if (openMenu) toggleMenu('');
+                if (isProfileDropdownOpen) setIsProfileDropdownOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [openMenu, toggleMenu, isProfileDropdownOpen]);
 
     const isVendasMarketingActive =
         activeTab === "Leads" || activeTab === "Analytics" || activeTab === "SocialMedia" || activeTab === "ROI";
@@ -96,7 +119,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                     {/* Navegação desktop */}
                     <nav className="hidden md:flex items-center space-x-1">
                         {/* (mesmo conteúdo, mantido) */}
-                        <div className="relative">
+                        <div className="relative" ref={gestaoRef}>
                             <NavButton
                                 active={activeTab === "Add Profissional" || activeTab === "Add Paciente"}
                                 onClick={() => toggleMenu("gestao")}
@@ -154,7 +177,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                             Financeiro
                         </NavButton>
 
-                        <div className="relative">
+                        <div className="relative" ref={vendasRef}>
                             <NavButton
                                 active={isVendasMarketingActive}
                                 onClick={() => toggleMenu("vendas-marketing")}
@@ -226,7 +249,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         />
 
                         {/* Menu Sistema/Dev */}
-                        <div className="relative">
+                        <div className="relative" ref={sistemaRef}>
                             <NavButton
                                 active={isSistemaActive}
                                 onClick={() => toggleMenu("sistema")}
@@ -277,7 +300,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         </button>
 
                         {/* Perfil - desktop */}
-                        <div className="relative hidden md:block">
+                        <div className="relative hidden md:block" ref={profileRef}>
                             <button
                                 onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
                                 className="flex items-center space-x-3 p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-200 group shadow-md"
