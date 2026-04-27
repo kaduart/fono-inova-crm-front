@@ -262,6 +262,8 @@ class SocketManager {
     on(event: string, handler: AnyHandler): Unsubscribe {
         // Log quando o evento for recebido
         const wrappedHandler = (payload: any) => {
+            const preview = JSON.stringify(payload).substring(0, 200);
+            console.log(`🔥 [SOCKET IN] ${event} | payload: ${preview}`);
             handler(payload);
         };
 

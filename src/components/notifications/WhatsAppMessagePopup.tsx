@@ -17,8 +17,13 @@ export const WhatsAppMessagePopup: React.FC = () => {
     console.log('[WhatsAppPopup] 📡 Registrando listener...');
 
     const handler = (payload: any) => {
+      console.log('[WhatsAppPopup] 📥 RAW payload:', JSON.stringify(payload).substring(0, 200));
       const dir = String(payload.direction || "").toLowerCase();
-      if (dir !== "inbound" && dir !== "received" && dir !== "in") return;
+      console.log('[WhatsAppPopup] ➡️ direction:', dir);
+      if (dir !== "inbound" && dir !== "received" && dir !== "in") {
+        console.log('[WhatsAppPopup] ❌ Ignorado — direction não é inbound/received/in');
+        return;
+      }
 
       const n: MessageNotification = {
         id: payload.id || String(Date.now()),

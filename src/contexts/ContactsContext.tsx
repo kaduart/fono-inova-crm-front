@@ -499,3 +499,8 @@ export const useContacts = () => {
     if (!ctx) throw new Error("useContacts must be used within ContactsProvider");
     return ctx;
 };
+
+// 🛡️ Evita que HMR do Vite quebre o Provider em dev (cria instância duplicada do contexto)
+if (import.meta.hot) {
+    import.meta.hot.decline();
+}

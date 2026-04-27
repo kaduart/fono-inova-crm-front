@@ -30,13 +30,20 @@ export function useChatMessages(contact: Contact | null, leadId?: string) {
         if (!contact?._id) return;
 
         const handler = (payload: any) => {
+            console.log('[useChatMessages] 📥 RAW payload recebido:', JSON.stringify(payload).substring(0, 200));
+            console.log('[useChatMessages] 🔍 contact._id:', contact._id, 'contact.phone:', contact.phone);
+            
             // Match por contactId (prioridade) ou por telefone
             const byId = payload.contactId && String(contact._id) === String(payload.contactId);
             const byPhone = contact.phone && (
                 String(payload.from || '').includes(contact.phone.replace(/\D/g, '')) ||
                 String(payload.to || '').includes(contact.phone.replace(/\D/g, ''))
             );
-            if (!byId && !byPhone) return;
+            console.log('[useChatMessages] 🔍 byId:', byId, 'byPhone:', byPhone, 'payload.contactId:', payload.contactId, 'payload.from:', payload.from, 'payload.to:', payload.to);
+            if (!byId && !byPhone) {
+                console.log('[useChatMessages] ❌ Não bateu com contato atual, ignorando');
+                return;
+            }
 
             const msgId = payload.id || payload.wamid || uid('msg');
             if (seenIdsRef.current.has(msgId)) return;
