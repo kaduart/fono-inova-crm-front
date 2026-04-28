@@ -1,12 +1,12 @@
 import { Building2, Calendar, CheckCircle2, ChevronDown, Clock, DollarSign, Gavel, Plus, Sprout, Trash2, TrendingUp } from 'lucide-react';
 import { packageService } from '../../services/packageService';
-import API from '../../services/api';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { IDoctors, IPatient, ISession, ITherapyPackage } from '../../utils/types/types';
 import { mapSessionResponseDTO, sessionDTOToISession } from '../../dtos/session.response.dto';
 import { SessionListItem } from './SessionListItem';
 import { SessionModal } from './SessionModal';
+import { PatientBalanceModal } from './PatientBalanceModal';
 
 type Props = {
   pack?: ITherapyPackage;
@@ -62,12 +62,7 @@ export default function TherapyPackageCard({
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [sessionTab, setSessionTab] = useState<'active' | 'history'>('active');
 
-  // 🆕 Estados para importação V2 dentro do card
-  const [showImportV2Modal, setShowImportV2Modal] = useState(false);
-  const [v2Items, setV2Items] = useState<any[]>([]);
-  const [selectedV2Ids, setSelectedV2Ids] = useState<Set<string>>(new Set());
-  const [v2Loading, setV2Loading] = useState(false);
-  const [v2Importing, setV2Importing] = useState(false);
+  const [showBalanceModal, setShowBalanceModal] = useState(false);
 
   // 🔥 Usa prop externa se fornecida, senão usa estado local
   const isExpanded = externalExpanded !== undefined ? externalExpanded : internalExpanded;
@@ -107,6 +102,10 @@ export default function TherapyPackageCard({
       };
       const dto = mapSessionResponseDTO(rawSession, context);
       const normalized = sessionDTOToISession(dto);
+      // Preserva appointmentId do dado bruto (não mapeado pelo DTO)
+      if (rawSession?.appointmentId) {
+        normalized.appointmentId = rawSession.appointmentId;
+      }
       console.log('[DEBUG] openModalWithAction DTO - raw:', rawSession, 'context:', context, 'normalized:', normalized);
       setSelectedSession(normalized);
     } else {
@@ -217,51 +216,6 @@ export default function TherapyPackageCard({
     }
   };
 
-  // 🆕 Busca pendências do financeiro v2 (filtradas pela especialidade do pacote)
-  const fetchV2Pending = async () => {
-    const patientId = patient?.patientId || patient?._id;
-    if (!patientId) return;
-    setV2Loading(true);
-    try {
-      const res = await API.get(`/v2/balance/${patientId}`);
-      const items = res.data?.data?.v2_financial?.items || [];
-      const packageSpecialty = (pack.sessionType || pack.specialty || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const filtered = items.filter((item: any) => {
-        if (item.status !== 'pending') return false;
-        const itemSpecialty = (item.specialty || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        if (packageSpecialty && itemSpecialty !== packageSpecialty) return false;
-        return true;
-      });
-      setV2Items(filtered);
-      setSelectedV2Ids(new Set());
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Erro ao buscar débitos v2');
-    } finally {
-      setV2Loading(false);
-    }
-  };
-
-  // 🆕 Quita os débitos v2 selecionados vinculando ao pacote
-  const handleSettleV2Debts = async () => {
-    if (selectedV2Ids.size === 0) return;
-    setV2Importing(true);
-    try {
-      const paymentIds = Array.from(selectedV2Ids);
-      const res = await API.post(`/v2/packages/${pack._id}/settle-payments`, { paymentIds });
-      if (res.data?.success) {
-        toast.success(`${res.data.data?.settledCount || paymentIds.length} débito(s) quitado(s)!`);
-        setShowImportV2Modal(false);
-        setSelectedV2Ids(new Set());
-        if (onRefresh) onRefresh();
-      } else {
-        throw new Error(res.data?.message || 'Erro ao quitar débitos');
-      }
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || err?.message || 'Erro ao quitar débitos');
-    } finally {
-      setV2Importing(false);
-    }
-  };
 
   const getStatusConfig = (status: string) => {
     const base = {
@@ -702,8 +656,7 @@ export default function TherapyPackageCard({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              setShowImportV2Modal(true);
-              fetchV2Pending();
+              setShowBalanceModal(true);
             }}
             className="w-full py-3 bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-dashed border-blue-300 rounded-xl text-blue-700 hover:border-blue-400 hover:from-blue-100 hover:to-cyan-100 transition-all duration-200 flex items-center justify-center gap-2 font-medium text-sm"
           >
@@ -916,161 +869,15 @@ export default function TherapyPackageCard({
         </div>
       )}
 
-      {/* 🆕 MODAL: Quitar débitos do pacote (v2) */}
-      {showImportV2Modal && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (e.target === e.currentTarget) setShowImportV2Modal(false);
-          }}
-        >
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 transform transition-all">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-blue-600" />
-                Quitar Débitos
-              </h3>
-              <button
-                onClick={() => setShowImportV2Modal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                ✕
-              </button>
-            </div>
 
-            <p className="text-sm text-gray-600 mb-4">
-              Selecione os débitos pendentes da especialidade <strong>{pack.sessionType || pack.specialty}</strong> para quitar neste pacote.
-            </p>
-
-            {v2Loading ? (
-              <div className="flex flex-col items-center justify-center py-8 gap-3">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <p className="text-sm text-gray-500">Buscando débitos...</p>
-              </div>
-            ) : v2Items.length === 0 ? (
-              <div className="text-center py-8 bg-gray-50 rounded-xl">
-                <p className="text-gray-500 font-medium">Nenhum débito encontrado</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  Não há débitos pendentes de <strong>{pack.sessionType || pack.specialty}</strong> no financeiro v2.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                  {v2Items.map((item) => (
-                    <label
-                      key={item._id}
-                      className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-colors ${
-                        selectedV2Ids.has(item._id)
-                          ? 'bg-blue-50 border-blue-300'
-                          : 'bg-white border-gray-200 hover:bg-gray-50'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedV2Ids.has(item._id)}
-                        onChange={(e) => {
-                          const newSet = new Set(selectedV2Ids);
-                          if (e.target.checked) newSet.add(item._id);
-                          else newSet.delete(item._id);
-                          setSelectedV2Ids(newSet);
-                        }}
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-900">
-                            {item.serviceDate
-                              ? new Date(item.serviceDate).toLocaleDateString('pt-BR')
-                              : 'Sem data'}
-                          </span>
-                          <span className="text-sm font-semibold text-blue-700">
-                            {new Intl.NumberFormat('pt-BR', {
-                              style: 'currency',
-                              currency: 'BRL',
-                            }).format(item.amount || 0)}
-                          </span>
-                        </div>
-                        <div className="text-xs text-gray-500 mt-0.5 truncate">
-                          {item.specialty || 'Sem especialidade'}
-                          {item.appointment?.time ? ` • ${item.appointment.time}` : ''}
-                          {item.doctor?.fullName ? ` • ${item.doctor.fullName}` : ''}
-                        </div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-
-                <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
-                  <div className="flex flex-col">
-                    <span className="text-xs text-gray-500">
-                      {selectedV2Ids.size} de {v2Items.length} selecionado(s)
-                    </span>
-                    {selectedV2Ids.size > 0 && (
-                      <span className="text-sm font-bold text-blue-700">
-                        Total: {new Intl.NumberFormat('pt-BR', {
-                          style: 'currency',
-                          currency: 'BRL',
-                        }).format(
-                          v2Items
-                            .filter(i => selectedV2Ids.has(i._id))
-                            .reduce((sum, i) => sum + (i.amount || 0), 0)
-                        )}
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => {
-                      const allSelected = selectedV2Ids.size === v2Items.length;
-                      if (allSelected) {
-                        setSelectedV2Ids(new Set());
-                      } else {
-                        setSelectedV2Ids(new Set(v2Items.map((i) => i._id)));
-                      }
-                    }}
-                    className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                  >
-                    {selectedV2Ids.size === v2Items.length ? 'Desselecionar todos' : 'Selecionar todos'}
-                  </button>
-                </div>
-              </>
-            )}
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowImportV2Modal(false)}
-                className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleSettleV2Debts();
-                }}
-                disabled={selectedV2Ids.size === 0 || v2Importing || v2Loading}
-                className={`flex-1 px-4 py-2.5 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
-                  selectedV2Ids.size === 0 || v2Importing || v2Loading
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:from-blue-700 hover:to-cyan-700 shadow-lg'
-                }`}
-              >
-                {v2Importing ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Quitando...
-                  </>
-                ) : (
-                  <>
-                    <TrendingUp className="w-4 h-4" />
-                    Quitar {selectedV2Ids.size > 0 && `(${selectedV2Ids.size})`}
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+      {showBalanceModal && (
+        <PatientBalanceModal
+          isOpen={showBalanceModal}
+          onClose={() => setShowBalanceModal(false)}
+          patientId={patient?.patientId || patient?._id || ''}
+          patientName={patient?.fullName || ''}
+          onRefresh={() => { setShowBalanceModal(false); if (onRefresh) onRefresh(); }}
+        />
       )}
     </div>
   );

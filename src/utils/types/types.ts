@@ -81,6 +81,7 @@ export interface ISession {
     time: string;
     doctorId: string;
     sessionId?: string;
+    appointmentId?: string;
     patientId: string;
     package: string;
     sessionType: 'fonoaudiologia' | 'terapia_ocupacional' | 'psicologia' | 'fisioterapia';

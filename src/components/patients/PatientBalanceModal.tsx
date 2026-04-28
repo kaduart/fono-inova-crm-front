@@ -5,8 +5,9 @@ import { ArrowDownCircle, ArrowUpCircle, CheckCircle, DollarSign, History, Plus,
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { getBalanceV2, addBalanceDebitV2 } from '../../services/balanceService';
 import usePayment from '../../hooks/usePayment';
+import API from '../../services/api';
 import { InputCurrency } from '../ui/InputCurrency';
-import { ModalSpinner } from '../ui/LoadingSpinner';
+import { LoadingSpinner, ModalSpinner } from '../ui/LoadingSpinner';
 import { extractErrorMessage } from '../../utils/errorUtils';
 import { extractSessionId } from '../../dtos/payment.dto';
 
@@ -206,12 +207,21 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
         );
     }, [pendingDebits, selectedSpecialty]);
     
-    // Calcula total selecionado
+    // Calcula total selecionado (V1 ledger ou V2 items, dependendo do modo)
     const selectedTotal = useMemo(() => {
+        const v2ForCalc = selectedSpecialty && balance?.v2_financial?.items
+            ? (balance.v2_financial.items as any[]).filter((i: any) => i.specialty === selectedSpecialty)
+            : [];
+        const inV2Mode = selectedSpecialty && v2ForCalc.length > 0;
+        if (inV2Mode) {
+            return v2ForCalc
+                .filter((i: any) => selectedDebits.has(i._id || ''))
+                .reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
+        }
         return filteredPendingDebits
             .filter((t: Transaction) => selectedDebits.has(t._id || ''))
             .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
-    }, [filteredPendingDebits, selectedDebits]);
+    }, [filteredPendingDebits, selectedDebits, selectedSpecialty, balance]);
 
     // Toggle seleção de débito
     const toggleDebitSelection = (debitId: string) => {
@@ -226,12 +236,17 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
         });
     };
 
-    // Selecionar todos
+    // Selecionar todos (V1 ou V2 dependendo do modo)
     const selectAllDebits = () => {
-        if (selectedDebits.size === filteredPendingDebits.length) {
+        const v2ForSelect = selectedSpecialty && balance?.v2_financial?.items
+            ? (balance.v2_financial.items as any[]).filter((i: any) => i.specialty === selectedSpecialty)
+            : [];
+        const inV2Mode = selectedSpecialty && v2ForSelect.length > 0;
+        const items = inV2Mode ? v2ForSelect : filteredPendingDebits;
+        if (selectedDebits.size === items.length) {
             setSelectedDebits(new Set());
         } else {
-            setSelectedDebits(new Set(filteredPendingDebits.map((t: Transaction) => t._id || '')));
+            setSelectedDebits(new Set(items.map((t: any) => t._id || '')));
         }
     };
 
@@ -333,59 +348,48 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
 
         setIsSubmitting(true);
         try {
-            const selectedDebitsList = filteredPendingDebits.filter((t: Transaction) => 
-                selectedDebits.has(t._id || '')
-            );
-            
-            // Prepara os pagamentos combinando formas de pagamento com débitos
-            const payments: Array<{
-                amount: number;
-                paymentMethod: string;
-                description: string;
-                sessionId?: string;
-                appointmentId?: string;
-            }> = [];
-            
-            // Para cada forma de pagamento, distribuímos entre os débitos
-            for (const paymentMethod of paymentMethods) {
-                if (paymentMethod.amount <= 0) continue;
-                
-                let remainingForThisMethod = paymentMethod.amount;
-                let debitIndex = 0;
-                
-                // Distribui esta forma de pagamento pelos débitos
-                while (remainingForThisMethod > 0 && debitIndex < selectedDebitsList.length) {
-                    const debit = selectedDebitsList[debitIndex];
-                    const amountToPay = Math.min(debit.amount, remainingForThisMethod);
-                    
-                    payments.push({
-                        amount: amountToPay,
-                        paymentMethod: paymentMethod.method,
-                        description: `Pagamento de: ${debit.description}`,
-                        sessionId: extractSessionId(debit.sessionId),
-                        appointmentId: extractSessionId(debit.appointmentId)
-                    });
-                    
-                    remainingForThisMethod -= amountToPay;
-                    debitIndex++;
+            // Detecta modo V2 (itens são Payment records existentes — dar baixa, não criar novos)
+            const v2ForMode = selectedSpecialty && balance?.v2_financial?.items
+                ? (balance.v2_financial.items as any[]).filter((i: any) => i.specialty === selectedSpecialty)
+                : [];
+            const inV2Mode = selectedSpecialty && v2ForMode.length > 0;
+
+            if (inV2Mode) {
+                // Modo V2: dá baixa nos Payment records existentes via bulk-settle
+                const paymentIds = Array.from(selectedDebits);
+                const primaryMethod = paymentMethods.length > 0 ? paymentMethods[0].method : 'dinheiro';
+                const res = await API.post('/v2/payments/bulk-settle', {
+                    paymentIds,
+                    paymentMethod: primaryMethod,
+                    totalAmount: customPaymentAmount,
+                    notes: `Fechamento de sessões — ${new Date().toLocaleDateString('pt-BR')}`
+                });
+                if (!res.data?.success) throw new Error(res.data?.error || 'Erro ao quitar pagamentos');
+            } else {
+                // Modo V1: cria novos pagamentos para débitos do ledger
+                const selectedDebitsList = filteredPendingDebits.filter((t: Transaction) =>
+                    selectedDebits.has(t._id || '')
+                );
+                const payments: Array<{ amount: number; paymentMethod: string; description: string; sessionId?: string; appointmentId?: string; }> = [];
+
+                for (const paymentMethod of paymentMethods) {
+                    if (paymentMethod.amount <= 0) continue;
+                    let remaining = paymentMethod.amount;
+                    let idx = 0;
+                    while (remaining > 0 && idx < selectedDebitsList.length) {
+                        const debit = selectedDebitsList[idx];
+                        const amt = Math.min(debit.amount, remaining);
+                        payments.push({ amount: amt, paymentMethod: paymentMethod.method, description: `Pagamento de: ${debit.description}`, sessionId: extractSessionId(debit.sessionId), appointmentId: extractSessionId(debit.appointmentId) });
+                        remaining -= amt;
+                        idx++;
+                    }
+                    if (remaining > 0) {
+                        payments.push({ amount: remaining, paymentMethod: paymentMethod.method, description: 'Crédito remanescente do pagamento' });
+                    }
                 }
-                
-                // Se sobrou valor desta forma, registra como crédito/aditivo
-                if (remainingForThisMethod > 0) {
-                    payments.push({
-                        amount: remainingForThisMethod,
-                        paymentMethod: paymentMethod.method,
-                        description: 'Crédito remanescente do pagamento'
-                    });
-                }
+
+                await createPaymentMulti(patientId, { payments, totalAmount: customPaymentAmount, debitIds: Array.from(selectedDebits) });
             }
-            
-            // Envia todos os pagamentos de uma vez + IDs dos débitos selecionados
-            await createPaymentMulti(patientId, {
-                payments,
-                totalAmount: customPaymentAmount,
-                debitIds: Array.from(selectedDebits)
-            });
             
             // Limpa estado
             setShowCustomPaymentModal(false);
@@ -771,28 +775,48 @@ export const PatientBalanceModal: React.FC<PatientBalanceModalProps> = ({
                                     v2Items.map((item: any, index: number) => (
                                         <div
                                             key={item._id || index}
-                                            className="p-4 rounded-xl border border-red-200 dark:border-red-800 bg-red-50/30 dark:bg-red-900/10"
+                                            className={`p-4 rounded-xl border transition-all ${
+                                                selectedDebits.has(item._id || '')
+                                                    ? 'border-amber-500 bg-amber-50/30 dark:bg-amber-900/10 ring-1 ring-amber-500'
+                                                    : 'border-red-200 dark:border-red-800 bg-red-50/30 dark:bg-red-900/10'
+                                            }`}
                                         >
                                             <div className="flex items-start gap-3">
-                                                <div className="mt-1 flex-shrink-0">
-                                                    <Square className="w-5 h-5 text-gray-400" />
-                                                </div>
+                                                <button
+                                                    onClick={() => toggleDebitSelection(item._id || '')}
+                                                    className="mt-1 flex-shrink-0"
+                                                >
+                                                    {selectedDebits.has(item._id || '') ? (
+                                                        <CheckSquare className="w-5 h-5 text-amber-600" />
+                                                    ) : (
+                                                        <Square className="w-5 h-5 text-gray-400 hover:text-gray-600" />
+                                                    )}
+                                                </button>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-start justify-between gap-2">
                                                         <div className="flex items-start gap-3 min-w-0 flex-1">
                                                             <ArrowDownCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
                                                             <div className="min-w-0 flex-1">
                                                                 <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-                                                                    {item.doctor?.fullName || 'Profissional não informado'}
+                                                                    {item.doctor?.fullName || item.appointment?.doctor?.fullName || 'Profissional não informado'}
                                                                 </p>
                                                                 <div className="mt-1.5 space-y-0.5">
                                                                     <p className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
                                                                         <span className="font-medium">Especialidade:</span>
                                                                         <span className="text-gray-800 dark:text-gray-300">{item.specialty || '—'}</span>
                                                                     </p>
-                                                                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                                                                        {item.data ? new Date(item.data).toLocaleDateString('pt-BR') : '—'}
-                                                                    </p>
+                                                                    {(() => {
+                                                                        const rawDate = item.serviceDate || item.appointment?.date || item.session?.date;
+                                                                        const time = item.appointment?.time || item.session?.time;
+                                                                        if (!rawDate) return <p className="text-xs text-gray-500 italic">Sem data registrada</p>;
+                                                                        const d = new Date(rawDate);
+                                                                        const dateStr = isNaN(d.getTime()) ? String(rawDate) : d.toLocaleDateString('pt-BR');
+                                                                        return (
+                                                                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                                                                                📅 {dateStr}{time ? ` • ${time}` : ''}
+                                                                            </p>
+                                                                        );
+                                                                    })()}
                                                                     {item.notes && (
                                                                         <p className="text-xs text-gray-500">{item.notes}</p>
                                                                     )}

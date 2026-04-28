@@ -1,4 +1,4 @@
-import { Activity, Calendar, ChevronDown, FileText, Plus, Users } from 'lucide-react';
+import { Activity, Calendar, ChevronDown, CreditCard, FileText, Plus, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from "react-hot-toast";
 import { useNavigate, useParams } from 'react-router-dom';
@@ -24,6 +24,7 @@ import PatientEvolution from './PatientEvolution';
 import { PatientMiniCalendar } from './PatientMiniCalendar';
 import TherapyPackagesSummary from './TherapyPackagesSummary';
 import PatientInsuranceTab from '../patient/tabs/PatientInsuranceTab';
+import { PatientBalanceModal } from './PatientBalanceModal';
 
 const initialPatientState: IPatient = {
   fullName: '',
@@ -90,6 +91,7 @@ export default function PatientDashboard() {
   const [evaluationToEdit, setEvaluationToEdit] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [openSchedule, setOpenSchedule] = useState(false);
+  const [showBalanceModal, setShowBalanceModal] = useState(false);
 
   const [formData, setFormData] = useState({
     patientId: '',
@@ -824,25 +826,19 @@ export default function PatientDashboard() {
             </div>
           </div>
 
-          {/*  <button
-            onClick={() => handleOpenSchedule(null, 'create')}
+          <button
+            onClick={() => setShowBalanceModal(true)}
             className="flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-all duration-200"
             style={{
-              background: 'linear-gradient(135deg, rgb(55,171,135), rgb(40,130,100))',
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
               fontWeight: 600,
             }}
-            onMouseEnter={(e) =>
-            (e.currentTarget.style.background =
-              'linear-gradient(135deg, rgb(60,180,140), rgb(35,115,90))')
-            }
-            onMouseLeave={(e) =>
-            (e.currentTarget.style.background =
-              'linear-gradient(135deg, rgb(55,171,135), rgb(40,130,100))')
-            }
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'linear-gradient(135deg, #fbbf24, #b45309)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)')}
           >
-            <Plus size={18} />
-            Novo Agendamento
-          </button> */}
+            <CreditCard size={18} />
+            Fechar Atendimento
+          </button>
         </div>
 
 
@@ -890,6 +886,14 @@ export default function PatientDashboard() {
         payloadToSlots={handlePayloadToSlots}
         availableSlots={availableSlots}
         mode={mode}
+      />
+
+      <PatientBalanceModal
+        isOpen={showBalanceModal}
+        onClose={() => setShowBalanceModal(false)}
+        patientId={patientInfo?.patientId || patientId || ''}
+        patientName={patientInfo?.fullName || ''}
+        onRefresh={() => setShowBalanceModal(false)}
       />
     </div>
   );

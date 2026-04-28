@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { useAppointmentsContext } from '../../contexts/AppointmentsContext';
 import { packageService, UseSessionParams, validatePayment } from '../../services/packageService';
+import appointmentService from '../../services/appointmentService';
 // 🚫 LEGADO BLOQUEADO: packagesService foi removido. Use packageService (V2)
 import { IDoctors, IPatient, ITherapyPackage } from '../../utils/types/types';
 import TherapyPackageCard from './TherapyPackageCard';
@@ -94,12 +95,13 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
         }
     };
 
-    const handleUseSession = async (packId: string, sessionData: UseSessionParams, modalAction: string) => {
+    const handleUseSession = async (packId: string, sessionData: UseSessionParams & { appointmentId?: string }, modalAction: string) => {
         try {
             // Só valida pagamento ao REGISTRAR uso (não ao editar/reagendar)
             if (modalAction === 'use' && sessionData.paymentAmount && sessionData.paymentAmount > 0) {
                 validatePayment(sessionData.paymentAmount, selectedPackage?.balance);
             }
+
             const payload = {
                 patientId: sessionData.patientId,
                 doctorId: sessionData.doctorId,
@@ -120,6 +122,20 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
             };
 
             await packageService.updateSession(packId, payload);
+
+            // Se completando a sessão, sincroniza o status do appointment no V2
+            const isCompleting = modalAction === 'use' && sessionData.status === 'completed';
+            const appointmentId = sessionData.appointmentId;
+            if (isCompleting && appointmentId) {
+                try {
+                    await appointmentService.update(appointmentId, {
+                        operationalStatus: 'completed',
+                        clinicalStatus: 'completed',
+                    } as any);
+                } catch (e) {
+                    console.warn('[handleUseSession] Falha ao atualizar status do appointment:', e);
+                }
+            }
 
             toast.success(modalAction === 'edit' ? "Sessão atualizada!" : "Sessão registrada!");
 
