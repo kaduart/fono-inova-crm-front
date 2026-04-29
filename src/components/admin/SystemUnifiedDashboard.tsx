@@ -321,6 +321,63 @@ function QueuesCard({ raw, totalWaiting, totalActive, totalFailed, queueHistory 
     );
 }
 
+function FinancialHealthCard({ data, loading }: { data: { status: string; summary: any; checks: any[] } | null; loading: boolean }) {
+    if (loading) return (
+        <Card sx={{ height: '100%', borderRadius: 3 }}>
+            <CardContent><Skeleton variant="rectangular" height={140} /></CardContent>
+        </Card>
+    );
+    if (!data) return (
+        <Card sx={{ height: '100%', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+            <CardContent>
+                <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Activity size={16} /> Financeiro
+                </Typography>
+                <Typography variant="body2" color="text.secondary">Sem dados</Typography>
+            </CardContent>
+        </Card>
+    );
+
+    const isHealthy = data.status === 'healthy';
+    const failedChecks = data.checks.filter(c => !c.pass);
+
+    return (
+        <Card sx={{ height: '100%', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', border: `2px solid ${isHealthy ? '#22c55e' : '#ef4444'}` }}>
+            <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                    <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Activity size={16} /> Financeiro
+                    </Typography>
+                    <Chip size="small" label={isHealthy ? 'OK' : 'Falha'} color={isHealthy ? 'success' : 'error'} />
+                </Box>
+
+                {isHealthy ? (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <Typography variant="body2" sx={{ color: '#22c55e', fontWeight: 600 }}>
+                            ✅ Sistema financeiro consistente
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                            Caixa: R$ {data.summary.caixa?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · Produção: R$ {data.summary.producao?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                            {data.summary.transacoes} transações · {data.summary.sessoes} sessões
+                        </Typography>
+                    </Box>
+                ) : (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <Typography variant="body2" sx={{ color: '#ef4444', fontWeight: 600 }}>
+                            ❌ {failedChecks.length} verificação(ões) falharam
+                        </Typography>
+                        {failedChecks.slice(0, 3).map((c, i) => (
+                            <Typography key={i} variant="caption" color="error.main">• {c.name}</Typography>
+                        ))}
+                    </Box>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
 function DomainDetailModal({ domain, open, onClose }: { domain: DomainHealth | null; open: boolean; onClose: () => void }) {
     if (!domain) return null;
     const chip = domainStatusChip(domain);
@@ -831,6 +888,32 @@ export default function SystemUnifiedDashboard() {
     const [selectedDomain, setSelectedDomain] = useState<DomainHealth | null>(null);
     const [domainModalOpen, setDomainModalOpen] = useState(false);
 
+    // 🆕 Financial Sanity Check
+    const [financialHealth, setFinancialHealth] = useState<{ status: string; summary: any; checks: any[] } | null>(null);
+    const [financialHealthLoading, setFinancialHealthLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchFinancialHealth = async () => {
+            try {
+                setFinancialHealthLoading(true);
+                const d = new Date();
+                const res = await API.get(`/v2/financial/dashboard/sanity-check?year=${d.getFullYear()}&month=${d.getMonth() + 1}`);
+                if (res.data?.success) {
+                    setFinancialHealth({
+                        status: res.data.status,
+                        summary: res.data.summary,
+                        checks: res.data.checks
+                    });
+                }
+            } catch {
+                // silencioso
+            } finally {
+                setFinancialHealthLoading(false);
+            }
+        };
+        fetchFinancialHealth();
+    }, []);
+
     const fetchDeadLetters = useCallback(async () => {
         try {
             setLoadingDeadLetters(true);
@@ -1003,9 +1086,9 @@ export default function SystemUnifiedDashboard() {
                 </Box>
             </Box>
 
-            {/* ── LINHA 1: SCORE + ALERTAS ───────────────────────────────────── */}
+            {/* ── LINHA 1: SCORE + ALERTAS + FINANCEIRO ──────────────────────── */}
             <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={12} md={7}>
+                <Grid item xs={12} md={5}>
                     <SystemScoreCard
                         score={displayScore}
                         status={displayStatus}
@@ -1014,8 +1097,11 @@ export default function SystemUnifiedDashboard() {
                         headline={health?.headline}
                     />
                 </Grid>
-                <Grid item xs={12} md={5}>
+                <Grid item xs={12} md={4}>
                     <AlertsCard alerts={allAlerts} counts={alertCounts} />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                    <FinancialHealthCard data={financialHealth} loading={financialHealthLoading} />
                 </Grid>
             </Grid>
 

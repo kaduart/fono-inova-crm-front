@@ -6,7 +6,7 @@ import {
     Tooltip, IconButton
 } from '@mui/material';
 import { FinancialLoading } from './components/FinancialLoading';
-import { format, isSameDay } from 'date-fns';
+import { format, isSameDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useEffect, useState, useMemo } from 'react';
 import { cashflowService, CashflowV2Response } from '../../services/cashflowService';
@@ -162,7 +162,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                     <Chip 
                         icon={<CalendarTodayIcon />} 
                         label={viewMode === 'day' 
-                            ? format(new Date(selectedDate), "dd 'de' MMMM", { locale: ptBR })
+                            ? format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })
                             : `${format(new Date(year, month - 1), 'MMMM/yyyy', { locale: ptBR })}`
                         }
                         color="primary"
@@ -596,7 +596,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                 {monthData.filter(d => d.caixa > 0 || d.producao > 0).map((day) => (
                                     <TableRow key={day.date} hover>
                                         <TableCell>
-                                            {format(new Date(day.date), 'dd/MM/yyyy')}
+                                            {format(parseISO(day.date), 'dd/MM/yyyy')}
                                         </TableCell>
                                         <TableCell align="right" sx={{ color: '#16A34A', fontWeight: 'bold' }}>
                                             {formatCurrency(day.caixa)}
