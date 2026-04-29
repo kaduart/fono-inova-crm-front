@@ -98,6 +98,12 @@ function computeDateRange(period: string, customStart: string, customEnd: string
     if (period === 'day') {
         return { start: fmt(now), end: fmt(now) };
     }
+    if (period === 'yesterday') {
+        const y = new Date(now);
+        y.setDate(now.getDate() - 1);
+        const d = fmt(y);
+        return { start: d, end: d };
+    }
     if (period === 'week') {
         const day = now.getDay();
         const monday = new Date(now);
@@ -151,6 +157,7 @@ const PatientsSummaryCard = ({
     onOpenNewPatients?: () => void;
 }) => {
     const periodLabel = selectedPeriod === 'day' ? 'Agendamentos do dia'
+        : selectedPeriod === 'yesterday' ? 'Agendamentos de ontem'
         : selectedPeriod === 'week' ? 'Agendamentos da semana'
         : selectedPeriod === 'last_week' ? 'Agendamentos semana passada'
         : selectedPeriod === 'month' ? 'Agendamentos do mês'
@@ -788,6 +795,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                         <div className="flex flex-wrap gap-1.5">
                             {[
                                 { key: 'day', label: 'Hoje', color: 'bg-blue-100 text-blue-800 hover:bg-blue-200' },
+                                { key: 'yesterday', label: 'Ontem', color: 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200' },
                                 { key: 'week', label: 'Esta Semana', color: 'bg-green-100 text-green-800 hover:bg-green-200' },
                                 { key: 'month', label: 'Este Mês', color: 'bg-purple-100 text-purple-800 hover:bg-purple-200' },
                                 { key: 'last_week', label: 'Semana Passada', color: 'bg-orange-100 text-orange-800 hover:bg-orange-200' },
@@ -798,7 +806,19 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                                     onClick={() => {
                                         setSelectedPeriod(chip.key as any);
                                         // ... lógica original
-                                        if (chip.key === 'last_week') {
+                                        if (chip.key === 'yesterday') {
+                                            const now = new Date();
+                                            const y = new Date(now);
+                                            y.setDate(now.getDate() - 1);
+                                            const sd = y.toISOString().split('T')[0];
+                                            // 🛠️ V2 não suporta 'custom'; usamos 'day' + data de ontem
+                                            fetchPaymentTotals({
+                                                period: 'day',
+                                                startDate: sd,
+                                                endDate: sd
+                                            });
+                                            syncAppointments({ startDate: sd, endDate: sd });
+                                        } else if (chip.key === 'last_week') {
                                             const now = new Date();
                                             const dayOfWeek = now.getDay();
                                             const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
@@ -852,6 +872,14 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                                     const endDate = new Date(year, month, 0).toISOString().split('T')[0];
                                     fetchPaymentTotals({ period: 'custom', startDate, endDate });
                                     syncAppointments({ startDate, endDate });
+                                } else if (value === 'yesterday') {
+                                    const now = new Date();
+                                    const y = new Date(now);
+                                    y.setDate(now.getDate() - 1);
+                                    const sd = y.toISOString().split('T')[0];
+                                    // 🛠️ V2 não suporta 'custom'; usamos 'day' + data de ontem
+                                    fetchPaymentTotals({ period: 'day', startDate: sd, endDate: sd });
+                                    syncAppointments({ startDate: sd, endDate: sd });
                                 } else if (value === 'last_week') {
                                     const now = new Date();
                                     const dayOfWeek = now.getDay();
@@ -886,6 +914,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                         >
                             <optgroup label="Períodos Rápidos">
                                 <option value="day">Hoje</option>
+                                <option value="yesterday">Ontem</option>
                                 <option value="week">Esta Semana</option>
                                 <option value="month">Este Mês</option>
                                 <option value="last_week">📅 Semana Passada</option>
@@ -1024,11 +1053,13 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                                         ? `${customStartDate} a ${customEndDate}`
                                         : selectedPeriod === 'day'
                                             ? 'Hoje'
-                                            : selectedPeriod === 'week'
-                                                ? 'Esta Semana'
-                                                : selectedPeriod === 'month'
-                                                    ? 'Este Mês'
-                                                    : new Date().toLocaleDateString('pt-BR')
+                                            : selectedPeriod === 'yesterday'
+                                                ? 'Ontem'
+                                                : selectedPeriod === 'week'
+                                                    ? 'Esta Semana'
+                                                    : selectedPeriod === 'month'
+                                                        ? 'Este Mês'
+                                                        : new Date().toLocaleDateString('pt-BR')
                                 }
                             />
                         </div>

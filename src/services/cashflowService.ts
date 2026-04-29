@@ -203,4 +203,11 @@ export const cashflowService = {
             params: date ? { date } : undefined 
         });
     },
+
+    // 🆕 NOVO: Endpoint V2 para caixa mensal (substitui 30 chamadas diárias)
+    getMonthlyCashflow(month: string) {
+        return API.get<{ success: boolean; month: string; data: { date: string; caixa: number; producao: number; atendimentos: number }[] }>('/v2/cashflow/month', {
+            params: { month }
+        });
+    },
 };

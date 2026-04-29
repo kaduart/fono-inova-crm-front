@@ -6,7 +6,7 @@ import {
     Tooltip, IconButton
 } from '@mui/material';
 import { FinancialLoading } from './components/FinancialLoading';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useEffect, useState, useMemo } from 'react';
 import { cashflowService, CashflowV2Response } from '../../services/cashflowService';
@@ -69,29 +69,10 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
     const loadMonthData = async () => {
         setLoading(true);
         try {
-            // Busca dados de cada dia do mês para montar o fluxo
-            const start = startOfMonth(new Date(year, month - 1));
-            const end = endOfMonth(new Date(year, month - 1));
-            const days = eachDayOfInterval({ start, end });
-            
-            const monthPromises = days.map(day => 
-                cashflowService.getDailyCashflow(format(day, 'yyyy-MM-dd'))
-                    .then(res => ({
-                        date: format(day, 'yyyy-MM-dd'),
-                        caixa: res.data.data.caixa.total,
-                        producao: res.data.data.producao.total,
-                        atendimentos: res.data.data.producao.quantidadeAtendimentos
-                    }))
-                    .catch(() => ({
-                        date: format(day, 'yyyy-MM-dd'),
-                        caixa: 0,
-                        producao: 0,
-                        atendimentos: 0
-                    }))
-            );
-            
-            const results = await Promise.all(monthPromises);
-            setMonthData(results);
+            // 🚀 V2: Uma única chamada para o mês inteiro (substitui 30 requisições diárias)
+            const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+            const res = await cashflowService.getMonthlyCashflow(monthStr);
+            setMonthData(res.data.data);
         } catch (error) {
             console.error('Erro ao carregar dados do mês:', error);
         } finally {
