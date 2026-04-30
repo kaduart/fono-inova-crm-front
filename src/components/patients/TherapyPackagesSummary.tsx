@@ -162,7 +162,7 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                 throw new Error('Nenhum pacote selecionado');
             }
 
-            const response = await packageService.addSession(selectedPackage._id, sessionData);
+            const response = await packageService.addSession(selectedPackage?.packageId || selectedPackage._id, sessionData);
 
             if (response?.success) {
                 toast.success("Nova sessão adicionada ao pacote!");
@@ -235,7 +235,7 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
         .reduce<Record<string, { balance: number; totalCredit: number; sessionValue: number; count: number; packageId: string }>>((acc, pkg) => {
             const key = pkg.specialty || pkg.sessionType || 'Geral';
             if (!acc[key]) {
-                acc[key] = { balance: 0, totalCredit: 0, sessionValue: pkg.sessionValue || 0, count: 0, packageId: pkg._id };
+                acc[key] = { balance: 0, totalCredit: 0, sessionValue: pkg.sessionValue || 0, count: 0, packageId: pkg.packageId || pkg._id };
             }
             acc[key].balance += pkg.liminarCreditBalance ?? 0;
             acc[key].totalCredit += pkg.liminarTotalCredit ?? 0;

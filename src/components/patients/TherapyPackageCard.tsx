@@ -81,7 +81,7 @@ export default function TherapyPackageCard({
       let rawSession = session;
       if (pack?._id) {
         try {
-          const detail = await packageService.getPackage(pack._id);
+          const detail = await packageService.getPackage(pack.packageId || pack._id);
           const pkg = detail?.package || detail;
           if (pkg?.sessions?.length) {
             const found = pkg.sessions.find(
@@ -96,7 +96,7 @@ export default function TherapyPackageCard({
       const context = {
         doctorId: pack.doctorId || (pack as any).doctor?._id?.toString?.() || (pack as any).doctor?.toString?.() || '',
         patientId: pack.patientId || (pack as any).patient?._id?.toString?.() || (pack as any).patient?.toString?.() || '',
-        packageId: pack._id || (pack as any).packageId || '',
+        packageId: pack.packageId || pack._id || '',
         sessionValue: typeof pack.sessionValue === 'number' ? pack.sessionValue : 0,
         sessionType: pack.sessionType || (pack as any).specialty || '',
       };
@@ -117,14 +117,14 @@ export default function TherapyPackageCard({
   const handleSessionSubmit = async () => {
     const payload = {
       ...selectedSession,
-      package: pack._id,
+      package: pack.packageId || pack._id,
       sessionType: pack.sessionType,
       serviceType: 'package_session',
     };
 
     setLoading(true);
     try {
-      await onUseSession(pack._id, payload, modalAction);
+      await onUseSession(pack.packageId || pack._id, payload, modalAction);
       setIsModalOpen(false);
     } catch (err: any) {
       console.error("Erro:", err);
@@ -174,7 +174,7 @@ export default function TherapyPackageCard({
       const sessionIds = Array.from(selectedSessionIds);
       
       console.log('[CANCEL] Enviando para backend decidir...', { 
-        packageId: pack._id, 
+        packageId: pack.packageId || pack._id, 
         selectedCount: sessionIds.length,
         totalScheduled: scheduledSessions.length 
       });
@@ -184,7 +184,7 @@ export default function TherapyPackageCard({
       toast.info(`Cancelando ${optimisticCanceled} sessão(ões)...`);
       
       // Chama endpoint (backend decide se faz cancel-all ou bulk)
-      const response = await packageService.cancelAllSessions(pack._id, false);
+      const response = await packageService.cancelAllSessions(pack.packageId || pack._id, false);
       
       const { canceledSessions, finalStatus } = response.data;
 

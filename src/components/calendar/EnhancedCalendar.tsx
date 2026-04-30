@@ -199,34 +199,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         });
     }, [appointments]);
 
-    // 🆕 Calcula progresso de sessões por pacote ("1/4", "2/4", etc.)
-    const packageProgressMap = useMemo(() => {
-        const map: Record<string, { current: number; total: number; text: string }> = {};
-        // Agrupa appointments de pacote por package ID
-        const byPackage: Record<string, IAppointment[]> = {};
-        appointments.forEach(appt => {
-            const pkgId = typeof appt.package === 'string' ? appt.package : (appt.package as any)?._id || (appt.package as any)?.id;
-            if (appt.serviceType === 'package_session' && pkgId) {
-                if (!byPackage[pkgId]) byPackage[pkgId] = [];
-                byPackage[pkgId].push(appt);
-            }
-        });
-        // Ordena cada grupo por data+hora e atribui posição
-        Object.entries(byPackage).forEach(([pkgId, group]) => {
-            group.sort((a, b) => {
-                const da = `${a.date || ''}T${a.time || '00:00'}`;
-                const db = `${b.date || ''}T${b.time || '00:00'}`;
-                return da.localeCompare(db);
-            });
-            group.forEach((appt, idx) => {
-                const apptId = appt._id || appt.id;
-                if (apptId) {
-                    map[apptId] = { current: idx + 1, total: group.length, text: `${idx + 1}/${group.length}` };
-                }
-            });
-        });
-        return map;
-    }, [appointments]);
+    // 🆕 Progresso do pacote vem da API (package.sessionsDone / package.totalSessions)
+    // Não calculamos no frontend — a API é fonte de verdade
 
     // ✅ CORREÇÃO: Apenas estado essencial, SEM loading automático
     // O loading automático estava causando re-renders infinitos
@@ -761,7 +735,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         variant?: 'compact' | 'expanded';
     }) => {
         const apptId = appointment.id;
-        const packageProgress = packageProgressMap[apptId];
+
         const isExpanded = variant === 'expanded';
         const paymentStatus = getRealPaymentStatus(appointment);
         const operationalStatus = appointment.operationalStatus || 'scheduled';
@@ -929,21 +903,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                         {paymentBadge.label}
                                     </span>
                                 </div>
-                                {/* Progresso do pacote: calculado no client (X/Y) ou do objeto populado */}
-                                {packageProgress ? (
-                                    <div className="text-[11px] text-gray-700">
-                                        <div className="flex justify-between mb-0.5">
-                                            <span>Sessão:</span>
-                                            <span className="font-bold">{packageProgress.text}</span>
-                                        </div>
-                                        <div className="w-full bg-white/60 rounded-full h-1.5 mt-1">
-                                            <div
-                                                className={`h-1.5 rounded-full ${isLiminar ? 'bg-amber-500' : 'bg-purple-500'}`}
-                                                style={{ width: `${Math.min(100, (packageProgress.current / packageProgress.total) * 100)}%` }}
-                                            />
-                                        </div>
-                                    </div>
-                                ) : totalSessions !== null ? (
+                                {/* Progresso do pacote: da API (package.sessionsDone / package.totalSessions) */}
+                                {totalSessions !== null ? (
                                     <div className="text-[11px] text-gray-700">
                                         <div className="flex justify-between mb-0.5">
                                             <span>Progresso:</span>
