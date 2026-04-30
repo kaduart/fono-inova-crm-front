@@ -25,6 +25,7 @@ import { PatientMiniCalendar } from './PatientMiniCalendar';
 import TherapyPackagesSummary from './TherapyPackagesSummary';
 import PatientInsuranceTab from '../patient/tabs/PatientInsuranceTab';
 import { PatientBalanceModal } from './PatientBalanceModal';
+import LiminarContractPanel from '../liminar/LiminarContractPanel';
 
 const initialPatientState: IPatient = {
   fullName: '',
@@ -92,6 +93,7 @@ export default function PatientDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [openSchedule, setOpenSchedule] = useState(false);
   const [showBalanceModal, setShowBalanceModal] = useState(false);
+  const [liminarCreateTrigger, setLiminarCreateTrigger] = useState(0);
 
   const [formData, setFormData] = useState({
     patientId: '',
@@ -725,6 +727,29 @@ export default function PatientDashboard() {
     );
   };
 
+  const renderLiminar = () => {
+    if (!patientInfo) return null;
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-800">Liminar</h2>
+          <button
+            onClick={() => setLiminarCreateTrigger(n => n + 1)}
+            className="inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Nova Liminar
+          </button>
+        </div>
+        <LiminarContractPanel
+          patientId={patientInfo._id || patientInfo.patientId || patientId}
+          doctors={doctors}
+          createTrigger={liminarCreateTrigger}
+        />
+      </div>
+    );
+  };
+
   const renderAppointmentBooking = () => {
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const { name, value } = e.target;
@@ -848,6 +873,7 @@ export default function PatientDashboard() {
             {activeTab === 'Profile'}
             {activeTab === 'Appointment Booking'}
             {activeTab === 'Management Packages'}
+            {activeTab === 'Liminar'}
             {activeTab === 'Evolution'}
           </h2>
           
@@ -871,6 +897,7 @@ export default function PatientDashboard() {
           {activeTab === 'Dashboard' && renderDashboard()}
           {activeTab === 'Appointment Booking' && renderAppointmentBooking()}
           {activeTab === 'Management Packages' && renderManagePackages()}
+          {activeTab === 'Liminar' && renderLiminar()}
           {activeTab === 'Insurance Guides' && (patientInfo?.patientId || patientId) && <PatientInsuranceTab patientId={patientInfo?.patientId || patientId} />}
           {activeTab === 'Evolution' && renderEvolution()}
         </div>

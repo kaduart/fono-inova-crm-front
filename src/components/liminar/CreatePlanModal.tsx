@@ -33,7 +33,7 @@ interface TherapyEntry {
 }
 
 function emptyEntry(): TherapyEntry {
-  return { specialty: '', sessionValue: 0, sessionDurationMinutes: 50, slots: [{ dayOfWeek: '', time: '' }] };
+  return { specialty: '', sessionValue: 0, sessionDurationMinutes: 40, slots: [{ dayOfWeek: '', time: '' }] };
 }
 
 interface Props {

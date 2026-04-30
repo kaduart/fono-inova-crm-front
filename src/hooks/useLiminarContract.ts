@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import liminarContractService, {
+  CommittedBalance,
   GenerateSessionsResult,
   LiminarContract,
   TherapeuticPlan,
@@ -14,6 +15,7 @@ function addDays(days: number): string {
 export function useLiminarContract(patientId: string | undefined) {
   const [contract, setContract] = useState<LiminarContract | null>(null);
   const [plan, setPlan] = useState<TherapeuticPlan | null>(null);
+  const [committed, setCommitted] = useState<CommittedBalance | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,8 +31,11 @@ export function useLiminarContract(patientId: string | undefined) {
       if (active) {
         const activePlan = await liminarContractService.getActivePlan(active._id);
         setPlan(activePlan);
+        const balance = await liminarContractService.getCommittedBalance(active._id);
+        setCommitted(balance);
       } else {
         setPlan(null);
+        setCommitted(null);
       }
     } catch (err: any) {
       setError(err?.response?.data?.error ?? 'Erro ao carregar dados da liminar');
@@ -43,11 +48,11 @@ export function useLiminarContract(patientId: string | undefined) {
     fetchData();
   }, [fetchData]);
 
-  async function generateSessions(weeks: 4 | 8): Promise<GenerateSessionsResult> {
+  async function generateSessions(weeks: 4 | 8, mode: 'append' | 'reset' = 'append'): Promise<GenerateSessionsResult> {
     if (!contract || !plan) throw new Error('Contrato ou plano não carregado');
     return liminarContractService.generateSessions(contract._id, plan._id, {
-      startDate: addDays(0),
-      endDate: addDays(weeks * 7),
+      mode,
+      weeks,
     });
   }
 
@@ -57,5 +62,5 @@ export function useLiminarContract(patientId: string | undefined) {
     setContract(updated);
   }
 
-  return { contract, plan, loading, error, fetchData, generateSessions, recharge };
+  return { contract, plan, committed, loading, error, fetchData, generateSessions, recharge };
 }

@@ -43,6 +43,13 @@ export interface GenerateSessionsResult {
   saldoAposTudo: number;
 }
 
+export interface CommittedBalance {
+  creditBalance: number;
+  usedCredit: number;
+  committed: number;
+  available: number;
+}
+
 const liminarContractService = {
   async list(patientId: string): Promise<LiminarContract[]> {
     const res = await API.get(`/v2/liminar-contracts?patientId=${patientId}`);
@@ -93,13 +100,28 @@ const liminarContractService = {
   async generateSessions(
     contractId: string,
     planId: string,
-    data: { startDate: string; endDate: string; skipHolidays?: boolean }
+    data: { mode: 'append' | 'reset'; weeks?: number; startDate?: string; endDate?: string; skipHolidays?: boolean }
   ): Promise<GenerateSessionsResult> {
     const res = await API.post(
       `/v2/liminar-contracts/${contractId}/plans/${planId}/generate-sessions`,
       data
     );
     return res.data;
+  },
+
+  async getCommittedBalance(contractId: string): Promise<CommittedBalance> {
+    const res = await API.get(`/v2/liminar-contracts/${contractId}/committed-balance`);
+    return res.data;
+  },
+
+  async getSessions(contractId: string, params?: { specialty?: string; status?: string; from?: string; to?: string }): Promise<any[]> {
+    const query = new URLSearchParams();
+    if (params?.specialty) query.append('specialty', params.specialty);
+    if (params?.status)    query.append('status', params.status);
+    if (params?.from)      query.append('from', params.from);
+    if (params?.to)        query.append('to', params.to);
+    const res = await API.get(`/v2/liminar-contracts/${contractId}/sessions?${query.toString()}`);
+    return res.data?.sessions ?? [];
   },
 };
 

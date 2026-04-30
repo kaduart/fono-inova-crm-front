@@ -17,9 +17,10 @@ const SPECIALTY_LABELS: Record<string, string> = {
 
 interface Props {
   plan: TherapeuticPlan;
+  onSpecialtyClick?: (specialty: string) => void;
 }
 
-export default function PlanView({ plan }: Props) {
+export default function PlanView({ plan, onSpecialtyClick }: Props) {
   const entries = Object.entries(plan.therapies ?? {});
 
   if (entries.length === 0) {
@@ -29,7 +30,13 @@ export default function PlanView({ plan }: Props) {
   return (
     <div className="space-y-3">
       {entries.map(([specialty, config]) => (
-        <div key={specialty} className="bg-white rounded-lg border border-green-100 px-4 py-3">
+        <div
+          key={specialty}
+          onClick={() => onSpecialtyClick?.(specialty)}
+          className={`bg-white rounded-lg border border-green-100 px-4 py-3 transition-colors ${
+            onSpecialtyClick ? 'cursor-pointer hover:bg-green-50 hover:border-green-300' : ''
+          }`}
+        >
           <p className="text-sm font-semibold text-green-800 mb-1.5">
             {SPECIALTY_LABELS[specialty] ?? specialty}
             <span className="ml-2 text-xs font-normal text-gray-500">

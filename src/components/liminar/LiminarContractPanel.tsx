@@ -6,9 +6,10 @@ import {
   Plus,
   RefreshCw,
   Scale,
+  X,
   Zap,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { useLiminarContract } from '../../hooks/useLiminarContract';
 import liminarContractService from '../../services/liminarContractService';
@@ -25,6 +26,7 @@ interface Doctor {
 interface Props {
   patientId: string;
   doctors: Doctor[];
+  createTrigger?: number;
 }
 
 function fmt(n: number) {
@@ -44,11 +46,15 @@ function estimateGeneration(plan: any, weeks: number) {
 
 type ConfirmState = { open: true; weeks: 4 | 8; sessions: number; cost: number } | { open: false };
 
-export default function LiminarContractPanel({ patientId, doctors }: Props) {
-  const { contract, plan, loading, error, fetchData, generateSessions, recharge } =
+export default function LiminarContractPanel({ patientId, doctors, createTrigger }: Props) {
+  const { contract, plan, committed, loading, error, fetchData, generateSessions, recharge } =
     useLiminarContract(patientId);
 
   const [showCreateContract, setShowCreateContract] = useState(false);
+
+  useEffect(() => {
+    if (createTrigger && createTrigger > 0) setShowCreateContract(true);
+  }, [createTrigger]);
   const [showCreatePlan, setShowCreatePlan] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmState>({ open: false });
   const [generating, setGenerating] = useState(false);
@@ -58,6 +64,26 @@ export default function LiminarContractPanel({ patientId, doctors }: Props) {
   const [rechargeAmount, setRechargeAmount] = useState('');
   const [rechargeReason, setRechargeReason] = useState('');
   const [rechargingLoading, setRechargingLoading] = useState(false);
+
+  // Specialty sessions modal
+  const [specialtyModal, setSpecialtyModal] = useState<{ open: boolean; specialty: string; sessions: any[]; loading: boolean }>({
+    open: false,
+    specialty: '',
+    sessions: [],
+    loading: false,
+  });
+
+  async function openSpecialtyModal(specialty: string) {
+    if (!contract) return;
+    setSpecialtyModal({ open: true, specialty, sessions: [], loading: true });
+    try {
+      const sessions = await liminarContractService.getSessions(contract._id, { specialty, status: 'scheduled' });
+      setSpecialtyModal((prev) => ({ ...prev, sessions, loading: false }));
+    } catch {
+      toast.error('Erro ao carregar sessões');
+      setSpecialtyModal((prev) => ({ ...prev, loading: false }));
+    }
+  }
 
   function openConfirm(weeks: 4 | 8) {
     if (!plan) return;
@@ -206,8 +232,12 @@ export default function LiminarContractPanel({ patientId, doctors }: Props) {
               <span className="font-medium text-orange-700">R$ {fmt(contract.usedCredit)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600 font-medium">Restante:</span>
-              <span className="font-bold text-emerald-700">R$ {fmt(contract.creditBalance)}</span>
+              <span className="text-gray-600">Comprometido:</span>
+              <span className="font-medium text-amber-700">R$ {fmt(committed?.committed ?? 0)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600 font-medium">Disponível real:</span>
+              <span className="font-bold text-emerald-700">R$ {fmt(committed?.available ?? contract.creditBalance)}</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
               <div
@@ -286,7 +316,7 @@ export default function LiminarContractPanel({ patientId, doctors }: Props) {
           </div>
 
           {plan ? (
-            <PlanView plan={plan} />
+            <PlanView plan={plan} onSpecialtyClick={openSpecialtyModal} />
           ) : (
             <p className="text-sm text-gray-500 italic text-center py-3">
               Nenhum plano ativo. Crie um plano para poder gerar sessões.
@@ -320,6 +350,7 @@ export default function LiminarContractPanel({ patientId, doctors }: Props) {
                 {generating ? <LoadingSpinner size="small" color="border-white" /> : 'Gerar 8 semanas'}
               </button>
             </div>
+
           </div>
         )}
       </div>
@@ -400,6 +431,60 @@ export default function LiminarContractPanel({ patientId, doctors }: Props) {
           onClose={() => setShowCreateContract(false)}
           onCreated={() => { setShowCreateContract(false); fetchData(); }}
         />
+      )}
+
+      {/* ── Modal sessões por especialidade ── */}
+      {specialtyModal.open && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+              <h3 className="font-bold text-gray-900">
+                Sessões — {specialtyModal.specialty}
+              </h3>
+              <button
+                onClick={() => setSpecialtyModal((p) => ({ ...p, open: false }))}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5">
+              {specialtyModal.loading ? (
+                <div className="flex justify-center py-8">
+                  <LoadingSpinner size="medium" />
+                </div>
+              ) : specialtyModal.sessions.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-8">Nenhuma sessão agendada para esta especialidade.</p>
+              ) : (
+                <div className="space-y-2">
+                  {specialtyModal.sessions.map((s: any) => (
+                    <div
+                      key={s._id}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2 h-2 rounded-full ${
+                          s.operationalStatus === 'completed' ? 'bg-emerald-500' :
+                          s.operationalStatus === 'confirmed' ? 'bg-blue-500' :
+                          'bg-amber-500'
+                        }`} />
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">
+                            {new Date(s.date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                            {' '}às {s.time}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            R$ {fmt(s.sessionValue)} — {s.operationalStatus === 'completed' ? 'Concluída' : s.operationalStatus === 'confirmed' ? 'Confirmada' : 'Agendada'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

@@ -9,6 +9,7 @@ import {
     Menu,
     MessageCircle,
     Package,
+    Scale,
     Shield,
     User,
     UserCircle,
@@ -75,6 +76,7 @@ const PatientHeader: React.FC<PatientHeaderProps> = ({
                             { id: "Appointment Booking", label: "Agenda", icon: <Calendar size={14} /> },
                             { id: "Management Packages", label: "Pacotes", icon: <Package size={14} /> },
                             { id: "Insurance Guides", label: "Guias", icon: <Shield size={14} /> },
+                            { id: "Liminar", label: "Liminar", icon: <Scale size={14} /> },
                             { id: "Evolution", label: "Evolução", icon: <LineChart size={14} /> },
                             { id: "Messages", label: "Chat", icon: <MessageCircle size={14} /> },
                         ].map((item) => (
@@ -215,6 +217,9 @@ const PatientHeader: React.FC<PatientHeaderProps> = ({
                         </button>
                         <button onClick={() => { handleTabChange("Insurance Guides"); setIsMobileMenuOpen(false); }} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "Insurance Guides" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
                             <Shield size={18} className="text-blue-400" /> Guias Convênio
+                        </button>
+                        <button onClick={() => { handleTabChange("Liminar"); setIsMobileMenuOpen(false); }} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "Liminar" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
+                            <Scale size={18} className="text-amber-400" /> Liminar
                         </button>
                         <button onClick={() => { handleTabChange("Evolution"); setIsMobileMenuOpen(false); }} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "Evolution" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
                             <LineChart size={18} className="text-cyan-400" /> Evolução
