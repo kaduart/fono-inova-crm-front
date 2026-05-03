@@ -1,5 +1,6 @@
 import { Building2, Calendar, CheckCircle2, ChevronDown, Clock, DollarSign, Gavel, Plus, Sprout, Trash2, TrendingUp } from 'lucide-react';
 import { packageService } from '../../services/packageService';
+import { getPatientFinancialSummary, FinancialSummary } from '../../services/financialSummaryService';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { IDoctors, IPatient, ISession, ITherapyPackage } from '../../utils/types/types';
@@ -8,6 +9,22 @@ import { SessionListItem } from './SessionListItem';
 import { SessionModal } from './SessionModal';
 import { PatientBalanceModal } from './PatientBalanceModal';
 
+/**
+ * ⚠️ LEGADO — condições `pack.type === 'liminar'` e `pack.type === 'convenio'`
+ *
+ * Essas condições renderizam dados de packages antigos que foram migrados
+ * para os novos domínios:
+ * - InsuranceGuide (convênio)
+ * - LiminarContract (liminar)
+ *
+ * 🚫 NÃO adicionar novas features baseadas nessas condições
+ * 🚫 NÃO usar como fonte de verdade para liminar/convênio
+ *
+ * ✅ Em dados novos, pack.type é sempre 'therapy' (particular)
+ * ✅ Liminar e convênio têm seus próprios componentes e rotas
+ *
+ * TODO: remover após backfill completo dos dados legados
+ */
 type Props = {
   pack?: ITherapyPackage;
   patient: IPatient;
@@ -63,6 +80,36 @@ export default function TherapyPackageCard({
   const [sessionTab, setSessionTab] = useState<'active' | 'history'>('active');
 
   const [showBalanceModal, setShowBalanceModal] = useState(false);
+
+  /**
+   * 💰 FINANCEIRO MIGRADO
+   *
+   * NÃO usar mais dados financeiros do Package (pack.balance, pack.totalPaid).
+   * Fonte de verdade: /api/v2/financial/patient/:id/summary
+   *
+   * TODO: remover fallbacks para pack.* após frontend 100% migrado
+   */
+  const [financial, setFinancial] = useState<FinancialSummary | null>(null);
+  const [financialLoading, setFinancialLoading] = useState(false);
+
+  useEffect(() => {
+    if (!patient?._id && !patient?.patientId) return;
+    const pid = patient?.patientId || patient?._id;
+    setFinancialLoading(true);
+    getPatientFinancialSummary(pid)
+      .then(setFinancial)
+      .catch(() => setFinancial(null))
+      .finally(() => setFinancialLoading(false));
+  }, [patient?._id, patient?.patientId]);
+
+  const sessionDebt = financial?.sessionDebt ?? 0;
+  const particularPaid = financial?.particularPaid ?? 0;
+  const liminarPaid = financial?.liminarPaid ?? 0;
+  const completedSessions = financial?.completedSessions ?? 0;
+
+  if (!financial && !financialLoading) {
+    console.warn('[TherapyPackageCard] ⚠️ Endpoint /financial/summary indisponível — dados financeiros não carregados');
+  }
 
   // 🔥 Usa prop externa se fornecida, senão usa estado local
   const isExpanded = externalExpanded !== undefined ? externalExpanded : internalExpanded;
@@ -362,7 +409,7 @@ export default function TherapyPackageCard({
                 ? 'text-amber-600'
                 : 'text-emerald-600'
             }`}>
-              {pack.sessionsDone || 0}/{pack.totalSessions}
+              {completedSessions}/{pack.totalSessions}
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
@@ -374,7 +421,7 @@ export default function TherapyPackageCard({
                   ? 'bg-gradient-to-r from-amber-500 to-orange-600'
                   : 'bg-gradient-to-r from-emerald-500 to-green-600'
               }`}
-              style={{ width: `${((pack.sessionsDone || 0) / pack.totalSessions) * 100}%` }}
+              style={{ width: `${((completedSessions || 0) / pack.totalSessions) * 100}%` }}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-pulse-slow"></div>
             </div>
@@ -450,35 +497,44 @@ export default function TherapyPackageCard({
                 }).format(pack.totalValue || 0)}
               </div>
               {/* 🎯 Mostrar Valor Pago se houver */}
-              {(pack.totalPaid || 0) > 0 && (
+              {(particularPaid || 0) > 0 && (
                 <div className="text-xs text-emerald-600 mt-1">
                   Pago: {new Intl.NumberFormat('pt-BR', {
                     style: 'currency',
                     currency: 'BRL'
-                  }).format(pack.totalPaid)}
+                  }).format(particularPaid)}
                 </div>
               )}
             </div>
           )}
 
-          {/* Saldo Restante - Esconder para convênio */}
+          {/* 💰 DÍVIDA REAL — Esconder para convênio */}
           {pack.type !== 'convenio' ? (
-            <div className={`p-4 rounded-xl border ${pack.balance > 0
-              ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100'
-              : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-100'
+            <div className={`p-4 rounded-xl border ${sessionDebt > 100
+              ? 'bg-gradient-to-br from-red-50 to-rose-50 border-red-100'
+              : sessionDebt > 0
+                ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100'
+                : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-100'
               }`}>
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className={`h-4 w-4 ${pack.balance > 0 ? 'text-amber-600' : 'text-green-600'
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingUp className={`h-4 w-4 ${sessionDebt > 100 ? 'text-red-600' : sessionDebt > 0 ? 'text-amber-600' : 'text-green-600'
                   }`} />
-                <span className="text-sm font-medium text-gray-700">Saldo</span>
+                <span className="text-sm font-medium text-gray-700">
+                  {sessionDebt > 0 ? '💰 Em aberto' : '✅ Sem pendências'}
+                </span>
               </div>
-              <div className={`text-lg font-bold ${pack.balance > 0 ? 'text-amber-600' : 'text-green-600'
+              <div className={`text-lg font-bold ${sessionDebt > 100 ? 'text-red-600' : sessionDebt > 0 ? 'text-amber-600' : 'text-green-600'
                 }`}>
                 {new Intl.NumberFormat('pt-BR', {
                   style: 'currency',
                   currency: 'BRL'
-                }).format(pack.balance)}
+                }).format(sessionDebt)}
               </div>
+              {sessionDebt > 0 && (
+                <p className="text-[10px] text-gray-500 mt-1">
+                  Referente a sessões já realizadas
+                </p>
+              )}
             </div>
           ) : (
             <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
@@ -487,7 +543,7 @@ export default function TherapyPackageCard({
                 <span className="text-sm font-medium text-gray-700">Sessões Pendentes</span>
               </div>
               <div className="text-lg font-bold text-blue-600">
-                {pack.totalSessions - pack.sessionsDone}
+                {pack.totalSessions - completedSessions}
               </div>
               <div className="text-xs text-gray-500 mt-1">
                 de {pack.totalSessions} total
@@ -560,20 +616,20 @@ export default function TherapyPackageCard({
               {new Intl.NumberFormat('pt-BR', {
                 style: 'currency',
                 currency: 'BRL'
-              }).format(pack.totalPaid)}
+              }).format(particularPaid)}
             </div>
           </div>
         </div>
 
         {/* Alertas Elegantes */}
         <div className="space-y-2">
-          {pack.balance < 0 && (
+          {sessionDebt < 0 && (
             <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 p-3 rounded-lg flex items-center gap-3">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
               <div className="flex-1">
                 <div className="text-sm font-medium text-green-800">Crédito Disponível</div>
                 <div className="text-xs text-green-600">
-                  Valor: {Math.abs(pack.balance)} • Verificar reembolso
+                  Valor: {Math.abs(sessionDebt)} • Verificar reembolso
                 </div>
               </div>
             </div>
@@ -638,8 +694,8 @@ export default function TherapyPackageCard({
               );
             })()}
 
-            {/* PAGAMENTO PENDENTE — usa totalPaid/financialStatus (não depende de array populado) */}
-            {Number(pack?.totalPaid || 0) === 0 && (
+            {/* PAGAMENTO PENDENTE — usa particularPaid da fonte de verdade Payment */}
+            {Number(particularPaid || 0) === 0 && (
               <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 p-3 rounded-lg flex items-center gap-3">
                 <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                 <div className="flex-1">
@@ -651,18 +707,25 @@ export default function TherapyPackageCard({
           </div>
         </div>
 
-        {/* 🆕 Ação v2: quitar débitos do pacote (só aparece se houver saldo) */}
-        {(pack.type === 'therapy' || pack.type === 'terapia_ocupacional' || !pack.type) && Number(pack.balance) > 0 && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowBalanceModal(true);
-            }}
-            className="w-full py-3 bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-dashed border-blue-300 rounded-xl text-blue-700 hover:border-blue-400 hover:from-blue-100 hover:to-cyan-100 transition-all duration-200 flex items-center justify-center gap-2 font-medium text-sm"
-          >
-            <TrendingUp className="w-4 h-4" />
-            Quitar Débitos do Pacote
-          </button>
+        {/* 🆕 Ação v2: quitar débitos do pacote (só aparece se houver dívida real) */}
+        {financialLoading ? (
+          <div className="w-full py-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 flex items-center justify-center gap-2 font-medium text-sm">
+            <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-500 rounded-full animate-spin"></div>
+            Carregando financeiro...
+          </div>
+        ) : (
+          (pack.type === 'therapy' || pack.type === 'terapia_ocupacional' || !pack.type) && Number(sessionDebt) > 0 ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowBalanceModal(true);
+              }}
+              className="w-full py-3 bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-dashed border-emerald-300 rounded-xl text-emerald-700 hover:border-emerald-400 hover:from-emerald-100 hover:to-green-100 transition-all duration-200 flex items-center justify-center gap-2 font-medium text-sm"
+            >
+              <span>💚</span>
+              Quitar pendências
+            </button>
+          ) : null
         )}
       </div>
 

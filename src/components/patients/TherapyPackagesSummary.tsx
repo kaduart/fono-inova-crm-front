@@ -229,7 +229,10 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
     const inactivePackages = packages.filter(pkg => pkg.status !== 'active');
     const displayedPackages = activeTab === 'active' ? activePackages : inactivePackages;
 
-    // ⚖️ Saldo liminar: agrega pacotes ativos de tipo 'liminar' por especialidade
+    // ⚠️ LEGADO — LIMINAR NÃO USA MAIS PACKAGE
+    // Essa agregação lê packages antigos de tipo 'liminar'.
+    // Liminar agora usa LiminarContract. Mantido para compatibilidade.
+    // TODO: remover após backfill completo.
     const liminarBySpecialty = activePackages
         .filter(pkg => pkg.type === 'liminar')
         .reduce<Record<string, { balance: number; totalCredit: number; sessionValue: number; count: number; packageId: string }>>((acc, pkg) => {

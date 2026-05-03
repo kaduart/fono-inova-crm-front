@@ -79,10 +79,12 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
         const mergedDate = mergeDateAndTime(date, time).toISOString();
 
+        // ✅ V2 ATIVO: Criação de agendamento NÃO envia paymentAmount.
+        // O Payment é criado pelo backend no fluxo de complete (handler).
         const updatedFormState = {
             ...formState,
             date: mergedDate,
-            paymentAmount: 200,
+            // 🚫 REMOVIDO: paymentAmount hardcoded. V2 não cria Payment no schedule.
             paymentMethod: 'credit_card',
             sessionType: 'fonoaudiologia' as TherapyType,
             // Se insuranceGuideId está presente, incluir no payload

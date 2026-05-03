@@ -15,8 +15,38 @@ import {
 } from '@mui/material';
 import { User, Calendar, ChevronDown, ChevronUp, Send, Check } from 'lucide-react';
 
+// 🆕 UX helpers (também definidos em InsuranceTab.tsx)
+function daysSince(dateStr: string): number {
+    if (!dateStr) return 0;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 0;
+    const diff = Date.now() - d.getTime();
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
+}
+
+function urgencyColor(days: number): string {
+    if (days > 60) return '#EF4444';
+    if (days > 30) return '#F59E0B';
+    return '#6B7280';
+}
+
+function urgencyLabel(days: number, status: string): string {
+    if (status === 'pending_billing') {
+        if (days > 60) return `🔴 A faturar há ${days}d`;
+        if (days > 30) return `🟡 A faturar há ${days}d`;
+        return `A faturar há ${days}d`;
+    }
+    if (status === 'billed') {
+        if (days > 60) return `🔴 Aguardando há ${days}d`;
+        if (days > 30) return `🟡 Aguardando há ${days}d`;
+        return `Aguardando há ${days}d`;
+    }
+    return '';
+}
+
 interface Payment {
     paymentId: string;
+    sessionId?: string;
     grossAmount: number;
     status: string;
     paymentDate: string;
@@ -36,7 +66,7 @@ interface Patient {
 interface PatientAccordionSectionProps {
     patient: Patient;
     onOpen360: (patientId: string) => void;
-    onMarkAsBilled: (paymentId: string) => void;
+    onMarkAsBilled: (payment: Payment) => void;
     onReceive: (payment: Payment) => void;
     getStatusChip: (status: string) => React.ReactNode;
     // Props para seleção em lote
@@ -248,16 +278,30 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
                                 </Box>
 
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                    <Typography variant="body2" fontWeight="bold">
-                                        R$ {(payment.grossAmount || 0).toLocaleString('pt-BR')}
-                                    </Typography>
+                                    <Box sx={{ textAlign: 'right' }}>
+                                        <Typography variant="body2" fontWeight="bold">
+                                            R$ {(payment.grossAmount || 0).toLocaleString('pt-BR')}
+                                        </Typography>
+                                        {/* 🆕 UX: Badge de dias parados para pending_billing e billed */}
+                                        {(payment.status === 'pending_billing' || payment.status === 'billed') && (
+                                            <Typography
+                                                variant="caption"
+                                                sx={{
+                                                    color: urgencyColor(daysSince(payment.paymentDate)),
+                                                    fontWeight: daysSince(payment.paymentDate) > 30 ? 700 : 400
+                                                }}
+                                            >
+                                                {urgencyLabel(daysSince(payment.paymentDate), payment.status)}
+                                            </Typography>
+                                        )}
+                                    </Box>
                                     {getStatusChip(payment.status)}
                                     {payment.status === 'pending_billing' && (
                                         <Button
                                             size="small"
                                             variant="outlined"
                                             startIcon={<Send size={14} />}
-                                            onClick={() => onMarkAsBilled(payment.paymentId)}
+                                            onClick={() => onMarkAsBilled(payment)}
                                             sx={{ borderColor: '#3B82F6', color: '#3B82F6', fontSize: '11px' }}
                                         >
                                             Faturar

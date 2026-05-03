@@ -14,7 +14,8 @@ import {
   CircularProgress,
   Alert,
   Tabs,
-  Tab
+  Tab,
+  Paper
 } from '@mui/material';
 import {
   Plus,
@@ -23,7 +24,10 @@ import {
   MoreVertical,
   Edit2,
   Trash2,
-  FileText
+  FileText,
+  Clock,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO, differenceInDays } from 'date-fns';
@@ -31,6 +35,7 @@ import { ptBR } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { useInsuranceGuides } from '../../../hooks/useInsuranceGuides';
 import InsuranceGuideForm from './InsuranceGuideForm';
+import InsurancePlanForm from './InsurancePlanForm';
 
 // ----------------------------------------------------------------------
 // Componente principal
@@ -41,8 +46,9 @@ const PatientInsuranceTab = ({ patientId }) => {
   const [editingGuide, setEditingGuide] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedGuide, setSelectedGuide] = useState(null);
+  const [planFormOpen, setPlanFormOpen] = useState(false);
+  const [planFormGuide, setPlanFormGuide] = useState(null);
 
-  // Hook para gerenciar guias
   const {
     guides,
     balance,
@@ -50,50 +56,38 @@ const PatientInsuranceTab = ({ patientId }) => {
     error,
     createGuide,
     updateGuide,
-    cancelGuide
+    cancelGuide,
+    refetch
   } = useInsuranceGuides(patientId, {
     specialty: selectedSpecialty === 'all' ? undefined : selectedSpecialty
   });
 
-  // 🎯 FILTRAR GUIAS: 
-  // 1. Não mostrar guias vinculadas a pacotes (status='linked' ou packageId !== null)
-  // 🎯 TODAS as guias disponíveis (sem filtro de especialidade)
-  // Usado para calcular especialidades e contagens nos tabs
   const allAvailableGuides = useMemo(() => {
-    return guides
-      .filter(g => g.status !== 'linked' && !g.packageId)
-      .map(g => ({
-        ...g,
-        remaining: g.remaining ?? (g.totalSessions - (g.usedSessions || 0)),
-        usedSessions: g.usedSessions || 0
-      }));
+    return guides.map(g => ({
+      ...g,
+      remaining: g.remaining ?? (g.totalSessions - (g.usedSessions || 0)),
+      usedSessions: g.usedSessions || 0
+    }));
   }, [guides]);
 
-  // Especialidades disponíveis (calculadas a partir de TODAS as guias disponíveis)
   const specialties = useMemo(() => {
     const unique = [...new Set(allAvailableGuides.map(g => g.specialty))];
     return unique.sort();
   }, [allAvailableGuides]);
 
-  console.log('Guias carregadas:', guides);
-
-  // 🎯 GUIAS FILTRADAS por especialidade selecionada
   const availableGuides = useMemo(() => {
     return allAvailableGuides
       .filter(g => selectedSpecialty === 'all' || g.specialty === selectedSpecialty);
   }, [allAvailableGuides, selectedSpecialty]);
 
-  // Agrupamento de guias (usando apenas guias disponíveis)
   const groupedGuides = useMemo(() => {
     const active = availableGuides.filter(g => g.status === 'active' && g.remaining > 0);
     const exhausted = availableGuides.filter(g => g.status === 'exhausted' || (g.status === 'active' && g.remaining === 0));
     const expired = availableGuides.filter(g => g.status === 'expired');
     const cancelled = availableGuides.filter(g => g.status === 'cancelled');
-
     return { active, exhausted, expired, cancelled };
   }, [availableGuides]);
 
-  // Handlers
   const handleOpenMenu = (event, guide) => {
     setAnchorEl(event.currentTarget);
     setSelectedGuide(guide);
@@ -105,12 +99,6 @@ const PatientInsuranceTab = ({ patientId }) => {
   };
 
   const handleEdit = () => {
-    // 🎯 Segurança: não permitir editar guias vinculadas a pacotes
-    if (selectedGuide.status === 'linked' || selectedGuide.packageId) {
-      toast.error('Não é possível editar guia vinculada a um pacote');
-      handleCloseMenu();
-      return;
-    }
     if (selectedGuide.usedSessions > 0) {
       toast.error('Não é possível editar guia já utilizada');
       handleCloseMenu();
@@ -123,12 +111,6 @@ const PatientInsuranceTab = ({ patientId }) => {
 
   const handleCancelGuide = async () => {
     if (!selectedGuide) return;
-    // 🎯 Segurança: não permitir cancelar guias vinculadas a pacotes
-    if (selectedGuide.status === 'linked' || selectedGuide.packageId) {
-      toast.error('Não é possível cancelar guia vinculada a um pacote');
-      handleCloseMenu();
-      return;
-    }
     try {
       await cancelGuide(selectedGuide._id);
       toast.success('Guia cancelada com sucesso');
@@ -160,25 +142,35 @@ const PatientInsuranceTab = ({ patientId }) => {
     setEditingGuide(null);
   };
 
-  // Loading
+  const handleOpenPlanForm = (guide) => {
+    setPlanFormGuide(guide);
+    setPlanFormOpen(true);
+  };
+
+  const handleClosePlanForm = (refetchNeeded) => {
+    setPlanFormOpen(false);
+    setPlanFormGuide(null);
+    if (refetchNeeded) {
+      refetch();
+    }
+  };
+
   if (isLoading && guides.length === 0) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-        <CircularProgress size={32} sx={{ color: '#666' }} />
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+        <CircularProgress size={40} sx={{ color: '#2E7A5E' }} />
       </Box>
     );
   }
 
-  // Error
   if (error) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="error" sx={{ borderRadius: '8px', fontSize: '0.875rem' }}>{error}</Alert>
+        <Alert severity="error" sx={{ borderRadius: '20px', fontSize: '0.875rem' }}>{error}</Alert>
       </Box>
     );
   }
 
-  // Empty state
   if (guides.length === 0) {
     return (
       <Box sx={{
@@ -186,30 +178,40 @@ const PatientInsuranceTab = ({ patientId }) => {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        py: 8,
+        py: 10,
         px: 2
       }}>
-        <FileText size={48} className="text-gray-300 mb-3" />
-        <Typography variant="body1" sx={{ color: '#666', fontWeight: 500, mb: 1 }}>
-          Nenhuma guia cadastrada
-        </Typography>
-        <Typography variant="body2" sx={{ color: '#999', mb: 3, textAlign: 'center' }}>
-          Cadastre a primeira guia de convênio para este paciente
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<Plus size={16} />}
-          onClick={() => setIsFormOpen(true)}
-          sx={{
-            textTransform: 'none',
-            fontSize: '0.875rem',
-            backgroundColor: '#1976d2',
-            boxShadow: 'none',
-            '&:hover': { backgroundColor: '#1565c0', boxShadow: 'none' }
-          }}
-        >
-          Cadastrar primeira guia
-        </Button>
+        <Paper elevation={0} sx={{ p: 4, textAlign: 'center', borderRadius: '32px', bgcolor: '#F9FBFD', maxWidth: 400 }}>
+          <Box sx={{ width: 64, height: 64, mx: 'auto', mb: 2, bgcolor: '#EFF9F6', borderRadius: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <FileText size={32} color="#2E7A5E" />
+          </Box>
+          <Typography variant="h6" sx={{ fontWeight: 600, color: '#1A2C3E', mb: 1 }}>
+            Nenhuma guia cadastrada
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#5B6E8C', mb: 3 }}>
+            Cadastre a primeira guia de convênio para este paciente
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<Plus size={16} />}
+            onClick={() => setIsFormOpen(true)}
+            sx={{
+              textTransform: 'none',
+              borderRadius: '40px',
+              px: 3,
+              py: 1,
+              fontWeight: 600,
+              background: 'linear-gradient(135deg, #1B4D6E 0%, #2E7A5E 100%)',
+              boxShadow: '0 4px 12px rgba(27,77,110,0.2)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #123F5A 0%, #246653 100%)',
+                boxShadow: '0 6px 14px rgba(27,77,110,0.3)'
+              }
+            }}
+          >
+            Cadastrar primeira guia
+          </Button>
+        </Paper>
 
         <InsuranceGuideForm
           open={isFormOpen}
@@ -222,16 +224,18 @@ const PatientInsuranceTab = ({ patientId }) => {
   }
 
   return (
-    <Box sx={{ p: 2 }}>
-      {/* Header */}
+    <Box sx={{ p: { xs: 1, sm: 2 }, bgcolor: '#F8FAFE', minHeight: '100%' }}>
+      {/* Header premium */}
       <Box sx={{
         display: 'flex',
+        flexWrap: 'wrap',
         alignItems: 'center',
         justifyContent: 'space-between',
-        mb: 3
+        mb: 4,
+        gap: 2
       }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 500, color: '#1a1a1a' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, color: '#1A2C3E', letterSpacing: '-0.01em' }}>
             Guias de convênio
           </Typography>
 
@@ -246,30 +250,30 @@ const PatientInsuranceTab = ({ patientId }) => {
                 '& .MuiTab-root': {
                   textTransform: 'none',
                   fontSize: '0.8125rem',
+                  fontWeight: 500,
                   minHeight: '36px',
                   py: 0.5,
                   px: 2,
-                  color: '#666',
-                  borderRadius: '6px',
-                  '&.Mui-selected': { 
-                    color: '#fff', 
-                    fontWeight: 600,
-                    backgroundColor: '#1976d2'
+                  color: '#5B6E8C',
+                  borderRadius: '40px',
+                  transition: 'all 0.2s',
+                  '&.Mui-selected': {
+                    color: '#FFFFFF',
+                    backgroundColor: '#2E7A5E',
+                    fontWeight: 600
                   }
                 },
                 '& .MuiTabs-indicator': { display: 'none' }
               }}
             >
-              <Tab 
-                label={`Todas (${allAvailableGuides.length})`} 
-                value="all" 
-              />
+              <Tab label={`Todas (${allAvailableGuides.length})`} value="all" />
               {specialties.map(specialty => {
                 const count = allAvailableGuides.filter(g => g.specialty === specialty).length;
+                const label = specialty.replace(/_/g, ' ');
                 return (
                   <Tab
                     key={specialty}
-                    label={`${specialty.charAt(0).toUpperCase() + specialty.slice(1).replace('-', ' ')} (${count})`}
+                    label={`${label.charAt(0).toUpperCase() + label.slice(1)} (${count})`}
                     value={specialty}
                   />
                 );
@@ -284,52 +288,60 @@ const PatientInsuranceTab = ({ patientId }) => {
           onClick={() => setIsFormOpen(true)}
           sx={{
             textTransform: 'none',
+            borderRadius: '40px',
+            px: 2.5,
+            py: 0.8,
             fontSize: '0.8125rem',
-            backgroundColor: '#1976d2',
-            boxShadow: 'none',
-            '&:hover': { backgroundColor: '#1565c0', boxShadow: 'none' }
+            fontWeight: 600,
+            background: 'linear-gradient(135deg, #1B4D6E 0%, #2E7A5E 100%)',
+            boxShadow: '0 2px 8px rgba(27,77,110,0.15)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #123F5A 0%, #246653 100%)',
+              boxShadow: '0 4px 12px rgba(27,77,110,0.25)'
+            }
           }}
         >
           Nova guia
         </Button>
       </Box>
 
-      {/* Saldo agregado */}
+      {/* Saldo agregado por especialidade (apenas quando filtrado) */}
       {balance && selectedSpecialty !== 'all' && (
         <Card sx={{
-          mb: 3,
-          borderRadius: '8px',
-          border: '1px solid #e0e0e0',
-          boxShadow: 'none'
+          mb: 4,
+          borderRadius: '24px',
+          border: 'none',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.05)',
+          background: 'linear-gradient(135deg, #FFFFFF 0%, #F9FBFD 100%)'
         }}>
-          <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-            <Typography variant="caption" sx={{ color: '#666', display: 'block', mb: 1.5 }}>
-              Saldo total • {selectedSpecialty.charAt(0).toUpperCase() + selectedSpecialty.slice(1).replace('-', ' ')}
+          <CardContent sx={{ p: 3 }}>
+            <Typography variant="caption" sx={{ color: '#5B6E8C', fontWeight: 500, display: 'block', mb: 1.5 }}>
+              Saldo total • {selectedSpecialty.replace(/_/g, ' ')}
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
               <Box>
-                <Typography variant="h5" sx={{ fontWeight: 500, color: '#1a1a1a', lineHeight: 1.2 }}>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: '#1A2C3E', lineHeight: 1.2 }}>
                   {balance.remaining}
                 </Typography>
-                <Typography variant="caption" sx={{ color: '#666' }}>
+                <Typography variant="caption" sx={{ color: '#5B6E8C' }}>
                   sessões restantes
                 </Typography>
               </Box>
-              <Box sx={{ flex: 1 }}>
+              <Box sx={{ flex: 1, minWidth: 150 }}>
                 <LinearProgress
                   variant="determinate"
                   value={(balance.remaining / balance.total) * 100}
                   sx={{
-                    height: 6,
-                    borderRadius: 3,
-                    backgroundColor: '#f0f0f0',
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: '#E9EEF2',
                     '& .MuiLinearProgress-bar': {
-                      backgroundColor: '#1976d2',
-                      borderRadius: 3
+                      backgroundColor: '#2E7A5E',
+                      borderRadius: 4
                     }
                   }}
                 />
-                <Typography variant="caption" sx={{ color: '#666', mt: 0.5, display: 'block' }}>
+                <Typography variant="caption" sx={{ color: '#5B6E8C', mt: 0.5, display: 'block' }}>
                   {balance.used} de {balance.total} sessões utilizadas
                 </Typography>
               </Box>
@@ -338,54 +350,52 @@ const PatientInsuranceTab = ({ patientId }) => {
         </Card>
       )}
 
-      {/* Estado vazio quando filtro não retorna guias */}
       {availableGuides.length === 0 && (
-        <Box sx={{ 
-          textAlign: 'center', 
-          py: 6,
-          color: 'grey.500'
-        }}>
-          <Typography variant="body1" sx={{ mb: 1 }}>
-            Nenhuma guia encontrada
-            {selectedSpecialty !== 'all' && ` para ${selectedSpecialty}`}
+        <Box sx={{ textAlign: 'center', py: 8, bgcolor: '#F9FBFD', borderRadius: '32px' }}>
+          <Typography variant="body1" sx={{ color: '#5B6E8C', mb: 1 }}>
+            Nenhuma guia encontrada {selectedSpecialty !== 'all' && `para ${selectedSpecialty.replace(/_/g, ' ')}`}
           </Typography>
-          <Typography variant="body2" color="grey.400">
+          <Typography variant="body2" sx={{ color: '#8A99B0' }}>
             Tente selecionar outra especialidade ou cadastre uma nova guia
           </Typography>
         </Box>
       )}
 
-      {/* Listas de guias */}
+      {/* Seções de guias */}
       <GuideSection
         title="Guias ativas"
         count={groupedGuides.active.length}
         guides={groupedGuides.active}
-        color="#2e7d32"
+        color="#2E7A5E"
         onOpenMenu={handleOpenMenu}
+        onCreatePlan={handleOpenPlanForm}
       />
 
       <GuideSection
         title="Guias esgotadas"
         count={groupedGuides.exhausted.length}
         guides={groupedGuides.exhausted}
-        color="#d32f2f"
+        color="#C75146"
         onOpenMenu={handleOpenMenu}
+        onCreatePlan={handleOpenPlanForm}
       />
 
       <GuideSection
         title="Guias expiradas"
         count={groupedGuides.expired.length}
         guides={groupedGuides.expired}
-        color="#666"
+        color="#8A99B0"
         onOpenMenu={handleOpenMenu}
+        onCreatePlan={handleOpenPlanForm}
       />
 
       <GuideSection
         title="Guias canceladas"
         count={groupedGuides.cancelled.length}
         guides={groupedGuides.cancelled}
-        color="#999"
+        color="#A0AABF"
         onOpenMenu={handleOpenMenu}
+        onCreatePlan={handleOpenPlanForm}
       />
 
       {/* Menu de ações */}
@@ -395,70 +405,77 @@ const PatientInsuranceTab = ({ patientId }) => {
         onClose={handleCloseMenu}
         PaperProps={{
           sx: {
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-            minWidth: '140px'
+            borderRadius: '20px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+            minWidth: '160px',
+            mt: 1
           }
         }}
       >
         <MenuItem
           onClick={handleEdit}
           disabled={selectedGuide?.usedSessions > 0}
-          sx={{ fontSize: '0.8125rem', py: 1 }}
+          sx={{ fontSize: '0.8125rem', py: 1, gap: 1.5, borderRadius: '12px', mx: 0.5 }}
         >
-          <Edit2 size={14} className="mr-2" />
-          Editar
+          <Edit2 size={14} /> Editar
         </MenuItem>
         <MenuItem
           onClick={handleCancelGuide}
           disabled={selectedGuide?.status === 'cancelled'}
-          sx={{ fontSize: '0.8125rem', py: 1 }}
+          sx={{ fontSize: '0.8125rem', py: 1, gap: 1.5, borderRadius: '12px', mx: 0.5, color: '#C75146' }}
         >
-          <Trash2 size={14} className="mr-2" />
-          Cancelar
+          <Trash2 size={14} /> Cancelar
         </MenuItem>
       </Menu>
 
-      {/* Modal de formulário */}
+      {/* Modais */}
       <InsuranceGuideForm
         open={isFormOpen}
         onClose={handleCloseForm}
         onSave={handleSaveGuide}
         guide={editingGuide}
       />
+
+      <InsurancePlanForm
+        open={planFormOpen}
+        onClose={handleClosePlanForm}
+        guide={planFormGuide}
+        patientId={patientId}
+      />
     </Box>
   );
 };
 
 // ----------------------------------------------------------------------
-// Componente de seção de guias
+// Componente de seção de guias (título + grid)
 // ----------------------------------------------------------------------
-const GuideSection = ({ title, count, guides, color, onOpenMenu }) => {
+const GuideSection = ({ title, count, guides, color, onOpenMenu, onCreatePlan }) => {
   if (count === 0) return null;
 
   return (
-    <Box sx={{ mb: 4 }}>
-      <Typography
-        variant="caption"
-        sx={{
-          display: 'block',
-          mb: 2,
-          color,
-          fontWeight: 600,
-          textTransform: 'uppercase',
-          letterSpacing: '0.5px',
-          fontSize: '0.75rem'
-        }}
-      >
-        {title} ({count})
-      </Typography>
+    <Box sx={{ mb: 5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+        <Box sx={{ width: 4, height: 20, bgcolor: color, borderRadius: 2 }} />
+        <Typography
+          variant="subtitle2"
+          sx={{
+            fontWeight: 600,
+            color: '#1A2C3E',
+            letterSpacing: '-0.2px',
+            textTransform: 'uppercase',
+            fontSize: '0.7rem'
+          }}
+        >
+          {title} ({count})
+        </Typography>
+      </Box>
       <AnimatePresence>
         <Box sx={{
           display: 'grid',
           gridTemplateColumns: {
             xs: '1fr',
             sm: 'repeat(2, 1fr)',
-            lg: 'repeat(3, 1fr)'
+            md: 'repeat(3, 1fr)'
           },
           gap: 2.5
         }}>
@@ -467,6 +484,7 @@ const GuideSection = ({ title, count, guides, color, onOpenMenu }) => {
               key={guide._id}
               guide={guide}
               onOpenMenu={onOpenMenu}
+              onCreatePlan={onCreatePlan}
             />
           ))}
         </Box>
@@ -476,32 +494,26 @@ const GuideSection = ({ title, count, guides, color, onOpenMenu }) => {
 };
 
 // ----------------------------------------------------------------------
-// Componente de card individual (redesenhado com fundo clarinho)
+// Componente de card individual (premium, clean, informativo)
 // ----------------------------------------------------------------------
-const GuideCard = ({ guide, onOpenMenu }) => {
-  // 🎯 Garantir que temos remaining calculado
+const GuideCard = ({ guide, onOpenMenu, onCreatePlan }) => {
   const remaining = guide.remaining ?? (guide.totalSessions - (guide.usedSessions || 0));
   const usedSessions = guide.usedSessions || 0;
-  const percentage = (remaining / guide.totalSessions) * 100;
+  const percentage = (usedSessions / guide.totalSessions) * 100;
   const daysUntilExpiration = differenceInDays(parseISO(guide.expiresAt), new Date());
   const isUrgent = daysUntilExpiration <= 7 && daysUntilExpiration >= 0;
   const isExpiringSoon = daysUntilExpiration <= 30 && daysUntilExpiration > 0;
 
-  // Cor do status (usada em badges e bordas sutis)
   const statusColor =
-    guide.status === 'linked' ? '#7c4dff' :  // 🎯 Nova cor para guias vinculadas
-    guide.status === 'cancelled' ? '#9e9e9e' :
-      guide.status === 'expired' ? '#d32f2f' :
-        guide.status === 'exhausted' || remaining === 0 ? '#d32f2f' :
-          percentage <= 20 ? '#ed6c02' : '#2e7d32';
+    guide.status === 'cancelled' ? '#A0AABF' :
+      guide.status === 'expired' ? '#C75146' :
+        guide.status === 'exhausted' || remaining === 0 ? '#C75146' : '#2E7A5E';
 
   const statusLabel =
-    guide.status === 'linked' ? 'Vinculada a Pacote' :  // 🎯 Novo label
     guide.status === 'cancelled' ? 'Cancelada' :
       guide.status === 'expired' ? 'Expirada' :
         guide.status === 'exhausted' || remaining === 0 ? 'Esgotada' : 'Ativa';
 
-  // Formatação amigável
   const specialtyFormatted = guide.specialty
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
@@ -511,33 +523,35 @@ const GuideCard = ({ guide, onOpenMenu }) => {
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 
+  const isNew = usedSessions === 0 && guide.status === 'active';
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      transition={{ duration: 0.15 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.2 }}
       style={{ height: '100%' }}
     >
       <Card
         elevation={0}
         sx={{
           height: '100%',
-          borderRadius: '16px',
+          borderRadius: '24px',
           border: '1px solid',
-          borderColor: 'grey.100',
-          backgroundColor: '#d4f0f2',
-          transition: 'all 0.2s ease',
+          borderColor: '#EDF2F7',
+          backgroundColor: '#FFFFFF',
+          transition: 'all 0.25s ease',
           '&:hover': {
             transform: 'translateY(-4px)',
-            boxShadow: '0 12px 24px -8px rgba(0,0,0,0.1)',
-            borderColor: 'grey.200'
+            boxShadow: '0 20px 30px -12px rgba(0,0,0,0.12)',
+            borderColor: '#E2E8F0'
           },
           position: 'relative',
           overflow: 'hidden'
         }}
       >
-        {/* Barra superior sutil na cor do status */}
+        {/* Barra superior gradiente */}
         <Box
           sx={{
             position: 'absolute',
@@ -545,102 +559,111 @@ const GuideCard = ({ guide, onOpenMenu }) => {
             left: 0,
             right: 0,
             height: '4px',
-            background: `linear-gradient(90deg, ${statusColor}40, ${statusColor})`
+            background: `linear-gradient(90deg, ${statusColor}60, ${statusColor})`
           }}
         />
 
-        <CardContent sx={{ p: 3, '&:last-child': { pb: 3 }, pt: 4 }}>
-          {/* Header reorganizado: Número + Status + Menu */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-            {/* Número da guia (à esquerda) */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
-              <FileText size={18} className="text-gray-400" />
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'grey.800' }}>
+        <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
+          {/* Header: badge Nova (inline) + número + status + menu */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {isNew ? (
+                <Box sx={{
+                  bgcolor: '#EFF9F6',
+                  color: '#2E7A5E',
+                  px: 1.2,
+                  py: 0.3,
+                  borderRadius: '40px',
+                  fontSize: '0.6rem',
+                  fontWeight: 700,
+                  border: '1px solid #C6E6DA',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.4,
+                  whiteSpace: 'nowrap'
+                }}>
+                  ✨ Nova
+                </Box>
+              ) : (
+                <FileText size={16} color="#8A99B0" />
+              )}
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#1A2C3E', letterSpacing: '-0.2px', fontSize: '0.8rem' }}>
                 #{guide.number}
               </Typography>
             </Box>
-            
-            {/* Status (no meio) */}
-            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Chip
                 label={statusLabel}
                 size="small"
                 sx={{
-                  height: '24px',
-                  fontSize: '0.7rem',
+                  height: '22px',
+                  fontSize: '0.65rem',
                   fontWeight: 600,
-                  backgroundColor: `${statusColor}20`,
+                  bgcolor: `${statusColor}10`,
                   color: statusColor,
-                  border: `1px solid ${statusColor}40`,
-                  borderRadius: '6px'
+                  border: `1px solid ${statusColor}30`,
+                  borderRadius: '8px'
                 }}
               />
-            </Box>
-            
-            {/* Menu de ações (à direita) */}
-            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
               <IconButton
                 size="small"
                 onClick={(e) => onOpenMenu(e, guide)}
-                sx={{
-                  color: 'grey.400',
-                  '&:hover': { color: 'grey.700', bgcolor: 'grey.50' }
-                }}
+                sx={{ color: '#A0AABF', '&:hover': { color: '#5B6E8C', bgcolor: '#F1F5F9' } }}
               >
-                <MoreVertical size={18} />
+                <MoreVertical size={16} />
               </IconButton>
             </Box>
           </Box>
 
           {/* Especialidade e convênio */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 2.5 }}>
-            <Typography variant="body2" sx={{ fontWeight: 500, color: 'grey.800' }}>
+          <Box sx={{ mb: 2.5 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, color: '#1A2C3E', mb: 0.5 }}>
               {specialtyFormatted}
             </Typography>
-            <Typography variant="caption" sx={{ color: 'grey.500' }}>
+            <Typography variant="caption" sx={{ color: '#8A99B0', fontWeight: 500 }}>
               {insuranceFormatted}
             </Typography>
           </Box>
 
-          {/* Grid de informações: sessões e validade */}
+          {/* Informações em grid */}
           <Box sx={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
-            gap: 1.5,
+            gap: 2,
             mb: 2.5
           }}>
-            <Box sx={{ p: 1.5, bgcolor: 'grey.50', borderRadius: 2 }}>
-              <Typography variant="caption" sx={{ color: 'grey.600', display: 'block', mb: 0.5 }}>
+            <Box sx={{ bgcolor: '#F8FAFE', borderRadius: '16px', p: 1.5 }}>
+              <Typography variant="caption" sx={{ color: '#5B6E8C', fontWeight: 500, display: 'block', mb: 0.5 }}>
                 Sessões
               </Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600, color: 'grey.800' }}>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: '#1A2C3E' }}>
                 {remaining} / {guide.totalSessions}
               </Typography>
-              <Typography variant="caption" sx={{ color: 'grey.500', fontSize: '0.65rem' }}>
+              <Typography variant="caption" sx={{ color: '#8A99B0', fontSize: '0.6rem' }}>
                 {usedSessions} usadas
               </Typography>
             </Box>
-            <Box sx={{ p: 1.5, bgcolor: 'grey.50', borderRadius: 2 }}>
-              <Typography variant="caption" sx={{ color: 'grey.600', display: 'block', mb: 0.5 }}>
+            <Box sx={{ bgcolor: '#F8FAFE', borderRadius: '16px', p: 1.5 }}>
+              <Typography variant="caption" sx={{ color: '#5B6E8C', fontWeight: 500, display: 'block', mb: 0.5 }}>
                 Validade
               </Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600, color: 'grey.800' }}>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: '#1A2C3E' }}>
                 {format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}
               </Typography>
               {daysUntilExpiration > 0 ? (
                 <Typography variant="caption" sx={{
-                  color: isUrgent ? '#d32f2f' : isExpiringSoon ? '#ed6c02' : 'grey.500',
-                  fontSize: '0.65rem',
+                  color: isUrgent ? '#C75146' : isExpiringSoon ? '#ED6C02' : '#8A99B0',
+                  fontSize: '0.6rem',
                   fontWeight: 500
                 }}>
                   {daysUntilExpiration} dias
                 </Typography>
               ) : daysUntilExpiration === 0 ? (
-                <Typography variant="caption" sx={{ color: '#d32f2f', fontSize: '0.65rem', fontWeight: 500 }}>
+                <Typography variant="caption" sx={{ color: '#C75146', fontSize: '0.6rem', fontWeight: 500 }}>
                   Hoje!
                 </Typography>
               ) : (
-                <Typography variant="caption" sx={{ color: '#d32f2f', fontSize: '0.65rem', fontWeight: 500 }}>
+                <Typography variant="caption" sx={{ color: '#C75146', fontSize: '0.6rem', fontWeight: 500 }}>
                   Vencida
                 </Typography>
               )}
@@ -648,12 +671,12 @@ const GuideCard = ({ guide, onOpenMenu }) => {
           </Box>
 
           {/* Barra de progresso */}
-          <Box sx={{ mb: 2 }}>
+          <Box sx={{ mb: 2.5 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-              <Typography variant="caption" sx={{ color: 'grey.600' }}>
+              <Typography variant="caption" sx={{ color: '#5B6E8C', fontWeight: 500 }}>
                 Utilização
               </Typography>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: percentage <= 20 ? '#ed6c02' : 'grey.700' }}>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: percentage >= 80 ? '#C75146' : '#2E7A5E' }}>
                 {percentage.toFixed(0)}%
               </Typography>
             </Box>
@@ -663,59 +686,59 @@ const GuideCard = ({ guide, onOpenMenu }) => {
               sx={{
                 height: 6,
                 borderRadius: 3,
-                backgroundColor: '#f0f0f0',
+                backgroundColor: '#E9EEF2',
                 '& .MuiLinearProgress-bar': {
-                  backgroundColor:
-                    percentage <= 20 ? '#ed6c02' :
-                      percentage <= 50 ? '#1976d2' :
-                        '#2e7d32',
+                  backgroundColor: percentage >= 80 ? '#C75146' : percentage >= 50 ? '#ED6C02' : '#2E7A5E',
                   borderRadius: 3
                 }
               }}
             />
           </Box>
 
-          {/* Notas, se houver */}
+          {/* Notas */}
           {guide.notes && (
             <Box sx={{
               p: 1.5,
-              bgcolor: '#f9f9f9',
-              borderRadius: 2,
-              border: '1px solid',
-              borderColor: 'grey.100'
+              bgcolor: '#F8FAFE',
+              borderRadius: '16px',
+              mb: 2,
+              border: '1px solid #EDF2F7'
             }}>
-              <Typography variant="caption" sx={{ color: 'grey.600' }}>
-                <span style={{ fontWeight: 500 }}>Obs:</span> {guide.notes}
+              <Typography variant="caption" sx={{ color: '#5B6E8C' }}>
+                <span style={{ fontWeight: 600 }}>Observação:</span> {guide.notes}
               </Typography>
             </Box>
           )}
 
-          {/* Badge de "Nova" se não utilizada - posicionado à esquerda para não sobrepor menu */}
-          {usedSessions === 0 && guide.status === 'active' && (
-            <Box sx={{
-              position: 'absolute',
-              top: 12,
-              left: 12,
-              bgcolor: '#e3f2fd',
-              color: '#1976d2',
-              px: 1,
-              py: 0.5,
-              borderRadius: 1,
-              fontSize: '0.6rem',
-              fontWeight: 600,
-              border: '1px solid',
-              borderColor: '#1976d2',
-              zIndex: 1
-            }}>
-              ✨ Nova
-            </Box>
+          {/* Botão Criar Plano (apenas para guias ativas não utilizadas) */}
+          {usedSessions === 0 && guide.status === 'active' && onCreatePlan && (
+            <Button
+              size="small"
+              variant="outlined"
+              fullWidth
+              onClick={() => onCreatePlan(guide)}
+              startIcon={<Calendar size={14} />}
+              sx={{
+                textTransform: 'none',
+                borderRadius: '40px',
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                borderColor: '#2E7A5E',
+                color: '#2E7A5E',
+                mt: 1,
+                '&:hover': {
+                  bgcolor: '#EFF9F6',
+                  borderColor: '#246653'
+                }
+              }}
+            >
+              Criar Plano de Atendimento
+            </Button>
           )}
         </CardContent>
       </Card>
     </motion.div>
   );
 };
-
-
 
 export default PatientInsuranceTab;

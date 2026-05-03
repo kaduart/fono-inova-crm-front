@@ -143,7 +143,9 @@ const usePayment = () => {
     }
   }, []);
 
-  // Criar novo pagamento
+  // ⚠️ V1 LEGADO: Criar novo pagamento manualmente.
+  // ✅ V2 REALIDADE: Payment nasce no schedule ou no complete (handler).
+  // Só usar para pagamentos avulsos (não vinculados a agendamento).
   const addPayment = useCallback(async (paymentData: Partial<FinancialRecord>) => {
     setLoading(true);
     try {

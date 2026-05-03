@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { packageService } from '@/services/packageService';
 import { toast } from 'sonner';
 
+// ⚠️ LEGADO: 'liminar' removido. Usar LiminarContract.
 interface CreatePackagePayload {
   type: 'therapy' | 'convenio' | 'liminar';
   patientId: string;

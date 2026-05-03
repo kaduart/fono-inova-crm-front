@@ -20,7 +20,6 @@ import ReactInputMask from 'react-input-mask';
 import { toast } from 'react-toastify';
 
 import appointmentService from '../../services/appointmentService';
-import { getGuides, InsuranceGuide } from '../../services/insuranceGuideApi';
 import packageService from '../../services/packageService';
 import API from '../../services/api';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
@@ -83,16 +82,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     const [calculationMode, setCalculationMode] = useState('duration');
     const [isLoading, setIsLoading] = useState(false);
 
-    // 🏥 Estados para pacotes de convênio
-    const [packageType, setPackageType] = useState<'therapy' | 'convenio' | 'liminar'>('therapy');
-    
-    // ⚖️ Estados para pacotes liminar
-    const [liminarProcessNumber, setLiminarProcessNumber] = useState('');
-    const [liminarCourt, setLiminarCourt] = useState('');
-    const [liminarTotalCredit, setLiminarTotalCredit] = useState(0);
-    const [availableGuides, setAvailableGuides] = useState<InsuranceGuide[]>([]);
-    const [selectedGuide, setSelectedGuide] = useState<string>('');
-    const [loadingGuides, setLoadingGuides] = useState(false);
+
 
     // 🆕 Estados para Sessões no Mesmo Dia
     const [sameDaySessions, setSameDaySessions] = useState(false);
@@ -138,38 +128,18 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         if (!formData.date) baseErrors.date = "Data é obrigatória";
         if (!formData.time) baseErrors.time = "Hora é obrigatória";
 
-        // Regras específicas para THERAPY
-        if (packageType === 'therapy') {
-            if (!formData.paymentType) baseErrors.paymentType = "Tipo de pagamento é obrigatório";
+        // Regras de pagamento
+        if (!formData.paymentType) baseErrors.paymentType = "Tipo de pagamento é obrigatório";
 
-            const sessionValue = Number(formData.sessionValue);
-            if (!sessionValue || sessionValue < 0.01) {
-                baseErrors.sessionValue = "Valor por sessão deve ser maior que zero";
-            }
-
-            // 🔥 Só valida pagamentos se NÃO for per-session
-            if (formData.paymentType !== 'per-session') {
-                const hasValidPayments = payments.every(p => Number(p.amount) > 0 && !!p.method && !!p.date);
-                if (!hasValidPayments) baseErrors.payments = "Preencha valor, método e data em todos os pagamentos.";
-            }
+        const sessionValue = Number(formData.sessionValue);
+        if (!sessionValue || sessionValue < 0.01) {
+            baseErrors.sessionValue = "Valor por sessão deve ser maior que zero";
         }
 
-        // Regras específicas para CONVENIO
-        if (packageType === 'convenio') {
-            if (!selectedGuide) {
-                baseErrors.selectedGuide = "Selecione uma guia de convênio.";
-            }
-        }
-
-        // Regras específicas para LIMINAR (valor é obrigatório, mas pagamentos não)
-        if (packageType === 'liminar') {
-            const sessionValue = Number(formData.sessionValue);
-            if (!sessionValue || sessionValue < 0.01) {
-                baseErrors.sessionValue = "Valor por sessão deve ser maior que zero";
-            }
-            if (!liminarTotalCredit || liminarTotalCredit < 0.01) {
-                baseErrors.liminarTotalCredit = "Valor total do crédito é obrigatório";
-            }
+        // 🔥 Só valida pagamentos se NÃO for per-session
+        if (formData.paymentType !== 'per-session') {
+            const hasValidPayments = payments.every(p => Number(p.amount) > 0 && !!p.method && !!p.date);
+            if (!hasValidPayments) baseErrors.payments = "Preencha valor, método e data em todos os pagamentos.";
         }
 
         // Validação de sessões por semana
@@ -241,12 +211,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         }
     }, [patient]);
 
-    // 🏥 Buscar guias ativas quando tipo = convenio
-    useEffect(() => {
-        if (packageType === 'convenio' && realPatientId) {
-            fetchInsuranceGuides(realPatientId);
-        }
-    }, [packageType, realPatientId]);
+
 
     const fetchAppointmentsByPatient = async (patientId: string) => {
         setIsLoading(true);
@@ -283,29 +248,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         }
     };
 
-    // 🏥 Buscar guias de convênio ativas
-    const fetchInsuranceGuides = async (patientId: string) => {
-        setLoadingGuides(true);
-        try {
-            const guides = await getGuides(patientId, { status: 'active' });
-            setAvailableGuides(guides);
 
-            // Se só tem uma guia, seleciona automaticamente
-            if (guides.length === 1) {
-                setSelectedGuide(guides[0]._id);
-                // Preenche specialty automaticamente
-                setFormData(prev => ({
-                    ...prev,
-                    sessionType: guides[0].specialty
-                }));
-            }
-        } catch (error) {
-            toast.error('Erro ao carregar guias de convênio');
-            console.error(error);
-        } finally {
-            setLoadingGuides(false);
-        }
-    };
 
     // 🆕 Handler: importa pendências do financeiro v2 (referência visual)
     const handleImportFromV2 = async () => {
@@ -619,79 +562,26 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
             console.log("📤 Enviando pacote:", packageData);
 
-            // 🏥 Lógica condicional: Therapy vs Convenio vs Liminar
-            if (packageType === 'convenio') {
-                // Validar guia selecionada
-                if (!selectedGuide) {
-                    toast.error('Selecione uma guia de convênio');
-                    setIsLoading(false);
-                    return;
-                }
-
-                // Payload simplificado para convenio
-                const convenioData = {
-                    patientId: realPatientId,
-                    doctorId: formData.doctorId,
-                    insuranceGuideId: selectedGuide,
-                    specialty: formData.sessionType,
-                    totalSessions: schedule.length,
-                    sessionValue: Number(formData.sessionValue) || 0,
-                    schedule
-                };
-
-                console.log("📤 Enviando pacote de convênio:", convenioData);
-                const convenioResponse = await packageService.createConvenioPackage(convenioData);
-                // 🔥 Extrai o ID do pacote criado (pode vir em package._id ou package.packageId)
-                const newPackageId = convenioResponse?.package?._id 
-                    || convenioResponse?.package?.packageId 
-                    || convenioResponse?._id;
-                toast.success(`Pacote de convênio criado com sucesso! 💚`);
-                onSubmit(newPackageId);
-            } else if (packageType === 'liminar') {
-                // ⚖️ Payload para liminar
-                const liminarData = {
-                    ...packageData,
-                    patientId: realPatientId,
-                    sessionType: formData.sessionType as any,
-                    type: 'liminar',
-                    liminarProcessNumber: liminarProcessNumber || undefined,
-                    liminarCourt: liminarCourt || undefined,
-                    liminarMode: 'hybrid',
-                    liminarTotalCredit: liminarTotalCredit || (formData.totalSessions * formData.sessionValue)
-                };
-
-                console.log("📤 Enviando pacote liminar:", liminarData);
-                const liminarResponse = await packageService.createPackage(liminarData);
-                // 🔥 Extrai o ID do pacote criado
-                const newPackageId = liminarResponse?.data?.package?._id 
-                    || liminarResponse?.data?.package?.packageId 
-                    || liminarResponse?.data?._id;
-                toast.success(`Pacote liminar criado com sucesso! ⚖️`);
-                onSubmit(newPackageId);
+            // Fluxo particular (therapy/package)
+            const therapyData = {
+                ...packageData,
+                type: 'package',
+                model: formData.paymentType === 'per-session' ? 'per_session' : 'prepaid',
+                patientId: realPatientId,
+                sessionType: formData.sessionType as any,
+                appointmentId: selectedAppointmentIdRef.current || formData.appointmentId || undefined
+            };
+            if (initialData?._id) {
+                await packageService.updatePackage(initialData._id, therapyData);
+                toast.success(`Pacote atualizado com sucesso! 💚`);
+                onSubmit();
             } else {
-                // Fluxo normal (therapy)
-                const therapyData = {
-                    ...packageData,
-                    type: 'therapy', // 🔥 IMPORTANTE: Define o tipo para o hook useCreatePackage
-                    patientId: realPatientId,
-                    sessionType: formData.sessionType as any, // Type assertion para compatibilidade
-                    appointmentId: selectedAppointmentIdRef.current || formData.appointmentId || undefined  // 🔗 reutilizar agendamento existente
-                };
-                if (initialData?._id) {
-                    // Edição
-                    await packageService.updatePackage(initialData._id, therapyData);
-                    toast.success(`Pacote atualizado com sucesso! 💚`);
-                    onSubmit();
-                } else {
-                    // Criação
-                    const response = await packageService.createPackage(therapyData);
-                    // V2 retorna { data: { package: {...} } }; V1 retorna o pacote direto
-                    const newPackageId = response?.data?.package?._id
-                        || response?.data?.package?.packageId
-                        || response?.data?._id;
-                    toast.success(`Pacote criado com sucesso! 💚`);
-                    onSubmit(newPackageId); // 🔥 Passa o ID
-                }
+                const response = await packageService.createPackage(therapyData);
+                const newPackageId = response?.data?.package?._id
+                    || response?.data?.package?.packageId
+                    || response?.data?._id;
+                toast.success(`Pacote criado com sucesso! 💚`);
+                onSubmit(newPackageId);
             }
             onClose();
         } catch (err: any) {
@@ -799,49 +689,20 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     };
 
 
-    // 🏥 Validação condicional por tipo de pacote
-    const isFormValid = packageType === 'convenio'
-        ? !!(
-            // Campos obrigatórios para CONVENIO
-            formData.patientId &&
-            formData.doctorId &&
-            formData.sessionType &&
-            selectedGuide && // ← Guia obrigatória
-            formData.date &&
-            formData.time &&
-            (calculationMode === 'sessions'
-                ? formData.totalSessions > 0
-                : (formData.durationMonths > 0 && formData.sessionsPerWeek > 0))
-        )
-        : packageType === 'liminar'
-        ? !!(
-            // Campos obrigatórios para LIMINAR (sem pagamentos - receita por sessão)
-            formData.patientId &&
-            formData.doctorId &&
-            formData.sessionType &&
-            formData.sessionValue > 0 &&
-            liminarTotalCredit > 0 &&
-            formData.date &&
-            formData.time &&
-            (calculationMode === 'sessions'
-                ? formData.totalSessions > 0
-                : (formData.durationMonths > 0 && formData.sessionsPerWeek > 0))
-        )
-        : !!(
-            // Campos obrigatórios para THERAPY
-            formData.patientId &&
-            formData.doctorId &&
-            formData.sessionType &&
-            formData.paymentType &&
-            formData.sessionValue > 0 &&
-            // 🔥 Só exige pagamentos válidos se NÃO for per-session
-            (formData.paymentType === 'per-session' || hasValidPayments) &&
-            formData.date &&
-            formData.time &&
-            (calculationMode === 'sessions'
-                ? formData.totalSessions > 0
-                : (formData.durationMonths > 0 && formData.sessionsPerWeek > 0))
-        );
+    // Validação para pacote particular
+    const isFormValid = !!(
+        formData.patientId &&
+        formData.doctorId &&
+        formData.sessionType &&
+        formData.paymentType &&
+        formData.sessionValue > 0 &&
+        (formData.paymentType === 'per-session' || hasValidPayments) &&
+        formData.date &&
+        formData.time &&
+        (calculationMode === 'sessions'
+            ? formData.totalSessions > 0
+            : (formData.durationMonths > 0 && formData.sessionsPerWeek > 0))
+    );
         console.log('appointments', appointments);
 
     const { totalSessions, totalValuePackage, remainingBalance } = useMemo(() => {
@@ -899,166 +760,14 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                         {/* Coluna 1 - Configuração do Pacote */}
                         <div className="xl:col-span-2 space-y-6">
-                            {/* 🏥 Toggle Tipo de Pacote */}
-                            <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
-                                <button
-                                    type="button"
-                                    onClick={() => setPackageType('therapy')}
-                                    className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${packageType === 'therapy'
-                                        ? 'bg-white shadow-md text-emerald-700'
-                                        : 'text-gray-600 hover:text-gray-800'
-                                        }`}
-                                >
-                                    <DollarSign className="w-4 h-4" />
-                                    Particular
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setPackageType('convenio')}
-                                    className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${packageType === 'convenio'
-                                        ? 'bg-white shadow-md text-blue-700'
-                                        : 'text-gray-600 hover:text-gray-800'
-                                        }`}
-                                >
-                                    <Building2 className="w-4 h-4" />
-                                    Convênio
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setPackageType('liminar')}
-                                    className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${packageType === 'liminar'
-                                        ? 'bg-white shadow-md text-amber-700'
-                                        : 'text-gray-600 hover:text-gray-800'
-                                        }`}
-                                >
-                                    <Package className="w-4 h-4" />
-                                    Liminar
-                                </button>
-                            </div>
-
-                            {/* 🏥 Select de Guia (só se convenio) */}
-                            {packageType === 'convenio' && (
-                                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-100">
-                                    <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                        <Building2 className="w-5 h-5 text-blue-600" />
-                                        Guia de Convênio
-                                    </h3>
-
-                                    {loadingGuides ? (
-                                        <div className="flex items-center justify-center py-4">
-                                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                                            <span className="ml-2 text-gray-600">Carregando guias...</span>
-                                        </div>
-                                    ) : availableGuides.length === 0 ? (
-                                        <div className="text-center py-4 text-amber-600 bg-amber-50 rounded-lg">
-                                            <p className="font-medium">Nenhuma guia ativa encontrada</p>
-                                            <p className="text-sm mt-1">Cadastre uma guia na aba "Guias de Convênio" antes de criar o pacote</p>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <Select
-                                                name="selectedGuide"
-                                                value={selectedGuide}
-                                                onChange={(e) => {
-                                                    setSelectedGuide(e.target.value);
-                                                    const guide = availableGuides.find(g => g._id === e.target.value);
-                                                    if (guide) {
-                                                        setFormData(prev => ({
-                                                            ...prev,
-                                                            sessionType: guide.specialty
-                                                        }));
-                                                    }
-                                                }}
-                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                                            >
-                                                <option value="">Selecione uma guia ativa *</option>
-                                                {availableGuides.map((guide) => (
-                                                    <option key={guide._id} value={guide._id}>
-                                                        {guide.insurance} - Guia #{guide.number} ({guide.remaining || 0} sessões disponíveis) - {guide.specialty}
-                                                    </option>
-                                                ))}
-                                            </Select>
-                                            {errors.selectedGuide && (
-                                                <span className="text-red-500 text-sm mt-1 block">{errors.selectedGuide}</span>
-                                            )}
-                                            {selectedGuide && (
-                                                <div className="mt-3 p-3 bg-blue-100 rounded-lg text-sm text-blue-900">
-                                                    <p className="font-medium">ℹ️ Informação:</p>
-                                                    <p>O paciente não pagará nada. O convênio realizará o pagamento conforme tabela.</p>
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* ⚖️ Campos para pacotes Liminar */}
-                            {packageType === 'liminar' && (
-                                <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-5 rounded-xl border border-amber-100">
-                                    <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                        <Package className="w-5 h-5 text-amber-600" />
-                                        Dados da Liminar (Opcional)
-                                    </h3>
-                                    
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Número do Processo
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={liminarProcessNumber}
-                                                onChange={(e) => setLiminarProcessNumber(e.target.value)}
-                                                placeholder="Ex: 1234567-89.2026.8.01.0000"
-                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                                            />
-                                        </div>
-                                        
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Vara / Cartório
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={liminarCourt}
-                                                onChange={(e) => setLiminarCourt(e.target.value)}
-                                                placeholder="Ex: 1ª Vara Cível de Anápolis"
-                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                                            />
-                                        </div>
-                                        
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Valor Total do Crédito (R$) *
-                                            </label>
-                                            <InputCurrency
-                                                value={liminarTotalCredit}
-                                                onChange={(e) => setLiminarTotalCredit(Number(e.target.value) || 0)}
-                                                min="0"
-                                                step="0.01"
-                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
-                                            />
-                                            <p className="text-xs text-amber-600 mt-2">
-                                                💡 Valor total liberado pela liminar judicial. Será consumido à medida que as sessões forem realizadas.
-                                            </p>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="mt-4 p-3 bg-amber-100 rounded-lg text-sm text-amber-900">
-                                        <p className="font-medium">ℹ️ Sobre o crédito:</p>
-                                        <p>O valor será consumido à medida que as sessões forem realizadas. Se alterar o status de uma sessão de &quot;concluída&quot; para outro, o crédito volta automaticamente. Não precisa cancelar!</p>
-                                    </div>
-                                </div>
-                            )}
-
                             {/* 🔵 Financeiro v2 (NOVO - recomendado) */}
-                            {packageType === 'therapy' && (
+                            
                                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-2">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <TrendingUp className="w-4 h-4 text-blue-600" />
                                             <p className="text-sm font-semibold text-blue-800">
-                                                Financeiro v2
+                                                Financeiro
                                             </p>
                                             <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium">
                                                 recomendado
@@ -1070,7 +779,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             disabled={v2ImportLoading}
                                             className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                                         >
-                                            {v2ImportLoading ? 'Buscando...' : 'Carregar pendências (v2)'}
+                                            {v2ImportLoading ? 'Buscando...' : 'Carregar pendências'}
                                         </button>
                                     </div>
                                     {v2ImportedSessions.length > 0 ? (
@@ -1099,38 +808,34 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                         </p>
                                     )}
                                 </div>
-                            )}
-
 
 
                             {/* Agendamento Existente */}
-                            {packageType === 'therapy' && (
-                                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-100">
-                                    <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                        <Calendar className="w-5 h-5 text-blue-600" />
-                                        Agendamento Existente (Opcional)
-                                    </h3>
-                                    <Select
-                                        name="appointmentId"
-                                        value={formData.appointmentId}
-                                        onChange={handleChange}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                                    >
-                                        <option value="">Selecione um agendamento</option>
-                                        {appointments.map((appt) => (
-                                            <option
-                                                key={appt._id || appt.id}
-                                                value={appt._id || appt.id}
-                                                className="text-sm"
-                                            >
-                                                {formatAppointmentDate(appt.date)} - {appt.time || 'Horário não definido'} •
-                                                Dr. {appt.doctor?.fullName || 'Profissional não especificado'} •
-                                                {appt.specialty || 'Tipo não especificado'}
-                                            </option>
-                                        ))}
-                                    </Select>
-                                </div>
-                            )}
+                            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-100">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                    <Calendar className="w-5 h-5 text-blue-600" />
+                                    Agendamento Existente (Opcional)
+                                </h3>
+                                <Select
+                                    name="appointmentId"
+                                    value={formData.appointmentId}
+                                    onChange={handleChange}
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                >
+                                    <option value="">Selecione um agendamento</option>
+                                    {appointments.map((appt) => (
+                                        <option
+                                            key={appt._id || appt.id}
+                                            value={appt._id || appt.id}
+                                            className="text-sm"
+                                        >
+                                            {formatAppointmentDate(appt.date)} - {appt.time || 'Horário não definido'} •
+                                            Dr. {appt.doctor?.fullName || 'Profissional não especificado'} •
+                                            {appt.specialty || 'Tipo não especificado'}
+                                        </option>
+                                    ))}
+                                </Select>
+                            </div>
 
                             {/* Configuração do Pacote */}
                             <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-5 rounded-xl border border-emerald-100">
@@ -1512,70 +1217,41 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                         </Select>
                                     </div>
 
-                                    {packageType === 'therapy' && (
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Pagamento *</label>
-                                            <Select
-                                                name="paymentType"
-                                                value={formData.paymentType}
-                                                onChange={handleChange}
-                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
-                                            >
-                                                {PAYMENT_TYPES.map((option) => (
-                                                    <option key={option.value} value={option.value}>
-                                                        {option.label}
-                                                    </option>
-                                                ))}
-                                            </Select>
-                                        </div>
-                                    )}
-
-                                    {packageType === 'convenio' && (
-                                        <div className="space-y-3">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">Valor por Sessão (R$) *</label>
-                                                <InputCurrency
-                                                    name="sessionValue"
-                                                    value={formData.sessionValue || 0}
-                                                    onChange={handleChange}
-                                                    min="0"
-                                                    step="0.01"
-                                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                                                />
-                                                <p className="text-xs text-blue-600 mt-1">Valor que será faturado ao convênio por sessão.</p>
-                                            </div>
-                                            <div className="p-3 bg-blue-100 rounded-lg text-sm text-blue-900">
-                                                <p className="font-medium">💳 Pagamento via Convênio</p>
-                                                <p className="text-xs mt-1">O paciente não realiza pagamento. O valor será faturado ao convênio.</p>
-                                            </div>
-                                        </div>
-                                    )}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Pagamento *</label>
+                                        <Select
+                                            name="paymentType"
+                                            value={formData.paymentType}
+                                            onChange={handleChange}
+                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                                        >
+                                            {PAYMENT_TYPES.map((option) => (
+                                                <option key={option.value} value={option.value}>
+                                                    {option.label}
+                                                </option>
+                                            ))}
+                                        </Select>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Informações Financeiras - Therapy e Liminar */}
-                            {(packageType === 'therapy' || packageType === 'liminar') && (
-                                <div className={`p-5 rounded-xl border ${packageType === 'liminar' ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100' : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-100'}`}>
-                                    <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                        <DollarSign className={`w-5 h-5 ${packageType === 'liminar' ? 'text-amber-600' : 'text-green-600'}`} />
-                                        {packageType === 'liminar' ? 'Valor da Sessão' : 'Informações Financeiras'}
-                                    </h3>
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">Valor por Sessão (R$) *</label>
-                                            <InputCurrency
-                                                name="sessionValue"
-                                                value={formData.sessionValue || 0}
-                                                onChange={handleChange}
-                                                min="0"
-                                                step="0.01"
-                                                className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-green-500 bg-white ${packageType === 'liminar' ? 'focus:ring-amber-500' : 'focus:ring-green-500'}`}
-                                            />
-                                            {packageType === 'liminar' && (
-                                                <p className="text-xs text-amber-600 mt-2">
-                                                    💡 Este valor será consumido do crédito à medida que as sessões forem realizadas.
-                                                </p>
-                                            )}
+                            {/* Informações Financeiras */}
+                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl border border-green-100">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                    <DollarSign className="w-5 h-5 text-green-600" />
+                                    Informações Financeiras
+                                </h3>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Valor por Sessão (R$) *</label>
+                                        <InputCurrency
+                                            name="sessionValue"
+                                            value={formData.sessionValue || 0}
+                                            onChange={handleChange}
+                                            min="0"
+                                            step="0.01"
+                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-green-500 bg-white focus:ring-green-500"
+                                        />
                                             
                                             {/* 🔥 AVISO para per-session */}
                                             {formData.paymentType === 'per-session' && (
@@ -1585,8 +1261,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             )}
                                         </div>
 
-                                        {/* Múltiplos Pagamentos - APENAS para Therapy e NÃO for per-session */}
-                                        {packageType === 'therapy' && formData.paymentType !== 'per-session' && (
+                                        {/* Múltiplos Pagamentos - NÃO para per-session */}
+                                        {formData.paymentType !== 'per-session' && (
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-center">
                                                 <label className="block text-sm font-medium text-gray-700">
@@ -1691,7 +1367,6 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     )}
                                 </div>
                             </div>
-                            )}
 
                             {/* Resumo do Pacote */}
                             <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-100">

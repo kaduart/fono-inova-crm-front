@@ -681,6 +681,9 @@ export default function AdminDashboard() {
 
     const currentMonth = new Date().toISOString().substring(0, 7);
 
+    // ⚠️ V1 LEGADO: handleCreatePayment cria Payment manualmente.
+    // ✅ V2 REALIDADE: Payment nasce no schedule ou no complete (handler).
+    // Só usar para pagamentos avulsos (não vinculados a agendamento).
     const handleCreatePayment = useCallback(async (data: any) => {
         try {
             await createPayment(data);

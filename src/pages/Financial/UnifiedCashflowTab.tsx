@@ -276,11 +276,11 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                     {/* Tabs de Detalhes */}
                     <Paper sx={{ mb: 2 }}>
                         <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} variant="scrollable">
-                            <Tab label="Transações" icon={<ReceiptIcon fontSize="small" />} iconPosition="start" />
+                            <Tab label={data.transacoes?.length > 0 ? `Transações (${data.transacoes.length})` : 'Transações'} icon={<ReceiptIcon fontSize="small" />} iconPosition="start" />
                             <Tab label={data.pendentesCobranca?.length > 0 ? `Pendentes (${data.pendentesCobranca.length})` : 'Pendentes'} icon={<WarningIcon fontSize="small" />} iconPosition="start" />
-                            <Tab label="Pacotes" icon={<InventoryIcon fontSize="small" />} iconPosition="start" />
-                            <Tab label="Convênios" icon={<ShowChartIcon fontSize="small" />} iconPosition="start" />
-                            <Tab label="Especialidades" icon={<PieChartIcon fontSize="small" />} iconPosition="start" />
+                            <Tab label={data.pacotesAtendidos?.length > 0 ? `Pacotes (${data.pacotesAtendidos.length})` : 'Pacotes'} icon={<InventoryIcon fontSize="small" />} iconPosition="start" />
+                            <Tab label={data.conveniosAtendidos?.length > 0 ? `Convênios (${data.conveniosAtendidos.length})` : 'Convênios'} icon={<ShowChartIcon fontSize="small" />} iconPosition="start" />
+                            <Tab label={Object.keys(data.producao?.porEspecialidade || {}).length > 0 ? `Especialidades (${Object.keys(data.producao.porEspecialidade).length})` : 'Especialidades'} icon={<PieChartIcon fontSize="small" />} iconPosition="start" />
                         </Tabs>
                     </Paper>
 

@@ -97,6 +97,18 @@ export interface InsuranceReceivableGroup {
 }
 
 // Registrar atendimento de convênio
+/**
+ * ⚠️ LEGADO — CRIAÇÃO MANUAL DE PAYMENT
+ *
+ * 🚫 NÃO UTILIZAR para fluxo padrão
+ * 🚫 Pode gerar duplicidade com completeSession
+ *
+ * ✅ Fluxo correto:
+ * completeSession → ConvenioHandler → cria Payment automaticamente
+ *
+ * Mantido apenas para compatibilidade temporária (modal "Novo Atendimento").
+ * TODO: remover após migração completa do frontend.
+ */
 export const createInsurancePayment = (data: InsurancePaymentData) =>
     API.post<{ success: boolean; data: InsurancePayment }>('/payments/insurance', data);
 
@@ -114,14 +126,6 @@ export const getInsurancePayments = (filters?: { provider?: string; status?: str
         { params: { ...filters, billingType: 'convenio' } }
     );
 
-// Marcar como faturado
-export const markInsuranceAsBilled = (id: string) =>
-    API.patch<{ success: boolean; data: InsurancePayment }>(`/payments/insurance/${id}/bill`);
-
-// Registrar recebimento
-export const receiveInsurancePayment = (id: string, data: { receivedAmount?: number; receivedDate?: string; notes?: string }) =>
-    API.patch<{ success: boolean; data: InsurancePayment }>(`/payments/insurance/${id}/receive`, data);
-
 // Faturar em lote (V2)
 export const faturarConvenioLote = (data: { paymentIds: string[]; dataFaturamento: string; notaFiscal?: string }) =>
     API.post<{ success: boolean; data: any }>('/v2/financial/convenio/faturar-lote', data);
@@ -130,10 +134,11 @@ export const faturarConvenioLote = (data: { paymentIds: string[]; dataFaturament
 export const receberConvenioLote = (data: { paymentIds: string[]; dataRecebimento: string }) =>
     API.post<{ success: boolean; data: any }>('/v2/financial/convenio/receber-lote', data);
 
-// 🆕 V2: Faturar / Receber convênio por sessionId (ledger + transaction garantidos)
+// ✅ V2 ATIVO: Faturar convênio por sessionId (ledger + transaction garantidos)
 export const billInsuranceSession = (sessionId: string, data?: { billedAmount?: number; billedAt?: string; notes?: string }) =>
     API.patch<{ success: boolean; data: any }>(`/v2/insurance/session/${sessionId}/bill`, data);
 
+// ✅ V2 ATIVO: Receber convênio por sessionId (ledger + transaction garantidos)
 export const receiveInsuranceSession = (sessionId: string, data: { receivedAmount: number; receivedDate?: string }) =>
     API.patch<{ success: boolean; data: any }>(`/v2/insurance/session/${sessionId}/receive`, data);
 

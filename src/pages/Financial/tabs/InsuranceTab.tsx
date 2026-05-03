@@ -52,8 +52,8 @@ import {
     createInsurancePayment,
     getInsuranceReceivables,
     InsuranceReceivableGroup,
-    markInsuranceAsBilled,
-    receiveInsurancePayment,
+    billInsuranceSession,
+    receiveInsuranceSession,
     faturarConvenioLote,
     receberConvenioLote
 } from '../../../services/paymentService';
@@ -311,9 +311,13 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         }
     };
 
-    const handleMarkAsBilled = async (paymentId: string) => {
+    const handleMarkAsBilled = async (payment: any) => {
+        if (!payment.sessionId) {
+            toast.error('Sessão não encontrada para este pagamento');
+            return;
+        }
         try {
-            await markInsuranceAsBilled(paymentId);
+            await billInsuranceSession(payment.sessionId);
             toast.success('Marcado como faturado!');
             loadReceivables(selectedMonthYear);
         } catch (error) {
@@ -323,9 +327,16 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
 
     const handleReceive = async () => {
         if (!selectedPayment) return;
+        if (!selectedPayment.sessionId) {
+            toast.error('Sessão não encontrada para este pagamento');
+            return;
+        }
 
         try {
-            await receiveInsurancePayment(selectedPayment.paymentId, receiveData);
+            await receiveInsuranceSession(selectedPayment.sessionId, {
+                receivedAmount: receiveData.receivedAmount || selectedPayment.grossAmount,
+                receivedDate: receiveData.receivedDate
+            });
             toast.success('Recebimento registrado! 💚');
             setReceiveModalOpen(false);
             setSelectedPayment(null);
@@ -592,6 +603,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                                 <Typography variant="h5" fontWeight="bold" color="#F59E0B">
                                                     {ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                                 </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {ms.pendingCount} atendimento{ms.pendingCount !== 1 ? 's' : ''}
+                                                </Typography>
                                             </Box>
                                         </Box>
                                     </CardContent>
@@ -612,6 +626,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                                 <Typography variant="h5" fontWeight="bold" color="#3B82F6">
                                                     {ms.totalFaturado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                                 </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {billedPayments.length} atendimento{billedPayments.length !== 1 ? 's' : ''}
+                                                </Typography>
                                             </Box>
                                         </Box>
                                     </CardContent>
@@ -631,6 +648,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                                 </Typography>
                                                 <Typography variant="h5" fontWeight="bold" color="#10B981">
                                                     {ms.totalRecebido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {receivedPayments.length} atendimento{receivedPayments.length !== 1 ? 's' : ''}
                                                 </Typography>
                                             </Box>
                                         </Box>
@@ -731,9 +751,14 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {receivables.map((group) => {
+                            {/* 🆕 UX: Ordena convênios por valor total (maior primeiro) */}
+                            {[...receivables]
+                                .sort((a, b) => (b.totalPending || 0) - (a.totalPending || 0))
+                                .map((group) => {
                                 // 🆕 CORREÇÃO: Não filtrar novamente - backend já filtrou por status
-                                const patientsToShow = group.patients || [];
+                                const patientsToShow = (group.patients || [])
+                                    .slice()
+                                    .sort((a: any, b: any) => (b.total || 0) - (a.total || 0));
                                 if (patientsToShow.length === 0) return null;
                                 const groupTotal = group.totalPending || 0;
                                 const isExpanded = expandedGroups[group._id] !== false;

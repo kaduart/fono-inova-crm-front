@@ -43,6 +43,16 @@ export interface AppointmentDTO {
         liminarCreditBalance?: number;
         liminarTotalCredit?: number;
     };
+    liminarContract?: {
+        _id?: string;
+        processNumber?: string;
+        court?: string;
+        totalCredit?: number;
+        creditBalance?: number;
+        usedCredit?: number;
+        status?: string;
+        mode?: string;
+    };
     isFirstVisit?: boolean;
     duration?: number;
     isReturningAfter45Days?: boolean;
@@ -144,6 +154,7 @@ export function mapAppointmentResponseDTO(raw: any): AppointmentDTO {
         paymentStatus: extractPaymentStatus(raw),
         isPackageSession: raw.serviceType === 'package_session' || !!raw.package || !!raw.packageId,
         package: typeof raw.package === 'object' && raw.package !== null ? raw.package : undefined,
+        liminarContract: typeof raw.liminarContract === 'object' && raw.liminarContract !== null ? raw.liminarContract : undefined,
         isFirstVisit: raw.isFirstVisit || false,
         isReturningAfter45Days: raw.isReturningAfter45Days || false,
         duration: raw.duration || undefined,

@@ -731,16 +731,6 @@ export default function PatientDashboard() {
     if (!patientInfo) return null;
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-800">Liminar</h2>
-          <button
-            onClick={() => setLiminarCreateTrigger(n => n + 1)}
-            className="inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Nova Liminar
-          </button>
-        </div>
         <LiminarContractPanel
           patientId={patientInfo._id || patientInfo.patientId || patientId}
           doctors={doctors}

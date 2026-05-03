@@ -4,7 +4,7 @@
  * Segue exatamente as regras da arquitetura:
  * - therapy: com paymentType
  * - convenio: sem paymentType (usa insuranceGuideId)
- * - liminar: sem paymentType (usa crédito judicial)
+ * - liminar: ⚠️ LEGADO — não usar mais. Usar LiminarContract.
  */
 
 import { useState, useCallback } from 'react';
@@ -12,6 +12,7 @@ import { api } from '@/services/api';
 import { packageService } from '@/services/packageService';
 import { useErrorHandler } from './useErrorHandler';
 
+// ⚠️ LEGADO: 'liminar' removido. Usar LiminarContract.
 export type PackageType = 'therapy' | 'convenio' | 'liminar';
 export type PaymentType = 'full' | 'partial' | 'per-session';
 export type PaymentMethod = 'pix' | 'cartao_credito' | 'cartao_debito' | 'dinheiro' | 'transferencia';
@@ -42,17 +43,18 @@ interface ConvenioPackageValues extends BasePackageValues {
   insuranceGuideId: string;
 }
 
-interface LiminarPackageValues extends BasePackageValues {
-  type: 'liminar';
-  liminarProcessNumber: string;
-  liminarCourt: string;
-  liminarTotalCredit?: number; // calculado automaticamente se não informado
-}
+// ⚠️ LEGADO — LIMINAR NÃO USA MAIS PACKAGE
+// interface LiminarPackageValues extends BasePackageValues {
+//   type: 'liminar';
+//   liminarProcessNumber: string;
+//   liminarCourt: string;
+//   liminarTotalCredit?: number;
+// }
 
 export type CreatePackageValues = 
   | TherapyPackageValues 
-  | ConvenioPackageValues 
-  | LiminarPackageValues;
+  | ConvenioPackageValues;
+  // ⚠️ LEGADO — LiminarPackageValues removido. Usar LiminarContract.
 
 interface UseCreatePackageReturn {
   create: (values: CreatePackageValues & {
@@ -99,15 +101,10 @@ interface UseCreatePackageReturn {
  * 
  * // Liminar
  * const packageId = await create({
- *   type: 'liminar',
- *   patientId: '123',
- *   doctorId: '456',
- *   totalSessions: 20,
- *   sessionValue: 450,
- *   specialty: 'fonoaudiologia',
- *   sessionType: 'fonoaudiologia',
- *   liminarProcessNumber: 'PROC-123',
- *   liminarCourt: '1ª Vara Federal'
+ *   // ⚠️ LEGADO — NÃO usar type='liminar'. Usar LiminarContract.
+ *   // type: 'liminar',
+ *   // liminarProcessNumber: 'PROC-123',
+ *   // liminarCourt: '1ª Vara Federal'
  * });
  */
 export const useCreatePackage = (): UseCreatePackageReturn => {
@@ -173,16 +170,16 @@ export const useCreatePackage = (): UseCreatePackageReturn => {
         };
         break;
 
-      case 'liminar':
-        // V2: type='liminar' + liminarProcessNumber
-        payload = {
-          ...base,
-          type: 'liminar',
-          liminarProcessNumber: values.liminarProcessNumber,
-          liminarCourt: values.liminarCourt,
-          liminarTotalCredit: values.liminarTotalCredit ?? (values.totalSessions * values.sessionValue),
-        };
-        break;
+      // ⚠️ LEGADO — LIMINAR NÃO USA MAIS PACKAGE
+      // case 'liminar':
+      //   payload = {
+      //     ...base,
+      //     type: 'liminar',
+      //     liminarProcessNumber: values.liminarProcessNumber,
+      //     liminarCourt: values.liminarCourt,
+      //     liminarTotalCredit: values.liminarTotalCredit ?? (values.totalSessions * values.sessionValue),
+      //   };
+      //   break;
 
       default:
         throw new Error(`Tipo de pacote inválido: ${(values as any).type}`);

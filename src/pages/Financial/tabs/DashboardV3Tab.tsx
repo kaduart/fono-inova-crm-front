@@ -31,8 +31,8 @@ import { RankingProfissionais } from '../components/RankingProfissionais';
 import { ListaPacientesVIP } from '../components/ListaPacientesVIP';
 import {
   getInsuranceReceivables,
-  markInsuranceAsBilled,
-  receiveInsurancePayment,
+  billInsuranceSession,
+  receiveInsuranceSession,
   InsuranceReceivableGroup
 } from '../../../services/paymentService';
 import { toast } from 'react-toastify';
@@ -85,9 +85,13 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     }
   }, [month, year]);
 
-  const handleBillInsurance = async (paymentId: string) => {
+  const handleBillInsurance = async (sessionId?: string) => {
+    if (!sessionId) {
+      toast.error('Sessão não encontrada para este pagamento');
+      return;
+    }
     try {
-      await markInsuranceAsBilled(paymentId);
+      await billInsuranceSession(sessionId);
       toast.success('Faturado com sucesso!');
       fetchPendingInsurance();
     } catch (err) {
@@ -95,10 +99,14 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     }
   };
 
-  const handleReceiveInsurance = async (paymentId: string, grossAmount: number) => {
+  const handleReceiveInsurance = async (sessionId?: string, grossAmount?: number) => {
+    if (!sessionId) {
+      toast.error('Sessão não encontrada para este pagamento');
+      return;
+    }
     try {
-      await receiveInsurancePayment(paymentId, {
-        receivedAmount: grossAmount,
+      await receiveInsuranceSession(sessionId, {
+        receivedAmount: grossAmount || 0,
         receivedDate: new Date().toISOString().split('T')[0]
       });
       toast.success('Recebimento registrado!');
@@ -618,7 +626,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                     <div className="flex items-center gap-2">
                       {item.status === 'pending_billing' && (
                         <button
-                          onClick={() => handleBillInsurance(item.paymentId)}
+                          onClick={() => handleBillInsurance(item.sessionId)}
                           className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-amber-50 text-amber-700 hover:bg-amber-100 text-sm font-medium border border-amber-200"
                         >
                           <Send size={14} /> Faturar
@@ -626,7 +634,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                       )}
                       {item.status === 'billed' && (
                         <button
-                          onClick={() => handleReceiveInsurance(item.paymentId, item.grossAmount)}
+                          onClick={() => handleReceiveInsurance(item.sessionId, item.grossAmount)}
                           className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm font-medium border border-emerald-200"
                         >
                           <Check size={14} /> Receber

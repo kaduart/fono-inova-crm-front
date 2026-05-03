@@ -477,7 +477,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             paymentMethod: data.paymentMethod || extendedProps.paymentMethod || 'dinheiro',
             specialty: data.specialty || data.sessionType || extendedProps.specialty || extendedProps.sessionType || '',
             __isPreAgendamento: data.__isPreAgendamento || extendedProps.__isPreAgendamento || false,
-            package: data.package || extendedProps.package || null
+            package: data.package || extendedProps.package || null,
+            liminarContract: data.liminarContract || extendedProps.liminarContract || null
         };
 
         console.log('📤 [Calendar] selectedEventData:', selectedEventData);
@@ -525,6 +526,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             specialty: appt.specialty || appt.sessionType || '',
             __isPreAgendamento: (appt as any).__isPreAgendamento || false,
             package: appt.package || null,
+            liminarContract: (appt as any).liminarContract || null,
             backgroundColor: '',
             borderColor: ''
         };
@@ -750,14 +752,18 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         const hasPackage = !!rawPackage || appointment.serviceType === 'package_session';
         const packageObj = typeof rawPackage === 'object' && rawPackage !== null ? rawPackage : null;
         const packageId = typeof rawPackage === 'string' ? rawPackage : packageObj?._id || packageObj?.id || '';
-        const isLiminar = packageObj?.type === 'liminar';
+        // ⚠️ LEGADO — isLiminarLegacy usa packageObj.type (dados antigos)
+        // Fonte de verdade: appointment.liminarContract
+        const isLiminarLegacy = packageObj?.type === 'liminar';
+        const liminarContract = (appointment as any).liminarContract;
+        const isLiminar = isLiminarLegacy || !!liminarContract;
         const totalSessions = packageObj?.totalSessions ?? null;
         const sessionsDone = packageObj?.sessionsDone ?? null;
         const sessionsRemaining = packageObj?.sessionsRemaining ?? null;
         const packageSessionValue = packageObj?.sessionValue ?? null;
         const packageType = packageObj?.type || '';
-        const liminarCreditBalance = packageObj?.liminarCreditBalance ?? null;
-        const liminarProcessNumber = packageObj?.liminarProcessNumber || '';
+        const liminarCreditBalance = liminarContract?.creditBalance ?? packageObj?.liminarCreditBalance ?? null;
+        const liminarProcessNumber = liminarContract?.processNumber || packageObj?.liminarProcessNumber || '';
 
         const patientBalance = (appointment as any).patientBalance || 0;
         const patientHasDebt = (appointment as any).patientHasDebt || false;
@@ -857,9 +863,18 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     <span className={`${isExpanded ? 'text-base' : 'text-sm'} font-bold bg-white/90 text-gray-800 px-2 py-1 rounded-lg`}>
                         {fmtTime(timeText || appointment.time || '')}
                     </span>
-                    <div className={`${paymentBadge.bg} ${paymentBadge.text} px-2 py-1 rounded-lg ${isExpanded ? 'text-xs' : 'text-[10px]'} font-extrabold shadow-md flex items-center gap-1`}>
-                        <span>{paymentBadge.icon}</span>
-                        <span>{paymentBadge.label}</span>
+                    <div className="flex items-center gap-1">
+                        {/* 💰 BADGE DE DÍVIDA — visível no fluxo principal */}
+                        {appointment.paymentStatus === 'unpaid' && (
+                            <div className="bg-rose-600 text-white px-2 py-1 rounded-lg text-[10px] font-extrabold shadow-md flex items-center gap-1 animate-pulse">
+                                <span>💰</span>
+                                <span>Em aberto</span>
+                            </div>
+                        )}
+                        <div className={`${paymentBadge.bg} ${paymentBadge.text} px-2 py-1 rounded-lg ${isExpanded ? 'text-xs' : 'text-[10px]'} font-extrabold shadow-md flex items-center gap-1`}>
+                            <span>{paymentBadge.icon}</span>
+                            <span>{paymentBadge.label}</span>
+                        </div>
                     </div>
                 </div>
 
@@ -942,7 +957,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 )}
                                 {isLiminar && liminarCreditBalance !== null && (
                                     <div className="text-[10px] text-amber-700">
-                                        💳 Crédito: R$ {liminarCreditBalance.toFixed(2)}
+                                        💳 Crédito: R$ {Number(liminarCreditBalance).toFixed(2)}
                                     </div>
                                 )}
                                 {/* Hint quando pacote não está populado */}
@@ -1060,7 +1075,11 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         const rawPackage = arg.event.extendedProps.package;
         const hasPackage = !!rawPackage || arg.event.extendedProps.serviceType === 'package_session';
         const packageObj = typeof rawPackage === 'object' && rawPackage !== null ? rawPackage : null;
-        const isLiminar = packageObj?.type === 'liminar';
+        // ⚠️ LEGADO — isLiminarLegacy usa packageObj.type (dados antigos)
+        // Fonte de verdade: appointment.liminarContract
+        const isLiminarLegacy = packageObj?.type === 'liminar';
+        const liminarContract = arg.event.extendedProps.liminarContract;
+        const isLiminar = isLiminarLegacy || !!liminarContract;
         const packageId = typeof rawPackage === 'string' ? rawPackage : packageObj?._id || packageObj?.id || '';
 
         // 💰 SALDO DEVEDOR DO PACIENTE
@@ -1202,8 +1221,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                         <div>💰 Valor/sessão: R$ {packageObj.sessionValue?.toFixed(2)}</div>
                                         {isLiminar ? (
                                             <>
-                                                <div>⚖️ Crédito disp: R$ {packageObj.liminarCreditBalance?.toFixed(2)}</div>
-                                                <div>✅ Reconhecido: R$ {packageObj.recognizedRevenue?.toFixed(2)}</div>
+                                                {/* ⚠️ LEGADO — packageObj.liminarCreditBalance é fallback para dados antigos */}
+                                                <div>⚖️ Crédito disp: R$ {Number(liminarContract?.creditBalance ?? packageObj.liminarCreditBalance ?? 0).toFixed(2)}</div>
+                                                {/* ⚠️ LEGADO — packageObj.recognizedRevenue é fallback para dados antigos */}
+                                                <div>✅ Reconhecido: R$ {Number(liminarContract?.usedCredit ?? packageObj.recognizedRevenue ?? 0).toFixed(2)}</div>
                                             </>
                                         ) : (
                                             <>

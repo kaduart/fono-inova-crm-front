@@ -75,10 +75,9 @@ const PatientHeader: React.FC<PatientHeaderProps> = ({
                             { id: "Profile", label: "Perfil", icon: <UserCircle size={14} /> },
                             { id: "Appointment Booking", label: "Agenda", icon: <Calendar size={14} /> },
                             { id: "Management Packages", label: "Pacotes", icon: <Package size={14} /> },
-                            { id: "Insurance Guides", label: "Guias", icon: <Shield size={14} /> },
+                            { id: "Insurance Guides", label: "Convênios", icon: <Shield size={14} /> },
                             { id: "Liminar", label: "Liminar", icon: <Scale size={14} /> },
                             { id: "Evolution", label: "Evolução", icon: <LineChart size={14} /> },
-                            { id: "Messages", label: "Chat", icon: <MessageCircle size={14} /> },
                         ].map((item) => (
                             <button
                                 key={item.id}

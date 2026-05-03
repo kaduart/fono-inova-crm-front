@@ -36,6 +36,7 @@ export type CreatePackageParams = {
     description?: string;
   }[];
   // 🏥 Campos para pacotes convênio
+  // ⚠️ LEGADO: 'liminar' é dado antigo. NÃO usar em novos fluxos.
   type?: 'therapy' | 'convenio' | 'liminar';
   insuranceGuideId?: string;
   insuranceProvider?: string;
@@ -154,10 +155,10 @@ const sanitizeV2Payload = (data: any): any => {
     'modality',       // presencial | online
     // Convênio
     'insuranceGuideId',
-    // Liminar
-    'liminarProcessNumber',
-    'liminarCourt',
-    'liminarTotalCredit',
+    // ⚠️ LEGADO — LIMINAR NÃO USA MAIS PACKAGE
+    // 'liminarProcessNumber',
+    // 'liminarCourt',
+    // 'liminarTotalCredit',
     // Opcional
     'notes',
     'startDate',
@@ -213,12 +214,10 @@ export const packageService = {
           ...v2Payload,
           type: 'convenio',
         };
-      } else if (data.type === 'liminar') {
-        v2Payload = {
-          ...v2Payload,
-          type: 'liminar',
-        };
-      }
+      // ⚠️ LEGADO — LIMINAR NÃO USA MAIS PACKAGE
+      // } else if (data.type === 'liminar') {
+      //   v2Payload = { ...v2Payload, type: 'liminar' };
+      // }
       
       // Sanitiza payload para remover campos legado
       const sanitized = sanitizeV2Payload(v2Payload);
@@ -265,9 +264,10 @@ export const packageService = {
       };
     } else if (data.type === 'convenio') {
       v2Payload.type = 'convenio';
-    } else if (data.type === 'liminar') {
-      v2Payload.type = 'liminar';
-    }
+    // ⚠️ LEGADO — LIMINAR NÃO USA MAIS PACKAGE
+    // } else if (data.type === 'liminar') {
+    //   v2Payload.type = 'liminar';
+    // }
     
     const sanitized = sanitizeV2Payload(v2Payload);
     const response = await API.put<ITherapyPackage>(`/v2/packages/${id}`, sanitized);

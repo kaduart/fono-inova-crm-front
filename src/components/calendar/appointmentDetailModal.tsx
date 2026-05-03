@@ -3,6 +3,7 @@ import { Building2, Calendar, CheckCircle, ClipboardCheck, Clock, DollarSign, Pe
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { safeCompleteAppointment } from '../../utils/appointmentCompleteGuard';
+import { getPatientFinancialSummary, FinancialSummary } from '../../services/financialSummaryService';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import ReactInputMask from 'react-input-mask';
 import { INSURANCE_PROVIDERS, getProviderById } from '../../constants/insuranceProviders';
@@ -115,6 +116,16 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     // 🆕 BUSCAR LISTA DE PROFISSIONAIS do backend quando o modal abrir
     const [allDoctors, setAllDoctors] = useState<IDoctor[]>(doctors || []);
     const [loadingDoctors, setLoadingDoctors] = useState(false);
+
+    // 💰 ALERTA DE DÍVIDA: busca financial summary do paciente para mostrar alerta no complete
+    const [patientFinancial, setPatientFinancial] = useState<FinancialSummary | null>(null);
+
+    useEffect(() => {
+        if (!isOpen || !event?.patient?.id) return;
+        getPatientFinancialSummary(event.patient.id)
+            .then(setPatientFinancial)
+            .catch(() => setPatientFinancial(null));
+    }, [isOpen, event?.patient?.id]);
     
     useEffect(() => {
         if (isOpen && (!doctors || doctors.length === 0)) {
@@ -290,26 +301,6 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         }
     }, [event?.paymentMethod, event?.billingType, event?.sessionValue, event?.paymentAmount]);
 
-    // 🔄 ATUALIZA TUDO QUANDO O MODAL ABRIR (garante dados frescos)
-    useEffect(() => {
-        if (isOpen && event) {
-            console.log('🔄 [Modal] Modal abriu - atualizando TODOS os dados:', {
-                paymentMethod: event.paymentMethod,
-                billingType: event.billingType,
-                paymentAmount: event.paymentAmount,
-                sessionValue: event.sessionValue
-            });
-            
-            // FORÇA atualização de todos os campos de pagamento
-            setPaymentMethod(event.paymentMethod || 'dinheiro');
-            setBillingType(event.billingType || 'particular');
-            setPaymentAmount(event.sessionValue || event.paymentAmount || 0);
-            setInsuranceProvider(event.insuranceProvider || '');
-            setInsuranceValue(event.insuranceValue || 0);
-            setAuthorizationCode(event.authorizationCode || '');
-        }
-    }, [isOpen]); // Roda quando isOpen muda
-
     // 🔄 RESETA O ESTADO QUANDO O MODAL FECHAR
     useEffect(() => {
         if (!isOpen) {
@@ -368,43 +359,6 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         return () => window.removeEventListener('appointments:data-updated', handleDataUpdated);
     }, [event]);
 
-    // 🔄 SINCRONIZA TODOS OS CAMPOS QUANDO ENTRAR NA ABA DE EDIÇÃO
-    useEffect(() => {
-        if (activeTab === 'edit' && event) {
-            console.log('📝 [Modal] Entrando na aba de edição - sincronizando todos os campos...');
-            
-            // Força a sincronização de todos os estados com o evento
-            setEditedAppointment(prev => ({
-                ...prev,
-                doctorId: event.doctor?.id || event.doctor?._id || prev.doctorId || '',
-                patientId: event.patient?.id || event.patient?._id || prev.patientId || '',
-                date: event.date ? new Date(event.date).toLocaleDateString('sv-SE') : prev.date,
-                time: event.startTime || prev.time,
-                reason: event.reason || event.notes || prev.reason || '',
-                serviceType: event.serviceType || prev.serviceType || 'individual_session',
-                sessionType: event.specialty || event.sessionType || prev.sessionType || 'fonoaudiologia',
-                operationalStatus: translateStatus(event.operationalStatus || 'scheduled', 'operational'),
-                clinicalStatus: translateStatus(event.clinicalStatus || 'pending', 'clinical')
-            }));
-            
-            // Sincroniza campos de pagamento
-            setServiceType(event.serviceType || 'individual_session');
-            setBillingType(event.billingType || 'particular');
-            setPaymentAmount(event.sessionValue || event.paymentAmount || 0);
-            setPaymentMethod(event.paymentMethod || 'dinheiro');
-            setInsuranceProvider(event.insuranceProvider || '');
-            setInsuranceValue(event.insuranceValue || 0);
-            setAuthorizationCode(event.authorizationCode || '');
-            
-            console.log('✅ [Modal] Campos sincronizados:', {
-                doctorId: event.doctor?.id || event.doctor?._id,
-                paymentMethod: event.paymentMethod,
-                billingType: event.billingType,
-                serviceType: event.serviceType
-            });
-        }
-    }, [activeTab, event]);
-
     if (!isOpen || !event) return null;
 
     // 🔧 FUNÇÃO PARA OBTER CONFIGURAÇÃO VISUAL TRADUZIDA
@@ -461,6 +415,21 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             return;
         }
 
+        // 💰 ALERTA DE DÍVIDA: se paciente tem saldo em aberto, pergunta antes de completar
+        if (patientFinancial && patientFinancial.sessionDebt > 0) {
+            const confirmed = window.confirm(
+                `⚠️ Este paciente possui R$ ${patientFinancial.sessionDebt.toFixed(2)} em aberto.\n\n` +
+                `Deseja finalizar a sessão mesmo assim?\n\n` +
+                `Clique em "OK" para completar e cobrar depois,\n` +
+                `ou "Cancelar" para quitar a dívida primeiro.`
+            );
+            if (!confirmed) {
+                // Abre modal de cobrança em vez de completar
+                setIsBalanceModalOpen(true);
+                return;
+            }
+        }
+
         setIsCompleting(true);
         setProcessingState({ isProcessing: true, message: 'Finalizando atendimento...' });
         
@@ -470,6 +439,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 {
                     billingType: event?.billingType,
                     package: event?.package,
+                    liminarContract: event?.liminarContract,
                     sessionValue: (addToBalance && debitAmount > 0) ? debitAmount : (event?.sessionValue ?? event?.paymentAmount ?? null),
                 },
                 async () => {
@@ -556,6 +526,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             console.log('   - operationalStatus:', operationalStatusEN);
             console.log('   - clinicalStatus:', clinicalStatusEN);
 
+            // ✅ V2 ATIVO: Edit de agendamento NÃO envia paymentAmount/sessionValue.
+            // O valor financeiro é decidido pelo backend (handler no complete).
+            // Se precisar alterar valor, use o fluxo financeiro (modal de pagamento).
             const appointmentData = mapToUpdateAppointmentDTO({
                 doctorId: editedAppointment.doctorId,
                 patientId: editedAppointment.patientId,
@@ -568,8 +541,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 sessionType: editedAppointment.sessionType,
                 specialty: editedAppointment.sessionType,
                 billingType,
-                paymentAmount: billingType === 'particular' ? paymentAmount : undefined,
-                sessionValue: billingType === 'particular' ? paymentAmount : undefined,
+                // 🚫 REMOVIDO: paymentAmount e sessionValue não devem ser enviados no edit.
+                // O backend mantém o valor do Payment existente (criado no schedule/complete).
                 paymentMethod: billingType === 'particular' ? paymentMethod : 'convenio',
                 insuranceProvider,
                 insuranceValue,

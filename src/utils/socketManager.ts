@@ -35,7 +35,6 @@ class SocketManager {
     private socket: Socket | null = null;
     private activeChatPhone: string | null = null;
     private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
-    private lastPong: number = Date.now();
     // Evita limpar socket que está em processo de conexão (ainda não connected)
     private isConnecting = false;
 
@@ -116,7 +115,6 @@ class SocketManager {
         s.on("connect", () => {
             this.isConnecting = false;
             logger.info("🔌 [socket] Conectado:", s.id);
-            this.lastPong = Date.now();
             this.startHeartbeat();
             (window as any).globalSocket = s;
             (window as any).socketManager = this;
@@ -130,15 +128,13 @@ class SocketManager {
         s.on("disconnect", (reason: any) => {
             logger.warn("⚠️ [socket] Desconectado:", reason);
             this.stopHeartbeat();
-            if (reason === "io server disconnect" || reason === "transport close") {
-                logger.info("🔄 [socket] Tentando reconectar...");
+            if (reason === "io server disconnect") {
+                logger.info("🔄 [socket] Servidor fechou conexão, reconectando...");
                 setTimeout(() => s.connect(), 1000);
             }
+            // transport close: socket.io já reconecta via reconnection:true
         });
 
-        s.on("pong", () => {
-            this.lastPong = Date.now();
-        });
 
         this.socket = s;
         this.isConnecting = true;
@@ -167,16 +163,8 @@ class SocketManager {
             if (!this.socket?.connected) {
                 logger.warn("💔 [socket] Heartbeat detectou desconexão");
                 this.reconnect();
-                return;
             }
-            const timeSincePong = Date.now() - this.lastPong;
-            if (timeSincePong > 30000) {
-                logger.warn("💔 [socket] Conexão zumbi detectada");
-                this.reconnect();
-                return;
-            }
-            this.socket.emit("ping");
-        }, 10000);
+        }, 15000);
     }
 
     private stopHeartbeat() {

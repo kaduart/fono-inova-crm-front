@@ -139,6 +139,8 @@ export interface SlotAvailability {
 export const appointmentService = {
     // 🚀 MIGRAÇÃO V2 - Flags de controle
     // true = usa V2 (async, event-driven) | false = usa legado (sync)
+    // ⚠️ V1 LEGADO: appointment.js — cria Payment no schedule (inconsistente)
+    // ✅ V2 ATIVO: appointment.v2.js — NÃO cria Payment no schedule (handler no complete)
     USE_V2_CREATE: true,
     USE_V2_COMPLETE: true,
     USE_V2_LIST: true,  // 🆕 NOVO: Listagem V2 com população completa
@@ -253,10 +255,12 @@ export const appointmentService = {
         return API.patch<IAppointmentResponse>(endpoint, data);
     },
 
+    // ✅ V2 ATIVO: complete chama handler-driven (Particular/Convenio/Liminar)
+    // Os handlers atualizam Payment existente (não criam duplicado).
     complete: async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
         const endpoint = appointmentService.USE_V2_COMPLETE
-            ? `/v2/appointments/${id}/complete`  // 🔄 Novo fluxo async (202 Accepted)
-            : `/appointments/${id}/complete`;     // 🔄 Legado sync (200 OK)
+            ? `/v2/appointments/${id}/complete`  // ✅ V2 ATIVO: async + handlers
+            : `/appointments/${id}/complete`;     // ⚠️ V1 LEGADO: sync direto
 
         console.log(`[AppointmentService] complete: ${endpoint} (V2=${appointmentService.USE_V2_COMPLETE})`);
         return API.patch<IAppointmentResponse>(endpoint, data);

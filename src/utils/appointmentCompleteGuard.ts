@@ -1,8 +1,13 @@
 /**
- * 🛡️ GUARD DE COMPLETE APPOINTMENT — V2
+ * 🛡️ GUARD DE COMPLETE APPOINTMENT — V2.1 (Desacoplado por domínio)
  *
  * Regra de ouro: Complete executa decisões já tomadas.
  * Se o valor da sessão não foi definido, bloqueia antes de bater na API.
+ *
+ * ORDEM DE PRIORIDADE (domínio financeiro):
+ *   1. Liminar    → valida creditBalance do LiminarContract
+ *   2. Convênio   → sempre permite (guia controla no backend)
+ *   3. Particular → valida sessões do package (se houver) ou valor da sessão
  */
 
 export interface AppointmentCompleteGuardPackage {
@@ -10,12 +15,19 @@ export interface AppointmentCompleteGuardPackage {
   sessionsRemaining?: number;
   totalSessions?: number;
   sessionsDone?: number;
-  liminarCreditBalance?: number;
+  liminarCreditBalance?: number; // 🏷️ LEGADO: mantido para compatibilidade com packages antigos
+}
+
+export interface AppointmentCompleteGuardLiminar {
+  _id?: string;
+  creditBalance?: number;
+  status?: string;
 }
 
 export interface AppointmentCompleteGuardInput {
   billingType?: string;
   package?: AppointmentCompleteGuardPackage | string;
+  liminarContract?: AppointmentCompleteGuardLiminar;
   sessionValue?: number | null;
 }
 
@@ -29,6 +41,7 @@ export const GuardErrorCodes = {
   SESSION_VALUE_REQUIRED: 'SESSION_VALUE_REQUIRED',
   LIMINAR_VALUE_REQUIRED: 'LIMINAR_VALUE_REQUIRED',
   LIMINAR_INSUFFICIENT_BALANCE: 'LIMINAR_INSUFFICIENT_BALANCE',
+  LIMINAR_DATA_INCOMPLETE: 'LIMINAR_DATA_INCOMPLETE',
   PACKAGE_EXHAUSTED: 'PACKAGE_EXHAUSTED',
 } as const;
 
@@ -52,41 +65,21 @@ function getPackageRemaining(pkg?: AppointmentCompleteGuardPackage | string): nu
 
 /**
  * Valida se o appointment pode ser completado com segurança financeira.
+ *
+ * ORDEM DE DECISÃO (sem misturar domínios):
+ *   1. LiminarContract presente → valida crédito judicial
+ *   2. billingType === 'convenio' → sempre permite
+ *   3. Package particular → valida sessões restantes
+ *   4. Particular avulso → exige valor definido
  */
 export function validateAppointmentComplete(appointment: AppointmentCompleteGuardInput): GuardResult {
   const billingType = appointment.billingType || 'particular';
-  const pkg = appointment.package;
-  // 🛡️ CORREÇÃO: Considera pacote mesmo quando vier como string (ObjectId não populado)
-  const hasPackage = !!pkg && (
-    typeof pkg === 'string' ||
-    (typeof pkg === 'object' && (
-      typeof pkg.sessionsRemaining === 'number' ||
-      typeof pkg.totalSessions === 'number' ||
-      typeof pkg.sessionsDone === 'number'
-    ))
-  );
   const { hasValue: hasSessionValue, value: sessionValue } = getSessionValue(appointment);
-  const remaining = getPackageRemaining(pkg);
 
-  // 🏥 Convênio: sempre pode (faturamento batch, valor zero é OK)
-  if (billingType === 'convenio') {
-    return { valid: true };
-  }
-
-  // 📦 Pacotes pré-pagos/terapia (não liminar): verifica se tem sessões restantes
-  if (hasPackage && billingType !== 'liminar') {
-    if (remaining !== null && remaining <= 0) {
-      return {
-        valid: false,
-        errorCode: GuardErrorCodes.PACKAGE_EXHAUSTED,
-        message: '📦 Pacote esgotado. Não há sessões disponíveis para completar.',
-      };
-    }
-    return { valid: true };
-  }
-
-  // ⚖️ Liminar: exige valor > 0 e saldo suficiente
-  if (billingType === 'liminar') {
+  // ═══════════════════════════════════════════════════════════════
+  // 1️⃣ LIMINAR — prioridade máxima (domínio judicial)
+  // ═══════════════════════════════════════════════════════════════
+  if (billingType === 'liminar' || appointment.liminarContract) {
     if (!hasSessionValue || sessionValue <= 0) {
       return {
         valid: false,
@@ -95,27 +88,77 @@ export function validateAppointmentComplete(appointment: AppointmentCompleteGuar
       };
     }
 
-    const balance = typeof (pkg as AppointmentCompleteGuardPackage)?.liminarCreditBalance === 'number'
-      ? (pkg as AppointmentCompleteGuardPackage).liminarCreditBalance!
+    // 🆕 NOVO: usa LiminarContract como fonte de verdade
+    const contractBalance = typeof appointment.liminarContract?.creditBalance === 'number'
+      ? appointment.liminarContract.creditBalance
       : null;
 
+    // 🏷️ LEGADO: fallback para packages liminar antigos (será removido após migração)
+    const pkgBalance = typeof (appointment.package as AppointmentCompleteGuardPackage)?.liminarCreditBalance === 'number'
+      ? (appointment.package as AppointmentCompleteGuardPackage).liminarCreditBalance!
+      : null;
+
+    const balance = contractBalance ?? pkgBalance;
+
     if (balance === null) {
-      console.warn('[Guard] liminar sem liminarCreditBalance no payload - pulando validação de saldo');
-      return { valid: true };
+      // 🛡️ FIX: Não permitir complete quando não temos saldo do contrato.
+      // Isso evita que o usuário clique no botão, tome erro 500 no backend,
+      // e gere experiência ruim. Força o frontend a popular liminarContract.
+      return {
+        valid: false,
+        errorCode: GuardErrorCodes.LIMINAR_DATA_INCOMPLETE,
+        message: '⚖️ Dados do contrato liminar incompletos. Recarregue o agendamento antes de completar.',
+      };
     }
 
     if (balance < sessionValue) {
       return {
         valid: false,
         errorCode: GuardErrorCodes.LIMINAR_INSUFFICIENT_BALANCE,
-        message: `⚖️ Saldo insuficiente. Disponível: R$ ${balance.toFixed(2)} | Sessão: R$ ${sessionValue.toFixed(2)}. Adicione crédito ao pacote para continuar.`,
+        message: `⚖️ Saldo insuficiente. Disponível: R$ ${balance.toFixed(2)} | Sessão: R$ ${sessionValue.toFixed(2)}. Adicione crédito ao contrato para continuar.`,
       };
     }
 
     return { valid: true };
   }
 
-  // 💰 Particular / per-session: exige valor definido
+  // ═══════════════════════════════════════════════════════════════
+  // 2️⃣ CONVÊNIO — sempre pode (faturamento batch, valor zero é OK)
+  // ═══════════════════════════════════════════════════════════════
+  if (billingType === 'convenio') {
+    return { valid: true };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 3️⃣ PARTICULAR COM PACKAGE — valida sessões restantes
+  // ═══════════════════════════════════════════════════════════════
+  const pkg = appointment.package;
+  const hasPackage = !!pkg && (
+    typeof pkg === 'string' ||
+    (typeof pkg === 'object' && (
+      typeof pkg.sessionsRemaining === 'number' ||
+      typeof pkg.totalSessions === 'number' ||
+      typeof pkg.sessionsDone === 'number'
+    ))
+  );
+
+  if (hasPackage) {
+    const remaining = getPackageRemaining(pkg);
+    if (remaining !== null && remaining <= 0) {
+      return {
+        valid: false,
+        errorCode: GuardErrorCodes.PACKAGE_EXHAUSTED,
+        message: '📦 Pacote esgotado. Não há sessões disponíveis para completar.',
+      };
+    }
+    // Package com sessões disponíveis (ou não populado) → permite
+    // Valor da sessão não é obrigatório para package prepaid
+    return { valid: true };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 4️⃣ PARTICULAR AVULSO / PER-SESSION — exige valor definido
+  // ═══════════════════════════════════════════════════════════════
   if (hasSessionValue && sessionValue > 0) {
     return { valid: true };
   }

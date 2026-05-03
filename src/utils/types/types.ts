@@ -478,6 +478,18 @@ export interface IAppointment {
     // 🆕 Lifecycle flags calculadas no backend
     isFirstVisit?: boolean;
     isReturningAfter45Days?: boolean;
+
+    // ⚖️ LiminarContract (novo modelo desacoplado)
+    liminarContract?: {
+        _id?: string;
+        processNumber?: string;
+        court?: string;
+        totalCredit?: number;
+        creditBalance?: number;
+        usedCredit?: number;
+        status?: string;
+        mode?: string;
+    };
 }
 
 export interface IAppointmentResponse extends Omit<IAppointment, 'patient' | 'doctor'> {

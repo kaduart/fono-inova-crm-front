@@ -17,6 +17,8 @@ import InputCurrency from '../ui/InputCurrency';
 import { Label } from '../ui/Label';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/TextArea';
+import SmartAgendaPanel from '../calendar/SmartAgendaPanel';
+import { SuggestedSlot } from '../../services/agendaService';
 
 type ServiceType = ScheduleAppointment['serviceType'];
 
@@ -297,13 +299,17 @@ const ScheduleAppointmentModal = ({
             };
         }
 
+        // 🏥 Convênio NUNCA pode ter packageId (hard block no backend)
+        const { packageId, ...formDataWithoutPackage } = formData;
         const payload = {
-            ...formData,
+            ...formDataWithoutPackage,
             billingType,
             insuranceProvider,
             authorizationCode,
             insuranceValue,
             insurance,  // 🏥 Objeto completo
+            // packageId só incluído se for particular + package_session
+            ...(billingType !== 'convenio' && packageId ? { packageId } : {}),
         };
 
         console.log('🔴 PAYLOAD NO MODAL:', JSON.stringify(payload, null, 2));
@@ -478,6 +484,67 @@ const ScheduleAppointmentModal = ({
                         </Select>
                     </div>
                 </div>
+
+                {/* 🧠 SMART AGENDA: Sugestões inteligentes de horário */}
+                <SmartAgendaPanel
+                    patientId={selectedPatient?._id}
+                    doctorId={formData.doctorId || undefined}
+                    specialty={formData.sessionType}
+                    serviceType={formData.serviceType}
+                    visible={!!selectedPatient && !!formData.doctorId}
+                    onScheduleSlot={async (slot: SuggestedSlot) => {
+                        console.log('[ScheduleAppointmentModal] onScheduleSlot chamado:', slot);
+                        try {
+                            // 1. Atualiza médico, data e hora no formulário
+                            setFormData(prev => ({
+                                ...prev,
+                                doctorId: slot.doctorId,
+                                date: slot.date,
+                                time: slot.time,
+                            }));
+
+                            // 2. Aguarda React aplicar estado
+                            await new Promise(r => setTimeout(r, 50));
+
+                            // 3. Monta payload completo para criação direta
+                            let insurance = null;
+                            if (billingType === 'convenio' && insuranceProvider) {
+                                insurance = {
+                                    provider: insuranceProvider,
+                                    grossAmount: insuranceValue || 0,
+                                    authorizationCode: authorizationCode || null,
+                                    status: 'pending_billing'
+                                };
+                            }
+
+                            const currentForm = { ...formData, doctorId: slot.doctorId, date: slot.date, time: slot.time };
+                            const { packageId, ...formDataWithoutPackage } = currentForm;
+                            const payload = {
+                                ...formDataWithoutPackage,
+                                billingType,
+                                insuranceProvider,
+                                authorizationCode,
+                                insuranceValue,
+                                insurance,
+                                ...(billingType !== 'convenio' && packageId ? { packageId } : {}),
+                            };
+
+                            console.log('[ScheduleAppointmentModal] Payload montado:', payload);
+
+                            // 4. Envia para o backend
+                            console.log('[ScheduleAppointmentModal] Chamando onSave...');
+                            await onSave(payload);
+                            console.log('[ScheduleAppointmentModal] onSave retornou com sucesso');
+
+                            // 5. Só mostra toast se backend confirmou
+                            toast.success(`✅ Agendamento criado: ${slot.date} às ${slot.time}`);
+                        } catch (err: any) {
+                            console.error('[ScheduleAppointmentModal] Erro ao agendar:', err);
+                            toast.error(err?.response?.data?.message || err?.message || 'Erro ao criar agendamento');
+                            throw err;
+                        }
+                    }}
+                />
 
                 {/* Especialidade e Status */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
