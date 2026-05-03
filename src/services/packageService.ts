@@ -214,6 +214,7 @@ export const packageService = {
           ...v2Payload,
           type: 'convenio',
         };
+      }
       // ⚠️ LEGADO — LIMINAR NÃO USA MAIS PACKAGE
       // } else if (data.type === 'liminar') {
       //   v2Payload = { ...v2Payload, type: 'liminar' };
@@ -264,6 +265,7 @@ export const packageService = {
       };
     } else if (data.type === 'convenio') {
       v2Payload.type = 'convenio';
+    }
     // ⚠️ LEGADO — LIMINAR NÃO USA MAIS PACKAGE
     // } else if (data.type === 'liminar') {
     //   v2Payload.type = 'liminar';
