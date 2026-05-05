@@ -85,6 +85,15 @@ const liminarContractService = {
     }
   },
 
+  async getActivePlanWithError(contractId: string): Promise<{ plan: TherapeuticPlan | null; error: string | null }> {
+    try {
+      const res = await API.get(`/v2/liminar-contracts/${contractId}/plans/active`);
+      return { plan: res.data.plan ?? null, error: null };
+    } catch (err: any) {
+      return { plan: null, error: err?.response?.data?.error ?? 'Nenhum plano ativo' };
+    }
+  },
+
   async createPlan(
     contractId: string,
     data: {
