@@ -6,6 +6,7 @@ import {
   createGuide,
   updateGuide,
   cancelGuide,
+  inactivateGuide,
   CreateGuideData,
   UpdateGuideData,
   InsuranceGuide,
@@ -22,6 +23,12 @@ interface UseInsuranceGuidesReturn {
   createGuide: (data: CreateGuideData) => Promise<InsuranceGuide>;
   updateGuide: (id: string, data: UpdateGuideData) => Promise<InsuranceGuide>;
   cancelGuide: (id: string) => Promise<void>;
+  inactivateGuide: (id: string) => Promise<{
+    guideId: string;
+    sessionsCanceled: number;
+    appointmentsCanceled: number;
+    paymentsCanceled: number;
+  }>;
   refetch: () => Promise<void>;
   refetchBalance: () => Promise<void>;
 }
@@ -73,9 +80,23 @@ export const useInsuranceGuides = (
     try {
       const data = await getGuides(patientId, stableFilters);
 
-      // Ordenar por expiresAt (mais urgente primeiro)
+      // Ordenar por prioridade clínica:
+      // 1. Ativas válidas primeiro (expiresAt ascendente → mais urgente primeiro)
+      // 2. Demais por createdAt descendente
+      const now = new Date().getTime();
+      const isActiveValid = (g: InsuranceGuide) =>
+        g.status === 'active' &&
+        (g.remaining ?? g.totalSessions - (g.usedSessions || 0)) > 0 &&
+        new Date(g.expiresAt).getTime() >= now;
+
       const sortedGuides = data.sort((a, b) => {
-        return new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime();
+        const aActive = isActiveValid(a) ? 1 : 0;
+        const bActive = isActiveValid(b) ? 1 : 0;
+        if (aActive !== bActive) return bActive - aActive;
+        if (aActive && bActive) {
+          return new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime();
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
 
       setGuides(sortedGuides);
@@ -152,6 +173,22 @@ export const useInsuranceGuides = (
   }, [fetchGuides, fetchBalance]);
 
   /**
+   * Inativa guia (mesmo padrão de pacotes)
+   */
+  const handleInactivateGuide = useCallback(async (id: string) => {
+    try {
+      const result = await inactivateGuide(id);
+
+      // Refetch automático após inativar
+      await Promise.all([fetchGuides(), fetchBalance()]);
+
+      return result;
+    } catch (err: any) {
+      throw err;
+    }
+  }, [fetchGuides, fetchBalance]);
+
+  /**
    * Refetch manual
    */
   const refetch = useCallback(async () => {
@@ -181,6 +218,7 @@ export const useInsuranceGuides = (
     createGuide: handleCreateGuide,
     updateGuide: handleUpdateGuide,
     cancelGuide: handleCancelGuide,
+    inactivateGuide: handleInactivateGuide,
     refetch,
     refetchBalance
   };

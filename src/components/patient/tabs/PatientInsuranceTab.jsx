@@ -58,6 +58,8 @@ const PatientInsuranceTab = ({ patientId }) => {
   const [planFormOpen, setPlanFormOpen] = useState(false);
   const [planFormGuide, setPlanFormGuide] = useState(null);
   const [detailsGuide, setDetailsGuide] = useState(null);
+  const [showInactivateModal, setShowInactivateModal] = useState(false);
+  const [isInactivating, setIsInactivating] = useState(false);
 
   const {
     guides,
@@ -66,7 +68,7 @@ const PatientInsuranceTab = ({ patientId }) => {
     error,
     createGuide,
     updateGuide,
-    cancelGuide,
+    inactivateGuide,
     refetch
   } = useInsuranceGuides(patientId, {
     specialty: selectedSpecialty === 'all' ? undefined : selectedSpecialty
@@ -91,9 +93,8 @@ const PatientInsuranceTab = ({ patientId }) => {
     return allAvailableGuides
       .filter(g => selectedSpecialty === 'all' || g.specialty === selectedSpecialty)
       .filter(g => {
-        if (selectedStatus === 'active') return isGuideActive(g);
         if (selectedStatus === 'inactive') return !isGuideActive(g);
-        return true;
+        return isGuideActive(g);
       });
   }, [allAvailableGuides, selectedSpecialty, selectedStatus]);
 
@@ -115,6 +116,10 @@ const PatientInsuranceTab = ({ patientId }) => {
 
   const handleCloseMenu = () => {
     setAnchorEl(null);
+  };
+
+  const handleDismissMenu = () => {
+    setAnchorEl(null);
     setSelectedGuide(null);
   };
 
@@ -134,15 +139,24 @@ const PatientInsuranceTab = ({ patientId }) => {
     handleCloseMenu();
   };
 
-  const handleCancelGuide = async () => {
+  const handleCancelGuide = () => {
     if (!selectedGuide) return;
+    setShowInactivateModal(true);
+    handleCloseMenu();
+  };
+
+  const confirmInactivate = async () => {
+    if (!selectedGuide) return;
+    setIsInactivating(true);
     try {
-      await cancelGuide(selectedGuide._id);
-      toast.success('Guia cancelada com sucesso');
+      const result = await inactivateGuide(selectedGuide._id);
+      toast.success(`Guia inativada — ${result.sessionsCanceled ?? 0} sessão(ões) cancelada(s)`);
+      setShowInactivateModal(false);
+      setSelectedGuide(null);
     } catch (err) {
-      toast.error(err.message || 'Erro ao cancelar guia');
+      toast.error(err?.message || 'Erro ao inativar guia');
     } finally {
-      handleCloseMenu();
+      setIsInactivating(false);
     }
   };
 
@@ -330,7 +344,7 @@ const PatientInsuranceTab = ({ patientId }) => {
         </Button>
       </Box>
 
-      {/* Filtro de status: Todas / Ativas / Inativas */}
+      {/* Filtro de status: Todas (ativas) / Inativas */}
       <Tabs
         value={selectedStatus}
         onChange={(e, v) => setSelectedStatus(v)}
@@ -352,9 +366,7 @@ const PatientInsuranceTab = ({ patientId }) => {
           '& .MuiTabs-indicator': { display: 'none' }
         }}
       >
-        <Tab label={`Todas (${allAvailableGuides.length})`} value="all"
-          sx={{ '&.Mui-selected': { backgroundColor: '#5B6E8C' } }} />
-        <Tab label={`Ativas (${activeCount})`} value="active"
+        <Tab label={`Todas (${activeCount})`} value="all"
           sx={{ '&.Mui-selected': { backgroundColor: '#2E7A5E' } }} />
         <Tab label={`Inativas (${inactiveCount})`} value="inactive"
           sx={{ '&.Mui-selected': { backgroundColor: '#C75146' } }} />
@@ -408,7 +420,7 @@ const PatientInsuranceTab = ({ patientId }) => {
       {availableGuides.length === 0 && (
         <Box sx={{ textAlign: 'center', py: 8, bgcolor: '#F9FBFD', borderRadius: '32px' }}>
           <Typography variant="body1" sx={{ color: '#5B6E8C', mb: 1 }}>
-            Nenhuma guia {selectedStatus === 'active' ? 'ativa' : selectedStatus === 'inactive' ? 'inativa' : ''} encontrada
+            Nenhuma guia {selectedStatus === 'inactive' ? 'inativa' : 'ativa'} encontrada
             {selectedSpecialty !== 'all' && ` para ${selectedSpecialty.replace(/_/g, ' ')}`}
           </Typography>
           <Typography variant="body2" sx={{ color: '#8A99B0' }}>
@@ -458,7 +470,7 @@ const PatientInsuranceTab = ({ patientId }) => {
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
-        onClose={handleCloseMenu}
+        onClose={handleDismissMenu}
         PaperProps={{
           sx: {
             borderRadius: '20px',
@@ -509,6 +521,77 @@ const PatientInsuranceTab = ({ patientId }) => {
         guide={detailsGuide}
         onClose={() => setDetailsGuide(null)}
       />
+
+      {/* Modal de confirmação de inativação — mesmo padrão do pacote */}
+      <Dialog
+        open={showInactivateModal}
+        onClose={() => {
+          if (!isInactivating) {
+            setShowInactivateModal(false);
+            setSelectedGuide(null);
+          }
+        }}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '20px', p: 1 } }}
+      >
+        <DialogTitle sx={{ px: 2.5, pt: 2.5, pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box sx={{
+              width: 36, height: 36, borderRadius: '12px', bgcolor: '#FDECEA',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              <Trash2 size={18} color="#C75146" />
+            </Box>
+            <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: '#1A2C3E' }}>
+              Inativar guia
+            </Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ px: 2.5, py: 1 }}>
+          <Typography sx={{ fontSize: '0.875rem', color: '#5B6E8C', mb: 1 }}>
+            Esta ação irá <strong>cancelar todas as sessões e agendamentos pendentes</strong> desta guia e liberar a agenda.
+          </Typography>
+          <Typography sx={{ fontSize: '0.875rem', color: '#8A99B0' }}>
+            Sessões já realizadas e pagamentos concluídos serão <strong>mantidos</strong> e não impactarão o financeiro.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 2.5, pb: 2.5, gap: 1 }}>
+          <Button
+            onClick={() => setShowInactivateModal(false)}
+            disabled={isInactivating}
+            sx={{
+              flex: 1,
+              textTransform: 'none',
+              borderRadius: '12px',
+              fontWeight: 600,
+              color: '#5B6E8C',
+              borderColor: '#DDE4EE',
+              '&:hover': { bgcolor: '#F1F5F9' }
+            }}
+            variant="outlined"
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={confirmInactivate}
+            disabled={isInactivating}
+            variant="contained"
+            disableElevation
+            sx={{
+              flex: 1,
+              textTransform: 'none',
+              borderRadius: '12px',
+              fontWeight: 700,
+              bgcolor: '#C75146',
+              color: '#fff',
+              '&:hover': { bgcolor: '#A9443A' }
+            }}
+          >
+            {isInactivating ? 'Inativando...' : 'Inativar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
@@ -568,18 +651,24 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan }) => {
   const usedSessions = guide.usedSessions || 0;
   const percentage = (usedSessions / guide.totalSessions) * 100;
   const daysUntilExpiration = differenceInDays(parseISO(guide.expiresAt), new Date());
-  const isUrgent = daysUntilExpiration <= 7 && daysUntilExpiration >= 0;
-  const isExpiringSoon = daysUntilExpiration <= 30 && daysUntilExpiration > 0;
 
-  const statusColor =
-    guide.status === 'cancelled' ? '#A0AABF' :
-      guide.status === 'expired' ? '#C75146' :
-        guide.status === 'exhausted' || remaining === 0 ? '#C75146' : '#2E7A5E';
+  // Status visual decisivo — foco em ação, não em descrição
+  let statusColor = '#2E7A5E';
+  let statusLabel = 'Disponível';
 
-  const statusLabel =
-    guide.status === 'cancelled' ? 'Cancelada' :
-      guide.status === 'expired' ? 'Expirada' :
-        guide.status === 'exhausted' || remaining === 0 ? 'Esgotada' : 'Ativa';
+  if (guide.status === 'cancelled') {
+    statusColor = '#A0AABF';
+    statusLabel = 'Cancelada';
+  } else if (guide.status === 'expired' || daysUntilExpiration < 0) {
+    statusColor = '#8A99B0';
+    statusLabel = 'Vencida';
+  } else if (remaining === 0) {
+    statusColor = '#C75146';
+    statusLabel = 'Esgotada';
+  } else if (remaining <= 2) {
+    statusColor = '#ED6C02';
+    statusLabel = 'Poucas sessões';
+  }
 
   const specialtyFormatted = guide.specialty
     .split('_')
@@ -590,7 +679,7 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan }) => {
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 
-  const isNew = usedSessions === 0 && guide.status === 'active';
+  const canUse = guide.status === 'active' && remaining > 0 && daysUntilExpiration >= 0;
 
   return (
     <motion.div
@@ -604,202 +693,118 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan }) => {
         elevation={0}
         sx={{
           height: '100%',
-          borderRadius: '24px',
+          borderRadius: '16px',
           border: '1px solid',
-          borderColor: '#EDF2F7',
+          borderColor: canUse ? '#E2E8F0' : '#EDF2F7',
           backgroundColor: '#FFFFFF',
-          transition: 'all 0.25s ease',
+          transition: 'all 0.2s ease',
           '&:hover': {
-            transform: 'translateY(-4px)',
-            boxShadow: '0 20px 30px -12px rgba(0,0,0,0.12)',
-            borderColor: '#E2E8F0'
+            transform: 'translateY(-2px)',
+            boxShadow: canUse ? '0 8px 16px -6px rgba(46,122,94,0.12)' : '0 8px 16px -6px rgba(0,0,0,0.06)',
+            borderColor: canUse ? '#C6E6DA' : '#E2E8F0'
           },
           position: 'relative',
           overflow: 'hidden'
         }}
       >
-        {/* Barra superior gradiente */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: '4px',
-            background: `linear-gradient(90deg, ${statusColor}60, ${statusColor})`
-          }}
-        />
+        {/* Barra lateral de status — guia visual imediato */}
+        <Box sx={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: '4px',
+          bgcolor: statusColor,
+          opacity: canUse ? 1 : 0.4
+        }} />
 
-        <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
-          {/* Header: badge Nova (inline) + número + status + menu */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {isNew ? (
-                <Box sx={{
-                  bgcolor: '#EFF9F6',
-                  color: '#2E7A5E',
-                  px: 1.2,
-                  py: 0.3,
-                  borderRadius: '40px',
-                  fontSize: '0.6rem',
-                  fontWeight: 700,
-                  border: '1px solid #C6E6DA',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 0.4,
-                  whiteSpace: 'nowrap'
-                }}>
-                  ✨ Nova
-                </Box>
-              ) : (
-                <FileText size={16} color="#8A99B0" />
-              )}
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#1A2C3E', letterSpacing: '-0.2px', fontSize: '0.8rem' }}>
-                #{guide.number}
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Chip
-                label={statusLabel}
-                size="small"
-                sx={{
-                  height: '22px',
-                  fontSize: '0.65rem',
-                  fontWeight: 600,
-                  bgcolor: `${statusColor}10`,
-                  color: statusColor,
-                  border: `1px solid ${statusColor}30`,
-                  borderRadius: '8px'
-                }}
-              />
-              <IconButton
-                size="small"
-                onClick={(e) => onOpenMenu(e, guide)}
-                sx={{ color: '#A0AABF', '&:hover': { color: '#5B6E8C', bgcolor: '#F1F5F9' } }}
-              >
-                <MoreVertical size={16} />
-              </IconButton>
-            </Box>
+        <CardContent sx={{ pl: 2.8, pr: 2, py: 2, '&:last-child': { pb: 2 } }}>
+          {/* Linha 1: número + menu */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+            <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', color: '#1A2C3E', letterSpacing: '-0.3px' }}>
+              #{guide.number}
+            </Typography>
+            <IconButton
+              size="small"
+              onClick={(e) => onOpenMenu(e, guide)}
+              sx={{ color: '#A0AABF', p: 0.4, '&:hover': { color: '#5B6E8C' } }}
+            >
+              <MoreVertical size={15} />
+            </IconButton>
           </Box>
 
-          {/* Especialidade e convênio */}
-          <Box sx={{ mb: 2.5 }}>
-            <Typography variant="body2" sx={{ fontWeight: 600, color: '#1A2C3E', mb: 0.5 }}>
-              {specialtyFormatted}
+          {/* Linha 2: especialidade — destaque principal */}
+          <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', color: '#1A2C3E', mb: 0.25 }}>
+            {specialtyFormatted}
+          </Typography>
+
+          {/* Linha 3: convênio + data */}
+          <Typography sx={{ fontSize: '0.7rem', color: '#8A99B0', mb: 2 }}>
+            {insuranceFormatted}
+            {guide.createdAt && ` • ${format(parseISO(guide.createdAt), 'dd/MM/yyyy')}`}
+          </Typography>
+
+          {/* Dado principal: sessões disponíveis */}
+          <Box sx={{ mb: 1.5 }}>
+            <Typography sx={{ fontSize: '0.65rem', color: statusColor, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', mb: 0.3 }}>
+              {statusLabel}
             </Typography>
-            <Typography variant="caption" sx={{ color: '#8A99B0', fontWeight: 500 }}>
-              {insuranceFormatted}
+            <Typography sx={{ fontWeight: 800, fontSize: '1.4rem', color: '#1A2C3E', lineHeight: 1.1 }}>
+              {remaining}
+              <Box component="span" sx={{ fontSize: '0.75rem', color: '#8A99B0', fontWeight: 500, ml: 0.5 }}>
+                de {guide.totalSessions} sessões
+              </Box>
             </Typography>
           </Box>
 
-          {/* Informações em grid */}
-          <Box sx={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 2,
-            mb: 2.5
-          }}>
-            <Box sx={{ bgcolor: '#F8FAFE', borderRadius: '16px', p: 1.5 }}>
-              <Typography variant="caption" sx={{ color: '#5B6E8C', fontWeight: 500, display: 'block', mb: 0.5 }}>
-                Sessões
-              </Typography>
-              <Typography variant="body2" sx={{ fontWeight: 700, color: '#1A2C3E' }}>
-                {remaining} / {guide.totalSessions}
-              </Typography>
-              <Typography variant="caption" sx={{ color: '#8A99B0', fontSize: '0.6rem' }}>
-                {usedSessions} usadas
-              </Typography>
-            </Box>
-            <Box sx={{ bgcolor: '#F8FAFE', borderRadius: '16px', p: 1.5 }}>
-              <Typography variant="caption" sx={{ color: '#5B6E8C', fontWeight: 500, display: 'block', mb: 0.5 }}>
-                Validade
-              </Typography>
-              <Typography variant="body2" sx={{ fontWeight: 700, color: '#1A2C3E' }}>
-                {format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}
-              </Typography>
-              {daysUntilExpiration > 0 ? (
-                <Typography variant="caption" sx={{
-                  color: isUrgent ? '#C75146' : isExpiringSoon ? '#ED6C02' : '#8A99B0',
-                  fontSize: '0.6rem',
-                  fontWeight: 500
-                }}>
-                  {daysUntilExpiration} dias
-                </Typography>
-              ) : daysUntilExpiration === 0 ? (
-                <Typography variant="caption" sx={{ color: '#C75146', fontSize: '0.6rem', fontWeight: 500 }}>
-                  Hoje!
-                </Typography>
-              ) : (
-                <Typography variant="caption" sx={{ color: '#C75146', fontSize: '0.6rem', fontWeight: 500 }}>
-                  Vencida
-                </Typography>
-              )}
-            </Box>
-          </Box>
+          {/* Validade — só o essencial */}
+          <Typography sx={{ fontSize: '0.7rem', color: daysUntilExpiration < 0 ? '#C75146' : daysUntilExpiration <= 7 ? '#ED6C02' : '#8A99B0', mb: 2, fontWeight: 500 }}>
+            {daysUntilExpiration < 0
+              ? `Venceu em ${format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}`
+              : daysUntilExpiration === 0
+                ? 'Vence hoje'
+                : `Expira em ${format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}`}
+          </Typography>
 
-          {/* Barra de progresso */}
-          <Box sx={{ mb: 2.5 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-              <Typography variant="caption" sx={{ color: '#5B6E8C', fontWeight: 500 }}>
-                Utilização
-              </Typography>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: percentage >= 80 ? '#C75146' : '#2E7A5E' }}>
-                {percentage.toFixed(0)}%
-              </Typography>
-            </Box>
+          {/* Progresso — apenas a barra, sem texto duplicado */}
+          <Box sx={{ mb: canUse && onCreatePlan ? 1.5 : 0 }}>
             <LinearProgress
               variant="determinate"
               value={percentage}
               sx={{
-                height: 6,
-                borderRadius: 3,
-                backgroundColor: '#E9EEF2',
+                height: 3,
+                borderRadius: 1.5,
+                backgroundColor: '#EDF2F7',
                 '& .MuiLinearProgress-bar': {
-                  backgroundColor: percentage >= 80 ? '#C75146' : percentage >= 50 ? '#ED6C02' : '#2E7A5E',
-                  borderRadius: 3
+                  backgroundColor: statusColor,
+                  borderRadius: 1.5
                 }
               }}
             />
           </Box>
 
-          {/* Notas */}
-          {guide.notes && (
-            <Box sx={{
-              p: 1.5,
-              bgcolor: '#F8FAFE',
-              borderRadius: '16px',
-              mb: 2,
-              border: '1px solid #EDF2F7'
-            }}>
-              <Typography variant="caption" sx={{ color: '#5B6E8C' }}>
-                <span style={{ fontWeight: 600 }}>Observação:</span> {guide.notes}
-              </Typography>
-            </Box>
-          )}
-
-          {/* Botão Criar Plano (apenas para guias ativas não utilizadas) */}
-          {usedSessions === 0 && guide.status === 'active' && onCreatePlan && (
+          {/* Ação — só se faz sentido usar */}
+          {canUse && onCreatePlan && (
             <Button
               size="small"
-              variant="outlined"
+              variant="contained"
               fullWidth
+              disableElevation
               onClick={() => onCreatePlan(guide)}
-              startIcon={<Calendar size={14} />}
+              startIcon={<Calendar size={13} />}
               sx={{
                 textTransform: 'none',
-                borderRadius: '40px',
-                fontSize: '0.7rem',
-                fontWeight: 600,
-                borderColor: '#2E7A5E',
-                color: '#2E7A5E',
-                mt: 1,
-                '&:hover': {
-                  bgcolor: '#EFF9F6',
-                  borderColor: '#246653'
-                }
+                borderRadius: '10px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                bgcolor: '#1B4D6E',
+                color: '#fff',
+                mt: 1.5,
+                py: 0.8,
+                '&:hover': { bgcolor: '#123F5A' }
               }}
             >
-              Criar Plano de Atendimento
+              Agendar com guia
             </Button>
           )}
         </CardContent>

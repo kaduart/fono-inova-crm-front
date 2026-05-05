@@ -164,6 +164,27 @@ export const cancelGuide = async (id: string): Promise<void> => {
 };
 
 /**
+ * Inativa guia de convênio (mesmo padrão de pacotes):
+ * - Cancela sessions pendentes
+ * - Cancela appointments vinculados
+ * - Cancela payments pendentes
+ * - Marca guia como cancelled
+ */
+export const inactivateGuide = async (id: string): Promise<{
+  guideId: string;
+  sessionsCanceled: number;
+  appointmentsCanceled: number;
+  paymentsCanceled: number;
+}> => {
+  try {
+    const response = await API.post(`/v2/insurance-guides/${id}/inactivate`);
+    return response.data.data;
+  } catch (error: any) {
+    throw new Error(extractErrorMessage(error, 'Erro ao inativar guia'));
+  }
+};
+
+/**
  * Busca agendamentos atrelados a uma guia
  */
 export const getGuideAppointments = async (guideId: string): Promise<GuideAppointment[]> => {
