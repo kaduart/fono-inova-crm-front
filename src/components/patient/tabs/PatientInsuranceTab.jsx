@@ -646,9 +646,33 @@ const GuideSection = ({ title, count, guides, color, onOpenMenu, onCreatePlan })
 // ----------------------------------------------------------------------
 // Componente de card individual (premium, clean, informativo)
 // ----------------------------------------------------------------------
+const SPECIALTY_BG_COLORS = {
+  fonoaudiologia: '#F0F7FF',
+  psicologia: '#F5F0FF',
+  fisioterapia: '#F0FFF4',
+  psicomotricidade: '#FFF7ED',
+  terapia_ocupacional: '#FFF0F0',
+  musicoterapia: '#FFFBF0',
+  psicopedagogia: '#F0FFFA',
+  neuropsicologia: '#F5F0FF'
+};
+
+const SPECIALTY_BORDER_COLORS = {
+  fonoaudiologia: '#BFDBFE',
+  psicologia: '#DDD6FE',
+  fisioterapia: '#BBF7D0',
+  psicomotricidade: '#FED7AA',
+  terapia_ocupacional: '#FECACA',
+  musicoterapia: '#FDE68A',
+  psicopedagogia: '#A7F3D0',
+  neuropsicologia: '#DDD6FE'
+};
+
 const GuideCard = ({ guide, onOpenMenu, onCreatePlan }) => {
   const remaining = guide.remaining ?? (guide.totalSessions - (guide.usedSessions || 0));
   const usedSessions = guide.usedSessions || 0;
+  const specialtyBg = SPECIALTY_BG_COLORS[guide.specialty] || '#FFFFFF';
+  const specialtyBorder = SPECIALTY_BORDER_COLORS[guide.specialty] || '#E2E8F0';
   const percentage = (usedSessions / guide.totalSessions) * 100;
   const daysUntilExpiration = differenceInDays(parseISO(guide.expiresAt), new Date());
 
@@ -695,13 +719,13 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan }) => {
           height: '100%',
           borderRadius: '16px',
           border: '1px solid',
-          borderColor: canUse ? '#E2E8F0' : '#EDF2F7',
-          backgroundColor: '#FFFFFF',
+          borderColor: canUse ? specialtyBorder : '#EDF2F7',
+          backgroundColor: specialtyBg,
           transition: 'all 0.2s ease',
           '&:hover': {
             transform: 'translateY(-2px)',
-            boxShadow: canUse ? '0 8px 16px -6px rgba(46,122,94,0.12)' : '0 8px 16px -6px rgba(0,0,0,0.06)',
-            borderColor: canUse ? '#C6E6DA' : '#E2E8F0'
+            boxShadow: canUse ? `0 8px 16px -6px ${specialtyBorder}80` : '0 8px 16px -6px rgba(0,0,0,0.06)',
+            borderColor: canUse ? specialtyBorder : '#E2E8F0'
           },
           position: 'relative',
           overflow: 'hidden'
