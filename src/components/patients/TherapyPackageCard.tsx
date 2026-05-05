@@ -107,7 +107,7 @@ export default function TherapyPackageCard({
   const sessionDebt = financial?.sessionDebt ?? 0;
   const particularPaid = financial?.particularPaid ?? 0;
   const liminarPaid = financial?.liminarPaid ?? 0;
-  const completedSessions = financial?.completedSessions ?? 0;
+  const completedSessions = pack.sessionsDone ?? financial?.completedSessions ?? 0;
 
   if (!financial && !financialLoading) {
     console.warn('[TherapyPackageCard] ⚠️ Endpoint /financial/summary indisponível — dados financeiros não carregados');
