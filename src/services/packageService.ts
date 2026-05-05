@@ -385,6 +385,13 @@ export const packageService = {
     );
     return extractV2Data(response);
   },
+
+  inactivatePackage: async (packageId: string) => {
+    const response = await API.post<{ success: boolean; data: { sessionsCanceled: number; appointmentsCanceled: number; paymentsCanceled: number } }>(
+      `/v2/packages/${packageId}/inactivate`
+    );
+    return response.data;
+  },
 }
 
 export const validatePayment = (amount: number, balance: number) => {

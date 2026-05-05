@@ -58,6 +58,8 @@ export interface CashflowSummary {
 // 🆕 NOVO: Interface para o endpoint V2 de caixa diário
 export interface CashflowV2Data {
     data: string;
+    receitaReal?: number;
+    receitaDiferida?: number;
     caixa: {
         total: number;
         pix: number;

@@ -16,23 +16,30 @@ export interface PreAgendamentoChat {
     preferredTime?: string;
     status: string;
     urgency: string;
+    responsibleName?: string;
+    doctorName?: string;
+}
+
+function buildDiaSemana(dateStr: string): string {
+    const dias = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+    const d = new Date(dateStr + 'T12:00:00');
+    return dias[d.getDay()];
 }
 
 export async function enviarConfirmacaoBaileys(pre: PreAgendamentoChat): Promise<{success: boolean; error?: string}> {
     const phone = pre.patientInfo.phone.replace(/\D/g, '');
-    const nome = pre.patientInfo.fullName.split(' ')[0];
-    const data = new Date(pre.preferredDate + 'T12:00:00').toLocaleDateString('pt-BR');
+    const nomeCompleto = pre.patientInfo.fullName;
+    const dateObj = new Date(pre.preferredDate + 'T12:00:00');
+    const dataCompleta = `${dateObj.toLocaleDateString('pt-BR')} (${buildDiaSemana(pre.preferredDate)})`;
     const hora = pre.preferredTime || '';
-    
-    const message = `Olá, avaliação está CONFIRMADA! 💚\n\n` +
-        `O agendamento de *${nome}* está confirmado para a avaliação inicial.\n\n` +
-        `📅 Data: ${data}\n` +
-        `⏰ Horário: ${hora}\n` +
-        `🏥 Clínica Fono Inova\n\n` +
+
+    const message =
+        `Oi, tudo certinho! 💚\n` +
+        `O agendamento de *${nomeCompleto}* está confirmado para a avaliação inicial no dia *${dataCompleta}* às *${hora}*.\n` +
         `Ficamos muito felizes em recebê-los e preparar tudo com carinho ✨\n\n` +
-        `Qualquer dúvida antes da consulta, pode contar com a gente.\n\n` +
-        `Um dia antes enviaremos uma mensagem de confirmação.\n\n` +
-        `Até o dia e horário combinados! 😊💚`;
+        `Qualquer dúvida antes da consulta, pode contar com a gente.\n` +
+        `📋 No dia anterior, vamos te enviar uma mensagem para confirmar, combinado?\n` +
+        `Até o dia e horário combinados! 😊💛`;
     
     try {
         const response = await api.post('/baileys/send', { phone, message });
@@ -44,17 +51,25 @@ export async function enviarConfirmacaoBaileys(pre: PreAgendamentoChat): Promise
 
 export async function enviarLembreteBaileys(pre: PreAgendamentoChat): Promise<{success: boolean; error?: string}> {
     const phone = pre.patientInfo.phone.replace(/\D/g, '');
-    const nome = pre.patientInfo.fullName.split(' ')[0];
-    const data = new Date(pre.preferredDate + 'T12:00:00').toLocaleDateString('pt-BR');
+    const nomeCompleto = pre.patientInfo.fullName;
+    const nomeResponsavel = pre.responsibleName
+        ? pre.responsibleName.split(' ')[0]
+        : nomeCompleto.split(' ')[0];
+    const dateObj = new Date(pre.preferredDate + 'T12:00:00');
+    const dataShort = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     const hora = pre.preferredTime || '';
-    
-    const message = `Olá ${nome}! 💚\n\n` +
-        `Lembrete: sua avaliação é *AMANHÃ*! 🔔\n\n` +
-        `📅 Data: ${data}\n` +
-        `⏰ Horário: ${hora}\n` +
-        `🏥 Clínica Fono Inova\n\n` +
-        `Estamos te esperando! ✨\n\n` +
-        `Precisa remarcar? Responda aqui.`;
+    const profissionalLine = pre.doctorName ? `\n👨‍⚕️ Profissional: ${pre.doctorName}` : '';
+
+    const message =
+        `👋 Olá, ${nomeResponsavel}!\n\n` +
+        `Estou passando para confirmar o atendimento de amanhã 😊\n\n` +
+        `👶 Paciente: ${nomeCompleto}\n` +
+        `📅 Data: ${dataShort}\n` +
+        `⏰ Horário: ${hora}${profissionalLine}\n\n` +
+        `Podemos confirmar?\n\n` +
+        `Responda:\n` +
+        `✅ SIM para confirmar\n` +
+        `🔄 NÃO para remarcar`;
     
     try {
         const response = await api.post('/baileys/send', { phone, message });

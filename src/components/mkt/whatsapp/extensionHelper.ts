@@ -14,31 +14,44 @@ export interface PreAgendamentoChat {
     preferredTime?: string;
     status: string;
     urgency: string;
+    responsibleName?: string; // nome do responsável/pai (quem mandou mensagem)
+    doctorName?: string;      // nome do profissional agendado
+}
+
+function buildDiaSemana(dateStr: string): string {
+    const dias = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+    const d = new Date(dateStr + 'T12:00:00');
+    return dias[d.getDay()];
 }
 
 export async function enviarViaExtensao(pre: PreAgendamentoChat, tipo: 'confirmacao' | 'lembrete'): Promise<{success: boolean; error?: string}> {
     const phone = pre.patientInfo.phone.replace(/\D/g, '');
-    const nome = pre.patientInfo.fullName.split(' ')[0];
-    const data = new Date(pre.preferredDate + 'T12:00:00').toLocaleDateString('pt-BR');
+    const nomeCompleto = pre.patientInfo.fullName;
+    const nomeResponsavel = pre.responsibleName
+        ? pre.responsibleName.split(' ')[0]
+        : nomeCompleto.split(' ')[0];
+    const dateObj = new Date(pre.preferredDate + 'T12:00:00');
+    const dataCompleta = `${dateObj.toLocaleDateString('pt-BR')} (${buildDiaSemana(pre.preferredDate)})`;
+    const dataShort = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     const hora = pre.preferredTime || '';
-    
-    const message = tipo === 'confirmacao' 
-        ? `Olá, avaliação está CONFIRMADA! 💚\n\n` +
-          `O agendamento de *${nome}* está confirmado para a avaliação inicial.\n\n` +
-          `📅 Data: ${data}\n` +
-          `⏰ Horário: ${hora}\n` +
-          `🏥 Clínica Fono Inova\n\n` +
+    const profissionalLine = pre.doctorName ? `\n👨‍⚕️ Profissional: ${pre.doctorName}` : '';
+
+    const message = tipo === 'confirmacao'
+        ? `Oi, tudo certinho! 💚\n` +
+          `O agendamento de *${nomeCompleto}* está confirmado para a avaliação inicial no dia *${dataCompleta}* às *${hora}*.\n` +
           `Ficamos muito felizes em recebê-los e preparar tudo com carinho ✨\n\n` +
-          `Qualquer dúvida antes da consulta, pode contar com a gente.\n\n` +
-          `Um dia antes enviaremos uma mensagem de confirmação.\n\n` +
-          `Até o dia e horário combinados! 😊💚`
-        : `Olá ${nome}! 💚\n\n` +
-          `Lembrete: sua avaliação é *AMANHÃ*! 🔔\n\n` +
-          `📅 Data: ${data}\n` +
-          `⏰ Horário: ${hora}\n` +
-          `🏥 Clínica Fono Inova\n\n` +
-          `Estamos te esperando! ✨\n\n` +
-          `Precisa remarcar? Responda aqui.`;
+          `Qualquer dúvida antes da consulta, pode contar com a gente.\n` +
+          `📋 No dia anterior, vamos te enviar uma mensagem para confirmar, combinado?\n` +
+          `Até o dia e horário combinados! 😊💛`
+        : `👋 Olá, ${nomeResponsavel}!\n\n` +
+          `Estou passando para confirmar o atendimento de amanhã 😊\n\n` +
+          `👶 Paciente: ${nomeCompleto}\n` +
+          `📅 Data: ${dataShort}\n` +
+          `⏰ Horário: ${hora}${profissionalLine}\n\n` +
+          `Podemos confirmar?\n\n` +
+          `Responda:\n` +
+          `✅ SIM para confirmar\n` +
+          `🔄 NÃO para remarcar`;
     
     return new Promise((resolve) => {
         const requestId = Date.now().toString();

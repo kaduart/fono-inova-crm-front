@@ -2,6 +2,19 @@
 import API from './api';
 import { extractErrorMessage } from '../utils/errorUtils';
 
+export interface GuideAppointment {
+  _id: string;
+  date: string;
+  time?: string;
+  status: string;
+  serviceType?: string;
+  sessionType?: string;
+  notes?: string;
+  doctor?: { _id: string; fullName: string } | null;
+  professionalName?: string;
+  createdAt: string;
+}
+
 export interface InsuranceGuide {
   _id: string;
   number: string;
@@ -147,6 +160,18 @@ export const cancelGuide = async (id: string): Promise<void> => {
     await API.delete(`/v2/insurance-guides/${id}`);
   } catch (error: any) {
     throw new Error(extractErrorMessage(error, 'Erro ao cancelar guia'));
+  }
+};
+
+/**
+ * Busca agendamentos atrelados a uma guia
+ */
+export const getGuideAppointments = async (guideId: string): Promise<GuideAppointment[]> => {
+  try {
+    const response = await API.get(`/v2/insurance-guides/${guideId}/appointments`);
+    return response.data.data?.appointments || [];
+  } catch (error: any) {
+    throw new Error(extractErrorMessage(error, 'Erro ao buscar agendamentos da guia'));
   }
 };
 

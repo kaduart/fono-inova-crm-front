@@ -80,6 +80,8 @@ export default function TherapyPackageCard({
   const [sessionTab, setSessionTab] = useState<'active' | 'history'>('active');
 
   const [showBalanceModal, setShowBalanceModal] = useState(false);
+  const [showInactivateModal, setShowInactivateModal] = useState(false);
+  const [isInactivating, setIsInactivating] = useState(false);
 
   /**
    * 💰 FINANCEIRO MIGRADO
@@ -264,6 +266,21 @@ export default function TherapyPackageCard({
   };
 
 
+  const handleInactivate = async () => {
+    if (!pack?._id) return;
+    setIsInactivating(true);
+    try {
+      const result = await packageService.inactivatePackage(pack._id);
+      toast.success(`Pacote inativado — ${result.data?.sessionsCanceled ?? 0} sessão(ões) cancelada(s)`);
+      setShowInactivateModal(false);
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Erro ao inativar pacote');
+    } finally {
+      setIsInactivating(false);
+    }
+  };
+
   const getStatusConfig = (status: string) => {
     const base = {
       pill: 'px-3 py-1.5 text-xs font-semibold rounded-full border flex items-center gap-1',
@@ -391,10 +408,21 @@ export default function TherapyPackageCard({
             >
               Detalhes
             </button>
-            <div className={statusConfig.pill}>
-              <StatusIcon className="w-3 h-3" />
-              {statusConfig.label}
-            </div>
+            {pack.status === 'active' ? (
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowInactivateModal(true); }}
+                title="Clique para inativar este pacote"
+                className={statusConfig.pill + ' cursor-pointer hover:opacity-80 transition-opacity'}
+              >
+                <StatusIcon className="w-3 h-3" />
+                {statusConfig.label}
+              </button>
+            ) : (
+              <div className={statusConfig.pill}>
+                <StatusIcon className="w-3 h-3" />
+                {statusConfig.label}
+              </div>
+            )}
           </div>
         </div>
 
@@ -941,6 +969,46 @@ export default function TherapyPackageCard({
           patientName={patient?.fullName || ''}
           onRefresh={() => { setShowBalanceModal(false); if (onRefresh) onRefresh(); }}
         />
+      )}
+
+      {/* Modal de confirmação de inativação */}
+      {showInactivateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowInactivateModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <Trash2 className="h-5 w-5 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Inativar pacote</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-2">
+              Esta ação irá <strong>cancelar todas as sessões e agendamentos pendentes</strong> deste pacote e liberar a agenda.
+            </p>
+            <p className="text-sm text-gray-500 mb-6">
+              Sessões já realizadas e pagamentos concluídos serão <strong>mantidos</strong> e não impactarão o financeiro.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowInactivateModal(false)}
+                disabled={isInactivating}
+                className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleInactivate}
+                disabled={isInactivating}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {isInactivating ? (
+                  <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Inativando...</>
+                ) : (
+                  'Sim, inativar'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

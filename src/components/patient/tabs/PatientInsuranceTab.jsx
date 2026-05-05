@@ -1,5 +1,5 @@
 // src/components/patient/tabs/PatientInsuranceTab.jsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -15,7 +15,12 @@ import {
   Alert,
   Tabs,
   Tab,
-  Paper
+  Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Divider
 } from '@mui/material';
 import {
   Plus,
@@ -27,13 +32,16 @@ import {
   FileText,
   Clock,
   CheckCircle,
-  XCircle
+  XCircle,
+  Eye,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { useInsuranceGuides } from '../../../hooks/useInsuranceGuides';
+import { getGuideAppointments } from '../../../services/insuranceGuideApi';
 import InsuranceGuideForm from './InsuranceGuideForm';
 import InsurancePlanForm from './InsurancePlanForm';
 
@@ -42,12 +50,14 @@ import InsurancePlanForm from './InsurancePlanForm';
 // ----------------------------------------------------------------------
 const PatientInsuranceTab = ({ patientId }) => {
   const [selectedSpecialty, setSelectedSpecialty] = useState('all');
+  const [selectedStatus, setSelectedStatus] = useState('all');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingGuide, setEditingGuide] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedGuide, setSelectedGuide] = useState(null);
   const [planFormOpen, setPlanFormOpen] = useState(false);
   const [planFormGuide, setPlanFormGuide] = useState(null);
+  const [detailsGuide, setDetailsGuide] = useState(null);
 
   const {
     guides,
@@ -75,10 +85,20 @@ const PatientInsuranceTab = ({ patientId }) => {
     return unique.sort();
   }, [allAvailableGuides]);
 
+  const isGuideActive = (g) => g.status === 'active' && g.remaining > 0;
+
   const availableGuides = useMemo(() => {
     return allAvailableGuides
-      .filter(g => selectedSpecialty === 'all' || g.specialty === selectedSpecialty);
-  }, [allAvailableGuides, selectedSpecialty]);
+      .filter(g => selectedSpecialty === 'all' || g.specialty === selectedSpecialty)
+      .filter(g => {
+        if (selectedStatus === 'active') return isGuideActive(g);
+        if (selectedStatus === 'inactive') return !isGuideActive(g);
+        return true;
+      });
+  }, [allAvailableGuides, selectedSpecialty, selectedStatus]);
+
+  const activeCount = useMemo(() => allAvailableGuides.filter(isGuideActive).length, [allAvailableGuides]);
+  const inactiveCount = useMemo(() => allAvailableGuides.filter(g => !isGuideActive(g)).length, [allAvailableGuides]);
 
   const groupedGuides = useMemo(() => {
     const active = availableGuides.filter(g => g.status === 'active' && g.remaining > 0);
@@ -96,6 +116,11 @@ const PatientInsuranceTab = ({ patientId }) => {
   const handleCloseMenu = () => {
     setAnchorEl(null);
     setSelectedGuide(null);
+  };
+
+  const handleOpenDetails = () => {
+    setDetailsGuide(selectedGuide);
+    handleCloseMenu();
   };
 
   const handleEdit = () => {
@@ -305,6 +330,36 @@ const PatientInsuranceTab = ({ patientId }) => {
         </Button>
       </Box>
 
+      {/* Filtro de status: Todas / Ativas / Inativas */}
+      <Tabs
+        value={selectedStatus}
+        onChange={(e, v) => setSelectedStatus(v)}
+        sx={{
+          mb: 3,
+          minHeight: 'auto',
+          '& .MuiTab-root': {
+            textTransform: 'none',
+            fontSize: '0.8125rem',
+            fontWeight: 500,
+            minHeight: '32px',
+            py: 0.5,
+            px: 2,
+            color: '#5B6E8C',
+            borderRadius: '40px',
+            transition: 'all 0.2s',
+            '&.Mui-selected': { color: '#FFFFFF', fontWeight: 600 }
+          },
+          '& .MuiTabs-indicator': { display: 'none' }
+        }}
+      >
+        <Tab label={`Todas (${allAvailableGuides.length})`} value="all"
+          sx={{ '&.Mui-selected': { backgroundColor: '#5B6E8C' } }} />
+        <Tab label={`Ativas (${activeCount})`} value="active"
+          sx={{ '&.Mui-selected': { backgroundColor: '#2E7A5E' } }} />
+        <Tab label={`Inativas (${inactiveCount})`} value="inactive"
+          sx={{ '&.Mui-selected': { backgroundColor: '#C75146' } }} />
+      </Tabs>
+
       {/* Saldo agregado por especialidade (apenas quando filtrado) */}
       {balance && selectedSpecialty !== 'all' && (
         <Card sx={{
@@ -353,10 +408,11 @@ const PatientInsuranceTab = ({ patientId }) => {
       {availableGuides.length === 0 && (
         <Box sx={{ textAlign: 'center', py: 8, bgcolor: '#F9FBFD', borderRadius: '32px' }}>
           <Typography variant="body1" sx={{ color: '#5B6E8C', mb: 1 }}>
-            Nenhuma guia encontrada {selectedSpecialty !== 'all' && `para ${selectedSpecialty.replace(/_/g, ' ')}`}
+            Nenhuma guia {selectedStatus === 'active' ? 'ativa' : selectedStatus === 'inactive' ? 'inativa' : ''} encontrada
+            {selectedSpecialty !== 'all' && ` para ${selectedSpecialty.replace(/_/g, ' ')}`}
           </Typography>
           <Typography variant="body2" sx={{ color: '#8A99B0' }}>
-            Tente selecionar outra especialidade ou cadastre uma nova guia
+            Tente selecionar outro filtro ou cadastre uma nova guia
           </Typography>
         </Box>
       )}
@@ -420,6 +476,12 @@ const PatientInsuranceTab = ({ patientId }) => {
           <Edit2 size={14} /> Editar
         </MenuItem>
         <MenuItem
+          onClick={handleOpenDetails}
+          sx={{ fontSize: '0.8125rem', py: 1, gap: 1.5, borderRadius: '12px', mx: 0.5, color: '#1B4D6E' }}
+        >
+          <Eye size={14} /> Detalhes
+        </MenuItem>
+        <MenuItem
           onClick={handleCancelGuide}
           disabled={selectedGuide?.status === 'cancelled'}
           sx={{ fontSize: '0.8125rem', py: 1, gap: 1.5, borderRadius: '12px', mx: 0.5, color: '#C75146' }}
@@ -441,6 +503,11 @@ const PatientInsuranceTab = ({ patientId }) => {
         onClose={handleClosePlanForm}
         guide={planFormGuide}
         patientId={patientId}
+      />
+
+      <GuideDetailsModal
+        guide={detailsGuide}
+        onClose={() => setDetailsGuide(null)}
       />
     </Box>
   );
@@ -738,6 +805,204 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan }) => {
         </CardContent>
       </Card>
     </motion.div>
+  );
+};
+
+// ----------------------------------------------------------------------
+// Modal de detalhes da guia — lista todos os agendamentos atrelados
+// ----------------------------------------------------------------------
+const APPT_STATUS_CONFIG = {
+  completed:           { label: 'Realizado',    color: '#2E7A5E', bg: '#EFF9F6' },
+  paid:                { label: 'Realizado',    color: '#2E7A5E', bg: '#EFF9F6' },
+  scheduled:           { label: 'Agendado',     color: '#1B4D6E', bg: '#EEF4FB' },
+  pre_agendado:        { label: 'Pré-agendado', color: '#5B6E8C', bg: '#F1F5F9' },
+  confirmed:           { label: 'Confirmado',   color: '#1B4D6E', bg: '#EEF4FB' },
+  canceled:            { label: 'Cancelado',    color: '#C75146', bg: '#FDECEA' },
+  cancelled:           { label: 'Cancelado',    color: '#C75146', bg: '#FDECEA' },
+  pending:             { label: 'Pendente',     color: '#ED6C02', bg: '#FFF3E0' },
+  missed:              { label: 'Faltou',       color: '#C75146', bg: '#FDECEA' },
+  processing_create:   { label: 'Processando',  color: '#8A99B0', bg: '#F1F5F9' },
+  processing_complete: { label: 'Processando',  color: '#8A99B0', bg: '#F1F5F9' },
+  processing_cancel:   { label: 'Processando',  color: '#8A99B0', bg: '#F1F5F9' },
+};
+
+const GuideDetailsModal = ({ guide, onClose }) => {
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!guide) return;
+    setLoading(true);
+    getGuideAppointments(guide._id)
+      .then(data => setAppointments(data))
+      .catch(() => setAppointments([]))
+      .finally(() => setLoading(false));
+  }, [guide?._id]);
+
+  if (!guide) return null;
+
+  const specialtyFormatted = guide.specialty
+    ?.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || '';
+  const insuranceFormatted = guide.insurance
+    ?.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || '';
+
+  const apptStatus = (a) => a.operationalStatus || a.status || '';
+  const completedCount = appointments.filter(a => ['completed', 'paid'].includes(apptStatus(a))).length;
+  const scheduledCount = appointments.filter(a => ['scheduled', 'confirmed', 'pre_agendado'].includes(apptStatus(a))).length;
+  const canceledCount  = appointments.filter(a => ['canceled', 'cancelled', 'missed'].includes(apptStatus(a))).length;
+
+  return (
+    <Dialog
+      open={Boolean(guide)}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: '28px',
+          boxShadow: '0 24px 60px rgba(0,0,0,0.15)',
+          overflow: 'hidden'
+        }
+      }}
+    >
+      {/* Header */}
+      <Box sx={{
+        background: 'linear-gradient(135deg, #1B4D6E 0%, #2E7A5E 100%)',
+        px: 3,
+        py: 2.5,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+      }}>
+        <Box>
+          <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: '1rem' }}>
+            Detalhes da Guia #{guide.number}
+          </Typography>
+          <Typography sx={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.75rem', mt: 0.3 }}>
+            {specialtyFormatted} • {insuranceFormatted}
+          </Typography>
+        </Box>
+        <IconButton onClick={onClose} size="small" sx={{ color: 'rgba(255,255,255,0.8)', '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.1)' } }}>
+          <X size={18} />
+        </IconButton>
+      </Box>
+
+      <DialogContent sx={{ p: 3 }}>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+            <CircularProgress size={32} sx={{ color: '#2E7A5E' }} />
+          </Box>
+        ) : (
+          <>
+            {/* Resumo rápido */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.5, mb: 3 }}>
+              {[
+                { label: 'Realizados', value: completedCount, color: '#2E7A5E', bg: '#EFF9F6' },
+                { label: 'Agendados',  value: scheduledCount, color: '#1B4D6E', bg: '#EEF4FB' },
+                { label: 'Cancelados', value: canceledCount,  color: '#C75146', bg: '#FDECEA' },
+              ].map(item => (
+                <Box key={item.label} sx={{ bgcolor: item.bg, borderRadius: '16px', p: 1.5, textAlign: 'center' }}>
+                  <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: item.color, lineHeight: 1.2 }}>
+                    {item.value}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.65rem', color: item.color, fontWeight: 500, opacity: 0.8 }}>
+                    {item.label}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+
+            <Divider sx={{ mb: 2.5 }} />
+
+            {/* Lista de agendamentos */}
+            {appointments.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 5 }}>
+                <Calendar size={32} color="#A0AABF" style={{ marginBottom: 8 }} />
+                <Typography sx={{ color: '#8A99B0', fontSize: '0.875rem' }}>
+                  Nenhum agendamento registrado para esta guia
+                </Typography>
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {appointments.map((appt, idx) => {
+                  const statusKey = appt.operationalStatus || appt.status || '';
+                  const cfg = APPT_STATUS_CONFIG[statusKey] || { label: statusKey, color: '#8A99B0', bg: '#F8FAFE' };
+                  const dateStr = appt.date
+                    ? format(parseISO(appt.date.substring(0, 10)), "dd/MM/yyyy", { locale: ptBR })
+                    : '—';
+                  const timeStr = appt.time || '';
+                  const doctorName = appt.doctor?.fullName || appt.professionalName || '';
+
+                  return (
+                    <Box
+                      key={appt._id || idx}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        px: 2,
+                        py: 1.5,
+                        bgcolor: '#F8FAFE',
+                        borderRadius: '14px',
+                        border: '1px solid #EDF2F7',
+                        transition: 'all 0.15s',
+                        '&:hover': { bgcolor: '#F1F5F9', borderColor: '#E2E8F0' }
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: cfg.color, flexShrink: 0 }} />
+                        <Box>
+                          <Typography sx={{ fontWeight: 600, fontSize: '0.8125rem', color: '#1A2C3E' }}>
+                            {dateStr}{timeStr ? ` às ${timeStr}` : ''}
+                          </Typography>
+                          <Typography sx={{ fontSize: '0.7rem', color: '#8A99B0', mt: 0.2 }}>
+                            {[
+                              doctorName,
+                              appt.sessionType ? appt.sessionType.replace(/_/g, ' ') : null
+                            ].filter(Boolean).join(' • ') || '—'}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      <Chip
+                        label={cfg.label}
+                        size="small"
+                        sx={{
+                          height: '20px',
+                          fontSize: '0.6rem',
+                          fontWeight: 600,
+                          bgcolor: cfg.bg,
+                          color: cfg.color,
+                          border: `1px solid ${cfg.color}30`,
+                          borderRadius: '8px'
+                        }}
+                      />
+                    </Box>
+                  );
+                })}
+              </Box>
+            )}
+          </>
+        )}
+      </DialogContent>
+
+      <DialogActions sx={{ px: 3, pb: 2.5 }}>
+        <Button
+          onClick={onClose}
+          variant="outlined"
+          sx={{
+            borderRadius: '40px',
+            textTransform: 'none',
+            fontWeight: 600,
+            fontSize: '0.8125rem',
+            borderColor: '#DDE4EE',
+            color: '#5B6E8C',
+            '&:hover': { bgcolor: '#F1F5F9', borderColor: '#C8D4E0' }
+          }}
+        >
+          Fechar
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 

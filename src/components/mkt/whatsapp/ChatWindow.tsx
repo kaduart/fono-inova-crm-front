@@ -482,7 +482,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                                 <div className="flex gap-2 mt-2">
                                     <button
                                         onClick={async () => {
-                                            const result = await enviarViaExtensao(pre, 'confirmacao');
+                                            const result = await enviarViaExtensao({ ...pre, responsibleName: contact?.name || undefined }, 'confirmacao');
                                             if (result.success) {
                                                 toast.success('✅ Mensagem injetada no WhatsApp Web! Pressione Enter para enviar.', {
                                                     position: 'bottom-right',
@@ -504,7 +504,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                                     
                                     <button
                                         onClick={async () => {
-                                            const result = await enviarViaExtensao(pre, 'lembrete');
+                                            const result = await enviarViaExtensao({ ...pre, responsibleName: contact?.name || undefined }, 'lembrete');
                                             if (result.success) {
                                                 toast.success('🔔 Lembrete injetado no WhatsApp Web! Pressione Enter para enviar.', {
                                                     position: 'bottom-right',

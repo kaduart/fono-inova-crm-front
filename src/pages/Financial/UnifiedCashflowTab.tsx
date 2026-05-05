@@ -185,12 +185,29 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                                         <AttachMoneyIcon sx={{ color: '#16A34A' }} />
                                         <Typography variant="body2" color="text.secondary">
-                                            Caixa do Dia
+                                            Caixa (Dinheiro Recebido)
                                         </Typography>
                                     </Box>
                                     <Typography variant="h4" fontWeight="bold" color="#16A34A">
                                         {formatCurrency(data.caixa.total)}
                                     </Typography>
+                                    {/* Barra receita real vs diferida */}
+                                    {data.receitaReal != null && data.receitaDiferida != null && data.caixa.total > 0 && (
+                                        <Box sx={{ mt: 1.5 }}>
+                                            <Box sx={{ display: 'flex', borderRadius: 1, overflow: 'hidden', height: 6, mb: 0.5 }}>
+                                                <Box sx={{ width: `${(data.receitaReal / data.caixa.total) * 100}%`, bgcolor: '#16A34A' }} />
+                                                <Box sx={{ flex: 1, bgcolor: '#F59E0B50' }} />
+                                            </Box>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <Typography variant="caption" color="#16A34A">
+                                                    ✓ {formatCurrency(data.receitaReal)} realizados
+                                                </Typography>
+                                                <Typography variant="caption" color="#F59E0B">
+                                                    ⏳ {formatCurrency(data.receitaDiferida)} a realizar
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                    )}
                                     <Box sx={{ mt: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                                         {data.caixa.pix > 0 && (
                                             <Chip size="small" label={`Pix: ${formatCurrency(data.caixa.pix)}`} sx={{ bgcolor: '#16A34A20', color: '#16A34A' }} />

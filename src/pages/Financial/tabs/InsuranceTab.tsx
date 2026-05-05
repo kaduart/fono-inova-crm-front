@@ -171,6 +171,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             totalFaturado: billedPayments.reduce((s: number, p: any) => s + (p.grossAmount || 0), 0),
             totalRecebido: receivedPayments.reduce((s: number, p: any) => s + (p.grossAmount || 0), 0),
             pendingCount: pendingPayments.length + billedPayments.length,
+            billedCount: billedPayments.length,
             totalProviders: activeProviders
         };
     };
@@ -627,7 +628,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                                     {ms.totalFaturado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                                 </Typography>
                                                 <Typography variant="caption" color="text.secondary">
-                                                    {billedPayments.length} atendimento{billedPayments.length !== 1 ? 's' : ''}
+                                                    {ms.billedCount} atendimento{ms.billedCount !== 1 ? 's' : ''}
                                                 </Typography>
                                             </Box>
                                         </Box>
