@@ -86,6 +86,12 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
         paymentMethod: 'dinheiro',
         status: 'agendado',
     });
+    const [scheduleModalShadowInfo, setScheduleModalShadowInfo] = useState<{
+        patientName: string;
+        occurrences: number;
+        confidence: number;
+        lastDates: string[];
+    } | null>(null);
     const theme = useTheme();
 
     // 🎯 USA O CONTEXTO GLOBAL DE MÉDICOS
@@ -179,6 +185,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
             serviceType: 'individual_session',
         });
 
+        setScheduleModalShadowInfo(null); // limpa shadow info em fluxo normal
         setShowScheduleModal(true);
         setSelectedBookingData(data);
     };
@@ -198,12 +205,19 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
             paymentMethod: 'dinheiro',
             serviceType: 'individual_session',
         });
+        setScheduleModalShadowInfo({
+            patientName: shadowWarningData.patientName,
+            occurrences: shadowWarningData.occurrences,
+            confidence: shadowWarningData.confidence,
+            lastDates: shadowWarningData.lastDates,
+        });
         setShowScheduleModal(true);
         setShadowWarningData(null);
     };
 
     const cancelShadowBooking = () => {
         setShadowWarningData(null);
+        setScheduleModalShadowInfo(null);
     };
 
     const handleKeepForPatient = async () => {
@@ -490,6 +504,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
                     onSave={(data) => { handleBookingComplete(data) }}
                     isLoading={isLoading}
                     erroMessage={errorMessage}
+                    shadowInfo={scheduleModalShadowInfo}
                 />
             )}
         </div>

@@ -1,4 +1,4 @@
-import { Calendar, DollarSign, User, Users, X } from 'lucide-react';
+import { Calendar, DollarSign, User, Users, X, AlertTriangle } from 'lucide-react';
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import DatePicker, { registerLocale } from 'react-datepicker';
 
@@ -40,6 +40,13 @@ const defaultForm: ScheduleAppointment = {
     insuranceValue: 0,
 };
 
+export interface ShadowInfoPayload {
+    patientName: string;
+    occurrences: number;
+    confidence: number;
+    lastDates?: string[];
+}
+
 type Props = {
     isOpen: boolean;
     onClose?: () => void;
@@ -51,6 +58,7 @@ type Props = {
     erroMessage?: string | null,
     isLoading: boolean;
     closeModalSignal?: number; // 🆕 Sinal para fechar modal após sucesso
+    shadowInfo?: ShadowInfoPayload | null;
 };
 
 const ScheduleAppointmentModal = ({
@@ -62,7 +70,8 @@ const ScheduleAppointmentModal = ({
     patients,
     erroMessage,
     isLoading,
-    closeModalSignal
+    closeModalSignal,
+    shadowInfo
 }: Props) => {
     const [formData, setFormData] = useState<ScheduleAppointment>(defaultForm);
     const [serviceType, setServiceType] = useState<ServiceType>('individual_session');
@@ -390,6 +399,28 @@ const ScheduleAppointmentModal = ({
             {(erroMessage || submitError) && (
                 <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 rounded">
                     <p>{erroMessage || submitError}</p>
+                </div>
+            )}
+
+            {/* 🧠 Shadow Booking Alert — aparece quando o horário veio de um slot recorrente */}
+            {shadowInfo && (
+                <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-start gap-3">
+                        <div className="p-1.5 bg-amber-100 rounded-full shrink-0">
+                            <AlertTriangle className="h-5 w-5 text-amber-600" />
+                        </div>
+                        <div>
+                            <p className="font-semibold text-amber-900">
+                                Horário recorrente detectado
+                            </p>
+                            <p className="text-sm text-amber-800 mt-1">
+                                Este horário costuma ser ocupado por <strong>{shadowInfo.patientName}</strong> ({shadowInfo.occurrences}x neste mesmo dia/hora).
+                            </p>
+                            <p className="text-xs text-amber-700 mt-1">
+                                Confiança do padrão: {Math.round((shadowInfo.confidence || 0) * 100)}%
+                            </p>
+                        </div>
+                    </div>
                 </div>
             )}
 
