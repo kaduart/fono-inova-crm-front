@@ -2,7 +2,7 @@ import { ptBR } from 'date-fns/locale';
 import { Building2, Calendar, CheckCircle, ClipboardCheck, Clock, DollarSign, PencilIcon, Stethoscope, User, X, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { safeCompleteAppointment } from '../../utils/appointmentCompleteGuard';
+import { validateAppointmentComplete } from '../../utils/appointmentCompleteGuard';
 import { getPatientFinancialSummary, FinancialSummary } from '../../services/financialSummaryService';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import ReactInputMask from 'react-input-mask';
@@ -432,40 +432,36 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
         setIsCompleting(true);
         setProcessingState({ isProcessing: true, message: 'Finalizando atendimento...' });
-        
+
         try {
-            // 🛡️ GUARD FINANCEIRO + execução segura
-            const didProceed = safeCompleteAppointment(
-                {
-                    billingType: event?.billingType,
-                    package: event?.package
-                        ?? event?.extendedProps?.package
-                        ?? ((event?.extendedProps?.__isPackageAppointment || event?.extendedProps?.serviceType === 'package_session' || event?.extendedProps?.packageId)
-                            ? { _id: event?.extendedProps?.packageId || 'legacy' }
-                            : null),
-                    liminarContract: event?.liminarContract,
-                    sessionValue: (addToBalance && debitAmount > 0) ? debitAmount : (event?.sessionValue ?? event?.paymentAmount ?? null),
-                },
-                async () => {
-                    if (addToBalance) {
-                        console.log('💰 [Modal] Completando com saldo devedor:', debitAmount);
-                        await onCompleteAppointment(event.id, {
-                            addToBalance: true,
-                            balanceAmount: debitAmount,
-                            balanceDescription: debitDescription
-                        });
-                    } else {
-                        await onCompleteAppointment(event.id);
-                    }
-                },
-                (guard) => {
-                    toast.error(guard.message, { id: `guard-${event.id}`, autoClose: 6000 });
-                    setIsCompleting(false);
-                    setProcessingState({ isProcessing: false, message: '' });
-                }
-            );
-            
-            if (!didProceed) return;
+            // 🛡️ GUARD FINANCEIRO — valida antes de bater na API
+            const guardResult = validateAppointmentComplete({
+                billingType: event?.billingType,
+                package: event?.package
+                    ?? event?.extendedProps?.package
+                    ?? ((event?.extendedProps?.__isPackageAppointment || event?.extendedProps?.serviceType === 'package_session' || event?.extendedProps?.packageId)
+                        ? { _id: event?.extendedProps?.packageId || 'legacy' }
+                        : null),
+                liminarContract: event?.liminarContract,
+                sessionValue: (addToBalance && debitAmount > 0) ? debitAmount : (event?.sessionValue ?? event?.paymentAmount ?? null),
+            });
+
+            if (!guardResult.valid) {
+                toast.error(guardResult.message, { id: `guard-${event.id}`, autoClose: 6000 });
+                return;
+            }
+
+            // ✅ Guard passou — executa com loading ativo
+            if (addToBalance) {
+                console.log('💰 [Modal] Completando com saldo devedor:', debitAmount);
+                await onCompleteAppointment(event.id, {
+                    addToBalance: true,
+                    balanceAmount: debitAmount,
+                    balanceDescription: debitDescription
+                });
+            } else {
+                await onCompleteAppointment(event.id);
+            }
             // ✅ Sucesso: o modal fecha via closeModalSignal do pai
         } catch (err: any) {
             // 🐛 CORREÇÃO: Modal fica aberto quando dá erro
