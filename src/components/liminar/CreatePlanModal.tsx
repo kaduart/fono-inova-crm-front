@@ -1,7 +1,8 @@
-import { Plus, Trash2, X, Clock, DollarSign, Calendar, FileText } from 'lucide-react';
-import { useState } from 'react';
+import { Plus, Trash2, X, Clock, DollarSign, Calendar, FileText, UserCheck } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import liminarContractService from '../../services/liminarContractService';
+import doctorService from '../../services/doctorService';
 import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
@@ -27,13 +28,14 @@ const WEEKDAYS = [
 
 interface TherapyEntry {
   specialty: string;
+  doctor: string;
   sessionValue: number;
   sessionDurationMinutes: number;
   slots: Array<{ dayOfWeek: number | ''; time: string }>;
 }
 
 function emptyEntry(): TherapyEntry {
-  return { specialty: '', sessionValue: 0, sessionDurationMinutes: 40, slots: [{ dayOfWeek: '', time: '' }] };
+  return { specialty: '', doctor: '', sessionValue: 0, sessionDurationMinutes: 40, slots: [{ dayOfWeek: '', time: '' }] };
 }
 
 interface Props {
@@ -46,6 +48,13 @@ export default function CreatePlanModal({ contractId, onClose, onCreated }: Prop
   const [entries, setEntries] = useState<TherapyEntry[]>([emptyEntry()]);
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [doctors, setDoctors] = useState<Array<{ _id: string; fullName: string; specialty?: string }>>([]);
+
+  useEffect(() => {
+    doctorService.getActiveDoctors().then((res: any) => {
+      setDoctors(res?.data ?? []);
+    }).catch(() => {});
+  }, []);
 
   const usedSpecialties = entries.map((e) => e.specialty).filter(Boolean);
 
@@ -94,6 +103,7 @@ export default function CreatePlanModal({ contractId, onClose, onCreated }: Prop
     return entries.every(
       (e) =>
         e.specialty &&
+        e.doctor &&
         e.sessionValue > 0 &&
         e.slots.length > 0 &&
         e.slots.every((s) => s.dayOfWeek !== '' && s.time)
@@ -108,6 +118,7 @@ export default function CreatePlanModal({ contractId, onClose, onCreated }: Prop
     const therapies: Record<string, any> = {};
     for (const entry of entries) {
       therapies[entry.specialty] = {
+        doctor: entry.doctor || undefined,
         sessionValue: entry.sessionValue,
         sessionDurationMinutes: entry.sessionDurationMinutes,
         slots: entry.slots.map((s) => ({ dayOfWeek: Number(s.dayOfWeek), time: s.time })),
@@ -176,7 +187,10 @@ export default function CreatePlanModal({ contractId, onClose, onCreated }: Prop
                     </label>
                     <select
                       value={entry.specialty}
-                      onChange={(e) => updateEntry(eIdx, 'specialty', e.target.value)}
+                      onChange={(e) => {
+                        updateEntry(eIdx, 'specialty', e.target.value);
+                        updateEntry(eIdx, 'doctor', '');
+                      }}
                       className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all"
                       required
                     >
@@ -192,6 +206,30 @@ export default function CreatePlanModal({ contractId, onClose, onCreated }: Prop
                       ))}
                     </select>
                   </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1">
+                      <UserCheck size={12} /> Profissional *
+                    </label>
+                    <select
+                      value={entry.doctor}
+                      onChange={(e) => updateEntry(eIdx, 'doctor', e.target.value)}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all"
+                      required
+                    >
+                      <option value="">
+                        {entry.specialty ? 'Selecione o profissional' : 'Selecione a especialidade primeiro'}
+                      </option>
+                      {doctors
+                        .filter((d) => !entry.specialty || (d.specialty || '').toLowerCase() === entry.specialty.toLowerCase())
+                        .map((d) => (
+                          <option key={d._id} value={d._id}>{d.fullName}</option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1">

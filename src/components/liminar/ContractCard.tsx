@@ -102,7 +102,25 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
         mode: 'append',
         weeks: confirm.weeks,
       });
-      toast.success(`✅ ${res.created} sessões criadas  |  ⏭ ${res.skipped} já existiam  |  💰 R$ ${fmt(res.totalCost)}`);
+
+      if (res.created > 0) {
+        toast.success(`✅ ${res.created} sessões criadas  |  💰 R$ ${fmt(res.totalCost)}`);
+      }
+
+      if (res.conflicts > 0 && res.conflictSlots?.length > 0) {
+        const msgs = res.conflictSlots.map((c: any) => c.message ?? `${c.time} — indisponível`);
+        const preview = msgs.slice(0, 3).join('\n');
+        const extra = msgs.length > 3 ? `\n...e mais ${msgs.length - 3} conflito(s)` : '';
+        toast.warn(
+          `⚠️ ${res.conflicts} slot(s) não criados por conflito de agenda:\n${preview}${extra}`,
+          { autoClose: 10000, style: { whiteSpace: 'pre-line' } }
+        );
+      }
+
+      if (res.created === 0 && res.conflicts === 0) {
+        toast.info('Nenhuma sessão nova gerada — todos os slots já existiam.');
+      }
+
       onRefresh();
     } catch (err: any) {
       toast.error(err?.response?.data?.error ?? 'Erro ao gerar sessões');
