@@ -30,6 +30,15 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
     stats: null as any,
     futureAppointments: [] as Appointment[],
   });
+
+  // Paginação de pacientes
+  const [patientsPagination, setPatientsPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+    search: ''
+  });
   
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
   const [therapySessions, setTherapySessions] = useState<any[]>([]);
@@ -189,16 +198,32 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
     }
   }, [doctorId, loadingTabsState.attendance]);
 
-  // 🎯 Carrega dados da aba Patients (lista completa)
-  const loadPatients = useCallback(async (force = false) => {
+  // 🎯 Carrega dados da aba Patients (lista completa com paginação)
+  const loadPatients = useCallback(async (force = false, page?: number, search?: string) => {
     if (!doctorId) return;
     if (loadingTabsState.patients && !force) return;
 
     setLoadingTabsState(prev => ({ ...prev, patients: true }));
 
     try {
-      const patientsRes = await fetchPatients(doctorId);
-      setOverviewData(prev => ({ ...prev, patients: patientsRes || [] }));
+      const currentPage = page || patientsPagination.page;
+      const currentSearch = search !== undefined ? search : patientsPagination.search;
+      const patientsRes = await fetchPatients({
+        page: currentPage,
+        limit: patientsPagination.limit,
+        search: currentSearch
+      });
+      // Backend retorna { data, meta } ou array direto
+      const patientList = Array.isArray(patientsRes) ? patientsRes : (patientsRes?.data || []);
+      const meta = patientsRes?.meta || {};
+      setOverviewData(prev => ({ ...prev, patients: patientList }));
+      setPatientsPagination(prev => ({
+        ...prev,
+        page: meta.page || currentPage,
+        total: meta.total || patientList.length,
+        totalPages: meta.totalPages || 1,
+        search: currentSearch
+      }));
     } catch (error) {
       console.error('[useDoctorDashboard] Erro ao carregar pacientes:', error);
       toast.error('Erro ao carregar pacientes');
@@ -323,15 +348,19 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
     calendarEvents,
     therapySessions,
     attendanceSummary,
-    
+
     // Admin data
     doctors,
     totalDoctors,
     doctorOverview,
-    
+
     // Loading por aba
     loading: loadingTabsState,
-    
+
+    // Paginação de pacientes
+    patientsPagination,
+    setPatientsPagination,
+
     // Funções de carregamento lazy
     loadOverview,
     loadAppointments,
@@ -339,7 +368,7 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
     loadAttendance,
     loadPatients,
     loadAdminData,
-    
+
     // Ações
     handleUpdateStatus,
     handleCompleteSession,

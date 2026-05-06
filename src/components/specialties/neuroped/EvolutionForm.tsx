@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Appointment } from '../../../hooks/useTempAppointments';
 import API from '../../../services/api';
+import { extractData } from '../../../utils/dtoHelper';
 
 interface NeuropedFormData {
   seizureFrequency: number;
@@ -34,7 +35,7 @@ const NeuropedEvolutionForm: React.FC<NeuropedEvolutionFormProps> = ({ appointme
 
     try {
       // Cria a evolução com avaliação neuropediátrica
-      await API.post('/v2/evolutions', {
+      const response = await API.post('/v2/evolutions', {
         appointmentId: appointment.id,
         specialty: 'neuroped',
         evaluationTypes: ['neuroped_assessment'],
@@ -45,6 +46,7 @@ const NeuropedEvolutionForm: React.FC<NeuropedEvolutionFormProps> = ({ appointme
       });
 
       alert('Avaliação neuropediátrica salva com sucesso!');
+      console.log('Evolução criada:', extractData(response));
     } catch (error) {
       console.error('Erro ao salvar avaliação:', error);
       alert('Ocorreu um erro ao salvar a avaliação. Tente novamente.');

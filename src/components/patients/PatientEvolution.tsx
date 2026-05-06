@@ -13,6 +13,7 @@ import Grid from '@mui/material/Grid';
 
 import { FileText } from 'lucide-react';
 import { getEvaluationsByPatient } from '../../services/evaluationService';
+import { extractData } from '../../utils/dtoHelper';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -154,7 +155,7 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
         axios.post('/api/v2/evolutions', data)
             .then(() => {
                 axios.get(`/api/v2/evolutions/${patientId}`)
-                    .then(response => setEvolutions(response.data))
+                    .then(response => setEvolutions(extractData(response)))
                     .catch(error => console.error('Error fetching evolutions after saving:', error));
             })
             .catch(error => console.error('Error saving evolution:', error));

@@ -44,6 +44,8 @@ type NewEvaluationModalProps = {
     // NOVO: permite recarregar protocolos quando muda especialidade
     onSpecialtyChange?: (specialty: string) => void;
     doctorSpecialty?: string;
+    // Última evolução do paciente (para pré-preencher continuidade)
+    lastEvolution?: any | null;
 };
 
 // ============================================
@@ -350,7 +352,8 @@ export function NewEvaluationModal({
     selectedProtocolCode,
     protocolsLoading,
     protocolsError,
-    onSelectProtocol
+    onSelectProtocol,
+    lastEvolution
 }: NewEvaluationModalProps) {
     const [metrics, setMetrics] = useState<Record<string, number>>({});
     const [areaScores, setAreaScores] = useState<Record<string, number>>({});
@@ -388,20 +391,64 @@ export function NewEvaluationModal({
         setAreaScores(initialAreas);
     }, [open, dynamicMetrics, dynamicAreas]);
 
-    // Reset form quando abre/fecha - sempre começa vazio
+    // Reset / pré-preenchimento quando abre
     useEffect(() => {
-        if (open) {
-            setDate(format(new Date(), 'yyyy-MM-dd'));
-            setTime('10:00');
+        if (!open) return;
+
+        setDate(format(new Date(), 'yyyy-MM-dd'));
+        setTime('10:00');
+
+        if (lastEvolution) {
+            // ─── CONTINUIDADE CLÍNICA ───
+            // Pré-preenche com dados da última evolução para o profissional editar
+            setContent(lastEvolution.content || '');
+            setSelectedSpecialty(lastEvolution.specialty || '');
+
+            // Métricas anteriores
+            const prevMetrics: Record<string, number> = {};
+            const prevDynamicMetrics: MetricType[] = [];
+            if (lastEvolution.metrics && Array.isArray(lastEvolution.metrics)) {
+                lastEvolution.metrics.forEach((m: any) => {
+                    const id = String(m.name || m.id).toLowerCase().replace(/\s+/g, '_');
+                    prevMetrics[m.name] = Number(m.value ?? 0);
+                    prevDynamicMetrics.push({
+                        id,
+                        name: m.name,
+                        description: m.notes || '',
+                        minValue: 0,
+                        maxValue: 10,
+                        unit: m.unit || 'pts'
+                    });
+                });
+            }
+            setMetrics(prevMetrics);
+            setDynamicMetrics(prevDynamicMetrics);
+
+            // Áreas anteriores
+            const prevAreaScores: Record<string, number> = {};
+            const prevDynamicAreas: AreaType[] = [];
+            if (lastEvolution.evaluationAreas && Array.isArray(lastEvolution.evaluationAreas)) {
+                lastEvolution.evaluationAreas.forEach((a: any) => {
+                    const id = String(a.id || a.name).toLowerCase().replace(/\s+/g, '_');
+                    prevAreaScores[id] = Number(a.score ?? 5);
+                    prevDynamicAreas.push({
+                        id,
+                        name: a.name || id
+                    });
+                });
+            }
+            setAreaScores(prevAreaScores);
+            setDynamicAreas(prevDynamicAreas);
+        } else {
+            // Primeira evolução — começa vazio
             setContent('');
-            // Sempre começa vazio - profissional adiciona o que precisa
             setDynamicMetrics([]);
             setDynamicAreas([]);
             setSelectedSpecialty('');
             setMetrics({});
             setAreaScores({});
         }
-    }, [open]);
+    }, [open, lastEvolution]);
 
     // Handler para carregar template de especialidade - AGORA SÓ ADICIONA AO CATALOGO
     const handleLoadTemplate = (specialty: string) => {

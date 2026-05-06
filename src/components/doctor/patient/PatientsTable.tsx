@@ -4,7 +4,6 @@ import {
     Button,
     Card,
     CardContent,
-    CardHeader,
     Chip,
     InputAdornment,
     Paper,
@@ -21,7 +20,6 @@ import {
 import { Eye, FileText, School, Search, Stethoscope, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 
-// Interface para o paciente
 interface Patient {
     _id: string;
     fullName: string;
@@ -34,8 +32,19 @@ interface Patient {
     reports?: any[];
 }
 
+interface PaginationInfo {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    search: string;
+}
+
 interface PatientsTableProps {
     patients: any[];
+    pagination?: PaginationInfo;
+    onPageChange?: (page: number) => void;
+    onSearchChange?: (search: string) => void;
     onPatientClick?: (patient: Patient) => void;
     onViewPatientDetails?: (patient: Patient) => void;
     onCreateAnamnesis?: (patient: Patient) => void;
@@ -46,6 +55,9 @@ interface PatientsTableProps {
 
 export default function PatientsTable({
     patients,
+    pagination,
+    onPageChange,
+    onSearchChange,
     onPatientClick,
     onViewPatientDetails,
     onCreateAnamnesis,
@@ -53,21 +65,22 @@ export default function PatientsTable({
     onViewMedicalReports,
     onAddNewPatient
 }: PatientsTableProps) {
-    const [searchTerm, setSearchTerm] = useState('');
+    const [localSearch, setLocalSearch] = useState(pagination?.search || '');
     const theme = useTheme();
 
-    const filteredPatients = patients?.filter(patient =>
-        patient.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (patient.diagnosis && patient.diagnosis.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    // Se houver paginação do backend, usa patients direto; senão filtra local
+    const filteredPatients = pagination
+        ? patients
+        : patients?.filter(patient =>
+            patient.fullName.toLowerCase().includes(localSearch.toLowerCase()) ||
+            (patient.diagnosis && patient.diagnosis.toLowerCase().includes(localSearch.toLowerCase()))
+        );
 
-    // Handler para visualização rápida (modal)
     const handleQuickView = (patient: Patient, event: React.MouseEvent) => {
         event.stopPropagation();
         onPatientClick?.(patient);
     };
 
-    // Handler para visualização completa (dentro do dashboard)
     const handleViewPatientDetails = (patient: Patient) => {
         onViewPatientDetails?.(patient);
     };
@@ -99,116 +112,115 @@ export default function PatientsTable({
     return (
         <Card
             sx={{
-                borderRadius: 3,
-                border: `1px solid ${theme.palette.divider}`,
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider',
                 background: 'white',
-                mt: 3
+                mt: 3,
+                boxShadow: 'none'
             }}
         >
-            <CardHeader
+            {/* Header simplificado */}
+            <Box
                 sx={{
-                    borderBottom: `1px solid ${theme.palette.divider}`,
-                    background: `linear-gradient(135deg, ${theme.palette.primary.light}10, ${theme.palette.secondary.light}05)`,
-                    py: 3
+                    px: 2,
+                    py: 2,
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                    display: 'flex',
+                    flexDirection: { xs: 'column', md: 'row' },
+                    alignItems: { xs: 'start', md: 'center' },
+                    justifyContent: 'space-between',
+                    gap: 2
                 }}
-                title={
-                    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { xs: 'start', md: 'center' }, justifyContent: 'space-between', gap: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <UserPlus size={24} color={theme.palette.primary.main} />
-                            <Typography variant="h5" sx={{ fontWeight: 600, color: 'grey.800' }}>
-                                Gestão de Pacientes
-                            </Typography>
-                        </Box>
+            >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <UserPlus size={20} color={theme.palette.primary.main} />
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: 'grey.800' }}>
+                        Gestão de Pacientes
+                    </Typography>
+                </Box>
 
-                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                            <TextField
-                                placeholder="Buscar pacientes..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                size="small"
-                                InputProps={{
-                                    startAdornment: (
-                                        <InputAdornment position="start">
-                                            <Search size={18} color={theme.palette.grey[500]} />
-                                        </InputAdornment>
-                                    ),
-                                }}
-                                sx={{
-                                    width: { xs: '100%', md: 300 },
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: 2,
-                                    }
-                                }}
-                            />
-                            <Button
-                                variant="contained"
-                                startIcon={<UserPlus size={18} />}
-                                onClick={handleAddNewPatientClick}
-                                sx={{
-                                    borderRadius: 2,
-                                    fontWeight: 600,
-                                    whiteSpace: 'nowrap'
-                                }}
-                            >
-                                Novo Paciente
-                            </Button>
-                        </Box>
-                    </Box>
-                }
-            />
+                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <TextField
+                        placeholder="Buscar pacientes..."
+                        value={localSearch}
+                        onChange={(e) => {
+                            setLocalSearch(e.target.value);
+                            if (onSearchChange) {
+                                onSearchChange(e.target.value);
+                            }
+                        }}
+                        size="small"
+                        InputProps={{
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <Search size={16} color={theme.palette.grey[500]} />
+                                </InputAdornment>
+                            ),
+                        }}
+                        sx={{
+                            width: { xs: '100%', md: 260 },
+                            '& .MuiOutlinedInput-root': { borderRadius: 1.5 }
+                        }}
+                    />
+                    <Button
+                        variant="contained"
+                        startIcon={<UserPlus size={16} />}
+                        onClick={handleAddNewPatientClick}
+                        size="small"
+                        sx={{
+                            borderRadius: 1.5,
+                            fontWeight: 500,
+                            textTransform: 'none',
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        Novo Paciente
+                    </Button>
+                </Box>
+            </Box>
+
             <CardContent sx={{ p: 0 }}>
-                <TableContainer
-                    component={Paper}
-                    elevation={0}
-                    sx={{
-                        border: 'none',
-                        borderRadius: '0 0 12px 12px'
-                    }}
-                >
+                <TableContainer component={Paper} elevation={0} sx={{ border: 'none', borderRadius: 0 }}>
                     <Table sx={{ minWidth: 800 }}>
-                        <TableHead sx={{ backgroundColor: theme.palette.grey[50] }}>
+                        <TableHead sx={{ backgroundColor: '#F9FAFB' }}>
                             <TableRow>
-                                <TableCell sx={{ fontWeight: 600, color: 'grey.700' }}>Paciente</TableCell>
-                                <TableCell sx={{ fontWeight: 600, color: 'grey.700' }}>Diagnóstico</TableCell>
-                                <TableCell sx={{ fontWeight: 600, color: 'grey.700' }}>Relatórios</TableCell>
-                                <TableCell sx={{ fontWeight: 600, color: 'grey.700' }}>Última Consulta</TableCell>
-                                <TableCell sx={{ fontWeight: 600, color: 'grey.700' }}>Status</TableCell>
-                                <TableCell sx={{ fontWeight: 600, color: 'grey.700' }}>Ações</TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: 'grey.600', fontSize: '0.75rem', py: 1.5 }}>Paciente</TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: 'grey.600', fontSize: '0.75rem', py: 1.5 }}>Diagnóstico</TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: 'grey.600', fontSize: '0.75rem', py: 1.5 }}>Relatórios</TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: 'grey.600', fontSize: '0.75rem', py: 1.5 }}>Última Consulta</TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: 'grey.600', fontSize: '0.75rem', py: 1.5 }}>Status</TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: 'grey.600', fontSize: '0.75rem', py: 1.5 }}>Ações</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {filteredPatients?.length > 0 ? (
                                 filteredPatients.map(patient => {
                                     const reportCounts = getReportCounts(patient);
-
                                     return (
                                         <TableRow
                                             key={patient._id}
-                                            sx={{
-                                                '&:hover': {
-                                                    backgroundColor: theme.palette.grey[50]
-                                                }
-                                            }}
+                                            hover
+                                            sx={{ '&:hover': { backgroundColor: '#F9FAFB' } }}
                                         >
-                                            {/* Coluna do Paciente - Clique rápido para modal */}
                                             <TableCell>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                                     <Box
                                                         sx={{
-                                                            width: 40,
-                                                            height: 40,
+                                                            width: 36,
+                                                            height: 36,
                                                             backgroundColor: theme.palette.primary.light,
-                                                            borderRadius: 2,
+                                                            borderRadius: 1.5,
                                                             display: 'flex',
                                                             alignItems: 'center',
                                                             justifyContent: 'center',
                                                             color: 'white',
                                                             fontWeight: 'bold',
-                                                            fontSize: '0.875rem',
+                                                            fontSize: '0.75rem',
                                                             cursor: 'pointer',
                                                             '&:hover': {
                                                                 backgroundColor: theme.palette.primary.main,
-                                                                transform: 'scale(1.05)'
                                                             }
                                                         }}
                                                         onClick={(e) => handleQuickView(patient, e)}
@@ -217,20 +229,17 @@ export default function PatientsTable({
                                                     </Box>
                                                     <Box>
                                                         <Typography
-                                                            variant="body1"
+                                                            variant="body2"
                                                             sx={{
                                                                 fontWeight: 500,
                                                                 cursor: 'pointer',
-                                                                '&:hover': {
-                                                                    color: theme.palette.primary.main,
-                                                                    textDecoration: 'underline'
-                                                                }
+                                                                '&:hover': { color: theme.palette.primary.main }
                                                             }}
                                                             onClick={(e) => handleQuickView(patient, e)}
                                                         >
                                                             {patient.fullName}
                                                         </Typography>
-                                                        <Typography variant="caption" sx={{ color: 'grey.600' }}>
+                                                        <Typography variant="caption" sx={{ color: 'grey.500' }}>
                                                             {patient.healthPlan?.name || 'Particular'} • {patient.age} anos
                                                         </Typography>
                                                     </Box>
@@ -238,56 +247,51 @@ export default function PatientsTable({
                                             </TableCell>
 
                                             <TableCell>
-                                                <Typography
-                                                    variant="body2"
-                                                    sx={{
-                                                        maxWidth: 200,
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis',
-                                                        whiteSpace: 'nowrap'
-                                                    }}
-                                                >
-                                                    {patient.diagnosis || 'Não informado'}
+                                                <Typography variant="body2" sx={{ color: 'grey.700' }}>
+                                                    {patient.diagnosis || '—'}
                                                 </Typography>
                                             </TableCell>
 
                                             <TableCell>
-                                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                                                     <Chip
-                                                        icon={<Stethoscope size={14} />}
-                                                        label={`${reportCounts.anamnesis} Anamnese`}
+                                                        icon={<Stethoscope size={12} />}
+                                                        label={`${reportCounts.anamnesis}`}
                                                         size="small"
                                                         variant={reportCounts.anamnesis > 0 ? "filled" : "outlined"}
                                                         color={reportCounts.anamnesis > 0 ? "primary" : "default"}
                                                         onClick={() => handleViewMedicalReports(patient)}
                                                         clickable={!!onViewMedicalReports}
+                                                        sx={{ height: 24, fontSize: '0.7rem' }}
                                                     />
                                                     <Chip
-                                                        icon={<School size={14} />}
-                                                        label={`${reportCounts.school} Escolar`}
+                                                        icon={<School size={12} />}
+                                                        label={`${reportCounts.school}`}
                                                         size="small"
                                                         variant={reportCounts.school > 0 ? "filled" : "outlined"}
                                                         color={reportCounts.school > 0 ? "secondary" : "default"}
                                                         onClick={() => handleViewMedicalReports(patient)}
                                                         clickable={!!onViewMedicalReports}
+                                                        sx={{ height: 24, fontSize: '0.7rem' }}
                                                     />
                                                     <Chip
-                                                        icon={<FileText size={14} />}
-                                                        label={`${reportCounts.medical} Médico`}
+                                                        icon={<FileText size={12} />}
+                                                        label={`${reportCounts.medical}`}
                                                         size="small"
                                                         variant={reportCounts.medical > 0 ? "filled" : "outlined"}
                                                         color={reportCounts.medical > 0 ? "success" : "default"}
                                                         onClick={() => handleViewMedicalReports(patient)}
                                                         clickable={!!onViewMedicalReports}
+                                                        sx={{ height: 24, fontSize: '0.7rem' }}
                                                     />
                                                 </Box>
                                             </TableCell>
 
                                             <TableCell>
-                                                <Typography variant="body2">
+                                                <Typography variant="body2" sx={{ color: 'grey.700' }}>
                                                     {patient.lastAppointment
                                                         ? new Date(patient.lastAppointment).toLocaleDateString('pt-BR')
-                                                        : 'N/A'}
+                                                        : '—'}
                                                 </Typography>
                                             </TableCell>
 
@@ -296,39 +300,48 @@ export default function PatientsTable({
                                                     label={patient.status === 'active' ? 'Ativo' : 'Inativo'}
                                                     size="small"
                                                     sx={{
-                                                        backgroundColor: patient.status === 'active' ? theme.palette.success.light : theme.palette.grey[300],
-                                                        color: patient.status === 'active' ? theme.palette.success.dark : theme.palette.grey[600],
-                                                        fontWeight: 500
+                                                        height: 24,
+                                                        fontSize: '0.7rem',
+                                                        fontWeight: 500,
+                                                        bgcolor: patient.status === 'active' ? '#E8F5E9' : '#F5F5F5',
+                                                        color: patient.status === 'active' ? '#2E7D32' : '#757575'
                                                     }}
                                                 />
                                             </TableCell>
 
-                                            {/* Coluna de Ações - Todas as ações via callbacks */}
                                             <TableCell>
-                                                <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column' }}>
+                                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                                                     <Button
                                                         variant="outlined"
                                                         size="small"
-                                                        startIcon={<Eye size={14} />}
+                                                        startIcon={<Eye size={12} />}
                                                         onClick={() => handleViewPatientDetails(patient)}
-                                                        sx={{ mb: 1 }}
+                                                        sx={{
+                                                            borderRadius: 1.5,
+                                                            textTransform: 'none',
+                                                            fontSize: '0.7rem',
+                                                            py: 0.5,
+                                                            px: 1
+                                                        }}
                                                     >
                                                         Ver Detalhes
                                                     </Button>
-                                                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                                                    <Box sx={{ display: 'flex', gap: 0.5 }}>
                                                         <Button
                                                             variant="text"
                                                             size="small"
-                                                            startIcon={<Stethoscope size={14} />}
+                                                            startIcon={<Stethoscope size={12} />}
                                                             onClick={() => handleCreateAnamnesis(patient)}
+                                                            sx={{ fontSize: '0.65rem', minWidth: 'auto', px: 1 }}
                                                         >
                                                             Anamnese
                                                         </Button>
                                                         <Button
                                                             variant="text"
                                                             size="small"
-                                                            startIcon={<School size={14} />}
+                                                            startIcon={<School size={12} />}
                                                             onClick={() => handleCreateSchoolReport(patient)}
+                                                            sx={{ fontSize: '0.65rem', minWidth: 'auto', px: 1 }}
                                                         >
                                                             Escolar
                                                         </Button>
@@ -340,14 +353,14 @@ export default function PatientsTable({
                                 })
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={6} sx={{ textAlign: 'center', py: 6 }}>
-                                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                                            <UserPlus size={48} color={theme.palette.grey[400]} />
-                                            <Typography variant="body1" sx={{ color: 'grey.500' }}>
+                                    <TableCell colSpan={6} sx={{ textAlign: 'center', py: 4 }}>
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                                            <UserPlus size={32} color={theme.palette.grey[400]} />
+                                            <Typography variant="body2" sx={{ color: 'grey.500' }}>
                                                 {patients?.length === 0 ? 'Nenhum paciente cadastrado' : 'Nenhum paciente encontrado'}
                                             </Typography>
-                                            <Typography variant="body2" sx={{ color: 'grey.600' }}>
-                                                {searchTerm ? 'Tente ajustar sua busca' : 'Adicione seu primeiro paciente'}
+                                            <Typography variant="caption" sx={{ color: 'grey.500' }}>
+                                                {localSearch ? 'Tente ajustar sua busca' : 'Adicione seu primeiro paciente'}
                                             </Typography>
                                         </Box>
                                     </TableCell>
@@ -356,6 +369,44 @@ export default function PatientsTable({
                         </TableBody>
                     </Table>
                 </TableContainer>
+
+                {/* Paginação */}
+                {pagination && pagination.totalPages > 1 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2, px: 2, pb: 2 }}>
+                        <Typography variant="body2" sx={{ color: 'grey.600' }}>
+                            Página {pagination.page} de {pagination.totalPages} ({pagination.total} pacientes)
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                disabled={pagination.page <= 1}
+                                onClick={() => onPageChange?.(pagination.page - 1)}
+                            >
+                                Anterior
+                            </Button>
+                            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(page => (
+                                <Button
+                                    key={page}
+                                    variant={page === pagination.page ? 'contained' : 'outlined'}
+                                    size="small"
+                                    onClick={() => onPageChange?.(page)}
+                                    sx={{ minWidth: 36, px: 1 }}
+                                >
+                                    {page}
+                                </Button>
+                            ))}
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                disabled={pagination.page >= pagination.totalPages}
+                                onClick={() => onPageChange?.(pagination.page + 1)}
+                            >
+                                Próxima
+                            </Button>
+                        </Box>
+                    </Box>
+                )}
             </CardContent>
         </Card>
     );

@@ -137,6 +137,8 @@ export default function DoctorDashboard() {
     loadTherapy,
     loadAttendance,
     loadPatients,
+    patientsPagination,
+    setPatientsPagination,
     handleUpdateStatus
   } = useDoctorDashboard();
 
@@ -434,6 +436,15 @@ export default function DoctorDashboard() {
           <div className="p-6">
             <PatientsTable
               patients={patients ?? []}
+              pagination={patientsPagination}
+              onPageChange={(page) => {
+                setPatientsPagination(prev => ({ ...prev, page }));
+                loadPatients(true, page);
+              }}
+              onSearchChange={(search) => {
+                setPatientsPagination(prev => ({ ...prev, search, page: 1 }));
+                loadPatients(true, 1, search);
+              }}
               onPatientClick={handleOpenPatientModal}
               onViewPatientDetails={handleViewPatientDetails}
               onCreateAnamnesis={handleCreateAnamnesis}

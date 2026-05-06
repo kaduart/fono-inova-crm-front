@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import API from '../../services/api';
+import { extractData } from '../../utils/dtoHelper';
 
 interface ProgressData {
     patient: string;
@@ -51,7 +52,7 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ patientId }) => {
         try {
             setLoading(true);
             const response = await API.get(`/v2/evolutions/patient/${patientId}/progress`);
-            setData(response.data);
+            setData(extractData(response));
         } catch (error) {
             console.error('Erro ao buscar progresso:', error);
         } finally {

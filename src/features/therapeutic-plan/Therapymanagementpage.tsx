@@ -4,6 +4,7 @@ import ProtocolAnalytics from '../components/ProtocolAnalytics';
 import ProtocolSelector from '../components/ProtocolSelector';
 import TherapeuticPlanForm from '../components/TherapeuticPlanForm';
 import API from '../services/api';
+import { extractData } from '../utils/dtoHelper';
 
 /**
  * Exemplo de página completa integrando todos os componentes
@@ -50,7 +51,7 @@ const TherapyManagementPage: React.FC = () => {
 
             const response = await API.post('/v2/evolutions', evolutionData);
 
-            console.log('Evolução criada:', response.data);
+            console.log('Evolução criada:', extractData(response));
             alert('Plano terapêutico salvo com sucesso!');
 
             // Mudar para aba de progresso

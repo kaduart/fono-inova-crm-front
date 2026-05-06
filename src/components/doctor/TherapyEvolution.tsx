@@ -3,8 +3,13 @@ import { LinearProgress } from '@mui/material';
 import { format } from 'date-fns';
 import {
     Activity,
+    AlertCircle,
+    ArrowDown,
+    ArrowUp,
     BarChart3,
     ChevronDown,
+    GitBranch,
+    Minus,
     Plus,
     Target,
     Trash2,
@@ -12,8 +17,8 @@ import {
     Users
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEvolution } from '../../hooks/useEvolution';
 import API from '../../services/api';
 import { confirmToast } from '../../utils/confirmToast';
 import { IPatient } from '../../utils/types/types';
@@ -32,21 +37,80 @@ type TherapyEvolutionProps = {
     onOpenPatientDetail?: (patient: IPatient) => void;
 };
 
+type TimelineBadge = {
+    type: 'improvement' | 'regression' | 'stable' | 'protocol_change' | 'first';
+    label: string;
+};
+
+function getTimelineBadges(current: any, previous: any | null): TimelineBadge[] {
+    const badges: TimelineBadge[] = [];
+
+    if (!previous) {
+        badges.push({ type: 'first', label: 'Primeira sessão' });
+        return badges;
+    }
+
+    // Detecta mudança de protocolo
+    const prevProtocol = previous.therapeuticPlan?.protocol?.code;
+    const currProtocol = current.therapeuticPlan?.protocol?.code;
+    if (prevProtocol && currProtocol && prevProtocol !== currProtocol) {
+        badges.push({ type: 'protocol_change', label: 'Mudança de protocolo' });
+    }
+
+    // Compara métricas
+    const prevMetrics: Record<string, number> = {};
+    if (previous.metrics && Array.isArray(previous.metrics)) {
+        previous.metrics.forEach((m: any) => {
+            prevMetrics[m.name] = Number(m.value ?? 0);
+        });
+    }
+
+    let improved = 0;
+    let regressed = 0;
+    let stable = 0;
+
+    if (current.metrics && Array.isArray(current.metrics)) {
+        current.metrics.forEach((m: any) => {
+            const prevValue = prevMetrics[m.name];
+            if (prevValue !== undefined) {
+                const currValue = Number(m.value ?? 0);
+                if (currValue > prevValue) improved++;
+                else if (currValue < prevValue) regressed++;
+                else stable++;
+            }
+        });
+    }
+
+    if (regressed > 0) badges.push({ type: 'regression', label: 'Regressão detectada' });
+    if (improved > 0) badges.push({ type: 'improvement', label: 'Evolução' });
+    if (regressed === 0 && improved === 0 && stable > 0) badges.push({ type: 'stable', label: 'Estável' });
+
+    return badges;
+}
+
 export default function TherapyEvolution({
     patients,
     selectedPatient,
     onSelectPatient,
-    onOpenPatientDetail, }: TherapyEvolutionProps) {
+    onOpenPatientDetail,
+}: TherapyEvolutionProps) {
     const { user } = useAuth();
-    const [evaluations, setEvaluations] = useState<any[]>([]);
-    const [chartData, setChartData] = useState<any | null>(null);
-    const [progressData, setProgressData] = useState<any | null>(null);
-    const [isLoadingProgress, setIsLoadingProgress] = useState(false);
+    const [selectedPatientId, setSelectedPatientId] = useState<string>('');
+
+    // 🧬 Hook de evolução — abstrai toda a lógica de API, cache e estados
+    const {
+        evaluations,
+        chartData,
+        progressData,
+        lastEvolution,
+        isLoading,
+        create,
+        remove,
+    } = useEvolution(selectedPatientId || null);
 
     const [isAdding, setIsAdding] = useState(false);
     const [showDetails, setShowDetails] = useState<number | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
-    const [selectedPatientId, setSelectedPatientId] = useState<string>('');
 
     const selectedPatientData = patients.find(p => p._id === selectedPatientId) || ({} as IPatient);
     const [protocols, setProtocols] = useState<any[]>([]);
@@ -54,16 +118,23 @@ export default function TherapyEvolution({
     const [protocolsError, setProtocolsError] = useState<string | null>(null);
     const [selectedProtocolCode, setSelectedProtocolCode] = useState<string | null>(null);
     const [selectedSpecialty, setSelectedSpecialty] = useState<string>((user as any)?.specialty || '');
+    const [activeTab, setActiveTab] = useState<'evolution' | 'analytics'>('evolution');
+    const [evolutionSubTab, setEvolutionSubTab] = useState<'history' | 'chart'>('history');
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 5;
 
-
+    // Sincroniza patientId externo com estado local
     useEffect(() => {
         if (selectedPatient && selectedPatient._id) {
             setSelectedPatientId(selectedPatient._id);
         } else {
             setSelectedPatientId('');
         }
-    }, [selectedPatient]);;
+        setCurrentPage(1);
+        setEvolutionSubTab('history');
+    }, [selectedPatient]);
 
+    // Sincroniza protocolo selecionado com plano terapêutico carregado
     useEffect(() => {
         if (progressData?.currentPlan?.protocol?.code) {
             setSelectedProtocolCode(progressData.currentPlan.protocol.code);
@@ -72,110 +143,69 @@ export default function TherapyEvolution({
         }
     }, [progressData]);
 
+    // Carrega protocolos do profissional
+    useEffect(() => {
+        if (user) loadProtocols();
+    }, [user]);
 
     useEffect(() => {
-        if (user) {
-            loadProtocols();
-        }
-    }, [user]);
-    
-    // NOVO: Recarrega protocolos quando muda a especialidade selecionada
-    useEffect(() => {
-        if (selectedSpecialty) {
-            loadProtocolsBySpecialty(selectedSpecialty);
-        }
+        if (selectedSpecialty) loadProtocolsBySpecialty(selectedSpecialty);
     }, [selectedSpecialty]);
 
-    useEffect(() => {
-        if (!selectedPatientId) {
-            setEvaluations([]);
-            setChartData(null);
-            setProgressData(null);
-            return;
-        }
-
-        loadEvaluations();
-        loadChartData();
-        loadProgressData();
-    }, [selectedPatientId]);
-
-    useEffect(() => {
-        console.log('protocols >>>', protocols);
-    }, [protocols]);
-
-    const loadEvaluations = async () => {
-        if (!selectedPatientId) return;
-
+    const loadProtocols = async () => {
         try {
-            const response = await API.get(`/v2/evolutions/patient/${selectedPatientId}`);
-            setEvaluations(response.data);
-        } catch (error) {
-            console.error('Erro ao carregar avaliações:', error);
-        }
-    };
-
-
-    const loadChartData = async () => {
-        if (!selectedPatientId) return; // ✅ usa o ID, não o objeto
-
-        try {
-            const response = await API.get(`/v2/evolutions/chart/${selectedPatientId}`);
-            setChartData(response.data);
-        } catch (error) {
-            console.error('Erro ao carregar dados gráficos:', error);
-            setChartData(null);
-        }
-    };
-
-    const loadProgressData = async () => {
-        if (!selectedPatientId) return;
-
-        try {
-            setIsLoadingProgress(true);
-            const response = await API.get(`/v2/evolutions/patient/${selectedPatientId}/progress`);
-            setProgressData(response.data);
-        } catch (error) {
-            console.error('Erro ao carregar progresso do plano terapêutico:', error);
-            setProgressData(null);
+            setProtocolsLoading(true);
+            setProtocolsError(null);
+            const specialty = (user as any)?.specialty;
+            const query = specialty ? `?specialty=${encodeURIComponent(specialty)}` : '';
+            const response = await API.get(`/protocols${query}`);
+            setProtocols(response.data || []);
+        } catch (err: any) {
+            setProtocolsError('Erro ao carregar protocolos terapêuticos');
         } finally {
-            setIsLoadingProgress(false);
+            setProtocolsLoading(false);
         }
     };
 
-    // 🔹 aqui fazemos o POST alinhado com o backend novo
+    const loadProtocolsBySpecialty = async (specialty: string) => {
+        try {
+            setProtocolsLoading(true);
+            setProtocolsError(null);
+            const query = `?specialty=${encodeURIComponent(specialty)}`;
+            const response = await API.get(`/protocols${query}`);
+            setProtocols(response.data || []);
+        } catch (err: any) {
+            setProtocolsError('Erro ao carregar protocolos terapêuticos');
+        } finally {
+            setProtocolsLoading(false);
+        }
+    };
+
     const EVALUATION_TYPE_LABELS: Record<string, string> = {
-        // Áreas genéricas
         language: 'Linguagem',
         motor: 'Motor',
         cognitive: 'Cognitivo',
         behavior: 'Comportamento',
         social: 'Social',
-        // Fonoaudiologia
         linguagem_expressiva: 'Linguagem Expressiva',
         linguagem_receptiva: 'Linguagem Receptiva',
         pragmatica: 'Pragmática',
         voz: 'Voz',
         motricidade_orofacial: 'Motricidade Orofacial',
-        // Psicologia
         emocional: 'Emocional',
         autonomia: 'Autonomia',
-        // Terapia Ocupacional
         sensorial: 'Sensorial',
         avds: 'AVDs',
         praxia: 'Praxia',
         grafomotor: 'Grafomotor',
-        // Fisioterapia
         postural: 'Controle Postural',
         marcha: 'Marcha',
         respiratorio: 'Respiratório',
         neuromotor: 'Neuromotor',
-        // Neuropsicologia
         atencao: 'Atenção',
         memoria: 'Memória',
-        linguagem: 'Linguagem',
         visuoespacial: 'Visuoespacial',
         executivo: 'Executivo',
-        // Musicoterapia
         comunicacao: 'Comunicação',
         expressao_emocional: 'Expressão Emocional',
         socializacao: 'Socialização',
@@ -188,146 +218,94 @@ export default function TherapyEvolution({
             return;
         }
 
-        try {
-            // ✅ Converter metrics de Record<string, number> para array
-            const metricsArray = Object.entries(form.metrics || {})
-                .filter(([_, value]) => value !== undefined && value !== null)
-                .map(([name, value]) => ({
-                    name: String(name),
-                    value: Number(value)
-                }));
+        const metricsArray = Object.entries(form.metrics || {})
+            .filter(([_, value]) => value !== undefined && value !== null)
+            .map(([name, value]) => ({ name: String(name), value: Number(value) }));
 
-            // ✅ Converter areaScores de Record<string, number> para array
-            const evaluationAreas = Object.entries(form.areaScores || {})
-                .filter(([_, score]) => score !== undefined && score !== null)
-                .map(([id, score]) => ({
-                    id: String(id),
-                    name: EVALUATION_TYPE_LABELS[id] || formatAreaName(id),
-                    score: Number(score)
-                }));
+        const evaluationAreas = Object.entries(form.areaScores || {})
+            .filter(([_, score]) => score !== undefined && score !== null)
+            .map(([id, score]) => ({
+                id: String(id),
+                name: EVALUATION_TYPE_LABELS[id] || formatAreaName(id),
+                score: Number(score)
+            }));
 
-            // ✅ Filtrar áreas com score >= 1 para evaluationTypes
-            const areasWithScore = evaluationAreas.filter(a => a.score >= 1);
-            const evaluationTypes = areasWithScore.map(a => a.id);
+        const areasWithScore = evaluationAreas.filter(a => a.score >= 1);
+        const evaluationTypes = areasWithScore.map(a => a.id);
 
-            // ✅ Validação
-            const hasValidMetrics = metricsArray.some(m => m.value > 0);
-            const hasValidAreas = areasWithScore.length > 0;
+        const hasValidMetrics = metricsArray.some(m => m.value > 0);
+        const hasValidAreas = areasWithScore.length > 0;
 
-            if (!hasValidMetrics && !hasValidAreas) {
-                alert('Ajuste ao menos uma métrica OU uma área (score >= 1) antes de salvar!');
-                return;
-            }
+        if (!hasValidMetrics && !hasValidAreas) {
+            alert('Ajuste ao menos uma métrica OU uma área (score >= 1) antes de salvar!');
+            return;
+        }
 
-            // 🔹 Definir protocolCode
-            const protocolCode: string | null =
-                progressData?.currentPlan?.protocol?.code ||
-                selectedProtocolCode ||
-                null;
+        const protocolCode =
+            progressData?.currentPlan?.protocol?.code ||
+            selectedProtocolCode ||
+            null;
 
-            // 🔹 Montar therapeuticPlan
-            let therapeuticPlan: any = null;
+        let therapeuticPlan: any = null;
 
-            if (progressData?.currentPlan) {
-                // Reaproveita plano atual do paciente
-                therapeuticPlan = {
-                    protocol: progressData.currentPlan.protocol || undefined,
-                    objectives: (progressData.objectives || []).map((obj: any) => {
-                        const sliderScore = form.areaScores?.[obj.area];
-                        return {
-                            area: obj.area,
-                            description: obj.description,
-                            targetScore: Number(obj.target ?? obj.targetScore ?? 10),
-                            currentScore: Number(sliderScore ?? obj.current ?? 0),
-                            targetDate: obj.targetDate || null,
-                            notes: obj.notes || ''
-                        };
-                    }),
-                    reviewDate: progressData.currentPlan.reviewDate || null
-                };
-            } else if (protocolCode) {
-                // Paciente ainda não tinha plano
-                const selectedProtocol = protocols.find((p: any) => p.code === protocolCode);
-
-                therapeuticPlan = {
-                    protocol: selectedProtocol
-                        ? {
-                            code: selectedProtocol.code,
-                            name: selectedProtocol.name,
-                            customNotes: ''
-                        }
-                        : {
-                            code: protocolCode,
-                            name: protocolCode,
-                            customNotes: ''
-                        },
-                    objectives: evaluationAreas.map(area => ({
-                        area: area.id,
-                        description: `Objetivo em ${area.name}`,
-                        targetScore: 10,
-                        currentScore: area.score,
-                        targetDate: null,
-                        notes: ''
-                    })),
-                    reviewDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-                };
-            }
-
-            // ✅ Payload final
-            const payload = {
-                patient: selectedPatientId,
-                specialty: (user as any)?.specialty || selectedSpecialty || 'geral',
-                date: new Date(form.date),
-                time: form.time || '10:00',
-                content: form.content || '',
-                metrics: metricsArray,
-                evaluationAreas,
-                evaluationTypes,
-                plan: '',
-                treatmentStatus: 'in_progress',
-                ...(therapeuticPlan && { therapeuticPlan }),
-                ...(protocolCode && { protocolCode })
+        if (progressData?.currentPlan) {
+            therapeuticPlan = {
+                protocol: progressData.currentPlan.protocol || undefined,
+                objectives: (progressData.objectives || []).map((obj: any) => {
+                    const sliderScore = form.areaScores?.[obj.area];
+                    return {
+                        area: obj.area,
+                        description: obj.description,
+                        targetScore: Number(obj.target ?? obj.targetScore ?? 10),
+                        currentScore: Number(sliderScore ?? obj.current ?? 0),
+                        targetDate: obj.targetDate || null,
+                        notes: obj.notes || ''
+                    };
+                }),
+                reviewDate: progressData.currentPlan.reviewDate || null
             };
+        } else if (protocolCode) {
+            const selectedProtocol = protocols.find((p: any) => p.code === protocolCode);
+            therapeuticPlan = {
+                protocol: selectedProtocol
+                    ? { code: selectedProtocol.code, name: selectedProtocol.name, customNotes: '' }
+                    : { code: protocolCode, name: protocolCode, customNotes: '' },
+                objectives: evaluationAreas.map(area => ({
+                    area: area.id,
+                    description: `Objetivo em ${area.name}`,
+                    targetScore: 10,
+                    currentScore: area.score,
+                    targetDate: null,
+                    notes: ''
+                })),
+                reviewDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            };
+        }
 
-            console.log('📤 Enviando payload:', JSON.stringify(payload, null, 2));
+        const payload = {
+            patient: selectedPatientId,
+            specialty: (user as any)?.specialty || selectedSpecialty || 'geral',
+            date: new Date(form.date),
+            time: form.time || '10:00',
+            content: form.content || '',
+            metrics: metricsArray,
+            evaluationAreas,
+            evaluationTypes,
+            plan: '',
+            treatmentStatus: 'in_progress',
+            ...(therapeuticPlan && { therapeuticPlan }),
+            ...(protocolCode && { protocolCode })
+        };
 
-            const response = await API.post('/v2/evolutions', payload);
-
-            if (response.status >= 200 && response.status < 300) {
-                await loadEvaluations();
-                await loadChartData();
-                await loadProgressData();
-                setIsAdding(false);
-                toast.success('Avaliação salva com sucesso!');
-            }
-        } catch (error: any) {
-            console.error('❌ Erro ao salvar avaliação:', error);
-
-            if (error.response) {
-                console.error('📋 Response data:', error.response.data);
-                console.error('📋 Response status:', error.response.status);
-                toast.error(
-                    `Erro ${error.response.status}: ${error.response.data?.message || error.response.data?.error || JSON.stringify(error.response.data)}`
-                );
-            } else if (error.request) {
-                console.error('📋 Request error (sem resposta do servidor):', error.request);
-                toast.error('Servidor não respondeu. Verifique se o backend está rodando.');
-            } else {
-                toast.error('Erro ao salvar avaliação. Tente novamente.');
-            }
+        const result = await create(payload as any);
+        if (result.success) {
+            setIsAdding(false);
         }
     };
 
-    // ✅ Helper para formatar nomes de área quando não estiver no mapeamento
     function formatAreaName(id: string): string {
-        return id
-            .split('_')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
+        return id.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     }
-
-
-    const [activeTab, setActiveTab] = useState<'evolution' | 'analytics'>('evolution');
 
     const handleDeleteEvaluation = async (evaluationId: string) => {
         const confirmed = await confirmToast(
@@ -337,26 +315,35 @@ export default function TherapyEvolution({
 
         try {
             setDeletingId(evaluationId);
-            await API.delete(`/v2/evolutions/${evaluationId}`);
-            setEvaluations(prev => prev.filter((e: any) => e._id !== evaluationId));
-            toast.success('Avaliação excluída com sucesso! 💚');
-            await loadProgressData();
-            await loadChartData();
-        } catch (err: any) {
-            console.error(err);
-            const msg =
-                err?.response?.data?.error ||
-                err?.response?.data?.message ||
-                'Erro ao excluir avaliação.';
-            toast.error(msg);
+            const result = await remove(evaluationId);
+            if (!result.success) {
+                console.error(result.error);
+            }
         } finally {
             setDeletingId(null);
         }
     };
 
     const calculateProgress = () => {
-        if (!chartData?.metrics) return 0;
+        // 🎯 Prioridade 1: Plano Terapêutico (objetivos com currentScore / targetScore)
+        if (progressData?.objectives && progressData.objectives.length > 0) {
+            const activeObjectives = progressData.objectives.filter((obj: any) => !obj.achieved);
+            if (activeObjectives.length === 0) {
+                // Todos os objetivos atingidos → 100%
+                return 100;
+            }
+            const total = activeObjectives.reduce((sum: number, obj: any) => {
+                const current = Number(obj.current ?? obj.currentScore ?? 0);
+                const target = Number(obj.target ?? obj.targetScore ?? 10);
+                if (target <= 0) return sum;
+                const pct = Math.min((current / target) * 100, 100);
+                return sum + pct;
+            }, 0);
+            return Math.round(total / activeObjectives.length);
+        }
 
+        // Fallback: métricas do gráfico (evolução ao longo do tempo)
+        if (!chartData?.metrics) return 0;
         const metricKeys = Object.keys(chartData.metrics);
         if (metricKeys.length === 0) return 0;
 
@@ -366,11 +353,9 @@ export default function TherapyEvolution({
         metricKeys.forEach(key => {
             const metric = chartData.metrics[key];
             if (!metric?.values || metric.values.length < 2) return;
-
             const firstValue = metric.values[0];
             const lastValue = metric.values[metric.values.length - 1];
             const { minValue = 0, maxValue = 10 } = metric.config || {};
-
             if (firstValue !== null && lastValue !== null) {
                 const progress = ((lastValue - firstValue) / (maxValue - minValue || 1)) * 100;
                 totalProgress += Math.min(Math.max(progress, 0), 100);
@@ -379,64 +364,6 @@ export default function TherapyEvolution({
         });
 
         return count > 0 ? totalProgress / count : 0;
-    };
-
-    // CORREÇÃO 1: Remover filtro active da query
-
-    const loadProtocols = async () => {
-        try {
-            setProtocolsLoading(true);
-            setProtocolsError(null);
-
-            const specialty = (user as any)?.specialty;
-
-            // CORRIGIDO: Remover &active=true
-            const query = specialty
-                ? `?specialty=${encodeURIComponent(specialty)}`
-                : '';
-
-            console.log('Buscando protocolos:', `/protocols${query}`);
-            const response = await API.get(`/protocols${query}`);
-            console.log('Protocolos recebidos:', response.data);
-
-            setProtocols(response.data || []);
-
-            if (response.data?.length === 0) {
-                console.warn('Nenhum protocolo encontrado para especialidade:', specialty);
-            }
-        } catch (err: any) {
-            console.error('Erro ao carregar protocolos:', err);
-            setProtocolsError('Erro ao carregar protocolos terapeuticos');
-            toast.error('Erro ao carregar protocolos');
-        } finally {
-            setProtocolsLoading(false);
-        }
-    };
-    
-    // NOVO: Carrega protocolos por especialidade específica (para quando muda no modal)
-    const loadProtocolsBySpecialty = async (specialty: string) => {
-        try {
-            setProtocolsLoading(true);
-            setProtocolsError(null);
-
-            const query = `?specialty=${encodeURIComponent(specialty)}`;
-
-            console.log('Buscando protocolos para especialidade:', specialty);
-            const response = await API.get(`/protocols${query}`);
-            console.log('Protocolos recebidos:', response.data);
-
-            setProtocols(response.data || []);
-
-            if (response.data?.length === 0) {
-                console.warn('Nenhum protocolo encontrado para especialidade:', specialty);
-            }
-        } catch (err: any) {
-            console.error('Erro ao carregar protocolos:', err);
-            setProtocolsError('Erro ao carregar protocolos terapeuticos');
-            toast.error('Erro ao carregar protocolos');
-        } finally {
-            setProtocolsLoading(false);
-        }
     };
 
     return (
@@ -454,6 +381,7 @@ export default function TherapyEvolution({
                 protocolsError={protocolsError}
                 onSpecialtyChange={(specialty) => setSelectedSpecialty(specialty)}
                 doctorSpecialty={(user as any)?.specialty}
+                lastEvolution={lastEvolution}
             />
 
             <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-cyan-50 py-8 px-4 sm:px-6 lg:px-8">
@@ -534,25 +462,36 @@ export default function TherapyEvolution({
                                                 <span className="text-2xl">📈</span>
                                                 Progresso Geral
                                             </label>
-                                            <div className="flex items-center gap-6">
-                                                <div className="flex-1 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full h-4 overflow-hidden shadow-inner">
-                                                    <LinearProgress
-                                                        variant="determinate"
-                                                        value={calculateProgress()}
-                                                        className="h-full rounded-full"
-                                                        sx={{
-                                                            backgroundColor: 'transparent',
-                                                            '& .MuiLinearProgress-bar': {
-                                                                background: 'linear-gradient(90deg, #2563eb 0%, #06b6d4 100%)',
-                                                                borderRadius: '9999px'
-                                                            }
-                                                        }}
-                                                    />
+                                            {calculateProgress() > 0 || (progressData?.objectives && progressData.objectives.length > 0) || (chartData?.metrics && Object.keys(chartData.metrics).length > 0) ? (
+                                                <div className="flex items-center gap-6">
+                                                    <div className="flex-1 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full h-4 overflow-hidden shadow-inner">
+                                                        <LinearProgress
+                                                            variant="determinate"
+                                                            value={calculateProgress()}
+                                                            className="h-full rounded-full"
+                                                            sx={{
+                                                                backgroundColor: 'transparent',
+                                                                '& .MuiLinearProgress-bar': {
+                                                                    background: 'linear-gradient(90deg, #2563eb 0%, #06b6d4 100%)',
+                                                                    borderRadius: '9999px'
+                                                                }
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <span className="text-xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-cyan-500 min-w-[60px] sm:min-w-[80px] text-right">
+                                                        {Math.round(calculateProgress())}%
+                                                    </span>
                                                 </div>
-                                                <span className="text-xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-cyan-500 min-w-[60px] sm:min-w-[80px] text-right">
-                                                    {Math.round(calculateProgress())}%
-                                                </span>
-                                            </div>
+                                            ) : (
+                                                <div className="text-center py-4">
+                                                    <p className="text-sm text-gray-500">
+                                                        Nenhum plano terapêutico ou métrica registrada para calcular progresso.
+                                                    </p>
+                                                    <p className="text-xs text-gray-400 mt-1">
+                                                        Registre objetivos no plano terapêutico ou métricas nas evoluções.
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
@@ -584,31 +523,27 @@ export default function TherapyEvolution({
                                                             {progressData.currentPlan.reviewDate && (
                                                                 <p className="text-gray-500 text-xs">
                                                                     Revisão em:{' '}
-                                                                    {new Date(
-                                                                        progressData.currentPlan.reviewDate
-                                                                    ).toLocaleDateString('pt-BR')}
+                                                                    {new Date(progressData.currentPlan.reviewDate).toLocaleDateString('pt-BR')}
                                                                 </p>
                                                             )}
                                                         </div>
                                                     )}
                                                 </div>
 
-                                                {isLoadingProgress && (
+                                                {isLoading && (
                                                     <p className="text-sm text-gray-500 italic">
                                                         Carregando progresso...
                                                     </p>
                                                 )}
 
-                                                {!isLoadingProgress &&
-                                                    (!progressData ||
-                                                        !progressData.objectives ||
-                                                        progressData.objectives.length === 0) && (
+                                                {!isLoading &&
+                                                    (!progressData || !progressData.objectives || progressData.objectives.length === 0) && (
                                                         <p className="text-sm text-gray-500 italic">
                                                             Nenhum plano terapêutico estruturado encontrado para este paciente.
                                                         </p>
                                                     )}
 
-                                                {!isLoadingProgress &&
+                                                {!isLoading &&
                                                     progressData?.objectives &&
                                                     progressData.objectives.length > 0 && (
                                                         <div className="space-y-4 mt-4">
@@ -637,9 +572,7 @@ export default function TherapyEvolution({
                                                                             {obj.projectedCompletion && (
                                                                                 <p className="text-xs text-gray-500">
                                                                                     Projeção de conclusão:{' '}
-                                                                                    {new Date(
-                                                                                        obj.projectedCompletion
-                                                                                    ).toLocaleDateString('pt-BR')}
+                                                                                    {new Date(obj.projectedCompletion).toLocaleDateString('pt-BR')}
                                                                                 </p>
                                                                             )}
                                                                         </div>
@@ -684,15 +617,16 @@ export default function TherapyEvolution({
                                     )}
 
                                     {selectedPatient ? (
-                                        <div className="space-y-8">
+                                        <div className="space-y-6">
+                                            {/* Header com ação */}
                                             <div className="flex flex-wrap justify-between items-center gap-3 p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-white rounded-2xl border-2 border-gray-200 shadow-md">
                                                 <div>
                                                     <h3 className="font-bold text-lg sm:text-2xl text-gray-900 flex items-center gap-2 sm:gap-3">
                                                         <span className="text-2xl sm:text-3xl">📋</span>
-                                                        Histórico de Evoluções
+                                                        Evoluções — {selectedPatientData.fullName}
                                                     </h3>
-                                                    <p className="text-gray-600 text-base mt-1 font-medium">
-                                                        {selectedPatientData.fullName}
+                                                    <p className="text-gray-500 text-sm mt-1">
+                                                        {evaluations.length} registro{evaluations.length !== 1 ? 's' : ''} encontrado{evaluations.length !== 1 ? 's' : ''}
                                                     </p>
                                                 </div>
                                                 <Button
@@ -704,143 +638,295 @@ export default function TherapyEvolution({
                                                 </Button>
                                             </div>
 
-                                            <div className="space-y-4">
-                                                {evaluations.length > 0 ? (
-                                                    evaluations.map((evaluation: any, index: number) => (
-                                                        <div
-                                                            key={evaluation._id}
-                                                            className="bg-white border-2 border-gray-200 rounded-2xl p-4 sm:p-8 hover:shadow-2xl transition-all hover:border-green-200 group"
+                                            {/* Sub-tabs: Histórico / Gráfico */}
+                                            <div className="bg-white rounded-xl border-2 border-gray-200 shadow-sm">
+                                                <div className="border-b border-gray-200 px-4">
+                                                    <nav className="flex gap-2 -mb-px">
+                                                        <button
+                                                            onClick={() => { setEvolutionSubTab('history'); setCurrentPage(1); }}
+                                                            className={`px-5 py-3 text-sm font-semibold border-b-4 transition-all ${evolutionSubTab === 'history'
+                                                                ? 'border-green-500 text-green-600'
+                                                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                                                }`}
                                                         >
-                                                            <div className="flex justify-between items-start">
-                                                                <div className="flex-1">
-                                                                    <div className="flex items-center gap-4 mb-4">
-                                                                        <div className="font-bold text-xl text-gray-900 flex items-center gap-3">
-                                                                            <span className="text-2xl">📅</span>
-                                                                            {format(new Date(evaluation.date), 'dd/MM/yyyy')} às{' '}
-                                                                            {evaluation.time}
-                                                                        </div>
-                                                                        {evaluation.evaluationTypes?.length > 0 && (
-                                                                            <div className="flex gap-2 flex-wrap">
-                                                                                {evaluation.evaluationTypes.map((type: string) => (
-                                                                                    <span
-                                                                                        key={type}
-                                                                                        className="px-4 py-2 text-xs font-bold rounded-full bg-gradient-to-r from-green-100 to-cyan-100 text-green-800 border-2 border-green-200 shadow-sm"
-                                                                                    >
-                                                                                        {type}
-                                                                                    </span>
-                                                                                ))}
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="text-base text-gray-600 flex items-center gap-3 font-medium">
-                                                                        <Users size={18} className="text-green-600" />
-                                                                        {evaluation.doctor?.fullName} • {evaluation.doctor?.specialty}
-                                                                    </div>
+                                                            <Activity className="h-4 w-4 inline mr-2" />
+                                                            Histórico
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setEvolutionSubTab('chart')}
+                                                            className={`px-5 py-3 text-sm font-semibold border-b-4 transition-all ${evolutionSubTab === 'chart'
+                                                                ? 'border-blue-500 text-blue-600'
+                                                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                                                }`}
+                                                        >
+                                                            <BarChart3 className="h-4 w-4 inline mr-2" />
+                                                            Gráfico
+                                                        </button>
+                                                    </nav>
+                                                </div>
 
-                                                                    {showDetails === index && (
-                                                                        <div className="mt-8 space-y-8 pt-8 border-t-2 border-gray-200">
-                                                                            <div>
-                                                                                <h4 className="font-bold text-lg text-gray-900 mb-4 flex items-center gap-2">
-                                                                                    <span className="text-xl">📊</span>
-                                                                                    Métricas Registradas
-                                                                                </h4>
-                                                                                {evaluation.metrics && evaluation.metrics.length > 0 ? (
-                                                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                                        {evaluation.metrics.map((metric: any) => (
-                                                                                            <div
-                                                                                                key={metric.name}
-                                                                                                className="flex justify-between items-center bg-gradient-to-r from-gray-50 to-white p-4 rounded-xl border-2 border-gray-200 shadow-sm hover:shadow-md transition-all"
-                                                                                            >
-                                                                                                <span className="font-semibold text-gray-800">
-                                                                                                    {metric.name}
-                                                                                                </span>
-                                                                                                <span className="bg-gradient-to-r from-green-500 to-cyan-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-md">
-                                                                                                    {metric.value}
-                                                                                                </span>
+                                                <div className="p-4 sm:p-6">
+                                                    {/* ─── ABA HISTÓRICO (Timeline Clínica) ─── */}
+                                                    {evolutionSubTab === 'history' && (
+                                                        <div className="space-y-4">
+                                                            {evaluations.length > 0 ? (
+                                                                <>
+                                                                    {(() => {
+                                                                        const totalPages = Math.ceil(evaluations.length / ITEMS_PER_PAGE);
+                                                                        const start = (currentPage - 1) * ITEMS_PER_PAGE;
+                                                                        const paginated = evaluations.slice(start, start + ITEMS_PER_PAGE);
+                                                                        return (
+                                                                            <>
+                                                                                {/* Timeline vertical */}
+                                                                                <div className="relative">
+                                                                                    {/* Linha vertical */}
+                                                                                    <div className="absolute left-[19px] top-3 bottom-3 w-0.5 bg-gray-200" />
+
+                                                                                    {paginated.map((evaluation: any, index: number) => {
+                                                                                        const realIndex = start + index;
+                                                                                        const previous = evaluations[realIndex + 1] || null;
+                                                                                        const badges = getTimelineBadges(evaluation, previous);
+                                                                                        const isOpen = showDetails === realIndex;
+
+                                                                                        return (
+                                                                                            <div key={evaluation._id} className="relative pl-12 pb-8 last:pb-0">
+                                                                                                {/* Dot na linha */}
+                                                                                                <div className={`absolute left-2 top-2 w-5 h-5 rounded-full border-2 bg-white flex items-center justify-center shadow-sm ${
+                                                                                                    badges.some(b => b.type === 'regression')
+                                                                                                        ? 'border-red-400'
+                                                                                                        : badges.some(b => b.type === 'improvement')
+                                                                                                            ? 'border-green-400'
+                                                                                                            : badges.some(b => b.type === 'protocol_change')
+                                                                                                                ? 'border-blue-400'
+                                                                                                                : 'border-gray-300'
+                                                                                                }`}>
+                                                                                                    <div className={`w-2.5 h-2.5 rounded-full ${
+                                                                                                        badges.some(b => b.type === 'regression')
+                                                                                                            ? 'bg-red-400'
+                                                                                                            : badges.some(b => b.type === 'improvement')
+                                                                                                                ? 'bg-green-400'
+                                                                                                                : badges.some(b => b.type === 'protocol_change')
+                                                                                                                    ? 'bg-blue-400'
+                                                                                                                    : 'bg-gray-300'
+                                                                                                    }`} />
+                                                                                                </div>
+
+                                                                                                {/* Card */}
+                                                                                                <div className="bg-white border-2 border-gray-200 rounded-2xl p-4 sm:p-5 hover:shadow-lg transition-all hover:border-green-200">
+                                                                                                    {/* Header: data + badges + ações */}
+                                                                                                    <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                                                                                                        <div className="flex-1 min-w-[200px]">
+                                                                                                            <div className="flex items-center gap-2 flex-wrap mb-2">
+                                                                                                                <span className="font-bold text-base text-gray-900">
+                                                                                                                    {format(new Date(evaluation.date), 'dd/MM/yyyy')}
+                                                                                                                </span>
+                                                                                                                <span className="text-sm text-gray-500">
+                                                                                                                    às {evaluation.time}
+                                                                                                                </span>
+                                                                                                            </div>
+
+                                                                                                            {/* Badges clínicos */}
+                                                                                                            {badges.length > 0 && (
+                                                                                                                <div className="flex gap-2 flex-wrap">
+                                                                                                                    {badges.map((badge, bIdx) => {
+                                                                                                                        const styles = {
+                                                                                                                            improvement: 'bg-green-50 text-green-700 border-green-200',
+                                                                                                                            regression: 'bg-red-50 text-red-700 border-red-200',
+                                                                                                                            stable: 'bg-gray-50 text-gray-600 border-gray-200',
+                                                                                                                            protocol_change: 'bg-blue-50 text-blue-700 border-blue-200',
+                                                                                                                            first: 'bg-amber-50 text-amber-700 border-amber-200',
+                                                                                                                        }[badge.type];
+                                                                                                                        const Icon = {
+                                                                                                                            improvement: ArrowUp,
+                                                                                                                            regression: ArrowDown,
+                                                                                                                            stable: Minus,
+                                                                                                                            protocol_change: GitBranch,
+                                                                                                                            first: Activity,
+                                                                                                                        }[badge.type];
+                                                                                                                        return (
+                                                                                                                            <span
+                                                                                                                                key={bIdx}
+                                                                                                                                className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full border ${styles}`}
+                                                                                                                            >
+                                                                                                                                <Icon className="h-3 w-3" />
+                                                                                                                                {badge.label}
+                                                                                                                            </span>
+                                                                                                                        );
+                                                                                                                    })}
+                                                                                                                </div>
+                                                                                                            )}
+                                                                                                        </div>
+
+                                                                                                        <div className="flex items-center gap-2">
+                                                                                                            <Button
+                                                                                                                variant="outline"
+                                                                                                                size="sm"
+                                                                                                                onClick={() => setShowDetails(isOpen ? null : realIndex)}
+                                                                                                                className="text-gray-600 hover:text-green-600 border-2 border-gray-300 hover:border-green-400 rounded-xl p-2 transition-all hover:scale-110"
+                                                                                                            >
+                                                                                                                <ChevronDown
+                                                                                                                    className={`h-5 w-5 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+                                                                                                                />
+                                                                                                            </Button>
+                                                                                                            <Button
+                                                                                                                variant="outline"
+                                                                                                                size="sm"
+                                                                                                                disabled={deletingId === evaluation._id}
+                                                                                                                onClick={() => handleDeleteEvaluation(evaluation._id)}
+                                                                                                                className="text-red-600 border-2 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-400 rounded-xl p-2 transition-all hover:scale-110"
+                                                                                                                title="Excluir avaliação"
+                                                                                                            >
+                                                                                                                <Trash2 className="h-5 w-5" />
+                                                                                                            </Button>
+                                                                                                        </div>
+                                                                                                    </div>
+
+                                                                                                    {/* Linha resumo */}
+                                                                                                    <div className="text-sm text-gray-600 flex items-center gap-2 mb-1">
+                                                                                                        <Users size={14} className="text-green-600" />
+                                                                                                        <span className="font-medium">{evaluation.doctor?.fullName}</span>
+                                                                                                        <span className="text-gray-400">•</span>
+                                                                                                        <span>{evaluation.doctor?.specialty}</span>
+                                                                                                    </div>
+
+                                                                                                    {/* Tipos de avaliação */}
+                                                                                                    {evaluation.evaluationTypes?.length > 0 && (
+                                                                                                        <div className="flex gap-2 flex-wrap mt-2">
+                                                                                                            {evaluation.evaluationTypes.map((type: string) => (
+                                                                                                                <span
+                                                                                                                    key={type}
+                                                                                                                    className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-gradient-to-r from-green-100 to-cyan-100 text-green-800 border border-green-200"
+                                                                                                                >
+                                                                                                                    {type}
+                                                                                                                </span>
+                                                                                                            ))}
+                                                                                                        </div>
+                                                                                                    )}
+
+                                                                                                    {/* Detalhes expandidos */}
+                                                                                                    {isOpen && (
+                                                                                                        <div className="mt-5 space-y-5 pt-5 border-t-2 border-gray-200">
+                                                                                                            <div>
+                                                                                                                <h4 className="font-bold text-sm text-gray-900 mb-2 flex items-center gap-2">
+                                                                                                                    <span className="text-base">📊</span>
+                                                                                                                    Métricas Registradas
+                                                                                                                </h4>
+                                                                                                                {evaluation.metrics && evaluation.metrics.length > 0 ? (
+                                                                                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                                                                                        {evaluation.metrics.map((metric: any) => (
+                                                                                                                            <div
+                                                                                                                                key={metric.name}
+                                                                                                                                className="flex justify-between items-center bg-gradient-to-r from-gray-50 to-white p-3 rounded-xl border-2 border-gray-200"
+                                                                                                                            >
+                                                                                                                                <span className="font-semibold text-gray-800 text-sm">{metric.name}</span>
+                                                                                                                                <span className="bg-gradient-to-r from-green-500 to-cyan-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-sm">
+                                                                                                                                    {metric.value}
+                                                                                                                                </span>
+                                                                                                                            </div>
+                                                                                                                        ))}
+                                                                                                                    </div>
+                                                                                                                ) : (
+                                                                                                                    <p className="text-gray-500 text-sm italic">Nenhuma métrica registrada</p>
+                                                                                                                )}
+                                                                                                            </div>
+
+                                                                                                            <div>
+                                                                                                                <h4 className="font-bold text-sm text-gray-900 mb-2 flex items-center gap-2">
+                                                                                                                    <span className="text-base">📝</span>
+                                                                                                                    Relatório Clínico
+                                                                                                                </h4>
+                                                                                                                <div className="bg-gradient-to-br from-gray-50 to-white p-4 rounded-xl border-2 border-gray-200">
+                                                                                                                    <p className="text-gray-700 whitespace-pre-wrap leading-relaxed font-light text-sm">
+                                                                                                                        {evaluation.content || 'Nenhum relatório registrado'}
+                                                                                                                    </p>
+                                                                                                                </div>
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    )}
+                                                                                                </div>
                                                                                             </div>
-                                                                                        ))}
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <p className="text-gray-500 text-sm italic">
-                                                                                        Nenhuma métrica registrada
-                                                                                    </p>
-                                                                                )}
-                                                                            </div>
-
-                                                                            <div>
-                                                                                <h4 className="font-bold text-lg text-gray-900 mb-4 flex items-center gap-2">
-                                                                                    <span className="text-xl">📝</span>
-                                                                                    Relatório Clínico
-                                                                                </h4>
-                                                                                <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border-2 border-gray-200 shadow-inner">
-                                                                                    <p className="text-gray-700 whitespace-pre-wrap leading-relaxed font-light">
-                                                                                        {evaluation.content || 'Nenhum relatório registrado'}
-                                                                                    </p>
+                                                                                        );
+                                                                                    })}
                                                                                 </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
 
-                                                                <div className="flex items-center gap-3 ml-6">
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        onClick={() =>
-                                                                            setShowDetails(showDetails === index ? null : index)
-                                                                        }
-                                                                        className="text-gray-600 hover:text-green-600 border-2 border-gray-300 hover:border-green-400 rounded-xl p-3 transition-all hover:scale-110"
-                                                                    >
-                                                                        <ChevronDown
-                                                                            className={`h-5 w-5 transition-transform duration-300 ${showDetails === index ? 'rotate-180' : ''
-                                                                                }`}
-                                                                        />
-                                                                    </Button>
-
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        disabled={deletingId === evaluation._id}
-                                                                        onClick={() => handleDeleteEvaluation(evaluation._id)}
-                                                                        className="text-red-600 border-2 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-400 rounded-xl p-3 transition-all hover:scale-110"
-                                                                        title="Excluir avaliação"
-                                                                    >
-                                                                        <Trash2 className="h-5 w-5" />
-                                                                    </Button>
+                                                                                {/* Paginação */}
+                                                                                {totalPages > 1 && (
+                                                                                    <div className="flex items-center justify-between pt-4">
+                                                                                        <p className="text-sm text-gray-500">
+                                                                                            Página {currentPage} de {totalPages}
+                                                                                        </p>
+                                                                                        <div className="flex gap-2">
+                                                                                            <Button
+                                                                                                variant="outline"
+                                                                                                size="sm"
+                                                                                                disabled={currentPage === 1}
+                                                                                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                                                                                className="rounded-lg px-4"
+                                                                                            >
+                                                                                                Anterior
+                                                                                            </Button>
+                                                                                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                                                                                                <button
+                                                                                                    key={page}
+                                                                                                    onClick={() => setCurrentPage(page)}
+                                                                                                    className={`w-9 h-9 rounded-lg text-sm font-semibold transition-all ${currentPage === page
+                                                                                                        ? 'bg-green-600 text-white shadow-md'
+                                                                                                        : 'bg-white text-gray-600 border-2 border-gray-200 hover:border-green-300'
+                                                                                                        }`}
+                                                                                                >
+                                                                                                    {page}
+                                                                                                </button>
+                                                                                            ))}
+                                                                                            <Button
+                                                                                                variant="outline"
+                                                                                                size="sm"
+                                                                                                disabled={currentPage === totalPages}
+                                                                                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                                                                                className="rounded-lg px-4"
+                                                                                            >
+                                                                                                Próxima
+                                                                                            </Button>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+                                                                            </>
+                                                                        );
+                                                                    })()}
+                                                                </>
+                                                            ) : (
+                                                                <div className="text-center py-16 bg-gradient-to-br from-gray-50 to-white rounded-2xl border-2 border-dashed border-gray-300">
+                                                                    <Activity className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+                                                                    <p className="text-gray-600 font-bold text-lg mb-1">
+                                                                        Nenhuma avaliação registrada
+                                                                    </p>
+                                                                    <p className="text-gray-400 text-sm">
+                                                                        Clique em &quot;Nova Evolução&quot; para começar
+                                                                    </p>
                                                                 </div>
-                                                            </div>
+                                                            )}
                                                         </div>
-                                                    ))
-                                                ) : (
-                                                    <div className="text-center py-20 bg-gradient-to-br from-gray-50 to-white rounded-2xl border-2 border-dashed border-gray-300">
-                                                        <Activity className="h-20 w-20 mx-auto text-gray-300 mb-6" />
-                                                        <p className="text-gray-600 font-bold text-xl mb-2">
-                                                            Nenhuma avaliação registrada
-                                                        </p>
-                                                        <p className="text-gray-400 text-base">
-                                                            Clique em &quot;Nova Avaliação&quot; para começar
-                                                        </p>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            <div className="mt-6 sm:mt-10">
-                                                <h3 className="font-bold text-lg sm:text-2xl text-gray-900 mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3">
-                                                    <span className="text-2xl sm:text-3xl">📈</span>
-                                                    Análise Gráfica da Evolução
-                                                </h3>
-                                                {chartData ? (
-                                                    <div className="bg-white border-2 border-gray-200 rounded-2xl shadow-xl p-3 sm:p-8 hover:shadow-2xl transition-shadow">
-                                                        <EvolutionChart chartData={chartData} />
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-center py-16 bg-gradient-to-br from-gray-50 to-white rounded-2xl border-2 border-dashed border-gray-300">
-                                                        <Activity className="h-16 w-16 mx-auto text-gray-300 mb-6" />
-                                                        <p className="text-gray-600 font-bold text-lg">
-                                                            Nenhum dado disponível para exibir gráficos
-                                                        </p>
-                                                    </div>
-                                                )}
+                                                    )}
+{/* ─── ABA GRÁFICO ─── */}
+                                                    {evolutionSubTab === 'chart' && (
+                                                        <div>
+                                                            {chartData && chartData.dates && chartData.dates.length > 0 ? (
+                                                                <div className="bg-white border-2 border-gray-200 rounded-2xl shadow-xl p-3 sm:p-6 hover:shadow-2xl transition-shadow">
+                                                                    <EvolutionChart chartData={chartData} />
+                                                                </div>
+                                                            ) : (
+                                                                <div className="text-center py-16 bg-gradient-to-br from-gray-50 to-white rounded-2xl border-2 border-dashed border-gray-300">
+                                                                    <BarChart3 className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+                                                                    <p className="text-gray-600 font-bold text-lg mb-1">
+                                                                        Dados insuficientes para visualização
+                                                                    </p>
+                                                                    <p className="text-gray-400 text-sm">
+                                                                        Adicione mais avaliações com métricas para gerar gráficos de evolução
+                                                                    </p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     ) : (

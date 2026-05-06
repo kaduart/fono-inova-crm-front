@@ -352,13 +352,18 @@ export const doctorService = {
 // ⚠️ IMPORTANTE: O backend usa req.user.id do token JWT, não precisa passar doctorId na URL
 // 🔄 Os controllers legados retornam array direto, não { success, data }
 
-export const fetchPatients = async (_doctorId?: string) => {
-  console.log('[DoctorService] fetchPatients: Chamando /doctors/patients');
+export const fetchPatients = async (params?: { page?: number; limit?: number; search?: string }) => {
+  console.log('[DoctorService] fetchPatients: Chamando /doctors/patients', params);
   try {
-    const response = await API.get(`/doctors/patients`);
-    console.log('[DoctorService] fetchPatients: Sucesso', response.data?.length || response.data?.data?.length || 0, 'pacientes');
-    // Backend legado retorna array direto, V2 retorna { success, data }
-    return Array.isArray(response.data) ? response.data : response.data?.data || [];
+    const query = new URLSearchParams();
+    if (params?.page) query.append('page', String(params.page));
+    if (params?.limit) query.append('limit', String(params.limit));
+    if (params?.search) query.append('search', params.search);
+    const qs = query.toString();
+    const response = await API.get(`/doctors/patients${qs ? `?${qs}` : ''}`);
+    console.log('[DoctorService] fetchPatients: Sucesso', response.data?.data?.length || response.data?.length || 0, 'pacientes');
+    // Backend retorna { success, data, meta }
+    return response.data?.data || response.data || [];
   } catch (error: any) {
     console.error('[DoctorService] fetchPatients: Erro', error.response?.status, error.response?.data);
     throw error;

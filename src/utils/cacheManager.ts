@@ -16,6 +16,7 @@ type CacheType =
   | 'appointments'
   | 'admin'
   | 'payments'
+  | 'evolutions'
   | 'all';
 
 type CacheInvalidationListener = (type: CacheType) => void;
@@ -40,6 +41,7 @@ const CACHE_DURATIONS: Record<CacheType, number> = {
   appointments: 2 * 60 * 1000, // 2 minutos (mais volátil)
   admin: 5 * 60 * 1000,        // 5 minutos
   payments: 2 * 60 * 1000,     // 2 minutos
+  evolutions: 2 * 60 * 1000,   // 2 minutos (volátil)
   all: 0                       // N/A
 };
 
@@ -94,6 +96,7 @@ const propagateInvalidation = (type: CacheType): void => {
     doctors: ['dashboard', 'doctorStats'], // Médicos afetam dashboard e stats
     appointments: ['dashboard', 'doctorStats'], // Agendamentos afetam ambos
     payments: ['dashboard'], // Pagamentos afetam dashboard
+    evolutions: ['dashboard'], // Evoluções afetam dashboard
     admin: [], // Admin não afeta outros
     dashboard: [], // Dashboard é o aggregador
     doctorStats: [], // Stats não afeta outros diretamente
