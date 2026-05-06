@@ -158,6 +158,7 @@ export default function DoctorDashboard() {
         break;
       case 'therapy':
         loadTherapy();
+        loadPatients();
         break;
       case 'attendance':
         loadAttendance();
@@ -307,7 +308,7 @@ export default function DoctorDashboard() {
     const appointmentsList = appointments ?? [];
 
     const patientsWithoutEvolution = patientsList.filter(p => {
-      const lastAppointmentDate = p.lastAppointment?.date || p.stats?.lastAppointmentDate;
+      const lastAppointmentDate = p.lastAppointment || p.stats?.lastAppointmentDate;
       if (!lastAppointmentDate) return false;
       const daysSinceLastAppointment = Math.floor(
         (Date.now() - new Date(lastAppointmentDate).getTime()) / (1000 * 60 * 60 * 24)
