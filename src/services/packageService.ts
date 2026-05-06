@@ -78,6 +78,7 @@ export type PaginationParams = {
 
 export type CreateSessionParams = {
   date: Date;
+  time: string;
   doctorId: string;
   sessionType: TherapyType;
   value: number;
@@ -306,7 +307,11 @@ export const packageService = {
 
   // Operações com Pagamentos
   createPayment: async (packageId: string, data: CreatePaymentParams) => {
-    const response = await API.post<IPayment>(`/packages/${packageId}/payments`, data);
+    // 🚀 V2: Usa settle-payments para quitar débitos do pacote
+    const response = await API.post(`/v2/packages/${packageId}/settle-payments`, {
+      paymentIds: data.coveredSessions, // array de IDs de payments a quitar
+      paymentMethod: data.paymentMethod,
+    });
     return extractV2Data(response);
   },
 
@@ -333,57 +338,159 @@ export const packageService = {
   },
 
   getPackageSessions: async (packageId: string) => {
-    const response = await API.get<ISession[]>(`/packages/${packageId}/sessions`);
-    return extractV2Data(response);
+    // 🚀 V2: Sessions vêm na própria view do pacote
+    const response = await API.get(`/v2/packages/${packageId}`);
+    const pkg = extractV2Data(response) as any;
+    return pkg?.sessions || [];
   },
 
   getPackagePayments: async (packageId: string) => {
-    const response = await API.get<IPayment[]>(`/packages/${packageId}/payments`);
-    return extractV2Data(response);
+    // 🚀 V2: Payments vêm na própria view do pacote
+    const response = await API.get(`/v2/packages/${packageId}`);
+    const pkg = extractV2Data(response) as any;
+    return pkg?.payments || [];
   },
 
   // Operações com Sessões
-  createSession: async (packageId: string, data: CreateSessionParams) => {
-    const response = await API.post<ISession>(`/packages/${packageId}/sessions`, data);
+  createSession: async (packageId: string, data: CreateSessionParams & { patientId: string; doctorId: string }) => {
+    // 🚀 V2: Cria agendamento vinculado ao pacote
+    const response = await API.post('/v2/appointments', {
+      patientId: data.patientId,
+      doctorId: data.doctorId,
+      date: data.date,
+      time: data.time,
+      specialty: data.sessionType,
+      package: packageId,
+      serviceType: 'package_session',
+      operationalStatus: 'scheduled',
+      clinicalStatus: 'pending',
+    });
     return extractV2Data(response);
   },
 
-  updateSession: async (packageId: string, data: ISession) => {
+  updateSession: async (packageId: string, data: ISession & { appointmentId?: string }) => {
     if (data.status !== 'canceled') {
       data.confirmedAbsence = null;
     }
-    const sessionId = data.sessionId || data._id;
-    const response = await API.put<ISession>(`/packages/${packageId}/sessions/${sessionId}`, data);
+    // 🚀 V2: Usa endpoint de appointments em vez do legado de packages/sessions
+    const appointmentId = data.appointmentId;
+    if (!appointmentId) {
+      throw new Error('appointmentId é obrigatório para atualizar sessão no V2');
+    }
+    
+    // 🎯 CADA STATUS usa o endpoint correto que já sincroniza a triade (appointment + session + package)
+    if (data.status === 'completed') {
+      // ✅ completeSessionV2 sincroniza: appointment → session → package → payment
+      // (inclusive reverte cancelamento automaticamente se necessário)
+      const response = await API.patch(`/v2/appointments/${appointmentId}/complete`, {
+        paymentMethod: data.payment?.method || 'pix',
+        amount: data.payment?.amount,
+      });
+      return extractV2Data(response);
+    }
+    
+    if (data.status === 'canceled') {
+      // ✅ cancelSessionV2 sincroniza: appointment → session → package
+      const response = await API.patch(`/v2/appointments/${appointmentId}/cancel`, {
+        reason: data.notes || 'Cancelado pelo usuário',
+        confirmedAbsence: data.confirmedAbsence || false,
+      });
+      return extractV2Data(response);
+    }
+    
+    // 📝 Para scheduled/pending: PUT sincroniza appointment + session + payment
+    // 🎯 NORMALIZA: 'pending' do frontend → 'scheduled' no backend
+    const normalizedStatus = data.status === 'pending' ? 'scheduled' : data.status;
+    const response = await API.put(`/v2/appointments/${appointmentId}`, {
+      date: data.date,
+      time: data.time,
+      notes: data.notes,
+      specialty: data.specialty || data.sessionType,
+      operationalStatus: normalizedStatus,
+      clinicalStatus: 'pending',
+      paymentAmount: data.payment?.amount,
+      paymentMethod: data.payment?.method,
+    });
+    
     return extractV2Data(response);
   },
 
   addSession: async (packageId: string, sessionData: any) => {
-    const response = await API.post(`/packages/${packageId}/sessions`, sessionData);
+    // 🚀 V2: Cria agendamento vinculado ao pacote
+    const response = await API.post('/v2/appointments', {
+      patientId: sessionData.patientId,
+      doctorId: sessionData.doctorId,
+      date: sessionData.date,
+      time: sessionData.time,
+      specialty: sessionData.sessionType || sessionData.specialty,
+      package: packageId,
+      serviceType: 'package_session',
+      operationalStatus: 'scheduled',
+      clinicalStatus: 'pending',
+    });
     return extractV2Data(response);
   },
 
   // Operação para "usar" uma sessão e atualizar pagamento
-  useSession: async (packageId: string, data: UseSessionParams) => {
-    const response = await API.patch<ISession>(`/packages/${packageId}/use-session`, data);
+  useSession: async (packageId: string, data: UseSessionParams & { appointmentId?: string }) => {
+    // 🚀 V2: Completa o agendamento diretamente
+    if (!data.appointmentId) {
+      throw new Error('appointmentId é obrigatório para usar sessão no V2');
+    }
+    const response = await API.patch(`/v2/appointments/${data.appointmentId}/complete`, {
+      paymentMethod: data.paymentMethod || 'pix',
+      amount: data.paymentAmount,
+    });
     return extractV2Data(response);
   },
 
   // 🔄 Cancelamento em massa de sessões (com lista específica)
-  bulkCancelSessions: async (packageId: string, sessionIds: string[], confirmedAbsence: boolean = false) => {
-    const response = await API.post<{ success: boolean; message: string; canceledCount: number }>(
-      `/packages/${packageId}/sessions/bulk-cancel`,
-      { sessionIds, confirmedAbsence }
-    );
-    return extractV2Data(response);
+  bulkCancelSessions: async (packageId: string, appointmentIds: string[], confirmedAbsence: boolean = false) => {
+    // 🚀 V2: Cancela cada agendamento individualmente
+    let canceledCount = 0;
+    for (const appointmentId of appointmentIds) {
+      try {
+        await API.patch(`/v2/appointments/${appointmentId}/cancel`, {
+          reason: 'Cancelamento em massa',
+          confirmedAbsence,
+        });
+        canceledCount++;
+      } catch (e) {
+        console.warn(`[bulkCancelSessions] Falha ao cancelar ${appointmentId}:`, e);
+      }
+    }
+    return { success: true, message: `${canceledCount} sessões canceladas`, canceledCount };
   },
 
   // 🚀 Cancelar TODAS as sessões do pacote (mais simples, mais rápido)
   cancelAllSessions: async (packageId: string, confirmedAbsence: boolean = false) => {
-    const response = await API.post<{ success: boolean; message: string; canceledCount: number }>(
-      `/packages/${packageId}/cancel-all-sessions`,
-      { confirmedAbsence }
-    );
-    return extractV2Data(response);
+    // 🚀 V2: Busca pacote, pega appointments e cancela um por um
+    const pkgResponse = await API.get(`/v2/packages/${packageId}`);
+    const pkg = extractV2Data(pkgResponse) as any;
+    const sessions = pkg?.sessions || [];
+    
+    let canceledCount = 0;
+    for (const session of sessions) {
+      if (session.appointmentId && session.status !== 'canceled' && session.status !== 'completed') {
+        try {
+          await API.patch(`/v2/appointments/${session.appointmentId}/cancel`, {
+            reason: 'Cancelamento de todas as sessões do pacote',
+            confirmedAbsence,
+          });
+          canceledCount++;
+        } catch (e) {
+          console.warn(`[cancelAllSessions] Falha ao cancelar ${session.appointmentId}:`, e);
+        }
+      }
+    }
+    return {
+      success: true,
+      data: {
+        canceledSessions: canceledCount,
+        finalStatus: canceledCount > 0 ? 'canceled' : 'active',
+        message: `${canceledCount} sessões canceladas`,
+      }
+    };
   },
 
   inactivatePackage: async (packageId: string) => {

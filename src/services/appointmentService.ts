@@ -128,12 +128,28 @@ export type AvailableSlotsParams = {
     date: string;
 };
 
+export interface ShadowInfo {
+    patientId: string;
+    patientName: string;
+    occurrences: number;
+    lastDates: string[];
+    confidence: number;
+}
+
+export interface SlotSignals {
+    isShadow?: boolean;
+    isPreferredTime?: boolean;
+    isPreferredDoctor?: boolean;
+}
+
 // 🆕 NOVO: Tipo para slot com metadados
 export interface SlotAvailability {
     time: string;
     available: boolean;
-    reason?: 'holiday' | 'appointment' | 'blocked';
+    reason?: 'holiday' | 'appointment' | 'blocked' | 'shadow_lock';
     label?: string;
+    signals?: SlotSignals;
+    shadow?: ShadowInfo;
 }
 
 export const appointmentService = {
@@ -281,6 +297,22 @@ export const appointmentService = {
     // Consultas
     getAvailableSlots: async (payload: AvailableSlotsParams) => {
         return API.get<any>(`/v2/appointments/available-slots?doctorId=${payload.doctorId}&date=${payload.date}`);
+    },
+
+    // 🔒 Shadow Lock — reservar horário para paciente recorrente
+    createShadowLock: async (payload: {
+        patientId: string;
+        doctorId: string;
+        date: string;
+        time: string;
+        createdBy?: string;
+        notes?: string;
+    }) => {
+        return API.post<any>('/v2/appointments/shadow-lock', payload);
+    },
+
+    cancelShadowLock: async (lockId: string) => {
+        return API.delete<any>(`/v2/appointments/shadow-lock/${lockId}`);
     },
 
     getDoctorSchedule: async (doctorId: string, date: Date) => {

@@ -85,9 +85,12 @@ export interface ISession {
     patientId: string;
     package: string;
     sessionType: 'fonoaudiologia' | 'terapia_ocupacional' | 'psicologia' | 'fisioterapia';
-    status: 'pending' | 'completed' | 'canceled';
+    specialty?: string;
+    serviceType?: 'individual_session' | 'package_session' | 'evaluation';
+    status: 'pending' | 'completed' | 'canceled' | 'scheduled';
     paymentAmount?: number;
     paymentMethod?: 'dinheiro' | 'pix' | 'cartão';
+    payment?: { amount: number; method: string };
     notes?: string;
     isPaid?: boolean;
     confirmedAbsence?: boolean | null;
@@ -369,12 +372,21 @@ export interface SelectedEvent {
     package?: any;
 }
 
+export interface ShadowPayload {
+    patientId: string;
+    patientName: string;
+    occurrences: number;
+    lastDates: string[];
+    confidence: number;
+}
+
 export interface SlotBookingPayload {
     time: string;
     date: string | Date;
     doctorId: string;
     specialty: string;
     isBookingModalOpen: boolean;
+    shadow?: ShadowPayload;
 }
 
 

@@ -1,9 +1,10 @@
-import { Button, Paper, Typography, useTheme } from '@mui/material';
-import { Plus, Users } from 'lucide-react';
+import { Button, Paper, Typography, useTheme, Modal, Box } from '@mui/material';
+import { Plus, Users, AlertTriangle, CheckCircle, XCircle, Lock as LockIcon } from 'lucide-react';
 import React, { useEffect, useState } from "react";
 import { toast } from 'react-hot-toast';
 import { IAppointment, IDoctor, IPatient, ScheduleAppointment } from "../../utils/types/types";
 import doctorService from '../../services/doctorService';
+import appointmentService from '../../services/appointmentService';
 import { useDoctorsContext } from "../../contexts/DoctorsContext";
 import { extractErrorMessage } from "../../utils/errorUtils";
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
@@ -62,6 +63,18 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
         time: string,
         isBookingModalOpen: boolean
     } | null>(null);
+    const [shadowWarningData, setShadowWarningData] = useState<{
+        time: string;
+        date: string;
+        doctorId: string;
+        specialty: string;
+        patientName: string;
+        occurrences: number;
+        confidence: number;
+        patientId: string;
+        lastDates: string[];
+    } | null>(null);
+    const [refreshSignal, setRefreshSignal] = useState(0);
     const [scheduleAppointmentData, setScheduleAppointmentData] = useState<ScheduleAppointment>({
         doctorId: '',
         patientId: '',
@@ -123,11 +136,34 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
         doctorId: string;
         specialty: string;
         isBookingModalOpen: boolean;
+        shadow?: {
+            patientId: string;
+            patientName: string;
+            occurrences: number;
+            lastDates: string[];
+            confidence: number;
+        };
     }) => {
         const baseDate =
             typeof data.date === 'string'
                 ? data.date
                 : new Date(data.date).toISOString().split('T')[0];
+
+        // 🧠 Shadow Booking: se detectou recorrência, mostra warning primeiro
+        if (data.shadow) {
+            setShadowWarningData({
+                time: data.time,
+                date: baseDate,
+                doctorId: data.doctorId,
+                specialty: data.specialty,
+                patientName: data.shadow.patientName,
+                occurrences: data.shadow.occurrences,
+                confidence: data.shadow.confidence,
+                patientId: data.shadow.patientId,
+                lastDates: data.shadow.lastDates || [],
+            });
+            return;
+        }
 
         setScheduleAppointmentData({
             date: baseDate,
@@ -145,6 +181,52 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
 
         setShowScheduleModal(true);
         setSelectedBookingData(data);
+    };
+
+    const proceedWithShadowBooking = () => {
+        if (!shadowWarningData) return;
+        setScheduleAppointmentData({
+            date: shadowWarningData.date,
+            time: shadowWarningData.time,
+            doctorId: shadowWarningData.doctorId || selectedDoctor?._id || '',
+            patientId: '',
+            sessionType: shadowWarningData.specialty || selectedDoctor?.specialty || 'fonoaudiologia',
+            specialty: shadowWarningData.specialty || selectedDoctor?.specialty || 'fonoaudiologia',
+            status: 'agendado',
+            notes: '',
+            paymentAmount: 0,
+            paymentMethod: 'dinheiro',
+            serviceType: 'individual_session',
+        });
+        setShowScheduleModal(true);
+        setShadowWarningData(null);
+    };
+
+    const cancelShadowBooking = () => {
+        setShadowWarningData(null);
+    };
+
+    const handleKeepForPatient = async () => {
+        if (!shadowWarningData) return;
+        setIsLoading(true);
+        try {
+            await appointmentService.createShadowLock({
+                patientId: shadowWarningData.patientId,
+                doctorId: shadowWarningData.doctorId,
+                date: shadowWarningData.date,
+                time: shadowWarningData.time,
+                createdBy: 'secretaria',
+                notes: `Reserva inteligente: paciente recorrente ${shadowWarningData.patientName}`
+            });
+            toast.success(`✅ Horário reservado para ${shadowWarningData.patientName}`);
+            setShadowWarningData(null);
+            setRefreshSignal(prev => prev + 1); // 🔄 força refresh dos slots
+        } catch (error: any) {
+            console.error('[handleKeepForPatient] Erro:', error);
+            toast.error(extractErrorMessage(error, 'Erro ao reservar horário'));
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleBookingSubmit = async (data: any) => {
@@ -290,6 +372,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
                     onDaySlotsChange={handleDaySlotsChange}
                     onSubmitSlotBooking={onOpenCloseModals}
                     updateSlots={dataUpdateSlots}
+                    refreshSignal={refreshSignal}
                 />
             )}
 
@@ -307,6 +390,94 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
                     onCancel={() => setOpenModal()}
                     onSubmitSlotBooking={handleBookingSubmit}
                 />
+            )}
+
+            {/* 🧠 Shadow Booking Warning Modal */}
+            {shadowWarningData && (
+                <Modal
+                    open={!!shadowWarningData}
+                    onClose={cancelShadowBooking}
+                    aria-labelledby="shadow-warning-title"
+                >
+                    <Box className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-2xl p-6 w-full max-w-md outline-none">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-amber-100 rounded-full">
+                                <AlertTriangle className="h-6 w-6 text-amber-600" />
+                            </div>
+                            <h3 id="shadow-warning-title" className="text-lg font-bold text-gray-900">
+                                Horário recorrente detectado
+                            </h3>
+                        </div>
+
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                            <p className="text-sm text-amber-900 mb-2">
+                                Esse horário costuma ser ocupado por:
+                            </p>
+                            <p className="font-semibold text-amber-800 text-base">
+                                👤 {shadowWarningData.patientName}
+                            </p>
+                            <p className="text-sm text-amber-700 mt-1">
+                                📅 Últimas sessões: {shadowWarningData.occurrences}x neste mesmo dia/hora
+                            </p>
+                            {shadowWarningData.lastDates.length > 0 && (
+                                <p className="text-xs text-amber-600 mt-1">
+                                    Datas: {shadowWarningData.lastDates.slice(0, 5).map((d: string) =>
+                                        new Date(d).toLocaleDateString('pt-BR')
+                                    ).join(', ')}
+                                </p>
+                            )}
+                            <p className="text-xs text-amber-600 mt-1">
+                                Confiança: {Math.round((shadowWarningData.confidence || 0) * 100)}%
+                            </p>
+                        </div>
+
+                        <p className="text-sm text-gray-600 mb-6">
+                            O paciente pode renovar o pacote na próxima sessão. O que deseja fazer?
+                        </p>
+
+                        <div className="flex flex-col sm:flex-row justify-end gap-3">
+                            <Button
+                                variant="outlined"
+                                onClick={cancelShadowBooking}
+                                startIcon={<XCircle size={18} />}
+                                sx={{ borderRadius: 2, textTransform: 'none' }}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                variant="contained"
+                                onClick={handleKeepForPatient}
+                                disabled={isLoading}
+                                startIcon={<LockIcon size={18} />}
+                                sx={{
+                                    borderRadius: 2,
+                                    textTransform: 'none',
+                                    background: `linear-gradient(135deg, rgb(16,185,129), rgb(5,150,105))`,
+                                    '&:hover': {
+                                        background: `linear-gradient(135deg, rgb(52,211,153), rgb(16,185,129))`,
+                                    }
+                                }}
+                            >
+                                {isLoading ? 'Reservando...' : 'Manter para paciente'}
+                            </Button>
+                            <Button
+                                variant="contained"
+                                onClick={proceedWithShadowBooking}
+                                startIcon={<CheckCircle size={18} />}
+                                sx={{
+                                    borderRadius: 2,
+                                    textTransform: 'none',
+                                    background: `linear-gradient(135deg, rgb(245,158,11), rgb(217,119,6))`,
+                                    '&:hover': {
+                                        background: `linear-gradient(135deg, rgb(251,191,36), rgb(245,158,11))`,
+                                    }
+                                }}
+                            >
+                                Agendar mesmo assim
+                            </Button>
+                        </div>
+                    </Box>
+                </Modal>
             )}
 
             {showScheduleModal && (

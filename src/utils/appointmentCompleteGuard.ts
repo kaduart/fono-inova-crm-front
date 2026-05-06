@@ -52,12 +52,16 @@ function getSessionValue(appointment: AppointmentCompleteGuardInput): { hasValue
 }
 
 function getPackageRemaining(pkg?: AppointmentCompleteGuardPackage | string): number | null {
-  // 🛡️ CORREÇÃO: Se package vier como string (ObjectId não populado), não podemos calcular saldo
   if (!pkg || typeof pkg === 'string') {
     console.warn('[Guard] Package não populado - pulando validação de saldo');
     return null;
   }
   if (typeof pkg.sessionsRemaining === 'number') return pkg.sessionsRemaining;
+  // Pacote antigo sem campos de contagem → não podemos calcular, permite passar
+  if (typeof pkg.totalSessions !== 'number' && typeof pkg.sessionsDone !== 'number') {
+    console.warn('[Guard] Package sem campos de sessão (formato antigo) - pulando validação de saldo');
+    return null;
+  }
   const total = typeof pkg.totalSessions === 'number' ? pkg.totalSessions : 0;
   const done = typeof pkg.sessionsDone === 'number' ? pkg.sessionsDone : 0;
   return total - done;
@@ -136,6 +140,7 @@ export function validateAppointmentComplete(appointment: AppointmentCompleteGuar
   const hasPackage = !!pkg && (
     typeof pkg === 'string' ||
     (typeof pkg === 'object' && (
+      !!pkg._id ||                                    // pacote populado (qualquer formato)
       typeof pkg.sessionsRemaining === 'number' ||
       typeof pkg.totalSessions === 'number' ||
       typeof pkg.sessionsDone === 'number'

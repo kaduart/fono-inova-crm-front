@@ -518,6 +518,21 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 key => STATUS_TRANSLATIONS.operational[key] === editedAppointment.operationalStatus
             ) || editedAppointment.operationalStatus;
 
+            // 🎯 STATUS ESPECIAIS: redireciona para o handler correto (PATCH /complete ou PATCH /cancel)
+            // PUT /update não executa completeSessionV2 — só PATCH /complete sincroniza tudo
+            if (operationalStatusEN === 'completed') {
+                setIsEditing(false);
+                setProcessingState({ isProcessing: false, message: '' });
+                await handleComplete();
+                return;
+            }
+            if (operationalStatusEN === 'canceled') {
+                setIsEditing(false);
+                setProcessingState({ isProcessing: false, message: '' });
+                setActiveTab('cancel');
+                return;
+            }
+
             const clinicalStatusEN = Object.keys(STATUS_TRANSLATIONS.clinical).find(
                 key => STATUS_TRANSLATIONS.clinical[key] === editedAppointment.clinicalStatus
             ) || editedAppointment.clinicalStatus;

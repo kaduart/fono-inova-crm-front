@@ -184,10 +184,26 @@ export default function TherapyPackageCard({
     }
   };
 
+  // 🔥 NORMALIZADOR DE STATUS (blindagem contra novos status do backend)
+  const normalizeStatus = (status: string): string => {
+    if (status === 'pre_agendado') return 'scheduled';
+    if (status === 'cancelled') return 'canceled';
+    return status;
+  };
+
   // 🔥 NOVO: Funções para seleção de sessões
-  const scheduledSessions = pack.sessions?.filter(s => s.status === 'scheduled' || s.status === 'unpaid') || [];
-  const activeSessions = pack.sessions?.filter(s => s.status === 'scheduled' || s.status === 'unpaid' || s.status === 'pending') || [];
-  const historySessions = pack.sessions?.filter(s => s.status === 'completed' || s.status === 'canceled' || s.status === 'cancelled') || [];
+  const scheduledSessions = pack.sessions?.filter(s => {
+    const ns = normalizeStatus(s.status);
+    return ns === 'scheduled' || ns === 'unpaid';
+  }) || [];
+  const activeSessions = pack.sessions?.filter(s => {
+    const ns = normalizeStatus(s.status);
+    return ns === 'scheduled' || ns === 'unpaid' || ns === 'pending';
+  }) || [];
+  const historySessions = pack.sessions?.filter(s => {
+    const ns = normalizeStatus(s.status);
+    return ns === 'completed' || ns === 'canceled';
+  }) || [];
   
   const toggleSessionSelection = (sessionId: string) => {
     setSelectedSessionIds(prev => {
@@ -275,7 +291,7 @@ export default function TherapyPackageCard({
       setShowInactivateModal(false);
       if (onRefresh) onRefresh();
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Erro ao inativar pacote');
+      toast.error(err?.response?.data?.error?.code || err?.response?.data?.message || 'Erro ao inativar pacote');
     } finally {
       setIsInactivating(false);
     }
@@ -386,6 +402,11 @@ export default function TherapyPackageCard({
                 {pack.searchFields?.doctorName || 'Profissional não identificado'} • {' '}
                 <span className="capitalize">{pack.sessionType?.toLowerCase()}</span>
               </p>
+              {pack.createdAt && (
+                <p className="text-xs text-gray-400">
+                  Criado em {new Date(pack.createdAt).toLocaleDateString('pt-BR')}
+                </p>
+              )}
               {pack.type === 'convenio' && pack.insuranceProvider && (
                 <p className="text-xs text-blue-600 font-medium mt-1">
                   {pack.insuranceProvider.replace(/-/g, ' ').toUpperCase()}

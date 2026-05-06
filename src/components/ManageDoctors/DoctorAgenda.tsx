@@ -22,9 +22,10 @@ interface IDoctorAgendaProps {
         time: string,
         isBookingModalOpen: boolean
     }) => void;
+    refreshSignal?: number;
 }
 
-const DoctorAgenda = ({ doctors = [], updateSlots, patients, onDaySlotsChange, selectedDoctor, onSubmitSlotBooking }: IDoctorAgendaProps) => {
+const DoctorAgenda = ({ doctors = [], updateSlots, patients, onDaySlotsChange, selectedDoctor, onSubmitSlotBooking, refreshSignal }: IDoctorAgendaProps) => {
     const [selectedDoctorId, setSelectedDoctorId] = useState('');
     const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs | null>(null);
     const [daySlots, setDaySlots] = useState<{ date: string; slots: (string | SlotAvailability)[] }[]>([]);
@@ -59,6 +60,12 @@ useEffect(() => {
     const onDateChange = (date: dayjs.Dayjs) => {
         setSelectedDate(date);
     };
+
+    useEffect(() => {
+        if (refreshSignal && selectedDate && selectedDoctorId) {
+            fetchSlotsForDate(selectedDate.format('YYYY-MM-DD'), selectedDoctorId);
+        }
+    }, [refreshSignal]);
 
     const fetchSlotsForDate = async (date: string, doctorId?: string) => {
         const targetDoctorId = doctorId || selectedDoctorId;

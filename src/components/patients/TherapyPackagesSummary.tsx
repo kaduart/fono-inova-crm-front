@@ -114,6 +114,7 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                 serviceType: sessionData.serviceType,
                 specialty: sessionData.sessionType,
                 sessionId: sessionData._id,
+                appointmentId: sessionData.appointmentId, // 🚀 V2: obrigatório para endpoint V2
                 confirmedAbsence: sessionData.confirmedAbsence,
                 payment: {
                     amount: Number(sessionData.paymentAmount) || 0,
