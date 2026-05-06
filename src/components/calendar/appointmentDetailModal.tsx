@@ -438,7 +438,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             const didProceed = safeCompleteAppointment(
                 {
                     billingType: event?.billingType,
-                    package: event?.package,
+                    package: event?.package
+                        ?? event?.extendedProps?.package
+                        ?? ((event?.extendedProps?.__isPackageAppointment || event?.extendedProps?.serviceType === 'package_session' || event?.extendedProps?.packageId)
+                            ? { _id: event?.extendedProps?.packageId || 'legacy' }
+                            : null),
                     liminarContract: event?.liminarContract,
                     sessionValue: (addToBalance && debitAmount > 0) ? debitAmount : (event?.sessionValue ?? event?.paymentAmount ?? null),
                 },

@@ -77,6 +77,12 @@ function getPackageRemaining(pkg?: AppointmentCompleteGuardPackage | string): nu
  *   4. Particular avulso → exige valor definido
  */
 export function validateAppointmentComplete(appointment: AppointmentCompleteGuardInput): GuardResult {
+  console.log('[Guard] INPUT:', JSON.stringify({
+    billingType: appointment.billingType,
+    sessionValue: appointment.sessionValue,
+    package: appointment.package,
+    liminarContract: appointment.liminarContract,
+  }, null, 2));
   const billingType = appointment.billingType || 'particular';
   const { hasValue: hasSessionValue, value: sessionValue } = getSessionValue(appointment);
 
