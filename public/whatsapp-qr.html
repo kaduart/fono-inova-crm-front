@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp QR Code - Fono Inova</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #111b21;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      text-align: center;
+      max-width: 500px;
+      width: 100%;
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 8px; color: #00a884; }
+    .subtitle { color: #8696a0; font-size: 0.95rem; margin-bottom: 24px; }
+    .qr-wrapper {
+      background: #fff;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 320px;
+    }
+    .qr-wrapper img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+    }
+    .qr-placeholder {
+      color: #333;
+      font-size: 1rem;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 24px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin-bottom: 12px;
+    }
+    .status.qr { background: #ffeb3b; color: #333; }
+    .status.authenticated { background: #2196f3; color: #fff; }
+    .status.ready { background: #00a884; color: #fff; }
+    .status.error { background: #f44336; color: #fff; }
+    .countdown {
+      color: #8696a0;
+      font-size: 0.85rem;
+      margin-top: 8px;
+    }
+    .error-msg {
+      color: #f44336;
+      font-size: 0.85rem;
+      margin-top: 8px;
+      word-break: break-word;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+    .status.qr .dot { background: #333; }
+    .status.ready .dot { background: #fff; }
+    .status.authenticated .dot { background: #fff; }
+    .status.error .dot { background: #fff; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .instructions {
+      background: #202c33;
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 20px;
+      text-align: left;
+    }
+    .instructions h3 {
+      color: #00a884;
+      font-size: 0.95rem;
+      margin-bottom: 10px;
+    }
+    .instructions ol {
+      padding-left: 20px;
+      color: #d1d7db;
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+    .instructions li { margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔗 Conectar WhatsApp</h1>
+    <p class="subtitle">Escaneie o QR Code com seu celular</p>
+
+    <div id="status" class="status qr">
+      <span class="dot"></span>
+      <span id="statusText">Aguardando QR Code...</span>
+    </div>
+
+    <div class="qr-wrapper">
+      <div id="qrContent" class="qr-placeholder">Carregando...</div>
+    </div>
+
+    <div id="countdown" class="countdown"></div>
+    <div id="errorMsg" class="error-msg"></div>
+
+    <div class="instructions">
+      <h3>📱 Como conectar:</h3>
+      <ol>
+        <li>Abra o WhatsApp no seu celular</li>
+        <li>Toque nos 3 pontos (⋮) → <strong>Aparelhos conectados</strong></li>
+        <li>Toque em <strong>Conectar um aparelho</strong></li>
+        <li>Aponte a câmera para o QR Code acima</li>
+        <li>Aguarde até aparecer "✅ Cliente pronto!" aqui</li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    // CONFIGURE A URL DO SEU BACKEND AQUI
+    const API_URL = 'https://fono-inova-crm-back.onrender.com/api/whatsapp-web/status';
+    const POLL_INTERVAL = 3000; // ms
+
+    let lastQrCode = null;
+    let qrTimer = null;
+    let qrExpiresIn = 0;
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch(API_URL, {
+          headers: {
+            'Authorization': 'Bearer agenda_export_token_fono_inova_2025_secure_abc123',
+            'Cache-Control': 'no-cache'
+          }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      } catch (err) {
+        console.error('Erro ao buscar status:', err);
+        return null;
+      }
+    }
+
+    function updateUI(data) {
+      const statusEl = document.getElementById('status');
+      const statusText = document.getElementById('statusText');
+      const qrContent = document.getElementById('qrContent');
+      const countdownEl = document.getElementById('countdown');
+      const errorEl = document.getElementById('errorMsg');
+
+      if (!data) {
+        statusText.textContent = 'Erro de conexão';
+        statusEl.className = 'status error';
+        return;
+      }
+
+      // Atualiza status
+      statusEl.className = `status ${data.status}`;
+      errorEl.textContent = data.error || '';
+
+      if (data.status === 'ready') {
+        statusText.textContent = '✅ Conectado!';
+        qrContent.innerHTML = '<div style="color:#00a884;font-size:3rem;">✓</div><div style="color:#333;margin-top:8px;">WhatsApp conectado com sucesso!</div>';
+        countdownEl.textContent = '';
+        if (qrTimer) clearInterval(qrTimer);
+        return;
+      }
+
+      if (data.status === 'authenticated') {
+        statusText.textContent = '🔐 Autenticado, carregando...';
+        qrContent.innerHTML = '<div style="color:#2196f3;font-size:2rem;">⏳</div><div style="color:#333;margin-top:8px;">Sincronizando mensagens...</div>';
+        countdownEl.textContent = '';
+        return;
+      }
+
+      if (data.status === 'qr' && data.qrCode) {
+        statusText.textContent = '📷 Escaneie o QR Code';
+
+        // Se mudou o QR, reinicia contador
+        if (data.qrCode !== lastQrCode) {
+          lastQrCode = data.qrCode;
+          qrExpiresIn = 20;
+          if (qrTimer) clearInterval(qrTimer);
+          qrTimer = setInterval(() => {
+            qrExpiresIn--;
+            if (qrExpiresIn <= 0) {
+              countdownEl.textContent = 'QR Code expirando... novo código em breve';
+            } else {
+              countdownEl.textContent = `Novo QR Code em ${qrExpiresIn}s`;
+            }
+          }, 1000);
+        }
+
+        qrContent.innerHTML = `<img src="${data.qrCode}" alt="QR Code WhatsApp" />`;
+        return;
+      }
+
+      statusText.textContent = '⏳ Inicializando...';
+      qrContent.innerHTML = '<div style="color:#666;">Gerando QR Code...</div>';
+      countdownEl.textContent = '';
+    }
+
+    async function poll() {
+      const data = await fetchStatus();
+      updateUI(data);
+
+      // Para de fazer poll quando estiver pronto
+      if (data && data.status === 'ready') return;
+
+      setTimeout(poll, POLL_INTERVAL);
+    }
+
+    // Inicia
+    poll();
+  </script>
+</body>
+</html>
