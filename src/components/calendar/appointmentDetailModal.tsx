@@ -95,7 +95,7 @@ const getStatusConfig = (status: string | undefined | null, type: 'operational' 
     };
 };
 
-const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
+const lke: React.FC<AppointmentDetailModalProps> = ({
     isOpen,
     onClose,
     doctors,
@@ -556,8 +556,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 sessionType: editedAppointment.sessionType,
                 specialty: editedAppointment.sessionType,
                 billingType,
-                // 🚫 REMOVIDO: paymentAmount e sessionValue não devem ser enviados no edit.
-                // O backend mantém o valor do Payment existente (criado no schedule/complete).
+                paymentAmount,
+                sessionValue: paymentAmount,
                 paymentMethod: billingType === 'particular' ? paymentMethod : 'convenio',
                 insuranceProvider,
                 insuranceValue,
