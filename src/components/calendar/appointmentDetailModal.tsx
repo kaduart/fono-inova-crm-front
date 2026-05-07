@@ -95,7 +95,7 @@ const getStatusConfig = (status: string | undefined | null, type: 'operational' 
     };
 };
 
-const lke: React.FC<AppointmentDetailModalProps> = ({
+const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     isOpen,
     onClose,
     doctors,
