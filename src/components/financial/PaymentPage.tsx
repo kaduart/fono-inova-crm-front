@@ -1,5 +1,5 @@
 import { RefreshCw, User, Stethoscope, Calendar, Clock } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import usePayment from '../../hooks/usePayment';
@@ -7,6 +7,7 @@ import { Box, Grid, Typography, Button, Paper, useTheme } from '@mui/material';
 
 import { usePaymentsContext } from '../../contexts/PaymentsContext';
 import { useAppointmentsContext } from '../../contexts/AppointmentsContext';
+import { useDoctorsContext } from '../../contexts/DoctorsContext';
 import { useAppointmentsByType } from '../../hooks/useAppointmentsByType';
 import {
     exportCSV,
@@ -506,14 +507,16 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
     // 🆕 Modal de detalhes de Pacientes Novos
     const [isNewPatientsModalOpen, setIsNewPatientsModalOpen] = useState(false);
 
-    // 🆕 NOVO: Referência para funções do calendário (mock por enquanto)
-    const mockDoctors = doctors || [];
+    const { activeDoctors: contextDoctors } = useDoctorsContext();
+    const effectiveDoctors = (doctors && doctors.length > 0) ? doctors : (contextDoctors || []);
     const [error, setError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month' | 'year' | 'all' | 'last_week' | 'last_month' | 'custom' | string>('day');
     const [customStartDate, setCustomStartDate] = useState<string>('');
     const [customEndDate, setCustomEndDate] = useState<string>('');
+    const patientSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [patientSearchActive, setPatientSearchActive] = useState(false);
 
     const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -548,14 +551,29 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
     }, [appointments, setAllPayments]);
 
     // 🚀 NOVO: Busca appointments no contexto de acordo com o período
-    const syncAppointments = useCallback(async (params: { startDate?: string; endDate?: string } = {}) => {
+    const syncAppointments = useCallback(async (params: { startDate?: string; endDate?: string; patientName?: string } = {}) => {
         console.log('[PaymentPage] Sincronizando appointments via contexto:', params);
         await fetchAppointments({
             startDate: params.startDate,
             endDate: params.endDate,
-            force: false
+            patientName: params.patientName,
+            force: !!params.patientName,
         });
     }, [fetchAppointments]);
+
+    const handlePatientSearch = useCallback((text: string) => {
+        if (patientSearchDebounceRef.current) clearTimeout(patientSearchDebounceRef.current);
+        patientSearchDebounceRef.current = setTimeout(() => {
+            if (text.length >= 2) {
+                setPatientSearchActive(true);
+                syncAppointments({ patientName: text });
+            } else {
+                setPatientSearchActive(false);
+                const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+                if (range) syncAppointments({ startDate: range.start, endDate: range.end });
+            }
+        }, 400);
+    }, [syncAppointments, selectedPeriod, customStartDate, customEndDate]);
 
     // 🆕 Busca analytics de lifecycle (novos / retornos 45+) quando o período muda
     // Usa mode='date' para alinhar com a visão operacional da tabela financeira
@@ -609,7 +627,9 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
     }, [enabled]);
 
     // 🔹 FILTRO DE PERÍODO NO FRONTEND: Filtra os pagamentos já carregados
+    // Quando busca de paciente está ativa, os dados já vêm filtrados do backend — não filtra por período
     useEffect(() => {
+        if (patientSearchActive) return;
         if (allPayments.length === 0) return;
 
         const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
@@ -618,26 +638,47 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
             return;
         }
 
-        console.log('[PaymentPage] Filtrando período:', selectedPeriod, range);
-
         const filtered = allPayments.filter(payment => {
             const paymentDate = payment.date;
             return paymentDate >= range.start && paymentDate <= range.end;
         });
 
-        console.log('[PaymentPage] Filtrado:', filtered.length, 'de', allPayments.length);
         setFilteredPayments(filtered);
-    }, [allPayments, selectedPeriod, customStartDate, customEndDate]);
+    }, [allPayments, selectedPeriod, customStartDate, customEndDate, patientSearchActive]);
+
+    const handleEditAppointment = (appointmentId: string) => {
+        // Busca no AppointmentsContext primeiro (dado mais completo)
+        const appt = appointments.find((a: any) => (a._id || a.id) === appointmentId);
+        if (appt) {
+            setAppointmentToEdit(appt);
+            setIsAppointmentModalOpen(true);
+            return;
+        }
+        // Fallback: usa o registro bruto do allPayments
+        const record = allPaymentsRaw.find((p: any) => (p._id || p.id) === appointmentId);
+        if (record) {
+            setAppointmentToEdit(record);
+            setIsAppointmentModalOpen(true);
+        } else {
+            toast.error('Agendamento não encontrado.');
+        }
+    };
 
     const handleEditAmount = (paymentId: string) => {
-        const payment = allPayments.find(p => p.id === paymentId);
+        const payment = allPayments.find(p => (p._id || (p as any).id) === paymentId);
 
         if (!payment) {
             toast.error('Registro não encontrado.');
             return;
         }
 
-        setPaymentToEdit(payment);
+        // Normaliza _id para garantir que PaymentModal sempre tenha _id correto
+        const normalized = {
+            ...payment,
+            _id: payment._id || (payment as any).id || paymentId,
+        };
+
+        setPaymentToEdit(normalized as any);
         setIsEditModalOpen(true);
     };
 
@@ -1107,7 +1148,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                 )}
 
                 {/* Componente de filtros avançados (PaymentsFilters) */}
-                <PaymentsFilters doctors={doctors || []} payments={allPayments} onFilter={setFilteredPayments} />
+                <PaymentsFilters doctors={doctors || []} payments={allPayments} onFilter={setFilteredPayments} onPatientSearch={handlePatientSearch} backendPatientSearchActive={patientSearchActive} />
 
                 {/* Tabela de pagamentos */}
                 {error ? (
@@ -1231,6 +1272,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                                                     registerAppointmentAndPayemntFuture={() => registerAppointmentAndPayemntFuture(payment)}
                                                     onCancelPayment={handleCancelPayment}
                                                     onEditAmount={handleEditAmount}
+                                                    onEditAppointment={handleEditAppointment}
                                                     onAddPaymentToPackage={(pkg) => {
                                                         setSelectedPackage(pkg);
                                                         setSelectedPackageId(pkg._id);
@@ -1303,9 +1345,9 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                     open={isEditModalOpen}
                     onClose={() => { setIsEditModalOpen(false); setPaymentToEdit(undefined); }}
                     payment={paymentToEdit}
-                    doctors={mockDoctors}
+                    doctors={effectiveDoctors}
                     onPaymentSuccess={async (data) => {
-                        const targetId = paymentToEdit.__realPaymentId || paymentToEdit._id;
+                        const targetId = paymentToEdit.__realPaymentId || paymentToEdit._id || (paymentToEdit as any).id;
                         await updatePayment(targetId, {
                             amount: data.amount,
                             paymentMethod: data.paymentMethod,
@@ -1313,6 +1355,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                             specialty: data.specialty,
                             status: data.status,
                             notes: data.notes,
+                            paymentDate: data.date,
                         });
                         setIsEditModalOpen(false);
                         setPaymentToEdit(undefined);
@@ -1338,7 +1381,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                         fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
                     }}
                     event={appointmentToEdit}
-                    doctors={mockDoctors}
+                    doctors={effectiveDoctors}
                     onCancelAppointment={async (id, reason) => {
                         console.log('Cancelar agendamento:', id, reason);
                         toast.success('Agendamento cancelado');

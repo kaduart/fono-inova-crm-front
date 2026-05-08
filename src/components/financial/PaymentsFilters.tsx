@@ -17,12 +17,14 @@ interface PaymentsFiltersProps {
     onFilter: (filteredPayments: any[]) => void;
     onSort?: (field: string, direction: 'asc' | 'desc') => void;
     initialFilters?: Filters;
+    onPatientSearch?: (text: string) => void;
+    backendPatientSearchActive?: boolean;
 }
 
 type SortField = 'date' | 'amount' | 'patient' | 'doctor' | 'status' | 'method';
 type SortDirection = 'asc' | 'desc';
 
-export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFilters = {} }: PaymentsFiltersProps) {
+export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFilters = {}, onPatientSearch, backendPatientSearchActive }: PaymentsFiltersProps) {
     const safePayments = payments || [];
     console.log('[PaymentsFilters] Render com', safePayments.length, 'pagamentos');
     const [filters, setFilters] = useState<Filters>(initialFilters);
@@ -38,12 +40,13 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
                 return false;
             }
 
-            // Filtro por paciente
-            if (filters.patientId) {
+            // Filtro por paciente — pula se o backend já filtrou (evita dupla filtragem)
+            if (filters.patientId && !backendPatientSearchActive) {
                 const searchTerm = filters.patientId.toLowerCase();
                 const patientMatch =
-                    payment.patient?.id?.toLowerCase().includes(searchTerm) ||
+                    payment.patient?.fullName?.toLowerCase().includes(searchTerm) ||
                     payment.patient?.name?.toLowerCase().includes(searchTerm) ||
+                    payment.patient?.id?.toLowerCase().includes(searchTerm) ||
                     (payment as any).patientName?.toLowerCase().includes(searchTerm);
 
                 if (!patientMatch) return false;
@@ -70,43 +73,43 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
 
         // Ordenação
         result.sort((a, b) => {
-            let aValue, bValue;
+            let aValue: any, bValue: any;
 
             switch (sortField) {
-                case 'date':
-                    aValue = new Date(a.date || a.appointment?.date || a.createdAt).getTime();
-                    bValue = new Date(b.date || b.appointment?.date || b.createdAt).getTime();
-                    break;
+                case 'date': {
+                    const aStr = a.date || a.appointment?.date || a.createdAt || '';
+                    const bStr = b.date || b.appointment?.date || b.createdAt || '';
+                    // ISO strings são comparáveis lexicograficamente
+                    return sortDirection === 'asc'
+                        ? aStr.localeCompare(bStr)
+                        : bStr.localeCompare(aStr);
+                }
                 case 'amount':
-                    aValue = a.amount;
-                    bValue = b.amount;
+                    aValue = Number(a.amount) || 0;
+                    bValue = Number(b.amount) || 0;
                     break;
                 case 'patient':
-                    aValue = a.patient?.fullName?.toLowerCase();
-                    bValue = b.patient?.fullName?.toLowerCase();
+                    aValue = (a.patient?.name || a.patient?.fullName || '').toLowerCase();
+                    bValue = (b.patient?.name || b.patient?.fullName || '').toLowerCase();
                     break;
                 case 'doctor':
-                    aValue = a.doctor?.fullName?.toLowerCase();
-                    bValue = b.doctor?.fullName?.toLowerCase();
+                    aValue = (a.doctor?.name || a.doctor?.fullName || '').toLowerCase();
+                    bValue = (b.doctor?.name || b.doctor?.fullName || '').toLowerCase();
                     break;
                 case 'status':
-                    aValue = a.status;
-                    bValue = b.status;
+                    aValue = a.status || '';
+                    bValue = b.status || '';
                     break;
                 case 'method':
-                    aValue = a.method;
-                    bValue = b.method;
+                    aValue = a.method || '';
+                    bValue = b.method || '';
                     break;
                 default:
                     return 0;
             }
 
-            if (aValue < bValue) {
-                return sortDirection === 'asc' ? -1 : 1;
-            }
-            if (aValue > bValue) {
-                return sortDirection === 'asc' ? 1 : -1;
-            }
+            if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
             return 0;
         });
 
@@ -132,6 +135,9 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
             ...prev,
             [key]: value === "" ? undefined : value
         }));
+        if (key === 'patientId') {
+            onPatientSearch?.(value || '');
+        }
     };
 
     const handleSort = (field: SortField) => {

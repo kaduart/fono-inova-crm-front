@@ -20,12 +20,15 @@ export interface PaymentAppointmentDTO {
 
 export interface PaymentDoctorDTO {
     id: string;
+    _id: string;       // alias de id — compatibilidade com FinancialRecord
     name: string;
+    fullName?: string; // alias de name
     specialty?: string;
 }
 
 export interface PaymentDTO {
     id: string;
+    _id: string;       // alias de id — compatibilidade com FinancialRecord
     amount: number;
     method: string;
     status: string;
@@ -98,8 +101,10 @@ export function mapPaymentResponseDTO(raw: any): PaymentDTO {
 
     const patientRaw = raw.patient || { _id: raw.patientId, fullName: raw.patientName };
 
+    const resolvedId = raw._id?.toString?.() || raw.id?.toString?.() || '';
     return {
-        id: raw._id?.toString?.() || raw.id?.toString?.() || '',
+        id: resolvedId,
+        _id: resolvedId,
         amount: extractPaymentAmount(raw),
         method: extractPaymentMethod(raw),
         status: extractPaymentStatus(raw),
@@ -154,8 +159,10 @@ export function mapFinancialRecordToPaymentDTO(record: FinancialRecord): Payment
     const doctorRaw = record.doctor || { _id: record.doctorId };
     const appointmentRaw = record.appointment || { _id: record.__appointmentId };
 
+    const resolvedId = record._id || record.__realPaymentId || '';
     return {
-        id: record._id || record.__realPaymentId || '',
+        id: resolvedId,
+        _id: resolvedId,
         amount: typeof record.amount === 'number' && !isNaN(record.amount) ? record.amount : 0,
         method: record.paymentMethod || 'pix',
         status: record.status || 'pending',
@@ -176,11 +183,11 @@ export function mapFinancialRecordToPaymentDTO(record: FinancialRecord): Payment
             totalPackages: 0,
             raw: patientRaw,
         },
-        doctor: doctorRaw._id || doctorRaw.id ? {
-            id: doctorRaw._id?.toString?.() || doctorRaw.id?.toString?.() || record.doctorId || '',
-            name: doctorRaw.fullName || doctorRaw.name || doctorRaw.nome || 'Desconhecido',
-            specialty: doctorRaw.specialty || undefined,
-        } : undefined,
+        doctor: doctorRaw._id || doctorRaw.id ? (() => {
+            const dId = doctorRaw._id?.toString?.() || doctorRaw.id?.toString?.() || record.doctorId || '';
+            const dName = doctorRaw.fullName || doctorRaw.name || doctorRaw.nome || 'Desconhecido';
+            return { id: dId, _id: dId, name: dName, fullName: dName, specialty: doctorRaw.specialty || undefined };
+        })() : undefined,
         appointment: appointmentRaw._id || appointmentRaw.id ? {
             id: appointmentRaw._id?.toString?.() || appointmentRaw.id?.toString?.() || record.__appointmentId || '',
             date: appointmentRaw.date || undefined,

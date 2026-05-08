@@ -232,7 +232,7 @@ export const appointmentService = {
     },
 
     // 🚀 V2: Listagem com filtros e população completa (única opção)
-    list: async (params: { startDate?: string; endDate?: string; page?: number; limit?: number; light?: boolean; patientId?: string; doctorId?: string; _t?: number } = {}) => {
+    list: async (params: { startDate?: string; endDate?: string; page?: number; limit?: number; light?: boolean; patientId?: string; patientName?: string; doctorId?: string; _t?: number } = {}) => {
         const queryParams = new URLSearchParams();
         if (params.startDate) queryParams.append('startDate', params.startDate);
         if (params.endDate) queryParams.append('endDate', params.endDate);
@@ -240,8 +240,9 @@ export const appointmentService = {
         if (params.limit) queryParams.append('limit', params.limit.toString());
         if (params.light) queryParams.append('light', 'true');
         if (params.patientId) queryParams.append('patientId', params.patientId);
+        if (params.patientName) queryParams.append('patientName', params.patientName);
         if (params.doctorId) queryParams.append('doctorId', params.doctorId);
-        if (params._t) queryParams.append('_t', params._t.toString()); // 🔥 Cache bust
+        if (params._t) queryParams.append('_t', params._t.toString());
 
         return API.get(`/v2/appointments?${queryParams.toString()}`);
     },

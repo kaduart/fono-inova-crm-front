@@ -7,7 +7,10 @@ interface PaymentActionIconsProps {
     onMarkAsPaid: (payment: FinancialRecord) => void;
     onCancelPayment: (id: string) => void;
     onEditAmount: (id: string) => void;
+    onEditAppointment?: (id: string) => void;
     onAddPaymentToPackage: (id: string) => void;
+    disabled?: boolean;
+    registerAppointmentAndPayemntFuture?: (payment: FinancialRecord) => void;
 }
 
 export const PaymentActionIcons = ({
@@ -15,7 +18,10 @@ export const PaymentActionIcons = ({
     onMarkAsPaid,
     onCancelPayment,
     onEditAmount,
-    onAddPaymentToPackage
+    onEditAppointment,
+    onAddPaymentToPackage,
+    disabled,
+    registerAppointmentAndPayemntFuture,
 }: PaymentActionIconsProps) => {
     const [open, setOpen] = useState(false);
 
@@ -122,7 +128,9 @@ export const PaymentActionIcons = ({
                     {payment.status !== 'canceled' && !(payment as any).__isAppointmentRecord && (
                         <button
                             onClick={() => {
-                                onEditAmount(payment._id);
+                                const id = (payment as any).id || payment._id;
+                                console.log('[PaymentAction] Editar Valor id:', id, '_id:', payment._id, 'id:', (payment as any).id);
+                                onEditAmount(id);
                                 setOpen(false);
                             }}
                             className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-blue-50 text-blue-700 transition-colors"
@@ -130,12 +138,14 @@ export const PaymentActionIcons = ({
                             <Edit size={16} /> Editar Valor
                         </button>
                     )}
-                    
+
                     {/* 🚨 BOTÃO EDITAR AGENDAMENTO (quando for registro de appointment) */}
                     {(payment as any).__isAppointmentRecord && (
                         <button
                             onClick={() => {
-                                onEditAmount(payment._id);
+                                const id = (payment as any).id || payment._id;
+                                console.log('[PaymentAction] Editar Agendamento id:', id);
+                                (onEditAppointment || onEditAmount)(id);
                                 setOpen(false);
                             }}
                             className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-amber-50 text-amber-700 transition-colors"
@@ -149,7 +159,8 @@ export const PaymentActionIcons = ({
                     {payment.status !== 'canceled' && (
                         <button
                             onClick={() => {
-                                onCancelPayment(payment._id);
+                                const id = (payment as any).id || payment._id;
+                                onCancelPayment(id);
                                 setOpen(false);
                             }}
                             className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-red-50 text-red-700 transition-colors"

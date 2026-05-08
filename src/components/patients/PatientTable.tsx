@@ -406,14 +406,25 @@ const PatientTable: React.FC<PatientTableProps> = ({
 
                                                 {/* Atendimento (plano) */}
                                                 <td className="px-6 py-4">
-                                                    {patient.healthPlan?.name ? (
-                                                        <span className="inline-flex items-center gap-1.5 bg-orange-50 text-orange-700 px-2.5 py-1 rounded-md text-xs font-medium">
-                                                            <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>
-                                                            {patient.healthPlan.name}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-gray-400 text-xs">-</span>
-                                                    )}
+                                                    {(() => {
+                                                        const planName = patient.healthPlan?.name;
+                                                        const isConvenio = (planName && planName.toLowerCase() !== 'particular') || patient.tags?.includes('convenio');
+                                                        if (isConvenio) {
+                                                            return (
+                                                                <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md text-xs font-medium">
+                                                                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                                                                    {planName && planName.toLowerCase() !== 'particular' ? planName : 'Convênio'}
+                                                                </span>
+                                                            );
+                                                        }
+                                                        // Particular (explícito ou padrão)
+                                                        return (
+                                                            <span className="inline-flex items-center gap-1.5 bg-orange-50 text-orange-700 px-2.5 py-1 rounded-md text-xs font-medium">
+                                                                <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>
+                                                                Particular
+                                                            </span>
+                                                        );
+                                                    })()}
                                                 </td>
 
                                                 {/* Próxima consulta */}

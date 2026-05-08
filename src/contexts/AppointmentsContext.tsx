@@ -10,7 +10,7 @@ interface AppointmentsContextData {
     appointments: IAppointment[];
     isLoading: boolean;
     currentPeriod: { startDate?: string; endDate?: string } | null;
-    fetchAppointments: (filters?: { startDate?: string; endDate?: string; force?: boolean }) => Promise<void>;
+    fetchAppointments: (filters?: { startDate?: string; endDate?: string; force?: boolean; patientName?: string }) => Promise<void>;
     createAppointment: (data: any) => Promise<any>;
     updateAppointment: (id: string, data: any) => Promise<any>;
     completeAppointment: (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => Promise<any>;
@@ -47,7 +47,7 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     appointmentsRef.current = appointments;
 
     // 🚀 LOAD COM CACHE POR PERÍODO + PROTEÇÃO DE CONCORRÊNCIA
-    const fetchAppointments = useCallback(async (filters?: { startDate?: string; endDate?: string; force?: boolean }) => {
+    const fetchAppointments = useCallback(async (filters?: { startDate?: string; endDate?: string; force?: boolean; patientName?: string }) => {
         const effectiveFilters = filters || currentFiltersRef.current;
         const forceRefresh = filters?.force;
 
@@ -61,8 +61,8 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (filters?.startDate) currentFiltersRef.current = filters;
 
         // ✅ Cache: se já carregou esse período, não busca de novo (null = forçar refresh)
-        // 🆕 force = true ignora o cache
-        if (!forceRefresh && currentPeriodRef.current !== null &&
+        // 🆕 force = true ignora o cache | patientName bypassa cache sempre
+        if (!forceRefresh && !effectiveFilters?.patientName && currentPeriodRef.current !== null &&
             currentPeriodRef.current?.startDate === effectiveFilters.startDate &&
             currentPeriodRef.current?.endDate === effectiveFilters.endDate &&
             appointmentsRef.current.length > 0) {
@@ -91,10 +91,10 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             // 🔥 Cache bust quando force=true
             const response = await appointmentService.list({
                 limit: 500,
-                // ❌ REMOVIDO: light: true - precisamos de todos os campos incluindo paymentMethod
                 ...(effectiveFilters?.startDate && { startDate: effectiveFilters.startDate }),
                 ...(effectiveFilters?.endDate && { endDate: effectiveFilters.endDate }),
-                ...(forceRefresh && { _t: Date.now() }), // 🔥 Cache bust
+                ...(effectiveFilters?.patientName && { patientName: effectiveFilters.patientName }),
+                ...(forceRefresh && { _t: Date.now() }),
             });
             
             // 🛡️ IGNORA resposta se já teve nova requisição (race condition)
