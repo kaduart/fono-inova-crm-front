@@ -1348,6 +1348,8 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                     doctors={effectiveDoctors}
                     onPaymentSuccess={async (data) => {
                         const targetId = paymentToEdit.__realPaymentId || paymentToEdit._id || (paymentToEdit as any).id;
+                        const resolvedDate = data.date || data.paymentDate;
+                        console.log('[PaymentPage] onPaymentSuccess:', { date: data.date, paymentDate: data.paymentDate, resolvedDate, doctorId: data.doctorId, targetId });
                         await updatePayment(targetId, {
                             amount: data.amount,
                             paymentMethod: data.paymentMethod,
@@ -1355,7 +1357,8 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                             specialty: data.specialty,
                             status: data.status,
                             notes: data.notes,
-                            paymentDate: data.date,
+                            doctor: data.doctorId,
+                            date: resolvedDate,
                         });
                         setIsEditModalOpen(false);
                         setPaymentToEdit(undefined);

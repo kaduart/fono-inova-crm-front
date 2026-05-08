@@ -125,19 +125,35 @@ export const PaymentActionIcons = ({
                     )}
 
                     {/* ✅ BOTÃO EDITAR */}
-                    {payment.status !== 'canceled' && !(payment as any).__isAppointmentRecord && (
-                        <button
-                            onClick={() => {
-                                const id = (payment as any).id || payment._id;
-                                console.log('[PaymentAction] Editar Valor id:', id, '_id:', payment._id, 'id:', (payment as any).id);
-                                onEditAmount(id);
-                                setOpen(false);
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-blue-50 text-blue-700 transition-colors"
-                        >
-                            <Edit size={16} /> Editar Valor
-                        </button>
-                    )}
+                    {payment.status !== 'canceled' && !(payment as any).__isAppointmentRecord && (() => {
+                        const isPackage = (payment as any).__isPackageAppointment || payment.serviceType === 'package_session' || payment.packageId;
+                        const isConvenio = payment.billingType === 'convenio';
+                        const isLiminar = payment.billingType === 'liminar';
+                        const blocked = isPackage || isConvenio || isLiminar;
+                        const blockReason = isPackage ? 'Sessão de pacote — valor não editável' : isConvenio ? 'Convênio — valor não editável' : 'Liminar — valor não editável';
+                        console.log('[PaymentAction] Editar bloqueado?', blocked, { billingType: payment.billingType, serviceType: payment.serviceType, packageId: payment.packageId });
+                        return blocked ? (
+                            <div
+                                className="w-full flex items-center gap-2 px-3 py-2 rounded-md bg-gray-50 text-gray-400 cursor-not-allowed"
+                                title={blockReason}
+                            >
+                                <Edit size={16} /> Editar Valor
+                                <span className="text-xs ml-auto">🚫</span>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => {
+                                    const id = (payment as any).id || payment._id;
+                                    console.log('[PaymentAction] Editar Valor id:', id, '_id:', payment._id, 'id:', (payment as any).id);
+                                    onEditAmount(id);
+                                    setOpen(false);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-blue-50 text-blue-700 transition-colors"
+                            >
+                                <Edit size={16} /> Editar Valor
+                            </button>
+                        );
+                    })()}
 
                     {/* 🚨 BOTÃO EDITAR AGENDAMENTO (quando for registro de appointment) */}
                     {(payment as any).__isAppointmentRecord && (

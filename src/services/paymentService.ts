@@ -258,6 +258,8 @@ export const updatePayment = async (
         specialty?: string;
         paymentMethod?: string;
         serviceType?: string;
+        notes?: string;
+        doctor?: string;
         advanceServices?: any[];
     }
 ) => {
@@ -274,6 +276,8 @@ export const updatePayment = async (
         if (data.status !== undefined) v2Payload.status = data.status;
         if (data.serviceType !== undefined) v2Payload.serviceType = data.serviceType;
         if (data.specialty !== undefined) v2Payload.specialty = data.specialty;
+        if (data.notes !== undefined) v2Payload.notes = data.notes;
+        if (data.doctor !== undefined) v2Payload.doctor = data.doctor;
         if (data.date !== undefined) v2Payload.paymentDate = processedData.date;
 
         if (Object.keys(v2Payload).length > 0) {

@@ -176,11 +176,20 @@ export const PaymentModal = ({
         }
         try {
             setIsLoading(true);
+            console.log('[PaymentModal] handleSubmit paymentData:', {
+                paymentDate: paymentData.paymentDate,
+                patientId: paymentData.patientId,
+                doctorId: paymentData.doctorId,
+                amount: paymentData.amount,
+                paymentMethod: paymentData.paymentMethod,
+                fullPaymentData: { ...paymentData },
+            });
             const payload: any = {
                 ...paymentData,
                 amount: amount,
                 date: paymentData.paymentDate
             };
+            console.log('[PaymentModal] payload a enviar:', { date: payload.date, paymentDate: payload.paymentDate, amount: payload.amount });
             const paymentId = payment?._id || (payment as any)?.id;
             if (paymentId) {
                 payload._id = paymentId;
