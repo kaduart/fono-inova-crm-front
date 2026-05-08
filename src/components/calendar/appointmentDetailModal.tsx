@@ -164,7 +164,10 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
     const [activeTab, setActiveTab] = useState<'details' | 'confirm' | 'cancel' | 'edit'>('details');
     const [cancelReason, setCancelReason] = useState('');
+    const [cancelError, setCancelError] = useState('');
     const [isCancelling, setIsCancelling] = useState(false);
+    const [showDebtConfirm, setShowDebtConfirm] = useState(false);
+    const [debtConfirmResolve, setDebtConfirmResolve] = useState<((v: boolean | null) => void) | null>(null);
     const [isCompleting, setIsCompleting] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [isConverting, setIsConverting] = useState(false);
@@ -381,24 +384,22 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             return;
         }
 
+        setCancelError('');
         console.log('❌ [Modal] Cancelando agendamento ID:', event?.id);
         setIsCancelling(true);
         try {
             await onCancelAppointment(event.id, cancelReason);
-            // ✅ Sucesso: limpa o motivo e volta para a aba de detalhes
             setCancelReason('');
             setActiveTab('details');
         } catch (err: any) {
-            // 🐛 CORREÇÃO: Modal fica aberto quando dá erro
             console.error('❌ [Modal] Erro ao cancelar:', err);
-            
-            const errorMsg = err?.response?.data?.error || 
-                           err?.message || 
+
+            const errorMsg = err?.response?.data?.error ||
+                           err?.message ||
                            'Erro ao cancelar agendamento. Tente novamente.';
-            
+
+            setCancelError(errorMsg);
             toast.error(errorMsg, { id: `cancel-error-${event.id}` });
-            
-            // Importante: NÃO fecha o modal aqui! Usuário precisa ver o erro e tentar de novo
         } finally {
             setIsCancelling(false);
         }
@@ -415,16 +416,15 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             return;
         }
 
-        // 💰 ALERTA DE DÍVIDA: se paciente tem saldo em aberto, pergunta antes de completar
-        if (patientFinancial && patientFinancial.sessionDebt > 0) {
-            const confirmed = window.confirm(
-                `⚠️ Este paciente possui R$ ${patientFinancial.sessionDebt.toFixed(2)} em aberto.\n\n` +
-                `Deseja finalizar a sessão mesmo assim?\n\n` +
-                `Clique em "OK" para completar e cobrar depois,\n` +
-                `ou "Cancelar" para quitar a dívida primeiro.`
-            );
+        // 💰 ALERTA DE DÍVIDA: só para particular — convenio/liminar são pós-pagos pelo plano/judicial
+        const isThirdPartyBilling = ['convenio', 'liminar'].includes(event?.billingType ?? '');
+        if (patientFinancial && patientFinancial.sessionDebt > 0 && !isThirdPartyBilling) {
+            const confirmed = await new Promise<boolean | null>(resolve => {
+                setDebtConfirmResolve(() => resolve);
+                setShowDebtConfirm(true);
+            });
+            if (confirmed === null) return;
             if (!confirmed) {
-                // Abre modal de cobrança em vez de completar
                 setIsBalanceModalOpen(true);
                 return;
             }
@@ -937,6 +937,13 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             </div>
                         </div>
 
+                        {cancelError && (
+                            <div className="bg-red-50 border border-red-300 text-red-700 text-sm px-4 py-3 rounded-xl flex items-start gap-2">
+                                <XCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                                <span>{cancelError}</span>
+                            </div>
+                        )}
+
                         <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-4 rounded-xl border border-gray-200">
                             <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
                                 <XCircle className="w-4 h-4 text-red-600" />
@@ -944,7 +951,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             </label>
                             <textarea
                                 value={cancelReason}
-                                onChange={(e) => setCancelReason(e.target.value)}
+                                onChange={(e) => { setCancelReason(e.target.value); setCancelError(''); }}
                                 rows={4}
                                 className="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
                                 placeholder="Descreva o motivo do cancelamento..."
@@ -1570,6 +1577,52 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 patientName={event?.patient?.fullName || 'Paciente'}
                 onRefresh={onRefreshAppointments}
             />
+
+            {/* ⚠️ CONFIRMAÇÃO DE DÍVIDA */}
+            {showDebtConfirm && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4">
+                        <div className="flex items-start gap-4 mb-5">
+                            <div className="w-11 h-11 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                                <DollarSign className="h-5 w-5 text-amber-600" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-base font-bold text-gray-900">Saldo em aberto</h3>
+                                <p className="text-sm text-gray-600 mt-1">
+                                    Este paciente possui{' '}
+                                    <span className="font-semibold text-red-600">
+                                        R$ {patientFinancial?.sessionDebt.toFixed(2).replace('.', ',')}
+                                    </span>{' '}
+                                    em aberto.
+                                </p>
+                                <p className="text-sm text-gray-500 mt-2">
+                                    Deseja finalizar a sessão mesmo assim?
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => { setShowDebtConfirm(false); debtConfirmResolve?.(null); }}
+                                className="text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <button
+                                onClick={() => { setShowDebtConfirm(false); debtConfirmResolve?.(true); }}
+                                className="w-full px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold text-sm transition-colors"
+                            >
+                                Completar e cobrar depois
+                            </button>
+                            <button
+                                onClick={() => { setShowDebtConfirm(false); debtConfirmResolve?.(false); }}
+                                className="w-full px-4 py-2.5 border-2 border-gray-300 text-gray-700 hover:bg-gray-50 rounded-xl font-semibold text-sm transition-colors"
+                            >
+                                Quitar dívida primeiro
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 
