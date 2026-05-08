@@ -73,17 +73,13 @@ export const useExpenses = () => {
     try {
       const response = await expenseService.generateCommissions();
       toast.success(`${response.data.generated} comissões geradas com sucesso!`);
-      
-      // 🚀 Invalida dashboard pois comissões são despesas
       invalidateCache('dashboard');
-      
-      await fetchExpenses();
       return response.data;
     } catch (error: any) {
       toast.error(extractErrorMessage(error, 'Erro ao gerar comissões'));
       throw error;
     }
-  }, [fetchExpenses]);
+  }, []);
 
   return {
     expenses,
