@@ -78,8 +78,8 @@ export const expenseService = {
     },
 
     // Gerar comissões manualmente (mantém V1)
-    generateCommissions: async () => {
-        const response = await api.post('/expenses/generate-commissions');
+    generateCommissions: async (month?: number, year?: number) => {
+        const response = await api.post('/expenses/generate-commissions', { month, year });
         return response.data;
     }
 };

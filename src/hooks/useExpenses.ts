@@ -69,9 +69,9 @@ export const useExpenses = () => {
     }
   }, [fetchExpenses]);
 
-  const generateCommissions = useCallback(async () => {
+  const generateCommissions = useCallback(async (month?: number, year?: number) => {
     try {
-      const response = await expenseService.generateCommissions();
+      const response = await expenseService.generateCommissions(month, year);
       toast.success(`${response.data.generated} comissões geradas com sucesso!`);
       invalidateCache('dashboard');
       return response.data;

@@ -152,7 +152,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
             variant="outlined"
             startIcon={<RefreshCw size={18} />}
             onClick={async () => {
-              await generateCommissions();
+              await generateCommissions(filters.month, filters.year);
               fetchExpenses(filters);
             }}
             sx={{ borderRadius: 2, width: { xs: '100%', sm: 'auto' } }}
