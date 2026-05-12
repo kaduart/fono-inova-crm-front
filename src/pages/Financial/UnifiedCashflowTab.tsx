@@ -606,7 +606,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                 <Table size="small">
                                     <TableHead>
                                         <TableRow>
-                                            <TableCell>Hora</TableCell>
+                                            <TableCell>Data e Hora</TableCell>
                                             <TableCell>Paciente</TableCell>
                                             <TableCell>Profissional</TableCell>
                                             <TableCell>Especialidade</TableCell>
@@ -619,9 +619,13 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                         {[...dayAppointments]
                                             .filter((a: any) => appointmentFilter === 'all' || a.operationalStatus === appointmentFilter)
                                             .sort((a: any, b: any) => {
-                                                const timeA = a.time || (a.date ? format(new Date(a.date), 'HH:mm') : '00:00');
-                                                const timeB = b.time || (b.date ? format(new Date(b.date), 'HH:mm') : '00:00');
-                                                return timeA.localeCompare(timeB);
+                                                // Converte HH:mm para minutos desde meia-noite (ordenação numérica robusta)
+                                                const toMinutes = (item: any) => {
+                                                    const t = item.time || (item.date ? format(parseISO(item.date), 'HH:mm') : '00:00');
+                                                    const [h, m] = t.split(':').map(Number);
+                                                    return (h || 0) * 60 + (m || 0);
+                                                };
+                                                return toMinutes(a) - toMinutes(b);
                                             })
                                             .map((a: any) => {
                                                 const statusColors: Record<string, any> = {
@@ -634,7 +638,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                                 const statusConfig = statusColors[a.operationalStatus] || { color: 'default', label: a.operationalStatus };
                                                 return (
                                                     <TableRow key={a._id} sx={{ opacity: a.operationalStatus === 'canceled' ? 0.6 : 1 }}>
-                                                        <TableCell>{a.time || (a.date ? format(new Date(a.date), 'HH:mm') : '-')}</TableCell>
+                                                        <TableCell>{a.date ? format(parseISO(a.date), 'dd/MM') : '--/--'} {a.time || (a.date ? format(parseISO(a.date), 'HH:mm') : '--:--')}</TableCell>
                                                         <TableCell>{a.patientInfo?.fullName || a.patient?.fullName || '-'}</TableCell>
                                                         <TableCell>{a.professionalName || '-'}</TableCell>
                                                         <TableCell>{a.specialty || '-'}</TableCell>
@@ -642,12 +646,29 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                                             <Chip size="small" label={statusConfig.label} color={statusConfig.color as any} />
                                                         </TableCell>
                                                         <TableCell>
-                                                            <Chip 
-                                                                size="small" 
-                                                                label={a.billingType || 'Particular'} 
-                                                                variant="outlined"
-                                                                color={a.billingType === 'convenio' ? 'info' : a.package ? 'success' : 'default'}
-                                                            />
+                                                            {(() => {
+                                                                const serviceMap: Record<string, string> = {
+                                                                    evaluation: 'Avaliação',
+                                                                    session: 'Sessão',
+                                                                    individual_session: 'Sessão Individual',
+                                                                    package_session: 'Sessão de Pacote',
+                                                                    tongue_tie_test: 'Teste da Linguinha',
+                                                                    neuropsych_evaluation: 'Avaliação Neuropsicológica',
+                                                                    return: 'Retorno',
+                                                                    meet: 'Meet',
+                                                                    alignment: 'Alinhamento'
+                                                                };
+                                                                const tipoServico = serviceMap[a.serviceType] || a.serviceType || 'Sessão';
+                                                                const cor = a.billingType === 'convenio' ? 'info' : a.package ? 'success' : 'default';
+                                                                return (
+                                                                    <Chip 
+                                                                        size="small" 
+                                                                        label={tipoServico} 
+                                                                        variant="outlined"
+                                                                        color={cor as any}
+                                                                    />
+                                                                );
+                                                            })()}
                                                         </TableCell>
                                                         <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                                                             {formatCurrency(a.sessionValue || 0)}
