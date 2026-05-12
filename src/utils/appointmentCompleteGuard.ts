@@ -26,6 +26,7 @@ export interface AppointmentCompleteGuardLiminar {
 
 export interface AppointmentCompleteGuardInput {
   billingType?: string;
+  serviceType?: string;
   package?: AppointmentCompleteGuardPackage | string;
   liminarContract?: AppointmentCompleteGuardLiminar;
   sessionValue?: number | null;
@@ -83,6 +84,13 @@ export function validateAppointmentComplete(appointment: AppointmentCompleteGuar
     package: appointment.package,
     liminarContract: appointment.liminarContract,
   }, null, 2));
+  // ═══════════════════════════════════════════════════════════════
+  // 0️⃣ RETORNO — sem cobrança, passa direto
+  // ═══════════════════════════════════════════════════════════════
+  if (appointment.serviceType === 'return') {
+    return { valid: true };
+  }
+
   const billingType = appointment.billingType || 'particular';
   const { hasValue: hasSessionValue, value: sessionValue } = getSessionValue(appointment);
 

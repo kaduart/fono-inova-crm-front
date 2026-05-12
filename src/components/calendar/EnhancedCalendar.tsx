@@ -159,6 +159,29 @@ export const VISUAL_FLAG_CONFIG = {
     },
 };
 
+const getRealPaymentStatus = (appt: any): string => {
+    if (appt?.payment?.status) return appt.payment.status;
+    const hasPackage = !!appt?.package || appt?.serviceType === 'package_session';
+    if (hasPackage) {
+        const ps = appt?.paymentStatus;
+        if (ps === 'paid') return 'package_paid';
+        if (ps === 'pending_receipt') return 'pending_receipt';
+        if (ps === 'pending') return 'pending';
+        return 'package_paid';
+    }
+    return appt?.paymentStatus || 'unknown';
+};
+
+const getPaymentStatusConfig = (paymentStatus: string) =>
+    PAYMENT_STATUS_CONFIG[paymentStatus as keyof typeof PAYMENT_STATUS_CONFIG] || PAYMENT_STATUS_CONFIG.pending;
+
+const getOperationalStatusConfig = (operationalStatus: string) =>
+    OPERATIONAL_STATUS_VISUAL_CONFIG[operationalStatus as keyof typeof OPERATIONAL_STATUS_VISUAL_CONFIG] || {
+        label: 'Indefinido',
+        color: '#9ca3af',
+        icon: Clock,
+    };
+
 const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     appointments,
     doctors,
@@ -382,36 +405,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         console.log(`📥 [EnhancedCalendar] appointments prop atualizada — ${appointments?.length ?? 0} itens (FullCalendar vai re-renderizar via prop, sem refetch)`);
     }, [appointments]);
 
-    // 💰 Fonte de verdade: Payment.status, depois paymentStatus do agendamento
-    const getRealPaymentStatus = useCallback((appt: any): string => {
-        if (appt?.payment?.status) {
-            return appt.payment.status;
-        }
-        const hasPackage = !!appt?.package || appt?.serviceType === 'package_session';
-        if (hasPackage) {
-            const ps = appt?.paymentStatus;
-            if (ps === 'paid') return 'package_paid';
-            if (ps === 'pending_receipt') return 'pending_receipt';
-            if (ps === 'pending') return 'pending';
-            // fallback para dados sem paymentStatus (legado)
-            return 'package_paid';
-        }
-        return appt?.paymentStatus || 'unknown';
-    }, []);
-
-    const getPaymentStatusConfig = useCallback((paymentStatus: string) => {
-        return PAYMENT_STATUS_CONFIG[paymentStatus as keyof typeof PAYMENT_STATUS_CONFIG] || PAYMENT_STATUS_CONFIG.pending;
-    }, []);
-
-    const getOperationalStatusConfig = useCallback((operationalStatus: string) => {
-        return (
-            OPERATIONAL_STATUS_VISUAL_CONFIG[operationalStatus as keyof typeof OPERATIONAL_STATUS_VISUAL_CONFIG] || {
-                label: "Indefinido",
-                color: "#9ca3af",
-                icon: Clock,
-            }
-        );
-    }, []);
 
     const handleEventClick = (info: { event: any }) => {
         const { event } = info;
@@ -1417,11 +1410,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     border: `1px solid ${theme.palette.grey[200]}`,
                     background: 'white',
                     position: 'relative',
-                    zIndex: 50,
                 }}
             >
                 {/* Skeleton de loading — replica estrutura visual do FullCalendar */}
-                {loading && (
+                {loading ? (
                     <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', minHeight: 560 }}>
                         {/* Toolbar do FC: prev/next/today | título do mês | month/week/day */}
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, px: 1 }}>
@@ -1484,9 +1476,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             </Box>
                         ))}
                     </Box>
-                )}
-                
-                <FullCalendar
+                ) : (
+                    <FullCalendar
                     ref={calendarRef}
                     {...calendarOptions}
                     events={events}
@@ -1598,6 +1589,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         </span>
                     )}
                 />
+                )}
             </Paper>
 
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mt: 3 }}>

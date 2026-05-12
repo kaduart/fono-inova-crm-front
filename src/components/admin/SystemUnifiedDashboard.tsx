@@ -21,7 +21,7 @@ import {
 import {
     Activity, Server, Clock, Layers, Database, Wifi,
     ExternalLink, AlertTriangle, CheckCircle2, XCircle, RefreshCw,
-    Search, Zap, RotateCcw, Check, FileWarning,
+    Search, Zap, RotateCcw, Check, FileWarning, Trash2, Ban, Pencil,
 } from 'lucide-react';
 import { Tabs, Tab } from '@mui/material';
 
@@ -863,6 +863,85 @@ function QueuesTab({ raw, queueHistory }: { raw: RawMonitorData | null; queueHis
     );
 }
 
+// ─── Monitor de Operações ────────────────────────────────────────────────────
+
+interface RecentOp {
+    type: 'deleted' | 'canceled' | 'changed';
+    appointmentId: string;
+    patientName: string;
+    doctorName: string;
+    date: string;
+    time: string;
+    operatorName: string | null;
+    at: string;
+    detail: string | null;
+}
+
+const OP_CONFIG = {
+    deleted:  { label: 'Deletado',   color: 'error'   as const, Icon: Trash2 },
+    canceled: { label: 'Cancelado',  color: 'warning' as const, Icon: Ban    },
+    changed:  { label: 'Editado',    color: 'info'    as const, Icon: Pencil },
+};
+
+function OperationsTab({ ops, loading }: { ops: RecentOp[]; loading: boolean }) {
+    if (loading) return <Box sx={{ p: 3 }}><CircularProgress size={24} /></Box>;
+
+    if (ops.length === 0) {
+        return (
+            <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
+                <CheckCircle2 size={40} style={{ margin: '0 auto 8px', display: 'block', color: '#22c55e' }} />
+                <Typography variant="body2">Nenhuma operação nos últimos 7 dias.</Typography>
+            </Box>
+        );
+    }
+
+    return (
+        <Card sx={{ borderRadius: 3 }}>
+            <CardContent sx={{ p: 0 }}>
+                <TableContainer>
+                    <Table size="small">
+                        <TableHead>
+                            <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                                {['Tipo', 'Paciente', 'Profissional', 'Consulta', 'Operador', 'Quando', 'Detalhe'].map(h => (
+                                    <TableCell key={h} sx={{ fontWeight: 'bold', fontSize: '0.72rem', textTransform: 'uppercase', color: '#6b7280' }}>{h}</TableCell>
+                                ))}
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {ops.map((op, i) => {
+                                const cfg = OP_CONFIG[op.type];
+                                const apptDate = op.date ? new Date(op.date).toLocaleDateString('pt-BR') : '—';
+                                const atDate = op.at ? new Date(op.at).toLocaleString('pt-BR') : '—';
+                                return (
+                                    <TableRow key={`${op.appointmentId}-${i}`} hover>
+                                        <TableCell>
+                                            <Chip
+                                                size="small"
+                                                icon={<cfg.Icon size={12} />}
+                                                label={cfg.label}
+                                                color={cfg.color}
+                                                variant="outlined"
+                                            />
+                                        </TableCell>
+                                        <TableCell sx={{ fontSize: '0.8rem' }}>{op.patientName}</TableCell>
+                                        <TableCell sx={{ fontSize: '0.8rem', color: '#6b7280' }}>{op.doctorName}</TableCell>
+                                        <TableCell sx={{ fontSize: '0.8rem' }}>{apptDate}{op.time ? ` ${op.time}` : ''}</TableCell>
+                                        <TableCell sx={{ fontSize: '0.8rem' }}>{op.operatorName || <span style={{ color: '#9ca3af' }}>—</span>}</TableCell>
+                                        <TableCell sx={{ fontSize: '0.75rem', color: '#6b7280', whiteSpace: 'nowrap' }}>{atDate}</TableCell>
+                                        <TableCell sx={{ fontSize: '0.75rem', color: '#6b7280', maxWidth: 180 }}>
+                                            {op.detail ? <Tooltip title={op.detail}><span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.detail}</span></Tooltip> : '—'}
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+            </CardContent>
+        </Card>
+    );
+}
+
 // ─── Componente principal ────────────────────────────────────────────────────
 
 export default function SystemUnifiedDashboard() {
@@ -887,6 +966,8 @@ export default function SystemUnifiedDashboard() {
     const [innerTab, setInnerTab] = useState(0);
     const [selectedDomain, setSelectedDomain] = useState<DomainHealth | null>(null);
     const [domainModalOpen, setDomainModalOpen] = useState(false);
+    const [recentOps, setRecentOps] = useState<RecentOp[]>([]);
+    const [loadingOps, setLoadingOps] = useState(false);
 
     // 🆕 Financial Sanity Check
     const [financialHealth, setFinancialHealth] = useState<{ status: string; summary: any; checks: any[] } | null>(null);
@@ -913,6 +994,16 @@ export default function SystemUnifiedDashboard() {
         };
         fetchFinancialHealth();
     }, []);
+
+    useEffect(() => {
+        if (innerTab !== 3) return;
+        if (recentOps.length > 0) return;
+        setLoadingOps(true);
+        API.get('/v2/analytics/operational/recent-ops?days=7')
+            .then(res => { if (res.data?.success) setRecentOps(res.data.data); })
+            .catch(() => {})
+            .finally(() => setLoadingOps(false));
+    }, [innerTab]);
 
     const fetchDeadLetters = useCallback(async () => {
         try {
@@ -1110,6 +1201,7 @@ export default function SystemUnifiedDashboard() {
                 <Tab label="Visão Geral" icon={<Activity size={15} />} iconPosition="start" />
                 <Tab label="Métricas Detalhadas" icon={<Zap size={15} />} iconPosition="start" />
                 <Tab label="Filas BullMQ" icon={<Layers size={15} />} iconPosition="start" />
+                <Tab label="Operações" icon={<Trash2 size={15} />} iconPosition="start" />
             </Tabs>
 
             {innerTab === 0 && (
@@ -1171,6 +1263,25 @@ export default function SystemUnifiedDashboard() {
 
             {innerTab === 2 && (
                 <QueuesTab raw={raw} queueHistory={queueHistory} />
+            )}
+
+            {innerTab === 3 && (
+                <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                        <Typography variant="subtitle1" fontWeight="bold">Operações dos últimos 7 dias</Typography>
+                        <Button size="small" startIcon={<RefreshCw size={14} />} onClick={() => {
+                            setRecentOps([]);
+                            setLoadingOps(true);
+                            API.get('/v2/analytics/operational/recent-ops?days=7')
+                                .then(res => { if (res.data?.success) setRecentOps(res.data.data); })
+                                .catch(() => {})
+                                .finally(() => setLoadingOps(false));
+                        }}>
+                            Atualizar
+                        </Button>
+                    </Box>
+                    <OperationsTab ops={recentOps} loading={loadingOps} />
+                </Box>
             )}
 
             {/* ── MODAL: DETALHE DO DOMÍNIO ─────────────────────────────────── */}

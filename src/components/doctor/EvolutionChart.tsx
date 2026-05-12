@@ -75,6 +75,7 @@ const EvolutionChart = ({ chartData }) => {
       yAxisID: 'y',
       tension: 0.4,
       fill: true,
+      spanGaps: true,
       pointBackgroundColor: config.color || `hsl(${Math.random() * 360}, 70%, 50%)`,
       pointBorderColor: '#fff',
       pointBorderWidth: 2,
@@ -83,23 +84,47 @@ const EvolutionChart = ({ chartData }) => {
     };
   });
 
-  // Preparar dados para tipos de avaliação
-  const evaluationDatasets = Object.entries(chartData.evaluationTypes || {}).map(([type]) => {
-    const data = chartData.evaluationTypes[type];
+  // Preparar dados para áreas de avaliação (evaluationAreas com scores)
+  const evaluationDatasets = Object.entries(chartData.evaluationTypes || {}).map(([type, data]) => {
     const colors = typeColors[type] || {
       bg: 'rgba(201, 203, 207, 0.7)',
       border: 'rgb(201, 203, 207)'
     };
 
-    const label =
-      type === 'language' ? 'Linguagem' :
-        type === 'motor' ? 'Motor' :
-          type === 'cognitive' ? 'Cognitivo' :
-            type === 'behavior' ? 'Comportamento' : 'Social';
+    const labelMap: Record<string, string> = {
+      language: 'Linguagem',
+      motor: 'Motor',
+      cognitive: 'Cognitivo',
+      behavior: 'Comportamento',
+      social: 'Social',
+      linguagem_expressiva: 'Linguagem Expressiva',
+      linguagem_receptiva: 'Linguagem Receptiva',
+      pragmatica: 'Pragmática',
+      voz: 'Voz',
+      motricidade_orofacial: 'Motricidade Orofacial',
+      emocional: 'Emocional',
+      autonomia: 'Autonomia',
+      sensorial: 'Sensorial',
+      avds: 'AVDs',
+      praxia: 'Praxia',
+      grafomotor: 'Grafomotor',
+      postural: 'Controle Postural',
+      marcha: 'Marcha',
+      respiratorio: 'Respiratório',
+      neuromotor: 'Neuromotor',
+      atencao: 'Atenção',
+      memoria: 'Memória',
+      visuoespacial: 'Visuoespacial',
+      executivo: 'Executivo',
+      comunicacao: 'Comunicação',
+      expressao_emocional: 'Expressão Emocional',
+      socializacao: 'Socialização',
+      motor_musical: 'Motor (via música)'
+    };
 
     return {
-      label,
-      data,
+      label: labelMap[type] || type,
+      data: Array.isArray(data) ? data : (data as any)?.values,
       backgroundColor: colors.bg,
       borderColor: colors.border,
       borderWidth: 2,
@@ -169,7 +194,18 @@ const EvolutionChart = ({ chartData }) => {
         grid: {
           color: 'rgba(0, 0, 0, 0.05)'
         },
-        max: 10,
+        suggestedMax: (() => {
+          // Calcula max real das métricas para escala dinâmica
+          let maxVal = 0;
+          Object.values(chartData.metrics || {}).forEach((m: any) => {
+            if (m?.values) {
+              m.values.forEach((v: number | null) => {
+                if (v !== null && v !== undefined && v > maxVal) maxVal = v;
+              });
+            }
+          });
+          return maxVal > 0 ? Math.ceil(maxVal * 1.2) : 10;
+        })(),
         ticks: {
           stepSize: 1
         }

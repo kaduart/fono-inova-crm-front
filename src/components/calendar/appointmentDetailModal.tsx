@@ -456,6 +456,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             // 🛡️ GUARD FINANCEIRO — valida antes de bater na API
             const guardResult = validateAppointmentComplete({
                 billingType: event?.billingType,
+                serviceType: event?.serviceType ?? event?.extendedProps?.serviceType,
                 package: event?.package
                     ?? event?.extendedProps?.package
                     ?? ((event?.extendedProps?.__isPackageAppointment || event?.extendedProps?.serviceType === 'package_session' || event?.extendedProps?.packageId)

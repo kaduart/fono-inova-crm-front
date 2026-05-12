@@ -616,8 +616,13 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {dayAppointments
+                                        {[...dayAppointments]
                                             .filter((a: any) => appointmentFilter === 'all' || a.operationalStatus === appointmentFilter)
+                                            .sort((a: any, b: any) => {
+                                                const timeA = a.time || (a.date ? format(new Date(a.date), 'HH:mm') : '00:00');
+                                                const timeB = b.time || (b.date ? format(new Date(b.date), 'HH:mm') : '00:00');
+                                                return timeA.localeCompare(timeB);
+                                            })
                                             .map((a: any) => {
                                                 const statusColors: Record<string, any> = {
                                                     completed: { color: 'success', label: 'Atendido' },
@@ -629,7 +634,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                                 const statusConfig = statusColors[a.operationalStatus] || { color: 'default', label: a.operationalStatus };
                                                 return (
                                                     <TableRow key={a._id} sx={{ opacity: a.operationalStatus === 'canceled' ? 0.6 : 1 }}>
-                                                        <TableCell>{a.time || '-'}</TableCell>
+                                                        <TableCell>{a.time || (a.date ? format(new Date(a.date), 'HH:mm') : '-')}</TableCell>
                                                         <TableCell>{a.patientInfo?.fullName || a.patient?.fullName || '-'}</TableCell>
                                                         <TableCell>{a.professionalName || '-'}</TableCell>
                                                         <TableCell>{a.specialty || '-'}</TableCell>

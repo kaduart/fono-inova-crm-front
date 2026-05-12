@@ -5,13 +5,12 @@
  * sincronização automática entre todas as telas.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import EnhancedCalendar from '../../calendar/EnhancedCalendar';
 
 import { usePatients } from '../../../hooks/usePatients';
 import { useDoctorsContext } from '../../../contexts/DoctorsContext';
 import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';
-import { Skeleton } from '@mui/material';
 import toast from 'react-hot-toast';
 import moment from 'moment-timezone';
 
@@ -45,6 +44,8 @@ export const CalendarTab = ({
         const end = moment().endOf('month').format('YYYY-MM-DD');
         return { startDate: start, endDate: end };
     });
+    const dateRangeRef = useRef(dateRange);
+    useEffect(() => { dateRangeRef.current = dateRange; }, [dateRange]);
 
     // 🎯 Carrega agendamentos iniciais (pacientes e médicos vêm dos contextos)
     useEffect(() => {
@@ -80,27 +81,29 @@ export const CalendarTab = ({
 
     // 🔄 Recarrega quando mudar de mês
     const handleMonthChange = useCallback(async (startDate: Date, endDate: Date) => {
-        setAppointmentsLoading(true); // 🆕 INICIA LOADING
-        
-        // 🎯 FIX: O FullCalendar passa a grade visível (ex: 30/03 a 02/05).
-        // Pegamos o meio do intervalo para garantir o mês correto (abril, não março).
         const middleDate = new Date(startDate.getTime() + (endDate.getTime() - startDate.getTime()) / 2);
         const newRange = {
             startDate: moment(middleDate).startOf('month').format('YYYY-MM-DD'),
             endDate: moment(middleDate).endOf('month').format('YYYY-MM-DD')
         };
 
+        // Ignora se o mês não mudou (evita segundo fetch no mount inicial do FullCalendar)
+        if (newRange.startDate === dateRangeRef.current.startDate &&
+            newRange.endDate === dateRangeRef.current.endDate) {
+            return;
+        }
+
+        setAppointmentsLoading(true);
         setDateRange(newRange);
 
         try {
-            // 🎯 Usa o contexto para buscar appointments
             await fetchAppointments({
                 startDate: newRange.startDate,
                 endDate: newRange.endDate,
                 excludePreAgendamentos: true
             });
         } finally {
-            setAppointmentsLoading(false); // 🆕 FINALIZA LOADING
+            setAppointmentsLoading(false);
         }
     }, [fetchAppointments]);
 
@@ -143,10 +146,6 @@ export const CalendarTab = ({
         // 🎯 Appointments já são atualizados via contexto
     };
 
-    if (loading) {
-        return <CalendarSkeleton />;
-    }
-
     return (
         <EnhancedCalendar
             doctors={doctors}
@@ -161,48 +160,9 @@ export const CalendarTab = ({
             onMonthChange={handleMonthChange}
             openModalAppointment={false}
             closeModalSignal={closeModalSignal}
-            loading={appointmentsLoading} // 🆕 NOVO: Passa o estado de loading
+            loading={loading}
         />
     );
 };
-
-// Skeleton de loading
-const CalendarSkeleton = () => (
-    <div className="space-y-4">
-        {/* Header do calendário */}
-        <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm">
-            <div className="flex items-center gap-4">
-                <Skeleton variant="rectangular" width={40} height={40} className="rounded-lg" />
-                <Skeleton variant="text" width={200} height={32} />
-            </div>
-            <div className="flex gap-2">
-                <Skeleton variant="rectangular" width={100} height={36} className="rounded-lg" />
-                <Skeleton variant="rectangular" width={120} height={36} className="rounded-lg" />
-            </div>
-        </div>
-
-        {/* Grade do calendário */}
-        <div className="bg-white rounded-lg shadow-sm p-4">
-            {/* Header dos dias da semana */}
-            <div className="grid grid-cols-7 gap-2 mb-4">
-                {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
-                    <div key={day} className="text-center py-2">
-                        <Skeleton variant="text" width={40} height={24} className="mx-auto" />
-                    </div>
-                ))}
-            </div>
-
-            {/* Dias do calendário */}
-            <div className="grid grid-cols-7 gap-2">
-                {Array.from({ length: 35 }).map((_, index) => (
-                    <div key={index} className="aspect-square p-2 border rounded-lg">
-                        <Skeleton variant="text" width={24} height={20} className="mb-2" />
-                        <Skeleton variant="rectangular" width="100%" height={16} className="rounded" />
-                    </div>
-                ))}
-            </div>
-        </div>
-    </div>
-);
 
 export default CalendarTab;
