@@ -486,15 +486,37 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                     </Avatar>
                     <Box>
                       <Typography variant="caption" color="text.secondary" fontWeight={500}>
-                        Realizado
+                        Produção Realizada
                       </Typography>
                       <Typography variant="h6" fontWeight="bold" color="#10B981">
-                        {formatCurrency(dashData?.resumo?.caixa || monthlyOfMonth?.actual?.actualRevenue || 0)}
+                        {formatCurrency(dashData?.data?.resultadoEconomico || dashData?.resumo?.producao || monthlyOfMonth?.actual?.actualRevenue || 0)}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         {monthlyOfMonth?.targets?.expectedRevenue > 0
-                          ? (((dashData?.resumo?.caixa || 0) / monthlyOfMonth.targets.expectedRevenue) * 100).toFixed(0)
+                          ? (((dashData?.data?.resultadoEconomico || dashData?.resumo?.producao || 0) / monthlyOfMonth.targets.expectedRevenue) * 100).toFixed(0)
                           : (monthlyOfMonth?.progress?.revenuePercentage || 0).toFixed(0)}% da meta
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <Card variant="outlined" sx={{ borderRadius: 2, height: '100%' }}>
+                <CardContent sx={{ p: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Avatar sx={{ bgcolor: '#059669', width: 36, height: 36 }}>
+                      <AttachMoney sx={{ fontSize: 18 }} />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                        Caixa Recebido
+                      </Typography>
+                      <Typography variant="h6" fontWeight="bold" color="#059669">
+                        {formatCurrency(dashData?.resumo?.caixa || 0)}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        dinheiro efetivamente recebido
                       </Typography>
                     </Box>
                   </Box>
@@ -628,6 +650,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                   expanded={expandedCards[monthlyOfMonth._id]}
                   onToggle={() => toggleCard(monthlyOfMonth._id)}
                   isMonthly
+                  dashData={dashData}
                 />
               ) : (
                 <Box sx={{ textAlign: 'center', py: 6 }}>
@@ -671,6 +694,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                       expanded={expandedCards[p._id]}
                       onToggle={() => toggleCard(p._id)}
                       weekNumber={idx + 1}
+                      dashData={dashData}
                     />
                   ))}
                 </Grid>
@@ -716,6 +740,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                       expanded={expandedCards[p._id]}
                       onToggle={() => toggleCard(p._id)}
                       isDaily
+                      dashData={dashData}
                     />
                   ))}
                 </Grid>
@@ -936,7 +961,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
               <Card sx={{ width: '100%', bgcolor: '#10B98110', border: '1px solid #10B98130' }}>
                 <CardContent>
                   <Typography variant="h4" fontWeight="bold" color="#10B981">
-                    {formatCurrency(selectedPlanning?.actual?.actualRevenue || 0)}
+                    {formatCurrency(dashData?.data?.resultadoEconomico || dashData?.resumo?.producao || selectedPlanning?.actual?.actualRevenue || 0)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Arrecadado no período
@@ -1241,6 +1266,7 @@ interface PlanningCardProps {
   isMonthly?: boolean;
   isDaily?: boolean;
   weekNumber?: number;
+  dashData?: any;
 }
 
 const PlanningCard = ({
@@ -1255,6 +1281,7 @@ const PlanningCard = ({
   isMonthly,
   isDaily,
   weekNumber,
+  dashData,
 }: PlanningCardProps) => {
   const statusConfig = getStatusConfig(planning.progress?.overallStatus);
   const StatusIcon = statusConfig.icon;
@@ -1312,7 +1339,7 @@ const PlanningCard = ({
 
           {/* Métricas */}
           <Grid container spacing={1.5} sx={{ mb: 2 }}>
-            <Grid size={{ xs: 6 }}>
+            <Grid size={{ xs: 4 }}>
               <Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#F9FAFB' }}>
                 <Typography variant="caption" color="text.secondary" display="block">
                   Meta Receita
@@ -1322,13 +1349,23 @@ const PlanningCard = ({
                 </Typography>
               </Paper>
             </Grid>
-            <Grid size={{ xs: 6 }}>
-              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#F9FAFB' }}>
+            <Grid size={{ xs: 4 }}>
+              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#f0fdf4' }}>
                 <Typography variant="caption" color="text.secondary" display="block">
-                  Realizado
+                  Resultado Econômico
                 </Typography>
-                <Typography variant={isMonthly ? 'h6' : 'body1'} fontWeight="bold" color="#10B981">
-                  {formatCurrency(planning.actual?.actualRevenue || 0)}
+                <Typography variant={isMonthly ? 'h6' : 'body1'} fontWeight="bold" color="#059669">
+                  {formatCurrency(dashData?.data?.resultadoEconomico || planning.actual?.actualRevenue || 0)}
+                </Typography>
+              </Paper>
+            </Grid>
+            <Grid size={{ xs: 4 }}>
+              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#eff6ff' }}>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Caixa Recebido
+                </Typography>
+                <Typography variant={isMonthly ? 'h6' : 'body1'} fontWeight="bold" color="#2563eb">
+                  {formatCurrency(dashData?.resumo?.caixa || 0)}
                 </Typography>
               </Paper>
             </Grid>
@@ -1341,17 +1378,25 @@ const PlanningCard = ({
                 Receita
               </Typography>
               <Typography variant="caption" fontWeight="600">
-                {planning.progress?.revenuePercentage || 0}%
+                {(() => {
+                  const realizado = dashData?.data?.resultadoEconomico || dashData?.resumo?.producao || planning.actual?.actualRevenue || 0;
+                  const meta = planning.targets?.expectedRevenue || 0;
+                  return meta > 0 ? Math.min((realizado / meta) * 100, 100).toFixed(0) : 0;
+                })()}%
               </Typography>
             </Box>
             <LinearProgress
               variant="determinate"
-              value={Math.min(planning.progress?.revenuePercentage || 0, 100)}
+              value={(() => {
+                const realizado = dashData?.data?.resultadoEconomico || dashData?.resumo?.producao || planning.actual?.actualRevenue || 0;
+                const meta = planning.targets?.expectedRevenue || 0;
+                return meta > 0 ? Math.min((realizado / meta) * 100, 100) : 0;
+              })()}
               sx={{
                 height: 6,
                 borderRadius: 3,
                 bgcolor: '#E5E7EB',
-                '& .MuiLinearProgress-bar': { bgcolor: planning.progress?.revenuePercentage >= 100 ? '#10B981' : typeColors.main },
+                '& .MuiLinearProgress-bar': { bgcolor: (dashData?.data?.resultadoEconomico || dashData?.resumo?.producao || planning.actual?.actualRevenue || 0) >= (planning.targets?.expectedRevenue || 0) ? '#10B981' : typeColors.main },
               }}
             />
           </Box>

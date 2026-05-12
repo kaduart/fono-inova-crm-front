@@ -181,7 +181,9 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
     if (loading) return <FinancialLoading cardCount={3} />;
 
     // ── Cálculos estratégicos ──
-    const caixa = dashData?.metas?.realizado?.mes || dashData?.cash?.total || 0;
+    const resultadoEconomico = dashData?.metas?.realizado?.mes || 0;
+    const producao = dashData?.revenue?.total || 0;
+    const caixa = dashData?.cash?.total || 0;
     const metaValor = dashData?.metas?.configuracao?.metaMensal || 0;
     const percentualAtual = dashData?.metas?.ritmo?.percentualRealizado || 0;
     const cenarioEsperado = dashData?.metas?.projecao?.final || 0;
@@ -193,8 +195,8 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
     const diasDecorridos = ehMesAtual ? hoje.getDate() : ehPassado ? diasNoMes : 0;
     const diasRestantes = Math.max(diasNoMes - diasDecorridos, 0);
 
-    const ritmoAtual = diasDecorridos > 0 ? caixa / diasDecorridos : 0;
-    const ritmoNecessario = diasRestantes > 0 ? Math.max(0, metaValor - caixa) / diasRestantes : 0;
+    const ritmoAtual = diasDecorridos > 0 ? resultadoEconomico / diasDecorridos : 0;
+    const ritmoNecessario = diasRestantes > 0 ? Math.max(0, metaValor - resultadoEconomico) / diasRestantes : 0;
     const ritmoOk = ritmoNecessario === 0 || ritmoAtual >= ritmoNecessario;
 
     const percentualMesDecorrido = diasNoMes > 0 ? (diasDecorridos / diasNoMes) * 100 : 0;
@@ -204,7 +206,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
     let statusColor = '#38a169';
     if (metaValor > 0 && ehMesAtual) {
         if (percentualAtual >= 100) {
-            statusPhrase = `Meta atingida! Você realizou ${formatCurrency(caixa)} de ${formatCurrency(metaValor)}.`;
+            statusPhrase = `Meta atingida! Resultado econômico de ${formatCurrency(resultadoEconomico)}.`;
         } else if (atrasadoPct > 15) {
             statusPhrase = `Você está ${atrasadoPct.toFixed(0)}% abaixo do esperado com ${diasDecorridos} dias decorridos — precisa de ${formatCurrency(ritmoNecessario)}/dia para recuperar.`;
             statusColor = '#E53E3E';
@@ -266,15 +268,58 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                                 />
                             )}
                         </Box>
-                        <Typography variant="caption" color="text.secondary" display="block">
-                            Realizado: {formatCurrency(caixa)}
-                            {metaValor > 0 && caixa < metaValor && ` (faltam ${formatCurrency(metaValor - caixa)})`}
-                        </Typography>
+
+                        {/* Linha 1: Resultado Econômico (base da meta) */}
+                        <Box sx={{ mt: 1.5, p: 1, bgcolor: '#f0fdf4', borderRadius: 1, borderLeft: '3px solid #10B981' }}>
+                            <Typography variant="caption" color="text.secondary" display="block" fontWeight={500}>
+                                Resultado Econômico
+                            </Typography>
+                            <Typography variant="body2" fontWeight="bold" color="#059669">
+                                {formatCurrency(resultadoEconomico)}
+                                {metaValor > 0 && resultadoEconomico < metaValor && (
+                                    <span style={{ fontWeight: 400, color: '#666' }}> (faltam {formatCurrency(metaValor - resultadoEconomico)})</span>
+                                )}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                                caixa recebido + convênio produzido
+                            </Typography>
+                        </Box>
+
+                        {/* Linha 2: Produção */}
+                        <Box sx={{ mt: 1, display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="caption" color="text.secondary">
+                                Produção Realizada
+                            </Typography>
+                            <Typography variant="caption" fontWeight={500}>
+                                {formatCurrency(producao)}
+                            </Typography>
+                        </Box>
+
+                        {/* Linha 3: Caixa */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="caption" color="text.secondary">
+                                Caixa Recebido
+                            </Typography>
+                            <Typography variant="caption" fontWeight={500}>
+                                {formatCurrency(caixa)}
+                            </Typography>
+                        </Box>
+
+                        {/* Linha 4: Convênio Pendente */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="caption" color="text.secondary">
+                                Convênio a Receber
+                            </Typography>
+                            <Typography variant="caption" fontWeight={500} color="#d97706">
+                                {formatCurrency(Math.max(0, resultadoEconomico - caixa))}
+                            </Typography>
+                        </Box>
+
                         {metaValor > 0 && (
                             <LinearProgress
                                 variant="determinate"
                                 value={Math.min(percentualAtual, 100)}
-                                sx={{ mt: 1, height: 6, borderRadius: 3 }}
+                                sx={{ mt: 1.5, height: 6, borderRadius: 3 }}
                                 color={percentualAtual >= 100 ? 'success' : percentualAtual >= 60 ? 'warning' : 'error'}
                             />
                         )}
@@ -401,9 +446,9 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                 const valorAgendados = agendados.reduce((sum, a) => sum + (a.paymentAmount || 0), 0);
                 const valorPendentes = pendentes.reduce((sum, a) => sum + (a.paymentAmount || 0), 0);
                 const cen = [
-                    { label: 'PESSIMISTA', value: caixa + (valorAgendados * 0.7) + (valorPendentes * 0.2), desc: '70% agendados + 20% pendentes', color: '#E53E3E' },
-                    { label: 'ESPERADO', value: cenarioEsperado || caixa, desc: 'Taxa histórica de conversão', color: '#3182CE' },
-                    { label: 'OTIMISTA', value: caixa + (valorAgendados * 0.95) + (valorPendentes * 0.7), desc: '95% agendados + 70% pendentes', color: '#38A169' }
+                    { label: 'PESSIMISTA', value: resultadoEconomico + (valorAgendados * 0.7) + (valorPendentes * 0.2), desc: '70% agendados + 20% pendentes', color: '#E53E3E' },
+                    { label: 'ESPERADO', value: cenarioEsperado || resultadoEconomico, desc: 'Taxa histórica de conversão', color: '#3182CE' },
+                    { label: 'OTIMISTA', value: resultadoEconomico + (valorAgendados * 0.95) + (valorPendentes * 0.7), desc: '95% agendados + 70% pendentes', color: '#38A169' }
                 ];
                 return cen;
             })().map((c, i) => (

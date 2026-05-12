@@ -32,8 +32,9 @@ export interface PendingPayment {
   description: string | null;
 }
 
-export async function getPatientFinancialSummary(patientId: string): Promise<FinancialSummary> {
-  const res = await API.get(`/v2/financial/patient/${patientId}/summary`);
+export async function getPatientFinancialSummary(patientId: string, packageId?: string): Promise<FinancialSummary> {
+  const params = packageId ? { packageId } : {};
+  const res = await API.get(`/v2/financial/patient/${patientId}/summary`, { params });
   return res.data.data;
 }
 

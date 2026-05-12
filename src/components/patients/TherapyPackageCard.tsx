@@ -97,12 +97,13 @@ export default function TherapyPackageCard({
   useEffect(() => {
     if (!patient?._id && !patient?.patientId) return;
     const pid = patient?.patientId || patient?._id;
+    const pkgId = pack?.packageId || pack?._id;
     setFinancialLoading(true);
-    getPatientFinancialSummary(pid)
+    getPatientFinancialSummary(pid, pkgId)
       .then(setFinancial)
       .catch(() => setFinancial(null))
       .finally(() => setFinancialLoading(false));
-  }, [patient?._id, patient?.patientId]);
+  }, [patient?._id, patient?.patientId, pack?.packageId, pack?._id]);
 
   const sessionDebt = financial?.sessionDebt ?? 0;
   const particularPaid = financial?.particularPaid ?? 0;

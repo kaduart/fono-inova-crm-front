@@ -53,7 +53,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
 
     // 🆕 Recarrega agendamentos quando a aba é ativada
     useEffect(() => {
-        if (activeTab === 5 && viewMode === 'day') {
+        if (activeTab === 4 && viewMode === 'day') {
             loadDayAppointments();
         }
     }, [activeTab]);
@@ -322,8 +322,8 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                             <Tab label={data.pendentesCobranca?.length > 0 ? `Pendentes (${data.pendentesCobranca.length})` : 'Pendentes'} icon={<WarningIcon fontSize="small" />} iconPosition="start" />
                             <Tab label={data.pacotesAtendidos?.length > 0 ? `Pacotes (${data.pacotesAtendidos.length})` : 'Pacotes'} icon={<InventoryIcon fontSize="small" />} iconPosition="start" />
                             <Tab label={data.conveniosAtendidos?.length > 0 ? `Convênios (${data.conveniosAtendidos.length})` : 'Convênios'} icon={<ShowChartIcon fontSize="small" />} iconPosition="start" />
-                            <Tab label={Object.keys(data.producao?.porEspecialidade || {}).length > 0 ? `Especialidades (${Object.keys(data.producao.porEspecialidade).length})` : 'Especialidades'} icon={<PieChartIcon fontSize="small" />} iconPosition="start" />
                             <Tab label={dayAppointments.length > 0 ? `Agendamentos (${dayAppointments.length})` : 'Agendamentos'} icon={<CalendarTodayIcon fontSize="small" />} iconPosition="start" />
+                            <Tab label={Object.keys(data.producao?.porEspecialidade || {}).length > 0 ? `Especialidades (${Object.keys(data.producao.porEspecialidade).length})` : 'Especialidades'} icon={<PieChartIcon fontSize="small" />} iconPosition="start" />
                         </Tabs>
                     </Paper>
 
@@ -362,7 +362,12 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                                 <Chip 
                                                     size="small" 
                                                     label={t.tipo}
-                                                    color={t.tipo === 'Pacote' ? 'success' : t.tipo === 'Convênio' ? 'info' : 'default'}
+                                                    color={
+                                                        t.tipo === 'Pacote' ? 'success' : 
+                                                        t.tipo === 'Convênio' ? 'warning' : 
+                                                        t.tipo === 'Liminar' ? 'error' : 
+                                                        'primary'
+                                                    }
                                                 />
                                             </TableCell>
                                             <TableCell>
@@ -537,45 +542,8 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                         </Paper>
                     )}
 
-                    {/* Tab 4: Por Especialidade */}
+                    {/* Tab 4: Agendamentos do Dia */}
                     {activeTab === 4 && (
-                        <Paper sx={{ p: 2 }}>
-                            <Typography variant="h6" gutterBottom>🏥 Produção por Especialidade</Typography>
-                            <Grid container spacing={2}>
-                                {data.producao.porEspecialidade?.map((esp) => (
-                                    <Grid size={{ xs: 12, sm: 6, md: 4 }} key={esp.nome}>
-                                        <Card variant="outlined">
-                                            <CardContent>
-                                                <Typography variant="subtitle1" fontWeight="bold">{esp.nome}</Typography>
-                                                <Typography variant="h5" color="primary">{formatCurrency(esp.total)}</Typography>
-                                                <Box sx={{ mt: 1 }}>
-                                                    <Typography variant="caption" display="block">
-                                                        {esp.quantidade} atendimentos • Ticket: {formatCurrency(Number(esp.ticketMedio))}
-                                                    </Typography>
-                                                    <LinearProgress 
-                                                        variant="determinate" 
-                                                        value={(esp.recebido / esp.total) * 100} 
-                                                        sx={{ mt: 1 }}
-                                                    />
-                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
-                                                        <Typography variant="caption" color="success.main">
-                                                            {formatCurrency(esp.recebido)} recebido
-                                                        </Typography>
-                                                        <Typography variant="caption" color="warning.main">
-                                                            {formatCurrency(esp.pendente)} pendente
-                                                        </Typography>
-                                                    </Box>
-                                                </Box>
-                                            </CardContent>
-                                        </Card>
-                                    </Grid>
-                                ))}
-                            </Grid>
-                        </Paper>
-                    )}
-
-                    {/* Tab 5: Agendamentos do Dia */}
-                    {activeTab === 5 && (
                         <Paper sx={{ p: 2 }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
                                 <Typography variant="h6" gutterBottom>
@@ -630,12 +598,15 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                             .map((a: any) => {
                                                 const statusColors: Record<string, any> = {
                                                     completed: { color: 'success', label: 'Atendido' },
-                                                    scheduled: { color: 'default', label: 'Agendado' },
+                                                    scheduled: { color: 'primary', label: 'Agendado' },
                                                     confirmed: { color: 'info', label: 'Confirmado' },
                                                     canceled: { color: 'error', label: 'Cancelado' },
                                                     pre_agendado: { color: 'warning', label: 'Pré-agendado' }
                                                 };
-                                                const statusConfig = statusColors[a.operationalStatus] || { color: 'default', label: a.operationalStatus };
+                                                const statusConfig = statusColors[a.operationalStatus] || { 
+                                                    color: 'default', 
+                                                    label: a.operationalStatus 
+                                                };
                                                 return (
                                                     <TableRow key={a._id} sx={{ opacity: a.operationalStatus === 'canceled' ? 0.6 : 1 }}>
                                                         <TableCell>{a.date ? format(parseISO(a.date), 'dd/MM') : '--/--'} {a.time || (a.date ? format(parseISO(a.date), 'HH:mm') : '--:--')}</TableCell>
@@ -671,7 +642,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                                             })()}
                                                         </TableCell>
                                                         <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                                                            {formatCurrency(a.sessionValue || 0)}
+                                                            {formatCurrency(a.sessionValue || a.package?.sessionValue || 0)}
                                                         </TableCell>
                                                     </TableRow>
                                                 );
@@ -705,6 +676,43 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                     })}
                                 </Box>
                             )}
+                        </Paper>
+                    )}
+
+                    {/* Tab 5: Por Especialidade */}
+                    {activeTab === 5 && (
+                        <Paper sx={{ p: 2 }}>
+                            <Typography variant="h6" gutterBottom>🏥 Produção por Especialidade</Typography>
+                            <Grid container spacing={2}>
+                                {data.producao.porEspecialidade?.map((esp) => (
+                                    <Grid size={{ xs: 12, sm: 6, md: 4 }} key={esp.nome}>
+                                        <Card variant="outlined">
+                                            <CardContent>
+                                                <Typography variant="subtitle1" fontWeight="bold">{esp.nome}</Typography>
+                                                <Typography variant="h5" color="primary">{formatCurrency(esp.total)}</Typography>
+                                                <Box sx={{ mt: 1 }}>
+                                                    <Typography variant="caption" display="block">
+                                                        {esp.quantidade} atendimentos • Ticket: {formatCurrency(Number(esp.ticketMedio))}
+                                                    </Typography>
+                                                    <LinearProgress 
+                                                        variant="determinate" 
+                                                        value={(esp.recebido / esp.total) * 100} 
+                                                        sx={{ mt: 1 }}
+                                                    />
+                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                                                        <Typography variant="caption" color="success.main">
+                                                            {formatCurrency(esp.recebido)} recebido
+                                                        </Typography>
+                                                        <Typography variant="caption" color="warning.main">
+                                                            {formatCurrency(esp.pendente)} pendente
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
+                                            </CardContent>
+                                        </Card>
+                                    </Grid>
+                                ))}
+                            </Grid>
                         </Paper>
                     )}
                 </Box>
