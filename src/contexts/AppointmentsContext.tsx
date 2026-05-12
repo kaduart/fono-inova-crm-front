@@ -297,8 +297,12 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         invalidateCache('doctorStats');
         
         socketManager.emit('appointmentUpdated', { appointmentId: id });
+        
+        // 🔄 Recarrega appointments para refletir mudanças imediatamente
+        await refreshAppointments(true);
+        
         return result;
-    }, []);
+    }, [refreshAppointments]);
 
     const completeAppointment = useCallback(async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
         const result = await appointmentService.complete(id, data);

@@ -471,6 +471,7 @@ const ScheduleAppointmentModal = ({
                                             setPatientSearch(patient.fullName);
                                             setFormData((prev) => ({ ...prev, patientId: patient._id }));
                                             setPackages((patient as any)?.packages || []);
+                                            setSearchedPatients([]); // 👈 FECHA O DROPDOWN após selecionar
                                         }}
                                         className="px-3 py-2 cursor-pointer hover:bg-blue-50 text-sm text-gray-700"
                                     >

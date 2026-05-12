@@ -3,7 +3,7 @@ import {
     Alert, Box, Card, CardContent, Chip, Grid, MenuItem, Paper, 
     Table, TableBody, TableCell, TableHead, TableRow, TextField, 
     Typography, Divider, Avatar, LinearProgress, Tabs, Tab, Badge,
-    Tooltip, IconButton
+    Tooltip, IconButton, FormControl, InputLabel, Select
 } from '@mui/material';
 import { FinancialLoading } from './components/FinancialLoading';
 import { format, isSameDay, parseISO } from 'date-fns';
@@ -41,11 +41,22 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
     const [activeTab, setActiveTab] = useState(0);
     const [viewMode, setViewMode] = useState<'day' | 'month'>('day');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [dayAppointments, setDayAppointments] = useState<any[]>([]);
+    const [appointmentFilter, setAppointmentFilter] = useState<string>('all');
+    const [loadingAppointments, setLoadingAppointments] = useState(false);
 
     // Carrega dados do dia selecionado
     useEffect(() => {
         loadDayData();
+        loadDayAppointments();
     }, [selectedDate]);
+
+    // 🆕 Recarrega agendamentos quando a aba é ativada
+    useEffect(() => {
+        if (activeTab === 5 && viewMode === 'day') {
+            loadDayAppointments();
+        }
+    }, [activeTab]);
 
     // Carrega dados do mês quando muda para visualização mensal ou quando o filtro global muda
     useEffect(() => {
@@ -77,6 +88,20 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
             console.error('Erro ao carregar dados do mês:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadDayAppointments = async () => {
+        setLoadingAppointments(true);
+        try {
+            console.log('[UnifiedCashflowTab] Buscando agendamentos para:', selectedDate);
+            const res = await cashflowService.getDayAppointments(selectedDate);
+            console.log('[UnifiedCashflowTab] Resposta:', res.data);
+            setDayAppointments(res.data?.data?.appointments || []);
+        } catch (error: any) {
+            console.error('[UnifiedCashflowTab] Erro ao carregar agendamentos:', error?.response?.data || error.message);
+        } finally {
+            setLoadingAppointments(false);
         }
     };
 
@@ -298,6 +323,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                             <Tab label={data.pacotesAtendidos?.length > 0 ? `Pacotes (${data.pacotesAtendidos.length})` : 'Pacotes'} icon={<InventoryIcon fontSize="small" />} iconPosition="start" />
                             <Tab label={data.conveniosAtendidos?.length > 0 ? `Convênios (${data.conveniosAtendidos.length})` : 'Convênios'} icon={<ShowChartIcon fontSize="small" />} iconPosition="start" />
                             <Tab label={Object.keys(data.producao?.porEspecialidade || {}).length > 0 ? `Especialidades (${Object.keys(data.producao.porEspecialidade).length})` : 'Especialidades'} icon={<PieChartIcon fontSize="small" />} iconPosition="start" />
+                            <Tab label={dayAppointments.length > 0 ? `Agendamentos (${dayAppointments.length})` : 'Agendamentos'} icon={<CalendarTodayIcon fontSize="small" />} iconPosition="start" />
                         </Tabs>
                     </Paper>
 
@@ -310,17 +336,24 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                     <TableRow>
                                         <TableCell>Hora</TableCell>
                                         <TableCell>Paciente</TableCell>
+                                        <TableCell>Profissional</TableCell>
                                         <TableCell>Serviço</TableCell>
                                         <TableCell>Método</TableCell>
                                         <TableCell>Tipo</TableCell>
+                                        <TableCell>Observação</TableCell>
                                         <TableCell align="right">Valor</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
                                     {data.transacoes?.map((t) => (
                                         <TableRow key={t.id}>
-                                            <TableCell>{t.hora}</TableCell>
+                                            <TableCell>
+                                                <Tooltip title={`ID: ${t.id} | Status Agendamento: ${t.appointmentStatus || '-'}`}>
+                                                    <span>{t.hora}</span>
+                                                </Tooltip>
+                                            </TableCell>
                                             <TableCell>{t.paciente}</TableCell>
+                                            <TableCell>{t.profissional || '-'}</TableCell>
                                             <TableCell>
                                                 <Chip size="small" label={t.servico} variant="outlined" />
                                             </TableCell>
@@ -332,6 +365,13 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                                     color={t.tipo === 'Pacote' ? 'success' : t.tipo === 'Convênio' ? 'info' : 'default'}
                                                 />
                                             </TableCell>
+                                            <TableCell>
+                                                <Tooltip title={t.observacao || '-'}>
+                                                    <Typography variant="caption" sx={{ maxWidth: 150, display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {t.observacao || '-'}
+                                                    </Typography>
+                                                </Tooltip>
+                                            </TableCell>
                                             <TableCell align="right" sx={{ fontWeight: 'bold', color: '#16A34A' }}>
                                                 {formatCurrency(t.valor)}
                                             </TableCell>
@@ -339,7 +379,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                     ))}
                                     {!data.transacoes?.length && (
                                         <TableRow>
-                                            <TableCell colSpan={6} align="center">Nenhuma transação hoje</TableCell>
+                                            <TableCell colSpan={8} align="center">Nenhuma transação hoje</TableCell>
                                         </TableRow>
                                     )}
                                 </TableBody>
@@ -531,6 +571,114 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                     </Grid>
                                 ))}
                             </Grid>
+                        </Paper>
+                    )}
+
+                    {/* Tab 5: Agendamentos do Dia */}
+                    {activeTab === 5 && (
+                        <Paper sx={{ p: 2 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+                                <Typography variant="h6" gutterBottom>
+                                    📅 Agendamentos do Dia ({dayAppointments.length})
+                                </Typography>
+                                <FormControl size="small" sx={{ minWidth: 140 }}>
+                                    <InputLabel>Filtrar status</InputLabel>
+                                    <Select
+                                        value={appointmentFilter}
+                                        label="Filtrar status"
+                                        onChange={(e) => setAppointmentFilter(e.target.value)}
+                                    >
+                                        <MenuItem value="all">Todos</MenuItem>
+                                        <MenuItem value="completed">✅ Atendidos</MenuItem>
+                                        <MenuItem value="scheduled">📋 Agendados</MenuItem>
+                                        <MenuItem value="confirmed">✔️ Confirmados</MenuItem>
+                                        <MenuItem value="canceled">❌ Cancelados</MenuItem>
+                                        <MenuItem value="pre_agendado">⏳ Pré-agendado</MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Box>
+
+                            {loadingAppointments ? (
+                                <Alert severity="info">Carregando agendamentos...</Alert>
+                            ) : dayAppointments.length === 0 ? (
+                                <Alert severity="info">Nenhum agendamento encontrado para este dia.</Alert>
+                            ) : (
+                                <Table size="small">
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>Hora</TableCell>
+                                            <TableCell>Paciente</TableCell>
+                                            <TableCell>Profissional</TableCell>
+                                            <TableCell>Especialidade</TableCell>
+                                            <TableCell>Status</TableCell>
+                                            <TableCell>Tipo</TableCell>
+                                            <TableCell align="right">Valor</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {dayAppointments
+                                            .filter((a: any) => appointmentFilter === 'all' || a.operationalStatus === appointmentFilter)
+                                            .map((a: any) => {
+                                                const statusColors: Record<string, any> = {
+                                                    completed: { color: 'success', label: 'Atendido' },
+                                                    scheduled: { color: 'default', label: 'Agendado' },
+                                                    confirmed: { color: 'info', label: 'Confirmado' },
+                                                    canceled: { color: 'error', label: 'Cancelado' },
+                                                    pre_agendado: { color: 'warning', label: 'Pré-agendado' }
+                                                };
+                                                const statusConfig = statusColors[a.operationalStatus] || { color: 'default', label: a.operationalStatus };
+                                                return (
+                                                    <TableRow key={a._id} sx={{ opacity: a.operationalStatus === 'canceled' ? 0.6 : 1 }}>
+                                                        <TableCell>{a.time || '-'}</TableCell>
+                                                        <TableCell>{a.patientInfo?.fullName || a.patient?.fullName || '-'}</TableCell>
+                                                        <TableCell>{a.professionalName || '-'}</TableCell>
+                                                        <TableCell>{a.specialty || '-'}</TableCell>
+                                                        <TableCell>
+                                                            <Chip size="small" label={statusConfig.label} color={statusConfig.color as any} />
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Chip 
+                                                                size="small" 
+                                                                label={a.billingType || 'Particular'} 
+                                                                variant="outlined"
+                                                                color={a.billingType === 'convenio' ? 'info' : a.package ? 'success' : 'default'}
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                                                            {formatCurrency(a.sessionValue || 0)}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })}
+                                    </TableBody>
+                                </Table>
+                            )}
+
+                            {/* Resumo por status */}
+                            {dayAppointments.length > 0 && (
+                                <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                    {['completed', 'scheduled', 'confirmed', 'canceled', 'pre_agendado'].map((status) => {
+                                        const count = dayAppointments.filter((a: any) => a.operationalStatus === status).length;
+                                        if (count === 0) return null;
+                                        const labels: Record<string, string> = {
+                                            completed: 'Atendidos',
+                                            scheduled: 'Agendados',
+                                            confirmed: 'Confirmados',
+                                            canceled: 'Cancelados',
+                                            pre_agendado: 'Pré-agendados'
+                                        };
+                                        return (
+                                            <Chip
+                                                key={status}
+                                                size="small"
+                                                label={`${labels[status]}: ${count}`}
+                                                color={status === 'completed' ? 'success' : status === 'canceled' ? 'error' : status === 'confirmed' ? 'info' : 'default'}
+                                                variant="outlined"
+                                            />
+                                        );
+                                    })}
+                                </Box>
+                            )}
                         </Paper>
                     )}
                 </Box>

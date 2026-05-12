@@ -51,12 +51,8 @@ export const PaymentActionIcons = ({
             return false;
         }
 
-        // 🚨 NÃO PODE marcar como pago se for appointment SEM payment real
-        // (deve registrar o pagamento primeiro, não marcar direto)
-        if ((payment as any).__isAppointmentRecord && !(payment as any).__hasPayment) {
-            return false;
-        }
-
+        // 🆕 Sessão avulsa/appointment SEM paymentId real → ainda permite clicar
+        // (o handler cria o payment automaticamente antes de marcar como pago)
         return true;
     };
 
@@ -64,9 +60,6 @@ export const PaymentActionIcons = ({
     const getMarkAsPaidTooltip = () => {
         if (payment.status === 'paid') return 'Já está pago';
         if (payment.status === 'canceled') return 'Pagamento cancelado';
-        if ((payment as any).__isAppointmentRecord && !(payment as any).__hasPayment) {
-            return 'Registre o pagamento antes de marcar como pago';
-        }
         return 'Marcar como pago';
     };
 
@@ -125,7 +118,7 @@ export const PaymentActionIcons = ({
                     )}
 
                     {/* ✅ BOTÃO EDITAR */}
-                    {payment.status !== 'canceled' && !(payment as any).__isAppointmentRecord && (() => {
+                    {payment.status !== 'canceled' && (!(payment as any).__isAppointmentRecord || (payment as any).__realPaymentId) && (() => {
                         const isPackage = (payment as any).__isPackageAppointment || payment.serviceType === 'package_session' || payment.packageId;
                         const isConvenio = payment.billingType === 'convenio';
                         const isLiminar = payment.billingType === 'liminar';
@@ -143,8 +136,9 @@ export const PaymentActionIcons = ({
                         ) : (
                             <button
                                 onClick={() => {
-                                    const id = (payment as any).id || payment._id;
-                                    console.log('[PaymentAction] Editar Valor id:', id, '_id:', payment._id, 'id:', (payment as any).id);
+                                    // 🎯 Usa __realPaymentId se for appointment com payment vinculado
+                                    const id = (payment as any).__realPaymentId || (payment as any).id || payment._id;
+                                    console.log('[PaymentAction] Editar Valor id:', id, '_id:', payment._id, '__realPaymentId:', (payment as any).__realPaymentId);
                                     onEditAmount(id);
                                     setOpen(false);
                                 }}

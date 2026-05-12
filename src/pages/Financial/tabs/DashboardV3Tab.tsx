@@ -274,6 +274,38 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           onClick={() => openDebitosModal('mes')}
         />
       </div>
+
+      {/* 🆕 CARDS DETALHADOS — SEPARAÇÃO CAIXA */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <MetricCard
+          title="Vendas de Pacotes"
+          subtitle={`${cash.breakdown.packageSalesCount || 0} contratos`}
+          value={formatCurrency(cash.breakdown.packageSales || 0)}
+          icon={<Briefcase size={20} />}
+          color="purple"
+        />
+        <MetricCard
+          title="Particular Líquido"
+          subtitle="Exclui vendas de pacotes"
+          value={formatCurrency(cash.breakdown.particularNet || cash.breakdown.particular || 0)}
+          icon={<DollarSign size={20} />}
+          color="sky"
+        />
+        <MetricCard
+          title="Sessões de Pacote (Caixa)"
+          subtitle="Pagamento por sessão realizada"
+          value={formatCurrency(Math.max(0, (cash.breakdown.pacote || 0) - (cash.breakdown.packageSales || 0)))}
+          icon={<CheckCircle2 size={20} />}
+          color="indigo"
+        />
+        <MetricCard
+          title="Total em Pacotes"
+          subtitle="Vendas + Sessões pagas"
+          value={formatCurrency(cash.breakdown.pacote || 0)}
+          icon={<Briefcase size={20} />}
+          color="violet"
+        />
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
           <h3 className="text-lg font-bold text-gray-800 mb-3">Projeção de Fechamento</h3>
@@ -310,24 +342,48 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   );
 
   const renderCaixa = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-        <h3 className="text-lg font-bold text-gray-800 mb-4">Por Tipo</h3>
-        <BreakdownList items={[
-          { label: 'Particular', value: cash.breakdown.particular, color: 'blue' },
-          { label: 'Pacote', value: cash.breakdown.pacote, color: 'purple' },
-          { label: 'Convênio', value: cash.breakdown.convenio, color: 'sky' },
-          { label: 'Liminar', value: cash.breakdown.liminar, color: 'amber' },
-        ]} total={totalCaixa} />
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Por Tipo</h3>
+          <BreakdownList items={[
+            { label: 'Particular', value: cash.breakdown.particular, color: 'blue' },
+            { label: 'Pacote', value: cash.breakdown.pacote, color: 'purple' },
+            { label: 'Convênio', value: cash.breakdown.convenio, color: 'sky' },
+            { label: 'Liminar', value: cash.breakdown.liminar, color: 'amber' },
+          ]} total={totalCaixa} />
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Por Método</h3>
+          <BreakdownList items={[
+            { label: 'Dinheiro', value: cash.byMethod.dinheiro, color: 'emerald' },
+            { label: 'Cartão', value: cash.byMethod.cartao, color: 'blue' },
+            { label: 'PIX', value: cash.byMethod.pix, color: 'sky' },
+            { label: 'Outros', value: cash.byMethod.outros, color: 'gray' },
+          ]} total={totalCaixa} />
+        </div>
       </div>
+
+      {/* 🆕 DETALHAMENTO DE PACOTES NO CAIXA */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-        <h3 className="text-lg font-bold text-gray-800 mb-4">Por Método</h3>
-        <BreakdownList items={[
-          { label: 'Dinheiro', value: cash.byMethod.dinheiro, color: 'emerald' },
-          { label: 'Cartão', value: cash.byMethod.cartao, color: 'blue' },
-          { label: 'PIX', value: cash.byMethod.pix, color: 'sky' },
-          { label: 'Outros', value: cash.byMethod.outros, color: 'gray' },
-        ]} total={totalCaixa} />
+        <h3 className="text-lg font-bold text-gray-800 mb-4">Detalhamento de Pacotes no Caixa</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="p-4 rounded-lg bg-purple-50 border border-purple-100">
+            <p className="text-sm text-purple-600 font-medium">Vendas de Pacotes (Contratos)</p>
+            <p className="text-2xl font-bold text-gray-900">{formatCurrency(cash.breakdown.packageSales || 0)}</p>
+            <p className="text-xs text-gray-500 mt-1">{cash.breakdown.packageSalesCount || 0} contratos fechados</p>
+          </div>
+          <div className="p-4 rounded-lg bg-indigo-50 border border-indigo-100">
+            <p className="text-sm text-indigo-600 font-medium">Sessões de Pacote Pagas</p>
+            <p className="text-2xl font-bold text-gray-900">{formatCurrency(Math.max(0, (cash.breakdown.pacote || 0) - (cash.breakdown.packageSales || 0)))}</p>
+            <p className="text-xs text-gray-500 mt-1">Pagamento por sessão realizada</p>
+          </div>
+          <div className="p-4 rounded-lg bg-violet-50 border border-violet-100">
+            <p className="text-sm text-violet-600 font-medium">Total em Pacotes</p>
+            <p className="text-2xl font-bold text-gray-900">{formatCurrency(cash.breakdown.pacote || 0)}</p>
+            <p className="text-xs text-gray-500 mt-1">Vendas + Sessões pagas</p>
+          </div>
+        </div>
       </div>
     </div>
   );

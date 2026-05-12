@@ -53,13 +53,18 @@ function mapAppointmentToRecord(appt: any): FinancialRecord {
     const isPackageAppointment = !!(appt.package?._id || appt.package) || appt.serviceType === 'package_session';
     const hasPayment = !!(appt.payment?._id || appt.payment);
     const realPaymentId = appt.payment?._id?.toString?.() || appt.payment?.toString?.() || null;
+    const resolvedAmount = appt.payment?.amount || appt.paymentAmount || appt.sessionValue || appt.valor || 0;
+
+    // 🐛 LOG DE MAPEAMENTO FINANCEIRO
+    console.log(`💰 [mapAppointmentToRecord] ${appt.id || appt._id}: sessionValue=${appt.sessionValue}, paymentAmount=${appt.paymentAmount}, payment?.amount=${appt.payment?.amount}, valor=${appt.valor} → amount=${resolvedAmount}`);
 
     return {
         _id: realPaymentId || appt.id || appt._id,
         date: dateStr,
         description: appt.notes || '',
-        // 💰 V2 RULE: Payment.amount é a fonte de verdade. Nunca usar sessionValue.
-        amount: appt.payment?.amount || appt.paymentAmount || appt.valor || 0,
+        // 💰 V2 RULE: Payment.amount é a fonte de verdade quando existe payment.
+        // Para appointments SEM payment, usa sessionValue como fallback.
+        amount: resolvedAmount,
         // 💰 Fonte de verdade: Payment.status
         paid: appt.payment?.status === 'paid' || appt.payment?.status === 'package_paid',
         status: mapPaymentStatus(appt.payment?.status || appt.paymentStatus),
@@ -542,10 +547,23 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
 
     // 🚀 NOVO: Sincroniza appointments do contexto para FinancialRecords
     useEffect(() => {
+        console.log('[PaymentPage] ============================================');
+        console.log('[PaymentPage] AppointmentsContext recebidos:', appointments?.length || 0, 'registros');
+        if (appointments?.length) {
+            appointments.forEach((a: any) => {
+                console.log(`   📋 ${a.id || a._id}: sessionValue=${a.sessionValue}, paymentAmount=${a.paymentAmount}, payment?.amount=${a.payment?.amount}, status=${a.operationalStatus}`);
+            });
+        }
         const mapped: FinancialRecord[] = (appointments || [])
             .map(mapAppointmentToRecord)
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         console.log('[PaymentPage] AppointmentsContext mapeados:', mapped.length, 'registros');
+        if (mapped?.length) {
+            mapped.forEach((m: any) => {
+                console.log(`   💰 ${m._id}: amount=${m.amount}, status=${m.status}, __realPaymentId=${m.__realPaymentId}`);
+            });
+        }
+        console.log('[PaymentPage] ============================================');
         setAppointmentRecords(mapped);
         setAllPayments(mapped);
     }, [appointments, setAllPayments]);

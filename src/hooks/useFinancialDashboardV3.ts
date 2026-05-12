@@ -225,6 +225,9 @@ export interface DashboardV3Data {
       pacote: number;
       convenio: number;
       liminar: number;
+      packageSales?: number;
+      packageSalesCount?: number;
+      particularNet?: number;
     };
     byMethod: {
       pix: number;

@@ -1420,63 +1420,69 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     zIndex: 50,
                 }}
             >
-                {/* 🆕 NOVO: Skeleton de loading */}
+                {/* Skeleton de loading — replica estrutura visual do FullCalendar */}
                 {loading && (
-                    <Box
-                        sx={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                            zIndex: 10,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            p: 3,
-                        }}
-                    >
-                        {/* Header skeleton */}
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-                            <Skeleton variant="text" width={200} height={40} />
+                    <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', minHeight: 560 }}>
+                        {/* Toolbar do FC: prev/next/today | título do mês | month/week/day */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, px: 1 }}>
+                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                <Skeleton variant="rounded" width={32} height={32} />
+                                <Skeleton variant="rounded" width={32} height={32} />
+                                <Skeleton variant="rounded" width={60} height={32} />
+                            </Box>
+                            <Skeleton variant="text" width={180} height={36} sx={{ borderRadius: 1 }} />
                             <Box sx={{ display: 'flex', gap: 1 }}>
-                                <Skeleton variant="rectangular" width={40} height={40} sx={{ borderRadius: 1 }} />
-                                <Skeleton variant="rectangular" width={40} height={40} sx={{ borderRadius: 1 }} />
-                                <Skeleton variant="rectangular" width={100} height={40} sx={{ borderRadius: 1 }} />
+                                <Skeleton variant="rounded" width={68} height={32} />
+                                <Skeleton variant="rounded" width={60} height={32} />
+                                <Skeleton variant="rounded" width={48} height={32} />
                             </Box>
                         </Box>
-                        
-                        {/* Calendar grid skeleton */}
-                        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                            {/* Days header */}
-                            <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-                                {['Seg', 'Ter', 'Qua', 'Qui', 'Sex'].map((day) => (
-                                    <Skeleton key={day} variant="text" width="100%" height={30} />
-                                ))}
-                            </Box>
-                            
-                            {/* Calendar cells */}
-                            {Array.from({ length: 5 }).map((_, weekIndex) => (
-                                <Box key={weekIndex} sx={{ display: 'flex', gap: 1, flex: 1, mb: 1 }}>
-                                    {Array.from({ length: 7 }).map((_, dayIndex) => (
-                                        <Skeleton
-                                            key={dayIndex}
-                                            variant="rectangular"
-                                            width="100%"
-                                            height="100%"
-                                            sx={{ borderRadius: 1 }}
-                                        />
-                                    ))}
+
+                        {/* Cabeçalho dos dias — 5 colunas (sem fim de semana) */}
+                        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', borderTop: '1px solid #e5e7eb', borderLeft: '1px solid #e5e7eb' }}>
+                            {['SEG', 'TER', 'QUA', 'QUI', 'SEX'].map((d) => (
+                                <Box key={d} sx={{ borderRight: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb', px: 1, py: 0.75, display: 'flex', justifyContent: 'center' }}>
+                                    <Skeleton variant="text" width={30} height={18} />
                                 </Box>
                             ))}
                         </Box>
-                        
-                        {/* Loading text */}
-                        <Box sx={{ textAlign: 'center', mt: 2 }}>
-                            <Typography variant="body2" color="text.secondary">
-                                Carregando agendamentos...
-                            </Typography>
-                        </Box>
+
+                        {/* Grade de semanas: 5 linhas × 5 colunas */}
+                        {Array.from({ length: 5 }).map((_, week) => (
+                            <Box key={week} sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', flex: 1, borderLeft: '1px solid #e5e7eb' }}>
+                                {Array.from({ length: 5 }).map((_, day) => {
+                                    // Simula badge de contagem em ~40% das células
+                                    const hasBadge = (week * 5 + day) % 3 !== 0;
+                                    return (
+                                        <Box
+                                            key={day}
+                                            sx={{
+                                                borderRight: '1px solid #e5e7eb',
+                                                borderBottom: '1px solid #e5e7eb',
+                                                minHeight: 80,
+                                                p: 0.75,
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'flex-end',
+                                                gap: 0.5,
+                                            }}
+                                        >
+                                            {/* Número do dia */}
+                                            <Skeleton variant="circular" width={28} height={28} />
+                                            {/* Badge de contagem */}
+                                            {hasBadge && (
+                                                <Skeleton
+                                                    variant="rounded"
+                                                    width={20}
+                                                    height={18}
+                                                    sx={{ borderRadius: 9, bgcolor: '#bbf7d0' }}
+                                                />
+                                            )}
+                                        </Box>
+                                    );
+                                })}
+                            </Box>
+                        ))}
                     </Box>
                 )}
                 

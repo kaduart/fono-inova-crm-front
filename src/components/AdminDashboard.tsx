@@ -1,6 +1,6 @@
 import { Box, Paper, Skeleton, Typography, useTheme } from '@mui/material';
 import { BarChart3, CalendarPlus } from "lucide-react";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import moment from 'moment-timezone';
 import { mapToCreateAppointmentDTO } from '../dtos/appointment.dto';
@@ -62,6 +62,7 @@ import WhatsAppCriticalBanner from './admin/WhatsAppCriticalBanner';
 import usePayment from '../hooks/usePayment';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
 import doctorService, { CreateDoctorParams } from '../services/doctorService';
+import API from '../services/api';
 import { createPayment, FinancialRecord, getPaymentsV2, updatePayment } from '../services/paymentService';
 // 🚫 REMOVIDO: import do usePixSocket para evitar reload automático
 // import { usePixSocket } from '../hooks/usePixSocket';
@@ -289,6 +290,7 @@ export default function AdminDashboard() {
         pollAppointmentStatus, // 🚀 V2: Polling para atualização async
         cancelAppointment,
         getAvailableSlots,
+        isLoading: appointmentsLoading,
     } = useAppointmentsContext();
 
 
@@ -743,21 +745,60 @@ export default function AdminDashboard() {
         setPaymentModalOpen(true);
     }, []);
 
+    // 🛡️ Proteção contra cliques duplos / race condition no mark-as-paid
+    const isMarkingAsPaidRef = useRef(false);
+
     const handleMarkAsPaid = useCallback(async (payment: FinancialRecord) => {
+        if (isMarkingAsPaidRef.current) {
+            toast('⏳ Aguarde, processando...', { icon: '⏳' });
+            return;
+        }
+
         try {
-            // 🚨 GARANTIA: se não tem payment real, não pode marcar como pago via PATCH
-            if ((payment as any).__isAppointmentRecord && !(payment as any).__hasPayment) {
-                toast.info('💳 Este agendamento ainda não possui pagamento registrado.');
-                return;
+            isMarkingAsPaidRef.current = true;
+
+            let targetId = (payment as any).__realPaymentId;
+            
+            // 🆕 SESSÃO AVULSA SEM PAYMENT: cria o payment automaticamente via V2 antes de marcar como pago
+            if ((payment as any).__isAppointmentRecord && !targetId) {
+                const amount = payment.amount || 0;
+
+                try {
+                    const createRes = await API.post('/v2/payments/create-sync', {
+                        patientId: payment.patientId || (payment.patient as any)?._id || payment.patient?.id,
+                        doctorId: payment.doctorId || (payment.doctor as any)?._id || payment.doctor?.id,
+                        amount,
+                        paymentMethod: payment.paymentMethod || 'dinheiro',
+                        status: 'paid',
+                        appointmentId: payment._id,
+                        serviceType: payment.serviceType || 'session',
+                        paymentDate: payment.date || new Date().toISOString(),
+                        notes: payment.notes || payment.description || 'Pagamento registrado via tabela financeira'
+                    });
+                    
+                    const createdPayment = createRes.data?.data || createRes.data;
+                    targetId = createdPayment?._id || createdPayment?.id;
+                    
+                    if (!targetId) {
+                        throw new Error('Pagamento criado mas ID não retornado');
+                    }
+                    
+                    console.log(`[handleMarkAsPaid] Payment auto-criado (V2) para appointment ${payment._id}: ${targetId}`);
+                } catch (error: any) {
+                    // Passa erro do backend (ex: amount inválido) direto pro usuário
+                    const backendMsg = error.response?.data?.error || error.message;
+                    throw new Error(backendMsg);
+                }
             }
 
-            const targetId = (payment as any).__realPaymentId || payment._id;
-            await markAsPaid(targetId);
+            await markAsPaid(targetId || payment._id);
             toast.success('Pagamento marcado como pago!');
             await Promise.all([loadPayments(currentMonth), fetchAppointments(calendarDateRange)]);
         } catch (error: any) {
             console.error('Erro ao marcar pagamento:', error);
             toast.error(extractErrorMessage(error, 'Erro ao marcar pagamento'));
+        } finally {
+            isMarkingAsPaidRef.current = false;
         }
     }, [markAsPaid, fetchAppointments, calendarDateRange, loadPayments, currentMonth]);
 
@@ -885,9 +926,10 @@ export default function AdminDashboard() {
         onMonthChange: handleMonthChange,
         openModalAppointment,
         closeModalSignal,
-    }), [doctorsOverview, patients, appointments, handleNewAppointment, handleCancelAppointment, 
-        handleCompleteAppointment, handleEditAppointment, handleFetchAvailableSlots, 
-        handleMonthChange, openModalAppointment, closeModalSignal]);
+        loading: appointmentsLoading,
+    }), [doctorsOverview, patients, appointments, handleNewAppointment, handleCancelAppointment,
+        handleCompleteAppointment, handleEditAppointment, handleFetchAvailableSlots,
+        handleMonthChange, openModalAppointment, closeModalSignal, appointmentsLoading]);
 
     const financialProps = useMemo(() => ({
         patients,

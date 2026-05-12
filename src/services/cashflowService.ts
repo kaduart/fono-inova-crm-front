@@ -141,9 +141,15 @@ export interface CashflowV2Data {
         tipo: string;
         servico: string;
         especialidade: string;
+        profissional?: string;
         hora: string;
         data: string;
         categoria: string;
+        observacao?: string;
+        billingType?: string;
+        kind?: string;
+        package?: boolean;
+        appointmentStatus?: string;
     }>;
     transacoesProducao: Array<{
         id: string;
@@ -210,6 +216,13 @@ export const cashflowService = {
     getMonthlyCashflow(month: string) {
         return API.get<{ success: boolean; month: string; data: { date: string; caixa: number; producao: number; atendimentos: number }[] }>('/v2/cashflow/month', {
             params: { month }
+        });
+    },
+
+    // 🆕 NOVO: Busca agendamentos do dia para auditoria
+    getDayAppointments(date: string) {
+        return API.get<{ success: boolean; data: { appointments: any[]; pagination: any } }>('/v2/appointments', {
+            params: { startDate: date, endDate: date, limit: 500 }
         });
     },
 };

@@ -41,6 +41,12 @@ export interface PaymentDTO {
     packageId?: string;
     sessionId?: string;
     billingType?: string;
+    serviceType?: string;
+    // Flags de appointment record (para ações no frontend)
+    __isAppointmentRecord?: boolean;
+    __hasPayment?: boolean;
+    __realPaymentId?: string;
+    __appointmentId?: string;
     // Convênio
     insuranceProvider?: string;
     insuranceStatus?: string;
@@ -188,15 +194,22 @@ export function mapFinancialRecordToPaymentDTO(record: FinancialRecord): Payment
             const dName = doctorRaw.fullName || doctorRaw.name || doctorRaw.nome || 'Desconhecido';
             return { id: dId, _id: dId, name: dName, fullName: dName, specialty: doctorRaw.specialty || undefined };
         })() : undefined,
-        appointment: appointmentRaw._id || appointmentRaw.id ? {
-            id: appointmentRaw._id?.toString?.() || appointmentRaw.id?.toString?.() || record.__appointmentId || '',
-            date: appointmentRaw.date || undefined,
-            time: appointmentRaw.time || undefined,
-            status: appointmentRaw.status || undefined,
-        } : undefined,
+        appointment: (appointmentRaw._id || appointmentRaw.id || record.__appointmentId || appointmentRaw.date)
+            ? {
+                id: appointmentRaw._id?.toString?.() || appointmentRaw.id?.toString?.() || record.__appointmentId || '',
+                date: appointmentRaw.date || undefined,
+                time: appointmentRaw.time || undefined,
+                status: appointmentRaw.status || undefined,
+            }
+            : undefined,
         packageId: record.packageId || record.package?._id || undefined,
         sessionId: record.sessionId || undefined,
         billingType: record.billingType || undefined,
+        serviceType: record.serviceType || undefined,
+        __isAppointmentRecord: record.__isAppointmentRecord,
+        __hasPayment: record.__hasPayment,
+        __realPaymentId: record.__realPaymentId,
+        __appointmentId: record.__appointmentId,
         raw: record,
     };
 }

@@ -1,6 +1,6 @@
 import { ptBR } from 'date-fns/locale';
 import { Building2, Calendar, CheckCircle, ClipboardCheck, Clock, DollarSign, PencilIcon, Stethoscope, User, X, XCircle } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { validateAppointmentComplete } from '../../utils/appointmentCompleteGuard';
 import { getPatientFinancialSummary, FinancialSummary } from '../../services/financialSummaryService';
@@ -205,9 +205,12 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
     registerLocale("pt-BR", ptBR);
 
-        // 🚨 CORREÇÃO: Quando a especialidade muda, LIMPA o médico imediatamente se for incompatível
+        // 🚨 CORREÇÃO: Quando a especialidade muda MANUALMENTE, LIMPA o médico se for incompatível
+    // NÃO limpa na inicialização do modal (edição de agendamento existente)
+    const prevSessionTypeRef = useRef<string>('');
     useEffect(() => {
-        if (activeTab === 'edit' && editedAppointment.sessionType && editedAppointment.doctorId) {
+        // Só executa se o usuário MUDOU a especialidade (não na primeira renderização)
+        if (activeTab === 'edit' && editedAppointment.sessionType && editedAppointment.doctorId && prevSessionTypeRef.current && prevSessionTypeRef.current !== editedAppointment.sessionType) {
             const isDoctorCompatible = doctorsList.some(
                 d => d._id === editedAppointment.doctorId &&
                 (d.specialty?.toLowerCase() === editedAppointment.sessionType.toLowerCase() || !d.specialty)
@@ -217,13 +220,16 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 setEditedAppointment(prev => ({ ...prev, doctorId: '' }));
             }
         }
+        prevSessionTypeRef.current = editedAppointment.sessionType;
     }, [editedAppointment.sessionType, activeTab, doctorsList]);
 
     // 🚨 CORREÇÃO: SÓ mostra médicos compatíveis com a especialidade selecionada
+    // MAS sempre inclui o médico atualmente selecionado (para edição de agendamentos existentes)
     const compatibleDoctors = doctorsList.filter(d =>
         !editedAppointment.sessionType ||
         !d.specialty ||
-        d.specialty?.toLowerCase() === editedAppointment.sessionType.toLowerCase()
+        d.specialty?.toLowerCase() === editedAppointment.sessionType.toLowerCase() ||
+        d._id === editedAppointment.doctorId  // 👈 SEMPRE inclui o médico atual
     );
     
     
@@ -234,14 +240,26 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
     useEffect(() => {
         if (event) {
-            console.log('📋 [Modal] Evento recebido:', event);
+            console.log('📋 [Modal] ============================================');
+            console.log('📋 [Modal] MODAL ABERTO - Evento recebido:', event.id || event._id);
+            console.log('📋 [Modal] Evento completo:', event);
             console.log('📋 [Modal] Status operacional:', event.operationalStatus);
             console.log('📋 [Modal] Status visual:', event.status);
             console.log('👤 [Modal] Paciente:', event.patient);
             console.log('👨‍⚕️ [Modal] Médico:', event.doctor);
             
+            // 💰 DADOS FINANCEIROS CRÍTICOS
+            console.log('💰 [Modal] DADOS FINANCEIROS:');
+            console.log('   - sessionValue:', event.sessionValue);
+            console.log('   - paymentAmount:', event.paymentAmount);
+            console.log('   - amount (payment):', event.payment?.amount);
+            console.log('   - paymentMethod:', event.paymentMethod);
+            console.log('   - billingType:', event.billingType);
+            console.log('   - payment?.status:', event.payment?.status);
+            console.log('   - payment?._id:', event.payment?._id);
+            
             const eventDate = event.date ? new Date(event.date).toLocaleDateString('sv-SE') : '';
-            const eventTime = event.startTime || '';
+            const eventTime = event.time || event.startTime || '';
 
             // 🔧 TRADUZ OS STATUS AO RECEBER O EVENTO
             const translatedOperationalStatus = translateStatus(event.operationalStatus || 'scheduled', 'operational');
@@ -250,10 +268,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             console.log('📝 [Modal] Setando doctorId:', event.doctor?.id || event.doctor?._id);
             console.log('📝 [Modal] Setando patientId:', event.patient?.id || event.patient?._id);
             console.log('📝 [Modal] Event.doctor completo:', JSON.stringify(event.doctor, null, 2));
+            console.log('📋 [Modal] ============================================');
 
             setEditedAppointment({
-                doctorId: event.doctor?.id || event.doctor?._id || '',
-                patientId: event.patient?.id || '',
+                doctorId: event.doctor?.id?.toString?.() || event.doctor?._id?.toString?.() || '',
+                patientId: event.patient?.id?.toString?.() || event.patient?._id?.toString?.() || '',
                 date: eventDate,
                 time: eventTime,
                 reason: event.reason || event.notes || '',
@@ -1030,7 +1049,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                             : 'Selecione um profissional'}
                                     </option>
                                     {compatibleDoctors?.map(doctor => (
-                                        <option key={doctor._id} value={doctor._id}>
+                                        <option key={doctor._id?.toString?.() || doctor._id} value={doctor._id?.toString?.() || doctor._id}>
                                             {doctor.fullName} {doctor.specialty ? `(${doctor.specialty})` : ''}
                                         </option>
                                     ))}
@@ -1052,7 +1071,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     Data *
                                 </label>
                                 <DatePicker
-                                    selected={editedAppointment.date ? buildLocalDateOnly(editedAppointment.date) : null}
+                                    selected={(() => {
+                                        if (!editedAppointment.date) return null;
+                                        const d = buildLocalDateOnly(editedAppointment.date);
+                                        return isNaN(d.getTime()) ? null : d;
+                                    })()}
                                     onChange={(date) => {
                                         if (!date) return;
                                         const formatted = date.toLocaleDateString('sv-SE');
@@ -1076,9 +1099,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     Hora *
                                 </label>
                                 <DatePicker
-                                    selected={new Date(`1970-01-01T${editedAppointment.time}`)}
+                                    selected={editedAppointment.time ? new Date(`1970-01-01T${editedAppointment.time}`) : null}
                                     onChange={(date) =>
-                                        handleFieldChange('time', date.toTimeString().slice(0, 5))
+                                        handleFieldChange('time', date ? date.toTimeString().slice(0, 5) : '')
                                     }
                                     customInput={
                                         <ReactInputMask
