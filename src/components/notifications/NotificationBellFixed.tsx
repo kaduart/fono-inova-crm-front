@@ -26,15 +26,12 @@ export const NotificationBellFixed: React.FC = () => {
     loadedFromStorage.current = true;
     
     const stored = localStorage.getItem(STORAGE_KEY);
-    console.log('[Bell] localStorage:', stored ? 'ENCONTRADO' : 'VAZIO');
     
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
         setSeenIds(new Set(parsed));
-        console.log('[Bell] Carregados', parsed.length, 'IDs');
       } catch (e) {
-        console.log('[Bell] Erro ao parse:', e);
         setSeenIds(new Set());
       }
     } else {
@@ -47,7 +44,6 @@ export const NotificationBellFixed: React.FC = () => {
     if (seenIds === null) return; // Ainda não carregou
     
     localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(seenIds)));
-    console.log('[Bell] Salvos', seenIds.size, 'IDs');
   }, [seenIds]);
 
   // Buscar pré-agendamentos
@@ -122,7 +118,6 @@ export const NotificationBellFixed: React.FC = () => {
   const clearSeen = () => {
     localStorage.removeItem(STORAGE_KEY);
     setSeenIds(new Set());
-    console.log('[Bell] Limpado!');
   };
 
   const getStatusBadge = (item: any) => {

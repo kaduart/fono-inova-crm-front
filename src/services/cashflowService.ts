@@ -200,29 +200,42 @@ interface CashflowSummaryParams {
     endDate?: string;
 }
 
+// Deduplicação de requests concorrentes idênticos (evita múltiplos fetches no mount)
+const _inflight = new Map<string, Promise<any>>();
+function deduped<T>(key: string, fn: () => Promise<T>): Promise<T> {
+    if (_inflight.has(key)) {
+        console.debug('[cashflow INFLIGHT REUSE]', key);
+        return _inflight.get(key)!;
+    }
+    console.debug('[cashflow FETCH]', key);
+    const p = fn().finally(() => _inflight.delete(key));
+    _inflight.set(key, p);
+    return p;
+}
+
 export const cashflowService = {
     getSummary(params: CashflowSummaryParams) {
         return API.get<CashflowSummary>('/cashflow/summary', { params });
     },
-    
-    // 🆕 NOVO: Endpoint V2 para caixa diário
+
     getDailyCashflow(date?: string) {
-        return API.get<CashflowV2Response>('/v2/cashflow', { 
-            params: date ? { date } : undefined 
-        });
+        const key = `cashflow:${date || 'today'}`;
+        return deduped(key, () => API.get<CashflowV2Response>('/v2/cashflow', {
+            params: date ? { date } : undefined
+        }));
     },
 
-    // 🆕 NOVO: Endpoint V2 para caixa mensal (substitui 30 chamadas diárias)
     getMonthlyCashflow(month: string) {
-        return API.get<{ success: boolean; month: string; data: { date: string; caixa: number; producao: number; atendimentos: number }[] }>('/v2/cashflow/month', {
+        const key = `cashflow-month:${month}`;
+        return deduped(key, () => API.get<{ success: boolean; month: string; data: { date: string; caixa: number; producao: number; atendimentos: number }[] }>('/v2/cashflow/month', {
             params: { month }
-        });
+        }));
     },
 
-    // 🆕 NOVO: Busca agendamentos do dia para auditoria
     getDayAppointments(date: string) {
-        return API.get<{ success: boolean; data: { appointments: any[]; pagination: any } }>('/v2/appointments', {
+        const key = `appointments:${date}`;
+        return deduped(key, () => API.get<{ success: boolean; data: { appointments: any[]; pagination: any } }>('/v2/appointments', {
             params: { startDate: date, endDate: date, limit: 500 }
-        });
+        }));
     },
 };

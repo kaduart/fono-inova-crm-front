@@ -6,7 +6,7 @@
  */
 
 export { DashboardTab } from './DashboardTab';
-export { FinancialTab } from './FinancialTab';
+// FinancialTab: código morto — FinancialDashboard é usado diretamente no AdminDashboard e AppRoutes
 export { CalendarTab } from './CalendarTab';
 export { AnalyticsTab } from './AnalyticsTab';
 export { PatientsTab } from './PatientsTab';

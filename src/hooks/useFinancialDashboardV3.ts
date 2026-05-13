@@ -10,6 +10,20 @@ import moment from 'moment-timezone';
 
 const TIMEZONE = 'America/Sao_Paulo';
 
+// Cache de módulo: compartilhado entre todas as instâncias do hook (evita fetch duplicado)
+const MODULE_CACHE_TTL = 4 * 60 * 1000; // 4 min (abaixo do TTL de 5 min do backend)
+const _cache = new Map<string, { data: unknown; ts: number }>();
+const _inflight = new Map<string, Promise<unknown>>();
+
+function getCached<T>(key: string): T | null {
+  const entry = _cache.get(key);
+  if (entry && Date.now() - entry.ts < MODULE_CACHE_TTL) return entry.data as T;
+  return null;
+}
+function setCached(key: string, data: unknown) {
+  _cache.set(key, { data, ts: Date.now() });
+}
+
 export interface MetasV3 {
   configuracao: {
     metaMensal: number;
@@ -302,15 +316,30 @@ export const useFinancialDashboardV3 = () => {
   const fetchDashboard = useCallback(async (month?: number, year?: number) => {
     const mes = month || moment().tz(TIMEZONE).month() + 1;
     const ano = year || moment().tz(TIMEZONE).year();
+    const cacheKey = `${mes}-${ano}`;
+
+    // Cache hit: sem request
+    const cached = getCached<DashboardV3Response>(cacheKey);
+    if (cached) {
+      setResponse(cached);
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
-      const res = await api.get('/v2/financial/dashboard', {
-        params: { month: mes, year: ano }
-      });
-      setResponse(res.data as DashboardV3Response);
+      // Deduplica requests concorrentes para o mesmo mês/ano
+      let req = _inflight.get(cacheKey) as Promise<DashboardV3Response> | undefined;
+      if (!req) {
+        req = api.get('/v2/financial/dashboard', { params: { month: mes, year: ano } })
+          .then(r => r.data as DashboardV3Response)
+          .finally(() => _inflight.delete(cacheKey));
+        _inflight.set(cacheKey, req);
+      }
+      const data = await req;
+      setCached(cacheKey, data);
+      setResponse(data);
     } catch (err: any) {
       setError(err.response?.data?.message || err.response?.data?.error || 'Erro ao carregar dashboard V3');
       console.error('useFinancialDashboardV3 error:', err);

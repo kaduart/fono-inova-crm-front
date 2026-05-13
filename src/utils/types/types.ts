@@ -265,7 +265,8 @@ export interface ScheduleAppointment {
     | 'return '
     | 'neuropsych_evaluation'
     | 'meet'
-    | 'tongue_tie_test';
+    | 'tongue_tie_test'
+    | 'consultation';
 
     status?: 'agendado' | 'confirmado' | 'concluído' | 'cancelado' | 'faltou';
 

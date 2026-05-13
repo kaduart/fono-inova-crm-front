@@ -8,7 +8,7 @@ import {
 import { FinancialLoading } from './components/FinancialLoading';
 import { format, isSameDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { cashflowService, CashflowV2Response } from '../../services/cashflowService';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
@@ -45,14 +45,22 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
     const [appointmentFilter, setAppointmentFilter] = useState<string>('all');
     const [loadingAppointments, setLoadingAppointments] = useState(false);
 
+    const isFirstRender = useRef(true);
+
     // Carrega dados do dia selecionado
     useEffect(() => {
-        loadDayData();
-        loadDayAppointments();
+        const guard = { active: true };
+        loadDayData(guard);
+        loadDayAppointments(guard);
+        return () => { guard.active = false; };
     }, [selectedDate]);
 
-    // 🆕 Recarrega agendamentos quando a aba é ativada
+    // Recarrega agendamentos quando o usuário NAVEGA para a aba (não no mount inicial)
     useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
         if (activeTab === 4 && viewMode === 'day') {
             loadDayAppointments();
         }
@@ -65,15 +73,17 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
         }
     }, [viewMode, month, year]);
 
-    const loadDayData = async () => {
+    const loadDayData = async (guard = { active: true }) => {
         setLoading(true);
         try {
             const res = await cashflowService.getDailyCashflow(selectedDate);
+            if (!guard.active) return;
             setDailyCashflow(res.data);
         } catch (error) {
+            if (!guard.active) return;
             console.error('Erro ao carregar dados do dia:', error);
         } finally {
-            setLoading(false);
+            if (guard.active) setLoading(false);
         }
     };
 
@@ -91,17 +101,19 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
         }
     };
 
-    const loadDayAppointments = async () => {
+    const loadDayAppointments = async (guard = { active: true }) => {
         setLoadingAppointments(true);
         try {
             console.log('[UnifiedCashflowTab] Buscando agendamentos para:', selectedDate);
             const res = await cashflowService.getDayAppointments(selectedDate);
+            if (!guard.active) return;
             console.log('[UnifiedCashflowTab] Resposta:', res.data);
             setDayAppointments(res.data?.data?.appointments || []);
         } catch (error: any) {
+            if (!guard.active) return;
             console.error('[UnifiedCashflowTab] Erro ao carregar agendamentos:', error?.response?.data || error.message);
         } finally {
-            setLoadingAppointments(false);
+            if (guard.active) setLoadingAppointments(false);
         }
     };
 
@@ -353,7 +365,10 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                                 </Tooltip>
                                             </TableCell>
                                             <TableCell>{t.paciente}</TableCell>
-                                            <TableCell>{t.profissional || '-'}</TableCell>
+                                            <TableCell>
+                                                <Typography variant="body2">{t.profissional || '-'}</Typography>
+                                                <Typography variant="caption" color="text.secondary">{t.especialidade || '-'}</Typography>
+                                            </TableCell>
                                             <TableCell>
                                                 <Chip size="small" label={t.servico} variant="outlined" />
                                             </TableCell>
@@ -619,6 +634,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                                         <TableCell>
                                                             {(() => {
                                                                 const serviceMap: Record<string, string> = {
+                                                                    consultation: 'Consulta',
                                                                     evaluation: 'Avaliação',
                                                                     session: 'Sessão',
                                                                     individual_session: 'Sessão Individual',

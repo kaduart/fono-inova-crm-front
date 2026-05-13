@@ -1132,6 +1132,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
                                 >
                                     <option value="alignment">Alinhamento</option>
+                                    <option value="consultation">Consulta</option>
                                     <option value="evaluation">Avaliação</option>
                                     <option value="neuropsych_evaluation">Avaliação Neuropsicológica</option>
                                     <option value="return">Retorno</option>
