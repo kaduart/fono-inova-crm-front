@@ -2,6 +2,14 @@ import { PaymentTotalsResponse } from "../utils/types/types";
 import { buildPaymentPayloadV2 as buildPaymentPayloadV2FromDTO } from '../dtos/payment.dto';
 import API from "./api";
 
+const _inflight = new Map<string, Promise<any>>();
+function deduped<T>(key: string, fn: () => Promise<T>): Promise<T> {
+    if (_inflight.has(key)) return _inflight.get(key)!;
+    const p = fn().finally(() => _inflight.delete(key));
+    _inflight.set(key, p);
+    return p;
+}
+
 export interface FinancialRecord {
     _id: string;
     date: string;
@@ -113,11 +121,15 @@ export const createInsurancePayment = (data: InsurancePaymentData) =>
     API.post<{ success: boolean; data: InsurancePayment }>('/payments/insurance', data);
 
 // Listar contas a receber de convênios (V2)
-export const getInsuranceReceivables = (filters?: { provider?: string; status?: string; month?: string }) =>
-    API.get<{ success: boolean; data: InsuranceReceivableGroup[]; summary: { totalProviders: number; grandTotal: number } }>(
-        '/v2/payments/insurance/receivables',
-        { params: filters }
+export const getInsuranceReceivables = (filters?: { provider?: string; status?: string; month?: string }) => {
+    const key = `receivables:${filters?.month || ''}:${filters?.status || ''}:${filters?.provider || ''}`;
+    return deduped(key, () =>
+        API.get<{ success: boolean; data: InsuranceReceivableGroup[]; summary: { totalProviders: number; grandTotal: number } }>(
+            '/v2/payments/insurance/receivables',
+            { params: filters }
+        )
     );
+};
 
 // Listar todos os pagamentos de convênio
 export const getInsurancePayments = (filters?: { provider?: string; status?: string }) =>

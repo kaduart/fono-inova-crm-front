@@ -108,11 +108,6 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     onConvertPreAgendamento,
     onRefreshAppointments
 }) => {
-    // 🐛 DEBUG: Log para verificar se doctors está chegando
-    console.log('🐛 [AppointmentDetailModal] doctors:', doctors?.length, doctors);
-    console.log('🐛 [AppointmentDetailModal] event:', event);
-    console.log('🐛 [AppointmentDetailModal] event.doctor:', event?.doctor);
-    
     // 🆕 BUSCAR LISTA DE PROFISSIONAIS do backend quando o modal abrir
     const [allDoctors, setAllDoctors] = useState<IDoctor[]>(doctors || []);
     const [loadingDoctors, setLoadingDoctors] = useState(false);
@@ -160,8 +155,6 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         } as IDoctor);
     }
     
-    console.log('🐛 [AppointmentDetailModal] doctorsList:', doctorsList?.length, doctorsList);
-
     const [activeTab, setActiveTab] = useState<'details' | 'confirm' | 'cancel' | 'edit'>('details');
     const [cancelReason, setCancelReason] = useState('');
     const [cancelError, setCancelError] = useState('');
@@ -233,42 +226,14 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     );
     
     
-    // 🔔 Log quando modal abre/fecha
-    useEffect(() => {
-        console.log(`🔔 [Modal] isOpen mudou: ${isOpen}`);
-    }, [isOpen]);
-
     useEffect(() => {
         if (event) {
-            console.log('📋 [Modal] ============================================');
-            console.log('📋 [Modal] MODAL ABERTO - Evento recebido:', event.id || event._id);
-            console.log('📋 [Modal] Evento completo:', event);
-            console.log('📋 [Modal] Status operacional:', event.operationalStatus);
-            console.log('📋 [Modal] Status visual:', event.status);
-            console.log('👤 [Modal] Paciente:', event.patient);
-            console.log('👨‍⚕️ [Modal] Médico:', event.doctor);
-            
-            // 💰 DADOS FINANCEIROS CRÍTICOS
-            console.log('💰 [Modal] DADOS FINANCEIROS:');
-            console.log('   - sessionValue:', event.sessionValue);
-            console.log('   - paymentAmount:', event.paymentAmount);
-            console.log('   - amount (payment):', event.payment?.amount);
-            console.log('   - paymentMethod:', event.paymentMethod);
-            console.log('   - billingType:', event.billingType);
-            console.log('   - payment?.status:', event.payment?.status);
-            console.log('   - payment?._id:', event.payment?._id);
-            
             const eventDate = event.date ? new Date(event.date).toLocaleDateString('sv-SE') : '';
             const eventTime = event.time || event.startTime || '';
 
             // 🔧 TRADUZ OS STATUS AO RECEBER O EVENTO
             const translatedOperationalStatus = translateStatus(event.operationalStatus || 'scheduled', 'operational');
             const translatedClinicalStatus = translateStatus(event.clinicalStatus || 'pending', 'clinical');
-
-            console.log('📝 [Modal] Setando doctorId:', event.doctor?.id || event.doctor?._id);
-            console.log('📝 [Modal] Setando patientId:', event.patient?.id || event.patient?._id);
-            console.log('📝 [Modal] Event.doctor completo:', JSON.stringify(event.doctor, null, 2));
-            console.log('📋 [Modal] ============================================');
 
             setEditedAppointment({
                 doctorId: event.doctor?.id?.toString?.() || event.doctor?._id?.toString?.() || '',
@@ -301,16 +266,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     // 🔄 ATUALIZA DADOS DE PAGAMENTO QUANDO O EVENTO MUDA (inclui atualizações do backend)
     useEffect(() => {
         if (event) {
-            console.log('🔄 [Modal] Atualizando dados de pagamento:', {
-                paymentMethod: event.paymentMethod,
-                billingType: event.billingType,
-                paymentAmount: event.paymentAmount,
-                sessionValue: event.sessionValue
-            });
-            
             // Atualiza apenas se os valores forem diferentes
             if (event.paymentMethod && event.paymentMethod !== paymentMethod) {
-                console.log(`💳 [Modal] Atualizando paymentMethod: ${paymentMethod} -> ${event.paymentMethod}`);
                 setPaymentMethod(event.paymentMethod);
             }
             if (event.billingType && event.billingType !== billingType) {
@@ -521,9 +478,6 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     };
 
     const handleEdit = async () => {
-        console.log('🔄 [Modal] Iniciando handleEdit...');
-        console.log('📝 [Modal] editedAppointment:', editedAppointment);
-        
         if (!editedAppointment.date || !editedAppointment.time) {
             alert('Data e hora são obrigatórias');
             return;
@@ -557,10 +511,6 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 key => STATUS_TRANSLATIONS.clinical[key] === editedAppointment.clinicalStatus
             ) || editedAppointment.clinicalStatus;
 
-            console.log('🌐 [Modal] Status traduzidos para EN:');
-            console.log('   - operationalStatus:', operationalStatusEN);
-            console.log('   - clinicalStatus:', clinicalStatusEN);
-
             // ✅ V2 ATIVO: Edit de agendamento NÃO envia paymentAmount/sessionValue.
             // O valor financeiro é decidido pelo backend (handler no complete).
             // Se precisar alterar valor, use o fluxo financeiro (modal de pagamento).
@@ -590,9 +540,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 } : undefined
             });
 
-            console.log('📤 [Modal] Chamando onEditAppointment com:', { id: event.id, data: appointmentData });
             await onEditAppointment(event.id, appointmentData);
-            console.log('✅ [Modal] onEditAppointment retornou com sucesso');
         } catch (err: any) {
             console.error('❌ [Modal] Erro ao editar:', err);
             toast.error(err?.message || 'Erro ao atualizar agendamento', { 

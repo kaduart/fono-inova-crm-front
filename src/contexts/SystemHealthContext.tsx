@@ -270,16 +270,13 @@ export function SystemHealthProvider({ children }: { children: ReactNode }) {
         return () => clearInterval(id);
     }, [fetchMonitor]);
 
-    // 🔄 Polling adaptativo do WhatsApp health
+    // 🔄 Polling do WhatsApp health — intervalo fixo para evitar re-trigger por status
+    // Antes: [fetchWhatsappHealth, whatsappHealth?.status] causava re-run no mount (3 fetches)
     useEffect(() => {
         fetchWhatsappHealth();
-        const interval =
-            whatsappHealth?.status === 'critical' ? 5_000 :
-            whatsappHealth?.status === 'warning' ? 10_000 :
-            15_000;
-        const id = setInterval(fetchWhatsappHealth, interval);
+        const id = setInterval(fetchWhatsappHealth, 15_000);
         return () => clearInterval(id);
-    }, [fetchWhatsappHealth, whatsappHealth?.status]);
+    }, [fetchWhatsappHealth]);
 
     return (
         <SystemHealthContext.Provider value={{

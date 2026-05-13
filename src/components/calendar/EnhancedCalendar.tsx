@@ -529,44 +529,19 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
     // 🔹 MEMOIZAÇÃO DOS EVENTOS - Só recalcula quando appointments mudar
     const events = useMemo(() => {
-        console.log('⚙️ Recalculando events:', appointments?.length || 0, 'appointments');
-        console.log('📋 Sample appointment:', appointments?.[0]);
-
-        if (!appointments || appointments.length === 0) {
-            console.log('⚠️ Nenhum appointment recebido');
-            return [];
-        }
+        if (!appointments || appointments.length === 0) return [];
 
         const validAppointments = appointmentDTOs.filter(appt => {
             const hasDate = !!appt.date;
             const hasTime = !!appt.time;
             const hasId = !!(appt.id);
             const isNotCanceled = appt.status !== 'canceled' && appt.status !== 'cancelled';
-            const isValid = hasDate && hasTime && hasId && isNotCanceled;
-            
-            // 🆕 DEBUG: Log específico para o appointment da Luiza
-            const apptId = appt._id || appt.id;
-            if (apptId === '69cd1764856a4f39ce254cb7' || apptId?.toString().includes('254cb7')) {
-                console.log('🔍 [DEBUG Luiza] Appointment encontrado:', {
-                    id: apptId,
-                    hasDate, hasTime, hasId,
-                    isValid,
-                    patient: appt.patient,
-                    date: appt.date,
-                    time: appt.time
-                });
-            }
-            
-            if (!isValid) {
-                console.log('❌ Appointment inválido:', appt.id, { hasDate, hasTime, hasId });
-            }
-            return isValid;
+            return hasDate && hasTime && hasId && isNotCanceled;
         });
 
-        console.log('✅ Appointments válidos:', validAppointments.length);
+        console.debug('[Calendar] appointments válidos:', validAppointments.length, '/ total:', appointmentDTOs.length);
 
         const mappedEvents = validAppointments.map((appt) => {
-            console.log('🔄 [Calendar] Mapeando appt:', appt.id, 'Status:', appt.status);
             
             const [hours, minutes] = appt.time!.split(':').map(Number);
             
@@ -616,13 +591,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 borderWidth: 4
             };
             
-            console.log(`🎨 [Calendar] Evento criado: ${eventObj.id} | Status: ${appt.status} | Cor: ${paymentConfig.bgColor}`);
-            
             return eventObj;
         });
-
-        console.log('🎯 Events mapeados:', mappedEvents.length);
-        console.log('🎯 Sample event:', mappedEvents[0]);
         
         return mappedEvents;
 
