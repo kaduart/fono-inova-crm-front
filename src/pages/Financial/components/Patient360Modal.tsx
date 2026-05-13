@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 // frontend/src/pages/Financial/components/Patient360Modal.tsx
 import React from 'react';
 import {
@@ -65,7 +66,7 @@ export const Patient360Modal: React.FC<Props> = ({ patientId, open, onClose }) =
 
             <DialogContent dividers>
                 {loadingPatient360 ? (
-                    <FinancialLoadingCompact />
+                    <LoadingSpinner centered size="medium" color="border-emerald-600" className="min-h-[200px]" />
                 ) : !patient360 ? (
                     <Typography color="textSecondary" align="center">Erro ao carregar dados do paciente.</Typography>
                 ) : (

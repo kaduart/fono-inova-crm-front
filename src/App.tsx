@@ -2,9 +2,9 @@ import React, { Suspense, useEffect, useRef } from "react";
 import { socketManager } from "./utils/socketManager";
 import { ToastContainer } from "react-toastify";
 import { Toaster } from "react-hot-toast";
-import { Box } from "@mui/material";
 import "./App.css";
 import AppRoutes from "./AppRoutes";
+import { LoadingSpinner } from "./components/ui/LoadingSpinner";
 import { useWhatsAppDeliveryError } from "./hooks/useWhatsAppDeliveryError";
 // 🆕 Novo popup de alertas de sistema no canto inferior direito
 import { SystemAlertPopup } from "./components/notifications/SystemAlertPopup";
@@ -12,19 +12,15 @@ import PixNotificationPopup from "./components/financial/PixNotificationPopup";
 import { ChatNotificationPopup } from "./components/mkt/whatsapp/ChatNotificationPopup";
 import { MediaNotificationPopup } from "./components/mkt/whatsapp/MediaNotificationPopup";
 import SessionExpiryHandler from "./components/SessionExpiryHandler";
-import { LoadingOverlay } from "./components/ui/LoadingOverlay";
-import { FinancialLoading } from "./pages/Financial/components/FinancialLoading";
 import { AppointmentsProvider } from "./contexts/AppointmentsContext";
 import { DoctorsProvider } from "./contexts/DoctorsContext";
 import { PatientsProvider } from "./contexts/PatientsContext";
 import { PaymentsProvider } from "./contexts/PaymentsContext";
-import { useAuth } from "./contexts/AuthContext";
 import { ChatNavigationProvider } from "./contexts/ChatNavigationContext";
 import { PreAgendamentoNotificationPopup } from "./components/patients/PreAgendamentoNotificationPopup";
 import { WhatsAppMessagePopup } from "./components/notifications/WhatsAppMessagePopup";
 
 const App: React.FC = () => {
-  const { isLoading } = useAuth();
   const didInitSocket = useRef(false);
 
   // 🆕 Inicializa listener de falhas de entrega WhatsApp
@@ -37,20 +33,7 @@ const App: React.FC = () => {
     <ChatNavigationProvider>
       <SessionExpiryHandler />
 
-      <LoadingOverlay
-        show={isLoading}
-        zIndex={100001}
-        spinnerSize="large"
-        message="Autenticando..."
-      />
-
-      <Suspense fallback={
-        isLoading ? null : (
-          <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh' }}>
-            <FinancialLoading cardCount={6} gridSize={{ xs: 12, sm: 6, md: 4 }} />
-          </Box>
-        )
-      }>
+      <Suspense fallback={<LoadingSpinner centered size="large" color="border-emerald-600" className="min-h-screen" />}>
         <DoctorsProvider>
           <PatientsProvider>
             <PaymentsProvider>

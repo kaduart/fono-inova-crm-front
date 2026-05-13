@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 import api from '../../../services/api';
 import { useFinancialDashboardV3 } from '../../../hooks/useFinancialDashboardV3';
-import { FinancialLoading } from '../components/FinancialLoading';
 import { ProjecaoCenarios } from './AnaliseProjecaoTab';
 import { DashboardEspecialidades } from '../components/DashboardEspecialidades';
 import { RankingProfissionais } from '../components/RankingProfissionais';
@@ -198,7 +197,59 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     }
   }, [activeTab, month, year, fetchPendingInsurance]);
 
-  if (loading) return <FinancialLoading />;
+  if (loading) return (
+    <div className="p-4 space-y-5">
+      {/* Sub-tabs */}
+      <div className="flex gap-2 pb-2 border-b border-gray-200">
+        {[{ w: 'w-20', active: true }, { w: 'w-20' }, { w: 'w-24' }, { w: 'w-16' }].map((t, i) => (
+          <div key={i} className={`h-9 px-4 rounded-lg flex items-center animate-pulse ${t.active ? 'bg-emerald-100' : 'bg-gray-100'}`}>
+            <div className={`h-3 rounded ${t.w} ${t.active ? 'bg-emerald-300' : 'bg-gray-300'}`} />
+          </div>
+        ))}
+      </div>
+      {/* RitmoCard hero */}
+      <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200 animate-pulse">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="space-y-2">
+            <div className="h-4 w-32 bg-emerald-200 rounded" />
+            <div className="h-10 w-28 bg-emerald-300 rounded" />
+            <div className="h-3 w-40 bg-emerald-200 rounded" />
+          </div>
+          <div className="space-y-3">
+            <div className="h-3 w-28 bg-emerald-200 rounded" />
+            <div className="h-3 w-full bg-emerald-200 rounded-full" />
+            <div className="h-3 w-24 bg-emerald-200 rounded" />
+          </div>
+          <div className="space-y-2">
+            <div className="h-4 w-24 bg-emerald-200 rounded" />
+            <div className="h-8 w-20 bg-emerald-300 rounded" />
+          </div>
+        </div>
+      </div>
+      {/* 3 MetricCards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {[
+          { bg: 'bg-emerald-50', border: 'border-emerald-200', circle: 'bg-emerald-100', txt: 'bg-emerald-200', val: 'bg-emerald-300' },
+          { bg: 'bg-emerald-50', border: 'border-emerald-200', circle: 'bg-emerald-100', txt: 'bg-emerald-200', val: 'bg-emerald-300' },
+          { bg: 'bg-amber-50',   border: 'border-amber-200',   circle: 'bg-amber-100',   txt: 'bg-amber-200',   val: 'bg-amber-300'   },
+        ].map((c, i) => (
+          <div key={i} className={`p-4 rounded-xl border ${c.border} ${c.bg} animate-pulse`}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className={`h-10 w-10 rounded-full ${c.circle}`} />
+              <div className={`h-4 w-28 rounded ${c.txt}`} />
+            </div>
+            <div className={`h-8 w-32 rounded mb-1 ${c.val}`} />
+            <div className={`h-3 w-20 rounded ${c.txt}`} />
+          </div>
+        ))}
+      </div>
+      {/* 2-col content */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="h-52 rounded-xl bg-gray-50 border border-gray-200 animate-pulse" />
+        <div className="h-52 rounded-xl bg-gray-50 border border-gray-200 animate-pulse" />
+      </div>
+    </div>
+  );
   if (error) return <div className="p-4 rounded-lg bg-rose-50 text-rose-700 border border-rose-200">{error}</div>;
   if (!data || !resumo) return <div className="p-4 rounded-lg bg-sky-50 text-sky-700 border border-sky-200">Nenhum dado disponível</div>;
 

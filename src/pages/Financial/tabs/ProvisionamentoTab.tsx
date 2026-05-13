@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import {
   Add,
   Assessment,
@@ -586,7 +587,7 @@ const ProvisionamentoTab = () => {
           {/* ABA 1: Analítico */}
           {activeTab === 1 && (
             loadingAnalitico ? (
-              <FinancialLoadingCompact />
+              <LoadingSpinner centered size="medium" color="border-emerald-600" className="min-h-[200px]" />
             ) : analiticoData ? (
               <Box>
                 <Typography variant="h6" gutterBottom>
@@ -696,7 +697,7 @@ const ProvisionamentoTab = () => {
           {/* ABA 2: Pacotes */}
           {activeTab === 2 && (
             loadingPacotes ? (
-              <FinancialLoadingCompact />
+              <LoadingSpinner centered size="medium" color="border-emerald-600" className="min-h-[200px]" />
             ) : (
               <Box>
                 <Typography variant="h6" fontWeight="bold" gutterBottom>
@@ -808,7 +809,7 @@ const ProvisionamentoTab = () => {
           {/* ABA 3: DRE */}
           {activeTab === 3 && (
             loadingFechamento ? (
-              <FinancialLoadingCompact />
+              <LoadingSpinner centered size="medium" color="border-emerald-600" className="min-h-[200px]" />
             ) : fechamentoData ? (
               <Box>
                 <Typography variant="h6" gutterBottom fontWeight="bold">

@@ -1,4 +1,4 @@
-import { Box, Paper, Skeleton, Typography, useTheme } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import { BarChart3, CalendarPlus } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -43,7 +43,8 @@ const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) 
     return tryLoad();
   });
 };
-import { FinancialLoading, FinancialLoadingDashboard } from '../pages/Financial/components/FinancialLoading';
+import { FinancialLoading } from '../pages/Financial/components/FinancialLoading';
+import { LoadingSpinner } from './ui/LoadingSpinner';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { confirmToast } from '../utils/confirmToast';
@@ -93,11 +94,8 @@ const PatientModal = lazyWithRetry(() => import('./patients/PatientModal').then(
 const AdvancedPaymentModal = lazyWithRetry(() => import('./financial/AdvancedPaymentModal').then(m => ({ default: m.AdvancedPaymentModal })));
 const PaymentModal = lazyWithRetry(() => import('./financial/PaymentModal').then(m => ({ default: m.PaymentModal })));
 
-// 🎯 Componente de loading para Suspense (padronizado com FinancialDashboard)
-const TabSkeleton = () => (
-    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: 400 }}>
-        <FinancialLoadingDashboard />
-    </Box>
+const TabSpinner = () => (
+    <LoadingSpinner centered size="large" color="border-emerald-600" className="min-h-[400px]" />
 );
 
 const ModalSkeleton = () => (
@@ -974,7 +972,7 @@ export default function AdminDashboard() {
                 return <AddAdminContent addNewAdmin={addNewAdmin} />;
             case 'Add Profissional':
                 return (
-                    <Suspense fallback={<TabSkeleton />}>
+                    <Suspense fallback={<TabSpinner />}>
                         <ManageDoctors {...manageDoctorsProps} />
                     </Suspense>
                 );
@@ -989,7 +987,7 @@ export default function AdminDashboard() {
                                 <CalendarPlus size={16} /> Pré-Agendamentos
                             </button>
                         </div>
-                        <Suspense fallback={<TabSkeleton />}>
+                        <Suspense fallback={<TabSpinner />}>
                             <EnhancedCalendar {...calendarProps} />
                         </Suspense>
                     </TabErrorBoundary>
@@ -997,7 +995,7 @@ export default function AdminDashboard() {
             case 'Financeiro':
                 return (
                     <TabErrorBoundary tabName="Financeiro">
-                        <Suspense fallback={<TabSkeleton />}>
+                        <Suspense fallback={<TabSpinner />}>
                             <FinancialDashboard {...financialProps} />
                         </Suspense>
                     </TabErrorBoundary>
@@ -1005,7 +1003,7 @@ export default function AdminDashboard() {
             case 'Leads':
                 return (
                     <TabErrorBoundary tabName="Leads & Follow-up">
-                        <Suspense fallback={<TabSkeleton />}>
+                        <Suspense fallback={<TabSpinner />}>
                             <FollowupPage />
                         </Suspense>
                     </TabErrorBoundary>
@@ -1013,7 +1011,7 @@ export default function AdminDashboard() {
             case 'SocialMedia':
                 return (
                     <TabErrorBoundary tabName="Social Media">
-                        <Suspense fallback={<TabSkeleton />}>
+                        <Suspense fallback={<TabSpinner />}>
                             <MarketingDashboard />
                         </Suspense>
                     </TabErrorBoundary>
@@ -1021,7 +1019,7 @@ export default function AdminDashboard() {
             case 'Analytics':
                 return (
                     <TabErrorBoundary tabName="Analytics">
-                        <Suspense fallback={<TabSkeleton />}>
+                        <Suspense fallback={<TabSpinner />}>
                             <SiteAnalyticsDashboard {...analyticsProps} />
                         </Suspense>
                     </TabErrorBoundary>
@@ -1029,7 +1027,7 @@ export default function AdminDashboard() {
             case 'ROI':
                 return (
                     <TabErrorBoundary tabName="ROI & Atribuição">
-                        <Suspense fallback={<TabSkeleton />}>
+                        <Suspense fallback={<TabSpinner />}>
                             <RevenueTab />
                         </Suspense>
                     </TabErrorBoundary>
@@ -1037,7 +1035,7 @@ export default function AdminDashboard() {
             case 'Mensagens':
                 return (
                     <TabErrorBoundary tabName="Mensagens">
-                        <Suspense fallback={<TabSkeleton />}>
+                        <Suspense fallback={<TabSpinner />}>
                             <AppChat />
                         </Suspense>
                     </TabErrorBoundary>
@@ -1045,7 +1043,7 @@ export default function AdminDashboard() {
             case 'Pré-Agendamentos':
                 return (
                     <TabErrorBoundary tabName="Pré-Agendamentos">
-                        <Suspense fallback={<TabSkeleton />}>
+                        <Suspense fallback={<TabSpinner />}>
                             <PreAgendamentosPage />
                         </Suspense>
                     </TabErrorBoundary>
@@ -1053,7 +1051,7 @@ export default function AdminDashboard() {
             case 'Sistema':
                 return (
                     <TabErrorBoundary tabName="Sistema">
-                        <Suspense fallback={<TabSkeleton />}>
+                        <Suspense fallback={<TabSpinner />}>
                             <SystemUnifiedDashboard />
                         </Suspense>
                     </TabErrorBoundary>
@@ -1061,7 +1059,7 @@ export default function AdminDashboard() {
             case 'AmandaMetrics':
                 return (
                     <TabErrorBoundary tabName="Amanda AI">
-                        <Suspense fallback={<TabSkeleton />}>
+                        <Suspense fallback={<TabSpinner />}>
                             <AmandaMetricsDashboard />
                         </Suspense>
                     </TabErrorBoundary>
@@ -1071,98 +1069,6 @@ export default function AdminDashboard() {
                 return <div>Conteúdo não encontrado</div>;
         }
     };
-
-    // 🆕 Skeleton de loading completo (estilo DoctorDashboard)
-    if (dashboardLoading) return (
-        <div className="min-h-screen bg-gray-50">
-            {/* Header Skeleton */}
-            <div className="bg-white border-b border-gray-200">
-                <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <Skeleton variant="circular" width={48} height={48} />
-                            <div>
-                                <Skeleton variant="text" width={250} height={32} />
-                                <Skeleton variant="text" width={180} height={20} />
-                            </div>
-                        </div>
-                        <Skeleton variant="rectangular" width={120} height={40} className="rounded-full" />
-                    </div>
-                </div>
-            </div>
-
-            {/* Tabs Skeleton */}
-            <div className="bg-white border-b border-gray-200">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex space-x-8 py-4">
-                        {[1, 2, 3, 4, 5, 6].map((i) => (
-                            <Skeleton key={i} variant="text" width={80} height={24} />
-                        ))}
-                    </div>
-                </div>
-            </div>
-
-            {/* Content Skeleton */}
-            <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                    {/* KPI Cards Skeleton */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                        {[1, 2, 3, 4].map((i) => (
-                            <Paper key={i} className="rounded-2xl border border-gray-200 shadow-sm p-6">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex-1">
-                                        <Skeleton variant="text" width={120} height={20} className="mb-2" />
-                                        <Skeleton variant="text" width={60} height={48} />
-                                    </div>
-                                    <Skeleton variant="circular" width={48} height={48} />
-                                </div>
-                            </Paper>
-                        ))}
-                    </div>
-
-                    {/* Alerts and Today Appointments Skeleton */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                        <Paper className="p-4 rounded-xl border border-gray-200">
-                            <Skeleton variant="text" width={200} height={24} className="mb-4" />
-                            {[1, 2, 3].map((i) => (
-                                <Box key={i} className="mb-3">
-                                    <Skeleton variant="rectangular" height={80} className="rounded-lg" />
-                                </Box>
-                            ))}
-                        </Paper>
-                        <Paper className="p-4 rounded-xl border border-gray-200">
-                            <Skeleton variant="text" width={180} height={24} className="mb-4" />
-                            {[1, 2, 3].map((i) => (
-                                <Box key={i} className="flex items-center gap-3 mb-3">
-                                    <Skeleton variant="circular" width={40} height={40} />
-                                    <div className="flex-1">
-                                        <Skeleton variant="text" width="80%" height={20} />
-                                        <Skeleton variant="text" width="60%" height={16} />
-                                    </div>
-                                </Box>
-                            ))}
-                        </Paper>
-                    </div>
-
-                    {/* Quick Actions and Stats Skeleton */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Paper className="p-4 rounded-xl border border-gray-200">
-                            <Skeleton variant="text" width={150} height={24} className="mb-4" />
-                            <div className="grid grid-cols-2 gap-3">
-                                {[1, 2, 3, 4].map((i) => (
-                                    <Skeleton key={i} variant="rectangular" height={80} className="rounded-lg" />
-                                ))}
-                            </div>
-                        </Paper>
-                        <Paper className="p-4 rounded-xl border border-gray-200">
-                            <Skeleton variant="text" width={180} height={24} className="mb-4" />
-                            <Skeleton variant="rectangular" height={200} className="rounded-lg" />
-                        </Paper>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
 
     return (
         <SystemHealthProvider>

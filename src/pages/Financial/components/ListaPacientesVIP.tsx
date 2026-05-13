@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 // frontend/src/pages/Financial/components/ListaPacientesVIP.tsx
 import React, { useEffect, useState } from 'react';
 import {
@@ -29,7 +30,7 @@ export const ListaPacientesVIP: React.FC = () => {
     };
 
     if (loadingPatients && patientsList.data.length === 0) {
-        return <FinancialLoadingCompact />;
+        return <LoadingSpinner centered size="medium" color="border-emerald-600" className="min-h-[200px]" />;
     }
 
     return (

@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { useMemo, useState } from 'react';
 import {
     Box,
@@ -68,7 +69,7 @@ const RevenueTab: React.FC = () => {
         };
     }, [data]);
 
-    if (isLoading) return <FinancialLoading />;
+    if (isLoading) return <LoadingSpinner centered size="large" color="border-emerald-600" className="min-h-[400px]" />;
 
     const periodoLabel = `${monthNames[selectedMonth]} ${selectedYear}`;
 

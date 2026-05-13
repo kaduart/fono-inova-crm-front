@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 // frontend/src/pages/Financial/components/RankingProfissionais.tsx
 import React, { useEffect } from 'react';
 import {
@@ -27,7 +28,7 @@ export const RankingProfissionais: React.FC = () => {
     }, [fetchDoctors]);
 
     if (loadingDoctors && doctors.length === 0) {
-        return <FinancialLoadingCompact />;
+        return <LoadingSpinner centered size="medium" color="border-emerald-600" className="min-h-[200px]" />;
     }
 
     const maxRevenue = doctors.length > 0 ? doctors[0].totalRevenue : 0;

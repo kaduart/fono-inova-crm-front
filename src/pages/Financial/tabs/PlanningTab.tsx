@@ -31,6 +31,7 @@ import {
   IconButton,
   MenuItem,
   Paper,
+  Skeleton,
   Table,
   TableBody,
   TableCell,
@@ -47,7 +48,6 @@ import {
   Tabs,
   Tab,
 } from '@mui/material';
-import { FinancialLoading } from '../components/FinancialLoading';
 import { format, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useEffect, useState, useMemo } from 'react';
@@ -315,11 +315,44 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
 
   if (loading && plannings.length === 0) {
     return (
-      <Box sx={{ p: { xs: 2, md: 4 } }}>
-        <Typography variant="h5" fontWeight="bold" sx={{ mb: 3 }}>
-          📅 Planejamento Anual
-        </Typography>
-        <FinancialLoading cardCount={4} gridSize={{ xs: 12, sm: 6, md: 3 }} />
+      <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
+        <Paper elevation={0} sx={{ p: 2, mb: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Skeleton variant="circular" width={44} height={44} sx={{ bgcolor: '#8B5CF615' }} />
+            <Box>
+              <Skeleton variant="text" width={180} height={28} />
+              <Skeleton variant="text" width={260} height={20} />
+            </Box>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Skeleton variant="circular" width={32} height={32} />
+            <Skeleton variant="rounded" width={110} height={36} />
+          </Box>
+        </Paper>
+        <Paper elevation={0} sx={{ p: 1.5, mb: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
+          <Skeleton variant="text" width={120} height={20} sx={{ mb: 1 }} />
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {[1, 2, 3].map(i => <Skeleton key={i} variant="rounded" width={120} height={40} />)}
+          </Box>
+        </Paper>
+        <Grid container spacing={2}>
+          {['#8B5CF6', '#10B981', '#059669', '#F59E0B', '#3B82F6'].map((color, i) => (
+            <Grid size={{ xs: 12, sm: 6, md: 3 }} key={i}>
+              <Card variant="outlined" sx={{ borderRadius: 2 }}>
+                <CardContent sx={{ p: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Skeleton variant="circular" width={36} height={36} sx={{ bgcolor: `${color}15` }} />
+                    <Box sx={{ flex: 1 }}>
+                      <Skeleton variant="text" width="60%" />
+                      <Skeleton variant="text" width="75%" height={30} />
+                      <Skeleton variant="text" width="45%" />
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
       </Box>
     );
   }

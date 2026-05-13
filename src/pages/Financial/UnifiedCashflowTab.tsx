@@ -1,11 +1,10 @@
 // UnifiedCashflowTab.tsx - Caixa e Fluxo de Caixa unificados
 import { 
-    Alert, Box, Card, CardContent, Chip, Grid, MenuItem, Paper, 
-    Table, TableBody, TableCell, TableHead, TableRow, TextField, 
+    Alert, Box, Card, CardContent, Chip, Grid, MenuItem, Paper, Skeleton,
+    Table, TableBody, TableCell, TableHead, TableRow, TextField,
     Typography, Divider, Avatar, LinearProgress, Tabs, Tab, Badge,
     Tooltip, IconButton, FormControl, InputLabel, Select
 } from '@mui/material';
-import { FinancialLoading } from './components/FinancialLoading';
 import { format, isSameDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useEffect, useState, useMemo, useRef } from 'react';
@@ -28,6 +27,45 @@ interface DayData {
     producao: number;
     atendimentos: number;
 }
+
+const CashflowCardsSkeleton = () => (
+    <Box sx={{ p: 2 }}>
+        {/* 4 cards replicando estrutura real: ícone + label → valor → sub-info */}
+        <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ mb: 3 }}>
+            {[
+                { borderColor: '#16A34A30', bgcolor: '#16A34A08' },
+                { borderColor: '#1D4ED830', bgcolor: '#1D4ED808' },
+                { borderColor: '#D9770630', bgcolor: '#D9770608' },
+                { borderColor: '#DC262630', bgcolor: '#DC262608' },
+            ].map((colors, i) => (
+                <Grid key={i} size={{ xs: 12, sm: 6, md: 3 }}>
+                    <Box sx={{ border: '1px solid', borderColor: colors.borderColor, borderRadius: 2, bgcolor: colors.bgcolor, p: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Skeleton variant="circular" width={24} height={24} />
+                            <Skeleton variant="text" width="60%" height={20} />
+                        </Box>
+                        <Skeleton variant="text" width="70%" height={44} sx={{ mb: 0.5 }} />
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Skeleton variant="rounded" width={80} height={20} sx={{ borderRadius: 9 }} />
+                            <Skeleton variant="rounded" width={64} height={20} sx={{ borderRadius: 9 }} />
+                        </Box>
+                    </Box>
+                </Grid>
+            ))}
+        </Grid>
+        {/* Sub-tabs: TRANSAÇÕES, PENDENTES, PACOTES, CONVÊNIOS, AGENDAMENTOS, ESPECIALIDADES */}
+        <Box sx={{ display: 'flex', gap: 1, borderBottom: '1px solid #e5e7eb', pb: 1, mb: 2 }}>
+            {[90, 82, 84, 86, 110, 112].map((w, i) => (
+                <Skeleton key={i} variant="rounded" width={w} height={30} sx={{ borderRadius: 1 }} />
+            ))}
+        </Box>
+        {/* Tabela */}
+        <Skeleton variant="rounded" width="100%" height={40} sx={{ mb: 0.5, borderRadius: 1 }} />
+        {[1, 2, 3, 4, 5].map(i => (
+            <Skeleton key={i} variant="rounded" width="100%" height={52} sx={{ mb: 0.5, borderRadius: 1 }} />
+        ))}
+    </Box>
+);
 
 interface UnifiedCashflowTabProps {
     month: number;
@@ -209,7 +247,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
             </Paper>
 
             {loading ? (
-                <FinancialLoading cardCount={4} />
+                <CashflowCardsSkeleton />
             ) : viewMode === 'day' && data ? (
                 // ===== VISUALIZAÇÃO DIÁRIA =====
                 <Box>
@@ -837,7 +875,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                     </Paper>
                 </Box>
             ) : (
-                <FinancialLoading cardCount={4} />
+                <CashflowCardsSkeleton />
             )}
         </Box>
     );

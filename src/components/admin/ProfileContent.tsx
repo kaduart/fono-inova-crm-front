@@ -23,7 +23,7 @@ const ProfileContent: React.FC<ProfileContentProps> = ({
     updateAdminProfile
 }) => {
     if (!adminInfo) {
-        return <div><LoadingSpinner fullPage={true} /></div>;
+        return <LoadingSpinner centered size="large" color="border-emerald-600" className="min-h-[400px]" />;
     }
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

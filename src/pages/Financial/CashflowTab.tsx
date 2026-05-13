@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Alert, Box, Card, CardContent, Chip, Grid, MenuItem, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, Divider, Avatar, LinearProgress, Tabs, Tab, Badge } from '@mui/material';
 import { FinancialLoading } from './components/FinancialLoading';
 import { format } from 'date-fns';
@@ -147,7 +148,7 @@ const CashflowTab = () => {
             </Paper>
 
             {loading ? (
-                <FinancialLoading cardCount={4} />
+                <LoadingSpinner centered size="large" color="border-emerald-600" className="min-h-[400px]" />
             ) : dailyCashflow ? (
                 // 🆕 NOVO: Visualização do Caixa Diário V2
                 <DailyCashflowView data={dailyCashflow.data} formatCurrency={formatCurrency} />
@@ -427,7 +428,7 @@ const CashflowTab = () => {
                     </Box>
                 </>
             ) : (
-                <FinancialLoading cardCount={4} />
+                <LoadingSpinner centered size="large" color="border-emerald-600" className="min-h-[400px]" />
             )}
         </Box>
     );

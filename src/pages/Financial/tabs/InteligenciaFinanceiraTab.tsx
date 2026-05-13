@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import React, { useEffect, useState } from 'react';
 import {
     Box, Card, CardContent, Typography, Grid, LinearProgress,
@@ -74,7 +75,7 @@ const InteligenciaFinanceiraTab = () => {
     const agendadosPage = agendados.slice(pageAgendados * PAGE_SIZE, (pageAgendados + 1) * PAGE_SIZE);
     const pendentesPage = pendentes.slice(pagePendentes * PAGE_SIZE, (pagePendentes + 1) * PAGE_SIZE);
 
-    if (loading) return <FinancialLoading cardCount={3} />;
+    if (loading) return <LoadingSpinner centered size="large" color="border-emerald-600" className="min-h-[400px]" />;
 
     return (
         <Box sx={{ width: '100%' }}>

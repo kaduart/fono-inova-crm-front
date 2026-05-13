@@ -23,9 +23,9 @@ import {
     Grid,
     Collapse,
     Checkbox,
-    CircularProgress
+    CircularProgress,
+    Skeleton,
 } from '@mui/material';
-import { FinancialLoading, FinancialTableLoading } from '../components/FinancialLoading';
 import { Patient360Modal } from '../components/Patient360Modal';
 import {
     Building2,
@@ -509,6 +509,57 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         }
     };
 
+    if (loading && receivables.length === 0) {
+        return (
+            <Box>
+                <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ width: '100%', mb: { xs: 3, sm: 4 } }}>
+                    {[{ color: '#F59E0B' }, { color: '#3B82F6' }, { color: '#10B981' }].map((c, i) => (
+                        <Grid item xs={12} md={4} key={i}>
+                            <Card elevation={0} sx={{ border: `1px solid ${c.color}20`, borderRadius: 2 }}>
+                                <CardContent>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `${c.color}20` }} />
+                                        <Box sx={{ flex: 1 }}>
+                                            <Skeleton variant="text" width="55%" height={20} />
+                                            <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `${c.color}15` }} />
+                                            <Skeleton variant="text" width="45%" height={16} />
+                                        </Box>
+                                    </Box>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    ))}
+                </Grid>
+                <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
+                    <Box sx={{ display: 'flex', gap: 1, p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+                        {[{ color: '#F59E0B' }, { color: '#3B82F6' }, { color: '#10B981' }].map((c, i) => (
+                            <Skeleton key={i} variant="rounded" width={145} height={36} sx={{ bgcolor: `${c.color}15` }} />
+                        ))}
+                    </Box>
+                    <Box sx={{ p: 3 }}>
+                        {Array.from({ length: 4 }).map((_, i) => (
+                            <Box key={i} sx={{ mb: 2, border: '1px solid #E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, bgcolor: '#F9FAFB' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Skeleton variant="circular" width={32} height={32} sx={{ bgcolor: '#3B82F615' }} />
+                                        <Box>
+                                            <Skeleton variant="text" width={150} height={20} />
+                                            <Skeleton variant="text" width={100} height={16} />
+                                        </Box>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', gap: 1 }}>
+                                        <Skeleton variant="rounded" width={90} height={30} sx={{ bgcolor: '#F59E0B15' }} />
+                                        <Skeleton variant="rounded" width={90} height={30} sx={{ bgcolor: '#3B82F615' }} />
+                                    </Box>
+                                </Box>
+                            </Box>
+                        ))}
+                    </Box>
+                </Paper>
+            </Box>
+        );
+    }
+
     return (
         <Box>
             {/* Header */}
@@ -743,7 +794,23 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
 
                 <Box sx={{ p: 3 }}>
                     {loading ? (
-                        <FinancialTableLoading rowCount={4} colSpan={1} />
+                        Array.from({ length: 4 }).map((_, i) => (
+                            <Box key={i} sx={{ mb: 2, border: '1px solid #E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, bgcolor: '#F9FAFB' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Skeleton variant="circular" width={32} height={32} sx={{ bgcolor: '#3B82F615' }} />
+                                        <Box>
+                                            <Skeleton variant="text" width={150} height={20} />
+                                            <Skeleton variant="text" width={100} height={16} />
+                                        </Box>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', gap: 1 }}>
+                                        <Skeleton variant="rounded" width={90} height={30} sx={{ bgcolor: '#F59E0B15' }} />
+                                        <Skeleton variant="rounded" width={90} height={30} sx={{ bgcolor: '#3B82F615' }} />
+                                    </Box>
+                                </Box>
+                            </Box>
+                        ))
                     ) : receivables.length === 0 ? (
                         <div className="text-center py-12 text-gray-500">
                             <Building2 className="w-16 h-16 mx-auto mb-4 opacity-20" />

@@ -1,7 +1,7 @@
 // src/pages/Financial/FinancialDashboard.tsx - VERSÃO OTIMIZADA COM LAZY LOADING
 
 import { Suspense, lazy } from 'react';
-import { Box, Paper, Tab, Tabs, Typography, useTheme, Skeleton, FormControl, Select, MenuItem } from '@mui/material';
+import { Box, Grid, Paper, Skeleton, Tab, Tabs, Typography, useTheme, FormControl, Select, MenuItem } from '@mui/material';
 import {
     Calendar,
     DollarSign,
@@ -58,14 +58,156 @@ const PlanningTab = lazyWithRetry(() => import('./tabs/PlanningTab'));
 const UnifiedCashflowTab = lazyWithRetry(() => import('./UnifiedCashflowTab'));
 const DashboardV3Tab = lazyWithRetry(() => import('./tabs/DashboardV3Tab'));
 
-// 🔄 Skeleton de loading para tabs
-const TabSkeleton = () => (
-    <div className="p-6 space-y-4">
-        <Skeleton variant="rectangular" height={120} />
-        <Skeleton variant="rectangular" height={200} />
-        <Skeleton variant="rectangular" height={150} />
-    </div>
+// ── Skeletons por aba ─────────────────────────────────────────────────────────
+
+const KpiCard = ({ color }: { color: string }) => (
+    <Box sx={{ p: 2, border: `1px solid ${color}30`, borderRadius: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+            <Skeleton variant="circular" width={36} height={36} />
+            <Skeleton variant="text" width="55%" />
+        </Box>
+        <Skeleton variant="text" width="65%" height={32} />
+        <Skeleton variant="text" width="40%" />
+    </Box>
 );
+
+const SkeletonTable = ({ cols = 6, rows = 5 }: { cols?: number; rows?: number }) => (
+    <Box sx={{ border: '1px solid #E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
+        <Box sx={{ display: 'flex', gap: 2, p: 1.5, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
+            {Array.from({ length: cols }).map((_, i) => (
+                <Skeleton key={i} variant="text" width={70} />
+            ))}
+        </Box>
+        {Array.from({ length: rows }).map((_, i) => (
+            <Box key={i} sx={{ display: 'flex', gap: 2, p: 1.5, alignItems: 'center', borderBottom: i < rows - 1 ? '1px solid #F3F4F6' : 'none' }}>
+                <Skeleton variant="circular" width={30} height={30} />
+                {Array.from({ length: cols - 1 }).map((_, j) => (
+                    <Skeleton key={j} variant="text" width={j === 0 ? 110 : 75} sx={{ flex: j === 0 ? 1 : undefined }} />
+                ))}
+            </Box>
+        ))}
+    </Box>
+);
+
+const CaixaFluxoSkeleton = () => (
+    <Box sx={{ p: 2, space: 3 }}>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+            {['#16A34A', '#1D4ED8', '#D97706', '#DC2626'].map((color, i) => (
+                <Grid item xs={12} sm={6} md={3} key={i}><KpiCard color={color} /></Grid>
+            ))}
+        </Grid>
+        <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+            {[1, 2, 3, 4, 5, 6].map(i => (
+                <Skeleton key={i} variant="rounded" width={100} height={36} />
+            ))}
+        </Box>
+        <SkeletonTable cols={7} rows={6} />
+    </Box>
+);
+
+const PaymentsSkeleton = () => (
+    <Box sx={{ p: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Skeleton variant="text" width={200} height={32} />
+            <Box sx={{ display: 'flex', gap: 1 }}>
+                <Skeleton variant="rounded" width={120} height={36} />
+                <Skeleton variant="rounded" width={100} height={36} />
+            </Box>
+        </Box>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+            {['#10B981', '#3B82F6'].map((color, i) => (
+                <Grid item xs={12} sm={6} key={i}><KpiCard color={color} /></Grid>
+            ))}
+        </Grid>
+        <SkeletonTable cols={7} rows={5} />
+    </Box>
+);
+
+const InsuranceSkeleton = () => (
+    <Box sx={{ p: 2 }}>
+        <Grid container spacing={2.5} sx={{ mb: 3 }}>
+            {['#F59E0B', '#3B82F6', '#10B981'].map((color, i) => (
+                <Grid item xs={12} md={4} key={i}><KpiCard color={color} /></Grid>
+            ))}
+        </Grid>
+        <Box sx={{ border: '1px solid #E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
+            <Box sx={{ display: 'flex', gap: 1, p: 1, bgcolor: '#FAFAFF', borderBottom: '1px solid #E5E7EB' }}>
+                {[1, 2, 3].map(i => <Skeleton key={i} variant="rounded" width={130} height={36} />)}
+            </Box>
+            <Box sx={{ p: 2 }}>
+                {[1, 2, 3].map(i => (
+                    <Box key={i} sx={{ p: 2, mb: 1.5, border: '1px solid #E5E7EB', borderRadius: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Skeleton variant="circular" width={40} height={40} />
+                            <Box>
+                                <Skeleton variant="text" width={130} />
+                                <Skeleton variant="text" width={90} />
+                            </Box>
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Skeleton variant="rounded" width={80} height={30} />
+                            <Skeleton variant="rounded" width={80} height={30} />
+                        </Box>
+                    </Box>
+                ))}
+            </Box>
+        </Box>
+    </Box>
+);
+
+const ExpensesSkeleton = () => (
+    <Box sx={{ p: 2 }}>
+        <Grid container spacing={2.5} sx={{ mb: 3 }}>
+            {['#10B981', '#F59E0B', '#6366F1'].map((color, i) => (
+                <Grid item xs={12} md={4} key={i}><KpiCard color={color} /></Grid>
+            ))}
+        </Grid>
+        <Box sx={{ p: 2, mb: 2, border: '1px solid #E5E7EB', borderRadius: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            {[1, 2, 3, 4].map(i => <Skeleton key={i} variant="rounded" width={120} height={40} />)}
+        </Box>
+        <SkeletonTable cols={8} rows={5} />
+    </Box>
+);
+
+const DashboardV3Skeleton = () => (
+    <Box sx={{ p: 2 }}>
+        <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
+            {[1, 2, 3, 4].map(i => <Skeleton key={i} variant="rounded" width={100} height={36} />)}
+        </Box>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            {['#10B981', '#3B82F6', '#F59E0B'].map((color, i) => (
+                <Box key={i} sx={{ p: 2.5, border: `1px solid ${color}30`, borderRadius: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+                        <Skeleton variant="circular" width={36} height={36} />
+                        <Skeleton variant="text" width="55%" />
+                    </Box>
+                    <Skeleton variant="text" width="70%" height={36} />
+                    <Skeleton variant="text" width="45%" />
+                </Box>
+            ))}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Skeleton variant="rounded" height={200} />
+            <Skeleton variant="rounded" height={200} />
+        </div>
+    </Box>
+);
+
+const PlanningSkeleton = () => (
+    <Box sx={{ p: 2 }}>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+            {['#16A34A', '#3B82F6', '#6366F1', '#F59E0B', '#10B981'].map((color, i) => (
+                <Grid item xs={12} sm={6} md={3} key={i}><KpiCard color={color} /></Grid>
+            ))}
+        </Grid>
+        <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+            {[1, 2, 3].map(i => <Skeleton key={i} variant="rounded" width={130} height={36} />)}
+        </Box>
+        <SkeletonTable cols={6} rows={6} />
+    </Box>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface FinancialDashboardProps {
     patients: IPatient[];
@@ -105,40 +247,58 @@ const FinancialDashboard = ({
     const currentTabId = allTabs[currentTab]?.id;
 
     const renderActiveTab = () => {
-        return (
-            <Suspense fallback={<TabSkeleton />}>
-                {renderTab()}
-            </Suspense>
-        );
-    };
-
-    const renderTab = () => {
         switch (currentTabId) {
-            case 'dashboard-v3':
-                return <DashboardV3Tab month={selectedMonth} year={selectedYear} />;
+            case 'caixa-unificado':
+                return (
+                    <Suspense fallback={<CaixaFluxoSkeleton />}>
+                        <UnifiedCashflowTab month={selectedMonth} year={selectedYear} />
+                    </Suspense>
+                );
             case 'pagamentos':
                 return (
-                    <PaymentPage
-                        patients={patients}
-                        doctors={doctors}
-                        onMarkAsPaid={onMarkAsPaid}
-                        registerAppointmentAndPayemntFuture={registerAppointmentAndPaymentFuture}
-                        onCancelPayment={onCancelPayment}
-                        enabled={true}
-                        month={selectedMonth}
-                        year={selectedYear}
-                    />
+                    <Suspense fallback={<PaymentsSkeleton />}>
+                        <PaymentPage
+                            patients={patients}
+                            doctors={doctors}
+                            onMarkAsPaid={onMarkAsPaid}
+                            registerAppointmentAndPayemntFuture={registerAppointmentAndPaymentFuture}
+                            onCancelPayment={onCancelPayment}
+                            enabled={true}
+                            month={selectedMonth}
+                            year={selectedYear}
+                        />
+                    </Suspense>
+                );
+            case 'convenios':
+                return (
+                    <Suspense fallback={<InsuranceSkeleton />}>
+                        <InsuranceTab month={selectedMonth} year={selectedYear} />
+                    </Suspense>
                 );
             case 'despesas':
-                return <ExpensesTab month={selectedMonth} year={selectedYear} />;
-            case 'convenios':
-                return <InsuranceTab month={selectedMonth} year={selectedYear} />;
-            case 'caixa-unificado':
-                return <UnifiedCashflowTab month={selectedMonth} year={selectedYear} />;
+                return (
+                    <Suspense fallback={<ExpensesSkeleton />}>
+                        <ExpensesTab month={selectedMonth} year={selectedYear} />
+                    </Suspense>
+                );
+            case 'dashboard-v3':
+                return (
+                    <Suspense fallback={<DashboardV3Skeleton />}>
+                        <DashboardV3Tab month={selectedMonth} year={selectedYear} />
+                    </Suspense>
+                );
             case 'planejamento':
-                return <PlanningTab month={selectedMonth} year={selectedYear} />;
+                return (
+                    <Suspense fallback={<PlanningSkeleton />}>
+                        <PlanningTab month={selectedMonth} year={selectedYear} />
+                    </Suspense>
+                );
             default:
-                return <DashboardV3Tab month={selectedMonth} year={selectedYear} />;
+                return (
+                    <Suspense fallback={<DashboardV3Skeleton />}>
+                        <DashboardV3Tab month={selectedMonth} year={selectedYear} />
+                    </Suspense>
+                );
         }
     };
 
@@ -239,7 +399,7 @@ const FinancialDashboard = ({
                     ))}
                 </Tabs>
 
-                <Box sx={{ p: { xs: 0.5, sm: 1, md: 2 } }}>
+                <Box key={currentTabId} sx={{ p: { xs: 0.5, sm: 1, md: 2 } }}>
                     {renderActiveTab()}
                 </Box>
             </Paper>

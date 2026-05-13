@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 // frontend/src/pages/Financial/components/DashboardEspecialidades.tsx
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, Typography, Box, Chip, Grid } from '@mui/material';
@@ -43,7 +44,7 @@ export const DashboardEspecialidades: React.FC = () => {
     const totalGeral = specialties.reduce((acc, s) => acc + s.totalRevenue, 0);
 
     if (loadingSpecialties) {
-        return <FinancialLoadingCompact />;
+        return <LoadingSpinner centered size="medium" color="border-emerald-600" className="min-h-[200px]" />;
     }
 
     if (specialties.length === 0) {

@@ -20,6 +20,7 @@ import {
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../ui/Card';
 import { Skeleton } from '../ui/Skeleton';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 // Importações diretas (lazy removido temporariamente devido a erro)
 import BirthdayCard from '../patients/BirthdayCard';
@@ -232,25 +233,8 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
         });
     }, [stats?.calculatedAt]);
 
-    // ✅ CORREÇÃO: Mostrar skeleton apenas durante o loading inicial
-    // Não verificamos safePatients.length aqui para evitar problemas de sincronização
     if (loading) {
-        return (
-            <div className="space-y-6">
-                {/* Skeleton Loading */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
-                    <MetricCardSkeleton />
-                    <MetricCardSkeleton />
-                    <MetricCardSkeleton />
-                </div>
-                <div className="border border-gray-200 rounded-lg p-4">
-                    <Skeleton className="h-64 w-full" />
-                </div>
-                <div className="border border-gray-200 rounded-lg p-4">
-                    <Skeleton className="h-64 w-full" />
-                </div>
-            </div>
-        );
+        return <LoadingSpinner centered size="large" color="border-emerald-600" className="min-h-[400px]" />;
     }
 
     return (

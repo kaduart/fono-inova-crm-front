@@ -22,9 +22,9 @@ import {
   Avatar,
   Divider,
   Tooltip,
-  Alert
+  Alert,
+  Skeleton,
 } from '@mui/material';
-import { FinancialLoading, FinancialTableLoading } from '../components/FinancialLoading';
 import { 
   Plus, 
   Edit2, 
@@ -128,6 +128,78 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
       return null;
     }
   };
+
+  if (loading && expenses.length === 0) {
+    return (
+      <Box>
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <Skeleton variant="circular" width={48} height={48} sx={{ bgcolor: '#EF444420' }} />
+            <div>
+              <Skeleton variant="text" width={160} height={30} />
+              <Skeleton variant="text" width={220} height={20} />
+            </div>
+          </div>
+          <Skeleton variant="rounded" width={145} height={36} />
+        </div>
+        <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ width: '100%', mb: { xs: 3, sm: 4 } }}>
+          {[{ color: '#10B981' }, { color: '#F59E0B' }, { color: '#6366F1' }].map((c, i) => (
+            <Grid item xs={12} md={4} key={i}>
+              <Card elevation={0} sx={{ border: `1px solid ${c.color}20`, borderRadius: 2 }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `${c.color}20` }} />
+                    <Box sx={{ flex: 1 }}>
+                      <Skeleton variant="text" width="55%" height={20} />
+                      <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `${c.color}15` }} />
+                      <Skeleton variant="text" width="40%" height={16} />
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+        <Paper elevation={0} sx={{ p: 2.5, mb: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            {[150, 120, 130, 120].map((w, i) => <Skeleton key={i} variant="rounded" width={w} height={40} />)}
+            <Skeleton variant="rounded" width={110} height={40} sx={{ ml: 'auto' }} />
+          </Box>
+        </Paper>
+        <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: '#F9FAFB' }}>
+                {[24, 70, 140, 80, 90, 70, 75, 80, 56].map((w, i) => (
+                  <TableCell key={i}><Skeleton variant="text" width={w} /></TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton variant="circular" width={24} height={24} /></TableCell>
+                  <TableCell><Skeleton variant="rounded" width={70} height={22} sx={{ bgcolor: '#10B98115' }} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={140} /></TableCell>
+                  <TableCell><Skeleton variant="rounded" width={80} height={24} sx={{ bgcolor: '#6366F115' }} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={90} /></TableCell>
+                  <TableCell align="right"><Skeleton variant="text" width={70} /></TableCell>
+                  <TableCell><Skeleton variant="rounded" width={75} height={24} /></TableCell>
+                  <TableCell><Skeleton variant="rounded" width={80} height={24} sx={{ bgcolor: '#10B98115' }} /></TableCell>
+                  <TableCell align="center">
+                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                      <Skeleton variant="circular" width={28} height={28} />
+                      <Skeleton variant="circular" width={28} height={28} />
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -351,11 +423,24 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={9}>
-                  <FinancialTableLoading rowCount={5} colSpan={9} />
-                </TableCell>
-              </TableRow>
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton variant="circular" width={24} height={24} /></TableCell>
+                  <TableCell><Skeleton variant="rounded" width={70} height={22} sx={{ bgcolor: '#10B98115' }} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={140} /></TableCell>
+                  <TableCell><Skeleton variant="rounded" width={80} height={24} sx={{ bgcolor: '#6366F115' }} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={90} /></TableCell>
+                  <TableCell align="right"><Skeleton variant="text" width={70} /></TableCell>
+                  <TableCell><Skeleton variant="rounded" width={75} height={24} /></TableCell>
+                  <TableCell><Skeleton variant="rounded" width={80} height={24} sx={{ bgcolor: '#10B98115' }} /></TableCell>
+                  <TableCell align="center">
+                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                      <Skeleton variant="circular" width={28} height={28} />
+                      <Skeleton variant="circular" width={28} height={28} />
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))
             ) : expenses.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={9} align="center" sx={{ py: 6 }}>

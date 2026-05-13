@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     ResponsiveContainer, LineChart, Line, XAxis, YAxis,
@@ -178,7 +179,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
     const pendentesPage  = pendentes.slice(pagePendentes  * PAGE_SIZE, (pagePendentes  + 1) * PAGE_SIZE);
 
     const loading = dashLoading || appointmentsLoading;
-    if (loading) return <FinancialLoading cardCount={3} />;
+    if (loading) return <LoadingSpinner centered size="large" color="border-emerald-600" className="min-h-[400px]" />;
 
     // ── Cálculos estratégicos ──
     const resultadoEconomico = dashData?.metas?.realizado?.mes || 0;
