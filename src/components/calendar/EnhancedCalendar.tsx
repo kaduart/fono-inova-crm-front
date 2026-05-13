@@ -770,6 +770,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             'individual_session': 'Sessão',
             'package_session': 'Pacote',
             'evaluation': 'Avaliação',
+            'consultation': 'Consulta',
             'neuropsych_evaluation': 'Neuropsico',
             'return': 'Retorno',
             'alignment': 'Alinhamento',
@@ -777,6 +778,18 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             'tongue_tie_test': 'Teste Lingua'
         };
         const serviceLabel = SERVICE_TYPE_LABELS[serviceType] || serviceType;
+
+        const SPECIALTY_LABELS: Record<string, string> = {
+            'fonoaudiologia': 'Fonoaudiologia',
+            'neuroped': 'Neuropediatra',
+            'neuropsicologia': 'Neuropsicologia',
+            'psicologia': 'Psicologia',
+            'nutricao': 'Nutrição',
+            'psiquiatria': 'Psiquiatria',
+            'pediatria': 'Pediatria',
+            'geral': 'Clínico Geral',
+        };
+        const specialtyLabel = SPECIALTY_LABELS[specialty] || specialty;
 
         const billingType = appointment.billingType;
         const insuranceProvider = appointment.insuranceProvider;
@@ -891,7 +904,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     )}
                     {specialty && (
                         <span className={`${isExpanded ? 'text-xs' : 'text-[10px]'} bg-white/80 px-2 py-0.5 rounded text-gray-800 font-medium capitalize`}>
-                            {specialty.replace('_', ' ')}
+                            {specialtyLabel}
                         </span>
                     )}
                 </div>
@@ -1095,6 +1108,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             'individual_session': 'Sessão',
             'package_session': 'Pacote',
             'evaluation': 'Avaliação',
+            'consultation': 'Consulta',
             'neuropsych_evaluation': 'Neuropsico',
             'return': 'Retorno',
             'alignment': 'Alinhamento',
@@ -1102,6 +1116,18 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             'tongue_tie_test': 'Teste Lingua'
         };
         const serviceLabel = SERVICE_TYPE_LABELS[serviceType] || serviceType;
+
+        const SPECIALTY_LABELS: Record<string, string> = {
+            'fonoaudiologia': 'Fonoaudiologia',
+            'neuroped': 'Neuropediatra',
+            'neuropsicologia': 'Neuropsicologia',
+            'psicologia': 'Psicologia',
+            'nutricao': 'Nutrição',
+            'psiquiatria': 'Psiquiatria',
+            'pediatria': 'Pediatria',
+            'geral': 'Clínico Geral',
+        };
+        const specialtyLabel = SPECIALTY_LABELS[specialty] || specialty;
 
         // 🆕 DADOS DE CONVÊNIO
         const billingType = arg.event.extendedProps.billingType;
@@ -1183,7 +1209,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             {specialty && (
                                 <div className="flex items-center gap-2">
                                     <span className="text-slate-400">Especialidade:</span>
-                                    <span className="text-white font-medium capitalize">{specialty.replace('_', ' ')}</span>
+                                    <span className="text-white font-medium capitalize">{specialtyLabel}</span>
                                 </div>
                             )}
                             {!hasPackage && !isConvenio && sessionValue > 0 && (
