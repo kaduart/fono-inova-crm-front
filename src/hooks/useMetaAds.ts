@@ -1,56 +1,22 @@
 /**
- * 🎯 useMetaAds Hook
- * Gerenciamento de estado para Meta Ads no dashboard
+ * useMetaAds Hook — alinhado com /api/meta (Graph API v21.0)
+ * Faz merge de campaigns + insights client-side e computa specialties agregadas.
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-toastify';
-import { metaAdsApi, Campaign, AggregatedMetrics, SpecialtyMetrics, LeadWithTracking } from '../services/metaAdsApi';
+import { metaAdsApi, Campaign, AggregatedMetrics, SpecialtyMetrics } from '../services/metaAdsApi';
 
 export type FilterPeriod = '7d' | '30d' | 'this_month' | 'all';
 
-export interface UseMetaAdsReturn {
-  // Dados
-  campaigns: Campaign[];
-  metrics: AggregatedMetrics | null;
-  specialties: SpecialtyMetrics[];
-  leads: LeadWithTracking[];
-  
-  // Estado
-  loading: boolean;
-  syncing: boolean;
-  error: string | null;
-  hasLoaded: boolean;
-  
-  // Paginação
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasMore: boolean;
-  };
-  
-  // Filtros
-  selectedSpecialty: string;
-  selectedPeriod: FilterPeriod;
-  setSelectedSpecialty: (specialty: string) => void;
-  setSelectedPeriod: (period: FilterPeriod) => void;
-  
-  // Ações
-  load: (page?: number) => Promise<void>;
-  loadMore: () => Promise<void>;
-  refresh: () => Promise<void>;
-  sync: () => Promise<void>;
-  
-  // Dados calculados
-  filteredCampaigns: Campaign[];
-  totalSpend: number;
-  totalLeads: number;
-  avgCPL: number | null;
-}
+const PERIOD_PRESET: Record<FilterPeriod, string> = {
+  '7d': 'last_7d',
+  '30d': 'last_30d',
+  'this_month': 'this_month',
+  'all': 'maximum',
+};
 
-const SPECIALTIES = [
+export const SPECIALTIES = [
   { value: '', label: 'Todas Especialidades' },
   { value: 'psicologia', label: 'Psicologia' },
   { value: 'fonoaudiologia', label: 'Fonoaudiologia' },
@@ -61,188 +27,222 @@ const SPECIALTIES = [
   { value: 'musicoterapia', label: 'Musicoterapia' },
 ];
 
-const PERIODS = [
+export const PERIODS = [
   { value: '7d', label: 'Últimos 7 dias' },
   { value: '30d', label: 'Últimos 30 dias' },
   { value: 'this_month', label: 'Este mês' },
   { value: 'all', label: 'Todo período' },
 ];
 
+const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+
+function mergeAndEnrich(
+  rawCampaigns: Awaited<ReturnType<typeof metaAdsApi.getCampaigns>>,
+  insights: Awaited<ReturnType<typeof metaAdsApi.getInsights>>
+): Campaign[] {
+  const insightMap = new Map(insights.map(i => [i.campaignId, i]));
+
+  return rawCampaigns.map(c => {
+    const ins = insightMap.get(c.campaignId);
+    const spend = ins?.spend ?? 0;
+    const leads = ins?.leads ?? 0;
+
+    return {
+      ...c,
+      insights: {
+        spend,
+        clicks: ins?.clicks ?? 0,
+        impressions: ins?.impressions ?? 0,
+        ctr: ins?.ctr ?? 0,
+        cpc: ins?.cpc ?? 0,
+        cpm: ins?.cpm ?? 0,
+      },
+      leadsCount: leads,
+      patientsCount: 0,
+      cpl: ins?.cpl ?? null,
+      cpa: null,
+      formattedSpend: fmt.format(spend),
+    };
+  });
+}
+
+function computeSpecialties(campaigns: Campaign[]): SpecialtyMetrics[] {
+  const map = new Map<string, SpecialtyMetrics>();
+
+  for (const c of campaigns) {
+    const sp = c.specialty || 'geral';
+    const prev = map.get(sp) ?? { specialty: sp, campaignCount: 0, spend: 0, leads: 0, clicks: 0, impressions: 0, cpl: null, ctr: null };
+    map.set(sp, {
+      ...prev,
+      campaignCount: prev.campaignCount + 1,
+      spend: prev.spend + c.insights.spend,
+      leads: prev.leads + c.leadsCount,
+      clicks: prev.clicks + c.insights.clicks,
+      impressions: prev.impressions + c.insights.impressions,
+    });
+  }
+
+  return Array.from(map.values()).map(s => ({
+    ...s,
+    cpl: s.leads > 0 ? s.spend / s.leads : null,
+    ctr: s.impressions > 0 ? (s.clicks / s.impressions) * 100 : null,
+  }));
+}
+
+export interface UseMetaAdsReturn {
+  campaigns: Campaign[];
+  metrics: AggregatedMetrics | null;
+  specialties: SpecialtyMetrics[];
+  loading: boolean;
+  syncing: boolean;
+  error: string | null;
+  hasLoaded: boolean;
+  pagination: { page: number; limit: number; total: number; totalPages: number; hasMore: boolean };
+  selectedSpecialty: string;
+  selectedPeriod: FilterPeriod;
+  setSelectedSpecialty: (v: string) => void;
+  setSelectedPeriod: (v: FilterPeriod) => void;
+  load: (page?: number) => Promise<void>;
+  loadMore: () => Promise<void>;
+  refresh: () => Promise<void>;
+  sync: () => Promise<void>;
+  filteredCampaigns: Campaign[];
+  totalSpend: number;
+  totalLeads: number;
+  avgCPL: number | null;
+}
+
 export function useMetaAds(options?: { lazy?: boolean }): UseMetaAdsReturn {
-  const lazy = options?.lazy ?? true; // Por padrão, lazy loading ativado
-  
-  // Estados
+  const lazy = options?.lazy ?? true;
+
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [metrics, setMetrics] = useState<AggregatedMetrics | null>(null);
   const [specialties, setSpecialties] = useState<SpecialtyMetrics[]>([]);
-  const [leads, setLeads] = useState<LeadWithTracking[]>([]);
-  
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasLoaded, setHasLoaded] = useState(false); // Controle de lazy loading
-  
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [selectedSpecialty, setSelectedSpecialty] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState<FilterPeriod>('30d');
 
-  // Estados de paginação
-  const [pagination, setPagination] = useState({
+  const pagination = useMemo(() => ({
     page: 1,
-    limit: 20,
-    total: 0,
+    limit: campaigns.length,
+    total: campaigns.length,
     totalPages: 1,
-    hasMore: false
-  });
+    hasMore: false,
+  }), [campaigns.length]);
 
-  /**
-   * Busca dados com paginação
-   */
-  const fetchData = useCallback(async (forceRefresh = false, page = 1, limit = 20) => {
+  const fetchData = useCallback(async (forceRefresh = false) => {
     setLoading(true);
     setError(null);
-    
+
     try {
-      const [campaignsData, metricsData, specialtiesData] = await Promise.all([
-        metaAdsApi.getCampaigns({ 
-          specialty: selectedSpecialty,
-          refresh: forceRefresh,
-          page,
-          limit
-        }),
-        metaAdsApi.getInsights(),
-        metaAdsApi.getBySpecialty()
+      const datePreset = PERIOD_PRESET[selectedPeriod];
+
+      const [rawCampaigns, insights] = await Promise.all([
+        metaAdsApi.getCampaigns({ status: undefined, refresh: forceRefresh }),
+        metaAdsApi.getInsights({ level: 'campaign', datePreset }),
       ]);
-      
-      setCampaigns(campaignsData.campaigns || campaignsData);
-      setMetrics(metricsData);
-      setSpecialties(specialtiesData);
-      setPagination(campaignsData.pagination || { page: 1, limit: 20, total: campaignsData.length || 0, totalPages: 1, hasMore: false });
+
+      const enriched = mergeAndEnrich(rawCampaigns, insights);
+
+      const filtered = selectedSpecialty
+        ? enriched.filter(c => c.specialty === selectedSpecialty)
+        : enriched;
+
+      const totalSpend = filtered.reduce((s, c) => s + c.insights.spend, 0);
+      const totalLeads = filtered.reduce((s, c) => s + c.leadsCount, 0);
+      const totalClicks = filtered.reduce((s, c) => s + c.insights.clicks, 0);
+      const totalImpressions = filtered.reduce((s, c) => s + c.insights.impressions, 0);
+
+      setCampaigns(filtered);
+      setSpecialties(computeSpecialties(enriched));
+      setMetrics({
+        totalSpend,
+        totalLeads,
+        totalClicks,
+        totalImpressions,
+        avgCPL: totalLeads > 0 ? totalSpend / totalLeads : null,
+        campaignCount: filtered.length,
+      });
       setHasLoaded(true);
-      
     } catch (err: any) {
-      console.error('Erro ao buscar dados Meta Ads:', err);
+      console.error('[useMetaAds]', err);
       setError(err.message || 'Erro ao carregar dados');
       toast.error('Erro ao carregar dados do Meta Ads');
     } finally {
       setLoading(false);
     }
-  }, [selectedSpecialty]);
-  
-  /**
-   * Carrega dados manualmente (para lazy loading)
-   */
-  const load = useCallback(async (page = 1) => {
-    if (!hasLoaded || campaigns.length === 0 || page > 1) {
-      await fetchData(false, page);
-    }
-  }, [fetchData, hasLoaded, campaigns.length]);
+  }, [selectedSpecialty, selectedPeriod]);
 
-  /**
-   * Carrega mais dados (próxima página)
-   */
+  const load = useCallback(async () => {
+    if (!hasLoaded) await fetchData(false);
+  }, [fetchData, hasLoaded]);
+
   const loadMore = useCallback(async () => {
-    if (pagination.hasMore && !loading) {
-      await fetchData(false, pagination.page + 1);
-    }
-  }, [fetchData, pagination.hasMore, pagination.page, loading]);
+    // Sem paginação server-side neste momento
+  }, []);
 
-  /**
-   * Sincroniza com Meta API
-   */
+  const refresh = useCallback(() => fetchData(true), [fetchData]);
+
   const sync = useCallback(async () => {
     setSyncing(true);
-    
     try {
       toast.info('Sincronizando com Meta Ads...');
       const result = await metaAdsApi.sync();
-      
       if (result.success) {
         toast.success(`Sincronizado! ${result.synced} campanhas atualizadas`);
-        await fetchData(true);  // Recarrega dados
+        await fetchData(true);
       } else {
         toast.error('Erro na sincronização');
       }
     } catch (err: any) {
-      console.error('Erro na sincronização:', err);
+      console.error('[useMetaAds] sync', err);
       toast.error('Erro ao sincronizar com Meta');
     } finally {
       setSyncing(false);
     }
   }, [fetchData]);
 
-  /**
-   * Recarrega dados
-   */
-  const refresh = useCallback(async () => {
-    await fetchData(true);
-  }, [fetchData]);
-
-  // Carrega dados iniciais apenas se não estiver em modo lazy
   useEffect(() => {
-    if (!lazy) {
-      fetchData();
-    }
+    if (!lazy) fetchData();
   }, [fetchData, lazy]);
 
-  /**
-   * Campanhas filtradas por período
-   */
-  const filteredCampaigns = useMemo(() => {
-    // Aqui poderíamos filtrar por data se tivéssemos histórico
-    // Por enquanto retorna todas
-    return campaigns;
-  }, [campaigns]);
+  // Re-fetch quando o filtro de período muda (se já carregou)
+  useEffect(() => {
+    if (hasLoaded) fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPeriod, selectedSpecialty]);
 
-  /**
-   * Métricas calculadas
-   */
   const { totalSpend, totalLeads, avgCPL } = useMemo(() => {
-    const spend = campaigns.reduce((acc, camp) => acc + (camp.insights?.spend || 0), 0);
-    const leads = campaigns.reduce((acc, camp) => acc + camp.leadsCount, 0);
-    const cpl = leads > 0 ? spend / leads : null;
-    
-    return {
-      totalSpend: spend,
-      totalLeads: leads,
-      avgCPL: cpl
-    };
+    const spend = campaigns.reduce((s, c) => s + c.insights.spend, 0);
+    const leads = campaigns.reduce((s, c) => s + c.leadsCount, 0);
+    return { totalSpend: spend, totalLeads: leads, avgCPL: leads > 0 ? spend / leads : null };
   }, [campaigns]);
 
   return {
-    // Dados
     campaigns,
     metrics,
     specialties,
-    leads,
-    
-    // Estado
     loading,
     syncing,
     error,
     hasLoaded,
-    
-    // Paginação
     pagination,
-    
-    // Filtros
     selectedSpecialty,
     selectedPeriod,
     setSelectedSpecialty,
     setSelectedPeriod,
-    
-    // Ações
     load,
     loadMore,
     refresh,
     sync,
-    
-    // Calculados
-    filteredCampaigns,
+    filteredCampaigns: campaigns,
     totalSpend,
     totalLeads,
     avgCPL,
   };
 }
 
-export { SPECIALTIES, PERIODS };
 export default useMetaAds;

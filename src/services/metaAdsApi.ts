@@ -1,52 +1,56 @@
 /**
- * 🎯 Meta Ads API Service
- * Chamadas HTTP para o backend de Meta Ads
+ * Meta Ads API Service — alinhado com /api/meta (Graph API v21.0)
  */
 
 import API from './api';
 
 export interface Campaign {
-  _id: string;
   campaignId: string;
   name: string;
   status: 'ACTIVE' | 'PAUSED' | 'DELETED' | 'ARCHIVED';
-  objective: string;
+  objective: string | null;
   specialty: string;
+  accountId: string;
   dailyBudget: number | null;
+  lifetimeBudget: number | null;
   insights: {
     spend: number;
     clicks: number;
     impressions: number;
-    reach: number;
-    cpc: number;
     ctr: number;
+    cpc: number;
     cpm: number;
-    conversions: number;
-    costPerConversion: number;
   };
   leadsCount: number;
   patientsCount: number;
-  cpl: number | null;  // Virtual
-  cpa: number | null;  // Virtual
-  formattedSpend: string;  // Virtual
-  lastSyncAt: string;
+  cpl: number | null;
+  cpa: number | null;
+  formattedSpend: string;
 }
 
-export interface CampaignFilters {
-  specialty?: string;
-  status?: string;
-  refresh?: boolean;
+export interface InsightRow {
+  campaignId: string;
+  campaignName: string;
+  adsetId?: string;
+  adsetName?: string;
+  adId?: string;
+  adName?: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  cpc: number;
+  cpm: number;
+  leads: number;
+  cpl: number | null;
 }
 
 export interface AggregatedMetrics {
   totalSpend: number;
-  totalClicks: number;
-  totalImpressions: number;
   totalLeads: number;
-  totalPatients: number;
+  totalImpressions: number;
+  totalClicks: number;
   avgCPL: number | null;
-  avgCPA: number | null;
-  avgCTR: number | null;
   campaignCount: number;
 }
 
@@ -55,123 +59,83 @@ export interface SpecialtyMetrics {
   campaignCount: number;
   spend: number;
   leads: number;
-  patients: number;
   clicks: number;
   impressions: number;
   cpl: number | null;
-  cpa: number | null;
   ctr: number | null;
 }
 
-export interface LeadWithTracking {
-  _id: string;
-  name: string;
-  contact: {
-    phone?: string;
-    email?: string;
-  };
-  status: string;
-  stage: string;
-  metaTracking: {
-    source: string;
-    campaign: string;
-    campaignId: string;
-    specialty: string;
-    firstMessage: string;
-  };
-  createdAt: string;
-}
-
 class MetaAdsApi {
-  /**
-   * Busca campanhas do Meta Ads
-   */
-  async getCampaigns(filters: CampaignFilters = {}): Promise<Campaign[]> {
+  async getAccounts() {
+    const { data } = await API.get('/meta/accounts');
+    return data.accounts as any[];
+  }
+
+  async getCampaigns({ status, refresh }: { status?: string; refresh?: boolean } = {}) {
     const params = new URLSearchParams();
-    if (filters.specialty) params.append('specialty', filters.specialty);
-    if (filters.status) params.append('status', filters.status);
-    if (filters.refresh) params.append('refresh', 'true');
-    
-    const response = await API.get(`/meta-ads/campaigns?${params.toString()}`);
-    return response.data.campaigns;
+    if (status) params.append('status', status);
+    if (refresh) params.append('refresh', 'true');
+    const { data } = await API.get(`/meta/campaigns?${params}`);
+    return data.campaigns as Omit<Campaign, 'insights' | 'leadsCount' | 'patientsCount' | 'cpl' | 'cpa' | 'formattedSpend'>[];
   }
 
-  /**
-   * Busca detalhes de uma campanha específica
-   */
-  async getCampaign(id: string, datePreset?: string): Promise<Campaign> {
-    const params = datePreset ? `?datePreset=${datePreset}` : '';
-    const response = await API.get(`/meta-ads/campaigns/${id}${params}`);
-    return response.data.campaign;
+  async createCampaign(payload: { name: string; objective: string; dailyBudget?: number; lifetimeBudget?: number }) {
+    const { data } = await API.post('/meta/campaigns', payload);
+    return data.campaign;
   }
 
-  /**
-   * Busca métricas agregadas (totais)
-   */
-  async getInsights(): Promise<AggregatedMetrics> {
-    const response = await API.get('/meta-ads/insights');
-    return response.data.metrics;
+  async updateCampaign(id: string, fields: { name?: string; status?: string; dailyBudget?: number; lifetimeBudget?: number }) {
+    const { data } = await API.patch(`/meta/campaigns/${id}`, fields);
+    return data.result;
   }
 
-  /**
-   * Força sincronização com Meta API
-   */
-  async sync(): Promise<{ success: boolean; synced: number; errors: number }> {
-    const response = await API.post('/meta-ads/sync');
-    return response.data;
+  async pauseCampaign(id: string) {
+    const { data } = await API.patch(`/meta/campaigns/${id}/pause`);
+    return data.result;
   }
 
-  /**
-   * Busca leads que vieram do Meta Ads
-   */
-  async getLeads(params: {
-    campaignId?: string;
-    specialty?: string;
-    startDate?: string;
-    endDate?: string;
-    limit?: number;
-  } = {}): Promise<LeadWithTracking[]> {
-    const queryParams = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
-      if (value) queryParams.append(key, String(value));
-    });
-    
-    const response = await API.get(`/meta-ads/leads?${queryParams.toString()}`);
-    return response.data.leads;
+  async activateCampaign(id: string) {
+    const { data } = await API.patch(`/meta/campaigns/${id}/activate`);
+    return data.result;
   }
 
-  /**
-   * Associa um lead a uma campanha
-   */
-  async associateLead(leadId: string, campaignId: string): Promise<void> {
-    await API.post(`/meta-ads/leads/${leadId}/associate`, { campaignId });
+  async getAdSets(campaignId?: string) {
+    const params = campaignId ? `?campaignId=${campaignId}` : '';
+    const { data } = await API.get(`/meta/adsets${params}`);
+    return data.adsets as any[];
   }
 
-  /**
-   * Detecta origem de uma mensagem (utilitário)
-   */
-  async detectSource(data: {
-    message?: string;
-    fbclid?: string;
-    utmCampaign?: string;
-    utmSource?: string;
-    utmMedium?: string;
-  }): Promise<{
-    source: string;
-    campaign: string | null;
-    specialty: string;
-    specialtyDetected: string;
-  }> {
-    const response = await API.post('/meta-ads/detect-source', data);
-    return response.data.detection;
+  async createAdSet(payload: { campaignId: string; name: string; dailyBudget: number; billingEvent?: string; optimizationGoal?: string; targeting?: object }) {
+    const { data } = await API.post('/meta/adsets', payload);
+    return data.adset;
   }
 
-  /**
-   * Busca métricas agrupadas por especialidade
-   */
-  async getBySpecialty(): Promise<SpecialtyMetrics[]> {
-    const response = await API.get('/meta-ads/by-specialty');
-    return response.data.specialties;
+  async getAds(adsetId?: string) {
+    const params = adsetId ? `?adsetId=${adsetId}` : '';
+    const { data } = await API.get(`/meta/ads${params}`);
+    return data.ads as any[];
+  }
+
+  async createAd(payload: { adsetId: string; name: string; creativeId: string }) {
+    const { data } = await API.post('/meta/ads', payload);
+    return data.ad;
+  }
+
+  async getInsights({ level = 'campaign', datePreset = 'last_30d', ids }: { level?: string; datePreset?: string; ids?: string[] } = {}) {
+    const params = new URLSearchParams({ level, datePreset });
+    if (ids?.length) params.append('ids', ids.join(','));
+    const { data } = await API.get(`/meta/insights?${params}`);
+    return data.insights as InsightRow[];
+  }
+
+  async sync() {
+    const { data } = await API.post('/meta/sync');
+    return data as { success: boolean; synced: number; errors: number };
+  }
+
+  async debugToken() {
+    const { data } = await API.get('/meta/debug-token');
+    return data;
   }
 }
 
