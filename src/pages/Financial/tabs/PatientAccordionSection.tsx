@@ -141,16 +141,14 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
     return (
         <div className="bg-gray-50 border-b border-gray-200">
             {/* Header do Paciente - Accordion */}
-            <Box 
-                sx={{ 
-                    p: 2, 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
+            <Box
+                sx={{
+                    p: 2,
+                    display: 'flex',
+                    justifyContent: 'space-between',
                     alignItems: 'center',
-                    cursor: 'pointer',
                     '&:hover': { bgcolor: '#F3F4F6' }
                 }}
-                onClick={toggleExpand}
             >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     {/* Checkbox de seleção do paciente */}
@@ -159,25 +157,25 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
                             checked={isAllSelected}
                             indeterminate={isIndeterminate}
                             onChange={(e) => {
-                                e.stopPropagation();
                                 if (e.target.checked) {
                                     onSelectAllFromPatient?.(patient);
                                 } else {
                                     onDeselectAllFromPatient?.(patient);
                                 }
                             }}
+                            onClick={(e) => e.stopPropagation()}
                             size="small"
                             sx={{ mr: 1 }}
                         />
                     )}
-                    <Avatar 
-                        sx={{ bgcolor: '#E5E7EB', width: 40, height: 40 }}
+                    <Avatar
+                        sx={{ bgcolor: '#E5E7EB', width: 40, height: 40, cursor: 'pointer' }}
                         onClick={(e) => { e.stopPropagation(); onOpen360(patient.patientId); }}
                     >
                         <User className="w-5 h-5 text-gray-600" />
                     </Avatar>
                     <Box>
-                        <Typography 
+                        <Typography
                             fontWeight="600"
                             onClick={(e) => { e.stopPropagation(); onOpen360(patient.patientId); }}
                             sx={{ cursor: 'pointer', '&:hover': { color: '#3B82F6' } }}
@@ -189,8 +187,12 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
                         </Typography>
                     </Box>
                 </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Chip 
+                {/* Seta: único elemento que abre/fecha o accordion */}
+                <Box
+                    sx={{ display: 'flex', alignItems: 'center', gap: 2, cursor: 'pointer', p: 1 }}
+                    onClick={toggleExpand}
+                >
+                    <Chip
                         size="small"
                         label={`R$ ${(patient.total || 0).toLocaleString('pt-BR')}`}
                         sx={{ bgcolor: '#10B98120', color: '#10B981', fontWeight: 'bold' }}

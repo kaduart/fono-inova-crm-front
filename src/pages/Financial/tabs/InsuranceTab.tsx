@@ -441,6 +441,30 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         setSelectedPayments(new Set());
     };
 
+    const selectAll = () => {
+        const newSelected = new Set<string>();
+        receivables.forEach(group => {
+            (group.patients || []).forEach((patient: any) => {
+                (patient.payments || []).forEach((p: any) => {
+                    if (subTab === 0 && p.status === 'pending_billing') newSelected.add(p.paymentId);
+                    else if (subTab === 1 && p.status === 'billed') newSelected.add(p.paymentId);
+                    else if (subTab === 2 && ['received', 'partial', 'glosa'].includes(p.status)) newSelected.add(p.paymentId);
+                });
+            });
+        });
+        setSelectedPayments(newSelected);
+    };
+
+    const totalSelectable = receivables.reduce((sum, group) =>
+        sum + (group.patients || []).reduce((pSum: number, patient: any) =>
+            pSum + (patient.payments || []).filter((p: any) =>
+                subTab === 0 ? p.status === 'pending_billing'
+                : subTab === 1 ? p.status === 'billed'
+                : ['received', 'partial', 'glosa'].includes(p.status)
+            ).length, 0
+        ), 0
+    );
+
     const handleOpenFaturarLoteModal = () => {
         if (selectedPayments.size === 0) {
             toast.warn('Selecione pelo menos um atendimento');
@@ -463,7 +487,11 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             });
 
             if (result.data.success) {
-                toast.success(`${result.data.data.faturados} atendimentos faturados!`);
+                const { faturados, ignorados } = result.data.data;
+                toast.success(`${faturados} atendimentos faturados!`);
+                if (ignorados > 0) {
+                    toast.warn(`${ignorados} atendimento(s) sem sessão vinculada foram ignorados — verifique o cadastro.`);
+                }
                 setFaturarLoteModalOpen(false);
                 clearAllSelection();
                 loadReceivables(selectedMonthYear);
@@ -739,55 +767,75 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                     />
                 </Tabs>
 
-                {/* Barra de Ações em Lote */}
-                {selectedPayments.size > 0 && (
-                    <Paper elevation={2} sx={{ p: 2, m: 2, bgcolor: '#F0F9FF', border: '1px solid #3B82F6' }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-                            <Typography variant="body1" fontWeight={600} color="#3B82F6">
-                                {selectedPayments.size} atendimento(s) selecionado(s)
-                            </Typography>
-                            <Box sx={{ display: 'flex', gap: 2 }}>
+                {/* Barra de Ações em Lote — sempre visível quando há itens na aba */}
+                {totalSelectable > 0 && (
+                    <Paper elevation={selectedPayments.size > 0 ? 2 : 0} sx={{
+                        p: 1.5, mx: 2, mt: 1.5,
+                        bgcolor: selectedPayments.size > 0 ? '#F0F9FF' : '#F9FAFB',
+                        border: `1px solid ${selectedPayments.size > 0 ? '#3B82F6' : '#E5E7EB'}`,
+                        borderRadius: 2
+                    }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                 <Button
-                                    variant="outlined"
                                     size="small"
-                                    onClick={clearAllSelection}
+                                    variant={selectedPayments.size === totalSelectable ? 'contained' : 'outlined'}
+                                    startIcon={<Check size={15} />}
+                                    onClick={selectedPayments.size === totalSelectable ? clearAllSelection : selectAll}
+                                    sx={{ borderRadius: 2, fontSize: '0.8rem' }}
                                 >
-                                    Limpar
+                                    {selectedPayments.size === totalSelectable
+                                        ? 'Desmarcar Todos'
+                                        : `Selecionar Todos (${totalSelectable})`}
                                 </Button>
-                                {subTab === 0 && (
+                                {selectedPayments.size > 0 && (
                                     <>
-                                        <Button
-                                            variant="contained"
-                                            size="small"
-                                            startIcon={<Send size={16} />}
-                                            onClick={handleOpenFaturarLoteModal}
-                                            sx={{ bgcolor: '#F59E0B', '&:hover': { bgcolor: '#D97706' } }}
-                                        >
-                                            Faturar Selecionados
+                                        <Typography variant="body2" fontWeight={600} color="#3B82F6">
+                                            {selectedPayments.size} selecionado(s)
+                                        </Typography>
+                                        <Button size="small" variant="text" onClick={clearAllSelection} sx={{ fontSize: '0.75rem' }}>
+                                            Limpar
                                         </Button>
+                                    </>
+                                )}
+                            </Box>
+                            {selectedPayments.size > 0 && (
+                                <Box sx={{ display: 'flex', gap: 1.5 }}>
+                                    {subTab === 0 && (
+                                        <>
+                                            <Button
+                                                variant="contained"
+                                                size="small"
+                                                startIcon={<Send size={16} />}
+                                                onClick={handleOpenFaturarLoteModal}
+                                                sx={{ bgcolor: '#F59E0B', '&:hover': { bgcolor: '#D97706' }, borderRadius: 2 }}
+                                            >
+                                                Faturar Selecionados
+                                            </Button>
+                                            <Button
+                                                variant="contained"
+                                                size="small"
+                                                startIcon={<CheckCircle size={16} />}
+                                                onClick={handleOpenReceberLoteModal}
+                                                sx={{ bgcolor: '#10B981', '&:hover': { bgcolor: '#059669' }, borderRadius: 2 }}
+                                            >
+                                                Receber Selecionados
+                                            </Button>
+                                        </>
+                                    )}
+                                    {subTab === 1 && (
                                         <Button
                                             variant="contained"
                                             size="small"
                                             startIcon={<CheckCircle size={16} />}
                                             onClick={handleOpenReceberLoteModal}
-                                            sx={{ bgcolor: '#10B981', '&:hover': { bgcolor: '#059669' } }}
+                                            sx={{ bgcolor: '#10B981', '&:hover': { bgcolor: '#059669' }, borderRadius: 2 }}
                                         >
                                             Receber Selecionados
                                         </Button>
-                                    </>
-                                )}
-                                {subTab === 1 && (
-                                    <Button
-                                        variant="contained"
-                                        size="small"
-                                        startIcon={<CheckCircle size={16} />}
-                                        onClick={handleOpenReceberLoteModal}
-                                        sx={{ bgcolor: '#10B981', '&:hover': { bgcolor: '#059669' } }}
-                                    >
-                                        Receber Selecionados
-                                    </Button>
-                                )}
-                            </Box>
+                                    )}
+                                </Box>
+                            )}
                         </Box>
                     </Paper>
                 )}
