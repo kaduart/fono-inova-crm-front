@@ -78,6 +78,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
     // PatientsSummaryCard data
     const { data: analyticsData, loading: analyticsLoading, fetch: fetchAnalytics } = useAppointmentsByType();
     const [newPatientsModalOpen, setNewPatientsModalOpen] = useState(false);
+    const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
 
     const fetchAnalyticsForDate = useCallback(async (date: string) => {
         await fetchAnalytics({ startDate: date, endDate: date, mode: 'date' });
@@ -410,9 +411,6 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                     {/* Card de Pacientes Novos do Dia */}
                     {(() => {
                         const leads = analyticsData?.leads || [];
-                        const allAppointments = analyticsData?.all || [];
-                        const atendidosHoje = allAppointments.filter((a: any) => a.operationalStatus === 'completed' || a.clinicalStatus === 'completed');
-                        const newPatients = [...leads, ...atendidosHoje];
                         const svcLabel: Record<string, string> = {
                             'evaluation': 'Avaliação', 'session': 'Sessão', 'package_session': 'Sessão Pacote',
                             'tongue_tie_test': 'Teste Linguinha', 'neuropsych_evaluation': 'Aval. Neuropsic.',
@@ -442,8 +440,8 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                     const pct = agendados.length > 0 ? Math.round((atendidos.length / agendados.length) * 100) : 0;
                                     return (
                                         <button
-                                            onClick={() => agendados.length > 0 && setNewPatientsModalOpen(true)}
-                                            className={`text-left p-4 rounded-xl border transition-all ${atendidos.length > 0 ? 'bg-emerald-50 border-emerald-200 hover:border-emerald-400 cursor-pointer' : 'bg-gray-50 border-gray-200 cursor-default'}`}
+                                            onClick={() => agendados.length > 0 && setAttendanceModalOpen(true)}
+                                            className={`text-left p-4 rounded-xl border transition-all w-full ${atendidos.length > 0 ? 'bg-emerald-50 border-emerald-200 hover:border-emerald-400 cursor-pointer' : 'bg-gray-50 border-gray-200 cursor-default'}`}
                                         >
                                             <div className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wide mb-1">Comparecimento</div>
                                             <div className="flex items-baseline gap-1.5">
@@ -460,22 +458,23 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                 })()}
                                 </div>
 
+                                {/* Modal: Pré-agendados Novos */}
                                 {newPatientsModalOpen && (
                                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setNewPatientsModalOpen(false)}>
                                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
                                             <div className="flex items-center justify-between p-6 border-b border-gray-100">
                                                 <div>
-                                                    <h3 className="text-xl font-bold text-gray-900">Pacientes Novos</h3>
+                                                    <h3 className="text-xl font-bold text-gray-900">Pré-agendados Novos</h3>
                                                     <p className="text-sm text-gray-500 mt-1">{format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })}</p>
                                                 </div>
                                                 <button onClick={() => setNewPatientsModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
                                             </div>
                                             <div className="overflow-y-auto p-6">
-                                                {newPatients.length === 0 ? (
-                                                    <p className="text-center text-gray-500 py-8">Nenhum paciente novo encontrado.</p>
+                                                {leads.length === 0 ? (
+                                                    <p className="text-center text-gray-500 py-8">Nenhum pré-agendado novo encontrado.</p>
                                                 ) : (
                                                     <div className="space-y-3">
-                                                        {newPatients.map((apt: any) => {
+                                                        {leads.map((apt: any) => {
                                                             const svcText = apt.serviceType ? (svcLabel[apt.serviceType] || apt.serviceType) : null;
                                                             const billingColor: Record<string, string> = { particular: 'bg-blue-100 text-blue-700', convenio: 'bg-purple-100 text-purple-700', liminar: 'bg-orange-100 text-orange-700', package: 'bg-indigo-100 text-indigo-700' };
                                                             return (
@@ -508,11 +507,70 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                                 )}
                                             </div>
                                             <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl text-sm text-gray-600 text-center">
-                                                <strong>{newPatients.length}</strong> paciente{newPatients.length !== 1 ? 's' : ''} novo{newPatients.length !== 1 ? 's' : ''} hoje
+                                                <strong>{leads.length}</strong> paciente{leads.length !== 1 ? 's' : ''} novo{leads.length !== 1 ? 's' : ''} hoje
                                             </div>
                                         </div>
                                     </div>
                                 )}
+
+                                {/* Modal: Atendidos do Dia */}
+                                {attendanceModalOpen && (() => {
+                                    const all = analyticsData?.all || [];
+                                    const atendidos = all.filter((a: any) => a.operationalStatus === 'completed');
+                                    return (
+                                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setAttendanceModalOpen(false)}>
+                                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                                                <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                                                    <div>
+                                                        <h3 className="text-xl font-bold text-gray-900">Atendidos do Dia</h3>
+                                                        <p className="text-sm text-gray-500 mt-1">{format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })}</p>
+                                                    </div>
+                                                    <button onClick={() => setAttendanceModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
+                                                </div>
+                                                <div className="overflow-y-auto p-6">
+                                                    {atendidos.length === 0 ? (
+                                                        <p className="text-center text-gray-500 py-8">Nenhum atendimento realizado hoje.</p>
+                                                    ) : (
+                                                        <div className="space-y-3">
+                                                            {atendidos.map((apt: any) => {
+                                                                const svcText = apt.serviceType ? ({
+                                                                    'evaluation': 'Avaliação', 'session': 'Sessão', 'package_session': 'Sessão Pacote',
+                                                                    'tongue_tie_test': 'Teste Linguinha', 'neuropsych_evaluation': 'Aval. Neuropsic.',
+                                                                    'individual_session': 'Sessão Avulsa', 'package': 'Pacote'
+                                                                }[apt.serviceType] || apt.serviceType) : null;
+                                                                const billingColor: Record<string, string> = { particular: 'bg-blue-100 text-blue-700', convenio: 'bg-purple-100 text-purple-700', liminar: 'bg-orange-100 text-orange-700', package: 'bg-indigo-100 text-indigo-700' };
+                                                                return (
+                                                                    <div key={apt._id} className="bg-gray-50 rounded-lg p-4 border border-gray-100 hover:bg-gray-100 transition-colors">
+                                                                        <div className="flex items-start justify-between gap-2">
+                                                                            <div className="flex-1">
+                                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                                    <p className="font-semibold text-gray-900">{apt.patientInfo?.fullName || apt.patient?.fullName || 'Nome não informado'}</p>
+                                                                                    <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full text-[10px] font-bold">✓ Atendido</span>
+                                                                                </div>
+                                                                                <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
+                                                                                    <span>📅 {apt.date ? new Date(apt.date).toLocaleDateString('pt-BR') : ''} {apt.time}</span>
+                                                                                </div>
+                                                                                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                                                                    <span className="text-xs text-gray-500">👤 {apt.doctor?.fullName || apt.professionalName || 'Profissional não informado'}</span>
+                                                                                    {apt.specialty && <span className="bg-green-200 text-green-700 px-1.5 py-0.5 rounded-full text-[10px] uppercase font-medium">{apt.specialty}</span>}
+                                                                                    {svcText && <span className="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full text-[10px] font-medium">{svcText}</span>}
+                                                                                    {apt.billingType && <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${billingColor[apt.billingType] || 'bg-gray-100 text-gray-600'}`}>{apt.billingType === 'particular' ? 'Particular' : apt.billingType === 'convenio' ? 'Convênio' : apt.billingType}</span>}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="p-4 border-t border-gray-100 text-center text-sm text-gray-500">
+                                                    {atendidos.length} atendimento{atendidos.length !== 1 ? 's' : ''} realizado{atendidos.length !== 1 ? 's' : ''} hoje
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         );
                     })()}
