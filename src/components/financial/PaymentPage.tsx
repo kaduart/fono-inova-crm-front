@@ -147,7 +147,7 @@ function computeDateRange(period: string, customStart: string, customEnd: string
 }
 
 // ─── Componente: Card de Pacientes (Leads + Novos) ──────────────────────────
-const PatientsSummaryCard = ({
+export const PatientsSummaryCard = ({
     leads,
     novos,
     periodRange,
@@ -272,7 +272,7 @@ const PatientsSummaryCard = ({
                             textAlign: 'center',
                             '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.08)' },
                         }}
-                        onClick={() => (leads.length + novos.length) > 0 && onOpenNewPatients?.()}
+                        onClick={() => { if ((leads.length + novos.length) > 0) { setNewPatientsModalOpen(true); onOpenNewPatients?.(); } }}
                     >
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                             <svg xmlns="http://www.w3.org/2000/svg" width={20} height={20} viewBox="0 0 20 20" fill="#059669">
@@ -340,12 +340,30 @@ const PatientsSummaryCard = ({
                                 <p className="text-center text-gray-500 py-8">Nenhum agendamento encontrado.</p>
                             ) : (
                                 <div className="space-y-3">
-                                    {leads.concat(novos).map((apt: any) => (
+                                    {leads.concat(novos).map((apt: any) => {
+                                        const svcLabel: Record<string, string> = {
+                                            'evaluation': 'Avaliação', 'session': 'Sessão', 'package_session': 'Sessão Pacote',
+                                            'tongue_tie_test': 'Teste Linguinha', 'neuropsych_evaluation': 'Aval. Neuropsic.',
+                                            'individual_session': 'Sessão Avulsa', 'package': 'Pacote'
+                                        };
+                                        const svcText = apt.serviceType ? (svcLabel[apt.serviceType] || apt.serviceType) : null;
+                                        const billingLabel: Record<string, string> = { 'particular': 'Particular', 'convenio': 'Convênio', 'liminar': 'Liminar', 'package': 'Pacote' };
+                                        const billingText = apt.billingType ? (billingLabel[apt.billingType] || apt.billingType) : null;
+                                        const billingColor: Record<string, string> = { 'particular': 'bg-blue-100 text-blue-700', 'convenio': 'bg-purple-100 text-purple-700', 'liminar': 'bg-orange-100 text-orange-700', 'package': 'bg-indigo-100 text-indigo-700' };
+                                        return (
                                         <div key={apt._id} className="bg-gray-50 rounded-lg p-4 border border-gray-100 hover:bg-gray-100 transition-colors">
-                                            <div className="flex items-start justify-between">
-                                                <div>
-                                                    <p className="font-semibold text-gray-900">{apt.patientInfo?.fullName || apt.patient?.fullName || 'Nome não informado'}</p>
-                                                    <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <p className="font-semibold text-gray-900">{apt.patientInfo?.fullName || apt.patient?.fullName || 'Nome não informado'}</p>
+                                                        {apt.isFirstVisit && (
+                                                            <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full text-[10px] font-bold">⭐ 1ª Visita</span>
+                                                        )}
+                                                        {apt.isReturningAfter45Days && !apt.isFirstVisit && (
+                                                            <span className="bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-full text-[10px] font-bold">↩ Retorno 45d+</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
                                                         <span className="flex items-center gap-1">
                                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                                                                 <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
@@ -359,26 +377,37 @@ const PatientsSummaryCard = ({
                                                             {apt.date ? new Date(apt.date).toLocaleDateString('pt-BR') : ''} {apt.time}
                                                         </span>
                                                     </div>
-                                                    <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                                                        <span className="flex items-center gap-1">
+                                                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                                        <span className="flex items-center gap-1 text-xs text-gray-500">
                                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                                                                 <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                                                             </svg>
                                                             {apt.doctor?.fullName || apt.professionalName || 'Profissional não informado'}
                                                         </span>
                                                         {apt.specialty && (
-                                                            <span className="bg-green-200 text-green-700 px-1.5 py-0.5 rounded-full text-[10px] uppercase tracking-wide">
+                                                            <span className="bg-green-200 text-green-700 px-1.5 py-0.5 rounded-full text-[10px] uppercase tracking-wide font-medium">
                                                                 {apt.specialty}
+                                                            </span>
+                                                        )}
+                                                        {svcText && (
+                                                            <span className="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full text-[10px] font-medium">
+                                                                {svcText}
+                                                            </span>
+                                                        )}
+                                                        {billingText && (
+                                                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${billingColor[apt.billingType] || 'bg-gray-100 text-gray-600'}`}>
+                                                                {billingText}
                                                             </span>
                                                         )}
                                                     </div>
                                                 </div>
-                                                <span className={`text-xs px-2 py-1 rounded-full font-medium ${apt.operationalStatus === 'pre_agendado' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                <span className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${apt.operationalStatus === 'pre_agendado' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}`}>
                                                     {apt.operationalStatus === 'pre_agendado' ? 'Pré-agendado' : 'Agendado'}
                                                 </span>
                                             </div>
                                         </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
@@ -411,11 +440,11 @@ const PatientsSummaryCard = ({
                         </div>
 
                         <div className="overflow-y-auto p-6">
-                            {novos.length === 0 ? (
+                            {(leads.length + novos.length) === 0 ? (
                                 <p className="text-center text-gray-500 py-8">Nenhum paciente novo encontrado.</p>
                             ) : (
                                 <div className="space-y-3">
-                                    {novos.map((patient: any) => (
+                                    {[...leads, ...novos].map((patient: any) => (
                                         <div key={patient._id} className="bg-gray-50 rounded-lg p-4 border border-gray-100 hover:bg-gray-100 transition-colors">
                                             <div className="flex items-start justify-between">
                                                 <div>
@@ -1120,16 +1149,6 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                                                         ? 'Este Mês'
                                                         : new Date().toLocaleDateString('pt-BR')
                                 }
-                            />
-                        </div>
-                        <div className="h-full">
-                            <PatientsSummaryCard
-                                leads={analyticsData?.leads || []}
-                                novos={analyticsData?.novos || []}
-                                periodRange={computeDateRange(selectedPeriod, customStartDate, customEndDate)}
-                                selectedPeriod={selectedPeriod}
-                                loading={analyticsLoading}
-                                onOpenNewPatients={handleOpenNewPatients}
                             />
                         </div>
                     </div>

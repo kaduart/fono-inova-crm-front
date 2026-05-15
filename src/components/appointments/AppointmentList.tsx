@@ -27,7 +27,7 @@ export default function AppointmentList({
         <div className="space-y-2">
             {appointmentsList.map((appointment, index) => (
                 <div 
-                    key={appointment._id} 
+                    key={appointment.id || appointment._id} 
                     className={`
                         border-b border-gray-100 p-4 
                         hover:bg-gradient-to-r hover:from-green-50 hover:to-cyan-50 
@@ -96,7 +96,7 @@ export default function AppointmentList({
                                         size="sm"
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            onUpdateStatus(appointment._id, 'completed');
+                                            onUpdateStatus(appointment.id || appointment._id, 'completed');
                                         }}
                                         className="bg-white hover:bg-green-50 border-green-200 hover:border-green-400 text-green-700"
                                     >
@@ -108,7 +108,7 @@ export default function AppointmentList({
                                         size="sm"
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            onUpdateStatus(appointment._id, 'canceled');
+                                            onUpdateStatus(appointment.id || appointment._id, 'canceled');
                                         }}
                                         className="bg-white hover:bg-red-50 border-red-200 hover:border-red-400 text-red-700"
                                     >

@@ -67,7 +67,6 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   const [activeTab, setActiveTab] = useState(0);
   const [rankingSubTab, setRankingSubTab] = useState(0);
   const { data, resumo, loading, error, fetchDashboard } = useFinancialDashboardV3();
-
   // 🆕 B: Pendências de convênio
   const [pendingInsurance, setPendingInsurance] = useState<InsuranceReceivableGroup[]>([]);
   const [loadingInsurance, setLoadingInsurance] = useState(false);
@@ -161,17 +160,18 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     if (type === 'total') {
       fetchDebitosTotal();
     } else {
-      // 🆕 Mostrar apenas vencidos (data <= hoje) no modal de débitos do mês
+      // Mostrar vencidos (data <= hoje): particular + convênio
       const allItems = [
-        ...(resumo?.pendentes?.vencidos?.particular?.items || []).map(item => ({ ...item, _tipo: item.paymentMethod || 'particular' })),
-      ].map(item => ({
+        ...(resumo?.pendentes?.vencidos?.particular?.items || []).map((item: any) => ({ ...item, _tipo: item.paymentMethod || 'particular' })),
+        ...(resumo?.pendentes?.vencidos?.convenio?.items || []).map((item: any) => ({ ...item, _tipo: item.convenio || 'convênio' })),
+      ].map((item: any) => ({
         _id: String(item.sessionId),
         date: String(item.data),
         time: item.hora,
         paciente: item.paciente,
         paymentStatus: item.status,
         valor: item.valor,
-        tipo: (item as any)._tipo,
+        tipo: item._tipo,
       }));
       setDebitosMesData(allItems);
     }
@@ -185,7 +185,10 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     fetchDashboard(month, year);
     // Reseta flag de convênio para forçar re-fetch quando mês mudar
     insuranceLoaded.current = '';
-  }, [month, year, fetchDashboard]);
+    // Carrega débito total na montagem para exibir no card sem precisar clicar
+    debitosTotalLoaded.current = false;
+    fetchDebitosTotal();
+  }, [month, year, fetchDashboard, fetchDebitosTotal]);
 
   // Lazy: só busca convênios quando o tab que os usa estiver ativo
   useEffect(() => {
@@ -641,6 +644,35 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
 
     return (
       <div className="space-y-8">
+        {/* Comparativos Mensais */}
+        <div>
+          <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
+            <TrendingUp size={22} /> Comparativos Mensais
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            {[
+              { label: 'Caixa', atual: comparativos.mesAtual.caixa, anterior: comparativos.mesAnterior.caixa, var: comparativos.variacao.caixa },
+              { label: 'Produção', atual: comparativos.mesAtual.producao, anterior: comparativos.mesAnterior.producao, var: comparativos.variacao.producao },
+              { label: 'Despesas', atual: comparativos.mesAtual.despesas, anterior: comparativos.mesAnterior.despesas, var: comparativos.variacao.despesas },
+            ].map((item, i) => {
+              const isPositivo = item.var > 0;
+              const isDespesa = item.label === 'Despesas';
+              const corVar = isDespesa ? (isPositivo ? 'text-rose-600' : 'text-emerald-600') : (isPositivo ? 'text-emerald-600' : 'text-rose-600');
+              return (
+                <div key={i} className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-shadow">
+                  <p className="text-sm text-gray-500">{item.label}</p>
+                  <p className="text-2xl font-bold text-gray-900">{formatCurrency(item.atual)}</p>
+                  <div className="flex items-center gap-1 mt-2">
+                    {isPositivo ? <TrendingUp size={16} className={corVar} /> : <TrendingDown size={16} className={corVar} />}
+                    <span className={`text-sm font-semibold ${corVar}`}>{isPositivo ? '+' : ''}{item.var}% vs mês anterior</span>
+                  </div>
+                  <p className="text-xs text-gray-400">Anterior: {formatCurrency(item.anterior)}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* 🔴 Débitos de sessões */}
         <div>
           <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
@@ -793,73 +825,6 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           </div>
         </div>
 
-        {/* Comparativos Mensais */}
-        <div>
-          <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
-            <TrendingUp size={22} /> Comparativos Mensais
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {[
-              { label: 'Caixa', atual: comparativos.mesAtual.caixa, anterior: comparativos.mesAnterior.caixa, var: comparativos.variacao.caixa },
-              { label: 'Produção', atual: comparativos.mesAtual.producao, anterior: comparativos.mesAnterior.producao, var: comparativos.variacao.producao },
-              { label: 'Despesas', atual: comparativos.mesAtual.despesas, anterior: comparativos.mesAnterior.despesas, var: comparativos.variacao.despesas },
-            ].map((item, i) => {
-              const isPositivo = item.var > 0;
-              const isDespesa = item.label === 'Despesas';
-              const corVar = isDespesa ? (isPositivo ? 'text-rose-600' : 'text-emerald-600') : (isPositivo ? 'text-emerald-600' : 'text-rose-600');
-              return (
-                <div key={i} className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-shadow">
-                  <p className="text-sm text-gray-500">{item.label}</p>
-                  <p className="text-2xl font-bold text-gray-900">{formatCurrency(item.atual)}</p>
-                  <div className="flex items-center gap-1 mt-2">
-                    {isPositivo ? <TrendingUp size={16} className={corVar} /> : <TrendingDown size={16} className={corVar} />}
-                    <span className={`text-sm font-semibold ${corVar}`}>{isPositivo ? '+' : ''}{item.var}% vs mês anterior</span>
-                  </div>
-                  <p className="text-xs text-gray-400">Anterior: {formatCurrency(item.anterior)}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Drill-down Profissionais */}
-        <div>
-          <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
-            <Users size={22} /> Performance por Profissional
-          </h3>
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <div className="min-w-[800px] grid grid-cols-7 gap-3 p-4 bg-gray-50 text-sm font-bold text-gray-600 border-b">
-                <span>Profissional</span>
-                <span>Receita</span>
-                <span>Atend.</span>
-                <span>Ticket Médio</span>
-                <span>Mix Particular</span>
-                <span>Comissão</span>
-                <span>Status</span>
-              </div>
-              {drillDown.profissionais.map((prof) => (
-                <div key={prof.id} className="min-w-[800px] grid grid-cols-7 gap-3 p-4 border-b last:border-b-0 items-center">
-                  <div>
-                    <p className="font-semibold text-gray-800">{prof.nome}</p>
-                    <p className="text-xs text-gray-500">{prof.especialidade}</p>
-                  </div>
-                  <span className="text-gray-700">{formatCurrency(prof.resumo.receita)}</span>
-                  <span className="text-gray-700">{prof.resumo.atendimentos}</span>
-                  <span className="text-gray-700">{formatCurrency(prof.resumo.ticketMedio)}</span>
-                  <span className="text-gray-700">{prof.mix.particular.toFixed(0)}%</span>
-                  <span className="text-gray-700">{formatCurrency(prof.comissao?.total || 0)}</span>
-                  <span className={`inline-block w-fit px-2 py-0.5 rounded-full text-xs font-bold uppercase ${
-                    prof.diagnostico.status === 'top' ? 'bg-emerald-100 text-emerald-700' :
-                    prof.diagnostico.status === 'regular' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
-                  }`}>
-                    {prof.diagnostico.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
       </div>
     );
   };
@@ -971,6 +936,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
       { label: 'Por Especialidade', icon: <Users size={16} /> },
       { label: 'Ranking', icon: <ArrowUpRight size={16} /> },
       { label: 'Pacientes VIP', icon: <Check size={16} /> },
+      { label: 'Performance', icon: <TrendingUp size={16} /> },
     ];
 
     return (
@@ -996,6 +962,45 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
         {rankingSubTab === 0 && <DashboardEspecialidades />}
         {rankingSubTab === 1 && <RankingProfissionais />}
         {rankingSubTab === 2 && <ListaPacientesVIP />}
+        {rankingSubTab === 3 && (
+          <div>
+            <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
+              <Users size={22} /> Performance por Profissional
+            </h3>
+            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <div className="min-w-[800px] grid grid-cols-7 gap-3 p-4 bg-gray-50 text-sm font-bold text-gray-600 border-b">
+                  <span>Profissional</span>
+                  <span>Receita</span>
+                  <span>Atend.</span>
+                  <span>Ticket Médio</span>
+                  <span>Mix Particular</span>
+                  <span>Comissão</span>
+                  <span>Status</span>
+                </div>
+                {drillDown.profissionais.map((prof) => (
+                  <div key={prof.id} className="min-w-[800px] grid grid-cols-7 gap-3 p-4 border-b last:border-b-0 items-center">
+                    <div>
+                      <p className="font-semibold text-gray-800">{prof.nome}</p>
+                      <p className="text-xs text-gray-500">{prof.especialidade}</p>
+                    </div>
+                    <span className="text-gray-700">{formatCurrency(prof.resumo.receita)}</span>
+                    <span className="text-gray-700">{prof.resumo.atendimentos}</span>
+                    <span className="text-gray-700">{formatCurrency(prof.resumo.ticketMedio)}</span>
+                    <span className="text-gray-700">{prof.mix.particular.toFixed(0)}%</span>
+                    <span className="text-gray-700">{formatCurrency(prof.comissao?.total || 0)}</span>
+                    <span className={`inline-block w-fit px-2 py-0.5 rounded-full text-xs font-bold uppercase ${
+                      prof.diagnostico.status === 'top' ? 'bg-emerald-100 text-emerald-700' :
+                      prof.diagnostico.status === 'regular' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                    }`}>
+                      {prof.diagnostico.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };

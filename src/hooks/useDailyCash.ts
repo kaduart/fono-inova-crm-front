@@ -36,6 +36,7 @@ interface DailyCashData {
         particular: number;
         convenio: number;
         pacote: number;
+        liminar: number;
     };
     lista: Payment[];
 }
@@ -45,7 +46,7 @@ export const useDailyCash = () => {
         total: 0,
         count: 0,
         porMetodo: { pix: 0, cartao: 0, dinheiro: 0, convenio: 0, outros: 0 },
-        porTipo: { particular: 0, convenio: 0, pacote: 0 },
+        porTipo: { particular: 0, convenio: 0, pacote: 0, liminar: 0 }
         lista: []
     });
     const [loading, setLoading] = useState(false);
@@ -60,7 +61,7 @@ export const useDailyCash = () => {
             total: 0,
             count: 0,
             porMetodo: { pix: 0, cartao: 0, dinheiro: 0, convenio: 0, outros: 0 },
-            porTipo: { particular: 0, convenio: 0, pacote: 0 },
+            porTipo: { particular: 0, convenio: 0, pacote: 0, liminar: 0 }
             lista: []
         });
         
@@ -94,7 +95,8 @@ export const useDailyCash = () => {
             const porTipo = {
                 particular: 0,
                 convenio: 0,
-                pacote: 0
+                pacote: 0,
+                liminar: 0
             };
 
             payments.forEach((p) => {
@@ -119,6 +121,8 @@ export const useDailyCash = () => {
                 // Por tipo
                 if (billingType === 'convenio' || method.includes('convenio')) {
                     porTipo.convenio += amount;
+                } else if (billingType === 'liminar' || method.includes('liminar')) {
+                    porTipo.liminar += amount;
                 } else if (billingType === 'pacote' || billingType === 'package') {
                     porTipo.pacote += amount;
                 } else {
@@ -154,7 +158,7 @@ export const useDailyCash = () => {
             total: 0,
             count: 0,
             porMetodo: { pix: 0, cartao: 0, dinheiro: 0, convenio: 0, outros: 0 },
-            porTipo: { particular: 0, convenio: 0, pacote: 0 },
+            porTipo: { particular: 0, convenio: 0, pacote: 0, liminar: 0 }
             lista: []
         });
     }, []);

@@ -74,6 +74,7 @@ export interface CashflowV2Data {
         particular: number;
         pacote: number;
         convenio: number;
+        liminar: number;
     };
     porEspecialidade: Record<string, number>;
     despesas: {
@@ -97,6 +98,7 @@ export interface CashflowV2Data {
             particular: number;
             pacote: number;
             convenio: number;
+            liminar: number;
         };
         porEspecialidade: Array<{
             nome: string;
