@@ -873,10 +873,12 @@ export default function AdminDashboard() {
         });
     }, []);  // ✅ Removido fetchAppointments das dependências
 
+    const safeDoctorsOverview = Array.isArray(doctorsOverview) ? doctorsOverview : [];
+
     // 🎯 Props memoizadas para evitar re-renders desnecessários
     const dashboardProps = useMemo(() => ({
         stats,
-        doctors: doctorsOverview,
+        doctors: safeDoctorsOverview,
         upcomingAppointments: upcomingAppts,
         patients,
         loading: dashboardLoading,
@@ -890,12 +892,12 @@ export default function AdminDashboard() {
         setPaymentContext,
         setPaymentModalOpen,
         onDeletePatient: handleDeletePatient,
-    }), [stats, doctorsOverview, upcomingAppts, patients, dashboardLoading, refreshDashboard,
+    }), [stats, safeDoctorsOverview, upcomingAppts, patients, dashboardLoading, refreshDashboard,
         handleAddProfessional, handleAddPatient, handleDeletePatient]);
 
     const manageDoctorsProps = useMemo(() => ({
         onSubmitDoctor: handleSaveDoctor,
-        doctors: doctorsOverview,
+        doctors: safeDoctorsOverview,
         patients,
         openModal,
         appointments,
@@ -904,15 +906,15 @@ export default function AdminDashboard() {
         modalShouldClose,
         closeModalSignal,
         onDoctorsChange: refreshDashboard, // 🆕 Atualiza lista após inativação/reativação
-    }), [handleSaveDoctor, doctorsOverview, patients, openModal, appointments, handleNewAppointment, 
+    }), [handleSaveDoctor, safeDoctorsOverview, patients, openModal, appointments, handleNewAppointment, 
         modalShouldClose, closeModalSignal, refreshDashboard]);
 
     const calendarProps = useMemo(() => ({
         // 🐛 FIX: Mapear doctorsOverview para ter fullName em vez de name
-        doctors: (doctorsOverview?.map(d => ({ 
+        doctors: (safeDoctorsOverview.map(d => ({ 
             ...d, 
             fullName: d.name || d.fullName 
-        })) || []) as any,
+        }))) as any,
         patients,
         appointments,
         onDateClick: () => { },
@@ -925,28 +927,28 @@ export default function AdminDashboard() {
         openModalAppointment,
         closeModalSignal,
         loading: appointmentsLoading,
-    }), [doctorsOverview, patients, appointments, handleNewAppointment, handleCancelAppointment,
+    }), [safeDoctorsOverview, patients, appointments, handleNewAppointment, handleCancelAppointment,
         handleCompleteAppointment, handleEditAppointment, handleFetchAvailableSlots,
         handleMonthChange, openModalAppointment, closeModalSignal, appointmentsLoading]);
 
     const financialProps = useMemo(() => ({
         patients,
-        doctors: doctorsOverview,
+        doctors: safeDoctorsOverview,
         initialPayments: allPayments,
         onMarkAsPaid: handleMarkAsPaid,
         registerAppointmentAndPayemntFuture: handleRegisterAppointmentAndPayemntFuture,
         onCancelPayment: handleCancelPayment,
-    }), [patients, doctorsOverview, allPayments, handleMarkAsPaid, handleRegisterAppointmentAndPayemntFuture, 
+    }), [patients, safeDoctorsOverview, allPayments, handleMarkAsPaid, handleRegisterAppointmentAndPayemntFuture, 
         handleCancelPayment]);
 
     const analyticsProps = useMemo(() => ({
         patients,
-        doctors: doctorsOverview,
+        doctors: safeDoctorsOverview,
         payments: allPayments,
         onMarkAsPaid: handleMarkAsPaid,
         registerAppointmentAndPayemntFuture: handleRegisterAppointmentAndPayemntFuture,
         onCancelPayment: handleCancelPayment,
-    }), [patients, doctorsOverview, allPayments, handleMarkAsPaid, handleRegisterAppointmentAndPayemntFuture, 
+    }), [patients, safeDoctorsOverview, allPayments, handleMarkAsPaid, handleRegisterAppointmentAndPayemntFuture, 
         handleCancelPayment]);
 
     const renderContent = () => {
@@ -1136,7 +1138,7 @@ export default function AdminDashboard() {
                     <PaymentModal
                         open={paymentModalOpen}
                         patient={paymentContext.patient}
-                        doctors={doctorsOverview}
+                        doctors={safeDoctorsOverview}
                         payment={paymentContext.payment}
                         onClose={() => {
                             setPaymentModalOpen(false);
@@ -1156,7 +1158,7 @@ export default function AdminDashboard() {
                     <AdvancedPaymentModal
                         open={showAdvancedPayment}
                         patients={patients}
-                        doctors={doctorsOverview}
+                        doctors={safeDoctorsOverview}
                         onClose={() => setShowAdvancedPayment(false)}
                         onPaymentAdvancedSuccess={handleAdvancedPayment}
                     />

@@ -60,151 +60,315 @@ const DashboardV3Tab = lazyWithRetry(() => import('./tabs/DashboardV3Tab'));
 
 // ── Skeletons por aba ─────────────────────────────────────────────────────────
 
-const KpiCard = ({ color }: { color: string }) => (
-    <Box sx={{ p: 2, border: `1px solid ${color}30`, borderRadius: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-            <Skeleton variant="circular" width={36} height={36} />
-            <Skeleton variant="text" width="55%" />
-        </Box>
-        <Skeleton variant="text" width="65%" height={32} />
-        <Skeleton variant="text" width="40%" />
-    </Box>
-);
-
-const SkeletonTable = ({ cols = 6, rows = 5 }: { cols?: number; rows?: number }) => (
-    <Box sx={{ border: '1px solid #E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
-        <Box sx={{ display: 'flex', gap: 2, p: 1.5, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
-            {Array.from({ length: cols }).map((_, i) => (
-                <Skeleton key={i} variant="text" width={70} />
-            ))}
-        </Box>
-        {Array.from({ length: rows }).map((_, i) => (
-            <Box key={i} sx={{ display: 'flex', gap: 2, p: 1.5, alignItems: 'center', borderBottom: i < rows - 1 ? '1px solid #F3F4F6' : 'none' }}>
-                <Skeleton variant="circular" width={30} height={30} />
-                {Array.from({ length: cols - 1 }).map((_, j) => (
-                    <Skeleton key={j} variant="text" width={j === 0 ? 110 : 75} sx={{ flex: j === 0 ? 1 : undefined }} />
-                ))}
-            </Box>
-        ))}
-    </Box>
-);
-
 const CaixaFluxoSkeleton = () => (
-    <Box sx={{ p: 2, space: 3 }}>
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-            {['#16A34A', '#1D4ED8', '#D97706', '#DC2626'].map((color, i) => (
-                <Grid item xs={12} sm={6} md={3} key={i}><KpiCard color={color} /></Grid>
+    <div className="p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            {[{ color: '#10B981' }, { color: '#3B82F6' }, { color: '#F59E0B' }, { color: '#10B981' }].map((c, i) => (
+                <div key={i} className="border rounded-xl p-4" style={{ borderColor: `${c.color}20`, backgroundColor: `${c.color}08` }}>
+                    <div className="flex items-center gap-4">
+                        <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `${c.color}20` }} />
+                        <div className="flex-1">
+                            <Skeleton variant="text" width="55%" height={20} />
+                            <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `${c.color}15` }} />
+                            <Skeleton variant="text" width="40%" height={16} />
+                        </div>
+                    </div>
+                </div>
             ))}
-        </Grid>
-        <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-            {[1, 2, 3, 4, 5, 6].map(i => (
-                <Skeleton key={i} variant="rounded" width={100} height={36} />
+        </div>
+        <div className="border border-gray-200 rounded-lg p-4 mb-4">
+            <div className="flex gap-2">
+                {[100, 100, 100, 100, 100, 100].map((w, i) => <Skeleton key={i} variant="rounded" width={w} height={36} />)}
+            </div>
+        </div>
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-gray-50 p-2">
+                <div className="flex gap-2">
+                    {[24, 70, 140, 80, 90, 70, 75].map((w, i) => <Skeleton key={i} variant="text" width={w} />)}
+                </div>
+            </div>
+            {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center p-2 border-t">
+                    <Skeleton variant="circular" width={24} height={24} />
+                    <Skeleton variant="text" width={140} className="ml-2" />
+                    <Skeleton variant="text" width={90} className="ml-2" />
+                    <Skeleton variant="text" width={90} className="ml-2" />
+                    <Skeleton variant="text" width={70} className="ml-2" />
+                    <Skeleton variant="text" width={80} className="ml-2" />
+                    <Skeleton variant="rounded" width={75} height={24} className="ml-auto" sx={{ bgcolor: '#10B98115' }} />
+                    <Skeleton variant="text" width={70} className="ml-2" />
+                </div>
             ))}
-        </Box>
-        <SkeletonTable cols={7} rows={6} />
-    </Box>
+        </div>
+    </div>
 );
 
 const PaymentsSkeleton = () => (
-    <Box sx={{ p: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <Skeleton variant="text" width={200} height={32} />
-            <Box sx={{ display: 'flex', gap: 1 }}>
-                <Skeleton variant="rounded" width={120} height={36} />
-                <Skeleton variant="rounded" width={100} height={36} />
-            </Box>
-        </Box>
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-            {['#10B981', '#3B82F6'].map((color, i) => (
-                <Grid item xs={12} sm={6} key={i}><KpiCard color={color} /></Grid>
+    <div className="p-4">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
+            <div className="flex items-center gap-3">
+                <Skeleton variant="circular" width={48} height={48} sx={{ bgcolor: '#EF444420' }} />
+                <div>
+                    <Skeleton variant="text" width={160} height={30} />
+                    <Skeleton variant="text" width={220} height={20} />
+                </div>
+            </div>
+            <Skeleton variant="rounded" width={145} height={36} />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+            {[{ color: '#10B981' }, { color: '#F59E0B' }].map((c, i) => (
+                <div key={i} className="border rounded-xl p-4" style={{ borderColor: `${c.color}20`, backgroundColor: `${c.color}08` }}>
+                    <div className="flex items-center gap-4">
+                        <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `${c.color}20` }} />
+                        <div className="flex-1">
+                            <Skeleton variant="text" width="55%" height={20} />
+                            <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `${c.color}15` }} />
+                            <Skeleton variant="text" width="40%" height={16} />
+                        </div>
+                    </div>
+                </div>
             ))}
-        </Grid>
-        <SkeletonTable cols={7} rows={5} />
-    </Box>
+        </div>
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-gray-50 p-2">
+                <div className="flex gap-2">
+                    {[24, 70, 140, 80, 90, 70, 75].map((w, i) => <Skeleton key={i} variant="text" width={w} />)}
+                </div>
+            </div>
+            {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center p-2 border-t">
+                    <Skeleton variant="circular" width={24} height={24} />
+                    <Skeleton variant="text" width={140} className="ml-2" />
+                    <Skeleton variant="text" width={90} className="ml-2" />
+                    <Skeleton variant="text" width={80} className="ml-2" />
+                    <Skeleton variant="rounded" width={70} height={22} className="ml-2" sx={{ bgcolor: '#10B98115' }} />
+                    <Skeleton variant="text" width={70} className="ml-auto" />
+                    <Skeleton variant="rounded" width={80} height={24} className="ml-2" sx={{ bgcolor: '#10B98115' }} />
+                    <div className="flex gap-1 ml-2">
+                        <Skeleton variant="circular" width={28} height={28} />
+                        <Skeleton variant="circular" width={28} height={28} />
+                    </div>
+                </div>
+            ))}
+        </div>
+    </div>
 );
 
 const InsuranceSkeleton = () => (
-    <Box sx={{ p: 2 }}>
-        <Grid container spacing={2.5} sx={{ mb: 3 }}>
-            {['#F59E0B', '#3B82F6', '#10B981'].map((color, i) => (
-                <Grid item xs={12} md={4} key={i}><KpiCard color={color} /></Grid>
+    <div className="p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+            {[{ color: '#F59E0B' }, { color: '#3B82F6' }, { color: '#10B981' }].map((c, i) => (
+                <div key={i} className="border rounded-xl p-4" style={{ borderColor: `${c.color}20`, backgroundColor: `${c.color}08` }}>
+                    <div className="flex items-center gap-4">
+                        <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `${c.color}20` }} />
+                        <div className="flex-1">
+                            <Skeleton variant="text" width="55%" height={20} />
+                            <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `${c.color}15` }} />
+                            <Skeleton variant="text" width="40%" height={16} />
+                        </div>
+                    </div>
+                </div>
             ))}
-        </Grid>
-        <Box sx={{ border: '1px solid #E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
-            <Box sx={{ display: 'flex', gap: 1, p: 1, bgcolor: '#FAFAFF', borderBottom: '1px solid #E5E7EB' }}>
-                {[1, 2, 3].map(i => <Skeleton key={i} variant="rounded" width={130} height={36} />)}
-            </Box>
-            <Box sx={{ p: 2 }}>
-                {[1, 2, 3].map(i => (
-                    <Box key={i} sx={{ p: 2, mb: 1.5, border: '1px solid #E5E7EB', borderRadius: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                            <Skeleton variant="circular" width={40} height={40} />
-                            <Box>
-                                <Skeleton variant="text" width={130} />
-                                <Skeleton variant="text" width={90} />
-                            </Box>
-                        </Box>
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Skeleton variant="rounded" width={80} height={30} />
-                            <Skeleton variant="rounded" width={80} height={30} />
-                        </Box>
-                    </Box>
+        </div>
+        <div className="border border-gray-200 rounded-lg p-4 mb-4">
+            <div className="flex gap-2">
+                {[130, 130, 130].map((w, i) => <Skeleton key={i} variant="rounded" width={w} height={36} />)}
+            </div>
+        </div>
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-gray-50 p-2 border-b border-gray-200">
+                <div className="flex gap-2">
+                    {[130, 130, 130].map((w, i) => <Skeleton key={i} variant="rounded" width={w} height={36} />)}
+                </div>
+            </div>
+            <div className="p-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="mb-2 border border-gray-200 rounded-lg overflow-hidden">
+                        <div className="flex items-center justify-between p-2 bg-gray-50">
+                            <div className="flex items-center gap-2">
+                                <Skeleton variant="circular" width={32} height={32} sx={{ bgcolor: '#3B82F615' }} />
+                                <div>
+                                    <Skeleton variant="text" width={150} height={20} />
+                                    <Skeleton variant="text" width={100} height={16} />
+                                </div>
+                            </div>
+                            <div className="flex gap-1">
+                                <Skeleton variant="rounded" width={90} height={30} sx={{ bgcolor: '#F59E0B15' }} />
+                                <Skeleton variant="rounded" width={90} height={30} sx={{ bgcolor: '#3B82F615' }} />
+                            </div>
+                        </div>
+                    </div>
                 ))}
-            </Box>
-        </Box>
-    </Box>
+            </div>
+        </div>
+    </div>
 );
 
 const ExpensesSkeleton = () => (
-    <Box sx={{ p: 2 }}>
-        <Grid container spacing={2.5} sx={{ mb: 3 }}>
-            {['#10B981', '#F59E0B', '#6366F1'].map((color, i) => (
-                <Grid item xs={12} md={4} key={i}><KpiCard color={color} /></Grid>
+    <div className="p-4">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
+            <div className="flex items-center gap-3">
+                <Skeleton variant="circular" width={48} height={48} sx={{ bgcolor: '#EF444420' }} />
+                <div>
+                    <Skeleton variant="text" width={160} height={30} />
+                    <Skeleton variant="text" width={220} height={20} />
+                </div>
+            </div>
+            <Skeleton variant="rounded" width={145} height={36} />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+            {[{ color: '#10B981' }, { color: '#F59E0B' }, { color: '#6366F1' }].map((c, i) => (
+                <div key={i} className="border rounded-xl p-4" style={{ borderColor: `${c.color}20`, backgroundColor: `${c.color}08` }}>
+                    <div className="flex items-center gap-4">
+                        <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `${c.color}20` }} />
+                        <div className="flex-1">
+                            <Skeleton variant="text" width="55%" height={20} />
+                            <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `${c.color}15` }} />
+                            <Skeleton variant="text" width="40%" height={16} />
+                        </div>
+                    </div>
+                </div>
             ))}
-        </Grid>
-        <Box sx={{ p: 2, mb: 2, border: '1px solid #E5E7EB', borderRadius: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            {[1, 2, 3, 4].map(i => <Skeleton key={i} variant="rounded" width={120} height={40} />)}
-        </Box>
-        <SkeletonTable cols={8} rows={5} />
-    </Box>
+        </div>
+        <div className="border border-gray-200 rounded-lg p-4 mb-4">
+            <div className="flex flex-wrap gap-2">
+                {[120, 120, 120, 120].map((w, i) => <Skeleton key={i} variant="rounded" width={w} height={40} />)}
+                <Skeleton variant="rounded" width={110} height={40} className="ml-auto" />
+            </div>
+        </div>
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-gray-50 p-2">
+                <div className="flex gap-2">
+                    {[24, 70, 140, 80, 90, 70, 75, 80].map((w, i) => <Skeleton key={i} variant="text" width={w} />)}
+                </div>
+            </div>
+            {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center p-2 border-t">
+                    <Skeleton variant="circular" width={24} height={24} />
+                    <Skeleton variant="rounded" width={70} height={22} className="ml-2" sx={{ bgcolor: '#10B98115' }} />
+                    <Skeleton variant="text" width={140} className="ml-2" />
+                    <Skeleton variant="rounded" width={80} height={24} className="ml-2" sx={{ bgcolor: '#6366F115' }} />
+                    <Skeleton variant="text" width={90} className="ml-2" />
+                    <Skeleton variant="text" width={70} className="ml-auto" />
+                    <Skeleton variant="rounded" width={75} height={24} className="ml-2" />
+                    <Skeleton variant="rounded" width={80} height={24} className="ml-2" sx={{ bgcolor: '#10B98115' }} />
+                    <div className="flex gap-1 ml-2">
+                        <Skeleton variant="circular" width={28} height={28} />
+                        <Skeleton variant="circular" width={28} height={28} />
+                    </div>
+                </div>
+            ))}
+        </div>
+    </div>
 );
 
 const DashboardV3Skeleton = () => (
-    <Box sx={{ p: 2 }}>
-        <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
-            {[1, 2, 3, 4].map(i => <Skeleton key={i} variant="rounded" width={100} height={36} />)}
-        </Box>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            {['#10B981', '#3B82F6', '#F59E0B'].map((color, i) => (
-                <Box key={i} sx={{ p: 2.5, border: `1px solid ${color}30`, borderRadius: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-                        <Skeleton variant="circular" width={36} height={36} />
-                        <Skeleton variant="text" width="55%" />
-                    </Box>
-                    <Skeleton variant="text" width="70%" height={36} />
-                    <Skeleton variant="text" width="45%" />
-                </Box>
+    <div className="p-4 space-y-5">
+        <div className="flex gap-2 pb-2 border-b border-gray-200">
+            {[{ w: 80 }, { w: 80 }, { w: 96 }, { w: 64 }].map((t, i) => (
+                <Skeleton key={i} variant="rounded" width={t.w} height={36} />
+            ))}
+        </div>
+        <div className="p-5 rounded-2xl border" style={{ borderColor: '#10B98120', backgroundColor: '#10B98108' }}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                    <Skeleton variant="text" width={130} height={20} sx={{ bgcolor: '#10B98115' }} />
+                    <Skeleton variant="text" width={110} height={40} sx={{ bgcolor: '#10B98115' }} />
+                    <Skeleton variant="text" width={160} height={16} sx={{ bgcolor: '#10B98115' }} />
+                </div>
+                <div className="space-y-3">
+                    <Skeleton variant="text" width={120} height={16} sx={{ bgcolor: '#10B98115' }} />
+                    <Skeleton variant="rounded" width="100%" height={12} sx={{ bgcolor: '#10B98115' }} />
+                    <Skeleton variant="text" width={100} height={16} sx={{ bgcolor: '#10B98115' }} />
+                </div>
+                <div className="space-y-2">
+                    <Skeleton variant="text" width={100} height={20} sx={{ bgcolor: '#10B98115' }} />
+                    <Skeleton variant="text" width={80} height={32} sx={{ bgcolor: '#10B98115' }} />
+                </div>
+            </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[{ color: '#10B981' }, { color: '#3B82F6' }, { color: '#F59E0B' }].map((c, i) => (
+                <div key={i} className="border rounded-xl p-4" style={{ borderColor: `${c.color}20`, backgroundColor: `${c.color}08` }}>
+                    <div className="flex items-center gap-3 mb-2">
+                        <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `${c.color}20` }} />
+                        <Skeleton variant="text" width="55%" height={20} />
+                    </div>
+                    <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `${c.color}15` }} />
+                    <Skeleton variant="text" width="45%" height={16} />
+                </div>
             ))}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Skeleton variant="rounded" height={200} />
-            <Skeleton variant="rounded" height={200} />
+            <div className="border border-gray-200 rounded-lg p-4">
+                <Skeleton variant="text" width="60%" height={24} className="mb-4" />
+                <Skeleton variant="rounded" width="100%" height={160} />
+            </div>
+            <div className="border border-gray-200 rounded-lg p-4">
+                <Skeleton variant="text" width="60%" height={24} className="mb-4" />
+                <Skeleton variant="rounded" width="100%" height={160} />
+            </div>
         </div>
-    </Box>
+    </div>
 );
 
 const PlanningSkeleton = () => (
-    <Box sx={{ p: 2 }}>
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-            {['#16A34A', '#3B82F6', '#6366F1', '#F59E0B', '#10B981'].map((color, i) => (
-                <Grid item xs={12} sm={6} md={3} key={i}><KpiCard color={color} /></Grid>
+    <div className="p-4">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
+            <div className="flex items-center gap-3">
+                <Skeleton variant="circular" width={44} height={44} sx={{ bgcolor: '#8B5CF620' }} />
+                <div>
+                    <Skeleton variant="text" width={180} height={28} />
+                    <Skeleton variant="text" width={260} height={20} />
+                </div>
+            </div>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+                <Skeleton variant="circular" width={32} height={32} />
+                <Skeleton variant="rounded" width={110} height={36} />
+            </Box>
+        </div>
+        <div className="border border-gray-200 rounded-lg p-4 mb-4">
+            <div className="flex gap-2">
+                {[120, 120, 120].map((w, i) => <Skeleton key={i} variant="rounded" width={w} height={40} />)}
+            </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+            {[{ color: '#8B5CF6' }, { color: '#10B981' }, { color: '#059669' }, { color: '#F59E0B' }, { color: '#3B82F6' }].map((c, i) => (
+                <div key={i} className="border rounded-xl p-4" style={{ borderColor: `${c.color}20`, backgroundColor: `${c.color}08` }}>
+                    <div className="flex items-center gap-4">
+                        <Skeleton variant="circular" width={36} height={36} sx={{ bgcolor: `${c.color}20` }} />
+                        <div className="flex-1">
+                            <Skeleton variant="text" width="55%" height={20} />
+                            <Skeleton variant="text" width="70%" height={30} sx={{ bgcolor: `${c.color}15` }} />
+                            <Skeleton variant="text" width="40%" height={16} />
+                        </div>
+                    </div>
+                </div>
             ))}
-        </Grid>
-        <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-            {[1, 2, 3].map(i => <Skeleton key={i} variant="rounded" width={130} height={36} />)}
-        </Box>
-        <SkeletonTable cols={6} rows={6} />
-    </Box>
+        </div>
+        <div className="border border-gray-200 rounded-lg p-4 mb-4">
+            <div className="flex gap-2">
+                {[130, 130, 130].map((w, i) => <Skeleton key={i} variant="rounded" width={w} height={36} />)}
+            </div>
+        </div>
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-gray-50 p-2">
+                <div className="flex gap-2">
+                    {[24, 70, 140, 80, 90, 70].map((w, i) => <Skeleton key={i} variant="text" width={w} />)}
+                </div>
+            </div>
+            {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center p-2 border-t">
+                    <Skeleton variant="circular" width={24} height={24} />
+                    <Skeleton variant="text" width={140} className="ml-2" />
+                    <Skeleton variant="text" width={90} className="ml-2" />
+                    <Skeleton variant="text" width={80} className="ml-2" />
+                    <Skeleton variant="rounded" width={70} height={22} className="ml-2" sx={{ bgcolor: '#10B98115' }} />
+                    <Skeleton variant="text" width={70} className="ml-auto" />
+                </div>
+            ))}
+        </div>
+    </div>
 );
 
 // ─────────────────────────────────────────────────────────────────────────────

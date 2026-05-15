@@ -33,6 +33,7 @@ export const DashboardTab = ({
     // 🎯 Só carrega quando o componente monta (ou seja, quando a aba é ativada)
     const {
         stats,
+        charts,
         doctors: doctorsOverview,
         upcomingAppointments: upcomingAppts,
         loading: dashboardLoading,
@@ -42,9 +43,12 @@ export const DashboardTab = ({
     // 🎯 USA API
     const { patients, loading: patientsLoading } = usePatients();
 
-    // 🔄 Refresh quando montar
+    // 🔄 Refresh quando montar — com delay para evitar race condition com hook interno
     useEffect(() => {
-        refreshDashboard();
+        const timer = setTimeout(() => {
+            refreshDashboard();
+        }, 100);
+        return () => clearTimeout(timer);
     }, [refreshDashboard]);
 
     if (dashboardLoading && !stats) {
@@ -85,6 +89,7 @@ export const DashboardTab = ({
 
             <DashboardContentOptimized
                 stats={stats}
+                charts={charts}
                 doctors={doctorsOverview}
                 upcomingAppointments={upcomingAppts}
                 patients={patients}
@@ -103,16 +108,70 @@ export const DashboardTab = ({
     );
 };
 
-// Skeleton de loading
+// Skeleton de loading — padrão ExpensesTab
 const DashboardSkeleton = () => (
-    <div className="space-y-6">
-        <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 3 }} />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map(i => (
-                <Skeleton key={i} variant="rectangular" height={100} sx={{ borderRadius: 2 }} />
-            ))}
+    <div className="p-4 space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-6">
+            <Skeleton variant="circular" width={48} height={48} sx={{ bgcolor: '#10B98120' }} />
+            <div>
+                <Skeleton variant="text" width={220} height={32} />
+                <Skeleton variant="text" width={320} height={20} />
+            </div>
         </div>
-        <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 2 }} />
+        {/* Métricas */}
+        <div className="space-y-4">
+            <Skeleton variant="text" width={80} height={16} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {[{ c: '#10B981' }, { c: '#3B82F6' }, { c: '#F59E0B' }, { c: '#EF4444' }].map((item, i) => (
+                    <div key={i} className="border rounded-xl p-4" style={{ borderColor: `${item.c}20`, backgroundColor: `${item.c}08` }}>
+                        <div className="flex items-center gap-4">
+                            <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `${item.c}20` }} />
+                            <div className="flex-1">
+                                <Skeleton variant="text" width="55%" height={20} />
+                                <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `${item.c}15` }} />
+                                <Skeleton variant="text" width="40%" height={16} />
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+            <Skeleton variant="text" width={80} height={16} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {[{ c: '#8B5CF6' }, { c: '#06B6D4' }, { c: '#EC4899' }, { c: '#6366F1' }].map((item, i) => (
+                    <div key={i} className="border rounded-xl p-4" style={{ borderColor: `${item.c}20`, backgroundColor: `${item.c}08` }}>
+                        <div className="flex items-center gap-4">
+                            <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `${item.c}20` }} />
+                            <div className="flex-1">
+                                <Skeleton variant="text" width="55%" height={20} />
+                                <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `${item.c}15` }} />
+                                <Skeleton variant="text" width="40%" height={16} />
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+        {/* Accordion placeholder */}
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-gray-50 p-4">
+                <Skeleton variant="text" width={180} height={20} />
+            </div>
+            <div className="p-4 space-y-3">
+                {[1, 2, 3].map(i => (
+                    <div key={i} className="flex items-center justify-between p-3">
+                        <div className="flex items-center gap-3">
+                            <Skeleton variant="circular" width={40} height={40} />
+                            <div>
+                                <Skeleton variant="text" width={140} height={16} />
+                                <Skeleton variant="text" width={100} height={14} />
+                            </div>
+                        </div>
+                        <Skeleton variant="text" width={80} height={16} />
+                    </div>
+                ))}
+            </div>
+        </div>
     </div>
 );
 

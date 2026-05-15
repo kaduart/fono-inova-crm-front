@@ -247,11 +247,15 @@ const BirthdayCard = ({ patients = [] }) => {
                         {patientsToShow.map((patient, index) => {
                             const dob = new Date(patient.dateOfBirth);
                             const isToday = dob.getDate() === today.getDate() && dob.getMonth() === today.getMonth();
+                            const isPast = !isToday && dob.getDate() < today.getDate();
                             const age = getAge(patient.dateOfBirth);
 
                             return (
                                 <Box key={patient._id} sx={{
-                                    position: 'relative'
+                                    position: 'relative',
+                                    opacity: isPast ? 0.5 : 1,
+                                    transition: 'opacity 0.2s ease',
+                                    '&:hover': isPast ? { opacity: 0.75 } : {}
                                 }}>
                                     <Card
                                         sx={{
@@ -260,11 +264,13 @@ const BirthdayCard = ({ patients = [] }) => {
                                             padding: '16px',
                                             background: isToday
                                                 ? 'linear-gradient(135deg, rgba(255,249,219,0.6), rgba(255,243,176,0.4))'
-                                                : '#fff',
+                                                : isPast
+                                                    ? '#f7f8fa'
+                                                    : '#fff',
                                             boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
-                                            border: '1px solid rgba(0,0,0,0.03)',
+                                            border: isPast ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(0,0,0,0.03)',
                                             transition: 'all 0.2s ease',
-                                            '&:hover': {
+                                            '&:hover': isPast ? {} : {
                                                 transform: 'translateY(-3px)',
                                                 boxShadow: '0 8px 20px rgba(0,0,0,0.08)',
                                                 borderColor: 'rgba(0,0,0,0.05)'
@@ -273,17 +279,35 @@ const BirthdayCard = ({ patients = [] }) => {
                                             display: 'flex',
                                             flexDirection: 'column',
                                             overflow: 'visible',
-                                            height: '100%'
+                                            height: '100%',
+                                            filter: isPast ? 'grayscale(40%)' : 'none',
                                         }}
                                     >
                                         {isToday && <TodayBadge>HOJE</TodayBadge>}
+                                        {isPast && (
+                                            <Box sx={{
+                                                position: 'absolute',
+                                                top: 0,
+                                                right: 0,
+                                                background: '#e2e8f0',
+                                                color: '#718096',
+                                                borderRadius: '0 14px 0 10px',
+                                                fontSize: '0.62rem',
+                                                fontWeight: 700,
+                                                padding: '4px 8px',
+                                                zIndex: 2,
+                                                letterSpacing: '0.04em'
+                                            }}>
+                                                PASSOU
+                                            </Box>
+                                        )}
 
 
                                         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                                             <Avatar sx={{
                                                 width: 56,
                                                 height: 56,
-                                                bgcolor: isToday ? '#FFD54F' : '#CBD5E0',
+                                                bgcolor: isToday ? '#FFD54F' : isPast ? '#E2E8F0' : '#CBD5E0',
                                                 color: isToday ? '#7B4F00' : '#4A5568',
                                                 fontWeight: 600,
                                                 fontSize: '1.4rem',

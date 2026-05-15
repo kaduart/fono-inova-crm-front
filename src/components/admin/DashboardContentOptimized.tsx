@@ -8,8 +8,9 @@
  * - Lazy loading de componentes pesados
  */
 
-import { Activity, ChevronDown, ChevronUp, Clock, Stethoscope, UserPlus, Users, RefreshCw } from 'lucide-react';
+import { Activity, ChevronDown, ChevronUp, Clock, DollarSign, Stethoscope, UserPlus, Users, RefreshCw } from 'lucide-react';
 import React, { memo, useMemo, useState, useEffect, useCallback, useRef } from 'react';
+import { Skeleton as MuiSkeleton } from '@mui/material';
 import { mapPatientListResponseDTO } from '../../dtos/patient.response.dto';
 import API from '../../services/api';
 import {
@@ -29,6 +30,7 @@ import PatientTable from '../patients/PatientTable';
 interface DashboardContentOptimizedProps {
     // Dados do dashboard (vindos do useDashboard)
     stats: DashboardStats | null;
+    charts: import('../../services/dashboardService').DashboardCharts | null;
     doctors: DoctorOverview[];
     upcomingAppointments: UpcomingAppointment[];
     patients: any[];
@@ -64,6 +66,74 @@ const MetricCardSkeleton = memo(() => (
 ));
 
 MetricCardSkeleton.displayName = 'MetricCardSkeleton';
+
+// Skeleton que espelha o layout do BirthdayCard (3 colunas × 2 linhas)
+const BirthdayCardSkeleton = memo(() => (
+    <div className="flex flex-wrap gap-4 p-4">
+        {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex-1 min-w-[260px] max-w-[calc(33.333%-11px)] border border-gray-100 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                    <MuiSkeleton variant="circular" width={56} height={56} sx={{ bgcolor: '#CBD5E020', flexShrink: 0 }} />
+                    <div className="flex-1 space-y-1.5">
+                        <MuiSkeleton variant="text" width="70%" height={22} />
+                        <div className="flex items-center gap-2">
+                            <MuiSkeleton variant="text" width="45%" height={18} />
+                            <MuiSkeleton variant="rounded" width={52} height={20} sx={{ borderRadius: 99 }} />
+                        </div>
+                    </div>
+                </div>
+                <MuiSkeleton variant="rounded" width="100%" height={44} sx={{ borderRadius: 12, bgcolor: '#EDF2F720' }} />
+                <div className="flex justify-end gap-2">
+                    <MuiSkeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 10 }} />
+                    <MuiSkeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 10 }} />
+                    <MuiSkeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 10 }} />
+                </div>
+            </div>
+        ))}
+    </div>
+));
+
+BirthdayCardSkeleton.displayName = 'BirthdayCardSkeleton';
+
+// Skeleton que espelha o layout do PatientTable (header + 7 linhas)
+const PatientTableSkeleton = memo(() => (
+    <div className="space-y-3">
+        {/* Barra de busca + filtros */}
+        <div className="flex items-center gap-3 mb-4">
+            <MuiSkeleton variant="rounded" width="100%" height={40} sx={{ borderRadius: 10, maxWidth: 320 }} />
+            <MuiSkeleton variant="rounded" width={100} height={40} sx={{ borderRadius: 10 }} />
+            <MuiSkeleton variant="rounded" width={100} height={40} sx={{ borderRadius: 10 }} />
+        </div>
+        {/* Header */}
+        <div className="grid grid-cols-5 gap-4 px-4 pb-2 border-b border-gray-100">
+            {[120, 80, 90, 80, 60].map((w, i) => (
+                <MuiSkeleton key={i} variant="text" width={w} height={16} />
+            ))}
+        </div>
+        {/* Linhas */}
+        {Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className="grid grid-cols-5 gap-4 items-center px-4 py-2">
+                <div className="flex items-center gap-3">
+                    <MuiSkeleton variant="circular" width={36} height={36} sx={{ flexShrink: 0 }} />
+                    <div className="space-y-1 flex-1">
+                        <MuiSkeleton variant="text" width="70%" height={16} />
+                        <MuiSkeleton variant="text" width="55%" height={13} />
+                    </div>
+                </div>
+                <MuiSkeleton variant="text" width="65%" height={16} />
+                <MuiSkeleton variant="rounded" width={72} height={22} sx={{ borderRadius: 99 }} />
+                <MuiSkeleton variant="text" width="60%" height={16} />
+                <div className="flex gap-2">
+                    <MuiSkeleton variant="rounded" width={30} height={30} sx={{ borderRadius: 8 }} />
+                    <MuiSkeleton variant="rounded" width={30} height={30} sx={{ borderRadius: 8 }} />
+                    <MuiSkeleton variant="rounded" width={30} height={30} sx={{ borderRadius: 8 }} />
+                </div>
+            </div>
+        ))}
+    </div>
+));
+
+PatientTableSkeleton.displayName = 'PatientTableSkeleton';
 
 // Componente de métrica memoizado
 interface MetricCardProps {
@@ -123,6 +193,7 @@ interface AccordionSectionProps {
     children: React.ReactNode;
     headerClassName: string;
     icon?: string;
+    badge?: React.ReactNode;
 }
 
 const AccordionSection = memo<AccordionSectionProps>(({
@@ -131,16 +202,18 @@ const AccordionSection = memo<AccordionSectionProps>(({
     onToggle,
     children,
     headerClassName,
-    icon
+    icon,
+    badge
 }) => (
     <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden">
         <button
             className={`flex justify-between items-center w-full p-4 text-left font-semibold transition-colors ${headerClassName}`}
             onClick={onToggle}
         >
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-2 flex-wrap">
                 {icon && <span>{icon}</span>}
                 {title}
+                {badge}
             </span>
             {isOpen ? <ChevronUp size={22} /> : <ChevronDown size={22} />}
         </button>
@@ -157,6 +230,7 @@ AccordionSection.displayName = 'AccordionSection';
 // Componente principal
 const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     stats,
+    charts,
     doctors,
     upcomingAppointments,
     patients,
@@ -172,6 +246,17 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     setPaymentModalOpen,
     onDeletePatient
 }) => {
+    // Aniversariantes hoje (calculado direto da prop patients, sem lazy fetch)
+    const todayBirthdayCount = useMemo(() => {
+        if (!patients?.length) return 0;
+        const now = new Date();
+        return patients.filter(p => {
+            if (!p.dateOfBirth) return false;
+            const dob = new Date(p.dateOfBirth);
+            return dob.getDate() === now.getDate() && dob.getMonth() === now.getMonth();
+        }).length;
+    }, [patients]);
+
     // Estados dos accordions
     const [birthdaySectionOpen, setBirthdaySectionOpen] = useState(false);
     const [patientsTableOpen, setPatientsTableOpen] = useState(true);
@@ -205,10 +290,8 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     }, [birthdaySectionOpen, fetchAniversariantes]);
 
     // Memoizar cálculos
-    const occupancyRate = useMemo(() => {
-        if (!stats) return '0.00';
-        return ((stats.totalPatients / 150) * 100).toFixed(2);
-    }, [stats]);
+    const formatCurrency = (value: number) =>
+        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
     // Garantir que arrays existam
     const safeDoctors = doctors || [];
@@ -272,9 +355,20 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                     ? 'bg-pink-50 text-pink-800 border-b border-pink-100'
                     : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                 }
+                badge={todayBirthdayCount > 0 ? (
+                    <span className="flex items-center gap-1.5 ml-1">
+                        <span className="relative flex h-2.5 w-2.5 shrink-0">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+                        </span>
+                        <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
+                            {todayBirthdayCount === 1 ? '1 aniversário hoje!' : `${todayBirthdayCount} aniversários hoje!`}
+                        </span>
+                    </span>
+                ) : undefined}
             >
                 {aniversariantesLoading
-                    ? <Skeleton className="h-32 w-full" />
+                    ? <BirthdayCardSkeleton />
                     : <BirthdayCard patients={aniversariantes} />
                 }
             </AccordionSection>
@@ -289,7 +383,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                     : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                 }
             >
-                <PatientTable
+                {loading ? <PatientTableSkeleton /> : <PatientTable
                     patients={safePatients}
                     onEditPatient={(patient) => {
                         setPatientToEdit(patient);
@@ -307,7 +401,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                         setPaymentModalOpen(true);
                     }}
                     onDeletePatient={onDeletePatient}
-                />
+                />}
             </AccordionSection>
 
             <hr className='m-5' />
@@ -323,43 +417,99 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                 }
             >
                 {loading && !stats ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                        <MetricCardSkeleton />
+                        <MetricCardSkeleton />
+                        <MetricCardSkeleton />
+                        <MetricCardSkeleton />
+                        <MetricCardSkeleton />
                         <MetricCardSkeleton />
                         <MetricCardSkeleton />
                         <MetricCardSkeleton />
                     </div>
                 ) : stats ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
-                        <MetricCard
-                            title="Total Profissionais"
-                            value={stats.totalDoctors}
-                            subtitle="Equipe médica ativa"
-                            icon={<Stethoscope className="h-5 w-5" />}
-                            colorClass="text-pink-500"
-                            bgClass="bg-pink-50"
-                            onAction={handleAddProfessional}
-                            actionIcon={<UserPlus size={18} />}
-                        />
+                    <div className="space-y-4">
+                        {/* Operação */}
+                        <div>
+                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Operação</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                                <MetricCard
+                                    title="Sessões Hoje"
+                                    value={stats.todayAppointments}
+                                    subtitle="Agendamentos confirmados"
+                                    icon={<Activity className="h-5 w-5" />}
+                                    colorClass="text-emerald-600"
+                                    bgClass="bg-emerald-50"
+                                />
+                                <MetricCard
+                                    title="Sessões Semana"
+                                    value={stats.weekAppointments}
+                                    subtitle="Total na semana"
+                                    icon={<Activity className="h-5 w-5" />}
+                                    colorClass="text-teal-600"
+                                    bgClass="bg-teal-50"
+                                />
+                                <MetricCard
+                                    title="Total Profissionais"
+                                    value={stats.totalDoctors}
+                                    subtitle="Equipe ativa"
+                                    icon={<Stethoscope className="h-5 w-5" />}
+                                    colorClass="text-pink-600"
+                                    bgClass="bg-pink-50"
+                                    onAction={handleAddProfessional}
+                                    actionIcon={<UserPlus size={18} />}
+                                />
+                                <MetricCard
+                                    title="Total Pacientes"
+                                    value={stats.totalPatients}
+                                    subtitle="Cadastrados"
+                                    icon={<Users className="h-5 w-5" />}
+                                    colorClass="text-amber-600"
+                                    bgClass="bg-amber-50"
+                                    onAction={handleAddPatient}
+                                    actionIcon={<UserPlus size={18} />}
+                                />
+                            </div>
+                        </div>
 
-                        <MetricCard
-                            title="Total Pacientes"
-                            value={stats.totalPatients}
-                            subtitle="Atualmente admitidos"
-                            icon={<Users className="h-5 w-5" />}
-                            colorClass="text-amber-500"
-                            bgClass="bg-amber-50"
-                            onAction={handleAddPatient}
-                            actionIcon={<UserPlus size={18} />}
-                        />
-
-                        <MetricCard
-                            title="Ocupação"
-                            value={`${occupancyRate}%`}
-                            subtitle="Taxa de ocupação"
-                            icon={<Activity className="h-5 w-5" />}
-                            colorClass="text-purple-500"
-                            bgClass="bg-purple-50"
-                        />
+                        {/* Financeiro */}
+                        <div>
+                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Financeiro</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                                <MetricCard
+                                    title="Caixa Hoje"
+                                    value={formatCurrency(stats.todayRevenue)}
+                                    subtitle="Recebido hoje"
+                                    icon={<DollarSign className="h-5 w-5" />}
+                                    colorClass="text-emerald-600"
+                                    bgClass="bg-emerald-50"
+                                />
+                                <MetricCard
+                                    title="Receita Mês"
+                                    value={formatCurrency(stats.monthRevenue)}
+                                    subtitle="Pagamentos confirmados"
+                                    icon={<DollarSign className="h-5 w-5" />}
+                                    colorClass="text-blue-600"
+                                    bgClass="bg-blue-50"
+                                />
+                                <MetricCard
+                                    title="Pendente"
+                                    value={stats.pendingPayments}
+                                    subtitle="Pagamentos em aberto"
+                                    icon={<Clock className="h-5 w-5" />}
+                                    colorClass="text-orange-600"
+                                    bgClass="bg-orange-50"
+                                />
+                                <MetricCard
+                                    title="Leads Mês"
+                                    value={stats.monthLeads}
+                                    subtitle="Novos interessados"
+                                    icon={<UserPlus className="h-5 w-5" />}
+                                    colorClass="text-violet-600"
+                                    bgClass="bg-violet-50"
+                                />
+                            </div>
+                        </div>
                     </div>
                 ) : null}
             </AccordionSection>
@@ -398,7 +548,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                                         </div>
                                     ))}
                                 </div>
-                            ) : (
+                            ) : displayedDoctors.length > 0 ? (
                                 <div className="space-y-4">
                                     {displayedDoctors.map((doctor, index) => (
                                         <div
@@ -419,6 +569,13 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                                             </span>
                                         </div>
                                     ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-6">
+                                    <Stethoscope className="mx-auto h-8 w-8 text-gray-400" />
+                                    <p className="mt-2 text-sm text-gray-500">
+                                        Nenhum profissional encontrado
+                                    </p>
                                 </div>
                             )}
                         </CardContent>
@@ -469,9 +626,9 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                                         >
                                             <div className="flex justify-between">
                                                 <div>
-                                                    <p className="font-medium">{appointment.patient}</p>
+                                                    <p className="font-medium">{appointment.patientName || appointment.patient}</p>
                                                     <p className="text-sm text-gray-500">
-                                                        {appointment.doctor} • {appointment.reason}
+                                                        {appointment.professionalName || appointment.doctor}{appointment.specialty ? ` (${appointment.specialty})` : ''} • {appointment.reason}
                                                     </p>
                                                 </div>
                                                 <div className="text-right">

@@ -1,8 +1,8 @@
 /**
- * 🚀 Hook useDashboard - Dados Otimizados do Dashboard
- * 
- * Hook consolidado que substitui múltiplos hooks (usePatients, useAdmin parcialmente)
- * com uma única chamada de API e cache inteligente.
+ * 🚀 Hook useDashboard — Dashboard Admin V2
+ *
+ * Hook consolidado com cache inteligente.
+ * Fonte única: /v2/admin/dashboard/overview
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -11,107 +11,92 @@ import {
     DashboardOverview,
     DashboardStats,
     DoctorOverview,
-    fetchDashboardCharts,
     fetchDashboardOverview,
-    fetchDashboardStats,
-    fetchDoctorsOverview,
     invalidateDashboardCache,
     UpcomingAppointment
 } from '../services/dashboardService';
-import { 
-  subscribeToCacheInvalidation, 
-  invalidateCache as invalidateGlobalCache,
-  isCacheValid,
-  getCache,
-  setCache
+import {
+    subscribeToCacheInvalidation,
+    invalidateCache as invalidateGlobalCache,
+    isCacheValid,
+    getCache,
+    setCache
 } from '../utils/cacheManager';
 
 interface UseDashboardReturn {
-    // Dados
     overview: DashboardOverview | null;
     stats: DashboardStats | null;
     charts: DashboardCharts | null;
     doctors: DoctorOverview[];
     upcomingAppointments: UpcomingAppointment[];
-
-    // Estados
     loading: boolean;
     error: string | null;
     lastUpdated: Date | null;
-
-    // Ações
     refresh: () => Promise<void>;
     invalidateCache: () => Promise<void>;
 }
 
 export const useDashboard = (): UseDashboardReturn => {
-    // Estados locais
     const [overview, setOverview] = useState<DashboardOverview | null>(getCache('dashboard'));
     const [stats, setStats] = useState<DashboardStats | null>(getCache('dashboard')?.stats || null);
     const [charts, setCharts] = useState<DashboardCharts | null>(getCache('dashboard')?.charts || null);
-    const [doctors, setDoctors] = useState<DoctorOverview[]>(getCache('dashboard')?.doctorsOverview || []);
-    const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>(getCache('dashboard')?.upcomingAppointments || []);
+    const [doctors, setDoctors] = useState<DoctorOverview[]>(Array.isArray(getCache('dashboard')?.doctorsOverview) ? getCache('dashboard')!.doctorsOverview : []);
+    const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>(Array.isArray(getCache('dashboard')?.upcomingAppointments) ? getCache('dashboard')!.upcomingAppointments : []);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(
-      getCache('dashboard') ? new Date() : null
+        getCache('dashboard') ? new Date() : null
     );
 
-    // Refs para controle de mount e race conditions
     const isMounted = useRef(true);
     const isInitialLoad = useRef(true);
     const loadPromiseRef = useRef<Promise<void> | null>(null);
 
-    /**
-     * 🔄 Carrega dados do dashboard
-     */
     const loadDashboard = useCallback(async (forceRefresh = false) => {
-        // Verificar cache global
+        console.log('🔄 useDashboard: loadDashboard chamado, forceRefresh=', forceRefresh);
         if (!forceRefresh && isCacheValid('dashboard')) {
             const cached = getCache<DashboardOverview>('dashboard');
             if (cached) {
-                console.log('📦 useDashboard: Usando cache:', {
-                    statsTotalPatients: cached?.stats?.totalPatients,
-                    doctorsCount: cached?.doctorsOverview?.length,
-                    upcomingAppointmentsCount: cached?.upcomingAppointments?.length
-                });
+                console.log('📦 useDashboard: Usando cache global');
                 if (isMounted.current) {
                     setOverview(cached);
-                    setStats(cached.stats);
-                    setCharts(cached.charts);
-                    setDoctors(cached.doctorsOverview || []);
-                    setUpcomingAppointments(cached.upcomingAppointments || []);
+                    setStats(cached.stats || null);
+                    setCharts(cached.charts || null);
+                    setDoctors(Array.isArray(cached.doctorsOverview) ? cached.doctorsOverview : []);
+                    setUpcomingAppointments(Array.isArray(cached.upcomingAppointments) ? cached.upcomingAppointments : []);
                     setLastUpdated(new Date());
                 }
                 return;
             }
         }
 
-        // Se já está carregando, esperar
         if (loadPromiseRef.current) {
             await loadPromiseRef.current;
             return;
         }
 
-        // Iniciar carregamento
         if (isMounted.current) setLoading(true);
         setError(null);
 
         const loadPromise = (async () => {
             try {
-                // 🎯 Uma única chamada para obter tudo!
                 const data = await fetchDashboardOverview(forceRefresh);
+                console.log('📊 useDashboard: Dados recebidos:', {
+                    hasStats: !!data.stats,
+                    doctorsCount: Array.isArray(data.doctorsOverview) ? data.doctorsOverview.length : 'N/A',
+                    upcomingCount: Array.isArray(data.upcomingAppointments) ? data.upcomingAppointments.length : 'N/A',
+                    included: data.meta?.included
+                });
 
                 if (isMounted.current) {
                     setOverview(data);
-                    setStats(data.stats);
-                    setCharts(data.charts);
-                    setDoctors(data.doctorsOverview || []);
-                    setUpcomingAppointments(data.upcomingAppointments || []);
+                    setStats(data.stats || null);
+                    setCharts(data.charts || null);
+                    setDoctors(Array.isArray(data.doctorsOverview) ? data.doctorsOverview : []);
+                    setUpcomingAppointments(Array.isArray(data.upcomingAppointments) ? data.upcomingAppointments : []);
                     setLastUpdated(new Date());
                 }
 
-                // Atualizar cache global
                 setCache('dashboard', data);
             } catch (err: any) {
                 console.error('Erro ao carregar dashboard:', err);
@@ -128,16 +113,10 @@ export const useDashboard = (): UseDashboardReturn => {
         await loadPromise;
     }, []);
 
-    /**
-     * 🔄 Força atualização dos dados
-     */
     const refresh = useCallback(async () => {
         await loadDashboard(true);
     }, [loadDashboard]);
 
-    /**
-     * 🗑️ Invalida cache no backend e local
-     */
     const handleInvalidateCache = useCallback(async () => {
         try {
             await invalidateDashboardCache();
@@ -148,7 +127,6 @@ export const useDashboard = (): UseDashboardReturn => {
         }
     }, [loadDashboard]);
 
-    // 🔔 Subscribe para invalidação de cache externa
     useEffect(() => {
         const unsubscribe = subscribeToCacheInvalidation('dashboard', () => {
             console.log('🔄 useDashboard: Cache invalidado externamente, recarregando...');
@@ -158,7 +136,6 @@ export const useDashboard = (): UseDashboardReturn => {
         return () => unsubscribe();
     }, [loadDashboard]);
 
-    // Efeito inicial de carregamento
     useEffect(() => {
         isMounted.current = true;
 
@@ -172,7 +149,6 @@ export const useDashboard = (): UseDashboardReturn => {
         };
     }, [loadDashboard]);
 
-    // Retornar dados derivados
     return {
         overview,
         stats,
@@ -199,8 +175,8 @@ export const useDashboardStats = () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await fetchDashboardStats();
-            setStats(data);
+            const data = await fetchDashboardOverview(false, ['stats']);
+            setStats(data.stats || null);
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -227,8 +203,8 @@ export const useDashboardCharts = () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await fetchDashboardCharts();
-            setCharts(data);
+            const data = await fetchDashboardOverview(false, ['charts']);
+            setCharts(data.charts || null);
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -255,8 +231,8 @@ export const useDoctorsOverview = () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await fetchDoctorsOverview();
-            setDoctors(data);
+            const data = await fetchDashboardOverview(false, ['doctors']);
+            setDoctors(data.doctorsOverview || []);
         } catch (err: any) {
             setError(err.message);
         } finally {

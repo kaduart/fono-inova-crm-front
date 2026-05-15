@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Skeleton } from '@mui/material';
 import {
   LayoutDashboard,
   DollarSign,
@@ -163,7 +164,6 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
       // 🆕 Mostrar apenas vencidos (data <= hoje) no modal de débitos do mês
       const allItems = [
         ...(resumo?.pendentes?.vencidos?.particular?.items || []).map(item => ({ ...item, _tipo: item.paymentMethod || 'particular' })),
-        ...(resumo?.pendentes?.vencidos?.convenio?.items || []).map(item => ({ ...item, _tipo: 'convenio' })),
       ].map(item => ({
         _id: String(item.sessionId),
         date: String(item.data),
@@ -198,55 +198,88 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   }, [activeTab, month, year, fetchPendingInsurance]);
 
   if (loading) return (
-    <div className="p-4 space-y-5">
-      {/* Sub-tabs */}
-      <div className="flex gap-2 pb-2 border-b border-gray-200">
-        {[{ w: 'w-20', active: true }, { w: 'w-20' }, { w: 'w-24' }, { w: 'w-16' }].map((t, i) => (
-          <div key={i} className={`h-9 px-4 rounded-lg flex items-center animate-pulse ${t.active ? 'bg-emerald-100' : 'bg-gray-100'}`}>
-            <div className={`h-3 rounded ${t.w} ${t.active ? 'bg-emerald-300' : 'bg-gray-300'}`} />
+    <div className="p-4">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
+        <div className="flex items-center gap-3">
+          <Skeleton variant="circular" width={48} height={48} sx={{ bgcolor: '#10B98120' }} />
+          <div>
+            <Skeleton variant="text" width={160} height={30} />
+            <Skeleton variant="text" width={220} height={20} />
           </div>
+        </div>
+        <Skeleton variant="rounded" width={145} height={36} />
+      </div>
+      {/* Sub-tabs */}
+      <div className="flex gap-2 pb-2 border-b border-gray-200 mb-5">
+        {[{ w: 80 }, { w: 80 }, { w: 96 }, { w: 64 }].map((t, i) => (
+          <Skeleton key={i} variant="rounded" width={t.w} height={36} />
         ))}
       </div>
-      {/* RitmoCard hero */}
-      <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200 animate-pulse">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="space-y-2">
-            <div className="h-4 w-32 bg-emerald-200 rounded" />
-            <div className="h-10 w-28 bg-emerald-300 rounded" />
-            <div className="h-3 w-40 bg-emerald-200 rounded" />
+      {/* RitmoCard hero — no padrão dos KPIs do ExpensesTab */}
+      <div className="border rounded-xl p-4 mb-6" style={{ borderColor: '#10B98120', backgroundColor: '#10B98108' }}>
+        <div className="flex items-center gap-4 mb-4">
+          <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: '#10B98120' }} />
+          <div className="flex-1">
+            <Skeleton variant="text" width="55%" height={20} />
+            <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: '#10B98115' }} />
           </div>
-          <div className="space-y-3">
-            <div className="h-3 w-28 bg-emerald-200 rounded" />
-            <div className="h-3 w-full bg-emerald-200 rounded-full" />
-            <div className="h-3 w-24 bg-emerald-200 rounded" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="flex items-center gap-4">
+            <Skeleton variant="circular" width={36} height={36} sx={{ bgcolor: '#10B98120' }} />
+            <div className="flex-1">
+              <Skeleton variant="text" width="60%" height={16} />
+              <Skeleton variant="text" width="80%" height={28} sx={{ bgcolor: '#10B98115' }} />
+            </div>
           </div>
-          <div className="space-y-2">
-            <div className="h-4 w-24 bg-emerald-200 rounded" />
-            <div className="h-8 w-20 bg-emerald-300 rounded" />
+          <div className="flex items-center gap-4">
+            <Skeleton variant="circular" width={36} height={36} sx={{ bgcolor: '#10B98120' }} />
+            <div className="flex-1">
+              <Skeleton variant="text" width="60%" height={16} />
+              <Skeleton variant="text" width="80%" height={28} sx={{ bgcolor: '#10B98115' }} />
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <Skeleton variant="circular" width={36} height={36} sx={{ bgcolor: '#10B98120' }} />
+            <div className="flex-1">
+              <Skeleton variant="text" width="60%" height={16} />
+              <Skeleton variant="text" width="80%" height={28} sx={{ bgcolor: '#10B98115' }} />
+            </div>
           </div>
         </div>
       </div>
       {/* 3 MetricCards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[
-          { bg: 'bg-emerald-50', border: 'border-emerald-200', circle: 'bg-emerald-100', txt: 'bg-emerald-200', val: 'bg-emerald-300' },
-          { bg: 'bg-emerald-50', border: 'border-emerald-200', circle: 'bg-emerald-100', txt: 'bg-emerald-200', val: 'bg-emerald-300' },
-          { bg: 'bg-amber-50',   border: 'border-amber-200',   circle: 'bg-amber-100',   txt: 'bg-amber-200',   val: 'bg-amber-300'   },
-        ].map((c, i) => (
-          <div key={i} className={`p-4 rounded-xl border ${c.border} ${c.bg} animate-pulse`}>
-            <div className="flex items-center gap-3 mb-2">
-              <div className={`h-10 w-10 rounded-full ${c.circle}`} />
-              <div className={`h-4 w-28 rounded ${c.txt}`} />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+        {[{ color: '#10B981' }, { color: '#3B82F6' }, { color: '#F59E0B' }].map((c, i) => (
+          <div key={i} className="border rounded-xl p-4" style={{ borderColor: `${c.color}20`, backgroundColor: `${c.color}08` }}>
+            <div className="flex items-center gap-4">
+              <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `${c.color}20` }} />
+              <div className="flex-1">
+                <Skeleton variant="text" width="55%" height={20} />
+                <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `${c.color}15` }} />
+                <Skeleton variant="text" width="40%" height={16} />
+              </div>
             </div>
-            <div className={`h-8 w-32 rounded mb-1 ${c.val}`} />
-            <div className={`h-3 w-20 rounded ${c.txt}`} />
           </div>
         ))}
       </div>
       {/* 2-col content */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="h-52 rounded-xl bg-gray-50 border border-gray-200 animate-pulse" />
-        <div className="h-52 rounded-xl bg-gray-50 border border-gray-200 animate-pulse" />
+        <div className="border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center gap-3 mb-4">
+            <Skeleton variant="circular" width={32} height={32} sx={{ bgcolor: '#3B82F620' }} />
+            <Skeleton variant="text" width="60%" height={24} />
+          </div>
+          <Skeleton variant="rounded" width="100%" height={160} />
+        </div>
+        <div className="border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center gap-3 mb-4">
+            <Skeleton variant="circular" width={32} height={32} sx={{ bgcolor: '#3B82F620' }} />
+            <Skeleton variant="text" width="60%" height={24} />
+          </div>
+          <Skeleton variant="rounded" width="100%" height={160} />
+        </div>
       </div>
     </div>
   );
@@ -358,7 +391,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
         />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
           <h3 className="text-lg font-bold text-gray-800 mb-3">Projeção de Fechamento</h3>
           <div className="flex items-center gap-3 mb-4">
             <div className={`w-12 h-12 rounded-full flex items-center justify-center ${metas.projecao.bateMeta ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
@@ -375,7 +408,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
               : `⚠️ Faltam ${formatCurrency(metas.gap.valor)} para bater a meta com ${metas.gap.diasRestantes} dias restantes.`}
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
           <h3 className="text-lg font-bold text-gray-800 mb-3">Resumo do Dia</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -395,7 +428,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   const renderCaixa = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
           <h3 className="text-lg font-bold text-gray-800 mb-4">Por Tipo</h3>
           <BreakdownList items={[
             { label: 'Particular', value: cash.breakdown.particular, color: 'blue' },
@@ -404,7 +437,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
             { label: 'Liminar', value: cash.breakdown.liminar, color: 'amber' },
           ]} total={totalCaixa} />
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
           <h3 className="text-lg font-bold text-gray-800 mb-4">Por Método</h3>
           <BreakdownList items={[
             { label: 'Dinheiro', value: cash.byMethod.dinheiro, color: 'emerald' },
@@ -416,7 +449,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
       </div>
 
       {/* 🆕 DETALHAMENTO DE PACOTES NO CAIXA */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
         <h3 className="text-lg font-bold text-gray-800 mb-4">Detalhamento de Pacotes no Caixa</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="p-4 rounded-lg bg-purple-50 border border-purple-100">
@@ -441,7 +474,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
 
   const renderProducao = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
         <h3 className="text-lg font-bold text-gray-800 mb-4">Por Tipo</h3>
         <BreakdownList items={[
           { label: 'Particular', value: revenue.byMethod.particular, color: 'blue' },
@@ -450,7 +483,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           { label: 'Liminar', value: revenue.byMethod.liminar, color: 'amber' },
         ]} total={totalProducao} />
       </div>
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
         <h3 className="text-lg font-bold text-gray-800 mb-4">Recebido vs Pendente</h3>
         <div className="mb-5">
           <p className="text-sm text-gray-500">Recebido</p>
@@ -476,11 +509,11 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           <MetricCard title="Impacto no Caixa" value={`${((expenses.total / (totalCaixa || 1)) * 100).toFixed(1)}%`} icon={<TrendingDown size={20} />} color="amber" />
         </div>
         {expenses.breakdown && expenses.breakdown.detalheComissoes.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
             <h3 className="text-lg font-bold text-gray-800 mb-4">Comissões por Profissional</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {expenses.breakdown.detalheComissoes.map((c) => (
-                <div key={c.doctorId} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <div key={c.doctorId} className="border border-gray-100 rounded-2xl p-4 bg-gray-50">
                   <p className="font-semibold text-gray-800">{c.doctorName}</p>
                   <p className="text-sm text-gray-500">{c.sessions} sessões</p>
                   <p className="text-xl font-bold text-gray-900 mt-2">{formatCurrency(c.total)}</p>
@@ -518,7 +551,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
         </div>
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
           <h3 className="text-lg font-bold text-gray-800 mb-3">Status da Meta</h3>
           <div className="flex items-center gap-3 mb-4">
             <span className={`px-3 py-1 rounded-full text-sm font-bold uppercase ${
@@ -538,7 +571,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
             <MetricRow label="Falta para meta" value={formatCurrency(metas.gap.valor)} valueColor="text-rose-600" />
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-1">
             <h3 className="text-lg font-bold text-gray-800">Metas por Tipo de Receita</h3>
           </div>
@@ -608,8 +641,35 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
 
     return (
       <div className="space-y-8">
+        {/* 🔴 Débitos de sessões */}
+        <div>
+          <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
+            <AlertTriangle size={22} className="text-rose-500" /> Débitos de Sessões
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <button
+              onClick={() => openDebitosModal('mes')}
+              className="text-left p-5 bg-white rounded-2xl border border-rose-200 shadow-sm hover:shadow-md hover:border-rose-400 transition-all"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide text-rose-500 mb-1">Débito do Mês</p>
+              <p className="text-3xl font-extrabold text-gray-900">{formatCurrency(resumo?.pendentes?.vencidos?.total || 0)}</p>
+              <p className="text-sm text-gray-500 mt-1">Sessões realizadas sem pagamento este mês → clique para ver</p>
+            </button>
+            <button
+              onClick={() => openDebitosModal('total')}
+              className="text-left p-5 bg-white rounded-2xl border border-amber-200 shadow-sm hover:shadow-md hover:border-amber-400 transition-all"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-600 mb-1">Débito Total (histórico)</p>
+              <p className="text-3xl font-extrabold text-gray-900">
+                {loadingDebitosTotal ? '...' : formatCurrency(debitosTotalValue)}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">Todas as sessões realizadas em aberto → clique para ver</p>
+            </button>
+          </div>
+        </div>
+
         {/* Risco Operacional */}
-        <div className={`p-5 rounded-xl border ${risco.bg} border-gray-200 shadow-sm`}>
+        <div className={`p-5 rounded-2xl border ${risco.bg} border-gray-200 shadow-sm`}>
           <div className="flex items-center gap-3 mb-3">
             <AlertCircle size={28} className={`text-${risco.badge}-600`} />
             <div>
@@ -639,7 +699,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
             {acoesExecutivas.map((acao, idx) => {
               const priorColor = getAcaoColor(acao.prioridade);
               return (
-                <div key={idx} className={`border-l-4 border-${priorColor}-500 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden`}>
+                <div key={idx} className={`border-l-4 border-${priorColor}-500 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow`}>
                   <div className="p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className={`text-${priorColor}-600`}>{getAcaoIcon(acao.tipo)}</div>
@@ -666,39 +726,12 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           </div>
         </div>
 
-        {/* 🔴 Débitos de sessões */}
-        <div>
-          <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
-            <AlertTriangle size={22} className="text-rose-500" /> Débitos de Sessões
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <button
-              onClick={() => openDebitosModal('mes')}
-              className="text-left p-5 bg-white rounded-xl border border-rose-200 shadow-sm hover:shadow-md hover:border-rose-400 transition-all"
-            >
-              <p className="text-xs font-semibold uppercase tracking-wide text-rose-500 mb-1">Débito do Mês</p>
-              <p className="text-3xl font-extrabold text-gray-900">{formatCurrency(resumo?.pendentes?.vencidos?.total || 0)}</p>
-              <p className="text-sm text-gray-500 mt-1">Sessões realizadas sem pagamento este mês → clique para ver</p>
-            </button>
-            <button
-              onClick={() => openDebitosModal('total')}
-              className="text-left p-5 bg-white rounded-xl border border-amber-200 shadow-sm hover:shadow-md hover:border-amber-400 transition-all"
-            >
-              <p className="text-xs font-semibold uppercase tracking-wide text-amber-600 mb-1">Débito Total (histórico)</p>
-              <p className="text-3xl font-extrabold text-gray-900">
-                {loadingDebitosTotal ? '...' : formatCurrency(debitosTotalValue)}
-              </p>
-              <p className="text-sm text-gray-500 mt-1">Todas as sessões realizadas em aberto → clique para ver</p>
-            </button>
-          </div>
-        </div>
-
         {/* 🆕 B: Pendências de Convênio */}
         <div>
           <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
             <Briefcase size={22} /> Pendências de Convênio
           </h3>
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             {loadingInsurance ? (
               <div className="p-6 text-center text-gray-500">Carregando...</div>
             ) : pendingInsurance.length === 0 ? (
@@ -775,7 +808,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
               const isDespesa = item.label === 'Despesas';
               const corVar = isDespesa ? (isPositivo ? 'text-rose-600' : 'text-emerald-600') : (isPositivo ? 'text-emerald-600' : 'text-rose-600');
               return (
-                <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                <div key={i} className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-shadow">
                   <p className="text-sm text-gray-500">{item.label}</p>
                   <p className="text-2xl font-bold text-gray-900">{formatCurrency(item.atual)}</p>
                   <div className="flex items-center gap-1 mt-2">
@@ -794,7 +827,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
             <Users size={22} /> Performance por Profissional
           </h3>
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <div className="min-w-[800px] grid grid-cols-7 gap-3 p-4 bg-gray-50 text-sm font-bold text-gray-600 border-b">
                 <span>Profissional</span>
@@ -834,7 +867,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   const renderInsights = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
           <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-3">
             <Lightbulb size={22} /> Insights
           </h3>
@@ -847,7 +880,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
             ))}
           </ul>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
           <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-3">
             <AlertCircle size={22} /> Alertas
           </h3>
@@ -869,13 +902,13 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
         <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-4">
           <Users size={22} /> Ranking de Profissionais
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {profissionais.ranking.slice(0, 5).map((prof, idx) => (
-            <div key={prof.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <div key={prof.id} className="border border-gray-100 rounded-2xl p-4 bg-gray-50">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-bold">#{idx+1}</div>
                 <h4 className="font-bold text-gray-800">{prof.nome}</h4>
@@ -893,13 +926,13 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
         <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-4">
           <TrendingUp size={22} /> Ranking por Lucro
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {profissionais.rankingPorLucro?.slice(0, 5).map((prof, idx) => (
-            <div key={prof.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <div key={prof.id} className="border border-gray-100 rounded-2xl p-4 bg-gray-50">
               <div className="flex items-center gap-2 mb-2">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${prof.lucro >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>#{idx+1}</div>
                 <h4 className="font-bold text-gray-800">{prof.nome}</h4>
@@ -918,7 +951,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
       </div>
 
       {insights.recomendacoes.length > 0 && (
-        <div className="bg-gray-50 rounded-xl border border-gray-200 p-5 shadow-sm">
+        <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5 shadow-sm">
           <h3 className="text-lg font-bold text-gray-800 mb-3">Recomendações</h3>
           <ul className="space-y-2">
             {insights.recomendacoes.map((text, idx) => (
@@ -942,16 +975,16 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
 
     return (
       <div>
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-5 overflow-x-auto">
-          <div className="flex gap-1 p-1 border-b">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-5 overflow-x-auto">
+          <div className="flex gap-1 p-1.5 border-b border-gray-100">
             {subTabs.map((t, i) => (
               <button
                 key={i}
                 onClick={() => setRankingSubTab(i)}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-all ${
                   rankingSubTab === i
-                    ? 'bg-gray-900 text-white shadow-sm'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-gradient-to-r from-gray-800 to-gray-900 text-white shadow-md'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
                 }`}
               >
                 {t.icon}
@@ -981,16 +1014,16 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 py-6">
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-5 overflow-x-auto">
-        <div className="flex gap-1 p-1 border-b">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-5 overflow-x-auto">
+        <div className="flex gap-1 p-1.5 border-b border-gray-100">
           {tabs.map((t, i) => (
             <button
               key={i}
               onClick={() => setActiveTab(i)}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-all ${
                 activeTab === i
-                  ? 'bg-gray-900 text-white shadow-sm'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  ? 'bg-gradient-to-r from-gray-800 to-gray-900 text-white shadow-md'
+                  : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
               }`}
             >
               {t.icon}
@@ -1204,27 +1237,44 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
 
 // Componentes auxiliares (apenas visuais, sem lógica alterada)
 const MetricCard = ({ title, subtitle, value, icon, color, onClick }: { title: string; subtitle?: string; value: string; icon: React.ReactNode; color: string; onClick?: () => void }) => {
-  const colorMap: Record<string, string> = {
-    emerald: 'border-emerald-500 text-emerald-600',
-    blue: 'border-blue-500 text-blue-600',
-    rose: 'border-rose-500 text-rose-600',
-    sky: 'border-sky-500 text-sky-600',
-    amber: 'border-amber-500 text-amber-600',
-    purple: 'border-purple-500 text-purple-600',
-    gray: 'border-gray-500 text-gray-600',
+  const bgMap: Record<string, string> = {
+    emerald: 'from-emerald-50 to-white border-emerald-100',
+    blue:    'from-blue-50 to-white border-blue-100',
+    rose:    'from-rose-50 to-white border-rose-100',
+    sky:     'from-sky-50 to-white border-sky-100',
+    amber:   'from-amber-50 to-white border-amber-100',
+    purple:  'from-purple-50 to-white border-purple-100',
+    indigo:  'from-indigo-50 to-white border-indigo-100',
+    violet:  'from-violet-50 to-white border-violet-100',
+    gray:    'from-gray-50 to-white border-gray-200',
   };
+  const iconMap: Record<string, string> = {
+    emerald: 'bg-emerald-100 text-emerald-600',
+    blue:    'bg-blue-100 text-blue-600',
+    rose:    'bg-rose-100 text-rose-600',
+    sky:     'bg-sky-100 text-sky-600',
+    amber:   'bg-amber-100 text-amber-600',
+    purple:  'bg-purple-100 text-purple-600',
+    indigo:  'bg-indigo-100 text-indigo-600',
+    violet:  'bg-violet-100 text-violet-600',
+    gray:    'bg-gray-100 text-gray-600',
+  };
+  const bg = bgMap[color] ?? bgMap.gray;
+  const ic = iconMap[color] ?? iconMap.gray;
   return (
     <div
-      className={`bg-white rounded-xl border-l-4 ${colorMap[color]} border border-gray-200 p-4 shadow-sm h-full ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+      className={`relative overflow-hidden bg-gradient-to-br ${bg} rounded-2xl border p-4 shadow-sm hover:shadow-lg transition-all duration-200 h-full ${onClick ? 'cursor-pointer active:scale-[0.98]' : ''}`}
       onClick={onClick}
     >
-      <div className={`flex items-center gap-2 mb-1 ${colorMap[color]}`}>
-        {icon}
-        <span className="text-sm text-gray-500">{title}</span>
-        {onClick && <span className="ml-auto text-xs opacity-50">↗</span>}
+      <div className="flex items-start justify-between mb-3">
+        <div className={`w-10 h-10 rounded-xl ${ic} flex items-center justify-center shrink-0`}>
+          {icon}
+        </div>
+        {onClick && <ArrowUpRight size={14} className="text-gray-400 mt-1" />}
       </div>
-      <span className="text-2xl font-bold text-gray-900">{value}</span>
-      {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-0.5">{title}</p>
+      <span className="text-2xl font-bold text-gray-900 tracking-tight">{value}</span>
+      {subtitle && <p className="text-xs text-gray-400 mt-1.5 leading-snug">{subtitle}</p>}
     </div>
   );
 };
@@ -1238,27 +1288,43 @@ const MetricRow = ({ label, value, valueColor = 'text-gray-900' }: { label: stri
 
 const BreakdownList = ({ items, total }: { items: Array<{ label: string; value: number; color: string }>; total: number }) => {
   const colorBar: Record<string, string> = {
-    blue: 'bg-blue-500',
-    purple: 'bg-purple-500',
-    sky: 'bg-sky-500',
-    amber: 'bg-amber-500',
+    blue:    'bg-blue-500',
+    purple:  'bg-purple-500',
+    sky:     'bg-sky-400',
+    amber:   'bg-amber-500',
     emerald: 'bg-emerald-500',
-    gray: 'bg-gray-500',
+    gray:    'bg-gray-400',
+  };
+  const colorDot: Record<string, string> = {
+    blue:    'bg-blue-500',
+    purple:  'bg-purple-500',
+    sky:     'bg-sky-400',
+    amber:   'bg-amber-500',
+    emerald: 'bg-emerald-500',
+    gray:    'bg-gray-400',
   };
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {items.map((item, idx) => {
         const pct = total > 0 ? (item.value / total) * 100 : 0;
         return (
           <div key={idx}>
-            <div className="flex justify-between text-sm mb-1">
-              <span className="text-gray-700">{item.label}</span>
-              <span className="font-semibold text-gray-900">{formatCurrency(item.value)}</span>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className={`w-2.5 h-2.5 rounded-full ${colorDot[item.color] ?? 'bg-gray-400'} shrink-0`} />
+                <span className="text-sm font-medium text-gray-700">{item.label}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-gray-900">{formatCurrency(item.value)}</span>
+                <span className="text-xs text-gray-400 w-10 text-right">{pct.toFixed(1)}%</span>
+              </div>
             </div>
-            <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-              <div className={`h-full ${colorBar[item.color]} rounded-full`} style={{ width: `${pct}%` }}></div>
+            <div className="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className={`h-full ${colorBar[item.color] ?? 'bg-gray-400'} rounded-full transition-all duration-700`}
+                style={{ width: `${pct}%` }}
+              />
             </div>
-            <p className="text-xs text-gray-400 mt-1">{pct.toFixed(1)}%</p>
           </div>
         );
       })}

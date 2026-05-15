@@ -1,35 +1,36 @@
 /**
- * 🚀 Dashboard Service - API Otimizada
- * 
- * Serviço consolidado para estatísticas do dashboard,
- * reduzindo múltiplas chamadas para uma única requisição.
+ * 🚀 Dashboard Service - API V2
+ *
+ * Serviço consolidado para estatísticas do dashboard admin.
+ * Fonte única: /v2/admin/dashboard/overview
  */
 
 import API from './api';
 
-// Interface para estatísticas gerais
+// ── Interfaces V2 ───────────────────────────────────────────────────────────
+
 export interface DashboardStats {
-    totalPatients: number;
     totalDoctors: number;
+    totalPatients: number;
+    activePatients: number;
     todayAppointments: number;
     weekAppointments: number;
-    pendingPayments: number;
+    todayRevenue: number;
     monthRevenue: number;
+    pendingPayments: number;
     monthLeads: number;
     leadsByStatus: Record<string, number>;
     calculatedAt: string;
 }
 
-// Interface para dados de gráficos
 export interface DashboardCharts {
     appointmentsChart: Array<{ date: string; count: number }>;
-    leadsByOrigin: Array<{ _id: string; count: number }>;
     revenueChart: Array<{ date: string; value: number }>;
+    leadsByOrigin: Array<{ _id: string; count: number }>;
     patientsBySpecialty: Array<{ _id: string; count: number }>;
     calculatedAt: string;
 }
 
-// Interface para overview de profissionais
 export interface DoctorOverview {
     _id: string;
     name: string;
@@ -38,27 +39,33 @@ export interface DoctorOverview {
     appointments: number;
 }
 
-// Interface para próximas consultas
 export interface UpcomingAppointment {
     _id: string;
     date: string;
     time: string;
     reason: string;
     status: string;
-    patient: string;
-    doctor: string;
+    patientName: string;
+    professionalName: string;
+    specialty?: string;
 }
 
-// Interface para visão completa
+export interface DashboardMeta {
+    generatedAt: string;
+    version: string;
+    included: string[];
+}
+
 export interface DashboardOverview {
     stats: DashboardStats;
     charts: DashboardCharts;
     doctorsOverview: DoctorOverview[];
     upcomingAppointments: UpcomingAppointment[];
-    generatedAt: string;
+    meta: DashboardMeta;
 }
 
-// Cache local no frontend (em memória)
+// ── Cache local ─────────────────────────────────────────────────────────────
+
 const cache: {
     overview: DashboardOverview | null;
     timestamp: number;
@@ -72,45 +79,50 @@ const cache: {
 const CACHE_TTL = 3 * 60 * 1000; // 3 minutos
 
 /**
- * 🎯 Busca visão completa do dashboard (endpoint consolidado)
- * Substitui 5+ chamadas individuais
- * 🚀 V2: Usa /v2/admin/dashboard/overview
+ * 🎯 Busca visão completa do dashboard V2
+ *
+ * @param include — blocos a carregar: 'stats' | 'charts' | 'doctors' | 'upcoming'
+ * @param forceRefresh — ignorar cache local
  */
 export const fetchDashboardOverview = async (
-    forceRefresh = false
+    forceRefresh = false,
+    include?: string[]
 ): Promise<DashboardOverview> => {
     const now = Date.now();
+    console.log('📡 dashboardService: fetchDashboardOverview chamado, forceRefresh=', forceRefresh, 'include=', include);
 
     // Retornar cache se válido
     if (!forceRefresh && cache.overview && (now - cache.timestamp < CACHE_TTL)) {
-        // ✅ Verificar se o cache tem dados completos
-        const hasCompleteData = cache.overview.upcomingAppointments !== undefined &&
-            cache.overview.doctorsOverview !== undefined &&
-            cache.overview.stats !== undefined;
-        if (hasCompleteData) {
-            console.log('📦 Usando cache do dashboardService:', {
-                statsTotalPatients: cache.overview?.stats?.totalPatients,
-                doctorsCount: cache.overview?.doctorsOverview?.length,
-                upcomingAppointmentsCount: cache.overview?.upcomingAppointments?.length
-            });
-            return cache.overview;
-        }
-        console.log('📦 Cache incompleto, recarregando...');
+        console.log('📦 dashboardService: Usando cache local');
+        return cache.overview;
     }
 
-    // Se já está carregando, esperar a promise existente
+    // Se já está carregando, esperar
     if (cache.promise) {
+        console.log('⏳ dashboardService: Aguardando promise existente');
         return cache.promise;
     }
 
-    // Criar nova promise de carregamento
     cache.promise = (async () => {
         try {
-            // 🚀 V2: Usa endpoint V2 do admin dashboard
-            const response = await API.get<DashboardOverview>('/v2/admin/dashboard/overview');
+            const params: Record<string, string> = {};
+            if (include && include.length > 0) {
+                params.include = include.join(',');
+            }
+            if (forceRefresh) {
+                params.refresh = 'true';
+            }
 
-            // ✅ CORREÇÃO: Extrair dados do formato { success, data }
+            console.log('🌐 dashboardService: Chamando API /v2/admin/dashboard/overview');
+            const response = await API.get<DashboardOverview>('/v2/admin/dashboard/overview', { params });
             const dashboardData = response.data?.data || response.data;
+
+            console.log('✅ dashboardService: Resposta recebida:', {
+                hasStats: !!dashboardData.stats,
+                doctorsCount: Array.isArray(dashboardData.doctorsOverview) ? dashboardData.doctorsOverview.length : 'N/A',
+                upcomingCount: Array.isArray(dashboardData.upcomingAppointments) ? dashboardData.upcomingAppointments.length : 'N/A',
+                included: dashboardData.meta?.included
+            });
 
             cache.overview = dashboardData;
             cache.timestamp = now;
@@ -125,53 +137,13 @@ export const fetchDashboardOverview = async (
 };
 
 /**
- * 📊 Busca apenas estatísticas (mais leve)
- */
-export const fetchDashboardStats = async (): Promise<DashboardStats> => {
-    const response = await API.get<DashboardStats>('/dashboard/stats');
-    return response.data?.data || response.data;
-};
-
-/**
- * 📈 Busca apenas dados de gráficos
- */
-export const fetchDashboardCharts = async (): Promise<DashboardCharts> => {
-    const response = await API.get<DashboardCharts>('/dashboard/charts');
-    return response.data?.data || response.data;
-};
-
-/**
- * 👥 Busca visão geral dos profissionais
- */
-export const fetchDoctorsOverview = async (): Promise<DoctorOverview[]> => {
-    const response = await API.get<DoctorOverview[]>('/dashboard/doctors-overview');
-    return response.data?.data || response.data;
-};
-
-/**
- * 📅 Busca próximas consultas
- */
-export const fetchUpcomingAppointments = async (
-    limit = 10
-): Promise<UpcomingAppointment[]> => {
-    const response = await API.get<UpcomingAppointment[]>('/dashboard/upcoming', {
-        params: { limit }
-    });
-    return response.data?.data || response.data;
-};
-
-/**
- * 🗑️ Invalida cache no backend
+ * 🗑️ Invalida cache no backend V2 e limpa cache local
  */
 export const invalidateDashboardCache = async (): Promise<void> => {
-    await API.post('/dashboard/invalidate-cache');
-
-    // Limpar cache local também
-    cache.overview = null;
-    cache.timestamp = 0;
+    await API.post('/v2/admin/dashboard/invalidate-cache');
+    clearDashboardCache();
 };
 
-// Exportar cache para debugging (DEVE vir antes do uso)
 export const getCacheState = () => ({
     hasData: !!cache.overview,
     timestamp: cache.timestamp,
@@ -179,9 +151,6 @@ export const getCacheState = () => ({
     isLoading: !!cache.promise
 });
 
-/**
- * 🧹 Limpa cache local
- */
 export const clearDashboardCache = (): void => {
     cache.overview = null;
     cache.timestamp = 0;
@@ -189,7 +158,6 @@ export const clearDashboardCache = (): void => {
     console.log('🧹 Cache do dashboardService limpo');
 };
 
-// Expor função global para debug (DEPOIS das declarações)
 if (typeof window !== 'undefined') {
     (window as any).clearDashboardCache = clearDashboardCache;
     (window as any).getDashboardCache = getCacheState;
