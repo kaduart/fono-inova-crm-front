@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEvolution } from '../../hooks/useEvolution';
 import API from '../../services/api';
+import { toast } from 'react-toastify';
 import { confirmToast } from '../../utils/confirmToast';
 import { IPatient } from '../../utils/types/types';
 import ProtocolAnalytics from '../protocols/ProtocolAnalytics';
@@ -232,6 +233,15 @@ export default function TherapyEvolution({
 
         const areasWithScore = evaluationAreas;
         const evaluationTypes = areasWithScore.map(a => a.id);
+
+        if (metricsArray.length === 0) {
+            toast.error('Adicione ao menos uma métrica de avaliação antes de salvar!');
+            return;
+        }
+        if (areasWithScore.length === 0) {
+            toast.error('Adicione ao menos uma área de desenvolvimento antes de salvar!');
+            return;
+        }
 
         const protocolCode =
             progressData?.currentPlan?.protocol?.code ||

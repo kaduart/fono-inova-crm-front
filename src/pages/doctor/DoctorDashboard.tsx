@@ -266,41 +266,19 @@ export default function DoctorDashboard() {
       apt => toDateString(apt.date) === today
     );
 
-    const patientsList = patients ?? [];
-    const activePatients = patientsList.filter(p =>
-      p.stats?.totalAppointments > 0
-    ).length;
-
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-    const monthAppointments = appointmentsList.filter(apt => {
-      const aptDate = new Date(apt.date);
-      return aptDate.getMonth() === currentMonth &&
-        aptDate.getFullYear() === currentYear &&
-        apt.status === 'completed';
-    }).length;
-
-    const completedAppointments = appointmentsList.filter(
-      apt => apt.status === 'completed'
-    ).length;
-    const totalScheduled = appointmentsList.length;
-    const attendanceRate = totalScheduled > 0
-      ? Math.round((completedAppointments / totalScheduled) * 100)
-      : 0;
-
     const nextAppointment = (futureAppointments ?? [])[0];
     const nextAppointmentTime = nextAppointment
       ? `${nextAppointment.time}`
       : 'Nenhuma';
 
     return {
-      activePatients,
-      monthAppointments,
-      attendanceRate,
+      activePatients: (stats as any)?.activePatients ?? 0,
+      monthAppointments: (stats as any)?.monthlyAppointments ?? 0,
+      attendanceRate: (stats as any)?.attendanceRate ?? 0,
       todayCount: todayAppointments.length,
       nextAppointmentTime
     };
-  }, [patients, appointments, futureAppointments]);
+  }, [stats, appointments, futureAppointments]);
 
   const generateAlerts = useMemo(() => {
     const alerts: any[] = [];
