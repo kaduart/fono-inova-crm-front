@@ -379,12 +379,12 @@ export function NewEvaluationModal({
 
         const initialMetrics: Record<string, number> = {};
         dynamicMetrics.forEach(m => {
-            initialMetrics[m.name] = Math.round((m.minValue + m.maxValue) / 2);
+            initialMetrics[m.name] = 0;
         });
 
         const initialAreas: Record<string, number> = {};
         dynamicAreas.forEach(t => {
-            initialAreas[t.id] = 5;
+            initialAreas[t.id] = 0;
         });
 
         setMetrics(initialMetrics);
@@ -398,56 +398,13 @@ export function NewEvaluationModal({
         setDate(format(new Date(), 'yyyy-MM-dd'));
         setTime('10:00');
 
-        if (lastEvolution) {
-            // ─── CONTINUIDADE CLÍNICA ───
-            // Pré-preenche com dados da última evolução para o profissional editar
-            setContent(lastEvolution.content || '');
-            setSelectedSpecialty(lastEvolution.specialty || '');
-
-            // Métricas anteriores
-            const prevMetrics: Record<string, number> = {};
-            const prevDynamicMetrics: MetricType[] = [];
-            if (lastEvolution.metrics && Array.isArray(lastEvolution.metrics)) {
-                lastEvolution.metrics.forEach((m: any) => {
-                    const id = String(m.name || m.id).toLowerCase().replace(/\s+/g, '_');
-                    prevMetrics[m.name] = Number(m.value ?? 0);
-                    prevDynamicMetrics.push({
-                        id,
-                        name: m.name,
-                        description: m.notes || '',
-                        minValue: 0,
-                        maxValue: 10,
-                        unit: m.unit || 'pts'
-                    });
-                });
-            }
-            setMetrics(prevMetrics);
-            setDynamicMetrics(prevDynamicMetrics);
-
-            // Áreas anteriores
-            const prevAreaScores: Record<string, number> = {};
-            const prevDynamicAreas: AreaType[] = [];
-            if (lastEvolution.evaluationAreas && Array.isArray(lastEvolution.evaluationAreas)) {
-                lastEvolution.evaluationAreas.forEach((a: any) => {
-                    const id = String(a.id || a.name).toLowerCase().replace(/\s+/g, '_');
-                    prevAreaScores[id] = Number(a.score ?? 5);
-                    prevDynamicAreas.push({
-                        id,
-                        name: a.name || id
-                    });
-                });
-            }
-            setAreaScores(prevAreaScores);
-            setDynamicAreas(prevDynamicAreas);
-        } else {
-            // Primeira evolução — começa vazio
-            setContent('');
-            setDynamicMetrics([]);
-            setDynamicAreas([]);
-            setSelectedSpecialty('');
-            setMetrics({});
-            setAreaScores({});
-        }
+        // Sempre começa limpo — sem cards pré-carregados
+        setContent('');
+        setDynamicMetrics([]);
+        setDynamicAreas([]);
+        setSelectedSpecialty('');
+        setMetrics({});
+        setAreaScores({});
     }, [open, lastEvolution]);
 
     // Handler para carregar template de especialidade - AGORA SÓ ADICIONA AO CATALOGO
@@ -1028,7 +985,7 @@ export function NewEvaluationModal({
                                     ) : (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             {dynamicAreas.map(type => {
-                                                const value = areaScores[type.id] ?? 5;
+                                                const value = areaScores[type.id] ?? 0;
                                                 return (
                                                     <div
                                                         key={type.id}

@@ -230,16 +230,8 @@ export default function TherapyEvolution({
                 score: Number(score)
             }));
 
-        const areasWithScore = evaluationAreas.filter(a => a.score >= 1);
+        const areasWithScore = evaluationAreas;
         const evaluationTypes = areasWithScore.map(a => a.id);
-
-        const hasValidMetrics = metricsArray.some(m => m.value > 0);
-        const hasValidAreas = areasWithScore.length > 0;
-
-        if (!hasValidMetrics && !hasValidAreas) {
-            alert('Ajuste ao menos uma métrica OU uma área (score >= 1) antes de salvar!');
-            return;
-        }
 
         const protocolCode =
             progressData?.currentPlan?.protocol?.code ||
@@ -894,14 +886,21 @@ export default function TherapyEvolution({
                                                                     })()}
                                                                 </>
                                                             ) : (
-                                                                <div className="text-center py-16 bg-gradient-to-br from-gray-50 to-white rounded-2xl border-2 border-dashed border-gray-300">
-                                                                    <Activity className="h-16 w-16 mx-auto text-gray-300 mb-4" />
-                                                                    <p className="text-gray-600 font-bold text-lg mb-1">
+                                                                <div className="text-center py-16 bg-gradient-to-br from-green-50 to-cyan-50 rounded-2xl border-2 border-dashed border-green-200">
+                                                                    <Activity className="h-16 w-16 mx-auto text-green-300 mb-4" />
+                                                                    <p className="text-gray-700 font-bold text-lg mb-1">
                                                                         Nenhuma avaliação registrada
                                                                     </p>
-                                                                    <p className="text-gray-400 text-sm">
-                                                                        Clique em &quot;Nova Evolução&quot; para começar
+                                                                    <p className="text-gray-400 text-sm mb-6">
+                                                                        Registre a primeira evolução deste paciente
                                                                     </p>
+                                                                    <Button
+                                                                        onClick={() => setIsAdding(true)}
+                                                                        className="bg-gradient-to-r from-green-600 to-cyan-500 hover:from-green-700 hover:to-cyan-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all hover:scale-105"
+                                                                    >
+                                                                        <Plus className="h-5 w-5 mr-2" />
+                                                                        Adicionar Evolução
+                                                                    </Button>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -914,14 +913,21 @@ export default function TherapyEvolution({
                                                                     <EvolutionChart chartData={chartData} />
                                                                 </div>
                                                             ) : (
-                                                                <div className="text-center py-16 bg-gradient-to-br from-gray-50 to-white rounded-2xl border-2 border-dashed border-gray-300">
-                                                                    <BarChart3 className="h-16 w-16 mx-auto text-gray-300 mb-4" />
-                                                                    <p className="text-gray-600 font-bold text-lg mb-1">
-                                                                        Dados insuficientes para visualização
+                                                                <div className="text-center py-16 bg-gradient-to-br from-green-50 to-cyan-50 rounded-2xl border-2 border-dashed border-green-200">
+                                                                    <BarChart3 className="h-16 w-16 mx-auto text-green-300 mb-4" />
+                                                                    <p className="text-gray-700 font-bold text-lg mb-1">
+                                                                        Nenhum dado para exibir
                                                                     </p>
-                                                                    <p className="text-gray-400 text-sm">
-                                                                        Adicione mais avaliações com métricas para gerar gráficos de evolução
+                                                                    <p className="text-gray-400 text-sm mb-6">
+                                                                        Clique no botão abaixo para adicionar a primeira evolução e gerar os gráficos
                                                                     </p>
+                                                                    <Button
+                                                                        onClick={() => setIsAdding(true)}
+                                                                        className="bg-gradient-to-r from-green-600 to-cyan-500 hover:from-green-700 hover:to-cyan-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all hover:scale-105"
+                                                                    >
+                                                                        <Plus className="h-5 w-5 mr-2" />
+                                                                        Adicionar Evolução
+                                                                    </Button>
                                                                 </div>
                                                             )}
                                                         </div>

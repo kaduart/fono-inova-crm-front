@@ -198,8 +198,8 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                             onChange={(e) => setViewMode(e.target.value as 'day' | 'month')}
                             className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
                         >
-                            <MenuItem value="day">📅 Dia</MenuItem>
-                            <MenuItem value="month">📊 Mês</MenuItem>
+                            <option value="day">📅 Dia</option>
+                            <option value="month">📊 Mês</option>
                         </select>
 
                         {viewMode === 'day' ? (
