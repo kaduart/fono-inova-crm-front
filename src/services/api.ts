@@ -6,6 +6,7 @@ import { isTokenExpired, getAuthToken } from './authService';
 const API = axios.create({
   baseURL: BASE_URL,
   withCredentials: false,
+  timeout: 15000, // 15s timeout para evitar requisições presas indefinidamente
 });
 
 

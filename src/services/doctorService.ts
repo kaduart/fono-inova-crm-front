@@ -5,11 +5,6 @@
 
 import API from "./api";
 
-const POLL_CONFIG = {
-  maxAttempts: 30,
-  interval: 800,
-  backoffMultiplier: 1.2
-};
 
 export type DoctorRole = 'doctor';
 
@@ -41,25 +36,12 @@ export type Doctor = {
 export interface CreateDoctorResponse {
   success: boolean;
   data: {
-    eventId: string;
-    correlationId: string;
     jobId: string;
     doctorId: string;
-    status: 'pending' | 'processing' | 'completed' | 'failed';
-    checkStatusUrl: string;
-    estimatedTime: string;
+    status: 'completed' | 'failed';
+    doctor: Doctor;
   };
   message?: string;
-}
-
-export interface DoctorStatusResponse {
-  success: boolean;
-  data: {
-    status: 'pending' | 'processing' | 'completed' | 'failed';
-    doctorView?: Doctor;
-    error?: string;
-    processedAt?: string;
-  };
 }
 
 export interface ListDoctorsResponse {
@@ -80,47 +62,6 @@ export interface ListDoctorsResponse {
   };
 }
 
-async function pollEventStatus(
-  eventId: string,
-  options: {
-    onProgress?: (status: string, attempt: number) => void;
-    onSuccess?: (data: any) => void;
-    onError?: (error: string) => void;
-  } = {}
-): Promise<DoctorStatusResponse['data']> {
-  const { onProgress, onSuccess, onError } = options;
-  let interval = POLL_CONFIG.interval;
-
-  for (let attempt = 1; attempt <= POLL_CONFIG.maxAttempts; attempt++) {
-    try {
-      const response = await API.get<DoctorStatusResponse>(`/v2/doctors/status/${eventId}`);
-      const { status, doctorView, error } = response.data.data;
-
-      onProgress?.(status, attempt);
-
-      if (status === 'completed') {
-        onSuccess?.(doctorView);
-        return response.data.data;
-      }
-
-      if (status === 'failed') {
-        onError?.(error || 'Processamento falhou');
-        throw new Error(error || 'Processamento falhou');
-      }
-
-      await new Promise(resolve => setTimeout(resolve, interval));
-      interval = Math.min(interval * POLL_CONFIG.backoffMultiplier, 5000);
-    } catch (error: any) {
-      if (!error.response) {
-        await new Promise(resolve => setTimeout(resolve, interval));
-        continue;
-      }
-      throw error;
-    }
-  }
-
-  throw new Error('Timeout aguardando processamento do profissional');
-}
 
 export const doctorService = {
   async list(options: {
@@ -157,123 +98,50 @@ export const doctorService = {
 
   async create(
     data: CreateDoctorParams,
-    options: {
-      onProgress?: (status: string, attempt: number) => void;
-      onSuccess?: (doctor: Doctor) => void;
-      onError?: (error: string) => void;
-      skipPolling?: boolean;
-    } = {}
-  ): Promise<{ doctor: Doctor; isAsync: boolean; eventId?: string }> {
-    const { onProgress, onSuccess, onError, skipPolling } = options;
+    options: { onSuccess?: (doctor: Doctor) => void; skipPolling?: boolean } = {}
+  ): Promise<{ doctor: Doctor; isAsync: boolean }> {
     const response = await API.post<CreateDoctorResponse>('/v2/doctors', data);
-    const { eventId, doctorId, status } = response.data.data;
-
-    if (status === 'completed') {
-      const doctor = await this.getById(doctorId);
-      onSuccess?.(doctor);
-      return { doctor, isAsync: false };
-    }
-
-    if (skipPolling) {
-      return {
-        doctor: { ...data, _id: doctorId, id: doctorId, status: 'creating', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as Doctor,
-        isAsync: true,
-        eventId
-      };
-    }
-
-    const finalStatus = await pollEventStatus(eventId, {
-      onProgress,
-      onSuccess: (view) => onSuccess?.(view as Doctor),
-      onError
-    });
-
-    const doctor = finalStatus.doctorView || await this.getById(doctorId);
-    return { doctor, isAsync: true, eventId };
+    const doctor = response.data.data.doctor as Doctor;
+    options.onSuccess?.(doctor);
+    return { doctor, isAsync: false };
   },
 
   async update(
     id: string,
     data: Partial<CreateDoctorParams>,
-    options: { onProgress?: (status: string, attempt: number) => void; skipPolling?: boolean } = {}
-  ): Promise<{ doctor: Doctor; isAsync: boolean; eventId?: string }> {
+    options: { skipPolling?: boolean } = {}
+  ): Promise<{ doctor: Doctor; isAsync: boolean }> {
     const response = await API.put(`/v2/doctors/${id}`, data);
-    const { eventId, status } = response.data.data;
-
-    if (status === 'completed') {
-      const doctor = await this.getById(id);
-      return { doctor, isAsync: false };
-    }
-
-    if (options.skipPolling) {
-      return { doctor: { _id: id, ...data } as Doctor, isAsync: true, eventId };
-    }
-
-    await pollEventStatus(eventId, { onProgress: options.onProgress });
-    const doctor = await this.getById(id);
-    return { doctor, isAsync: true, eventId };
+    const doctor = (response.data.data.doctor ?? { _id: id, ...data }) as Doctor;
+    return { doctor, isAsync: false };
   },
 
   async delete(
     id: string,
-    options: { reason?: string; onProgress?: (status: string, attempt: number) => void; skipPolling?: boolean } = {}
-  ): Promise<{ isAsync: boolean; eventId?: string }> {
-    const response = await API.delete(`/v2/doctors/${id}`, { data: { reason: options.reason } });
-    const { eventId, status } = response.data.data;
-
-    if (status === 'completed') return { isAsync: false };
-    if (options.skipPolling) return { isAsync: true, eventId };
-
-    await pollEventStatus(eventId, { onProgress: options.onProgress });
-    return { isAsync: true, eventId };
+    options: { reason?: string } = {}
+  ): Promise<{ isAsync: boolean }> {
+    await API.delete(`/v2/doctors/${id}`, { data: { reason: options.reason } });
+    return { isAsync: false };
   },
 
   async deactivate(
     id: string,
-    options: { onProgress?: (status: string, attempt: number) => void; skipPolling?: boolean } = {}
-  ): Promise<{ doctor: Doctor; isAsync: boolean; eventId?: string }> {
+    options: { skipPolling?: boolean } = {}
+  ): Promise<{ doctor: Doctor; isAsync: boolean }> {
     const response = await API.patch(`/v2/doctors/${id}/deactivate`);
-    const { eventId, status } = response.data.data;
-
-    if (status === 'completed') {
-      const doctor = await this.getById(id);
-      return { doctor, isAsync: false };
-    }
-
-    if (options.skipPolling) {
-      return { doctor: { _id: id, active: 'false' } as Doctor, isAsync: true, eventId };
-    }
-
-    await pollEventStatus(eventId, { onProgress: options.onProgress });
-    const doctor = await this.getById(id);
-    return { doctor, isAsync: true, eventId };
+    const doctor = (response.data.data.doctor ?? { _id: id, active: false }) as Doctor;
+    return { doctor, isAsync: false };
   },
 
   async reactivate(
     id: string,
-    options: { onProgress?: (status: string, attempt: number) => void; skipPolling?: boolean } = {}
-  ): Promise<{ doctor: Doctor; isAsync: boolean; eventId?: string }> {
+    options: { skipPolling?: boolean } = {}
+  ): Promise<{ doctor: Doctor; isAsync: boolean }> {
     const response = await API.patch(`/v2/doctors/${id}/reactivate`);
-    const { eventId, status } = response.data.data;
-
-    if (status === 'completed') {
-      const doctor = await this.getById(id);
-      return { doctor, isAsync: false };
-    }
-
-    if (options.skipPolling) {
-      return { doctor: { _id: id, active: 'true' } as Doctor, isAsync: true, eventId };
-    }
-
-    await pollEventStatus(eventId, { onProgress: options.onProgress });
-    const doctor = await this.getById(id);
-    return { doctor, isAsync: true, eventId };
+    const doctor = (response.data.data.doctor ?? { _id: id, active: true }) as Doctor;
+    return { doctor, isAsync: false };
   },
 
-  async getEventStatus(eventId: string): Promise<DoctorStatusResponse['data']> {
-    const response = await API.get<DoctorStatusResponse>(`/v2/doctors/status/${eventId}`);
-    return response.data.data;
-  },
 
   // Compatibilidade com código legado
   async getAllDoctors(): Promise<{ data: Doctor[] }> {

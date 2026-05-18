@@ -295,7 +295,7 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
       throw new Error('Unauthorized');
     }
     try {
-      await doctorService.createDoctor(doctor);
+      await doctorService.create(doctor, { skipPolling: true });
       const allDoctors = await doctorService.getAllDoctors();
       setDoctors(allDoctors.data);
       toast.success('Profissional criado com sucesso!');
@@ -312,7 +312,7 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
       throw new Error('Unauthorized');
     }
     try {
-      await doctorService.updateDoctor(doctor._id, doctor);
+      await doctorService.update(doctor._id, doctor, { skipPolling: true });
       const allDoctors = await doctorService.getAllDoctors();
       setDoctors(allDoctors.data);
       toast.success('Profissional atualizado com sucesso!');

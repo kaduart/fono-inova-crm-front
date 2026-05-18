@@ -397,8 +397,11 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
                     loading={isLoadingDoctors || propLoading}
                     onClose={() => setShowModal(false)}
                     onSubmitDoctor={async (doctor) => {
-                        await onSubmitDoctor(doctor); // 🐛 FIX: Passando o doctor que estava faltando!
-                        await refreshDoctors(); // 🎯 Atualiza lista após salvar
+                        await onSubmitDoctor(doctor);
+                        // Backend é async (status: pending). Refresh em 3s e 7s
+                        // para cobrir backends lentos (ex: Render free tier).
+                        setTimeout(() => refreshDoctors(), 3000);
+                        setTimeout(() => refreshDoctors(), 7000);
                     }}
                     modalShouldClose={modalShouldClose}
                     onCancel={() => setOpenModal()}

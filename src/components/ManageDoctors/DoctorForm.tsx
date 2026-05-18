@@ -48,21 +48,6 @@ const generateTimeSlots = (startHour: number, endHour: number, intervalMinutes: 
 
 const allTimeSlots = generateTimeSlots(8, 18, 40);
 
-const toggleExtraSpecialty = (value: string) => {
-    setForm(prev => {
-        const current = prev.specialties || [];
-        const exists = current.includes(value);
-
-        return {
-            ...prev,
-            specialties: exists
-                ? current.filter(v => v !== value)
-                : [...current, value],
-        };
-    });
-};
-
-
 const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: DoctorFormProps) => {
     const [form, setForm] = useState<IDoctor>({
         _id: selectedDoctor?._id || "",
@@ -115,7 +100,9 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        console.log('[DoctorForm] handleSubmit disparado. form:', form);
         if (formErrors.fullName) return toast.error("Nome é obrigatório");
+        console.log('[DoctorForm] Chamando onSubmitDoctor com:', form);
         onSubmitDoctor(form);
     };
 

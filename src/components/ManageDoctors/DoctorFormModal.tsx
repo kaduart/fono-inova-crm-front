@@ -40,12 +40,16 @@ const DoctorFormModal = ({
     }, [open, modalShouldClose]);
 
     const handleSubmit = async (data: IDoctor) => {
+        console.log('[DoctorFormModal] handleSubmit recebido:', data);
         setIsSubmitting(true);
         try {
+            console.log('[DoctorFormModal] Chamando onSubmitDoctor...');
             await onSubmitDoctor(data);
+            console.log('[DoctorFormModal] onSubmitDoctor resolveu com sucesso.');
             setShouldClose(true);
             onClose(); // Fecha o modal no sucesso
         } catch (error) {
+            console.error('[DoctorFormModal] onSubmitDoctor rejeitou:', error);
             // Erros são tratados no componente pai
         } finally {
             setIsSubmitting(false);

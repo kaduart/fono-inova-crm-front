@@ -4,6 +4,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import toast from 'react-hot-toast';
 import moment from 'moment-timezone';
 import { mapToCreateAppointmentDTO } from '../dtos/appointment.dto';
+import { invalidateCache } from '../utils/cacheManager';
 
 // 🔧 Helper para lazy loading com retry em caso de falha de chunk
 const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) => {
@@ -362,22 +363,27 @@ export default function AdminDashboard() {
     }, [navigate]);
 
     const handleSaveDoctor = useCallback(async (doctor: CreateDoctorParams) => {
+        console.log('[AdminDashboard] handleSaveDoctor chamado com:', doctor);
         setIsLoading(true);
         try {
             if (doctor._id) {
-                await doctorService.update(doctor._id, doctor);
+                console.log('[AdminDashboard] Modo EDITAR. Chamando doctorService.update...');
+                await doctorService.update(doctor._id, doctor, { skipPolling: true });
                 toast.success("Profissional atualizado com sucesso!");
             } else {
-                await doctorService.create(doctor);
+                console.log('[AdminDashboard] Modo CRIAR. Chamando doctorService.create...');
+                await doctorService.create(doctor, { skipPolling: true });
                 toast.success("Profissional cadastrado com sucesso!");
             }
 
-            // ✅ Fecha o modal após sucesso
             setShowModalAddProfessional(false);
             setModalShouldClose(true);
-            // 🔄 Atualiza dashboard para refletir mudanças
-            refreshDashboard();
+
+            // Não invalidar cache aqui — dispara fetch imediato antes do worker terminar.
+            // A lista é atualizada via refreshDoctors() no ManageDoctors após delay adequado.
+            setTimeout(() => refreshDashboard(), 4000);
         } catch (error: any) {
+            console.error('[AdminDashboard] Erro em handleSaveDoctor:', error);
             toast.error(extractErrorMessage(error, "Erro ao salvar profissional."));
             throw error; // Re-throw para o modal saber que falhou
         } finally {

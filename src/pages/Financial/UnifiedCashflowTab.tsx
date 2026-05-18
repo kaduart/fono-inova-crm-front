@@ -251,6 +251,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
             ) : viewMode === 'day' && data ? (
                 // ===== VISUALIZAÇÃO DIÁRIA =====
                 <div>
+                <div>
                     {/* Cards Principais - Caixa e Produção */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
                         {/* Caixa Total */}
@@ -910,6 +911,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                             </div>
                         </div>
                     )}
+                </div>
                 </div>
             ) : viewMode === 'month' ? (
                 // ===== VISUALIZAÇÃO MENSAL =====
