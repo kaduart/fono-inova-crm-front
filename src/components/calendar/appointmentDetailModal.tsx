@@ -393,7 +393,16 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         }
 
         // 💰 ALERTA DE DÍVIDA: só para particular — convenio/liminar são pós-pagos pelo plano/judicial
-        const isThirdPartyBilling = ['convenio', 'liminar'].includes(event?.billingType ?? '');
+        // Checa múltiplos campos: billingType pode estar errado no DB (data quality issue)
+        const isThirdPartyBilling = (
+            ['convenio', 'liminar'].includes(event?.billingType ?? '') ||
+            ['convenio', 'liminar'].includes(billingType) ||
+            event?.paymentMethod === 'convenio' ||
+            event?.paymentMethod === 'liminar_credit' ||
+            !!(event?.insuranceProvider) ||
+            !!(event?.extendedProps?.insuranceProvider) ||
+            event?.extendedProps?.billingType === 'convenio'
+        );
         if (patientFinancial && patientFinancial.sessionDebt > 0 && !isThirdPartyBilling) {
             const confirmed = await new Promise<boolean | null>(resolve => {
                 setDebtConfirmResolve(() => resolve);
@@ -824,8 +833,15 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             </div>
                         </div>
                         
-                        {/* 💰 SEÇÃO DE SALDO DEVEDOR */}
-                        <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-4 rounded-xl border-2 border-amber-200">
+                        {/* 💰 SEÇÃO DE SALDO DEVEDOR — oculta para convênio/liminar */}
+                        {!(
+                            ['convenio', 'liminar'].includes(event?.billingType ?? '') ||
+                            ['convenio', 'liminar'].includes(billingType) ||
+                            event?.paymentMethod === 'convenio' ||
+                            event?.paymentMethod === 'liminar_credit' ||
+                            !!(event?.insuranceProvider) ||
+                            !!(insuranceProvider)
+                        ) && <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-4 rounded-xl border-2 border-amber-200">
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="p-2 bg-amber-100 rounded-lg">
                                     <DollarSign className="w-5 h-5 text-amber-600" />
@@ -884,7 +900,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     </div>
                                 </div>
                             )}
-                        </div>
+                        </div>}
                     </div>
                 );
 

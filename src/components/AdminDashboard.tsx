@@ -532,17 +532,14 @@ export default function AdminDashboard() {
             if (completed) {
                 toast.success('✅ Agendamento finalizado com sucesso!', { id: `success-${appointmentId}` });
                 
-                // ⏳ AGUARDA backend persistir (evita cache)
-                await new Promise(resolve => setTimeout(resolve, 300));
-                
-                // ✅ SÓ FECHA O MODAL SE DEU CERTO
-                await fetchAppointments({ ...calendarDateRange, force: true });
-                await refreshDashboard();
-                
-                // ⏳ AGUARDA estado propagar
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
+                // ✅ Fecha modal e loading imediatamente — refresh roda em background
                 setCloseModalSignal(prev => prev + 1);
+
+                // 🔄 Refresh em background sem bloquear o modal
+                setTimeout(() => {
+                    fetchAppointments({ ...calendarDateRange, force: true });
+                    refreshDashboard();
+                }, 300);
                 
                 // 🆕 DISPARA EVENTO para atualizar Card Caixa
                 window.dispatchEvent(new CustomEvent('cash:refresh', { 
