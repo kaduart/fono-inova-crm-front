@@ -464,8 +464,8 @@ const DailyCashflowView = ({ data, formatCurrency }: DailyCashflowViewProps) => 
                             </Typography>
                             <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                                 {caixa.pix > 0 && <Chip size="small" label={`Pix: ${formatCurrency(caixa.pix)}`} color="success" variant="outlined" />}
-                                {caixa.cartao > 0 && <Chip size="small" label={`Card: ${formatCurrency(caixa.cartao)}`} color="primary" variant="outlined" />}
-                                {caixa.dinheiro > 0 && <Chip size="small" label={`Din: ${formatCurrency(caixa.dinheiro)}`} color="warning" variant="outlined" />}
+                                {caixa.cartao > 0 && <Chip size="small" label={`Cartão: ${formatCurrency(caixa.cartao)}`} color="primary" variant="outlined" />}
+                                {caixa.dinheiro > 0 && <Chip size="small" label={`Dinheiro: ${formatCurrency(caixa.dinheiro)}`} color="warning" variant="outlined" />}
                             </Box>
                         </CardContent>
                     </Card>

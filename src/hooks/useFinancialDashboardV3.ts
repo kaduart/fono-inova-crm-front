@@ -11,7 +11,7 @@ import moment from 'moment-timezone';
 const TIMEZONE = 'America/Sao_Paulo';
 
 // Cache de módulo: compartilhado entre todas as instâncias do hook (evita fetch duplicado)
-const MODULE_CACHE_TTL = 4 * 60 * 1000; // 4 min (abaixo do TTL de 5 min do backend)
+const MODULE_CACHE_TTL = 45 * 1000; // 45s — mês aberto precisa ser near real-time
 const _cache = new Map<string, { data: unknown; ts: number }>();
 const _inflight = new Map<string, Promise<unknown>>();
 
@@ -370,6 +370,13 @@ export const useCurrentMonthDashboardV3 = () => {
       fetched.current = true;
       hook.fetchDashboard(month, year);
     }
+
+    // Auto-refresh a cada 60s: cache de 45s garante re-fetch sempre
+    const interval = setInterval(() => {
+      hook.fetchDashboard(month, year);
+    }, 60 * 1000);
+
+    return () => clearInterval(interval);
   }, [month, year, hook.fetchDashboard]);
 
   return hook;

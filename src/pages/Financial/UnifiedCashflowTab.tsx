@@ -275,31 +275,39 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                 </div>
                             )}
                             <div className="flex flex-wrap gap-1 mt-2">
+                                <span className="text-xs text-gray-400 w-full mb-0.5">Forma de pagamento:</span>
                                 {data.caixa.pix > 0 && (
                                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-800">Pix: {formatCurrency(data.caixa.pix)}</span>
                                 )}
                                 {data.caixa.cartao > 0 && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800">Card: {formatCurrency(data.caixa.cartao)}</span>
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800">Cartão: {formatCurrency(data.caixa.cartao)}</span>
                                 )}
                                 {data.caixa.dinheiro > 0 && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800">Din: {formatCurrency(data.caixa.dinheiro)}</span>
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800">Dinheiro: {formatCurrency(data.caixa.dinheiro)}</span>
                                 )}
                             </div>
-                            {/* 💰 Origem do faturamento */}
-                            <div className="flex flex-wrap gap-1 mt-1.5">
-                                {data.porTipo?.particular > 0 && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-cyan-100 text-cyan-800">Particular: {formatCurrency(data.porTipo.particular)}</span>
-                                )}
-                                {data.porTipo?.pacote > 0 && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-indigo-100 text-indigo-800">Pacote: {formatCurrency(data.porTipo.pacote)}</span>
-                                )}
-                                {data.porTipo?.convenio > 0 && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">Convênio: {formatCurrency(data.porTipo.convenio)}</span>
-                                )}
-                                {data.porTipo?.liminar > 0 && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-rose-100 text-rose-800">Liminar: {formatCurrency(data.porTipo.liminar)}</span>
-                                )}
-                            </div>
+                            {/* 💰 Origem do faturamento — só exibe se houver 2+ tipos distintos */}
+                            {(() => {
+                                const tipos = [data.porTipo?.particular, data.porTipo?.pacote, data.porTipo?.convenio, data.porTipo?.liminar].filter(v => v > 0);
+                                if (tipos.length < 2) return null;
+                                return (
+                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                        <span className="text-xs text-gray-400 w-full mb-0.5">Tipo de receita:</span>
+                                        {data.porTipo?.particular > 0 && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-cyan-100 text-cyan-800">Particular: {formatCurrency(data.porTipo.particular)}</span>
+                                        )}
+                                        {data.porTipo?.pacote > 0 && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-indigo-100 text-indigo-800">Sessão de pacote: {formatCurrency(data.porTipo.pacote)}</span>
+                                        )}
+                                        {data.porTipo?.convenio > 0 && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">Convênio: {formatCurrency(data.porTipo.convenio)}</span>
+                                        )}
+                                        {data.porTipo?.liminar > 0 && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-rose-100 text-rose-800">Liminar: {formatCurrency(data.porTipo.liminar)}</span>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                             {/* 💸 Saldo líquido (só se houver despesas) */}
                             {data.despesas?.total > 0 && (
                                 <div className="mt-2 pt-2 border-t border-emerald-200/60">
