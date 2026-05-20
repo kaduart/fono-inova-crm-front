@@ -417,6 +417,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
         setIsCompleting(true);
         setProcessingState({ isProcessing: true, message: 'Finalizando atendimento...' });
+        console.log('[Modal] ▶ handleComplete START — isCompleting=true, processingState SET');
 
         try {
             // 🛡️ GUARD FINANCEIRO — valida antes de bater na API
@@ -432,12 +433,14 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 sessionValue: (addToBalance && debitAmount > 0) ? debitAmount : (event?.sessionValue ?? event?.paymentAmount ?? null),
             });
 
+            console.log('[Modal] Guard result:', guardResult);
             if (!guardResult.valid) {
                 toast.error(guardResult.message, { id: `guard-${event.id}`, autoClose: 6000 });
                 return;
             }
 
             // ✅ Guard passou — executa com loading ativo
+            console.log('[Modal] Guard OK — chamando onCompleteAppointment');
             if (addToBalance) {
                 console.log('💰 [Modal] Completando com saldo devedor:', debitAmount);
                 await onCompleteAppointment(event.id, {
@@ -448,6 +451,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             } else {
                 await onCompleteAppointment(event.id);
             }
+            console.log('[Modal] onCompleteAppointment RETORNOU — sucesso, aguardando finally');
             // ✅ Sucesso: o modal fecha via closeModalSignal do pai
         } catch (err: any) {
             // 🐛 CORREÇÃO: Modal fica aberto quando dá erro
@@ -468,6 +472,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             
             // Importante: NÃO fecha o modal aqui! Usuário precisa ver o erro e tentar de novo
         } finally {
+            console.log('[Modal] ■ finally — zerando isCompleting e processingState');
             setIsCompleting(false);
             setProcessingState(null);
         }

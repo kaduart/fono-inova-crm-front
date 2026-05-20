@@ -490,6 +490,7 @@ export interface IAppointment {
 
     // 🆕 Lifecycle flags calculadas no backend
     isFirstVisit?: boolean;
+    isFirstVisitInSpecialty?: boolean;
     isReturningAfter45Days?: boolean;
 
     // ⚖️ LiminarContract (novo modelo desacoplado)

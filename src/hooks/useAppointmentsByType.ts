@@ -8,6 +8,7 @@ import { IAppointment } from '../utils/types/types';
 export interface AppointmentsByTypeData {
   leads: IAppointment[];
   novos: IAppointment[];
+  novosEspecialidade: IAppointment[];
   retornos45: IAppointment[];
   recorrentes: IAppointment[];
   all: IAppointment[];
@@ -17,6 +18,7 @@ export interface AppointmentsByTypeSummary {
   total: number;
   leads: { count: number; percentage: number };
   novos: { count: number; percentage: number };
+  novosEspecialidade: { count: number; percentage: number };
   retornos45: { count: number; percentage: number };
   recorrentes: { count: number; percentage: number };
 }

@@ -259,6 +259,8 @@ export interface DashboardV3Data {
       liminar: number;
       recebido: number;
       pendente: number;
+      particularPendente: number;
+      pacotePendente: number;
     };
   };
   pendentes?: PendentesV3;
@@ -272,6 +274,10 @@ export interface DashboardV3Data {
     };
   };
   balance: number;
+  resultadoCaixa: number;
+  convenioAReceber: number;
+  particularPendente: number;
+  pacotePendente: number;
   metas: MetasV3;
   profissionais: {
     lista: ProfissionalV3[];
@@ -297,6 +303,10 @@ export interface DashboardV3Response {
     caixaDetalhe: DashboardV3Data['cash']['breakdown'];
     producao: number;
     producaoDetalhe: DashboardV3Data['revenue']['byMethod'];
+    resultadoCaixa: number;
+    convenioAReceber: number;
+    particularPendente: number;
+    pacotePendente: number;
     aReceber: { total: number; mesAtual: number; historico: number };
     pendentes?: PendentesV3;
     saldo: number;

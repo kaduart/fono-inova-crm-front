@@ -448,9 +448,15 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
 
   const renderCaixa = () => (
     <div className="space-y-6">
+      <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+        <p className="text-sm text-gray-500 mb-4">
+          💡 <strong>Caixa = dinheiro que REALMENTE entrou</strong> no banco. Convênio só aparece quando a operadora paga.
+        </p>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Por Tipo</h3>
+          <h3 className="text-lg font-bold text-gray-800 mb-1">Por Tipo</h3>
+          <p className="text-xs text-gray-400 mb-4">Dinheiro recebido no período</p>
           <BreakdownList items={[
             { label: 'Particular', value: cash.breakdown.particular, color: 'blue' },
             { label: 'Pacote', value: cash.breakdown.pacote, color: 'purple' },
@@ -459,7 +465,8 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           ]} total={totalCaixa} />
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Por Método</h3>
+          <h3 className="text-lg font-bold text-gray-800 mb-1">Por Método</h3>
+          <p className="text-xs text-gray-400 mb-4">Forma de pagamento do dinheiro recebido</p>
           <BreakdownList items={[
             { label: 'Dinheiro', value: cash.byMethod.dinheiro, color: 'emerald' },
             { label: 'Cartão', value: cash.byMethod.cartao, color: 'blue' },
@@ -496,7 +503,8 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   const renderProducao = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
-        <h3 className="text-lg font-bold text-gray-800 mb-4">Por Tipo</h3>
+        <h3 className="text-lg font-bold text-gray-800 mb-1">Por Tipo</h3>
+        <p className="text-xs text-gray-400 mb-4">Atendimentos realizados no período (produção)</p>
         <BreakdownList items={[
           { label: 'Particular', value: revenue.byMethod.particular, color: 'blue' },
           { label: 'Pacote', value: revenue.byMethod.pacote, color: 'purple' },
@@ -611,16 +619,21 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           <hr className="my-4" />
           <div className="space-y-3">
             <MetricRow label="Meta mensal" value={formatCurrency(metas.configuracao.metaMensal)} />
-            <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-2">
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 space-y-2">
               <div className="flex justify-between items-baseline">
-                <span className="text-sm font-bold text-gray-700">Resultado econômico</span>
-                <span className="text-lg font-extrabold text-gray-900">{formatCurrency(metas.realizado.mes)}</span>
+                <div>
+                  <span className="text-sm font-bold text-emerald-800">Resultado econômico</span>
+                  <p className="text-[10px] text-emerald-600 mt-0.5">Caixa recebido + convênio a receber</p>
+                </div>
+                <span className="text-lg font-extrabold text-emerald-700">
+                  {formatCurrency(metas.realizado.mes)}
+                </span>
               </div>
-              <div className="border-t border-gray-200 pt-2 space-y-1.5">
+              <div className="border-t border-emerald-200 pt-2 space-y-1.5">
                 <div className="flex justify-between text-xs">
                   <span className="flex items-center gap-1.5 text-emerald-700 font-medium">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                    Recebido no mês (caixa)
+                    Caixa real recebido
                   </span>
                   <span className="font-semibold text-emerald-700">{formatCurrency(cash.total)}</span>
                 </div>
@@ -628,7 +641,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                   <div className="flex justify-between text-xs">
                     <span className="flex items-center gap-1.5 text-amber-700 font-medium">
                       <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
-                      Convênio ainda a receber
+                      Convênio a receber
                     </span>
                     <span className="font-semibold text-amber-700">
                       {formatCurrency(Math.max(0, (revenue.byMethod?.convenio || 0) - (cash.breakdown?.convenio || 0)))}
@@ -644,6 +657,43 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                 </div>
               </div>
             </div>
+
+            {/* 🆕 Riscos de inadimplência — informativo, NÃO subtrativo */}
+            {((data?.particularPendente || 0) > 0 || (data?.pacotePendente || 0) > 0) && (
+              <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 space-y-2">
+                <div className="flex justify-between items-baseline">
+                  <div>
+                    <span className="text-sm font-bold text-amber-800">Pendentes de recebimento</span>
+                    <p className="text-[10px] text-amber-600 mt-0.5">Valores ainda não recebidos — entram no caixa quando pagos</p>
+                    <p className="text-[9px] text-amber-500">Não inclusos no resultado econômico acima</p>
+                  </div>
+                  <span className="text-lg font-extrabold text-amber-700">
+                    {formatCurrency((data?.particularPendente || 0) + (data?.pacotePendente || 0))}
+                  </span>
+                </div>
+                <div className="border-t border-amber-200 pt-2 space-y-1.5">
+                  {(data?.particularPendente || 0) > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span className="flex items-center gap-1.5 text-amber-700 font-medium">
+                        <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
+                        Particular pendente
+                      </span>
+                      <span className="font-semibold text-amber-700">{formatCurrency(data.particularPendente)}</span>
+                    </div>
+                  )}
+                  {(data?.pacotePendente || 0) > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span className="flex items-center gap-1.5 text-amber-700 font-medium">
+                        <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
+                        Pacote pendente
+                      </span>
+                      <span className="font-semibold text-amber-700">{formatCurrency(data.pacotePendente)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <MetricRow label="Projeção final" value={formatCurrency(metas.projecao.final)} />
             <MetricRow label="Falta para meta" value={formatCurrency(metas.gap.valor)} valueColor="text-rose-600" />
           </div>

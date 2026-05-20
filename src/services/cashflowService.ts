@@ -65,6 +65,7 @@ export interface CashflowV2Data {
         pix: number;
         dinheiro: number;
         cartao: number;
+        transferencia: number;
         outros: number;
         qtdPix: number;
         qtdDinheiro: number;
