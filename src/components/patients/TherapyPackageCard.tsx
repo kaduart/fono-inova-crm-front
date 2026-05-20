@@ -546,46 +546,69 @@ export default function TherapyPackageCard({
                   currency: 'BRL'
                 }).format(pack.totalValue || 0)}
               </div>
-              {/* 🎯 Mostrar Valor Pago se houver */}
-              {(particularPaid || 0) > 0 && (
+              {/* 🎯 Mostrar Valor Pago ou indicação de pago antecipado */}
+              {(pack.totalPaid || 0) > 0 ? (
                 <div className="text-xs text-emerald-600 mt-1">
                   Pago: {new Intl.NumberFormat('pt-BR', {
                     style: 'currency',
                     currency: 'BRL'
-                  }).format(particularPaid)}
+                  }).format(pack.totalPaid)}
                 </div>
-              )}
+              ) : pack.financialStatus === 'paid_with_credit' ? (
+                <div className="text-xs text-emerald-600 mt-1 font-medium">
+                  Pago antecipado
+                </div>
+              ) : null}
             </div>
           )}
 
           {/* 💰 DÍVIDA REAL — Esconder para convênio */}
           {pack.type !== 'convenio' ? (
-            <div className={`p-4 rounded-xl border ${sessionDebt > 100
-              ? 'bg-gradient-to-br from-red-50 to-rose-50 border-red-100'
-              : sessionDebt > 0
-                ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100'
-                : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-100'
-              }`}>
-              <div className="flex items-center gap-2 mb-1">
-                <TrendingUp className={`h-4 w-4 ${sessionDebt > 100 ? 'text-red-600' : sessionDebt > 0 ? 'text-amber-600' : 'text-green-600'
-                  }`} />
-                <span className="text-sm font-medium text-gray-700">
-                  {sessionDebt > 0 ? '💰 Em aberto' : '✅ Sem pendências'}
-                </span>
-              </div>
-              <div className={`text-lg font-bold ${sessionDebt > 100 ? 'text-red-600' : sessionDebt > 0 ? 'text-amber-600' : 'text-green-600'
-                }`}>
-                {new Intl.NumberFormat('pt-BR', {
-                  style: 'currency',
-                  currency: 'BRL'
-                }).format(sessionDebt)}
-              </div>
-              {sessionDebt > 0 && (
+            pack.financialStatus === 'paid_with_credit' ? (
+              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm font-medium text-gray-700">💳 Crédito restante</span>
+                </div>
+                <div className="text-lg font-bold text-blue-600">
+                  {new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
+                  }).format(pack.balance ?? 0)}
+                </div>
                 <p className="text-[10px] text-gray-500 mt-1">
-                  Referente a sessões já realizadas
+                  {pack.sessionsRemaining ?? 0} sessão(ões) restante(s) no pacote
                 </p>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className={`p-4 rounded-xl border ${sessionDebt > 100
+                ? 'bg-gradient-to-br from-red-50 to-rose-50 border-red-100'
+                : sessionDebt > 0
+                  ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100'
+                  : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-100'
+                }`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp className={`h-4 w-4 ${sessionDebt > 100 ? 'text-red-600' : sessionDebt > 0 ? 'text-amber-600' : 'text-green-600'
+                    }`} />
+                  <span className="text-sm font-medium text-gray-700">
+                    {sessionDebt > 0 ? '💰 Em aberto' : '✅ Sem pendências'}
+                  </span>
+                </div>
+                {sessionDebt > 0 && (
+                  <div className={`text-lg font-bold ${sessionDebt > 100 ? 'text-red-600' : 'text-amber-600'}`}>
+                    {new Intl.NumberFormat('pt-BR', {
+                      style: 'currency',
+                      currency: 'BRL'
+                    }).format(sessionDebt)}
+                  </div>
+                )}
+                {sessionDebt > 0 && (
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    Referente a sessões já realizadas
+                  </p>
+                )}
+              </div>
+            )
           ) : (
             <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
               <div className="flex items-center gap-2 mb-2">
@@ -666,7 +689,7 @@ export default function TherapyPackageCard({
               {new Intl.NumberFormat('pt-BR', {
                 style: 'currency',
                 currency: 'BRL'
-              }).format(particularPaid)}
+              }).format(particularPaid > 0 ? particularPaid : (pack.totalPaid ?? 0))}
             </div>
           </div>
         </div>
@@ -744,8 +767,10 @@ export default function TherapyPackageCard({
               );
             })()}
 
-            {/* PAGAMENTO PENDENTE — usa particularPaid da fonte de verdade Payment */}
-            {Number(particularPaid || 0) === 0 && (
+            {/* PAGAMENTO PENDENTE — só mostra se não há pagamento E o pacote não está quitado */}
+            {Number(particularPaid || 0) === 0 &&
+             pack.financialStatus !== 'paid_with_credit' &&
+             pack.financialStatus !== 'paid' && (
               <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 p-3 rounded-lg flex items-center gap-3">
                 <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                 <div className="flex-1">

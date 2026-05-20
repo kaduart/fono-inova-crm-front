@@ -182,7 +182,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     const [serviceType, setServiceType] = useState('individual_session');
     const [billingType, setBillingType] = useState<'particular' | 'convenio'>('particular');
     const [paymentAmount, setPaymentAmount] = useState(0);
-    const [paymentMethod, setPaymentMethod] = useState('dinheiro');
+    const [paymentMethod, setPaymentMethod] = useState('');
     const [insuranceProvider, setInsuranceProvider] = useState('');
     const [insuranceValue, setInsuranceValue] = useState(0);
     const [authorizationCode, setAuthorizationCode] = useState('');
@@ -248,10 +248,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             });
 
             // 🆕 NOVO: Carregar dados de pagamento do evento
+            console.log('[Modal] event aberto — paymentMethod:', event.paymentMethod, '| billingType:', event.billingType, '| event completo:', event);
             setServiceType(event.serviceType || 'individual_session');
             setBillingType(event.billingType || 'particular');
             setPaymentAmount(event.sessionValue || event.paymentAmount || 0);
-            setPaymentMethod(event.paymentMethod || 'dinheiro');
+            setPaymentMethod(event.paymentMethod || '');
             setInsuranceProvider(event.insuranceProvider || '');
             setInsuranceValue(event.insuranceValue || 0);
             setAuthorizationCode(event.authorizationCode || '');
@@ -303,7 +304,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         console.log('✅ [Modal] Dados atualizados recebidos:', updatedData);
                         
                         // Atualiza campos de pagamento com os dados mais recentes
-                        setPaymentMethod(updatedData.paymentMethod || updatedData.payment?.method || 'dinheiro');
+                        console.log('[Modal] dados atualizados — paymentMethod:', updatedData.paymentMethod, '| payment.method:', updatedData.payment?.method);
+                        setPaymentMethod(updatedData.paymentMethod || updatedData.payment?.method || '');
                         setBillingType(updatedData.billingType || updatedData.payment?.type || 'particular');
                         setPaymentAmount(
                             updatedData.sessionValue || 
@@ -392,6 +394,12 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             return;
         }
 
+        // 🚫 BLOQUEIO: método de pagamento obrigatório para particular
+        if (billingType === 'particular' && !paymentMethod) {
+            toast.error('Selecione o método de pagamento antes de concluir o atendimento.');
+            return;
+        }
+
         // 💰 ALERTA DE DÍVIDA: só para particular — convenio/liminar são pós-pagos pelo plano/judicial
         // Checa múltiplos campos: billingType pode estar errado no DB (data quality issue)
         const isThirdPartyBilling = (
@@ -441,6 +449,26 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
             // ✅ Guard passou — executa com loading ativo
             console.log('[Modal] Guard OK — chamando onCompleteAppointment');
+
+            // 💾 SAVE SILENCIOSO: se o pagamento foi editado no form antes de completar,
+            // salva as alterações sem precisar fechar e reabrir o modal
+            const paymentChanged =
+                paymentMethod !== (event.paymentMethod ?? '') ||
+                billingType !== (event.billingType ?? 'particular') ||
+                paymentAmount !== (event.sessionValue ?? event.paymentAmount ?? 0);
+
+            if (paymentChanged) {
+                console.log('[Modal] Pagamento alterado — save silencioso antes de completar', {
+                    paymentMethod, billingType, paymentAmount
+                });
+                await onEditAppointment(event.id, {
+                    billingType,
+                    paymentMethod: billingType === 'particular' ? paymentMethod : 'convenio',
+                    paymentAmount,
+                    sessionValue: paymentAmount,
+                });
+            }
+
             if (addToBalance) {
                 console.log('💰 [Modal] Completando com saldo devedor:', debitAmount);
                 await onCompleteAppointment(event.id, {
@@ -494,6 +522,10 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     const handleEdit = async () => {
         if (!editedAppointment.date || !editedAppointment.time) {
             alert('Data e hora são obrigatórias');
+            return;
+        }
+        if (billingType === 'particular' && !paymentMethod) {
+            toast.error('Selecione o método de pagamento antes de salvar.');
             return;
         }
 
@@ -1243,10 +1275,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                                 Método de Pagamento
                                             </Label>
                                             <Select
-                                                value={paymentMethod || event?.paymentMethod || 'dinheiro'}
+                                                value={paymentMethod || event?.paymentMethod || ''}
                                                 onChange={(e) => setPaymentMethod(e.target.value)}
                                                 className="w-full p-3 bg-white border border-gray-300 rounded-lg"
                                             >
+                                                <option value="">— Selecione —</option>
                                                 <option value="dinheiro">Dinheiro</option>
                                                 <option value="pix">PIX</option>
                                                 <option value="credito">Cartão de Crédito</option>

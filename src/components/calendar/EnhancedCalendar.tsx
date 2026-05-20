@@ -166,7 +166,9 @@ const getRealPaymentStatus = (appt: any): string => {
         const ps = appt?.paymentStatus;
         if (ps === 'paid') return 'package_paid';
         if (ps === 'pending_receipt') return 'pending_receipt';
-        if (ps === 'pending') return 'pending';
+        // Para sessões de pacote, 'pending' no appointment é esperado —
+        // pagamento é rastreado no pacote, não na sessão individual
+        if (ps === 'pending') return 'package_paid';
         return 'package_paid';
     }
     return appt?.paymentStatus || 'unknown';
@@ -769,18 +771,24 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             : '';
 
         const appointmentPaymentStatus = getRealPaymentStatus(appointment);
-        const financialStatus = appointmentPaymentStatus === 'package_paid' || appointmentPaymentStatus === 'paid'
+        const financialStatus = isConvenio
+            ? 'convenio'
+            : appointmentPaymentStatus === 'paid'
             ? 'paid'
+            : appointmentPaymentStatus === 'package_paid'
+            ? 'package_paid'
             : hasPackage && packageObj
                 ? packageObj.financialStatus || appointmentPaymentStatus || 'pending'
                 : appointmentPaymentStatus || 'pending';
 
-        const isPackageSessionPending = hasPackage && financialStatus === 'pending';
+        // Convênio paga no mês seguinte — nunca é pendência cobrável no ato
+        const isPackageSessionPending = hasPackage && financialStatus === 'pending' && !isConvenio;
 
         const PAYMENT_BADGE: Record<string, { label: string; icon: string; bg: string; text: string }> = {
             paid: { label: 'Pago', icon: '$', bg: 'bg-green-600', text: 'text-white' },
             pending: { label: 'Pendente', icon: '$', bg: 'bg-red-600', text: 'text-white' },
             package_paid: { label: 'Pacote', icon: '📦', bg: 'bg-green-600', text: 'text-white' },
+            convenio: { label: 'Convênio', icon: '🏥', bg: 'bg-blue-500', text: 'text-white' },
             unknown: { label: 'Não verificado', icon: '?', bg: 'bg-gray-400', text: 'text-white' },
             partial: { label: 'Parcial', icon: '⚠️', bg: 'bg-amber-500', text: 'text-white' },
             advanced: { label: 'Adiant.', icon: '💵', bg: 'bg-blue-600', text: 'text-white' },
@@ -840,8 +848,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         {fmtTime(timeText || appointment.time || '')}
                     </span>
                     <div className="flex items-center gap-1">
-                        {/* 💰 BADGE DE DÍVIDA — visível no fluxo principal */}
-                        {appointment.paymentStatus === 'unpaid' && (
+                        {/* 💰 BADGE DE DÍVIDA — só para particular, convênio paga no mês */}
+                        {appointment.paymentStatus === 'unpaid' && !isConvenio && (
                             <div className="bg-rose-600 text-white px-2 py-1 rounded-lg text-[10px] font-extrabold shadow-md flex items-center gap-1 animate-pulse">
                                 <span>💰</span>
                                 <span>Em aberto</span>
@@ -1110,19 +1118,24 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
         // Status financeiro: prioriza o status do agendamento, depois do pacote
         const appointmentPaymentStatus = getRealPaymentStatus(arg.event.extendedProps);
-        const financialStatus = appointmentPaymentStatus === 'package_paid' || appointmentPaymentStatus === 'paid'
-            ? 'paid'  // Se o agendamento está pago, mostra pago
+        const financialStatus = isConvenio
+            ? 'convenio'
+            : appointmentPaymentStatus === 'paid'
+            ? 'paid'
+            : appointmentPaymentStatus === 'package_paid'
+            ? 'package_paid'
             : hasPackage && packageObj
                 ? packageObj.financialStatus || appointmentPaymentStatus || 'pending'
                 : appointmentPaymentStatus || 'pending';
 
-        // 🔥 NOVO: Detecta sessão de pacote pendente (destaque especial)
-        const isPackageSessionPending = hasPackage && financialStatus === 'pending';
+        // Convênio paga no mês seguinte — nunca é pendência cobrável no ato
+        const isPackageSessionPending = hasPackage && financialStatus === 'pending' && !isConvenio;
 
         const PAYMENT_BADGE: Record<string, { label: string; icon: string; bg: string; text: string }> = {
             paid: { label: 'Pago', icon: '$', bg: 'bg-green-600', text: 'text-white' },
             pending: { label: 'Pendente', icon: '$', bg: 'bg-red-600', text: 'text-white' },
             package_paid: { label: 'Pacote', icon: '📦', bg: 'bg-green-600', text: 'text-white' },
+            convenio: { label: 'Convênio', icon: '🏥', bg: 'bg-blue-500', text: 'text-white' },
             partial: { label: 'Parcial', icon: '⚠️', bg: 'bg-amber-500', text: 'text-white' },
             advanced: { label: 'Adiant.', icon: '💵', bg: 'bg-blue-600', text: 'text-white' },
             open: { label: 'Aberto', icon: '❌', bg: 'bg-red-600', text: 'text-white' },

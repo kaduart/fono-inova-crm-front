@@ -323,15 +323,33 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                             )}
                         </div>
 
-                        {/* Produção */}
+                        {/* Produção Clínica */}
                         <div className="border border-blue-200 rounded-xl bg-blue-50 p-3">
                             <div className="flex items-center gap-2 mb-1">
                                 <ShowChartIcon className="text-blue-600 w-5 h-5" />
-                                <span className="text-xs text-gray-600">Produção Total</span>
+                                <span className="text-xs text-gray-600">Produção Clínica</span>
                             </div>
                             <div className="text-2xl font-bold text-blue-700">{formatCurrency(data.producao.total)}</div>
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-gray-500 mb-1.5">
                                 {data.producao.quantidadeAtendimentos} atendimentos • Ticket: {formatCurrency(data.producao.ticketMedio)}
+                            </div>
+                            <div className="text-[10px] text-gray-400 italic mb-1.5">Valor gerado pelos atendimentos realizados</div>
+                            <div className="flex flex-col gap-0.5">
+                                {(() => {
+                                    const convenioTotal = (data.conveniosAtendidos || []).reduce((s: number, c: any) => s + (c.valor || 0), 0);
+                                    return convenioTotal > 0 ? (
+                                        <div className="flex justify-between text-xs">
+                                            <span className="text-purple-600">🏥 Convênio (próx. mês)</span>
+                                            <span className="font-medium text-purple-700">{formatCurrency(convenioTotal)}</span>
+                                        </div>
+                                    ) : null;
+                                })()}
+                                {data.producao.aReceber > 0 && (
+                                    <div className="flex justify-between text-xs">
+                                        <span className="text-amber-600">⏳ A receber (particular)</span>
+                                        <span className="font-medium text-amber-700">{formatCurrency(data.producao.aReceber)}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -1011,9 +1029,10 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                             <div className="text-xs text-gray-500">{monthTotals.diasComMovimento} dias com movimento</div>
                         </div>
                         <div className="border border-blue-200 rounded-xl bg-blue-50 p-3">
-                            <div className="text-xs text-gray-600">Produção Total</div>
+                            <div className="text-xs text-gray-600">Produção Clínica</div>
                             <div className="text-2xl font-bold text-blue-700">{formatCurrency(monthTotals.totalProducao)}</div>
                             <div className="text-xs text-gray-500">{monthTotals.totalAtendimentos} atendimentos</div>
+                            <div className="text-[10px] text-gray-400 italic mt-0.5">Valor gerado pelos atendimentos</div>
                         </div>
                         <div className="border border-amber-200 rounded-xl bg-amber-50 p-3">
                             <div className="text-xs text-gray-600">Média Diária</div>
@@ -1038,7 +1057,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                     <tr>
                                         <th className="px-3 py-2 text-left">Data</th>
                                         <th className="px-3 py-2 text-right">Caixa</th>
-                                        <th className="px-3 py-2 text-right">Produção</th>
+                                        <th className="px-3 py-2 text-right">Prod. Clínica</th>
                                         <th className="px-3 py-2 text-right">Atendimentos</th>
                                         <th className="px-3 py-2 text-right">Eficiência</th>
                                     </tr>
