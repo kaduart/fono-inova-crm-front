@@ -672,27 +672,25 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         )}
                         
                         {/* 💰 ALERTA DE SALDO DEVEDOR DO PACIENTE */}
-                        {event?.extendedProps?.patientHasDebt && (
-                            <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-red-50 to-rose-50 rounded-xl border-2 border-red-200 animate-pulse">
-                                <div className="p-2 bg-red-100 rounded-lg">
+                        {patientFinancial && patientFinancial.sessionDebt > 0 ? (
+                            <button
+                                onClick={() => setIsBalanceModalOpen(true)}
+                                className="w-full flex items-center gap-3 p-4 bg-gradient-to-r from-red-50 to-rose-50 rounded-xl border-2 border-red-300 hover:border-red-400 hover:shadow-md transition-all text-left"
+                            >
+                                <div className="p-2 bg-red-100 rounded-lg shrink-0">
                                     <DollarSign className="w-5 h-5 text-red-600" />
                                 </div>
                                 <div className="flex-1">
                                     <p className="font-semibold text-red-800">⚠️ Paciente com Saldo Devedor</p>
                                     <p className="text-sm text-red-600">
-                                        Este paciente deve <span className="font-bold text-red-700 text-lg">R$ {event.extendedProps.patientBalance?.toFixed(2)}</span> em sessões anteriores
+                                        Clique para ver e quitar — <span className="font-bold text-red-700">R$ {patientFinancial.sessionDebt.toFixed(2).replace('.', ',')}</span> em aberto
                                     </p>
                                 </div>
-                                <div className="text-right">
-                                    <span className="text-2xl font-bold text-red-600">
-                                        R$ {event.extendedProps.patientBalance?.toFixed(2)}
-                                    </span>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {/* 💰 BOTÃO PARA ACESSAR CONTA CORRENTE */}
-                        {event?.patient?.id && (
+                                <span className="text-xl font-bold text-red-600 shrink-0">
+                                    R$ {patientFinancial.sessionDebt.toFixed(2).replace('.', ',')}
+                                </span>
+                            </button>
+                        ) : event?.patient?.id && (
                             <div className="flex justify-end">
                                 <button
                                     onClick={() => setIsBalanceModalOpen(true)}

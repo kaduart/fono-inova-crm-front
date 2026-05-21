@@ -32,6 +32,8 @@ import { useFollowupAnalytics } from "../hooks/useFollowupAnalytics";
 import { useLeads } from "../hooks/useLeads";
 
 // UI Components
+import { OperationalView } from "../components/mkt/leads/OperationalView";
+import { ErrorBoundary } from "../components/ui/ErrorBoundary";
 import { ScoreBadge } from "../components/mkt/leads/ScoreBadge";
 import TimelineModal from "../components/mkt/leads/TimelineModal";
 import { Button } from "../components/ui/Button";
@@ -248,6 +250,10 @@ const FollowupPage = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState("leads");
+  const [viewMode, setViewMode] = useState<"marketing" | "operacional">(() => {
+    const saved = localStorage.getItem("leads_view_mode");
+    return (saved === "marketing" || saved === "operacional") ? saved : "operacional";
+  });
   const [historyMetrics, setHistoryMetrics] = useState<HistoryMetrics | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -265,7 +271,8 @@ const FollowupPage = () => {
     goToPage,
     changeLimit,
     createLeadFromSheet,
-    updateLeadStatus
+    updateLeadStatus,
+    updateOperational,
   } = useLeads({
     search,
     page: 1,
@@ -326,6 +333,27 @@ const FollowupPage = () => {
       toast.error(extractErrorMessage(error, "Erro ao atualizar status"));
     }
   };
+
+  const handleCreateNewFollowup = useCallback(async (payload: any) => {
+    const res = await leadService.createNewFollowup(payload);
+    if (!res.success) {
+      throw new Error(extractErrorMessage(res.error, "Erro ao criar acompanhamento"));
+    }
+    await refetchLeads();
+  }, [refetchLeads]);
+
+  const handleViewModeChange = useCallback((mode: "marketing" | "operacional") => {
+    setViewMode(mode);
+    localStorage.setItem("leads_view_mode", mode);
+  }, []);
+
+  const handleUpdateOperational = useCallback(async (leadId: string, fields: Record<string, any>) => {
+    try {
+      await updateOperational(leadId, fields);
+    } catch (error: any) {
+      toast.error(extractErrorMessage(error, "Erro ao atualizar"));
+    }
+  }, [updateOperational]);
 
   // ✅ CORRIGIDO: atualiza filtros e recarrega leads
   const handleFilter = (filters: any) => {
@@ -474,6 +502,53 @@ const FollowupPage = () => {
 
         {/* ABA LEADS */}
         <TabsContent value="leads" className="space-y-6">
+          {/* TOGGLE MARKETING / OPERACIONAL */}
+          <div className="flex items-center gap-3">
+            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+              <button
+                onClick={() => handleViewModeChange("operacional")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  viewMode === "operacional"
+                    ? "bg-white shadow-sm text-slate-800"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Operacional
+              </button>
+              <button
+                onClick={() => handleViewModeChange("marketing")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  viewMode === "marketing"
+                    ? "bg-white shadow-sm text-slate-800"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Marketing
+              </button>
+            </div>
+            {viewMode === "operacional" && (
+              <span className="text-xs text-slate-500">
+                Fila de trabalho da secretária · ordenado por urgência
+              </span>
+            )}
+          </div>
+
+          {/* VISTA OPERACIONAL */}
+          {viewMode === "operacional" && (
+            <ErrorBoundary>
+              <OperationalView
+                leads={leads}
+                loading={leadsLoading}
+                onUpdateLead={handleUpdateOperational}
+                onOpenTimeline={openLeadTimeline}
+                onCreateNew={handleCreateNewFollowup}
+              />
+            </ErrorBoundary>
+          )}
+
+          {/* VISTA MARKETING (original) */}
+          {viewMode === "marketing" && (
+            <>
           <FollowupFilters onFilter={handleFilter} />
 
           {/* BARRA DE BUSCA */}
@@ -830,6 +905,8 @@ const FollowupPage = () => {
               </div>
             )}
           </div>
+            </>
+          )}
         </TabsContent>
 
         {/* ABA MÉTRICAS DO FUNIL */}

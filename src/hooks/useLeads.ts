@@ -117,6 +117,24 @@ export const useLeads = (filters: UseLeadsProps = {}) => {
     }
   }, []);
 
+  const updateOperational = useCallback(async (leadId: string, fields: Record<string, any>) => {
+    try {
+      const res = await leadService.updateOperational(leadId, fields);
+      if (res.success) {
+        setLeads(prev => prev.map(l =>
+          l._id === leadId
+            ? { ...l, operational: { ...(l.operational ?? {}), ...fields } }
+            : l
+        ));
+        return res.data;
+      } else {
+        throw new Error(res.error?.message || "Erro ao atualizar");
+      }
+    } catch (err: any) {
+      throw new Error(err.message || "Erro ao atualizar");
+    }
+  }, []);
+
   // ✅ CORREÇÃO: Efeito para buscar dados quando filtros mudam
   useEffect(() => {
     fetchLeads();
@@ -145,5 +163,6 @@ export const useLeads = (filters: UseLeadsProps = {}) => {
     changeLimit,
     createLeadFromSheet,
     updateLeadStatus,
+    updateOperational,
   };
 };

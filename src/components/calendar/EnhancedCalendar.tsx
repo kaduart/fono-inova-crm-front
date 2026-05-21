@@ -13,6 +13,8 @@ import { IAppointment, IDoctor, IPatient, ScheduleAppointment, SelectedEvent } f
 import { AppointmentDTO, mapAppointmentListResponseDTO } from '../../dtos/appointment.response.dto';
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
 import AppointmentDetailModal from './appointmentDetailModal';
+import CarteiraView from './CarteiraView';
+import CarteiraWeeklyView from './CarteiraWeeklyView';
 import API from '../../services/api';
 import { getHolidays, holidaysToMap, isHoliday as isHolidayUtil, Holiday } from '../../services/calendarService';
 
@@ -230,6 +232,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     // ✅ CORREÇÃO: Apenas estado essencial, SEM loading automático
     // O loading automático estava causando re-renders infinitos
     const [currentViewDate, setCurrentViewDate] = useState<string>('');
+    const [calendarView, setCalendarView] = useState<'agenda' | 'carteira' | 'semanal'>('agenda');
 
     // 🆕 Estado para feriados do backend
     const [holidays, setHolidays] = useState<Record<string, Holiday>>({});
@@ -1411,6 +1414,38 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 </div>
             </Paper>
 
+            {/* ── Toggle Agenda / Acompanhamento ── */}
+            <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                {(['agenda', 'carteira', 'semanal'] as const).map(tab => (
+                    <button
+                        key={tab}
+                        onClick={() => setCalendarView(tab)}
+                        className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                            calendarView === tab
+                                ? 'bg-[#00C087] text-white shadow'
+                                : 'bg-white text-gray-600 border border-gray-200 hover:border-[#00C087] hover:text-[#00C087]'
+                        }`}
+                    >
+                        {tab === 'agenda' ? 'Agenda' : tab === 'carteira' ? 'Acompanhamento' : 'Recorrência'}
+                    </button>
+                ))}
+            </Box>
+
+            {calendarView === 'carteira' && (
+                <Paper elevation={1} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'grey.200', bgcolor: 'white', minHeight: 500 }}>
+                    <CarteiraView
+                        doctors={doctors}
+                        currentMonth={currentViewDate || new Date().toISOString().slice(0, 7)}
+                    />
+                </Paper>
+            )}
+
+            {calendarView === 'semanal' && (
+                <Paper elevation={1} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'grey.200', bgcolor: 'white', minHeight: 500 }}>
+                    <CarteiraWeeklyView doctors={doctors} />
+                </Paper>
+            )}
+
             <Paper
                 elevation={1}
                 sx={{
@@ -1419,11 +1454,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     border: `1px solid ${theme.palette.grey[200]}`,
                     background: 'white',
                     position: 'relative',
+                    display: calendarView === 'agenda' ? undefined : 'none',
                 }}
             >
-                {/* Skeleton de loading — replica estrutura visual do FullCalendar */}
-                {loading ? (
-                    <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', minHeight: 560 }}>
+                {/* Skeleton de loading — overlay sobre o FullCalendar (não desmonta o calendário) */}
+                {loading && (
+                    <Box sx={{ position: 'absolute', inset: 0, zIndex: 10, borderRadius: 3, bgcolor: 'white', p: 2, display: 'flex', flexDirection: 'column', minHeight: 560 }}>
                         {/* Toolbar do FC: prev/next/today | título do mês | month/week/day */}
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, px: 1 }}>
                             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -1485,8 +1521,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             </Box>
                         ))}
                     </Box>
-                ) : (
-                    <FullCalendar
+                )}
+                <FullCalendar
                     ref={calendarRef}
                     {...calendarOptions}
                     events={events}
@@ -1598,7 +1634,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         </span>
                     )}
                 />
-                )}
             </Paper>
 
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mt: 3 }}>

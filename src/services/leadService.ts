@@ -80,6 +80,38 @@ export const leadService = {
         }
     },
 
+    /** GET /leads/by-phone/:phone — gateway extensão Chrome ↔ CRM */
+    async getByPhone(phone: string): Promise<{ found: boolean; lead: any | null; alternatives: any[] }> {
+        try {
+            const normalized = phone.replace(/\D/g, '');
+            const res = await API.get(`/leads/by-phone/${normalized}`);
+            return res.data;
+        } catch {
+            return { found: false, lead: null, alternatives: [] };
+        }
+    },
+
+    /** POST /leads/novo-acompanhamento — sempre cria novo lead operacional (sem dedup) */
+    async createNewFollowup(payload: {
+        name: string;
+        phone?: string;
+        origin?: string;
+        pipeline?: string;
+        nextActionAt?: string | null;
+        followupReason?: string;
+        nextActionNote?: string;
+    }) {
+        try {
+            const res = await API.post('/leads/novo-acompanhamento', payload);
+            const data = res.data?.data ?? res.data;
+            toast.success('Acompanhamento criado!');
+            return { success: true, data };
+        } catch (error: any) {
+            toast.error(extractErrorMessage(error, 'Erro ao criar acompanhamento.'));
+            return { success: false, error };
+        }
+    },
+
     /** PATCH /leads/:id/status — atualiza status */
     async updateLeadStatus(leadId: string, status: LeadStatus) {
         try {
@@ -160,6 +192,32 @@ export const leadService = {
             return { success: false, error };
         }
     },
+    /** GET /leads/operational-counts — badge global: atrasados + hoje */
+    async getOperationalCounts(): Promise<{ overdue: number; today: number; total: number }> {
+        try {
+            const res = await API.get('/leads/operational-counts');
+            return res.data;
+        } catch {
+            return { overdue: 0, today: 0, total: 0 };
+        }
+    },
+
+    /** PUT /leads/:id — atualiza campos do bloco operational (dot-notation para não sobrescrever o subdocumento) */
+    async updateOperational(leadId: string, fields: Record<string, any>) {
+        const body: Record<string, any> = {};
+        for (const [k, v] of Object.entries(fields)) {
+            body[`operational.${k}`] = v;
+        }
+        try {
+            const res = await API.put(`/leads/${leadId}`, body);
+            const data = res.data?.data ?? res.data;
+            return { success: true, data };
+        } catch (error: any) {
+            toast.error(extractErrorMessage(error, 'Erro ao atualizar lead.'));
+            return { success: false, error };
+        }
+    },
+
     /** GET /leads/history-metrics */
     async getHistoryMetrics() {
         try {

@@ -170,6 +170,8 @@ const sanitizeV2Payload = (data: any): any => {
     'appointmentId',
     // Débitos pendentes a quitar
     'selectedDebts',
+    // Sessões retroativas absorvidas na criação do pacote
+    'preConsumedCount',
   ];
   
   const sanitized: any = {};

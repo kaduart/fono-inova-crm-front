@@ -88,7 +88,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     const [sameDaySessions, setSameDaySessions] = useState(false);
     const [dailySessionTimes, setDailySessionTimes] = useState<string[]>(['16:00', '16:40']);
 
-    // 🆕 Estados para importação V2 (read-only / referência)
+    // 🆕 Estados para importação de pendências
     const [v2ImportedSessions, setV2ImportedSessions] = useState<Array<{
         id: string;
         v2PaymentId: string;
@@ -101,6 +101,21 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         source: string;
     }>>([]);
     const [v2ImportLoading, setV2ImportLoading] = useState(false);
+    const [selectedDebtIds, setSelectedDebtIds] = useState<Set<string>>(new Set());
+
+    // normaliza especialidade para comparação (fonoaudiologia == Fonoaudiologia == terapia_ocupacional == Terapia Ocupacional)
+    const normSpec = (s: string) => (s || '').toLowerCase().replace(/_/g, ' ').trim();
+
+    // débitos filtrados pela especialidade selecionada no formulário
+    const filteredDebts = useMemo(() => {
+        if (!formData.sessionType) return v2ImportedSessions;
+        return v2ImportedSessions.filter(s => normSpec(s.specialty) === normSpec(formData.sessionType));
+    }, [v2ImportedSessions, formData.sessionType]);
+
+    const otherSpecialtyDebts = useMemo(() => {
+        if (!formData.sessionType) return [];
+        return v2ImportedSessions.filter(s => normSpec(s.specialty) !== normSpec(formData.sessionType));
+    }, [v2ImportedSessions, formData.sessionType]);
 
     // Calculados dinamicamente (compatível com string ou número)
     const toNumber = (v: any) => {
@@ -211,6 +226,35 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         }
     }, [patient]);
 
+    // Auto-carrega débitos ao selecionar especialidade; limpa seleção e sessionValue anterior
+    useEffect(() => {
+        if (!formData.sessionType || !realPatientId) return;
+        setSelectedDebtIds(new Set());
+        setFormData(prev => ({ ...prev, sessionValue: 0 })); // reseta valor ao trocar especialidade
+        handleImportFromV2();
+    }, [formData.sessionType]);
+
+    // Ao marcar/desmarcar débitos: auto-preenche sessionValue e recalcula total do pagamento
+    useEffect(() => {
+        // usa apenas débitos da especialidade atual (filtrados)
+        const selected = filteredDebts.filter(s => selectedDebtIds.has(s.v2PaymentId));
+        if (selected.length === 0) return;
+
+        // sessionValue vem do primeiro débito da especialidade correta
+        const debtValue = selected[0].amount;
+        if (debtValue > 0) {
+            setFormData(prev => ({ ...prev, sessionValue: debtValue }));
+        }
+
+        // recalcula total: (sessões futuras do formulário + retroativas) × valor
+        const sv = formData.sessionValue || debtValue || 0;
+        const futuras = (formData.durationMonths || 0) * 4 * (formData.sessionsPerWeek || 0);
+        const total = (futuras + selected.length) * sv;
+        if (total > 0 && payments.length > 0) {
+            setPayments(prev => prev.map((p, i) => i === 0 ? { ...p, amount: total } : p));
+        }
+    }, [selectedDebtIds]);
+
 
 
     const fetchAppointmentsByPatient = async (patientId: string) => {
@@ -250,7 +294,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
 
 
-    // 🆕 Handler: importa pendências do financeiro v2 (referência visual)
+    // Handler: carrega pendências financeiras do paciente
     const handleImportFromV2 = async () => {
         if (!realPatientId) return;
         setV2ImportLoading(true);
@@ -271,7 +315,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     source: 'V2_BALANCE',
                     v2PaymentId: item._id,
                     amount: item.amount,
-                    date: item.serviceDate,
+                    date: item.serviceDate || item.appointment?.date || item.paymentDate,
                     time: item.appointment?.time,
                     specialty: item.specialty,
                     doctorName: item.doctor?.fullName,
@@ -279,14 +323,19 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 }));
 
             if (newSessions.length === 0) {
-                toast.info('Nenhuma pendência nova encontrada no financeiro v2');
+                toast.info('Nenhuma pendência nova encontrada.');
                 return;
             }
 
             setV2ImportedSessions(prev => [...prev, ...newSessions]);
-            toast.success(`${newSessions.length} pendência(s) carregadas do financeiro v2`);
+            setSelectedDebtIds(prev => {
+                const next = new Set(prev);
+                newSessions.forEach((s: any) => next.add(s.v2PaymentId));
+                return next;
+            });
+            toast.success(`${newSessions.length} pendência(s) carregadas.`);
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Erro ao buscar pendências v2');
+            toast.error(err?.response?.data?.message || 'Erro ao buscar pendências.');
         } finally {
             setV2ImportLoading(false);
         }
@@ -563,13 +612,19 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             console.log("📤 Enviando pacote:", packageData);
 
             // Fluxo particular (therapy/package)
+            const numPreConsumed = v2ImportedSessions.filter(s => selectedDebtIds.has(s.v2PaymentId)).length;
+            const totalContratual = packageData.totalSessions + numPreConsumed;
+            const sv = Number(formData.sessionValue) || 0;
             const therapyData = {
                 ...packageData,
                 type: 'package',
                 model: formData.paymentType === 'per-session' ? 'per_session' : 'prepaid',
                 patientId: realPatientId,
                 sessionType: formData.sessionType as any,
-                appointmentId: selectedAppointmentIdRef.current || formData.appointmentId || undefined
+                appointmentId: selectedAppointmentIdRef.current || formData.appointmentId || undefined,
+                totalSessions: totalContratual,
+                totalValue: totalContratual * sv,
+                preConsumedCount: numPreConsumed
             };
             if (initialData?._id) {
                 await packageService.updatePackage(initialData._id, therapyData);
@@ -577,9 +632,27 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 onSubmit();
             } else {
                 const response = await packageService.createPackage(therapyData);
-                const newPackageId = response?.data?.package?._id
-                    || response?.data?.package?.packageId
+                const newPackageId = response?.data?.packageId
+                    || response?.data?.package?._id
                     || response?.data?._id;
+
+                // Quita pendências importadas vinculando ao pacote recém-criado
+                const selectedSessions = v2ImportedSessions.filter(s => selectedDebtIds.has(s.v2PaymentId));
+                if (newPackageId && selectedSessions.length > 0) {
+                    const paymentIds = selectedSessions.map(s => s.v2PaymentId).filter(Boolean);
+                    if (paymentIds.length > 0) {
+                        try {
+                            await API.post(`/v2/packages/${newPackageId}/settle-payments`, {
+                                paymentIds,
+                                paymentMethod: payments[0]?.method || 'pix'
+                            });
+                            toast.success(`${paymentIds.length} pendência(s) quitadas e vinculadas ao pacote.`);
+                        } catch (settleErr: any) {
+                            toast.warning(`Pacote criado, mas erro ao quitar pendências: ${settleErr?.response?.data?.error || settleErr.message}`);
+                        }
+                    }
+                }
+
                 toast.success(`Pacote criado com sucesso! 💚`);
                 onSubmit(newPackageId);
             }
@@ -706,11 +779,13 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         console.log('appointments', appointments);
 
     const { totalSessions, totalValuePackage, remainingBalance } = useMemo(() => {
-        const sessions =
+        const futureSessions =
             calculationMode === 'sessions'
                 ? toNumber(formData.totalSessions)
                 : toNumber(formData.durationMonths) * 4 * toNumber(formData.sessionsPerWeek);
 
+        // total contratual = futuras + retroativas selecionadas
+        const sessions = futureSessions + selectedDebtIds.size;
         const totalValue = toNumber(sessions) * toNumber(formData.sessionValue);
         const totalPaidNow = payments.reduce((sum, p) => sum + toNumber(p.amount || 0), 0);
         const remaining = Math.max(totalValue - totalPaidNow, 0);
@@ -726,7 +801,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         formData.durationMonths,
         formData.sessionsPerWeek,
         formData.sessionValue,
-        payments, // 👈 adiciona aqui!
+        payments,
+        selectedDebtIds,
     ]);
 
     return (
@@ -760,13 +836,13 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                         {/* Coluna 1 - Configuração do Pacote */}
                         <div className="xl:col-span-2 space-y-6">
-                            {/* 🔵 Financeiro v2 (NOVO - recomendado) */}
-                            
-                                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-2">
+                            {/* 🌸 Financeiro — só exibe se há débitos ou ainda carregando */}
+                            {(v2ImportLoading || filteredDebts.length > 0 || v2ImportedSessions.length === 0) && (
+                                <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 space-y-2">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
-                                            <TrendingUp className="w-4 h-4 text-blue-600" />
-                                            <p className="text-sm font-semibold text-blue-800">
+                                            <TrendingUp className="w-4 h-4 text-rose-500" />
+                                            <p className="text-sm font-semibold text-rose-800">
                                                 Financeiro
                                             </p>
                                             <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium">
@@ -777,41 +853,90 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             type="button"
                                             onClick={handleImportFromV2}
                                             disabled={v2ImportLoading}
-                                            className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                                            className="text-xs bg-rose-100 hover:bg-rose-200 text-rose-800 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                                         >
                                             {v2ImportLoading ? 'Buscando...' : 'Carregar pendências'}
                                         </button>
                                     </div>
-                                    {v2ImportedSessions.length > 0 ? (
+                                    {filteredDebts.length > 0 ? (
                                         <>
-                                            <p className="text-xs text-blue-700">
-                                                Referência visual do financeiro v2 (não quita automaticamente):
-                                            </p>
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-xs text-blue-700 font-medium">
+                                                    Selecione as sessões a absorver no pacote:
+                                                </p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (selectedDebtIds.size === filteredDebts.length) {
+                                                            setSelectedDebtIds(new Set());
+                                                        } else {
+                                                            setSelectedDebtIds(new Set(filteredDebts.map(s => s.v2PaymentId)));
+                                                        }
+                                                    }}
+                                                    className="text-[10px] text-rose-500 underline"
+                                                >
+                                                    {selectedDebtIds.size === filteredDebts.length ? 'Desmarcar todas' : 'Marcar todas'}
+                                                </button>
+                                            </div>
                                             <div className="space-y-1">
-                                                {v2ImportedSessions.map(s => (
-                                                    <div key={s.id} className="flex items-center justify-between bg-white rounded px-2 py-1">
-                                                        <span className="text-xs text-blue-900">
+                                                {filteredDebts.map(s => (
+                                                    <label key={s.id} className="flex items-center gap-2 bg-white rounded px-2 py-1 cursor-pointer hover:bg-rose-50">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedDebtIds.has(s.v2PaymentId)}
+                                                            onChange={() => {
+                                                                setSelectedDebtIds(prev => {
+                                                                    const next = new Set(prev);
+                                                                    if (next.has(s.v2PaymentId)) next.delete(s.v2PaymentId);
+                                                                    else next.add(s.v2PaymentId);
+                                                                    return next;
+                                                                });
+                                                            }}
+                                                            className="accent-rose-500"
+                                                        />
+                                                        <span className="text-xs text-rose-900 flex-1">
                                                             {s.date ? new Date(s.date).toLocaleDateString('pt-BR') : 'Sem data'}
                                                             {s.time ? ` às ${s.time}` : ''}
                                                             {s.specialty ? ` — ${s.specialty}` : ''}
                                                             {s.amount ? ` — R$ ${Number(s.amount).toFixed(2).replace('.', ',')}` : ''}
                                                             {s.doctorName ? ` (${s.doctorName})` : ''}
                                                         </span>
-                                                        <span className="text-[10px] bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded">v2</span>
-                                                    </div>
+                                                        <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded shrink-0">pendente</span>
+                                                    </label>
                                                 ))}
                                             </div>
+                                            {selectedDebtIds.size > 0 && (
+                                                <p className="text-xs text-emerald-700 font-medium">
+                                                    {selectedDebtIds.size} sessão(ões) selecionada(s) para absorção no pacote
+                                                </p>
+                                            )}
+                                            {otherSpecialtyDebts.length > 0 && (
+                                                <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1">
+                                                    ⚠️ {otherSpecialtyDebts.length} débito(s) de outra(s) especialidade(s) não exibido(s) — crie pacotes separados.
+                                                </p>
+                                            )}
                                         </>
+                                    ) : v2ImportedSessions.length > 0 ? (
+                                        <div className="space-y-1">
+                                            <p className="text-xs text-blue-600 italic">
+                                                Nenhum débito de {formData.sessionType} encontrado.
+                                            </p>
+                                            {otherSpecialtyDebts.length > 0 && (
+                                                <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1">
+                                                    ⚠️ {otherSpecialtyDebts.length} débito(s) de outra(s) especialidade(s) — crie pacotes separados.
+                                                </p>
+                                            )}
+                                        </div>
                                     ) : (
                                         <p className="text-xs text-blue-600 italic">
-                                            Clique em "Carregar pendências (v2)" para visualizar débitos do novo financeiro.
+                                            {formData.sessionType ? 'Buscando pendências...' : 'Selecione o tipo de terapia para ver débitos em aberto.'}
                                         </p>
                                     )}
                                 </div>
+                            )}
 
-
-                            {/* Agendamento Existente */}
-                            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-100">
+                            {/* Agendamento Existente — oculto quando há débitos selecionados */}
+                            {selectedDebtIds.size === 0 && <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-100">
                                 <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
                                     <Calendar className="w-5 h-5 text-blue-600" />
                                     Agendamento Existente (Opcional)
@@ -835,7 +960,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                         </option>
                                     ))}
                                 </Select>
-                            </div>
+                            </div>}
 
                             {/* Configuração do Pacote */}
                             <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-5 rounded-xl border border-emerald-100">
@@ -1377,7 +1502,10 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm text-gray-600">Sessões totais:</span>
-                                        <span className="text-sm font-semibold text-gray-900">{totalSessions}</span>
+                                        <span className="text-sm font-semibold text-gray-900">
+                                            {totalSessions}
+                                            {selectedDebtIds.size > 0 && <span className="text-xs text-rose-500 ml-1">({selectedDebtIds.size} retroativas)</span>}
+                                        </span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm text-gray-600">Valor por sessão:</span>

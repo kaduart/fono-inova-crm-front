@@ -17,6 +17,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { BsSoundwave } from "react-icons/bs";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { useOperationalCounts } from "../../hooks/useOperationalCounts";
+import { useRetentionAlert } from "../../hooks/useRetentionAlert";
 import NavButton from "../ui/NavButton";
 import NavDropdownItem from "../ui/NavDropdownItem";
 import { NotificationBellFixed } from "../notifications/NotificationBellFixed";
@@ -45,6 +47,8 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     const { logout: authLogout } = useAuth();
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const opCounts       = useOperationalCounts();
+    const retentionAlert = useRetentionAlert();
 
     const gestaoRef = useRef<HTMLDivElement>(null);
     const vendasRef = useRef<HTMLDivElement>(null);
@@ -165,7 +169,14 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                             icon={<Clock className="h-4 w-4 text-amber-500" />}
                             className={activeTab === "Calendário" ? "bg-blue-100 text-blue-600" : "!text-white"}
                         >
-                            Agenda
+                            <span className="flex items-center gap-1.5">
+                                Agenda
+                                {!retentionAlert.loading && retentionAlert.total > 0 && (
+                                    <span className="bg-orange-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-none">
+                                        {retentionAlert.total}
+                                    </span>
+                                )}
+                            </span>
                         </NavButton>
 
                         <NavButton
@@ -185,7 +196,14 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                 hasChevron
                                 className={isVendasMarketingActive ? "bg-blue-100 text-blue-600" : "!text-white"}
                             >
-                                Vendas & Marketing
+                                <span className="flex items-center gap-1.5">
+                                    Vendas & Marketing
+                                    {opCounts.total > 0 && (
+                                        <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-none">
+                                            {opCounts.total}
+                                        </span>
+                                    )}
+                                </span>
                             </NavButton>
                             {openMenu === "vendas-marketing" && (
                                 <div className="absolute z-10 mt-2 w-64 rounded-lg shadow-xl bg-white border border-emerald-200 py-2">
@@ -198,9 +216,25 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         onClick={() => handleTabChange("Leads")}
                                         icon={<Users className="h-4 w-4 text-cyan-500" />}
                                     >
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-gray-800">Leads & Follow-up</span>
-                                            <span className="text-xs text-gray-500">Gestão de potenciais pacientes</span>
+                                        <div className="flex items-center justify-between w-full gap-3">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-medium text-gray-800">Leads & Follow-up</span>
+                                                <span className="text-xs text-gray-500">Fila operacional da secretária</span>
+                                            </div>
+                                            {(opCounts.overdue > 0 || opCounts.today > 0) && (
+                                                <div className="flex flex-col gap-0.5 items-end flex-shrink-0">
+                                                    {opCounts.overdue > 0 && (
+                                                        <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap">
+                                                            🔴 {opCounts.overdue}
+                                                        </span>
+                                                    )}
+                                                    {opCounts.today > 0 && (
+                                                        <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap">
+                                                            🟡 {opCounts.today}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     </NavDropdownItem>
                                     
@@ -425,7 +459,13 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         : "text-emerald-100 hover:bg-emerald-700"
                                     }`}
                             >
-                                <Users size={18} className="text-cyan-400" /> Leads & Follow-up
+                                <Users size={18} className="text-cyan-400" />
+                                <span className="flex-1 text-left">Leads & Follow-up</span>
+                                {opCounts.total > 0 && (
+                                    <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                                        {opCounts.total}
+                                    </span>
+                                )}
                             </button>
                             <button
                                 onClick={() => handleMobileTabChange("SocialMedia")}
