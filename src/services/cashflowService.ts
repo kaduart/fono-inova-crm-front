@@ -228,6 +228,13 @@ export const cashflowService = {
         }));
     },
 
+    getCashflowRange(startDate: string, endDate: string) {
+        const key = `cashflow-range:${startDate}:${endDate}`;
+        return deduped(key, () => API.get<CashflowV2Response>('/v2/cashflow', {
+            params: { startDate, endDate }
+        }));
+    },
+
     getMonthlyCashflow(month: string) {
         const key = `cashflow-month:${month}`;
         return deduped(key, () => API.get<{ success: boolean; month: string; data: { date: string; caixa: number; producao: number; atendimentos: number }[] }>('/v2/cashflow/month', {

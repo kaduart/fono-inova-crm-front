@@ -393,6 +393,8 @@ const FinancialDashboard = ({
     const [currentTab, setCurrentTab] = useState(0);
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [cashflowRange, setCashflowRange] = useState<{ startDate: string; endDate: string; label: string } | undefined>(undefined);
+    const [cashflowViewMode, setCashflowViewMode] = useState<'day' | 'month'>('day');
     const theme = useTheme();
 
     const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
@@ -415,7 +417,69 @@ const FinancialDashboard = ({
             case 'caixa-unificado':
                 return (
                     <Suspense fallback={<CaixaFluxoSkeleton />}>
-                        <UnifiedCashflowTab month={selectedMonth} year={selectedYear} />
+                        <div className="flex flex-wrap items-center gap-2 mb-4">
+                            <span className="text-xs font-medium text-gray-600">Período:</span>
+                            {[
+                                { key: 'day', label: 'Hoje' },
+                                { key: 'yesterday', label: 'Ontem' },
+                                { key: 'week', label: 'Esta Semana' },
+                                { key: 'last_week', label: 'Semana Passada' },
+                                { key: 'month', label: 'Este Mês' },
+                                { key: 'last_month', label: 'Mês Passado' },
+                            ].map((chip) => (
+                                <button
+                                    key={chip.key}
+                                    onClick={() => {
+                                        const now = new Date();
+                                        const toISODate = (d: Date) => d.toLocaleDateString('en-CA');
+                                        if (chip.key === 'day') {
+                                            const today = toISODate(now);
+                                            setCashflowViewMode('day');
+                                            setCashflowRange({ startDate: today, endDate: today, label: 'Hoje' });
+                                        } else if (chip.key === 'yesterday') {
+                                            const y = new Date(now);
+                                            y.setDate(now.getDate() - 1);
+                                            const yStr = toISODate(y);
+                                            setCashflowViewMode('day');
+                                            setCashflowRange({ startDate: yStr, endDate: yStr, label: 'Ontem' });
+                                        } else if (chip.key === 'week') {
+                                            const dayOfWeek = now.getDay();
+                                            const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                                            const monday = new Date(now);
+                                            monday.setDate(now.getDate() - diffToMonday);
+                                            const saturday = new Date(monday);
+                                            saturday.setDate(monday.getDate() + 5);
+                                            setCashflowViewMode('day');
+                                            setCashflowRange({ startDate: toISODate(monday), endDate: toISODate(saturday), label: 'Esta Semana' });
+                                        } else if (chip.key === 'last_week') {
+                                            const dayOfWeek = now.getDay();
+                                            const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                                            const lastMonday = new Date(now);
+                                            lastMonday.setDate(now.getDate() - diffToMonday - 7);
+                                            const lastSaturday = new Date(lastMonday);
+                                            lastSaturday.setDate(lastMonday.getDate() + 5);
+                                            setCashflowViewMode('day');
+                                            setCashflowRange({ startDate: toISODate(lastMonday), endDate: toISODate(lastSaturday), label: 'Semana Passada' });
+                                        } else if (chip.key === 'month') {
+                                            setCashflowRange(undefined);
+                                            setCashflowViewMode('month');
+                                            setSelectedMonth(now.getMonth() + 1);
+                                            setSelectedYear(now.getFullYear());
+                                        } else if (chip.key === 'last_month') {
+                                            setCashflowRange(undefined);
+                                            setCashflowViewMode('month');
+                                            const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                                            setSelectedMonth(lm.getMonth() + 1);
+                                            setSelectedYear(lm.getFullYear());
+                                        }
+                                    }}
+                                    className="px-2.5 py-1 rounded-full text-xs font-medium transition-all bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                >
+                                    {chip.label}
+                                </button>
+                            ))}
+                        </div>
+                        <UnifiedCashflowTab month={selectedMonth} year={selectedYear} dateRange={cashflowRange} defaultViewMode={cashflowViewMode} />
                     </Suspense>
                 );
             case 'pagamentos':

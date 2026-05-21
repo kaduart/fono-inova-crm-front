@@ -8,6 +8,7 @@ import { ptBR } from 'date-fns/locale';
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useAppointmentsByType } from '../../hooks/useAppointmentsByType';
 import { cashflowService, CashflowV2Response } from '../../services/cashflowService';
+import API from '../../services/api';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
@@ -56,12 +57,20 @@ const CashflowCardsSkeleton = () => (
     </div>
 );
 
+interface DateRange {
+    startDate: string;
+    endDate: string;
+    label: string;
+}
+
 interface UnifiedCashflowTabProps {
     month: number;
     year: number;
+    dateRange?: DateRange;
+    defaultViewMode?: 'day' | 'month';
 }
 
-const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
+const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: UnifiedCashflowTabProps) => {
     const [dailyCashflow, setDailyCashflow] = useState<CashflowV2Response | null>(null);
     const [previousDayCashflow, setPreviousDayCashflow] = useState<CashflowV2Response | null>(null);
     const [monthData, setMonthData] = useState<DayData[]>([]);
@@ -69,6 +78,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
     const [activeTab, setActiveTab] = useState(0);
     const [viewMode, setViewMode] = useState<'day' | 'month'>('day');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [manualDateOverride, setManualDateOverride] = useState(false);
     const [dayAppointments, setDayAppointments] = useState<any[]>([]);
     const [appointmentFilter, setAppointmentFilter] = useState<string>('all');
     const [loadingAppointments, setLoadingAppointments] = useState(false);
@@ -81,18 +91,34 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
     const [newSpecialtyModalOpen, setNewSpecialtyModalOpen] = useState(false);
     const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
 
-    const fetchAnalyticsForDate = useCallback(async (date: string) => {
-        await fetchAnalytics({ startDate: date, endDate: date, mode: 'date' });
-    }, [fetchAnalytics]);
+    const fetchAnalyticsForPeriod = useCallback(async () => {
+        if (dateRange) {
+            await fetchAnalytics({ startDate: dateRange.startDate, endDate: dateRange.endDate, mode: 'date' });
+        } else {
+            await fetchAnalytics({ startDate: selectedDate, endDate: selectedDate, mode: 'date' });
+        }
+    }, [fetchAnalytics, selectedDate, dateRange]);
 
-    // Carrega dados do dia selecionado
+    // Reset manual override e sincroniza viewMode quando o filtro externo muda
+    useEffect(() => {
+        setManualDateOverride(false);
+        if (dateRange) {
+            setSelectedDate(dateRange.startDate);
+        }
+        if (defaultViewMode) {
+            setViewMode(defaultViewMode);
+        }
+    }, [dateRange, defaultViewMode]);
+
+    // Carrega dados do dia selecionado (ou range)
     useEffect(() => {
         const guard = { active: true };
         loadDayData(guard);
         loadDayAppointments(guard);
-        fetchAnalyticsForDate(selectedDate);
+        fetchAnalyticsForPeriod();
         return () => { guard.active = false; };
-    }, [selectedDate, fetchAnalyticsForDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedDate, dateRange, manualDateOverride, fetchAnalyticsForPeriod]);
 
     // Recarrega agendamentos quando o usuário NAVEGA para a aba (não no mount inicial)
     useEffect(() => {
@@ -115,13 +141,25 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
     const loadDayData = async (guard = { active: true }) => {
         setLoading(true);
         try {
-            const prevDate = new Date(selectedDate + 'T12:00:00');
-            prevDate.setDate(prevDate.getDate() - 1);
-            const prevDateStr = prevDate.toISOString().split('T')[0];
-            const [res, resPrev] = await Promise.all([
-                cashflowService.getDailyCashflow(selectedDate),
-                cashflowService.getDailyCashflow(prevDateStr).catch(() => null),
-            ]);
+            let res, resPrev;
+            if (dateRange && !manualDateOverride) {
+                const [r, rPrev] = await Promise.all([
+                    cashflowService.getCashflowRange(dateRange.startDate, dateRange.endDate),
+                    cashflowService.getDailyCashflow(dateRange.startDate).catch(() => null),
+                ]);
+                res = r;
+                resPrev = rPrev;
+            } else {
+                const prevDate = new Date(selectedDate + 'T12:00:00');
+                prevDate.setDate(prevDate.getDate() - 1);
+                const prevDateStr = prevDate.toISOString().split('T')[0];
+                const [r, rPrev] = await Promise.all([
+                    cashflowService.getDailyCashflow(selectedDate),
+                    cashflowService.getDailyCashflow(prevDateStr).catch(() => null),
+                ]);
+                res = r;
+                resPrev = rPrev;
+            }
             if (!guard.active) return;
             setDailyCashflow(res.data);
             setPreviousDayCashflow(resPrev?.data ?? null);
@@ -149,8 +187,12 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
     const loadDayAppointments = async (guard = { active: true }) => {
         setLoadingAppointments(true);
         try {
-            console.log('[UnifiedCashflowTab] Buscando agendamentos para:', selectedDate);
-            const res = await cashflowService.getDayAppointments(selectedDate);
+            const start = dateRange ? dateRange.startDate : selectedDate;
+            const end = dateRange ? dateRange.endDate : selectedDate;
+            console.log('[UnifiedCashflowTab] Buscando agendamentos para:', start, 'a', end);
+            const res = await API.get<{ success: boolean; data: { appointments: any[]; pagination: any } }>('/v2/appointments', {
+                params: { startDate: start, endDate: end, limit: 500 }
+            });
             if (!guard.active) return;
             console.log('[UnifiedCashflowTab] Resposta:', res.data);
             setDayAppointments(res.data?.data?.appointments || []);
@@ -164,6 +206,24 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
 
     const formatCurrency = (value: number) =>
         `R$ ${value?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    const formatDateRange = (range: DateRange) => {
+        const start = parseISO(range.startDate);
+        const end = parseISO(range.endDate);
+        if (range.startDate === range.endDate) {
+            return format(start, "dd 'de' MMMM", { locale: ptBR });
+        }
+        const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+        if (sameMonth) {
+            return `${format(start, 'dd')} a ${format(end, "dd 'de' MMMM", { locale: ptBR })}`;
+        }
+        return `${format(start, 'dd/MM')} a ${format(end, 'dd/MM/yyyy')}`;
+    };
+
+    const isRangeActive = !!dateRange;
+    const isMultiDayRange = isRangeActive && dateRange!.startDate !== dateRange!.endDate;
+    const periodLabel = isMultiDayRange ? 'Período' : 'Dia';
+    const periodTitle = isMultiDayRange ? 'do Período' : 'do Dia';
 
     const data = dailyCashflow?.data;
 
@@ -218,17 +278,26 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                             onChange={(e) => setViewMode(e.target.value as 'day' | 'month')}
                             className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
                         >
-                            <option value="day">📅 Dia</option>
+                            <option value="day">📅 {isMultiDayRange ? 'Período' : 'Dia'}</option>
                             <option value="month">📊 Mês</option>
                         </select>
 
                         {viewMode === 'day' ? (
-                            <input
-                                type="date"
-                                value={selectedDate}
-                                onChange={(e) => setSelectedDate(e.target.value)}
-                                className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                            />
+                            isMultiDayRange ? (
+                                <span className="px-3 py-1.5 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md">
+                                    {formatDateRange(dateRange!)}
+                                </span>
+                            ) : (
+                                <input
+                                    type="date"
+                                    value={selectedDate}
+                                    onChange={(e) => {
+                                        setSelectedDate(e.target.value);
+                                        setManualDateOverride(true);
+                                    }}
+                                    className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                />
+                            )
                         ) : (
                             <span className="text-sm font-medium text-gray-700">
                                 {format(new Date(year, month - 1), 'MMMM/yyyy', { locale: ptBR })}
@@ -240,7 +309,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                         <CalendarTodayIcon className="w-4 h-4 text-gray-500" />
                         <span className="text-sm text-gray-700">
                             {viewMode === 'day' 
-                                ? format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })
+                                ? (isRangeActive && dateRange ? formatDateRange(dateRange) : format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR }))
                                 : format(new Date(year, month - 1), 'MMMM/yyyy', { locale: ptBR })}
                         </span>
                     </div>
@@ -254,7 +323,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                 <div>
                 <div>
                     {/* Cards Principais - Caixa e Produção */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                    <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 ${isMultiDayRange ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
                         {/* Caixa Total */}
                         <div className="border border-emerald-200 rounded-xl bg-emerald-50 p-3">
                             <div className="flex items-center gap-2 mb-1">
@@ -395,8 +464,8 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                             );
                         })()}
 
-                        {/* 4th card: vs Ontem mini chart */}
-                        {(() => {
+                        {/* 4th card: vs Ontem mini chart — escondido em range multi-dia */}
+                        {!isMultiDayRange && (() => {
                             const prevData = previousDayCashflow?.data;
                             const todayTx = (data.transacoes || []) as any[];
                             const yesterdayTx = (prevData?.transacoes || []) as any[];
@@ -439,7 +508,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                         })()}
                     </div>
 
-                    {/* Card de Pacientes Novos do Dia */}
+                    {/* Card de Pacientes Novos {periodTitle} */}
                     {(() => {
                         const leads = analyticsData?.leads || [];
                         const svcLabel: Record<string, string> = {
@@ -451,7 +520,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                             <div className="mb-4">
                                 <div className="flex items-center justify-between mb-2 px-0.5">
                                     <h3 className="text-sm font-semibold text-gray-700">Pacientes Novos</h3>
-                                    <span className="text-xs text-gray-400">{format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })}</span>
+                                    <span className="text-xs text-gray-400">{isRangeActive && dateRange ? formatDateRange(dateRange) : format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })}</span>
                                 </div>
                                 <div className="grid grid-cols-3 gap-3">
                                 <button
@@ -509,7 +578,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                             <div className="flex items-center justify-between p-6 border-b border-gray-100">
                                                 <div>
                                                     <h3 className="text-xl font-bold text-gray-900">Pré-agendados Novos</h3>
-                                                    <p className="text-sm text-gray-500 mt-1">{format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })}</p>
+                                                    <p className="text-sm text-gray-500 mt-1">{isRangeActive && dateRange ? formatDateRange(dateRange) : format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })}</p>
                                                 </div>
                                                 <button onClick={() => setNewPatientsModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
                                             </div>
@@ -551,7 +620,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                                 )}
                                             </div>
                                             <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl text-sm text-gray-600 text-center">
-                                                <strong>{leads.length}</strong> paciente{leads.length !== 1 ? 's' : ''} novo{leads.length !== 1 ? 's' : ''} hoje
+                                                <strong>{leads.length}</strong> paciente{leads.length !== 1 ? 's' : ''} novo{leads.length !== 1 ? 's' : ''} {isRangeActive ? 'no período' : 'hoje'}
                                             </div>
                                         </div>
                                     </div>
@@ -566,13 +635,13 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                                 <div className="flex items-center justify-between p-6 border-b border-gray-100">
                                                     <div>
                                                         <h3 className="text-xl font-bold text-gray-900">Novos na Especialidade</h3>
-                                                        <p className="text-sm text-gray-500 mt-1">{format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })}</p>
+                                                        <p className="text-sm text-gray-500 mt-1">{isRangeActive && dateRange ? formatDateRange(dateRange) : format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })}</p>
                                                     </div>
                                                     <button onClick={() => setNewSpecialtyModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
                                                 </div>
                                                 <div className="overflow-y-auto p-6">
                                                     {novosEsp.length === 0 ? (
-                                                        <p className="text-center text-gray-500 py-8">Nenhum paciente com nova especialidade hoje.</p>
+                                                        <p className="text-center text-gray-500 py-8">Nenhum paciente com nova especialidade {isRangeActive ? 'no período' : 'hoje'}.</p>
                                                     ) : (
                                                         <div className="space-y-3">
                                                             {novosEsp.map((apt: any) => {
@@ -612,14 +681,14 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                                     )}
                                                 </div>
                                                 <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl text-sm text-gray-600 text-center">
-                                                    <strong>{novosEsp.length}</strong> paciente{novosEsp.length !== 1 ? 's' : ''} com nova especialidade hoje
+                                                    <strong>{novosEsp.length}</strong> paciente{novosEsp.length !== 1 ? 's' : ''} com nova especialidade {isRangeActive ? 'no período' : 'hoje'}
                                                 </div>
                                             </div>
                                         </div>
                                     );
                                 })()}
 
-                                {/* Modal: Atendidos do Dia */}
+                                {/* Modal: Atendidos {periodTitle} */}
                                 {attendanceModalOpen && (() => {
                                     const all = analyticsData?.all || [];
                                     const atendidos = all.filter((a: any) => a.operationalStatus === 'completed');
@@ -628,14 +697,14 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
                                                 <div className="flex items-center justify-between p-6 border-b border-gray-100">
                                                     <div>
-                                                        <h3 className="text-xl font-bold text-gray-900">Atendidos do Dia</h3>
-                                                        <p className="text-sm text-gray-500 mt-1">{format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })}</p>
+                                                        <h3 className="text-xl font-bold text-gray-900">Atendidos {periodTitle}</h3>
+                                                        <p className="text-sm text-gray-500 mt-1">{isRangeActive && dateRange ? formatDateRange(dateRange) : format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })}</p>
                                                     </div>
                                                     <button onClick={() => setAttendanceModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
                                                 </div>
                                                 <div className="overflow-y-auto p-6">
                                                     {atendidos.length === 0 ? (
-                                                        <p className="text-center text-gray-500 py-8">Nenhum atendimento realizado hoje.</p>
+                                                        <p className="text-center text-gray-500 py-8">Nenhum atendimento realizado {isRangeActive ? 'no período' : 'hoje'}.</p>
                                                     ) : (
                                                         <div className="space-y-3">
                                                             {atendidos.map((apt: any) => {
@@ -671,7 +740,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                                     )}
                                                 </div>
                                                 <div className="p-4 border-t border-gray-100 text-center text-sm text-gray-500">
-                                                    {atendidos.length} atendimento{atendidos.length !== 1 ? 's' : ''} realizado{atendidos.length !== 1 ? 's' : ''} hoje
+                                                    {atendidos.length} atendimento{atendidos.length !== 1 ? 's' : ''} realizado{atendidos.length !== 1 ? 's' : ''} {isRangeActive ? 'no período' : 'hoje'}
                                                 </div>
                                             </div>
                                         </div>
@@ -696,7 +765,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                     {/* Tab 0: Transações */}
                     {activeTab === 0 && (
                         <div className="bg-white rounded-lg border border-gray-200 p-3">
-                            <h3 className="text-base font-semibold mb-3">💳 Transações do Dia</h3>
+                            <h3 className="text-base font-semibold mb-3">💳 Transações {periodTitle}</h3>
                             <div className="overflow-x-auto">
                                 <table className="min-w-full text-sm">
                                     <thead className="bg-gray-50 border-b">
@@ -737,7 +806,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                             </tr>
                                         ))}
                                         {!data.transacoes?.length && (
-                                            <tr><td colSpan={8} className="text-center py-4 text-gray-500">Nenhuma transação hoje</td></tr>
+                                            <tr><td colSpan={8} className="text-center py-4 text-gray-500">Nenhuma transação {isRangeActive ? 'no período' : 'hoje'}</td></tr>
                                         )}
                                     </tbody>
                                 </table>
@@ -792,7 +861,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                     </table>
                                 </div>
                             ) : (
-                                <Alert severity="success" className="rounded-lg">🎉 Nenhum pagamento pendente hoje!</Alert>
+                                <Alert severity="success" className="rounded-lg">🎉 Nenhum pagamento pendente {isRangeActive ? 'no período' : 'hoje'}!</Alert>
                             )}
                         </div>
                     )}
@@ -824,7 +893,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                     })}
                                 </div>
                             ) : (
-                                <Alert severity="info">Nenhum pacote atendido hoje</Alert>
+                                <Alert severity="info">Nenhum pacote atendido {isRangeActive ? 'no período' : 'hoje'}</Alert>
                             )}
                         </div>
                     )}
@@ -848,16 +917,16 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                                     ))}
                                 </div>
                             ) : (
-                                <Alert severity="info">Nenhum convênio atendido hoje</Alert>
+                                <Alert severity="info">Nenhum convênio atendido {isRangeActive ? 'no período' : 'hoje'}</Alert>
                             )}
                         </div>
                     )}
 
-                    {/* Tab 4: Agendamentos do Dia */}
+                    {/* Tab 4: Agendamentos {periodTitle} */}
                     {activeTab === 4 && (
                         <div className="bg-white rounded-lg border border-gray-200 p-3">
                             <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
-                                <h3 className="text-base font-semibold">📅 Agendamentos do Dia ({dayAppointments.length})</h3>
+                                <h3 className="text-base font-semibold">📅 Agendamentos {periodTitle} ({dayAppointments.length})</h3>
                                 <FormControl size="small" sx={{ minWidth: 140 }}>
                                     <InputLabel>Filtrar status</InputLabel>
                                     <Select
@@ -878,7 +947,7 @@ const UnifiedCashflowTab = ({ month, year }: UnifiedCashflowTabProps) => {
                             {loadingAppointments ? (
                                 <Alert severity="info">Carregando agendamentos...</Alert>
                             ) : dayAppointments.length === 0 ? (
-                                <Alert severity="info">Nenhum agendamento encontrado para este dia.</Alert>
+                                <Alert severity="info">Nenhum agendamento encontrado para {isRangeActive ? 'este período' : 'este dia'}.</Alert>
                             ) : (
                                 <>
                                     <div className="overflow-x-auto">

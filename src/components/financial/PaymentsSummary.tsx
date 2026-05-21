@@ -135,12 +135,17 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data, perio
           justifyContent: 'space-between',
         }}
       >
-        <Typography variant="body2" sx={{ color: 'grey.600', fontWeight: 500 }}>
-          Total do Período
-        </Typography>
+        <div>
+          <Typography variant="body2" sx={{ color: 'grey.600', fontWeight: 500 }}>
+            Faturamento do Período
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'grey.400' }}>
+            Recebido + pendente
+          </Typography>
+        </div>
         <Typography variant="h6" sx={{ fontWeight: 700, color: 'grey.800' }}>
           {formatCurrency(
-            (data.particularReceived || data.totalReceived || 0) + 
+            (data.particularReceived || data.totalReceived || 0) +
             (data.particularPending || data.totalPending || 0)
           )}
         </Typography>

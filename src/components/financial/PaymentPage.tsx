@@ -25,7 +25,7 @@ import { PaymentModal } from './PaymentModal';
 import AppointmentDetailModal from '../calendar/appointmentDetailModal';
 import { PaymentActionIcons } from './PaymentAction';
 import { PaymentsFilters } from './PaymentsFilters';
-import FinancialSummaryCard from './PaymentsSummary';
+
 import { Patient360Modal } from '../../pages/Financial/components/Patient360Modal';
 import { FinancialTableLoading } from '../../pages/Financial/components/FinancialLoading';
 
@@ -873,206 +873,13 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
 
     return (
         <div className="space-y-4 p-3 sm:p-4">
-            {/* Área de Filtros e Resumo Financeiro */}
+            {/* Área de filtros e lista */}
             <div className="space-y-4">
-                {/* Linha de período e botões de exportação */}
+                {/* Cabeçalho com título e exportação */}
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                    {/* Seletor de período (mantido exatamente igual) */}
-                    <div className="flex flex-wrap items-center gap-2">
-                        <label className="text-xs font-medium text-gray-600">Período:</label>
-                        <div className="flex flex-wrap gap-1.5">
-                            {[
-                                { key: 'day', label: 'Hoje', color: 'bg-blue-100 text-blue-800 hover:bg-blue-200' },
-                                { key: 'yesterday', label: 'Ontem', color: 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200' },
-                                { key: 'week', label: 'Esta Semana', color: 'bg-green-100 text-green-800 hover:bg-green-200' },
-                                { key: 'month', label: 'Este Mês', color: 'bg-purple-100 text-purple-800 hover:bg-purple-200' },
-                                { key: 'last_week', label: 'Semana Passada', color: 'bg-orange-100 text-orange-800 hover:bg-orange-200' },
-                                { key: 'last_month', label: 'Mês Passado', color: 'bg-pink-100 text-pink-800 hover:bg-pink-200' },
-                            ].map((chip) => (
-                                <button
-                                    key={chip.key}
-                                    onClick={() => {
-                                        setSelectedPeriod(chip.key as any);
-                                        // ... lógica original
-                                        if (chip.key === 'yesterday') {
-                                            const now = new Date();
-                                            const y = new Date(now);
-                                            y.setDate(now.getDate() - 1);
-                                            const sd = y.toISOString().split('T')[0];
-                                            // 🛠️ V2 não suporta 'custom'; usamos 'day' + data de ontem
-                                            fetchPaymentTotals({
-                                                period: 'day',
-                                                startDate: sd,
-                                                endDate: sd
-                                            });
-                                            syncAppointments({ startDate: sd, endDate: sd });
-                                        } else if (chip.key === 'last_week') {
-                                            const now = new Date();
-                                            const dayOfWeek = now.getDay();
-                                            const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-                                            const lastMonday = new Date(now);
-                                            lastMonday.setDate(now.getDate() - diffToMonday - 7);
-                                            lastMonday.setHours(0, 0, 0, 0);
-                                            const lastSunday = new Date(lastMonday);
-                                            lastSunday.setDate(lastMonday.getDate() + 6);
-                                            lastSunday.setHours(23, 59, 59, 999);
-                                            fetchPaymentTotals({
-                                                period: 'custom',
-                                                startDate: lastMonday.toISOString(),
-                                                endDate: lastSunday.toISOString()
-                                            });
-                                        } else if (chip.key === 'last_month') {
-                                            const now = new Date();
-                                            const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                                            const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-                                            lastDayLastMonth.setHours(23, 59, 59, 999);
-                                            fetchPaymentTotals({
-                                                period: 'custom',
-                                                startDate: firstDayLastMonth.toISOString(),
-                                                endDate: lastDayLastMonth.toISOString()
-                                            });
-                                        } else {
-                                            fetchPaymentTotals({ period: chip.key as any });
-                                            const range = computeDateRange(chip.key, '', '');
-                                            if (range) syncAppointments({ startDate: range.start, endDate: range.end });
-                                        }
-                                    }}
-                                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${selectedPeriod === chip.key
-                                        ? 'ring-2 ring-offset-1 ring-green-500 ' + chip.color
-                                        : chip.color
-                                        }`}
-                                >
-                                    {chip.label}
-                                </button>
-                            ))}
-                        </div>
-
-                        <select
-                            className="border border-gray-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
-                            value={selectedPeriod}
-                            onChange={(e) => {
-                                const value = e.target.value;
-                                setSelectedPeriod(value);
-                                // ... lógica original
-                                if (/^\d{4}-\d{2}$/.test(value)) {
-                                    const [year, month] = value.split('-').map(Number);
-                                    const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
-                                    const endDate = new Date(year, month, 0).toISOString().split('T')[0];
-                                    fetchPaymentTotals({ period: 'custom', startDate, endDate });
-                                    syncAppointments({ startDate, endDate });
-                                } else if (value === 'yesterday') {
-                                    const now = new Date();
-                                    const y = new Date(now);
-                                    y.setDate(now.getDate() - 1);
-                                    const sd = y.toISOString().split('T')[0];
-                                    // 🛠️ V2 não suporta 'custom'; usamos 'day' + data de ontem
-                                    fetchPaymentTotals({ period: 'day', startDate: sd, endDate: sd });
-                                    syncAppointments({ startDate: sd, endDate: sd });
-                                } else if (value === 'last_week') {
-                                    const now = new Date();
-                                    const dayOfWeek = now.getDay();
-                                    const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-                                    const lastMonday = new Date(now);
-                                    lastMonday.setDate(now.getDate() - diffToMonday - 7);
-                                    lastMonday.setHours(0, 0, 0, 0);
-                                    const lastSunday = new Date(lastMonday);
-                                    lastSunday.setDate(lastMonday.getDate() + 6);
-                                    lastSunday.setHours(23, 59, 59, 999);
-                                    const lwStart = lastMonday.toISOString().split('T')[0];
-                                    const lwEnd = lastSunday.toISOString().split('T')[0];
-                                    fetchPaymentTotals({ period: 'custom', startDate: lwStart, endDate: lwEnd });
-                                    syncAppointments({ startDate: lwStart, endDate: lwEnd });
-                                } else if (value === 'last_month') {
-                                    const now = new Date();
-                                    const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                                    const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-                                    lastDayLastMonth.setHours(23, 59, 59, 999);
-                                    const sd = firstDayLastMonth.toISOString().split('T')[0];
-                                    const ed = lastDayLastMonth.toISOString().split('T')[0];
-                                    fetchPaymentTotals({ period: 'custom', startDate: sd, endDate: ed });
-                                    syncAppointments({ startDate: sd, endDate: ed });
-                                } else if (value === 'custom') {
-                                    return;
-                                } else {
-                                    fetchPaymentTotals({ period: value as 'day' | 'week' | 'month' | 'year' | 'all' });
-                                    const range = computeDateRange(value, '', '');
-                                    if (range) syncAppointments({ startDate: range.start, endDate: range.end });
-                                }
-                            }}
-                        >
-                            <optgroup label="Períodos Rápidos">
-                                <option value="day">Hoje</option>
-                                <option value="yesterday">Ontem</option>
-                                <option value="week">Esta Semana</option>
-                                <option value="month">Este Mês</option>
-                                <option value="last_week">📅 Semana Passada</option>
-                                <option value="last_month">📅 Mês Passado</option>
-                                <option value="year">Este Ano</option>
-                                <option value="all">Todo Período</option>
-                                <option value="custom">📆 Período Customizado</option>
-                            </optgroup>
-                            <optgroup label="Últimos 12 Meses">
-                                {(() => {
-                                    const months = [];
-                                    const now = new Date();
-                                    const monthNames = [
-                                        'Janeiro', 'Fevereiro', 'Março', 'Abril',
-                                        'Maio', 'Junho', 'Julho', 'Agosto',
-                                        'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-                                    ];
-                                    for (let i = 0; i < 12; i++) {
-                                        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                                        const year = d.getFullYear();
-                                        const month = d.getMonth();
-                                        const value = `${year}-${String(month + 1).padStart(2, '0')}`;
-                                        const label = `${monthNames[month]} ${year}`;
-                                        months.push(<option key={value} value={value}>{label}</option>);
-                                    }
-                                    return months;
-                                })()}
-                            </optgroup>
-                        </select>
-
-                        {selectedPeriod === 'custom' && (
-                            <div className="flex items-center gap-1.5">
-                                <input
-                                    type="date"
-                                    className="border border-gray-300 rounded-lg px-2 py-1 text-xs focus:ring-2 focus:ring-green-500"
-                                    value={customStartDate}
-                                    onChange={(e) => setCustomStartDate(e.target.value)}
-                                />
-                                <span className="text-gray-500 text-xs">até</span>
-                                <input
-                                    type="date"
-                                    className="border border-gray-300 rounded-lg px-2 py-1 text-xs focus:ring-2 focus:ring-green-500"
-                                    value={customEndDate}
-                                    onChange={(e) => setCustomEndDate(e.target.value)}
-                                />
-                                <button
-                                    onClick={() => {
-                                        if (customStartDate && customEndDate) {
-                                            fetchPaymentTotals({
-                                                period: 'custom',
-                                                startDate: new Date(customStartDate).toISOString(),
-                                                endDate: new Date(customEndDate + 'T23:59:59').toISOString()
-                                            });
-                                            syncAppointments({ startDate: customStartDate, endDate: customEndDate });
-                                        } else {
-                                            toast.warning('Selecione as datas inicial e final');
-                                        }
-                                    }}
-                                    disabled={!customStartDate || !customEndDate}
-                                    className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-medium hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                                >
-                                    Aplicar
-                                </button>
-                            </div>
-                        )}
-
-                        {loading && <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-500"></div>}
-                    </div>
-
-                    {/* Botões de exportação */}
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: 'grey.800' }}>
+                        Pagamentos
+                    </Typography>
                     <div className="flex items-center gap-2">
                         <Button
                             variant="outlined"
@@ -1120,46 +927,6 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                         </Button>
                     </div>
                 </div>
-
-                {/* Cards de resumo */}
-                {paymentTotals && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
-                        <div className="h-full">
-                            <FinancialSummaryCard
-                                data={{
-                                    totalReceived: paymentTotals.totalReceived || 0,
-                                    totalPending: paymentTotals.totalPending || 0,
-                                    countReceived: paymentTotals.countReceived || 0,
-                                    countPending: paymentTotals.countPending || 0,
-                                    particularReceived: paymentTotals.particularReceived || 0,
-                                    particularPending: paymentTotals.particularPending || 0,
-                                    particularCountReceived: paymentTotals.particularCountReceived || 0,
-                                    particularCountPending: paymentTotals.particularCountPending || 0,
-                                }}
-                                periodLabel={
-                                    customStartDate && customEndDate
-                                        ? `${customStartDate} a ${customEndDate}`
-                                        : selectedPeriod === 'day'
-                                            ? 'Hoje'
-                                            : selectedPeriod === 'yesterday'
-                                                ? 'Ontem'
-                                                : selectedPeriod === 'week'
-                                                    ? 'Esta Semana'
-                                                    : selectedPeriod === 'month'
-                                                        ? 'Este Mês'
-                                                        : new Date().toLocaleDateString('pt-BR')
-                                }
-                            />
-                        </div>
-                    </div>
-                )}
-
-                {/* Mensagem quando não há resumo */}
-                {!paymentTotals && !loading && (
-                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <p className="text-yellow-700 text-xs">Selecione um período acima para visualizar o resumo financeiro.</p>
-                    </div>
-                )}
 
                 {/* Filtro de paciente na URL (opcional) */}
                 {patientParam && (
