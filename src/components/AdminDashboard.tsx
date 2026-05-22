@@ -1,4 +1,5 @@
 import { Box, Typography, useTheme } from '@mui/material';
+import { CashflowPageSkeleton } from '../pages/Financial/components/CashflowPageSkeleton';
 import { BarChart3, CalendarPlus } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -1001,7 +1002,7 @@ export default function AdminDashboard() {
             case 'Financeiro':
                 return (
                     <TabErrorBoundary tabName="Financeiro">
-                        <Suspense fallback={<TabSpinner />}>
+                        <Suspense fallback={<CashflowPageSkeleton />}>
                             <FinancialDashboard {...financialProps} />
                         </Suspense>
                     </TabErrorBoundary>

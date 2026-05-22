@@ -13,6 +13,7 @@ import {
 import { useState } from 'react';
 import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
+import { CashflowPageSkeleton } from './components/CashflowPageSkeleton';
 
 // 🔧 Helper para lazy loading com retry em caso de falha de chunk
 const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) => {
@@ -59,49 +60,6 @@ const UnifiedCashflowTab = lazyWithRetry(() => import('./UnifiedCashflowTab'));
 const DashboardV3Tab = lazyWithRetry(() => import('./tabs/DashboardV3Tab'));
 
 // ── Skeletons por aba ─────────────────────────────────────────────────────────
-
-const CaixaFluxoSkeleton = () => (
-    <div className="p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            {[{ color: '#10B981' }, { color: '#3B82F6' }, { color: '#F59E0B' }, { color: '#10B981' }].map((c, i) => (
-                <div key={i} className="border rounded-xl p-4" style={{ borderColor: `${c.color}20`, backgroundColor: `${c.color}08` }}>
-                    <div className="flex items-center gap-4">
-                        <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `${c.color}20` }} />
-                        <div className="flex-1">
-                            <Skeleton variant="text" width="55%" height={20} />
-                            <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `${c.color}15` }} />
-                            <Skeleton variant="text" width="40%" height={16} />
-                        </div>
-                    </div>
-                </div>
-            ))}
-        </div>
-        <div className="border border-gray-200 rounded-lg p-4 mb-4">
-            <div className="flex gap-2">
-                {[100, 100, 100, 100, 100, 100].map((w, i) => <Skeleton key={i} variant="rounded" width={w} height={36} />)}
-            </div>
-        </div>
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <div className="bg-gray-50 p-2">
-                <div className="flex gap-2">
-                    {[24, 70, 140, 80, 90, 70, 75].map((w, i) => <Skeleton key={i} variant="text" width={w} />)}
-                </div>
-            </div>
-            {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex items-center p-2 border-t">
-                    <Skeleton variant="circular" width={24} height={24} />
-                    <Skeleton variant="text" width={140} className="ml-2" />
-                    <Skeleton variant="text" width={90} className="ml-2" />
-                    <Skeleton variant="text" width={90} className="ml-2" />
-                    <Skeleton variant="text" width={70} className="ml-2" />
-                    <Skeleton variant="text" width={80} className="ml-2" />
-                    <Skeleton variant="rounded" width={75} height={24} className="ml-auto" sx={{ bgcolor: '#10B98115' }} />
-                    <Skeleton variant="text" width={70} className="ml-2" />
-                </div>
-            ))}
-        </div>
-    </div>
-);
 
 const PaymentsSkeleton = () => (
     <div className="p-4">
@@ -416,7 +374,7 @@ const FinancialDashboard = ({
         switch (currentTabId) {
             case 'caixa-unificado':
                 return (
-                    <Suspense fallback={<CaixaFluxoSkeleton />}>
+                    <Suspense fallback={<CashflowPageSkeleton />}>
                         <div className="flex flex-wrap items-center gap-2 mb-4">
                             <span className="text-xs font-medium text-gray-600">Período:</span>
                             {[

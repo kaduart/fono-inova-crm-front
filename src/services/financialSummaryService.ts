@@ -20,6 +20,7 @@ export interface FinancialSummary {
 
 export interface PendingPayment {
   id: string;
+  source?: 'payment' | 'package';
   amount: number;
   status: string;
   createdAt: string;
@@ -30,6 +31,9 @@ export interface PendingPayment {
     sessionValue: number;
   } | null;
   description: string | null;
+  packageId?: string | null;
+  packageName?: string | null;
+  specialty?: string | null;
 }
 
 export async function getPatientFinancialSummary(patientId: string, packageId?: string): Promise<FinancialSummary> {

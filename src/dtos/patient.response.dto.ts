@@ -19,6 +19,7 @@ export interface PatientNextAppointmentDTO {
     date?: string;
     doctor?: {
         name?: string;
+        fullName?: string; // compatibilidade
         specialty?: string;
     };
 }
@@ -30,6 +31,8 @@ export interface PatientHealthPlanDTO {
 export interface PatientDTO {
     id: string;
     name: string;
+    fullName: string;                // alias de name (compatibilidade com componentes legados)
+    patientId: string;               // alias de id (compatibilidade com componentes legados)
     email?: string;
     phone?: string;
     document?: string;
@@ -37,6 +40,7 @@ export interface PatientDTO {
     // Financeiro (normalizado)
     debt: number;                    // saldo devedor particular (fonte: balance.current ou stats)
     totalPending: number;            // total pendente geral (particular + convênio)
+    totalPendingParticular: number;  // alias de particularPending (compatibilidade)
     particularPending: number;       // pendente particular
     convenioPending: number;         // pendente convênio
     // Stats
@@ -53,6 +57,7 @@ export interface PatientDTO {
     nextAppointment?: PatientNextAppointmentDTO;
     lastAppointment?: { doctor?: { specialty?: string } };
     healthPlan?: PatientHealthPlanDTO;
+    tags?: string[];
     // Metadados
     raw: any; // referência bruta para casos especiais
 }
@@ -103,6 +108,7 @@ function extractFinancials(raw: any): Pick<PatientDTO, 'debt' | 'totalPending' |
     return {
         debt: Number(debt.toFixed(2)),
         totalPending: Number(totalPending.toFixed(2)),
+        totalPendingParticular: Number(particularPending.toFixed(2)),
         particularPending: Number(particularPending.toFixed(2)),
         convenioPending: Number(convenioPending.toFixed(2)),
     };
@@ -134,10 +140,12 @@ function extractPackages(raw: any): PatientPackageDTO[] | undefined {
 function extractNextAppointment(raw: any): PatientNextAppointmentDTO | undefined {
     const apt = raw.nextAppointment;
     if (!apt) return undefined;
+    const doctorName = apt.doctor?.fullName || apt.doctor?.name || apt.doctor?.nome || undefined;
     return {
         date: apt.date || undefined,
         doctor: apt.doctor ? {
-            name: apt.doctor.fullName || apt.doctor.name || apt.doctor.nome || undefined,
+            name: doctorName,
+            fullName: doctorName, // compatibilidade
             specialty: apt.doctor.specialty || apt.doctor.specialties?.[0] || undefined,
         } : undefined,
     };
@@ -180,9 +188,13 @@ export function mapPatientResponseDTO(raw: any): PatientDTO {
         };
     }
 
+    const id = extractPatientId(raw);
+    const name = extractPatientName(raw);
     return {
-        id: extractPatientId(raw),
-        name: extractPatientName(raw),
+        id,
+        name,
+        fullName: name,                    // compatibilidade
+        patientId: id,                     // compatibilidade
         email: raw.email || undefined,
         phone: extractPatientPhone(raw),
         document: extractPatientDocument(raw),
@@ -193,6 +205,7 @@ export function mapPatientResponseDTO(raw: any): PatientDTO {
         nextAppointment: extractNextAppointment(raw),
         lastAppointment: extractLastAppointment(raw),
         healthPlan: extractHealthPlan(raw),
+        tags: Array.isArray(raw.tags) ? raw.tags : undefined,
         raw,
     };
 }

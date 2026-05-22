@@ -20,6 +20,7 @@ import { Button } from '../ui/Button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../ui/Card';
 import { FutureSessionsCard } from './FutureSessionsCard';
 import { PatientAvailablesCard } from './PatientAvailablesCard';
+import { PatientAppointmentsTable } from './PatientAppointmentsTable';
 import PatientEvolution from './PatientEvolution';
 import { PatientMiniCalendar } from './PatientMiniCalendar';
 import TherapyPackagesSummary from './TherapyPackagesSummary';
@@ -630,6 +631,11 @@ export default function PatientDashboard() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Tabela de todos os atendimentos com filtros por mês/dia */}
+      <div className="mb-8">
+        <PatientAppointmentsTable appointments={allAppointmentsById} />
       </div>
 
       {/* O restante do conteúdo permanece igual */}

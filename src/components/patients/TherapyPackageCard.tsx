@@ -100,8 +100,14 @@ export default function TherapyPackageCard({
     const pkgId = pack?.packageId || pack?._id;
     setFinancialLoading(true);
     getPatientFinancialSummary(pid, pkgId)
-      .then(setFinancial)
-      .catch(() => setFinancial(null))
+      .then((data) => {
+        console.log('[TherapyPackageCard] Financial summary OK:', data);
+        setFinancial(data);
+      })
+      .catch((err) => {
+        console.error('[TherapyPackageCard] Financial summary ERRO:', err?.response?.status, err?.response?.data || err.message);
+        setFinancial(null);
+      })
       .finally(() => setFinancialLoading(false));
   }, [patient?._id, patient?.patientId, pack?.packageId, pack?._id]);
 

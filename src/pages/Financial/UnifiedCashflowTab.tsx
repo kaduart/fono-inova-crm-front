@@ -28,34 +28,54 @@ interface DayData {
     atendimentos: number;
 }
 
-const CashflowCardsSkeleton = () => (
-    <div className="p-2">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            {[...Array(4)].map((_, i) => (
-                <div key={i} className="border rounded-xl p-3 border-gray-200 bg-gray-50">
-                    <div className="flex items-center gap-2 mb-1">
-                        <Skeleton variant="circular" width={20} height={20} />
-                        <Skeleton variant="text" width="60%" height={16} />
+const CashflowCardsSkeleton = () => {
+    const cardColors = ['#10B981', '#3B82F6', '#F59E0B', '#10B981'];
+    return (
+        <div className="p-2">
+            {/* Filtros de período */}
+            <div className="flex gap-2 mb-4 flex-wrap">
+                {[44, 52, 88, 112, 72, 88].map((w, i) => (
+                    <Skeleton key={i} variant="rounded" width={w} height={26} sx={{ borderRadius: 99 }} />
+                ))}
+            </div>
+            {/* 4 cards premium */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+                {cardColors.map((color, i) => (
+                    <div key={i} className="border rounded-2xl p-5 shadow-sm" style={{ borderColor: `${color}25`, backgroundColor: `${color}05` }}>
+                        <div className="flex items-center gap-3 mb-4">
+                            <Skeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 10, bgcolor: `${color}20` }} />
+                            <div className="flex-1">
+                                <Skeleton variant="text" width="55%" height={11} sx={{ bgcolor: `${color}20` }} />
+                                <Skeleton variant="text" width="70%" height={11} />
+                            </div>
+                        </div>
+                        <Skeleton variant="text" width="80%" height={38} sx={{ bgcolor: `${color}18` }} />
+                        <div className="mt-3 pt-3 border-t border-gray-100 space-y-2.5">
+                            <Skeleton variant="text" width="35%" height={10} />
+                            {[0, 1, 2].map(j => (
+                                <div key={j} className="flex items-center justify-between">
+                                    <Skeleton variant="text" width="48%" height={13} />
+                                    <Skeleton variant="text" width="30%" height={13} />
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                    <Skeleton variant="text" width="70%" height={40} className="mb-1" />
-                    <div className="flex gap-1">
-                        <Skeleton variant="rounded" width={70} height={20} className="rounded-full" />
-                        <Skeleton variant="rounded" width={60} height={20} className="rounded-full" />
-                    </div>
-                </div>
+                ))}
+            </div>
+            {/* Tabs */}
+            <div className="flex gap-1 border-b border-gray-200 pb-1 mb-3">
+                {[90, 90, 80, 90, 110, 110].map((w, i) => (
+                    <Skeleton key={i} variant="rounded" width={w} height={36} sx={{ borderRadius: 6 }} />
+                ))}
+            </div>
+            {/* Tabela */}
+            <Skeleton variant="rounded" width="100%" height={40} sx={{ borderRadius: 6, mb: 0.5 }} />
+            {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} variant="rounded" width="100%" height={52} sx={{ borderRadius: 6, mb: 0.5 }} />
             ))}
         </div>
-        <div className="flex gap-1 border-b border-gray-200 pb-1 mb-2">
-            {[70, 80, 90, 85, 95, 100].map((w, i) => (
-                <Skeleton key={i} variant="rounded" width={w} height={28} className="rounded-md" />
-            ))}
-        </div>
-        <Skeleton variant="rounded" width="100%" height={40} className="mb-0.5 rounded-md" />
-        {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} variant="rounded" width="100%" height={52} className="mb-0.5 rounded-md" />
-        ))}
-    </div>
-);
+    );
+};
 
 interface DateRange {
     startDate: string;
@@ -72,7 +92,7 @@ interface UnifiedCashflowTabProps {
 
 const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: UnifiedCashflowTabProps) => {
     const [dailyCashflow, setDailyCashflow] = useState<CashflowV2Response | null>(null);
-    const [previousDayCashflow, setPreviousDayCashflow] = useState<CashflowV2Response | null>(null);
+
     const [monthData, setMonthData] = useState<DayData[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState(0);
@@ -141,28 +161,14 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
     const loadDayData = async (guard = { active: true }) => {
         setLoading(true);
         try {
-            let res, resPrev;
+            let res;
             if (dateRange && !manualDateOverride) {
-                const [r, rPrev] = await Promise.all([
-                    cashflowService.getCashflowRange(dateRange.startDate, dateRange.endDate),
-                    cashflowService.getDailyCashflow(dateRange.startDate).catch(() => null),
-                ]);
-                res = r;
-                resPrev = rPrev;
+                res = await cashflowService.getCashflowRange(dateRange.startDate, dateRange.endDate);
             } else {
-                const prevDate = new Date(selectedDate + 'T12:00:00');
-                prevDate.setDate(prevDate.getDate() - 1);
-                const prevDateStr = prevDate.toISOString().split('T')[0];
-                const [r, rPrev] = await Promise.all([
-                    cashflowService.getDailyCashflow(selectedDate),
-                    cashflowService.getDailyCashflow(prevDateStr).catch(() => null),
-                ]);
-                res = r;
-                resPrev = rPrev;
+                res = await cashflowService.getDailyCashflow(selectedDate);
             }
             if (!guard.active) return;
             setDailyCashflow(res.data);
-            setPreviousDayCashflow(resPrev?.data ?? null);
         } catch (error) {
             if (!guard.active) return;
             console.error('Erro ao carregar dados do dia:', error);
@@ -323,106 +329,153 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                 <div>
                 <div>
                     {/* Cards Principais - Caixa e Produção */}
-                    <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 ${isMultiDayRange ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
-                        {/* Caixa Total */}
-                        <div className="border border-emerald-200 rounded-xl bg-emerald-50 p-3">
-                            <div className="flex items-center gap-2 mb-1">
-                                <AttachMoneyIcon className="text-emerald-600 w-5 h-5" />
-                                <span className="text-xs text-gray-600">Caixa (Dinheiro Recebido)</span>
+                    <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5 ${isMultiDayRange ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
+
+                        {/* ── Caixa Total ── */}
+                        <div className="border border-emerald-200/70 rounded-2xl bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                                    <AttachMoneyIcon style={{ fontSize: 20 }} className="text-emerald-600" />
+                                </div>
+                                <div>
+                                    <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Caixa</div>
+                                    <div className="text-[11px] text-gray-400 leading-tight">Dinheiro Recebido</div>
+                                </div>
                             </div>
-                            <div className="text-2xl font-bold text-emerald-700">{formatCurrency(data.caixa.total)}</div>
-                            {/* Barra receita real vs diferida */}
+                            <div className="text-[28px] font-extrabold text-emerald-700 leading-none tracking-tight mb-3">
+                                {formatCurrency(data.caixa.total)}
+                            </div>
                             {data.receitaReal != null && data.receitaDiferida != null && data.caixa.total > 0 && (
-                                <div className="mt-2">
-                                    <div className="flex rounded-md overflow-hidden h-1.5 mb-1">
-                                        <div className="bg-emerald-500" style={{ width: `${(data.receitaReal / data.caixa.total) * 100}%` }}></div>
-                                        <div className="flex-1 bg-amber-200"></div>
+                                <div className="mb-3">
+                                    <div className="flex rounded-full overflow-hidden h-1 mb-1.5">
+                                        <div className="bg-emerald-500 transition-all" style={{ width: `${(data.receitaReal / data.caixa.total) * 100}%` }} />
+                                        <div className="flex-1 bg-amber-200" />
                                     </div>
-                                    <div className="flex justify-between text-xs">
-                                        <span className="text-emerald-700">✓ {formatCurrency(data.receitaReal)}</span>
-                                        <span className="text-amber-600">⏳ {formatCurrency(data.receitaDiferida)}</span>
+                                    <div className="flex justify-between text-[10px]">
+                                        <span className="text-emerald-600 font-medium">Recebido {formatCurrency(data.receitaReal)}</span>
+                                        <span className="text-amber-500">Diferido {formatCurrency(data.receitaDiferida)}</span>
                                     </div>
                                 </div>
                             )}
-                            <div className="flex flex-wrap gap-1 mt-2">
-                                <span className="text-xs text-gray-400 w-full mb-0.5">Forma de pagamento:</span>
-                                {data.caixa.pix > 0 && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-800">Pix: {formatCurrency(data.caixa.pix)}</span>
-                                )}
-                                {data.caixa.cartao > 0 && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800">Cartão: {formatCurrency(data.caixa.cartao)}</span>
-                                )}
-                                {data.caixa.dinheiro > 0 && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800">Dinheiro: {formatCurrency(data.caixa.dinheiro)}</span>
-                                )}
-                                {data.caixa.transferencia > 0 && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">Transferência: {formatCurrency(data.caixa.transferencia)}</span>
-                                )}
-                            </div>
-                            {/* 💰 Origem do faturamento — só exibe se houver 2+ tipos distintos */}
+                            {(data.caixa.pix > 0 || data.caixa.cartao > 0 || data.caixa.dinheiro > 0 || data.caixa.transferencia > 0) && (
+                                <div className="pt-3 border-t border-gray-100 space-y-2">
+                                    <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Forma de Pagamento</div>
+                                    {data.caixa.pix > 0 && (
+                                        <div className="flex items-center justify-between">
+                                            <span className="flex items-center gap-2 text-xs text-gray-600"><span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />Pix</span>
+                                            <span className="text-xs font-semibold text-gray-800">{formatCurrency(data.caixa.pix)}</span>
+                                        </div>
+                                    )}
+                                    {data.caixa.cartao > 0 && (
+                                        <div className="flex items-center justify-between">
+                                            <span className="flex items-center gap-2 text-xs text-gray-600"><span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />Cartão</span>
+                                            <span className="text-xs font-semibold text-gray-800">{formatCurrency(data.caixa.cartao)}</span>
+                                        </div>
+                                    )}
+                                    {data.caixa.dinheiro > 0 && (
+                                        <div className="flex items-center justify-between">
+                                            <span className="flex items-center gap-2 text-xs text-gray-600"><span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />Dinheiro</span>
+                                            <span className="text-xs font-semibold text-gray-800">{formatCurrency(data.caixa.dinheiro)}</span>
+                                        </div>
+                                    )}
+                                    {data.caixa.transferencia > 0 && (
+                                        <div className="flex items-center justify-between">
+                                            <span className="flex items-center gap-2 text-xs text-gray-600"><span className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />Transferência</span>
+                                            <span className="text-xs font-semibold text-gray-800">{formatCurrency(data.caixa.transferencia)}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             {(() => {
                                 const tipos = [data.porTipo?.particular, data.porTipo?.pacote, data.porTipo?.convenio, data.porTipo?.liminar].filter(v => v > 0);
                                 if (tipos.length < 2) return null;
                                 return (
-                                    <div className="flex flex-wrap gap-1 mt-1.5">
-                                        <span className="text-xs text-gray-400 w-full mb-0.5">Tipo de receita:</span>
+                                    <div className="pt-3 mt-3 border-t border-gray-100 space-y-2">
+                                        <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Tipo de Receita</div>
                                         {data.porTipo?.particular > 0 && (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-cyan-100 text-cyan-800">Particular: {formatCurrency(data.porTipo.particular)}</span>
+                                            <div className="flex items-center justify-between">
+                                                <span className="flex items-center gap-2 text-xs text-gray-600"><span className="w-2 h-2 rounded-full bg-cyan-400 flex-shrink-0" />Particular</span>
+                                                <span className="text-xs font-semibold text-gray-800">{formatCurrency(data.porTipo.particular)}</span>
+                                            </div>
                                         )}
                                         {data.porTipo?.pacote > 0 && (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-indigo-100 text-indigo-800">Sessão de pacote: {formatCurrency(data.porTipo.pacote)}</span>
+                                            <div className="flex items-center justify-between">
+                                                <span className="flex items-center gap-2 text-xs text-gray-600"><span className="w-2 h-2 rounded-full bg-indigo-400 flex-shrink-0" />Sessão de Pacote</span>
+                                                <span className="text-xs font-semibold text-gray-800">{formatCurrency(data.porTipo.pacote)}</span>
+                                            </div>
                                         )}
                                         {data.porTipo?.convenio > 0 && (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">Convênio: {formatCurrency(data.porTipo.convenio)}</span>
+                                            <div className="flex items-center justify-between">
+                                                <span className="flex items-center gap-2 text-xs text-gray-600"><span className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />Convênio</span>
+                                                <span className="text-xs font-semibold text-gray-800">{formatCurrency(data.porTipo.convenio)}</span>
+                                            </div>
                                         )}
                                         {data.porTipo?.liminar > 0 && (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-rose-100 text-rose-800">Liminar: {formatCurrency(data.porTipo.liminar)}</span>
+                                            <div className="flex items-center justify-between">
+                                                <span className="flex items-center gap-2 text-xs text-gray-600"><span className="w-2 h-2 rounded-full bg-rose-400 flex-shrink-0" />Liminar</span>
+                                                <span className="text-xs font-semibold text-gray-800">{formatCurrency(data.porTipo.liminar)}</span>
+                                            </div>
                                         )}
                                     </div>
                                 );
                             })()}
-                            {/* 💸 Saldo líquido (só se houver despesas) */}
                             {data.despesas?.total > 0 && (
-                                <div className="mt-2 pt-2 border-t border-emerald-200/60">
-                                    <div className="flex items-center justify-between text-xs">
-                                        <span className="text-gray-500">Despesas: <span className="text-red-600 font-medium">-{formatCurrency(data.despesas.total)}</span></span>
-                                        <span className="text-gray-700 font-semibold">Líquido: {formatCurrency(data.saldo?.liquido ?? data.caixa.total - data.despesas.total)}</span>
+                                <div className="pt-3 mt-3 border-t border-gray-100 space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs text-gray-500">Despesas</span>
+                                        <span className="text-xs font-medium text-red-500">-{formatCurrency(data.despesas.total)}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-semibold text-gray-700">Líquido</span>
+                                        <span className="text-xs font-bold text-gray-900">{formatCurrency(data.saldo?.liquido ?? data.caixa.total - data.despesas.total)}</span>
                                     </div>
                                 </div>
                             )}
                         </div>
 
-                        {/* Produção Clínica */}
-                        <div className="border border-blue-200 rounded-xl bg-blue-50 p-3">
-                            <div className="flex items-center gap-2 mb-1">
-                                <ShowChartIcon className="text-blue-600 w-5 h-5" />
-                                <span className="text-xs text-gray-600">Produção Clínica</span>
+                        {/* ── Produção Clínica ── */}
+                        <div className="border border-blue-200/70 rounded-2xl bg-gradient-to-br from-blue-50 to-white p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                    <ShowChartIcon style={{ fontSize: 20 }} className="text-blue-600" />
+                                </div>
+                                <div>
+                                    <div className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Produção</div>
+                                    <div className="text-[11px] text-gray-400 leading-tight">Clínica</div>
+                                </div>
                             </div>
-                            <div className="text-2xl font-bold text-blue-700">{formatCurrency(data.producao.total)}</div>
-                            <div className="text-xs text-gray-500 mb-1.5">
-                                {data.producao.quantidadeAtendimentos} atendimentos • Ticket: {formatCurrency(data.producao.ticketMedio)}
+                            <div className="text-[28px] font-extrabold text-blue-700 leading-none tracking-tight mb-2">
+                                {formatCurrency(data.producao.total)}
                             </div>
-                            <div className="text-[10px] text-gray-400 italic mb-1.5">Valor gerado pelos atendimentos realizados</div>
-                            <div className="flex flex-col gap-0.5">
-                                {(() => {
-                                    const convenioTotal = (data.conveniosAtendidos || []).reduce((s: number, c: any) => s + (c.valor || 0), 0);
-                                    return convenioTotal > 0 ? (
-                                        <div className="flex justify-between text-xs">
-                                            <span className="text-purple-600">🏥 Convênio (próx. mês)</span>
-                                            <span className="font-medium text-purple-700">{formatCurrency(convenioTotal)}</span>
-                                        </div>
-                                    ) : null;
-                                })()}
-                                {data.producao.aReceber > 0 && (
-                                    <div className="flex justify-between text-xs">
-                                        <span className="text-amber-600">⏳ A receber (particular)</span>
-                                        <span className="font-medium text-amber-700">{formatCurrency(data.producao.aReceber)}</span>
+                            <div className="text-xs text-gray-500 mb-1">
+                                <span className="font-semibold text-gray-700">{data.producao.quantidadeAtendimentos}</span> atendimentos
+                                <span className="mx-1.5 text-gray-300">·</span>
+                                Ticket: <span className="font-semibold text-gray-700">{formatCurrency(data.producao.ticketMedio)}</span>
+                            </div>
+                            <div className="text-[10px] text-gray-400 italic mb-3">Valor gerado pelos atendimentos realizados</div>
+                            {(() => {
+                                const convenioTotal = (data.conveniosAtendidos || []).reduce((s: number, c: any) => s + (c.valor || 0), 0);
+                                if (convenioTotal === 0 && data.producao.aReceber === 0) return null;
+                                return (
+                                    <div className="pt-3 border-t border-gray-100 space-y-2">
+                                        {convenioTotal > 0 && (
+                                            <div className="flex items-center justify-between">
+                                                <span className="flex items-center gap-2 text-xs text-gray-600"><span className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />Convênio (próx. mês)</span>
+                                                <span className="text-xs font-semibold text-purple-700">{formatCurrency(convenioTotal)}</span>
+                                            </div>
+                                        )}
+                                        {data.producao.aReceber > 0 && (
+                                            <div className="flex items-center justify-between">
+                                                <span className="flex items-center gap-2 text-xs text-gray-600"><span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />A receber (particular)</span>
+                                                <span className="text-xs font-semibold text-amber-700">{formatCurrency(data.producao.aReceber)}</span>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </div>
+                                );
+                            })()}
                         </div>
 
-                        {/* A Receber */}
+                        {/* ── A Receber ── */}
                         {(() => {
                             const particular = data.producao.aReceber;
                             const convenioTotal = (data.conveniosAtendidos || []).reduce((s: number, c: any) => s + (c.valor || 0), 0);
@@ -430,45 +483,43 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                             const nParticular = data.pendentesCobranca?.length || 0;
                             const nConvenio = (data.conveniosAtendidos || []).length;
                             return (
-                                <div className="border border-amber-200 rounded-xl bg-amber-50 p-3">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <WarningIcon className="text-amber-600 w-5 h-5" />
-                                        <span className="text-xs text-gray-600">A Receber</span>
+                                <div className="border border-amber-200/70 rounded-2xl bg-gradient-to-br from-amber-50 to-white p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                            <WarningIcon style={{ fontSize: 20 }} className="text-amber-500" />
+                                        </div>
+                                        <div>
+                                            <div className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">A Receber</div>
+                                            <div className="text-[11px] text-gray-400 leading-tight">Valores em Aberto</div>
+                                        </div>
                                     </div>
-                                    <div className="text-2xl font-bold text-amber-700">{formatCurrency(total)}</div>
-                                    <div className="flex flex-col gap-0.5 mt-2">
-                                        {particular > 0 ? (
-                                            <div>
-                                                <div className="flex items-center justify-between text-xs">
-                                                    <span className="text-blue-600 font-semibold">👤 Particular</span>
-                                                    <span className="font-bold text-blue-700">{formatCurrency(particular)}</span>
-                                                </div>
-                                                <div className="text-[10px] text-gray-400 pl-1">{nParticular} paciente{nParticular !== 1 ? 's' : ''} em débito</div>
+                                    <div className="text-[28px] font-extrabold text-amber-700 leading-none tracking-tight mb-4">
+                                        {formatCurrency(total)}
+                                    </div>
+                                    <div className="pt-3 border-t border-gray-100 space-y-3">
+                                        <div>
+                                            <div className="flex items-center justify-between mb-0.5">
+                                                <span className="flex items-center gap-2 text-xs font-semibold text-gray-700"><span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />Particular</span>
+                                                <span className="text-xs font-bold text-blue-700">{formatCurrency(particular)}</span>
                                             </div>
-                                        ) : (
-                                            <div className="text-[10px] text-gray-400">👤 Particular: sem débitos</div>
-                                        )}
-                                        {convenioTotal > 0 ? (
-                                            <div className="mt-1">
-                                                <div className="flex items-center justify-between text-xs">
-                                                    <span className="text-purple-600 font-semibold">🏥 Convênio</span>
-                                                    <span className="font-bold text-purple-700">{formatCurrency(convenioTotal)}</span>
-                                                </div>
-                                                <div className="text-[10px] text-gray-400 pl-1">{nConvenio} atendimento{nConvenio !== 1 ? 's' : ''} a faturar</div>
+                                            <div className="text-[10px] text-gray-400 pl-4">{particular > 0 ? `${nParticular} paciente${nParticular !== 1 ? 's' : ''} em débito` : 'Sem débitos'}</div>
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center justify-between mb-0.5">
+                                                <span className="flex items-center gap-2 text-xs font-semibold text-gray-700"><span className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />Convênio</span>
+                                                <span className="text-xs font-bold text-purple-700">{formatCurrency(convenioTotal)}</span>
                                             </div>
-                                        ) : (
-                                            <div className="text-[10px] text-gray-400 mt-1">🏥 Convênio: nenhum</div>
-                                        )}
+                                            <div className="text-[10px] text-gray-400 pl-4">{convenioTotal > 0 ? `${nConvenio} atendimento${nConvenio !== 1 ? 's' : ''} a faturar` : 'Nenhum'}</div>
+                                        </div>
                                     </div>
                                 </div>
                             );
                         })()}
 
-                        {/* 4th card: vs Ontem mini chart — escondido em range multi-dia */}
+                        {/* ── vs Ontem mini chart — escondido em range multi-dia ── */}
                         {!isMultiDayRange && (() => {
-                            const prevData = previousDayCashflow?.data;
                             const todayTx = (data.transacoes || []) as any[];
-                            const yesterdayTx = (prevData?.transacoes || []) as any[];
+                            const yesterdayTx = (data.transacoesOntem || []) as any[];
                             const HOURS = [7,8,9,10,11,12,13,14,15,16,17,18,19];
                             const buildCum = (tx: any[]) => { let c=0; return HOURS.map(h=>{c+=tx.filter(t=>parseInt((t.hora||'0:0').split(':')[0])===h).reduce((s:number,t:any)=>s+(t.valor||0),0);return c;}); };
                             const tV=buildCum(todayTx), yV=buildCum(yesterdayTx);
@@ -480,15 +531,24 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                             const mkA=(vals:number[])=>{const pts=vals.map((v,i)=>[px(i),py(v)]as[number,number]);return`${mkP(vals)} L${pts[pts.length-1][0].toFixed(1)},${PT+cH} L${PL},${PT+cH} Z`;};
                             const variacao=data.comparativos.variacaoVsOntem,pos=variacao>=0,lc=pos?'#10b981':'#ef4444';
                             return (
-                                <div className={`border rounded-xl p-3 ${pos?'border-emerald-200 bg-emerald-50':'border-red-200 bg-red-50'}`}>
-                                    <div className="flex items-center justify-between mb-0.5">
-                                        <div className="flex items-center gap-1.5">
-                                            <TrendingUpIcon className="w-4 h-4 text-gray-400"/>
-                                            <span className="text-xs text-gray-600">vs Ontem</span>
+                                <div className={`border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow duration-200 ${pos ? 'border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white' : 'border-red-200/70 bg-gradient-to-br from-red-50 to-white'}`}>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${pos ? 'bg-emerald-100' : 'bg-red-100'}`}>
+                                                <TrendingUpIcon style={{ fontSize: 20 }} className={pos ? 'text-emerald-600' : 'text-red-500'} />
+                                            </div>
+                                            <div>
+                                                <div className={`text-[10px] font-bold uppercase tracking-widest ${pos ? 'text-emerald-600' : 'text-red-500'}`}>vs Ontem</div>
+                                                <div className="text-[11px] text-gray-400 leading-tight">Evolução do Caixa</div>
+                                            </div>
                                         </div>
-                                        <span className={`text-xs font-bold ${pos?'text-emerald-600':'text-red-500'}`}>{pos?'▲':'▼'} {Math.abs(variacao)}%</span>
+                                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${pos ? 'text-emerald-700 bg-emerald-100' : 'text-red-600 bg-red-100'}`}>
+                                            {pos ? '+' : ''}{Math.abs(variacao)}%
+                                        </span>
                                     </div>
-                                    <div className={`text-2xl font-bold mb-1 ${pos?'text-emerald-700':'text-red-700'}`}>{formatCurrency(data.caixa.total)}</div>
+                                    <div className={`text-[28px] font-extrabold leading-none tracking-tight mb-3 ${pos ? 'text-emerald-700' : 'text-red-700'}`}>
+                                        {formatCurrency(data.caixa.total)}
+                                    </div>
                                     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{height:'52px'}} preserveAspectRatio="none">
                                         <defs>
                                             <linearGradient id="cg2T" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={lc} stopOpacity="0.2"/><stop offset="100%" stopColor={lc} stopOpacity="0"/></linearGradient>
@@ -502,7 +562,10 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                         <circle cx={px(HOURS.length-1)} cy={py(tV[HOURS.length-1])} r="1.8" fill={lc}/>
                                         {[0,6,12].map(i=>(<text key={i} x={px(i)} y={H-1} textAnchor="middle" fontSize="6" fill="#d1d5db">{HOURS[i]}h</text>))}
                                     </svg>
-                                    <div className="text-xs text-gray-500 mt-1">Ontem: {formatCurrency(data.comparativos.ontem)}</div>
+                                    <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+                                        <span className="text-xs text-gray-500">Ontem</span>
+                                        <span className="text-xs font-semibold text-gray-700">{formatCurrency(data.comparativos.ontem)}</span>
+                                    </div>
                                 </div>
                             );
                         })()}
@@ -770,7 +833,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                 <table className="min-w-full text-sm">
                                     <thead className="bg-gray-50 border-b">
                                         <tr>
-                                            <th className="px-3 py-2 text-left">Hora</th>
+                                            <th className="px-3 py-2 text-left">Data / Hora</th>
                                             <th className="px-3 py-2 text-left">Paciente</th>
                                             <th className="px-3 py-2 text-left">Profissional</th>
                                             <th className="px-3 py-2 text-left">Serviço</th>
@@ -783,7 +846,10 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                     <tbody>
                                         {data.transacoes?.map((t) => (
                                             <tr key={t.id} className="border-b hover:bg-gray-50">
-                                                <td className="px-3 py-2">{t.hora}</td>
+                                                <td className="px-3 py-2 whitespace-nowrap">
+                                                    <div className="text-xs text-gray-400">{t.data}</div>
+                                                    <div className="font-medium">{t.hora}</div>
+                                                </td>
                                                 <td className="px-3 py-2">{t.paciente}</td>
                                                 <td className="px-3 py-2">
                                                     <div>{t.profissional || '-'}</div>

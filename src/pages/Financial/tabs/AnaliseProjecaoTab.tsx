@@ -13,7 +13,7 @@ import {
     Tab, Tabs, LinearProgress
 } from '@mui/material';
 import { NavigateBefore, NavigateNext } from '@mui/icons-material';
-import { TrendingUp, Target, Calendar, RefreshCcw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, Calendar, RefreshCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useFinancialDashboardV3 } from '../../../hooks/useFinancialDashboardV3';
@@ -223,90 +223,109 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
             {/* Cards principais (3 colunas) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
                 {/* META DO MÊS */}
-                <div className="border border-gray-200 rounded-lg p-3">
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">META DO MÊS</p>
-                    <div className="flex justify-between items-baseline mt-1">
-                        <p className="text-xl font-bold text-gray-900">{metaValor > 0 ? formatCurrency(metaValor) : '—'}</p>
-                        {metaValor > 0 && (
-                            <Chip
-                                label={`${Math.min(percentualAtual, 100).toFixed(0)}%`}
-                                size="small"
-                                color={percentualAtual >= 100 ? 'success' : percentualAtual >= 60 ? 'warning' : 'error'}
-                            />
-                        )}
-                    </div>
-
-                    <div className="mt-2 p-2 bg-emerald-50 rounded border-l-4 border-emerald-500">
-                        <p className="text-xs text-gray-500 font-medium">Resultado Econômico</p>
-                        <p className="text-sm font-bold text-emerald-700">
-                            {formatCurrency(resultadoEconomico)}
-                            {metaValor > 0 && resultadoEconomico < metaValor && (
-                                <span className="text-xs text-gray-500 ml-1">(faltam {formatCurrency(metaValor - resultadoEconomico)})</span>
+                <div className="border rounded-2xl p-5 shadow-sm" style={{ borderColor: '#10B98130', backgroundColor: '#10B98106' }}>
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="rounded-xl p-2.5" style={{ backgroundColor: '#10B98120' }}>
+                            <Target size={18} style={{ color: '#10B981' }} />
+                        </div>
+                        <div className="flex-1 flex items-center justify-between">
+                            <p className="text-sm font-semibold text-gray-500">META DO MÊS</p>
+                            {metaValor > 0 && (
+                                <Chip
+                                    label={`${Math.min(percentualAtual, 100).toFixed(0)}%`}
+                                    size="small"
+                                    color={percentualAtual >= 100 ? 'success' : percentualAtual >= 60 ? 'warning' : 'error'}
+                                />
                             )}
-                        </p>
-                        <p className="text-xs text-gray-500">caixa recebido + convênio produzido</p>
+                        </div>
                     </div>
-
-                    <div className="flex justify-between text-xs mt-2">
-                        <span className="text-gray-500">Produção Realizada</span>
-                        <span className="font-medium">{formatCurrency(producao)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                        <span className="text-gray-500">Caixa Recebido</span>
-                        <span className="font-medium">{formatCurrency(caixa)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                        <span className="text-gray-500">Convênio a Receber</span>
-                        <span className="font-medium text-amber-600">{formatCurrency(Math.max(0, resultadoEconomico - caixa))}</span>
-                    </div>
-
+                    <p className="text-2xl font-bold text-gray-900 mb-1">{metaValor > 0 ? formatCurrency(metaValor) : '—'}</p>
+                    <p className="text-sm font-bold text-emerald-600 mb-3">
+                        {formatCurrency(resultadoEconomico)}
+                        {metaValor > 0 && resultadoEconomico < metaValor && (
+                            <span className="text-xs text-gray-500 ml-1 font-normal">(faltam {formatCurrency(metaValor - resultadoEconomico)})</span>
+                        )}
+                    </p>
                     {metaValor > 0 && (
                         <LinearProgress
                             variant="determinate"
                             value={Math.min(percentualAtual, 100)}
-                            className="mt-3 h-1.5 rounded-full"
+                            className="mb-3 h-1.5 rounded-full"
                             color={percentualAtual >= 100 ? 'success' : percentualAtual >= 60 ? 'warning' : 'error'}
                         />
                     )}
+                    <div className="space-y-1.5 pt-2 border-t border-gray-100">
+                        <div className="flex justify-between text-xs">
+                            <span className="text-gray-500">Produção Realizada</span>
+                            <span className="font-medium">{formatCurrency(producao)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                            <span className="text-gray-500">Caixa Recebido</span>
+                            <span className="font-medium">{formatCurrency(caixa)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                            <span className="text-gray-500">Convênio a Receber</span>
+                            <span className="font-medium text-amber-600">{formatCurrency(Math.max(0, resultadoEconomico - caixa))}</span>
+                        </div>
+                    </div>
                 </div>
 
                 {/* RITMO NECESSÁRIO */}
-                <div className="border border-gray-200 rounded-lg p-3">
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">RITMO NECESSÁRIO</p>
-                    <p className="text-xl font-bold mt-1">{diasRestantes > 0 ? `${formatCurrency(ritmoNecessario)}/dia` : '—'}</p>
-                    <div className="flex items-center gap-1 mt-1">
-                        <span className={`text-xs ${ritmoOk ? 'text-green-600' : 'text-amber-600'}`}>Atual: {formatCurrency(ritmoAtual)}/dia</span>
-                        {ritmoOk ? '✅' : '⚠️'}
+                <div className="border rounded-2xl p-5 shadow-sm" style={{ borderColor: '#3B82F630', backgroundColor: '#3B82F606' }}>
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="rounded-xl p-2.5" style={{ backgroundColor: '#3B82F620' }}>
+                            <TrendingUp size={18} style={{ color: '#3B82F6' }} />
+                        </div>
+                        <p className="text-sm font-semibold text-gray-500">RITMO NECESSÁRIO</p>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                        {diasRestantes > 0
-                            ? `${diasRestantes} ${diasRestantes === 1 ? 'dia restante' : 'dias restantes'}`
-                            : ehPassado ? 'Mês encerrado' : 'Mês não iniciado'}
-                    </p>
+                    <p className="text-2xl font-bold text-gray-900">{diasRestantes > 0 ? `${formatCurrency(ritmoNecessario)}/dia` : '—'}</p>
+                    <div className="space-y-1.5 mt-3 pt-2 border-t border-gray-100">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-500">Ritmo atual</span>
+                            <span className={`text-xs font-semibold ${ritmoOk ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                {formatCurrency(ritmoAtual)}/dia {ritmoOk ? '✅' : '⚠️'}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-500">Dias restantes</span>
+                            <span className="text-xs font-medium text-gray-700">
+                                {diasRestantes > 0
+                                    ? `${diasRestantes} ${diasRestantes === 1 ? 'dia' : 'dias'}`
+                                    : ehPassado ? 'Mês encerrado' : 'Não iniciado'}
+                            </span>
+                        </div>
+                    </div>
                 </div>
 
                 {/* PROJEÇÃO ESPERADA + FECHAMENTO */}
-                <div className="border border-gray-200 rounded-lg p-3">
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">PROJEÇÃO DE FECHAMENTO</p>
-                    <p className="text-xl font-bold text-blue-600 mt-1">{formatCurrency(cenarioEsperado)}</p>
+                <div className="border rounded-2xl p-5 shadow-sm" style={{ borderColor: '#8B5CF630', backgroundColor: '#8B5CF606' }}>
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="rounded-xl p-2.5" style={{ backgroundColor: '#8B5CF620' }}>
+                            <Calendar size={18} style={{ color: '#8B5CF6' }} />
+                        </div>
+                        <p className="text-sm font-semibold text-gray-500">PROJEÇÃO DE FECHAMENTO</p>
+                    </div>
+                    <p className="text-2xl font-bold mb-1" style={{ color: '#8B5CF6' }}>{formatCurrency(cenarioEsperado)}</p>
                     {metaValor > 0 && (
-                        <p className={`text-xs ${cenarioEsperado >= metaValor ? 'text-green-600' : 'text-red-600'}`}>
+                        <p className={`text-xs font-semibold mb-2 ${cenarioEsperado >= metaValor ? 'text-emerald-600' : 'text-rose-600'}`}>
                             {cenarioEsperado >= metaValor
-                                ? `✅ +${formatCurrency(cenarioEsperado - metaValor)}`
+                                ? `✅ +${formatCurrency(cenarioEsperado - metaValor)} acima da meta`
                                 : `⚠️ ${formatCurrency(metaValor - cenarioEsperado)} abaixo da meta`}
                         </p>
                     )}
-                    <p className="text-xs text-gray-500 mt-1 mb-2">Cenário esperado (taxa histórica)</p>
                     <LinearProgress
                         variant="determinate"
                         value={Math.min(dashData?.metas?.ritmo?.percentualRealizado || 0, 100)}
-                        className="h-2 rounded-full"
+                        className="h-2 rounded-full mb-2"
                         color={percentualAtual >= 100 ? 'success' : percentualAtual >= 60 ? 'warning' : 'error'}
                     />
-                    <p className="text-xs text-gray-500 mt-1.5">
-                        {(dashData?.metas?.ritmo?.percentualRealizado || 0).toFixed(1)}% atingido
-                        {dashData?.metas?.gap?.valor > 0 && ` — faltam ${formatCurrency(dashData.metas.gap.valor)}`}
-                    </p>
+                    <div className="pt-2 border-t border-gray-100">
+                        <p className="text-xs text-gray-500">
+                            {(dashData?.metas?.ritmo?.percentualRealizado || 0).toFixed(1)}% atingido
+                            {dashData?.metas?.gap?.valor > 0 && ` — faltam ${formatCurrency(dashData.metas.gap.valor)}`}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">Cenário esperado (taxa histórica)</p>
+                    </div>
                 </div>
             </div>
 
@@ -356,10 +375,15 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                     ];
                     return cen;
                 })().map((c, i) => (
-                    <div key={c.label} className="border rounded-lg p-3" style={{ borderLeft: `4px solid ${c.color}` }}>
-                        <p className="text-xs font-bold text-gray-500 uppercase">{c.label}</p>
-                        <p className="text-xl font-bold" style={{ color: c.color }}>{formatCurrency(c.value)}</p>
-                        <p className="text-xs text-gray-500">{c.desc}</p>
+                    <div key={c.label} className="border rounded-2xl p-5 shadow-sm" style={{ borderColor: `${c.color}30`, backgroundColor: `${c.color}06` }}>
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="rounded-xl p-2" style={{ backgroundColor: `${c.color}20` }}>
+                                {i === 0 ? <TrendingDown size={16} style={{ color: c.color }} /> : i === 1 ? <Target size={16} style={{ color: c.color }} /> : <TrendingUp size={16} style={{ color: c.color }} />}
+                            </div>
+                            <p className="text-xs font-bold uppercase tracking-wide" style={{ color: c.color }}>{c.label}</p>
+                        </div>
+                        <p className="text-xl font-bold mb-2" style={{ color: c.color }}>{formatCurrency(c.value)}</p>
+                        <p className="text-xs text-gray-500 pt-2 border-t border-gray-100">{c.desc}</p>
                     </div>
                 ))}
             </div>

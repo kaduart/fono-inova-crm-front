@@ -470,6 +470,8 @@ export interface IAppointment {
     operationalStatus?: 'scheduled' | 'confirmed' | 'canceled' | 'paid' | 'missed';
     duration: number;
     sessionType: TherapyType;
+    specialty?: string;
+    sessionValue?: number;
     paymentMethod?: string;
     paymentAmount: number;
     notes?: string;
@@ -491,6 +493,14 @@ export interface IAppointment {
     addedToBalance?: boolean;  // Se foi adicionado ao saldo devedor
     balanceAmount?: number;  // Valor adicionado ao saldo
     balanceDescription?: string;  // Descrição do saldo
+
+    // 🆕 Payment populado pelo endpoint /v2/appointments
+    payment?: {
+        _id?: string;
+        status?: string;
+        amount?: number;
+        paymentMethod?: string;
+    };
 
     // 🆕 Lifecycle flags calculadas no backend
     isFirstVisit?: boolean;

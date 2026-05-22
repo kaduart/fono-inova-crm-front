@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { BsHourglass } from "react-icons/bs";
 import { Link } from "react-router-dom";
 import patientService from '../../services/patientService';
-import { PatientDTO } from '../../dtos/patient.response.dto';
+import { PatientDTO, mapPatientListResponseDTO } from '../../dtos/patient.response.dto';
 
 // ============================================================================
 // Tipos e interfaces
@@ -166,7 +166,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                 });
 
                 console.log('✅ Recebido:', result.patients.length, 'pacientes');
-                setPatients(result.patients);
+                setPatients(mapPatientListResponseDTO(result.patients));
                 setCurrentPage(1);
             } catch (error) {
                 console.error('❌ Erro ao buscar pacientes:', error);

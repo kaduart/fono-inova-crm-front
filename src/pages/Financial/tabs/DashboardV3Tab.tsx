@@ -787,15 +787,24 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
               const isPositivo = item.var > 0;
               const isDespesa = item.label === 'Despesas';
               const corVar = isDespesa ? (isPositivo ? 'text-rose-600' : 'text-emerald-600') : (isPositivo ? 'text-emerald-600' : 'text-rose-600');
+              const cardColor = i === 0 ? '#10B981' : i === 1 ? '#3B82F6' : '#F59E0B';
+              const CardIcon = i === 0 ? DollarSign : i === 1 ? TrendingUp : Receipt;
               return (
-                <div key={i} className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-shadow">
-                  <p className="text-sm text-gray-500">{item.label}</p>
-                  <p className="text-2xl font-bold text-gray-900">{formatCurrency(item.atual)}</p>
-                  <div className="flex items-center gap-1 mt-2">
-                    {isPositivo ? <TrendingUp size={16} className={corVar} /> : <TrendingDown size={16} className={corVar} />}
-                    <span className={`text-sm font-semibold ${corVar}`}>{isPositivo ? '+' : ''}{item.var}% vs mês anterior</span>
+                <div key={i} className="border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow" style={{ borderColor: `${cardColor}30`, backgroundColor: `${cardColor}06` }}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="rounded-xl p-2.5" style={{ backgroundColor: `${cardColor}20` }}>
+                      <CardIcon size={18} style={{ color: cardColor }} />
+                    </div>
+                    <p className="text-sm font-semibold text-gray-500">{item.label}</p>
                   </div>
-                  <p className="text-xs text-gray-400">Anterior: {formatCurrency(item.anterior)}</p>
+                  <p className="text-2xl font-bold text-gray-900 mb-2">{formatCurrency(item.atual)}</p>
+                  <div className="pt-2 border-t border-gray-100">
+                    <div className="flex items-center gap-1">
+                      {isPositivo ? <TrendingUp size={14} className={corVar} /> : <TrendingDown size={14} className={corVar} />}
+                      <span className={`text-sm font-semibold ${corVar}`}>{isPositivo ? '+' : ''}{item.var}% vs mês anterior</span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">Anterior: {formatCurrency(item.anterior)}</p>
+                  </div>
                 </div>
               );
             })}
@@ -810,21 +819,33 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <button
               onClick={() => openDebitosModal('mes')}
-              className="text-left p-5 bg-white rounded-2xl border border-rose-200 shadow-sm hover:shadow-md hover:border-rose-400 transition-all"
+              className="text-left p-5 rounded-2xl border shadow-sm hover:shadow-md transition-all"
+              style={{ borderColor: '#EF444430', backgroundColor: '#EF444406' }}
             >
-              <p className="text-xs font-semibold uppercase tracking-wide text-rose-500 mb-1">Débito do Mês</p>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="rounded-xl p-2.5" style={{ backgroundColor: '#EF444420' }}>
+                  <AlertTriangle size={18} style={{ color: '#EF4444' }} />
+                </div>
+                <p className="text-sm font-semibold" style={{ color: '#EF4444' }}>Débito do Mês</p>
+              </div>
               <p className="text-3xl font-extrabold text-gray-900">{formatCurrency(resumo?.pendentes?.vencidos?.total || 0)}</p>
-              <p className="text-sm text-gray-500 mt-1">Sessões realizadas sem pagamento este mês → clique para ver</p>
+              <p className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-100">Sessões sem pagamento este mês → clique para ver</p>
             </button>
             <button
               onClick={() => openDebitosModal('total')}
-              className="text-left p-5 bg-white rounded-2xl border border-amber-200 shadow-sm hover:shadow-md hover:border-amber-400 transition-all"
+              className="text-left p-5 rounded-2xl border shadow-sm hover:shadow-md transition-all"
+              style={{ borderColor: '#F59E0B30', backgroundColor: '#F59E0B06' }}
             >
-              <p className="text-xs font-semibold uppercase tracking-wide text-amber-600 mb-1">Débito Total (histórico)</p>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="rounded-xl p-2.5" style={{ backgroundColor: '#F59E0B20' }}>
+                  <Clock size={18} style={{ color: '#F59E0B' }} />
+                </div>
+                <p className="text-sm font-semibold" style={{ color: '#D97706' }}>Débito Total (histórico)</p>
+              </div>
               <p className="text-3xl font-extrabold text-gray-900">
                 {loadingDebitosTotal ? '...' : formatCurrency(debitosTotalValue)}
               </p>
-              <p className="text-sm text-gray-500 mt-1">Todas as sessões realizadas em aberto → clique para ver</p>
+              <p className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-100">Todas as sessões em aberto → clique para ver</p>
             </button>
           </div>
         </div>
