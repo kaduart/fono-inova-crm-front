@@ -62,7 +62,7 @@ const App: React.FC = () => {
       <ChatNotificationPopup />
       <PreAgendamentoNotificationPopup />
       <WhatsAppMessagePopup />
-      <SystemAlertPopup />
+      {/* <SystemAlertPopup /> */}
     </ChatNavigationProvider>
   );
 };

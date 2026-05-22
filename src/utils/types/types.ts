@@ -7,7 +7,8 @@ export type TherapyType =
     | 'neuroped'
     | 'psicomotricidade'
     | 'musicoterapia'
-    | 'psicopedagogia';
+    | 'psicopedagogia'
+    | 'neuropsicologia';
 
 export type PaymentType = 'full' | 'per-session' | 'partial';
 export type PackageStatus = 'ativo' | 'finalizado';
@@ -22,6 +23,7 @@ export const THERAPY_TYPES = [
     { value: 'musicoterapia', label: 'Musicoterapia' },
     { value: 'psicomotricidade', label: 'Psicomotricidade' },
     { value: 'psicopedagogia', label: 'Psicopedagogia' },
+    { value: 'neuropsicologia', label: 'Neuropsicologia' },
 ];
 
 export interface AdminInfo {
@@ -84,7 +86,7 @@ export interface ISession {
     appointmentId?: string;
     patientId: string;
     package: string;
-    sessionType: 'fonoaudiologia' | 'terapia_ocupacional' | 'psicologia' | 'fisioterapia';
+    sessionType: 'fonoaudiologia' | 'terapia_ocupacional' | 'psicologia' | 'fisioterapia' | 'neuropsicologia';
     specialty?: string;
     serviceType?: 'individual_session' | 'package_session' | 'evaluation';
     status: 'pending' | 'completed' | 'canceled' | 'scheduled';
@@ -104,7 +106,7 @@ export interface ITherapyPackage {
     packageId?: string; // 🔗 ID real do pacote na collection Package (diferente do _id da view)
     patient: string;
     professional: string;
-    sessionType: 'fonoaudiologia' | 'terapia_ocupacional' | 'psicologia' | 'fisioterapia';
+    sessionType: 'fonoaudiologia' | 'terapia_ocupacional' | 'psicologia' | 'fisioterapia' | 'neuropsicologia';
     totalSessions: number;
     sessions: ISession[];
     sessionsDone: number;

@@ -20,7 +20,7 @@ import API from '../../../services/api';
 import { toast } from 'react-hot-toast';
 
 const VALID_SPECIALTIES = [
-  'fonoaudiologia', 'psicologia', 'fisioterapia', 'terapia_ocupacional',
+  'fonoaudiologia', 'psicologia', 'fisioterapia', 'terapia_ocupacional', 'neuropsicologia',
   'psicopedagogia', 'psicomotricidade', 'musicoterapia', 'neuropsicologia'
 ];
 

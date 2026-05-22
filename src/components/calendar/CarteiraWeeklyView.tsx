@@ -40,7 +40,7 @@ const SPECIALTY_LABELS: Record<string, string> = {
   psicopedagogia:      'Psicopedagogia',
 };
 
-const GRID_COLS = '56px repeat(5, 1fr)';
+const GRID_COLS = '44px repeat(5, 1fr)';
 const TOTAL_DAILY_SLOTS = 16; // slots de 40min de 8h às 18h
 
 // Retorna a data (Date) do dia da semana atual para o weekday no formato mongo (2=seg…6=sex)
@@ -85,7 +85,7 @@ function ActiveCell({ slot }: { slot: RetentionSlot }) {
     : '—';
   const totalAtend = slot.recurrenceCount <= 1 ? '1ª consulta' : `${slot.recurrenceCount} atend.`;
   const lastLabel = slot.daysSinceLastSession !== null
-    ? slot.daysSinceLastSession === 0 ? 'hoje' : `há ${slot.daysSinceLastSession}d`
+    ? slot.daysSinceLastSession === 0 ? 'ult. hoje' : `ult. há ${slot.daysSinceLastSession}d`
     : null;
 
   return (
@@ -98,11 +98,11 @@ function ActiveCell({ slot }: { slot: RetentionSlot }) {
         backgroundColor: cfg.bg,
       }}
     >
-      <div className="px-2.5 py-2 flex flex-col gap-1.5 h-full">
+      <div className="px-4 py-4 flex flex-col gap-3 h-full">
 
         {/* Linha 1: Nome + WhatsApp */}
         <div className="flex items-center justify-between gap-1 min-w-0">
-          <span className="text-[11px] font-bold text-gray-800 truncate leading-tight">
+          <span className="text-[14px] font-bold text-gray-800 truncate leading-tight">
             {displayName}
           </span>
           {slot.currentPatientPhone && (
@@ -111,23 +111,27 @@ function ActiveCell({ slot }: { slot: RetentionSlot }) {
               className="p-1 rounded-full hover:bg-green-100 transition-colors flex-shrink-0"
               title="Enviar WhatsApp"
             >
-              <MessageCircle size={12} className="text-green-500" />
+              <MessageCircle size={14} className="text-green-500" />
             </button>
           )}
         </div>
 
         {/* Linha 2: rótulo "presença" + total atendimentos */}
         <div className="flex items-center justify-between">
-          <span className="text-[9px] text-gray-400 font-medium uppercase tracking-wide">presença</span>
-          <span className="text-[9px] text-gray-400 tabular-nums">{totalAtend}</span>
+          <span className="text-[14px] text-gray-400 font-medium uppercase tracking-wide">presença</span>
+          <span className="text-[14px] text-gray-400 tabular-nums">{totalAtend}</span>
         </div>
 
         {/* Linha 3: barra + % */}
         <div className="flex items-center gap-1.5">
-          <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div className="flex-1 relative h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div style={{ width: `${pct}%`, backgroundColor: barColor, height: '100%', borderRadius: 9999 }} />
+            {/* 5 divisões de 20% */}
+            {[20, 40, 60, 80].map(tick => (
+              <div key={tick} className="absolute top-0 bottom-0 w-px bg-white/60" style={{ left: `${tick}%` }} />
+            ))}
           </div>
-          <span className="text-[11px] font-extrabold tabular-nums w-8 text-right leading-none" style={{ color: barColor }}>
+          <span className="text-[14px] font-extrabold tabular-nums w-8 text-right leading-none" style={{ color: barColor }}>
             {pct}%
           </span>
         </div>
@@ -135,7 +139,7 @@ function ActiveCell({ slot }: { slot: RetentionSlot }) {
         {/* Linha 4: tipo de vínculo + alertas + última visita */}
         <div className="flex items-center gap-1 flex-wrap mt-auto">
           <span
-            className="text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none"
+            className="text-[14px] font-bold px-1.5 py-0.5 rounded-full leading-none"
             style={{ color: cfg.color, backgroundColor: cfg.badgeBg }}
           >
             {cfg.label}
@@ -143,25 +147,25 @@ function ActiveCell({ slot }: { slot: RetentionSlot }) {
 
           {slot.packageRemaining > 0 && (
             <span
-              className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full leading-none ${
+              className={`text-[14px] font-semibold px-1.5 py-0.5 rounded-full leading-none ${
                 slot.packageRemaining <= 2
                   ? 'text-orange-700 bg-orange-100'
                   : 'text-gray-500 bg-gray-100'
               }`}
               title="Sessões restantes no pacote"
             >
-              {slot.packageRemaining} no pacote
+              {slot.packageRemaining} restantes
             </span>
           )}
 
           {!slot.nextSessionAt && (
-            <span className="text-[9px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full leading-none">
+            <span className="text-[14px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full leading-none">
               sem próx. sessão
             </span>
           )}
 
           {lastLabel && (
-            <span className="text-[9px] text-gray-400 ml-auto tabular-nums" title="Última sessão realizada">
+            <span className="text-[14px] text-gray-400 ml-auto tabular-nums" title="Última sessão realizada">
               {lastLabel}
             </span>
           )}
@@ -183,20 +187,20 @@ function VacantCell({ slot }: { slot: RetentionSlot }) {
         backgroundColor: '#fff5f5',
       }}
     >
-      <div className="px-2 py-2 flex flex-col gap-1 h-full justify-center">
-        <span className="text-[11px] font-bold text-red-600 uppercase tracking-widest">Vago</span>
+      <div className="px-4 py-4 flex flex-col gap-3 h-full justify-center">
+        <span className="text-[14px] font-bold text-red-600 uppercase tracking-widest">Vago</span>
         {slot.lastPatientName && (
-          <span className="text-[10px] text-gray-500 truncate">
+          <span className="text-[14px] text-gray-500 truncate">
             ↳ {slot.lastPatientName.split(' ')[0]}
           </span>
         )}
         {slot.avgSessionValue > 0 && (
-          <span className="text-[10px] font-semibold text-red-500">
+          <span className="text-[14px] font-semibold text-red-500">
             ≈ R${slot.avgSessionValue.toLocaleString('pt-BR')}
           </span>
         )}
         {slot.daysSinceVacant !== null && (
-          <span className="text-[10px] text-red-400 tabular-nums font-medium">{slot.daysSinceVacant}d</span>
+          <span className="text-[15px] text-red-400 tabular-nums font-medium">{slot.daysSinceVacant}d</span>
         )}
       </div>
     </div>
@@ -384,19 +388,19 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
                     {/* Linha 1: nome do dia + data + "hoje" */}
                     <div className="flex items-center justify-between gap-1 min-w-0">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-[11px] font-extrabold text-gray-700 uppercase tracking-wide leading-none">
+                        <span className="text-[14px] font-extrabold text-gray-700 uppercase tracking-wide leading-none">
                           {WEEKDAY_LABELS[wd].slice(0, 3)}
                         </span>
-                        <span className="text-[10px] text-gray-400 font-medium">{dateLabel}</span>
+                        <span className="text-[15px] text-gray-400 font-medium">{dateLabel}</span>
                         {isToday && (
-                          <span className="text-[9px] font-bold bg-blue-500 text-white px-1 py-0.5 rounded leading-none">
+                          <span className="text-[14px] font-bold bg-blue-500 text-white px-1 py-0.5 rounded leading-none">
                             hoje
                           </span>
                         )}
                       </div>
                       {occ.vacant > 0 && (
                         <Tooltip title={`${occ.vacant} horário${occ.vacant > 1 ? 's' : ''} sem paciente`}>
-                          <span className="text-[10px] bg-red-100 text-red-600 font-bold px-1.5 py-0.5 rounded-full cursor-default leading-none flex-shrink-0">
+                          <span className="text-[15px] bg-red-100 text-red-600 font-bold px-1.5 py-0.5 rounded-full cursor-default leading-none flex-shrink-0">
                             {occ.vacant} vago{occ.vacant > 1 ? 's' : ''}
                           </span>
                         </Tooltip>
@@ -406,13 +410,13 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
                     {/* Linha 2: % slots preenchidos + contagem */}
                     <div className="flex items-end justify-between gap-1">
                       <div className="flex flex-col leading-none">
-                        <span className="text-[9px] text-gray-400 font-medium mb-0.5">horários preenchidos</span>
+                        <span className="text-[14px] text-gray-400 font-medium mb-0.5">horários preenchidos</span>
                         <span className="text-2xl font-extrabold tabular-nums leading-none" style={{ color: rateColor }}>
                           {rate}%
                         </span>
                       </div>
                       <div className="flex flex-col items-end leading-none">
-                        <span className="text-[9px] text-gray-400 font-medium mb-0.5">horários</span>
+                        <span className="text-[15px] text-gray-400 font-medium mb-0.5">horários</span>
                         <span className="text-sm font-bold text-gray-700 tabular-nums">
                           {filled}<span className="text-gray-400 font-normal">/{TOTAL_DAILY_SLOTS}</span>
                         </span>
@@ -441,7 +445,7 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
                     display: 'grid',
                     gridTemplateColumns: GRID_COLS,
                     gap: 10,
-                    minHeight: 96,
+                    minHeight: 140,
                     backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fafafa',
                   }}
                 >
@@ -457,7 +461,7 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
                       <div
                         key={wd}
                         style={{
-                          minHeight: 88,
+                          minHeight: 130,
                           borderRight: notLast ? '2px dashed #cbd5e1' : undefined,
                           paddingRight: notLast ? 8 : undefined,
                         }}
