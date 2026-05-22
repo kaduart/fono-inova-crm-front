@@ -29,6 +29,7 @@ export type Doctor = {
   phoneNumber: string;
   active: string;
   role: DoctorRole;
+  weeklyAvailability?: Array<{ day: string; times: string[] }>;
   createdAt?: string;
   updatedAt?: string;
 };

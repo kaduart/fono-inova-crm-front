@@ -20,7 +20,11 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Divider
+  Divider,
+  Select,
+  FormControl,
+  InputLabel,
+  TextField
 } from '@mui/material';
 import {
   Plus,
@@ -42,6 +46,8 @@ import { ptBR } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { useInsuranceGuides } from '../../../hooks/useInsuranceGuides';
 import { getGuideAppointments } from '../../../services/insuranceGuideApi';
+import { appointmentService } from '../../../services/appointmentService';
+import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';
 import InsuranceGuideForm from './InsuranceGuideForm';
 import InsurancePlanForm from './InsurancePlanForm';
 
@@ -60,6 +66,8 @@ const PatientInsuranceTab = ({ patientId }) => {
   const [detailsGuide, setDetailsGuide] = useState(null);
   const [showInactivateModal, setShowInactivateModal] = useState(false);
   const [isInactivating, setIsInactivating] = useState(false);
+
+  const { fetchAppointments } = useAppointmentsContext();
 
   const {
     guides,
@@ -87,7 +95,7 @@ const PatientInsuranceTab = ({ patientId }) => {
     return unique.sort();
   }, [allAvailableGuides]);
 
-  const isGuideActive = (g) => g.status === 'active' && g.remaining > 0;
+  const isGuideActive = (g) => (g.status === 'active' || g.status === 'linked') && g.remaining > 0;
 
   const availableGuides = useMemo(() => {
     return allAvailableGuides
@@ -102,7 +110,7 @@ const PatientInsuranceTab = ({ patientId }) => {
   const inactiveCount = useMemo(() => allAvailableGuides.filter(g => !isGuideActive(g)).length, [allAvailableGuides]);
 
   const groupedGuides = useMemo(() => {
-    const active = availableGuides.filter(g => g.status === 'active' && g.remaining > 0);
+    const active = availableGuides.filter(g => (g.status === 'active' || g.status === 'linked') && g.remaining > 0);
     const exhausted = availableGuides.filter(g => g.status === 'exhausted' || (g.status === 'active' && g.remaining === 0));
     const expired = availableGuides.filter(g => g.status === 'expired');
     const cancelled = availableGuides.filter(g => g.status === 'cancelled');
@@ -520,6 +528,7 @@ const PatientInsuranceTab = ({ patientId }) => {
       <GuideDetailsModal
         guide={detailsGuide}
         onClose={() => setDetailsGuide(null)}
+        onUpdate={() => { refetch(); fetchAppointments(); }}
       />
 
       {/* Modal de confirmação de inativação — mesmo padrão do pacote */}
@@ -703,7 +712,7 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan }) => {
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 
-  const canUse = guide.status === 'active' && remaining > 0 && daysUntilExpiration >= 0;
+  const canUse = (guide.status === 'active' || guide.status === 'linked') && remaining > 0 && daysUntilExpiration >= 0;
 
   return (
     <motion.div
@@ -855,18 +864,62 @@ const APPT_STATUS_CONFIG = {
   processing_cancel:   { label: 'Processando',  color: '#8A99B0', bg: '#F1F5F9' },
 };
 
-const GuideDetailsModal = ({ guide, onClose }) => {
+const EDITABLE_STATUSES = [
+  { value: 'pre_agendado', label: 'Pré-agendado' },
+  { value: 'scheduled',    label: 'Agendado' },
+  { value: 'confirmed',    label: 'Confirmado' },
+  { value: 'canceled',     label: 'Cancelado' },
+];
+
+const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (!guide) return;
+  const [editingAppt, setEditingAppt] = useState(null);
+  const [editDate, setEditDate]       = useState('');
+  const [editTime, setEditTime]       = useState('');
+  const [editStatus, setEditStatus]   = useState('');
+  const [editSaving, setEditSaving]   = useState(false);
+
+  const loadAppointments = (guideId) => {
     setLoading(true);
-    getGuideAppointments(guide._id)
+    return getGuideAppointments(guideId)
       .then(data => setAppointments(data))
       .catch(() => setAppointments([]))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    if (!guide) return;
+    loadAppointments(guide._id);
   }, [guide?._id]);
+
+  const openEdit = (appt) => {
+    setEditingAppt(appt);
+    setEditDate(appt.date ? appt.date.substring(0, 10) : '');
+    setEditTime(appt.time || '');
+    setEditStatus(appt.operationalStatus || appt.status || 'scheduled');
+  };
+
+  const saveEdit = async () => {
+    if (!editDate || !editTime) { toast.error('Preencha data e hora'); return; }
+    setEditSaving(true);
+    try {
+      if (editStatus === 'canceled') {
+        await appointmentService.cancel(editingAppt._id, { reason: 'Cancelado manualmente' });
+      } else {
+        await appointmentService.reschedule(editingAppt._id, { date: editDate, time: editTime });
+      }
+      toast.success('Agendamento atualizado');
+      setEditingAppt(null);
+      await loadAppointments(guide._id);
+      onUpdate?.();
+    } catch {
+      toast.error('Erro ao atualizar agendamento');
+    } finally {
+      setEditSaving(false);
+    }
+  };
 
   if (!guide) return null;
 
@@ -876,11 +929,19 @@ const GuideDetailsModal = ({ guide, onClose }) => {
     ?.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || '';
 
   const apptStatus = (a) => a.operationalStatus || a.status || '';
-  const completedCount = appointments.filter(a => ['completed', 'paid'].includes(apptStatus(a))).length;
-  const scheduledCount = appointments.filter(a => ['scheduled', 'confirmed', 'pre_agendado'].includes(apptStatus(a))).length;
-  const canceledCount  = appointments.filter(a => ['canceled', 'cancelled', 'missed'].includes(apptStatus(a))).length;
+
+  // Oculta appointments cancelados que foram substituídos por um reagendamento
+  const supersededIds = new Set(
+    appointments.filter(a => a.rescheduledFrom).map(a => a.rescheduledFrom?.toString())
+  );
+  const visibleAppointments = appointments.filter(a => !supersededIds.has(a._id?.toString()));
+
+  const completedCount = visibleAppointments.filter(a => ['completed', 'paid'].includes(apptStatus(a))).length;
+  const scheduledCount = visibleAppointments.filter(a => ['scheduled', 'confirmed', 'pre_agendado'].includes(apptStatus(a))).length;
+  const canceledCount  = visibleAppointments.filter(a => ['canceled', 'cancelled', 'missed'].includes(apptStatus(a))).length;
 
   return (
+    <>
     <Dialog
       open={Boolean(guide)}
       onClose={onClose}
@@ -944,7 +1005,7 @@ const GuideDetailsModal = ({ guide, onClose }) => {
             <Divider sx={{ mb: 2.5 }} />
 
             {/* Lista de agendamentos */}
-            {appointments.length === 0 ? (
+            {visibleAppointments.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 5 }}>
                 <Calendar size={32} color="#A0AABF" style={{ marginBottom: 8 }} />
                 <Typography sx={{ color: '#8A99B0', fontSize: '0.875rem' }}>
@@ -953,7 +1014,7 @@ const GuideDetailsModal = ({ guide, onClose }) => {
               </Box>
             ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {appointments.map((appt, idx) => {
+                {visibleAppointments.map((appt, idx) => {
                   const statusKey = appt.operationalStatus || appt.status || '';
                   const cfg = APPT_STATUS_CONFIG[statusKey] || { label: statusKey, color: '#8A99B0', bg: '#F8FAFE' };
                   const dateStr = appt.date
@@ -992,19 +1053,28 @@ const GuideDetailsModal = ({ guide, onClose }) => {
                           </Typography>
                         </Box>
                       </Box>
-                      <Chip
-                        label={cfg.label}
-                        size="small"
-                        sx={{
-                          height: '20px',
-                          fontSize: '0.6rem',
-                          fontWeight: 600,
-                          bgcolor: cfg.bg,
-                          color: cfg.color,
-                          border: `1px solid ${cfg.color}30`,
-                          borderRadius: '8px'
-                        }}
-                      />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Chip
+                          label={cfg.label}
+                          size="small"
+                          sx={{
+                            height: '20px',
+                            fontSize: '0.6rem',
+                            fontWeight: 600,
+                            bgcolor: cfg.bg,
+                            color: cfg.color,
+                            border: `1px solid ${cfg.color}30`,
+                            borderRadius: '8px'
+                          }}
+                        />
+                        <IconButton
+                          size="small"
+                          onClick={() => openEdit(appt)}
+                          sx={{ color: '#8A99B0', '&:hover': { color: '#1B4D6E' }, p: 0.5 }}
+                        >
+                          <Edit2 size={13} />
+                        </IconButton>
+                      </Box>
                     </Box>
                   );
                 })}
@@ -1032,6 +1102,87 @@ const GuideDetailsModal = ({ guide, onClose }) => {
         </Button>
       </DialogActions>
     </Dialog>
+
+    {/* ── Dialog de edição de agendamento ── */}
+    <Dialog
+      open={Boolean(editingAppt)}
+      onClose={() => !editSaving && setEditingAppt(null)}
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: '20px' } }}
+    >
+      <Box sx={{
+        background: 'linear-gradient(135deg, #1B4D6E 0%, #2E7A5E 100%)',
+        px: 3, py: 2,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+      }}>
+        <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>
+          Editar Agendamento
+        </Typography>
+        <IconButton onClick={() => setEditingAppt(null)} size="small" disabled={editSaving}
+          sx={{ color: 'rgba(255,255,255,0.8)' }}>
+          <X size={16} />
+        </IconButton>
+      </Box>
+
+      <DialogContent sx={{ pt: 3, pb: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <TextField
+          label="Data"
+          type="date"
+          value={editDate}
+          onChange={e => setEditDate(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          fullWidth
+          size="small"
+          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+        />
+        <TextField
+          label="Hora"
+          type="time"
+          value={editTime}
+          onChange={e => setEditTime(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          fullWidth
+          size="small"
+          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+        />
+        <FormControl fullWidth size="small">
+          <InputLabel>Status</InputLabel>
+          <Select
+            value={editStatus}
+            label="Status"
+            onChange={e => setEditStatus(e.target.value)}
+            sx={{ borderRadius: '12px' }}
+          >
+            {EDITABLE_STATUSES.map(s => (
+              <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </DialogContent>
+
+      <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+        <Button
+          onClick={() => setEditingAppt(null)}
+          disabled={editSaving}
+          variant="outlined"
+          sx={{ borderRadius: '40px', textTransform: 'none', fontWeight: 600, fontSize: '0.8rem',
+            borderColor: '#DDE4EE', color: '#5B6E8C' }}
+        >
+          Cancelar
+        </Button>
+        <Button
+          onClick={saveEdit}
+          disabled={editSaving}
+          variant="contained"
+          sx={{ borderRadius: '40px', textTransform: 'none', fontWeight: 600, fontSize: '0.8rem',
+            bgcolor: '#1B4D6E', '&:hover': { bgcolor: '#163d58' } }}
+        >
+          {editSaving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Salvar'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+    </>
   );
 };
 

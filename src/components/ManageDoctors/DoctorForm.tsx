@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { FaUserEdit } from "react-icons/fa";
 import { EXTRA_SPECIALTIES, IDoctor, THERAPY_TYPES, TherapyType } from "../../utils/types/types";
+import doctorService from "../../services/doctorService";
 import { Button } from "../ui/Button";
 import Input from "../ui/Input";
 import { Label } from "../ui/Label";
@@ -73,18 +74,33 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
         specialty: false
     });
 
-    // Inicializa os slots a partir do médico selecionado
+    // Busca dados frescos do doutor ao editar para garantir weeklyAvailability atualizado
     useEffect(() => {
-        if (selectedDoctor?.weeklyAvailability) {
-            const slots: TimeSlot[] = [];
-            selectedDoctor.weeklyAvailability.forEach(dayAvailability => {
-                dayAvailability.times.forEach(time => {
-                    slots.push({ day: dayAvailability.day, time });
+        if (!selectedDoctor?._id) return;
+
+        doctorService.getById(selectedDoctor._id)
+            .then(fresh => {
+                const availability = (fresh as any)?.weeklyAvailability ?? selectedDoctor.weeklyAvailability;
+                if (!availability?.length) return;
+                const slots: TimeSlot[] = [];
+                availability.forEach((dayAvailability: { day: string; times: string[] }) => {
+                    dayAvailability.times.forEach(time => {
+                        slots.push({ day: dayAvailability.day, time });
+                    });
                 });
+                setSelectedTimeSlots(slots);
+            })
+            .catch(() => {
+                if (!selectedDoctor.weeklyAvailability?.length) return;
+                const slots: TimeSlot[] = [];
+                selectedDoctor.weeklyAvailability.forEach((dayAvailability: any) => {
+                    dayAvailability.times.forEach((time: string) => {
+                        slots.push({ day: dayAvailability.day, time });
+                    });
+                });
+                setSelectedTimeSlots(slots);
             });
-            setSelectedTimeSlots(slots);
-        }
-    }, [selectedDoctor]);
+    }, [selectedDoctor?._id]);
 
     // Mantém weeklyAvailability em sincronia com os chips selecionados
     useEffect(() => {

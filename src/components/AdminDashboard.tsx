@@ -378,6 +378,7 @@ export default function AdminDashboard() {
 
             setShowModalAddProfessional(false);
             setModalShouldClose(true);
+            setTimeout(() => setModalShouldClose(false), 600);
 
             // Não invalidar cache aqui — dispara fetch imediato antes do worker terminar.
             // A lista é atualizada via refreshDoctors() no ManageDoctors após delay adequado.

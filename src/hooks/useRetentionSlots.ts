@@ -19,8 +19,9 @@ export interface RetentionSlot {
   lastPatientName: string | null;
   daysSinceVacant: number | null;
 
-  recurrenceCount:  number;
-  recentCompleted:  number;
+  recurrenceCount:   number; // sessões do paciente atual neste horário
+  slotTotalSessions: number; // total histórico do horário (todos os pacientes)
+  recentCompleted:   number;
   attendanceRate:   number;
   packageRemaining: number;
   nextSessionAt:    string | null;

@@ -110,6 +110,20 @@ export default function TherapyPackageCard({
   const liminarPaid = financial?.liminarPaid ?? 0;
   const completedSessions = pack.sessionsDone ?? financial?.completedSessions ?? 0;
 
+  const isFullyPaid = pack.financialStatus === 'paid_with_credit'
+    || ((pack.totalValue || 0) > 0 && particularPaid >= (pack.totalValue || 0));
+  const paymentRatio = isFullyPaid ? 1 : (pack.totalValue || 0) > 0
+    ? Math.min(particularPaid / (pack.totalValue || 1), 1)
+    : 0;
+  const hasNoPayment = financial !== null && particularPaid === 0 && !isFullyPaid;
+
+  const paymentState: 'paid' | 'reserved' | 'overdue' | 'partial' | 'unknown' =
+    financial === null || financialLoading ? 'unknown' :
+    isFullyPaid ? 'paid' :
+    hasNoPayment && sessionDebt === 0 ? 'reserved' :
+    sessionDebt > 0 ? 'overdue' :
+    'partial';
+
   if (!financial && !financialLoading) {
     console.warn('[TherapyPackageCard] ⚠️ Endpoint /financial/summary indisponível — dados financeiros não carregados');
   }
@@ -362,105 +376,134 @@ export default function TherapyPackageCard({
           ? 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-100'
           : pack.type === 'liminar'
           ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-100'
+          : paymentState === 'paid'
+          ? 'bg-gradient-to-r from-green-50 to-emerald-100 border-green-200'
+          : paymentState === 'reserved'
+          ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200'
+          : paymentState === 'overdue'
+          ? 'bg-gradient-to-r from-red-50 to-rose-50 border-red-200'
+          : paymentState === 'partial'
+          ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100'
           : 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-100'
       }`}>
-        <div className="flex justify-between items-start mb-4">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${
-              pack.type === 'convenio' 
-                ? 'bg-blue-100' 
-                : pack.type === 'liminar'
-                ? 'bg-emerald-100'
-                : 'bg-emerald-100'
-            }`}>
-              {pack.type === 'convenio' ? (
-                <Building2 className="h-5 w-5 text-blue-600" />
-              ) : pack.type === 'liminar' ? (
-                <Gavel className="h-5 w-5 text-emerald-600" />
-              ) : (
-                <Sprout className="h-5 w-5 text-emerald-600" />
-              )}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                {/* 🎯 Usa searchFields.patientName como fallback se patient.fullName não estiver disponível */}
-                <h3 className="font-semibold text-gray-900">
-                  {patient?.fullName || pack.searchFields?.patientName || 'Paciente não identificado'}
-                </h3>
-                {pack.type === 'convenio' && (
-                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
-                    CONVÊNIO
-                  </span>
-                )}
-                {pack.type === 'liminar' && (
-                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">
-                    LIMINAR
-                  </span>
-                )}
-              </div>
-              {/* 🎯 Mostra o nome do profissional também (searchFields.doctorName) */}
-              <p className="text-sm text-gray-500">
-                {pack.searchFields?.doctorName || 'Profissional não identificado'} • {' '}
-                <span className="capitalize">{pack.sessionType?.toLowerCase()}</span>
-              </p>
-              {pack.createdAt && (
-                <p className="text-xs text-gray-400">
-                  Criado em {new Date(pack.createdAt).toLocaleDateString('pt-BR')}
-                </p>
-              )}
-              {pack.type === 'convenio' && pack.insuranceProvider && (
-                <p className="text-xs text-blue-600 font-medium mt-1">
-                  {pack.insuranceProvider.replace(/-/g, ' ').toUpperCase()}
-                </p>
-              )}
-              {pack.type === 'liminar' && pack.liminarProcessNumber && (
-                <p className="text-xs text-emerald-600 font-medium mt-1">
-                  Processo: {pack.liminarProcessNumber}
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
+        {/* Barra de status: Ativo | estado financeiro | Detalhes */}
+        <div className="flex items-center gap-2 mb-4">
+          {pack.status === 'active' ? (
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onCardClick && onCardClick(pack);
-              }}
-              className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg transition-colors font-medium"
+              onClick={(e) => { e.stopPropagation(); setShowInactivateModal(true); }}
+              title="Clique para inativar este pacote"
+              className={statusConfig.pill + ' cursor-pointer hover:opacity-80 transition-opacity'}
             >
-              Detalhes
+              <StatusIcon className="w-3 h-3" />
+              {statusConfig.label}
             </button>
-            {pack.status === 'active' ? (
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowInactivateModal(true); }}
-                title="Clique para inativar este pacote"
-                className={statusConfig.pill + ' cursor-pointer hover:opacity-80 transition-opacity'}
-              >
-                <StatusIcon className="w-3 h-3" />
-                {statusConfig.label}
-              </button>
+          ) : (
+            <div className={statusConfig.pill}>
+              <StatusIcon className="w-3 h-3" />
+              {statusConfig.label}
+            </div>
+          )}
+          {pack.type !== 'convenio' && !financialLoading && financial !== null && (
+            paymentState === 'paid' ? (
+              <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded-full border border-green-200 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> Quitado
+              </span>
+            ) : paymentState === 'reserved' ? (
+              <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-xs font-semibold rounded-full border border-amber-300">
+                Aguardando pag.
+              </span>
+            ) : paymentState === 'overdue' ? (
+              <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded-full border border-red-200">
+                Em aberto
+              </span>
+            ) : paymentState === 'partial' ? (
+              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full border border-blue-200">
+                Pago parcial
+              </span>
+            ) : null
+          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onCardClick && onCardClick(pack);
+            }}
+            className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg transition-colors font-medium ml-auto"
+          >
+            Detalhes
+          </button>
+        </div>
+
+        {/* Info: ícone + nome/profissional */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className={`p-2 rounded-lg ${
+            pack.type === 'convenio'
+              ? 'bg-blue-100'
+              : pack.type === 'liminar'
+              ? 'bg-emerald-100'
+              : 'bg-emerald-100'
+          }`}>
+            {pack.type === 'convenio' ? (
+              <Building2 className="h-5 w-5 text-blue-600" />
+            ) : pack.type === 'liminar' ? (
+              <Gavel className="h-5 w-5 text-emerald-600" />
             ) : (
-              <div className={statusConfig.pill}>
-                <StatusIcon className="w-3 h-3" />
-                {statusConfig.label}
-              </div>
+              <Sprout className="h-5 w-5 text-emerald-600" />
+            )}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-gray-900">
+                {patient?.fullName || pack.searchFields?.patientName || 'Paciente não identificado'}
+              </h3>
+              {pack.type === 'convenio' && (
+                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                  CONVÊNIO
+                </span>
+              )}
+              {pack.type === 'liminar' && (
+                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">
+                  LIMINAR
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-gray-500">
+              {pack.searchFields?.doctorName || 'Profissional não identificado'} • {' '}
+              <span className="capitalize">{pack.sessionType?.toLowerCase()}</span>
+            </p>
+            {pack.createdAt && (
+              <p className="text-xs text-gray-400">
+                Criado em {new Date(pack.createdAt).toLocaleDateString('pt-BR')}
+              </p>
+            )}
+            {pack.type === 'convenio' && pack.insuranceProvider && (
+              <p className="text-xs text-blue-600 font-medium mt-1">
+                {pack.insuranceProvider.replace(/-/g, ' ').toUpperCase()}
+              </p>
+            )}
+            {pack.type === 'liminar' && pack.liminarProcessNumber && (
+              <p className="text-xs text-emerald-600 font-medium mt-1">
+                Processo: {pack.liminarProcessNumber}
+              </p>
             )}
           </div>
         </div>
 
-        {/* Barra de progresso elegante */}
-        <div className="space-y-3">
+        {/* Barra de progresso clínico */}
+        <div className="space-y-2">
           <div className="flex justify-between items-center">
-            <span className="text-sm font-medium text-gray-700">Progresso do Pacote</span>
-            <span className={`text-base font-bold ${
-              pack.type === 'convenio' 
-                ? 'text-blue-600' 
-                : pack.type === 'liminar'
-                ? 'text-emerald-600'
-                : 'text-emerald-600'
-            }`}>
-              {completedSessions}/{pack.totalSessions}
-            </span>
+            <span className="text-sm font-medium text-gray-700">Progresso Clínico</span>
+            <div className="text-right">
+              <span className={`text-base font-bold ${
+                pack.type === 'convenio'
+                  ? 'text-blue-600'
+                  : pack.type === 'liminar'
+                  ? 'text-emerald-600'
+                  : 'text-emerald-600'
+              }`}>
+                {completedSessions} de {pack.totalSessions}
+              </span>
+              <p className="text-[10px] text-gray-400 leading-none">utilizadas</p>
+            </div>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
             <div
@@ -476,6 +519,9 @@ export default function TherapyPackageCard({
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-pulse-slow"></div>
             </div>
           </div>
+          {scheduledSessions.length > 0 && (
+            <p className="text-xs text-gray-500">{scheduledSessions.length} futuras agendadas</p>
+          )}
         </div>
       </div>
 
@@ -538,27 +584,39 @@ export default function TherapyPackageCard({
             <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-4 rounded-xl border border-emerald-100">
               <div className="flex items-center gap-2 mb-2">
                 <DollarSign className="h-4 w-4 text-emerald-600" />
-                <span className="text-sm font-medium text-gray-700">Valor Total</span>
+                <span className="text-sm font-medium text-gray-700">Pacote Contratado</span>
               </div>
               <div className="text-lg font-bold text-gray-900">
-                {new Intl.NumberFormat('pt-BR', {
-                  style: 'currency',
-                  currency: 'BRL'
-                }).format(pack.totalValue || 0)}
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pack.totalValue || 0)}
               </div>
-              {/* 🎯 Mostrar Valor Pago ou indicação de pago antecipado */}
-              {(pack.totalPaid || 0) > 0 ? (
+              {financial !== null && paymentState === 'reserved' && (
+                <div className="mt-1.5 space-y-0.5">
+                  <p className="text-xs text-gray-500">Pago: <span className="text-red-600 font-semibold">R$ 0,00</span></p>
+                  <p className="text-xs text-gray-500">Pendente: <span className="text-amber-700 font-semibold">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pack.totalValue || 0)}
+                  </span></p>
+                </div>
+              )}
+              {financial !== null && paymentState === 'partial' && particularPaid > 0 && (
+                <div className="mt-1.5 space-y-0.5">
+                  <p className="text-xs text-gray-500">Pago: <span className="text-blue-600 font-semibold">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(particularPaid)}
+                  </span></p>
+                  <p className="text-xs text-gray-500">Restante: <span className="text-gray-700 font-semibold">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((pack.totalValue || 0) - particularPaid)}
+                  </span></p>
+                </div>
+              )}
+              {isFullyPaid && (
+                <p className="text-xs text-emerald-600 font-medium mt-1">
+                  {pack.financialStatus === 'paid_with_credit' ? 'Pago antecipado' : 'Pago integralmente'}
+                </p>
+              )}
+              {financial === null && (pack.totalPaid || 0) > 0 && (
                 <div className="text-xs text-emerald-600 mt-1">
-                  Pago: {new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL'
-                  }).format(pack.totalPaid)}
+                  Pago: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pack.totalPaid)}
                 </div>
-              ) : pack.financialStatus === 'paid_with_credit' ? (
-                <div className="text-xs text-emerald-600 mt-1 font-medium">
-                  Pago antecipado
-                </div>
-              ) : null}
+              )}
             </div>
           )}
 
@@ -581,31 +639,66 @@ export default function TherapyPackageCard({
                 </p>
               </div>
             ) : (
-              <div className={`p-4 rounded-xl border ${sessionDebt > 100
-                ? 'bg-gradient-to-br from-red-50 to-rose-50 border-red-100'
-                : sessionDebt > 0
-                  ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100'
-                  : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-100'
-                }`}>
+              <div className={`p-4 rounded-xl border ${
+                paymentState === 'paid'
+                  ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200'
+                  : paymentState === 'reserved'
+                    ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200'
+                    : paymentState === 'overdue'
+                      ? 'bg-gradient-to-br from-red-50 to-rose-50 border-red-100'
+                      : paymentState === 'partial'
+                        ? 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100'
+                        : 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200'
+              }`}>
                 <div className="flex items-center gap-2 mb-1">
-                  <TrendingUp className={`h-4 w-4 ${sessionDebt > 100 ? 'text-red-600' : sessionDebt > 0 ? 'text-amber-600' : 'text-green-600'
-                    }`} />
+                  <TrendingUp className={`h-4 w-4 ${
+                    paymentState === 'paid' ? 'text-green-600'
+                    : paymentState === 'reserved' ? 'text-amber-600'
+                    : paymentState === 'overdue' ? 'text-red-600'
+                    : paymentState === 'partial' ? 'text-blue-600'
+                    : 'text-gray-400'
+                  }`} />
                   <span className="text-sm font-medium text-gray-700">
-                    {sessionDebt > 0 ? '💰 Em aberto' : '✅ Sem pendências'}
+                    {paymentState === 'paid' ? '✅ Quitado'
+                    : paymentState === 'reserved' ? '⏳ Aguardando pag.'
+                    : paymentState === 'overdue' ? '💰 Em aberto'
+                    : paymentState === 'partial' ? '🔶 Pago parcial'
+                    : '—'}
                   </span>
                 </div>
-                {sessionDebt > 0 && (
-                  <div className={`text-lg font-bold ${sessionDebt > 100 ? 'text-red-600' : 'text-amber-600'}`}>
-                    {new Intl.NumberFormat('pt-BR', {
-                      style: 'currency',
-                      currency: 'BRL'
-                    }).format(sessionDebt)}
-                  </div>
+                {paymentState === 'paid' && (
+                  <>
+                    <div className="text-lg font-bold text-green-600">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                        particularPaid > 0 ? particularPaid : (pack.totalPaid || pack.totalValue || 0)
+                      )}
+                    </div>
+                    <p className="text-[10px] text-gray-500 mt-0.5">pago integralmente</p>
+                  </>
                 )}
-                {sessionDebt > 0 && (
-                  <p className="text-[10px] text-gray-500 mt-1">
-                    Referente a sessões já realizadas
-                  </p>
+                {paymentState === 'reserved' && (
+                  <p className="text-xs text-amber-800 font-medium mt-1">Nenhum pagamento registrado</p>
+                )}
+                {paymentState === 'overdue' && (
+                  <>
+                    <div className={`text-lg font-bold ${sessionDebt > 100 ? 'text-red-600' : 'text-amber-600'}`}>
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(sessionDebt)}
+                    </div>
+                    <p className="text-[10px] text-gray-500 mt-0.5">sessões realizadas não pagas</p>
+                  </>
+                )}
+                {paymentState === 'partial' && (
+                  <>
+                    <div className="text-lg font-bold text-blue-600">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(particularPaid)}
+                    </div>
+                    <p className="text-[10px] text-gray-500 mt-0.5">
+                      de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pack.totalValue || 0)}
+                    </p>
+                  </>
+                )}
+                {paymentState === 'unknown' && (
+                  <p className="text-[10px] text-gray-400 mt-1">Carregando...</p>
                 )}
               </div>
             )
@@ -684,7 +777,7 @@ export default function TherapyPackageCard({
             </div>
           </div>
           <div className="space-y-1">
-            <span className="text-gray-500">Total Pago</span>
+            <span className="text-gray-500">Pago até agora</span>
             <div className="font-medium text-emerald-600">
               {new Intl.NumberFormat('pt-BR', {
                 style: 'currency',
@@ -767,8 +860,21 @@ export default function TherapyPackageCard({
               );
             })()}
 
-            {/* PAGAMENTO PENDENTE — só mostra se não há pagamento E o pacote não está quitado */}
-            {Number(particularPaid || 0) === 0 &&
+            {paymentState === 'reserved' && (
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 p-3 rounded-lg flex items-start gap-3">
+                <span className="text-base leading-none mt-0.5">⚠️</span>
+                <div className="flex-1">
+                  <div className="text-sm font-semibold text-amber-900">Pacote reservado — aguardando pagamento</div>
+                  <div className="text-xs text-amber-700 mt-0.5">
+                    {scheduledSessions.length > 0
+                      ? `Paciente possui ${scheduledSessions.length} sessão(ões) agendada(s) sem quitação do pacote.`
+                      : 'Nenhum pagamento foi registrado para este pacote.'}
+                  </div>
+                </div>
+              </div>
+            )}
+            {paymentState === 'unknown' &&
+             Number(pack.totalPaid || 0) === 0 &&
              pack.financialStatus !== 'paid_with_credit' &&
              pack.financialStatus !== 'paid' && (
               <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 p-3 rounded-lg flex items-center gap-3">
@@ -820,10 +926,9 @@ export default function TherapyPackageCard({
               {pack?.sessions?.length || 0}
             </span>
             
-            {/* 🔥 NOVO: Contador de agendadas */}
             {scheduledSessions.length > 0 && (
               <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-medium">
-                {scheduledSessions.length} agendada(s)
+                {scheduledSessions.length} futuras agendadas
               </span>
             )}
           </div>
