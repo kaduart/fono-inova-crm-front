@@ -116,6 +116,8 @@ export interface ITherapyPackage {
     remaining: number;
     totalValue: number;
     credit: number;
+    financialStatus?: 'paid' | 'partially_paid' | 'unpaid' | 'paid_with_credit';
+    model?: 'prepaid' | 'per_session' | 'convenio' | 'liminar' | null;
     __v?: number;
     createdAt?: string;
     updatedAt?: string;
