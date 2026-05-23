@@ -32,10 +32,9 @@ const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) 
             });
           }
           
-          // Última tentativa falhou - provavelmente novo deploy, recarrega a página
-          console.error('[AdminDashboard] Chunk failed after all retries. Reloading page...');
-          window.location.reload();
-          return new Promise(() => {}); // Nunca resolve, aguarda o reload
+          // Última tentativa falhou - loga erro sem reload para evitar loop
+          console.error('[AdminDashboard] Chunk failed after all retries. NOT reloading — check build output.', error);
+          throw error;
         }
         
         throw error;

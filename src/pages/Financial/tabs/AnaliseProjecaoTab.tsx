@@ -200,197 +200,241 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
     }
 
     return (
-        <div className="p-2">
-            {/* Filtros superiores */}
-            <div className="flex justify-end mb-3">
-                <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600 font-medium">
-                        {format(new Date(ano, mes - 1), 'MMMM yyyy', { locale: ptBR })}
-                    </span>
-                    <IconButton size="small" onClick={() => fetchDashboard(mes, ano)}>
-                        <RefreshCcw size={16} />
-                    </IconButton>
-                </div>
+        <div className="space-y-3">
+            {/* Header */}
+            <div className="flex justify-between items-center">
+                <span className="text-sm font-semibold text-gray-700">
+                    {format(new Date(ano, mes - 1), 'MMMM yyyy', { locale: ptBR })}
+                </span>
+                <IconButton size="small" onClick={() => fetchDashboard(mes, ano)}>
+                    <RefreshCcw size={16} />
+                </IconButton>
             </div>
 
-            {/* Status do mês */}
+            {/* RESUMO EXECUTIVO */}
             {statusPhrase && (
-                <div className="p-3 mb-4 rounded-md" style={{ backgroundColor: `${statusColor}10`, borderLeft: `3px solid ${statusColor}` }}>
-                    <p className="text-sm font-medium text-gray-800">{statusPhrase}</p>
+                <div className="p-3 rounded-xl flex items-start gap-3" style={{ backgroundColor: `${statusColor}10`, borderLeft: `4px solid ${statusColor}` }}>
+                    <div className="flex-1">
+                        <p className="text-[10px] font-black uppercase tracking-widest mb-0.5" style={{ color: statusColor }}>Resumo do mês</p>
+                        <p className="text-sm font-medium text-gray-800">{statusPhrase}</p>
+                        {metaValor > 0 && (
+                            <div className="flex flex-wrap gap-4 mt-2">
+                                <span className="text-xs text-gray-600">💵 Recebido: <strong>{formatCurrency(caixa)}</strong></span>
+                                <span className="text-xs text-gray-600">🧾 Convênio: <strong className="text-amber-600">{formatCurrency(Math.max(0, resultadoEconomico - caixa))}</strong></span>
+                                <span className="text-xs text-gray-600">🏥 Produção: <strong className="text-blue-600">{formatCurrency(producao)}</strong></span>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 
-            {/* Cards principais (3 colunas) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
-                {/* META DO MÊS */}
-                <div className="border rounded-2xl p-5 shadow-sm" style={{ borderColor: '#10B98130', backgroundColor: '#10B98106' }}>
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="rounded-xl p-2.5" style={{ backgroundColor: '#10B98120' }}>
-                            <Target size={18} style={{ color: '#10B981' }} />
-                        </div>
-                        <div className="flex-1 flex items-center justify-between">
-                            <p className="text-sm font-semibold text-gray-500">META DO MÊS</p>
-                            {metaValor > 0 && (
-                                <Chip
-                                    label={`${Math.min(percentualAtual, 100).toFixed(0)}%`}
-                                    size="small"
-                                    color={percentualAtual >= 100 ? 'success' : percentualAtual >= 60 ? 'warning' : 'error'}
-                                />
-                            )}
-                        </div>
+            {/* 3 CARDS PRINCIPAIS */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* HERO: META DO MÊS */}
+                <div className="border-2 rounded-2xl p-4 shadow-sm" style={{ borderColor: '#10B981', backgroundColor: '#F0FDF4' }}>
+                    <div className="flex items-center justify-between mb-3">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Meta do Mês</p>
+                        {metaValor > 0 && (
+                            <span className={`text-3xl font-black leading-none ${percentualAtual >= 100 ? 'text-emerald-600' : percentualAtual >= 60 ? 'text-amber-500' : 'text-red-600'}`}>
+                                {Math.min(percentualAtual, 100).toFixed(0)}%
+                            </span>
+                        )}
                     </div>
-                    <p className="text-2xl font-bold text-gray-900 mb-1">{metaValor > 0 ? formatCurrency(metaValor) : '—'}</p>
-                    <p className="text-sm font-bold text-emerald-600 mb-3">
-                        {formatCurrency(resultadoEconomico)}
-                        {metaValor > 0 && resultadoEconomico < metaValor && (
-                            <span className="text-xs text-gray-500 ml-1 font-normal">(faltam {formatCurrency(metaValor - resultadoEconomico)})</span>
+
+                    {/* Barra grossa com % dentro */}
+                    {metaValor > 0 && (
+                        <div className="relative h-6 rounded-full bg-gray-200 mb-3 overflow-hidden">
+                            <div
+                                className="h-full rounded-full transition-all duration-500 flex items-center justify-end pr-2"
+                                style={{
+                                    width: `${Math.min(percentualAtual, 100)}%`,
+                                    backgroundColor: percentualAtual >= 100 ? '#10B981' : percentualAtual >= 60 ? '#F59E0B' : '#EF4444',
+                                    minWidth: percentualAtual > 0 ? '2.5rem' : 0
+                                }}
+                            >
+                                {percentualAtual >= 15 && (
+                                    <span className="text-[11px] font-black text-white">{percentualAtual.toFixed(0)}%</span>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Valores principais */}
+                    <p className="text-2xl font-black text-gray-900 leading-tight">{formatCurrency(resultadoEconomico)}</p>
+                    <p className="text-xs text-gray-500 mb-3">
+                        de {formatCurrency(metaValor)}
+                        {resultadoEconomico < metaValor && (
+                            <span className="text-rose-600 font-semibold ml-1">· faltam {formatCurrency(metaValor - resultadoEconomico)}</span>
                         )}
                     </p>
-                    {metaValor > 0 && (
-                        <LinearProgress
-                            variant="determinate"
-                            value={Math.min(percentualAtual, 100)}
-                            className="mb-3 h-1.5 rounded-full"
-                            color={percentualAtual >= 100 ? 'success' : percentualAtual >= 60 ? 'warning' : 'error'}
-                        />
-                    )}
-                    <div className="space-y-1.5 pt-2 border-t border-gray-100">
+
+                    {/* Mini badges */}
+                    <div className="space-y-1.5 border-t border-emerald-100 pt-2">
                         <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">Produção Realizada</span>
-                            <span className="font-medium">{formatCurrency(producao)}</span>
+                            <span className="text-gray-500">💵 Caixa recebido</span>
+                            <span className="font-semibold">{formatCurrency(caixa)}</span>
                         </div>
                         <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">Caixa Recebido</span>
-                            <span className="font-medium">{formatCurrency(caixa)}</span>
+                            <span className="text-gray-500">🧾 Convênio a receber</span>
+                            <span className="font-semibold text-amber-600">{formatCurrency(Math.max(0, resultadoEconomico - caixa))}</span>
                         </div>
                         <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">Convênio a Receber</span>
-                            <span className="font-medium text-amber-600">{formatCurrency(Math.max(0, resultadoEconomico - caixa))}</span>
+                            <span className="text-gray-500">🏥 Produção clínica</span>
+                            <span className="font-semibold text-blue-600">{formatCurrency(producao)}</span>
                         </div>
                     </div>
                 </div>
 
                 {/* RITMO NECESSÁRIO */}
-                <div className="border rounded-2xl p-5 shadow-sm" style={{ borderColor: '#3B82F630', backgroundColor: '#3B82F606' }}>
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="rounded-xl p-2.5" style={{ backgroundColor: '#3B82F620' }}>
-                            <TrendingUp size={18} style={{ color: '#3B82F6' }} />
+                <div className="border-2 rounded-2xl p-4 shadow-sm" style={{ borderColor: '#3B82F6', backgroundColor: '#EFF6FF' }}>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-700 mb-2">Ritmo Necessário</p>
+                    <p className="text-3xl font-black text-gray-900 leading-tight mb-2">
+                        {diasRestantes > 0 ? `${formatCurrency(ritmoNecessario)}/dia` : '—'}
+                    </p>
+
+                    {/* Badge de status proeminente */}
+                    {diasRestantes > 0 && ritmoNecessario > 0 && (
+                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold mb-3 ${ritmoOk ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
+                            <span>{ritmoOk ? '✅' : '⚠️'}</span>
+                            <span>
+                                {`${ritmoOk ? '+' : ''}${(((ritmoAtual / ritmoNecessario) - 1) * 100).toFixed(0)}% ${ritmoOk ? 'acima do necessário' : 'abaixo do necessário'}`}
+                            </span>
                         </div>
-                        <p className="text-sm font-semibold text-gray-500">RITMO NECESSÁRIO</p>
-                    </div>
-                    <p className="text-2xl font-bold text-gray-900">{diasRestantes > 0 ? `${formatCurrency(ritmoNecessario)}/dia` : '—'}</p>
-                    <div className="space-y-1.5 mt-3 pt-2 border-t border-gray-100">
+                    )}
+                    {(diasRestantes === 0 || ritmoNecessario === 0) && (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold mb-3 bg-emerald-100 text-emerald-700">
+                            ✅ Meta atingida
+                        </div>
+                    )}
+
+                    <div className="space-y-1.5 border-t border-blue-100 pt-2">
                         <div className="flex items-center justify-between">
                             <span className="text-xs text-gray-500">Ritmo atual</span>
-                            <span className={`text-xs font-semibold ${ritmoOk ? 'text-emerald-600' : 'text-amber-600'}`}>
-                                {formatCurrency(ritmoAtual)}/dia {ritmoOk ? '✅' : '⚠️'}
+                            <span className={`text-sm font-black ${ritmoOk ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                {formatCurrency(ritmoAtual)}/dia
                             </span>
                         </div>
                         <div className="flex items-center justify-between">
                             <span className="text-xs text-gray-500">Dias restantes</span>
-                            <span className="text-xs font-medium text-gray-700">
-                                {diasRestantes > 0
-                                    ? `${diasRestantes} ${diasRestantes === 1 ? 'dia' : 'dias'}`
-                                    : ehPassado ? 'Mês encerrado' : 'Não iniciado'}
+                            <span className="text-sm font-bold text-gray-700">
+                                {diasRestantes > 0 ? `${diasRestantes} dias` : ehPassado ? 'Mês encerrado' : 'Não iniciado'}
                             </span>
                         </div>
                     </div>
                 </div>
 
-                {/* PROJEÇÃO ESPERADA + FECHAMENTO */}
-                <div className="border rounded-2xl p-5 shadow-sm" style={{ borderColor: '#8B5CF630', backgroundColor: '#8B5CF606' }}>
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="rounded-xl p-2.5" style={{ backgroundColor: '#8B5CF620' }}>
-                            <Calendar size={18} style={{ color: '#8B5CF6' }} />
-                        </div>
-                        <p className="text-sm font-semibold text-gray-500">PROJEÇÃO DE FECHAMENTO</p>
-                    </div>
-                    <p className="text-2xl font-bold mb-1" style={{ color: '#8B5CF6' }}>{formatCurrency(cenarioEsperado)}</p>
+                {/* PROJEÇÃO DE FECHAMENTO */}
+                <div className="border-2 rounded-2xl p-4 shadow-sm" style={{ borderColor: '#8B5CF6', backgroundColor: '#F5F3FF' }}>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-purple-700 mb-2">Projeção de Fechamento</p>
+                    <p className="text-3xl font-black leading-tight mb-2" style={{ color: '#7C3AED' }}>{formatCurrency(cenarioEsperado)}</p>
+
                     {metaValor > 0 && (
-                        <p className={`text-xs font-semibold mb-2 ${cenarioEsperado >= metaValor ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mb-3 ${cenarioEsperado >= metaValor ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                             {cenarioEsperado >= metaValor
                                 ? `✅ +${formatCurrency(cenarioEsperado - metaValor)} acima da meta`
                                 : `⚠️ ${formatCurrency(metaValor - cenarioEsperado)} abaixo da meta`}
-                        </p>
-                    )}
-                    <LinearProgress
-                        variant="determinate"
-                        value={Math.min(dashData?.metas?.ritmo?.percentualRealizado || 0, 100)}
-                        className="h-2 rounded-full mb-2"
-                        color={percentualAtual >= 100 ? 'success' : percentualAtual >= 60 ? 'warning' : 'error'}
-                    />
-                    <div className="pt-2 border-t border-gray-100">
-                        <p className="text-xs text-gray-500">
-                            {(dashData?.metas?.ritmo?.percentualRealizado || 0).toFixed(1)}% atingido
-                            {dashData?.metas?.gap?.valor > 0 && ` — faltam ${formatCurrency(dashData.metas.gap.valor)}`}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-0.5">Cenário esperado (taxa histórica)</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Insights */}
-            <div className="mb-5">
-                <div className="border border-gray-200 rounded-lg p-3">
-                    <p className="text-sm font-semibold mb-2">Insights</p>
-                    <div className="flex flex-wrap gap-2">
-                        {(dashData?.insights?.insights || []).length === 0 ? (
-                            <p className="text-xs text-gray-500">
-                                {metaValor === 0
-                                    ? 'Configure uma meta para ver insights estratégicos.'
-                                    : ritmoOk
-                                    ? 'No ritmo da meta. Continue assim!'
-                                    : 'Nenhuma ação urgente identificada.'}
-                            </p>
-                        ) : (
-                            dashData.insights.insights.slice(0, 3).map((insight: string, idx: number) => (
-                                <div
-                                    key={idx}
-                                    className={`flex-1 min-w-[140px] p-2 rounded border-l-3 ${
-                                        idx === 0 ? 'bg-red-50 border-l-red-500' :
-                                        idx === 1 ? 'bg-amber-50 border-l-amber-500' :
-                                        'bg-green-50 border-l-green-500'
-                                    }`}
-                                    style={{ borderLeftWidth: '3px' }}
-                                >
-                                    <p className="text-sm font-medium text-gray-800">{insight}</p>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            {/* Cenários de Fechamento */}
-            <h3 className="text-base font-bold mb-2">Cenários de Fechamento</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
-                {(() => {
-                    const getValor = (a: IAppointment) => (a as any).sessionValue || a.paymentAmount || 0;
-                    const valorConfirmados = confirmados.reduce((sum, a) => sum + getValor(a), 0);
-                    const valorPendentes = pendentes.reduce((sum, a) => sum + getValor(a), 0);
-                    const cen = [
-                        { label: 'PESSIMISTA', value: resultadoEconomico + (valorConfirmados * 0.7) + (valorPendentes * 0.2), desc: '70% confirmados + 20% pendentes', color: '#E53E3E' },
-                        { label: 'ESPERADO', value: cenarioEsperado || resultadoEconomico, desc: 'Taxa histórica de conversão', color: '#3182CE' },
-                        { label: 'OTIMISTA', value: resultadoEconomico + (valorConfirmados * 0.95) + (valorPendentes * 0.7), desc: '95% confirmados + 70% pendentes', color: '#38A169' }
-                    ];
-                    return cen;
-                })().map((c, i) => (
-                    <div key={c.label} className="border rounded-2xl p-5 shadow-sm" style={{ borderColor: `${c.color}30`, backgroundColor: `${c.color}06` }}>
-                        <div className="flex items-center gap-2 mb-3">
-                            <div className="rounded-xl p-2" style={{ backgroundColor: `${c.color}20` }}>
-                                {i === 0 ? <TrendingDown size={16} style={{ color: c.color }} /> : i === 1 ? <Target size={16} style={{ color: c.color }} /> : <TrendingUp size={16} style={{ color: c.color }} />}
-                            </div>
-                            <p className="text-xs font-bold uppercase tracking-wide" style={{ color: c.color }}>{c.label}</p>
                         </div>
-                        <p className="text-xl font-bold mb-2" style={{ color: c.color }}>{formatCurrency(c.value)}</p>
-                        <p className="text-xs text-gray-500 pt-2 border-t border-gray-100">{c.desc}</p>
+                    )}
+
+                    {/* Barra grossa */}
+                    <div className="relative h-5 rounded-full bg-gray-200 mb-2 overflow-hidden">
+                        <div
+                            className="h-full rounded-full flex items-center justify-end pr-2"
+                            style={{
+                                width: `${Math.min(percentualAtual, 100)}%`,
+                                backgroundColor: percentualAtual >= 100 ? '#10B981' : percentualAtual >= 60 ? '#F59E0B' : '#EF4444',
+                                minWidth: percentualAtual > 0 ? '2.5rem' : 0
+                            }}
+                        >
+                            {percentualAtual >= 15 && (
+                                <span className="text-[10px] font-black text-white">{percentualAtual.toFixed(0)}%</span>
+                            )}
+                        </div>
                     </div>
-                ))}
+                    <p className="text-xs text-gray-400">
+                        {(dashData?.metas?.ritmo?.percentualRealizado || 0).toFixed(1)}% atingido · Cenário histórico
+                    </p>
+                </div>
+            </div>
+
+            {/* INSIGHTS */}
+            <div className="border border-gray-200 rounded-xl p-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Atenção</p>
+                {(dashData?.insights?.insights || []).length === 0 ? (
+                    <p className="text-xs text-gray-500">
+                        {metaValor === 0
+                            ? 'Configure uma meta para ver insights estratégicos.'
+                            : ritmoOk
+                            ? '✅ No ritmo da meta. Continue assim!'
+                            : 'Nenhuma ação urgente identificada.'}
+                    </p>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        {(dashData.insights.insights as string[]).slice(0, 3).map((insight: string, idx: number) => (
+                            <div key={idx} className="p-3 rounded-lg border border-amber-200 bg-amber-50">
+                                <p className="text-[10px] font-black text-amber-700 uppercase tracking-wide mb-1">Sugestão de ação</p>
+                                <p className="text-xs text-gray-700 leading-relaxed">{insight}</p>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* CENÁRIOS DE FECHAMENTO — sempre ordenados crescente */}
+            <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Cenários de Fechamento</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {(() => {
+                        const getValor = (a: IAppointment) => (a as any).sessionValue || a.paymentAmount || 0;
+                        const valorConfirmados = confirmados.reduce((sum, a) => sum + getValor(a), 0);
+                        const valorPendentes = pendentes.reduce((sum, a) => sum + getValor(a), 0);
+
+                        // Calcula os 3 valores com descrições associadas
+                        const rawValues = [
+                            { value: resultadoEconomico + (valorConfirmados * 0.7) + (valorPendentes * 0.2), desc: '70% confirmados + 20% pendentes' },
+                            { value: cenarioEsperado || resultadoEconomico, desc: 'Taxa histórica de conversão' },
+                            { value: resultadoEconomico + (valorConfirmados * 0.95) + (valorPendentes * 0.7), desc: '95% confirmados + 70% pendentes' }
+                        ].sort((a, b) => a.value - b.value);
+
+                        const configs = [
+                            { label: 'PESSIMISTA', color: '#DC2626', IconEl: TrendingDown },
+                            { label: 'ESPERADO', color: '#2563EB', IconEl: Target },
+                            { label: 'OTIMISTA', color: '#16A34A', IconEl: TrendingUp }
+                        ];
+
+                        return configs.map((cfg, i) => ({
+                            ...cfg,
+                            value: rawValues[i].value,
+                            desc: rawValues[i].desc
+                        }));
+                    })().map((c) => {
+                        const IconEl = c.IconEl;
+                        return (
+                        <div key={c.label} className="border-2 rounded-2xl p-4 shadow-sm" style={{ borderColor: `${c.color}40`, backgroundColor: `${c.color}06` }}>
+                            <div className="flex items-center gap-2 mb-3">
+                                <div className="rounded-xl p-2" style={{ backgroundColor: `${c.color}20` }}>
+                                    <IconEl size={16} style={{ color: c.color }} />
+                                </div>
+                                <p className="text-xs font-black uppercase tracking-wide" style={{ color: c.color }}>{c.label}</p>
+                            </div>
+                            <p className="text-2xl font-black mb-1" style={{ color: c.color }}>{formatCurrency(c.value)}</p>
+                            {metaValor > 0 && (
+                                <p className="text-xs font-semibold mb-2" style={{ color: c.value >= metaValor ? '#16A34A' : '#DC2626' }}>
+                                    {c.value >= metaValor
+                                        ? `+${formatCurrency(c.value - metaValor)} acima da meta`
+                                        : `${formatCurrency(metaValor - c.value)} abaixo da meta`}
+                                </p>
+                            )}
+                            <p className="text-xs text-gray-400 pt-2 border-t border-gray-100">{c.desc}</p>
+                        </div>
+                        );
+                    })}
+                </div>
             </div>
 
             {/* Gráfico de evolução diária */}
             {projectionData.length > 0 && (
-                <div className="border border-gray-200 rounded-lg p-3 mb-5">
+                <div className="border border-gray-200 rounded-lg p-3">
                     <div className="flex items-center gap-1 mb-1">
                         <h3 className="text-sm font-semibold">Evolução do mês</h3>
                         {projectionMeta?.isBehind && (
@@ -431,8 +475,6 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                     </ResponsiveContainer>
                 </div>
             )}
-
-            <hr className="my-5 border-gray-200" />
 
             {/* Tabelas de detalhamento */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -493,11 +535,6 @@ const AnaliseProjecaoTab: React.FC<AnaliseProjecaoTabProps> = ({ month, year }) 
 
     return (
         <div className="p-2">
-            <div className="mb-4">
-                <h2 className="text-2xl font-bold text-gray-800">📊 Análise & Projeção</h2>
-                <p className="text-sm text-gray-500 mt-0.5">Provisão, projeções e análise detalhada</p>
-            </div>
-
             <Tabs
                 value={activeTab}
                 onChange={handleTabChange}

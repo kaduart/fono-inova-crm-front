@@ -7,20 +7,34 @@ import {
   Skeleton,
   Tooltip,
 } from '@mui/material';
-import { AlertTriangle, MessageCircle, RotateCcw } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  MessageCircle,
+  RefreshCcw,
+  RotateCcw,
+  ShieldAlert,
+  UserPlus,
+  Users,
+} from 'lucide-react';
 import React, { useMemo, useState } from 'react';
-import { useRetentionSlots, RetentionSlot, SlotType } from '../../hooks/useRetentionSlots';
+import { useRetentionSlots, RetentionSlot, Stability } from '../../hooks/useRetentionSlots';
 import { IDoctor } from '../../utils/types/types';
 
-const SLOT_CFG: Record<SlotType, {
+// ── Cores de estabilidade (tons suaves) ─────────────────────────────────────
+const STABILITY_CFG: Record<Stability, {
   label: string;
-  color: string; bg: string; border: string; leftBar: string;
+  color: string;
+  bg: string;
+  border: string;
+  leftBar: string;
   badgeBg: string;
 }> = {
-  fixo:      { label: 'Fixo',      color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0', leftBar: '#16a34a', badgeBg: '#dcfce7' },
-  semi_fixo: { label: 'Semi-fixo', color: '#b45309', bg: '#fffbeb', border: '#fde68a', leftBar: '#d97706', badgeBg: '#fef3c7' },
-  novo:      { label: 'Novo',      color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe', leftBar: '#3b82f6', badgeBg: '#dbeafe' },
-  buraco:    { label: 'Buraco',    color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb', leftBar: '#ef4444', badgeBg: '#f3f4f6' },
+  estavel:  { label: 'Fixo',            color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0', leftBar: '#86efac', badgeBg: '#dcfce7' },
+  atencao:  { label: 'Oscilando',       color: '#b45309', bg: '#fffbeb', border: '#fde68a', leftBar: '#fcd34d', badgeBg: '#fef3c7' },
+  risco:    { label: 'Sem continuidade', color: '#dc2626', bg: '#fef2f2', border: '#fecaca', leftBar: '#fca5a5', badgeBg: '#fee2e2' },
+  novo:     { label: 'Recente',         color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe', leftBar: '#93c5fd', badgeBg: '#dbeafe' },
+  livre:    { label: 'Disponível',      color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb', leftBar: '#d1d5db', badgeBg: '#f3f4f6' },
 };
 
 const WEEKDAY_LABELS: Record<number, string> = {
@@ -38,19 +52,19 @@ const SPECIALTY_LABELS: Record<string, string> = {
   psicomotricidade:    'Psicomotricidade',
   musicoterapia:       'Musicoterapia',
   psicopedagogia:      'Psicopedagogia',
+  aba:                 'ABA',
 };
 
 const GRID_COLS = '44px repeat(5, 1fr)';
-const TOTAL_DAILY_SLOTS = 16; // slots de 40min de 8h às 18h
+const TOTAL_DAILY_SLOTS = 16;
 
-// Retorna a data (Date) do dia da semana atual para o weekday no formato mongo (2=seg…6=sex)
 function getWeekDate(mongoWeekday: number): Date {
   const today = new Date();
-  const jsDay = today.getDay(); // 0=dom, 1=seg…
+  const jsDay = today.getDay();
   const mondayOffset = jsDay === 0 ? -6 : 1 - jsDay;
   const monday = new Date(today);
   monday.setDate(today.getDate() + mondayOffset);
-  const targetJsDay = mongoWeekday - 1; // mongo 2→js 1 (seg)
+  const targetJsDay = mongoWeekday - 1;
   const result = new Date(monday);
   result.setDate(monday.getDate() + (targetJsDay - 1));
   return result;
@@ -61,11 +75,10 @@ function formatShortDate(d: Date): string {
 }
 
 const TODAY_MONGO_WEEKDAY = (() => {
-  const js = new Date().getDay(); // 0=dom
-  return js === 0 ? 1 : js + 1;  // converte para mongo (dom=1, seg=2…)
+  const js = new Date().getDay();
+  return js === 0 ? 1 : js + 1;
 })();
 
-// WhatsApp helper (mantido igual)
 function openWhatsApp(phone: string, name: string) {
   const digits = phone.replace(/\D/g, '');
   if (!digits) return;
@@ -76,143 +89,237 @@ function openWhatsApp(phone: string, name: string) {
   window.open(`https://wa.me/${number}?text=${msg}`, '_blank', 'noopener');
 }
 
+// ── Tooltip de estabilidade ─────────────────────────────────────────────────
+function StabilityTooltip({ slot, children }: { slot: RetentionSlot; children: React.ReactNode }) {
+  return (
+    <Tooltip
+      title={
+        <div className="max-w-[260px]">
+          <p className="font-bold text-xs mb-1">{STABILITY_CFG[slot.stability].label} — Score {slot.stabilityScore}</p>
+          <p className="text-[11px] leading-relaxed opacity-90">{slot.stabilityReason}</p>
+        </div>
+      }
+      arrow
+      placement="top"
+    >
+      {children}
+    </Tooltip>
+  );
+}
+
+// ── Card ativo ──────────────────────────────────────────────────────────────
 function ActiveCell({ slot }: { slot: RetentionSlot }) {
-  const cfg = SLOT_CFG[slot.type];
+  const cfg = STABILITY_CFG[slot.stability];
   const pct = Math.round(slot.attendanceRate * 100);
   const barColor = pct >= 75 ? '#16a34a' : pct >= 50 ? '#d97706' : '#ef4444';
   const displayName = slot.currentPatientName
     ? slot.currentPatientName.split(' ').slice(0, 2).join(' ')
     : '—';
-  const totalAtend = slot.recurrenceCount <= 1 ? '1ª consulta' : `${slot.recurrenceCount} atend.`;
   const lastLabel = slot.daysSinceLastSession !== null
     ? slot.daysSinceLastSession === 0 ? 'ult. hoje' : `ult. há ${slot.daysSinceLastSession}d`
     : null;
 
   return (
-    <div
-      className="h-full rounded-lg overflow-hidden transition-all hover:shadow-md hover:-translate-y-px cursor-default"
-      style={{
-        borderLeft: `3px solid ${cfg.leftBar}`,
-        border: `1px solid ${cfg.border}`,
-        borderLeftWidth: 3,
-        backgroundColor: cfg.bg,
-      }}
-    >
-      <div className="px-4 py-4 flex flex-col gap-3 h-full">
-
-        {/* Linha 1: Nome + WhatsApp */}
-        <div className="flex items-center justify-between gap-1 min-w-0">
-          <span className="text-[14px] font-bold text-gray-800 truncate leading-tight">
-            {displayName}
-          </span>
-          {slot.currentPatientPhone && (
-            <button
-              onClick={() => openWhatsApp(slot.currentPatientPhone, slot.currentPatientName || '')}
-              className="p-1 rounded-full hover:bg-green-100 transition-colors flex-shrink-0"
-              title="Enviar WhatsApp"
-            >
-              <MessageCircle size={14} className="text-green-500" />
-            </button>
-          )}
-        </div>
-
-        {/* Linha 2: rótulo "presença" + total atendimentos */}
-        <div className="flex items-center justify-between">
-          <span className="text-[14px] text-gray-400 font-medium uppercase tracking-wide">presença</span>
-          <span className="text-[14px] text-gray-400 tabular-nums">{totalAtend}</span>
-        </div>
-
-        {/* Linha 3: barra + % */}
-        <div className="flex items-center gap-1.5">
-          <div className="flex-1 relative h-1.5 bg-gray-200 rounded-full overflow-hidden">
-            <div style={{ width: `${pct}%`, backgroundColor: barColor, height: '100%', borderRadius: 9999 }} />
-            {/* 5 divisões de 20% */}
-            {[20, 40, 60, 80].map(tick => (
-              <div key={tick} className="absolute top-0 bottom-0 w-px bg-white/60" style={{ left: `${tick}%` }} />
-            ))}
+    <StabilityTooltip slot={slot}>
+      <div
+        className="h-full rounded-lg overflow-hidden transition-all hover:shadow-md hover:-translate-y-px cursor-default"
+        style={{
+          borderLeft: `4px solid ${cfg.leftBar}`,
+          border: `1px solid ${cfg.border}`,
+          borderLeftWidth: 4,
+          backgroundColor: cfg.bg,
+        }}
+      >
+        <div className="px-3 py-3 flex flex-col gap-2 h-full">
+          {/* Nome + WhatsApp + badge estabilidade */}
+          <div className="flex items-center justify-between gap-1 min-w-0">
+            <span className="text-[13px] font-bold text-gray-800 truncate leading-tight">
+              {displayName}
+            </span>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <span
+                className="text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none"
+                style={{ color: cfg.color, backgroundColor: cfg.badgeBg }}
+              >
+                {cfg.label}
+              </span>
+              {slot.currentPatientPhone && (
+                <button
+                  onClick={() => openWhatsApp(slot.currentPatientPhone, slot.currentPatientName || '')}
+                  className="p-1 rounded-full hover:bg-green-100 transition-colors"
+                  title="Enviar WhatsApp"
+                >
+                  <MessageCircle size={13} className="text-green-500" />
+                </button>
+              )}
+            </div>
           </div>
-          <span className="text-[14px] font-extrabold tabular-nums w-8 text-right leading-none" style={{ color: barColor }}>
-            {pct}%
-          </span>
+
+          {/* Presença + total */}
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-gray-400 font-medium uppercase tracking-wide">presença</span>
+            <span className="text-[11px] text-gray-400 tabular-nums">{slot.recurrenceCount} atend.</span>
+          </div>
+
+          {/* Barra + % */}
+          <div className="flex items-center gap-1.5">
+            <div className="flex-1 relative h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div style={{ width: `${pct}%`, backgroundColor: barColor, height: '100%', borderRadius: 9999 }} />
+            </div>
+            <span className="text-[11px] font-extrabold tabular-nums w-7 text-right leading-none" style={{ color: barColor }}>
+              {pct}%
+            </span>
+          </div>
+
+          {/* Continuidade + valor mensal */}
+          <div className="flex items-center justify-between text-[10px] text-gray-500">
+            {slot.continuityMonths > 0 && (
+              <span>
+                <span className="font-semibold text-gray-600">Acompanhamento:</span> {slot.continuityMonths} {slot.continuityMonths === 1 ? 'mês' : 'meses'}
+              </span>
+            )}
+            {slot.avgSessionValue > 0 && (
+              <span className="font-semibold text-emerald-600">
+                R$ {(slot.avgSessionValue * 4).toLocaleString('pt-BR')}/mês
+              </span>
+            )}
+          </div>
+
+          {/* Alertas + tipo + última visita */}
+          <div className="flex items-center gap-1 flex-wrap mt-auto">
+            {slot.packageRemaining > 0 && (
+              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none ${slot.packageRemaining <= 2 ? 'text-orange-700 bg-orange-100' : 'text-gray-500 bg-gray-100'}`}>
+                {slot.packageRemaining} restantes
+              </span>
+            )}
+            {!slot.nextSessionAt && (
+              <span className="text-[10px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full leading-none">
+                sem próx. sessão
+              </span>
+            )}
+            {lastLabel && (
+              <span className="text-[10px] text-gray-400 ml-auto tabular-nums">{lastLabel}</span>
+            )}
+          </div>
         </div>
-
-        {/* Linha 4: tipo de vínculo + alertas + última visita */}
-        <div className="flex items-center gap-1 flex-wrap mt-auto">
-          <span
-            className="text-[14px] font-bold px-1.5 py-0.5 rounded-full leading-none"
-            style={{ color: cfg.color, backgroundColor: cfg.badgeBg }}
-          >
-            {cfg.label}
-          </span>
-
-          {slot.packageRemaining > 0 && (
-            <span
-              className={`text-[14px] font-semibold px-1.5 py-0.5 rounded-full leading-none ${
-                slot.packageRemaining <= 2
-                  ? 'text-orange-700 bg-orange-100'
-                  : 'text-gray-500 bg-gray-100'
-              }`}
-              title="Sessões restantes no pacote"
-            >
-              {slot.packageRemaining} restantes
-            </span>
-          )}
-
-          {!slot.nextSessionAt && (
-            <span className="text-[14px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full leading-none">
-              sem próx. sessão
-            </span>
-          )}
-
-          {lastLabel && (
-            <span className="text-[14px] text-gray-400 ml-auto tabular-nums" title="Última sessão realizada">
-              {lastLabel}
-            </span>
-          )}
-        </div>
-
       </div>
-    </div>
+    </StabilityTooltip>
   );
 }
 
+// ── Card vazio ──────────────────────────────────────────────────────────────
 function VacantCell({ slot }: { slot: RetentionSlot }) {
+  const cfg = STABILITY_CFG[slot.stability];
+  const firstName = slot.lastPatientName?.split(' ')[0] ?? null;
+  const dsv = slot.daysSinceVacant;
+  const monthlyLoss = slot.avgSessionValue * 4;
+
+  const isTemp = slot.vacantType === 'temporario';
+  const isCritico = slot.vacantType === 'critico';
+  const isLivre = slot.vacantType === 'livre';
+
   return (
-    <div
-      className="h-full rounded-lg overflow-hidden"
-      style={{
-        borderLeft: '3px solid #ef4444',
-        border: '1px dashed #fca5a5',
-        borderLeftWidth: 3,
-        backgroundColor: '#fff5f5',
-      }}
-    >
-      <div className="px-4 py-4 flex flex-col gap-3 h-full justify-center">
-        <span className="text-[14px] font-bold text-red-600 uppercase tracking-widest">Vago</span>
-        {slot.lastPatientName && (
-          <span className="text-[14px] text-gray-500 truncate">
-            ↳ {slot.lastPatientName.split(' ')[0]}
-          </span>
-        )}
-        {slot.avgSessionValue > 0 && (
-          <span className="text-[14px] font-semibold text-red-500">
-            ≈ R${slot.avgSessionValue.toLocaleString('pt-BR')}
-          </span>
-        )}
-        {slot.daysSinceVacant !== null && (
-          <span className="text-[15px] text-red-400 tabular-nums font-medium">{slot.daysSinceVacant}d</span>
-        )}
+    <StabilityTooltip slot={slot}>
+      <div
+        className="h-full rounded-lg overflow-hidden transition-all hover:shadow-md"
+        style={{
+          borderLeft: `4px solid ${cfg.leftBar}`,
+          border: `1px solid ${cfg.border}`,
+          borderLeftWidth: 4,
+          backgroundColor: cfg.bg,
+          ...(isCritico ? { borderStyle: 'solid', borderLeftStyle: 'solid' } : {}),
+        }}
+      >
+        <div className="px-3 py-3 flex flex-col gap-2 h-full">
+          {/* Header: classificação + score */}
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none" style={{ color: cfg.color, backgroundColor: cfg.badgeBg }}>
+              {cfg.label}
+            </span>
+            <span className="text-[10px] font-extrabold tabular-nums" style={{ color: cfg.color }}>
+              {slot.stabilityScore}
+            </span>
+          </div>
+
+          {/* Título principal */}
+          {isCritico && (
+            <div className="flex items-start gap-1">
+              <ShieldAlert size={12} className="text-red-400 mt-0.5 flex-shrink-0" />
+              <span className="text-[11px] font-bold text-red-700 leading-tight">
+                Horário em perda
+              </span>
+            </div>
+          )}
+          {isTemp && (
+            <span className="text-[11px] font-medium text-amber-700">
+              Paciente ausente esta semana
+            </span>
+          )}
+          {isLivre && (
+            <span className="text-[11px] font-medium text-gray-500">
+              Horário livre para encaixe
+            </span>
+          )}
+
+          {/* Histórico */}
+          <div className="text-[10px] text-gray-500 space-y-0.5">
+            {firstName && <p>↳ Último paciente: <span className="font-medium text-gray-700">{firstName}</span></p>}
+            {slot.slotTotalSessions > 0 && <p>Ocupado {slot.slotTotalSessions}x nas últimas semanas</p>}
+            {dsv !== null && <p>Vago há <span className="font-medium">{dsv} dias</span></p>}
+          </div>
+
+          {/* Impacto financeiro */}
+          {isCritico && monthlyLoss > 0 && (
+            <div className="text-[11px] font-bold text-red-600 bg-red-100 px-2 py-1 rounded">
+              💸 Perda potencial: R$ {monthlyLoss.toLocaleString('pt-BR')}/mês
+            </div>
+          )}
+
+          {/* Ações */}
+          <div className="mt-auto flex flex-wrap gap-1">
+            {isCritico && (
+              <>
+                <button className="text-[10px] font-bold px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors">
+                  Reativar
+                </button>
+                <button className="text-[10px] font-bold px-2 py-1 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors">
+                  Encaixe
+                </button>
+              </>
+            )}
+            {isLivre && (
+              <button className="text-[10px] font-bold px-2 py-1 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors">
+                Oferecer horário
+              </button>
+            )}
+            {isTemp && (
+              <span className="text-[10px] text-gray-400 italic">Próxima sessão confirmada</span>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
+    </StabilityTooltip>
   );
 }
 
-// Componente principal (mantidas todas as variáveis, hooks, lógica de datas, tudo)
+interface CarteiraWeeklyViewProps {
+  doctors: IDoctor[];
+}
+
 export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps) {
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
   const [days, setDays] = useState<number>(30);
+  const [selectedSpecialty, setSelectedSpecialty] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('todos');
+  const [viewFilter, setViewFilter] = useState<string>('todos');
 
   const { data, loading, error } = useRetentionSlots(selectedDoctorId, days);
+
+  // Filtro por especialidade (client-side)
+  const filteredDoctors = useMemo(() => {
+    if (!selectedSpecialty) return doctors;
+    return doctors.filter(d => d.specialty === selectedSpecialty);
+  }, [doctors, selectedSpecialty]);
 
   const allTimes = useMemo(() => {
     if (!data) return [];
@@ -230,41 +337,92 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
     return (data.weekdays[String(weekday)] || []).find(s => s.time === time) ?? null;
   };
 
-  const allSlots = data ? Object.values(data.weekdays).flat() : [];
-  const totalVacant = data?.summary.vacantSlots ?? 0;
-  const totalAtRisk = allSlots.filter(s => s.needsAttention && !s.isVacant).length;
-  const avgVacantValue = (() => {
-    const vs = allSlots.filter(s => s.isVacant && s.avgSessionValue > 0);
-    return vs.length > 0 ? vs.reduce((sum, s) => sum + s.avgSessionValue, 0) / vs.length : 0;
-  })();
+  // Aplicar filtros de visualização
+  const filteredSlotAt = (weekday: number, time: string): RetentionSlot | null => {
+    const slot = slotAt(weekday, time);
+    if (!slot) return null;
 
-  // (mantenha todo o resto exatamente igual até o return)
+    // Filtro por status de estabilidade
+    if (statusFilter !== 'todos') {
+      if (statusFilter === 'vagos_criticos' && slot.vacantType !== 'critico') return null;
+      if (statusFilter !== 'vagos_criticos' && slot.stability !== statusFilter) return null;
+    }
+
+    // Filtro por visualização rápida
+    if (viewFilter !== 'todos') {
+      if (viewFilter === 'vagos' && !slot.isVacant) return null;
+      if (viewFilter === 'sem_proxima_sessao' && (slot.isVacant || slot.nextSessionAt)) return null;
+      if (viewFilter === 'sem_continuidade' && (slot.isVacant || slot.continuityMonths >= 2)) return null;
+      if (viewFilter === 'grade_risco' && slot.stability !== 'risco' && slot.stability !== 'atencao') return null;
+    }
+
+    return slot;
+  };
+
+  const allSlots = data ? Object.values(data.weekdays).flat() : [];
+  const summary = data?.summary;
+
+  // Especialidades únicas dos doctors
+  const specialties = useMemo(() => {
+    const set = new Set<string>();
+    doctors.forEach(d => { if (d.specialty) set.add(d.specialty); });
+    return [...set];
+  }, [doctors]);
 
   return (
     <div className="p-3">
-      {/* Controles */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2 flex-wrap">
-          <RotateCcw size={18} color="#00C087" />
-          <span className="text-lg font-bold text-gray-800">Recorrência Semanal</span>
-          {data?.doctor?.specialty && (
+      {/* Cabeçalho executivo */}
+      <div className="mb-4">
+        <div className="flex items-center gap-2 mb-2">
+          <RefreshCcw size={18} color="#00C087" />
+          <span className="text-lg font-bold text-gray-800">Grade Terapêutica — Estabilidade</span>
+          {summary && (
             <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-indigo-50 text-indigo-600 border border-indigo-100">
-              {SPECIALTY_LABELS[data.doctor.specialty] ?? data.doctor.specialty}
-            </span>
-          )}
-          {totalVacant > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">
-              {totalVacant} buraco{totalVacant > 1 ? 's' : ''}
-            </span>
-          )}
-          {totalAtRisk > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700">
-              {totalAtRisk} em atenção
+              {summary.stabilityRate}% estável
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        {summary && summary.atRiskSlots > 0 && (
+          <div className="p-3 rounded-xl border border-red-200 bg-red-50/60 flex items-start gap-2">
+            <AlertTriangle size={16} className="text-red-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-red-800">
+                ⚠️ Grade terapêutica em atenção
+              </p>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-red-700 mt-1">
+                <span>{summary.atRiskSlots} horários em risco</span>
+                <span>{summary.criticalSlots} vagas críticas</span>
+                {summary.potentialLossMonthly > 0 && (
+                  <span className="font-semibold">
+                    Potencial mensal em risco: R$ {summary.potentialLossMonthly.toLocaleString('pt-BR')}
+                  </span>
+                )}
+                <span>{summary.stableSlots} estáveis</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {summary && summary.atRiskSlots === 0 && (
+          <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/60 flex items-start gap-2">
+            <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-emerald-800">
+                ✅ Grade terapêutica estável
+              </p>
+              <p className="text-xs text-emerald-700 mt-0.5">
+                {summary.stableSlots} horários firmes · {summary.newSlots} novos
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Controles / Filtros */}
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 mb-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Período */}
           <div className="flex gap-1">
             {[30, 60, 90].map(d => (
               <button
@@ -280,7 +438,9 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
               </button>
             ))}
           </div>
-          <FormControl size="small" sx={{ minWidth: 180 }}>
+
+          {/* Profissional */}
+          <FormControl size="small" sx={{ minWidth: 170 }}>
             <InputLabel>Profissional</InputLabel>
             <Select
               value={selectedDoctorId}
@@ -288,30 +448,63 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
               onChange={e => setSelectedDoctorId(e.target.value)}
             >
               <MenuItem value="">Todos</MenuItem>
-              {doctors.map(doc => (
+              {filteredDoctors.map(doc => (
                 <MenuItem key={doc._id} value={doc._id}>{doc.fullName}</MenuItem>
               ))}
             </Select>
           </FormControl>
+
+          {/* Terapia / Especialidade */}
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Terapia</InputLabel>
+            <Select
+              value={selectedSpecialty}
+              label="Terapia"
+              onChange={e => setSelectedSpecialty(e.target.value)}
+            >
+              <MenuItem value="">Todas</MenuItem>
+              {specialties.map(sp => (
+                <MenuItem key={sp} value={sp}>{SPECIALTY_LABELS[sp] ?? sp}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Status */}
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={statusFilter}
+              label="Status"
+              onChange={e => setStatusFilter(e.target.value)}
+            >
+              <MenuItem value="todos">Todos</MenuItem>
+              <MenuItem value="estavel">🟢 Estáveis</MenuItem>
+              <MenuItem value="atencao">🟡 Atenção</MenuItem>
+              <MenuItem value="risco">🔴 Risco</MenuItem>
+              <MenuItem value="novo">🔵 Novos</MenuItem>
+              <MenuItem value="vagos_criticos">⚠️ Vagos críticos</MenuItem>
+            </Select>
+          </FormControl>
+
+          {/* Mostrar apenas */}
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel>Mostrar apenas</InputLabel>
+            <Select
+              value={viewFilter}
+              label="Mostrar apenas"
+              onChange={e => setViewFilter(e.target.value)}
+            >
+              <MenuItem value="todos">Todos</MenuItem>
+              <MenuItem value="vagos">Horários vagos</MenuItem>
+              <MenuItem value="sem_proxima_sessao">Sem próxima sessão</MenuItem>
+              <MenuItem value="sem_continuidade">Sem continuidade</MenuItem>
+              <MenuItem value="grade_risco">Grade em risco</MenuItem>
+            </Select>
+          </FormControl>
         </div>
       </div>
-
-      {/* Banner buracos */}
-      {totalVacant > 0 && !loading && (
-        <div className="mb-2 p-1.5 rounded-lg border border-red-200 bg-red-50 flex items-center gap-1.5">
-          <AlertTriangle size={16} className="text-red-500 flex-shrink-0" />
-          <div>
-            <span className="text-sm font-bold text-red-800">
-              {totalVacant} horário{totalVacant > 1 ? 's' : ''} recorrente{totalVacant > 1 ? 's' : ''} perdido{totalVacant > 1 ? 's' : ''}
-            </span>
-            {avgVacantValue > 0 && (
-              <p className="text-xs text-red-600 mt-0.5">
-                Receita potencial: ≈ R$ {Math.round(totalVacant * avgVacantValue).toLocaleString('pt-BR')}/mês
-              </p>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Loading */}
       {loading && (
@@ -344,7 +537,7 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
       {!loading && !error && data && (
         <div
           className="border border-gray-200 rounded-xl shadow-sm"
-          style={{ overflow: 'auto', maxHeight: 'calc(100vh - 220px)' }}
+          style={{ overflow: 'auto', maxHeight: 'calc(100vh - 280px)' }}
         >
           <div style={{ minWidth: 640 }}>
             {/* Cabeçalho dos dias — sticky */}
@@ -362,19 +555,18 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
             >
               <div />
               {WEEKDAY_ORDER.map((wd) => {
-                const occ        = data.occupancyByDay[String(wd)] || { active: 0, vacant: 0, total: 0, rate: 0 };
-                // Taxa real: slots com paciente (ativo + vago) ÷ 16 slots possíveis (8h–18h)
-                const filled     = occ.total;
-                const rate       = Math.min(100, Math.round((filled / TOTAL_DAILY_SLOTS) * 100));
+                const occ = data.occupancyByDay[String(wd)] || { active: 0, vacant: 0, total: 0, rate: 0 };
+                const filled = occ.total;
+                const rate = Math.min(100, Math.round((filled / TOTAL_DAILY_SLOTS) * 100));
                 const isToday = wd === TODAY_MONGO_WEEKDAY;
-                const isGood  = rate >= 80;
-                const isMid   = rate >= 60 && rate < 80;
-                const barColor   = isGood ? '#16a34a' : isMid ? '#d97706' : '#ef4444';
-                const cardBg     = isToday ? '#eff6ff' : isGood ? '#f0fdf4' : isMid ? '#fffbeb' : '#f9fafb';
+                const isGood = rate >= 80;
+                const isMid = rate >= 60 && rate < 80;
+                const barColor = isGood ? '#16a34a' : isMid ? '#d97706' : '#ef4444';
+                const cardBg = isToday ? '#eff6ff' : isGood ? '#f0fdf4' : isMid ? '#fffbeb' : '#f9fafb';
                 const cardBorder = isToday ? '#93c5fd' : isGood ? '#bbf7d0' : isMid ? '#fde68a' : '#e5e7eb';
-                const rateColor  = isGood ? '#15803d' : isMid ? '#b45309' : '#dc2626';
-                const weekDate   = getWeekDate(wd);
-                const dateLabel  = formatShortDate(weekDate);
+                const rateColor = isGood ? '#15803d' : isMid ? '#b45309' : '#dc2626';
+                const weekDate = getWeekDate(wd);
+                const dateLabel = formatShortDate(weekDate);
                 return (
                   <div
                     key={wd}
@@ -385,7 +577,6 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
                       boxShadow: isToday ? '0 0 0 3px #bfdbfe44' : undefined,
                     }}
                   >
-                    {/* Linha 1: nome do dia + data + "hoje" */}
                     <div className="flex items-center justify-between gap-1 min-w-0">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className="text-[14px] font-extrabold text-gray-700 uppercase tracking-wide leading-none">
@@ -399,15 +590,14 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
                         )}
                       </div>
                       {occ.vacant > 0 && (
-                        <Tooltip title={`${occ.vacant} horário${occ.vacant > 1 ? 's' : ''} sem paciente`}>
-                          <span className="text-[15px] bg-red-100 text-red-600 font-bold px-1.5 py-0.5 rounded-full cursor-default leading-none flex-shrink-0">
-                            {occ.vacant} vago{occ.vacant > 1 ? 's' : ''}
+                        <Tooltip title={`${occ.vacant} horário${occ.vacant > 1 ? 's' : ''} sem próximo agendamento`}>
+                          <span className="text-[15px] bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded-full cursor-default leading-none flex-shrink-0">
+                            {occ.vacant} livre{occ.vacant > 1 ? 's' : ''}
                           </span>
                         </Tooltip>
                       )}
                     </div>
 
-                    {/* Linha 2: % slots preenchidos + contagem */}
                     <div className="flex items-end justify-between gap-1">
                       <div className="flex flex-col leading-none">
                         <span className="text-[14px] text-gray-400 font-medium mb-0.5">horários preenchidos</span>
@@ -423,12 +613,8 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
                       </div>
                     </div>
 
-                    {/* Barra de ocupação */}
                     <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                      <div
-                        style={{ width: `${rate}%`, backgroundColor: barColor }}
-                        className="h-full rounded-full transition-all"
-                      />
+                      <div style={{ width: `${rate}%`, backgroundColor: barColor }} className="h-full rounded-full transition-all" />
                     </div>
                   </div>
                 );
@@ -449,13 +635,11 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
                     backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fafafa',
                   }}
                 >
-                  {/* Horário */}
                   <div className="flex items-center justify-end pr-2">
                     <span className="text-xs font-mono font-semibold text-gray-400">{time}</span>
                   </div>
-                  {/* Células */}
                   {WEEKDAY_ORDER.map((wd, colIdx) => {
-                    const slot = slotAt(wd, time);
+                    const slot = filteredSlotAt(wd, time);
                     const notLast = colIdx < WEEKDAY_ORDER.length - 1;
                     return (
                       <div

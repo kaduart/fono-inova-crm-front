@@ -76,6 +76,7 @@ const MarketingDashboard = lazyWithRetry(() => import('./components/Dashboard/Ma
 
 const FollowupDashboard = lazyWithRetry(() => import('./components/Dashboard/FollowupDashboard'));
 const AppChat = lazyWithRetry(() => import('./components/mkt/whatsapp/AppChat'));
+const CarteiraView = lazyWithRetry(() => import('./components/calendar/CarteiraView'));
 const FinancialDashboard = lazyWithRetry(() => import('./pages/Financial/FinancialDashboard'));
 
 const PaymentPage = lazyWithRetry(() => import('./components/financial/PaymentPage'));
@@ -311,6 +312,11 @@ const AppRoutes: React.FC = () => {
                 <Route path="/provisionamento" element={
                     <PrivateRoute allowedRoles={['admin']}>
                         <ProvisionamentoTab />
+                    </PrivateRoute>
+                } />
+                <Route path="/retention" element={
+                    <PrivateRoute allowedRoles={['admin', 'doctor']}>
+                        <CarteiraView />
                     </PrivateRoute>
                 } />
 

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import API from '../services/api';
 
 export type SlotType = 'fixo' | 'semi_fixo' | 'novo' | 'buraco';
+export type Stability = 'estavel' | 'atencao' | 'risco' | 'novo' | 'livre';
+export type VacantType = 'temporario' | 'critico' | 'livre' | null;
 
 export interface RetentionSlot {
   weekday: number;
@@ -19,8 +21,8 @@ export interface RetentionSlot {
   lastPatientName: string | null;
   daysSinceVacant: number | null;
 
-  recurrenceCount:   number; // sessões do paciente atual neste horário
-  slotTotalSessions: number; // total histórico do horário (todos os pacientes)
+  recurrenceCount:   number;
+  slotTotalSessions: number;
   recentCompleted:   number;
   attendanceRate:   number;
   packageRemaining: number;
@@ -28,6 +30,13 @@ export interface RetentionSlot {
   daysSinceLastSession: number | null;
   avgSessionValue:  number;
   needsAttention:   boolean;
+
+  // V2 — Estabilidade
+  stabilityScore: number;
+  stability: Stability;
+  vacantType: VacantType;
+  continuityMonths: number;
+  stabilityReason: string;
 }
 
 export interface OccupancyDay {
@@ -45,6 +54,13 @@ export interface SlotsData {
     activeSlots:   number;
     vacantSlots:   number;
     occupancyRate: number;
+    stableSlots:   number;
+    attentionSlots: number;
+    atRiskSlots:   number;
+    newSlots:      number;
+    criticalSlots: number;
+    potentialLossMonthly: number;
+    stabilityRate: number;
   };
   occupancyByDay: Record<string, OccupancyDay>;
   weekdays: Record<string, RetentionSlot[]>;

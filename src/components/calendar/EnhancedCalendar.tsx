@@ -283,30 +283,25 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         return holidays[dateStr]?.type || 'full';
     }, [holidays]);
 
-    // Scroll automático para o dia de hoje — dispara no mount e quando appointments carregam
+    // Scroll automático para o dia de hoje — dispara só na mudança de mês/view, não em cada update de appointments
     const hasScrolledToday = useRef(false);
     useEffect(() => {
-        console.log('📊 [EnhancedCalendar] Appointments atualizados:', appointments?.length || 0, 'itens');
-        if (appointments?.length > 0) {
-            const agendado = appointments.filter((a: any) => a.operationalStatus === 'scheduled' || a.operationalStatus === 'agendado').length;
-            const concluido = appointments.filter((a: any) => a.operationalStatus === 'completed' || a.operationalStatus === 'concluído').length;
-            console.log(`📊 [EnhancedCalendar] Status: ${agendado} agendados, ${concluido} concluídos`);
-        }
         if (hasScrolledToday.current) return;
         let attempts = 0;
+        const timers: ReturnType<typeof setTimeout>[] = [];
         const tryScroll = () => {
             const todayCell = document.querySelector('.fc-day-today');
             if (todayCell) {
                 todayCell.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 hasScrolledToday.current = true;
-            } else if (attempts < 15) {
+            } else if (attempts < 4) {
                 attempts++;
-                setTimeout(tryScroll, 300);
+                timers.push(setTimeout(tryScroll, 400));
             }
         };
-        const timer = setTimeout(tryScroll, 300);
-        return () => clearTimeout(timer);
-    }, [appointments]);
+        timers.push(setTimeout(tryScroll, 300));
+        return () => timers.forEach(clearTimeout);
+    }, [currentViewDate]);
 
     // ✅ CORREÇÃO: Fecha ambos os modais quando closeModalSignal muda
     useEffect(() => {
@@ -536,7 +531,18 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     const events = useMemo(() => {
         if (!appointments || appointments.length === 0) return [];
 
-        const validAppointments = appointmentDTOs.filter(appt => {
+        // Filtra só o mês visível — evita passar 500+ eventos de uma vez ao FullCalendar
+        const monthFiltered = currentViewDate
+            ? appointmentDTOs.filter(appt => {
+                if (!appt.date) return false;
+                const dateStr = typeof appt.date === 'string'
+                    ? (appt.date.includes('T') ? appt.date.split('T')[0] : appt.date)
+                    : new Date(appt.date as any).toISOString().split('T')[0];
+                return dateStr.startsWith(currentViewDate);
+              })
+            : appointmentDTOs;
+
+        const validAppointments = monthFiltered.filter(appt => {
             const hasDate = !!appt.date;
             const hasTime = !!appt.time;
             const hasId = !!(appt.id);
@@ -601,7 +607,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         
         return mappedEvents;
 
-    }, [appointmentDTOs, getPaymentStatusConfig, getOperationalStatusConfig]);
+    }, [appointmentDTOs, currentViewDate, getPaymentStatusConfig, getOperationalStatusConfig]);
 
     // 🔹 Ref para rastrear o último range processado e evitar loops
     const lastDateRangeRef = useRef<string>('');

@@ -579,347 +579,495 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     );
   };
 
-  const renderMetas = () => (
-    <div>
-      {indicadores && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <MetricCard
-            title="Lucro"
-            value={formatCurrency(indicadores.lucro)}
-            icon={<TrendingUp size={20} />}
-            color={indicadores.statusLucro === 'positivo' ? 'emerald' : 'rose'}
-          />
-          <MetricCard
-            title="Margem"
-            value={`${indicadores.margemPercentual}%`}
-            icon={<TrendingUp size={20} />}
-            color={indicadores.statusMargem === 'bom' ? 'emerald' : indicadores.statusMargem === 'atencao' ? 'amber' : 'rose'}
-          />
-          <MetricCard
-            title="Ponto de Equilíbrio"
-            value={indicadores.pontoEquilibrio === 0 ? 'Alcançado' : formatCurrency(indicadores.pontoEquilibrio)}
-            icon={<Target size={20} />}
-            color={indicadores.pontoEquilibrio === 0 ? 'emerald' : 'amber'}
-          />
-        </div>
-      )}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
-          <h3 className="text-lg font-bold text-gray-800 mb-3">Status da Meta</h3>
-          <div className="flex items-center gap-3 mb-4">
-            <span className={`px-3 py-1 rounded-full text-sm font-bold uppercase ${
-              metas.statusMeta === 'verde' ? 'bg-emerald-100 text-emerald-700' :
-              metas.statusMeta === 'amarelo-verde' ? 'bg-amber-100 text-amber-700' :
-              metas.statusMeta === 'amarelo' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
-            }`}>
-              {metas.statusMeta.replace('-', ' ')}
-            </span>
-            <span className="text-gray-600">{metas.ritmo.percentualRealizado.toFixed(1)}% realizado · {metas.ritmo.percentualEsperado.toFixed(1)}% esperado</span>
+  const renderMetas = () => {
+    const metaValor        = metas.configuracao.metaMensal;
+    const pctRealizado     = metas.ritmo.percentualRealizado;
+    const resultadoEcon    = metas.realizado.mes;
+    const caixaTotal       = cash.total;
+    const producaoTotal    = revenue.total;
+    const convenioAReceber = Math.max(0, resultadoEcon - caixaTotal);
+    const pendentesTotal   = (data?.particularPendente || 0) + (data?.pacotePendente || 0);
+
+    const isVerde   = metas.statusMeta === 'verde';
+    const isAmVerde = metas.statusMeta === 'amarelo-verde';
+    const isAm      = metas.statusMeta === 'amarelo';
+    const heroColor = isVerde ? '#10B981' : (isAmVerde || isAm) ? '#F59E0B' : '#EF4444';
+    const heroBg    = isVerde ? '#F0FDF4' : (isAmVerde || isAm) ? '#FFFBEB' : '#FFF1F2';
+    const statusLabel = isVerde ? '✅ No ritmo' : isAmVerde ? '🟡 Levemente abaixo' : isAm ? '⚠️ Abaixo do ritmo' : '🔴 Crítico';
+
+    const textoExecutivo = (() => {
+      if (pctRealizado >= 100) return 'Meta atingida! Excelente desempenho no período.';
+      const diff = pctRealizado - metas.ritmo.percentualEsperado;
+      if (diff >= 5)  return `Acima do esperado — ${pctRealizado.toFixed(0)}% concluído com ${metas.ritmo.percentualEsperado.toFixed(0)}% do período decorrido.`;
+      if (diff >= -5) return `No ritmo da meta — ${pctRealizado.toFixed(0)}% concluído com ${metas.ritmo.percentualEsperado.toFixed(0)}% do período decorrido.`;
+      if (convenioAReceber > 0) return `Atingimento depende do recebimento dos convênios pendentes (${formatCurrency(convenioAReceber)}).`;
+      return `${Math.abs(diff).toFixed(0)}% abaixo do esperado — necessário ${formatCurrency(metas.gap.porDia)}/dia para recuperar.`;
+    })();
+
+    const tipoColors: Record<string, string> = {
+      pacote: '#3B82F6', particular: '#10B981', convenio: '#8B5CF6', liminar: '#F97316'
+    };
+    const tipoLabels: Record<string, string> = {
+      pacote:     'Pacote Pré-pago',
+      particular: 'Particular',
+      convenio:   'Convênio',
+      liminar:    'Liminar Judicial'
+    };
+    const tipoIcons: Record<string, string> = {
+      pacote: '📦', particular: '👤', convenio: '🏥', liminar: '⚖️'
+    };
+
+    return (
+      <div className="space-y-4">
+        {/* Indicadores topo */}
+        {indicadores && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <MetricCard title="Lucro" value={formatCurrency(indicadores.lucro)} icon={<TrendingUp size={20} />} color={indicadores.statusLucro === 'positivo' ? 'emerald' : 'rose'} />
+            <MetricCard title="Margem" value={`${indicadores.margemPercentual}%`} icon={<TrendingUp size={20} />} color={indicadores.statusMargem === 'bom' ? 'emerald' : indicadores.statusMargem === 'atencao' ? 'amber' : 'rose'} />
+            <MetricCard title="Ponto de Equilíbrio" value={indicadores.pontoEquilibrio === 0 ? 'Alcançado' : formatCurrency(indicadores.pontoEquilibrio)} icon={<Target size={20} />} color={indicadores.pontoEquilibrio === 0 ? 'emerald' : 'amber'} />
           </div>
-          <hr className="my-4" />
-          <div className="space-y-3">
-            <MetricRow label="Meta mensal" value={formatCurrency(metas.configuracao.metaMensal)} />
-            <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 space-y-2">
-              <div className="flex justify-between items-baseline">
-                <div>
-                  <span className="text-sm font-bold text-emerald-800">Resultado econômico</span>
-                  <p className="text-[10px] text-emerald-600 mt-0.5">Caixa recebido + convênio a receber</p>
-                </div>
-                <span className="text-lg font-extrabold text-emerald-700">
-                  {formatCurrency(metas.realizado.mes)}
-                </span>
-              </div>
-              <div className="border-t border-emerald-200 pt-2 space-y-1.5">
-                <div className="flex justify-between text-xs">
-                  <span className="flex items-center gap-1.5 text-emerald-700 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                    Caixa real recebido
-                  </span>
-                  <span className="font-semibold text-emerald-700">{formatCurrency(cash.total)}</span>
-                </div>
-                {Math.max(0, (revenue.byMethod?.convenio || 0) - (cash.breakdown?.convenio || 0)) > 0 && (
-                  <div className="flex justify-between text-xs">
-                    <span className="flex items-center gap-1.5 text-amber-700 font-medium">
-                      <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
-                      Convênio a receber
-                    </span>
-                    <span className="font-semibold text-amber-700">
-                      {formatCurrency(Math.max(0, (revenue.byMethod?.convenio || 0) - (cash.breakdown?.convenio || 0)))}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between text-xs">
-                  <span className="flex items-center gap-1.5 text-blue-700 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
-                    Produção clínica (sessões)
-                  </span>
-                  <span className="font-semibold text-blue-700">{formatCurrency(revenue.total)}</span>
-                </div>
+        )}
+
+        {/* ── HERO EXECUTIVO ── */}
+        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: heroColor, backgroundColor: heroBg }}>
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Meta do Mês</p>
+              <p className="text-xs text-gray-400">{String(month).padStart(2,'0')}/{year}</p>
+            </div>
+            <div className="text-right">
+              <span className="text-4xl font-black leading-none" style={{ color: heroColor }}>
+                {Math.min(pctRealizado, 100).toFixed(0)}%
+              </span>
+              <p className="text-xs font-bold mt-0.5" style={{ color: heroColor }}>{statusLabel}</p>
+            </div>
+          </div>
+
+          {/* Barra grossa */}
+          {metaValor > 0 && (
+            <div className="relative h-8 rounded-full bg-gray-200 mb-4 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-700 flex items-center justify-end pr-3"
+                style={{ width: `${Math.min(pctRealizado, 100)}%`, backgroundColor: heroColor, minWidth: pctRealizado > 5 ? '3rem' : 0 }}
+              >
+                {pctRealizado >= 12 && <span className="text-xs font-black text-white">{pctRealizado.toFixed(0)}%</span>}
               </div>
             </div>
+          )}
 
-            {/* 🆕 Riscos de inadimplência — informativo, NÃO subtrativo */}
-            {((data?.particularPendente || 0) > 0 || (data?.pacotePendente || 0) > 0) && (
-              <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 space-y-2">
-                <div className="flex justify-between items-baseline">
-                  <div>
-                    <span className="text-sm font-bold text-amber-800">Pendentes de recebimento</span>
-                    <p className="text-[10px] text-amber-600 mt-0.5">Valores ainda não recebidos — entram no caixa quando pagos</p>
-                    <p className="text-[9px] text-amber-500">Não inclusos no resultado econômico acima</p>
-                  </div>
-                  <span className="text-lg font-extrabold text-amber-700">
-                    {formatCurrency((data?.particularPendente || 0) + (data?.pacotePendente || 0))}
-                  </span>
-                </div>
-                <div className="border-t border-amber-200 pt-2 space-y-1.5">
-                  {(data?.particularPendente || 0) > 0 && (
-                    <div className="flex justify-between text-xs">
-                      <span className="flex items-center gap-1.5 text-amber-700 font-medium">
-                        <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
-                        Particular pendente
-                      </span>
-                      <span className="font-semibold text-amber-700">{formatCurrency(data.particularPendente)}</span>
-                    </div>
-                  )}
-                  {(data?.pacotePendente || 0) > 0 && (
-                    <div className="flex justify-between text-xs">
-                      <span className="flex items-center gap-1.5 text-amber-700 font-medium">
-                        <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
-                        Pacote pendente
-                      </span>
-                      <span className="font-semibold text-amber-700">{formatCurrency(data.pacotePendente)}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
+          <div className="flex items-baseline gap-2 mb-1">
+            <span className="text-2xl font-black text-gray-900">{formatCurrency(resultadoEcon)}</span>
+            <span className="text-sm text-gray-500">de {formatCurrency(metaValor)}</span>
+            {resultadoEcon < metaValor && (
+              <span className="text-sm font-bold text-rose-600">· faltam {formatCurrency(metaValor - resultadoEcon)}</span>
             )}
+          </div>
+          <p className="text-xs text-gray-500 italic mb-4">{textoExecutivo}</p>
 
-            <MetricRow label="Projeção final" value={formatCurrency(metas.projecao.final)} />
-            <MetricRow label="Falta para meta" value={formatCurrency(metas.gap.valor)} valueColor="text-rose-600" />
+          {/* Mini KPIs */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 border-t border-gray-200 pt-3">
+            {([
+              { icon: '💵', label: 'Caixa recebido',     value: caixaTotal,       color: '#059669' },
+              { icon: '🧾', label: 'Convênio a receber', value: convenioAReceber, color: '#7C3AED' },
+              { icon: '🏥', label: 'Produção clínica',   value: producaoTotal,    color: '#2563EB' },
+              { icon: '⏳', label: 'Pendências',          value: pendentesTotal,   color: '#D97706' },
+              { icon: '🎯', label: 'Falta para meta',    value: Math.max(0, metaValor - resultadoEcon), color: '#DC2626' },
+            ] as const).map((kpi) => (
+              <div key={kpi.label} className="text-center">
+                <div className="text-lg leading-none mb-0.5">{kpi.icon}</div>
+                <p className="text-sm font-black" style={{ color: kpi.color }}>{formatCurrency(kpi.value)}</p>
+                <p className="text-[9px] text-gray-400 leading-tight">{kpi.label}</p>
+              </div>
+            ))}
           </div>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-1">
-            <h3 className="text-lg font-bold text-gray-800">Metas por Tipo de Receita</h3>
-          </div>
-          <p className="text-xs text-gray-500 mb-4">Valores de <span className="font-medium text-gray-700">produção</span> (sessões realizadas)</p>
-          {Object.entries(metas.porTipo).map(([tipo, dados]) => {
-            const temMeta = dados.meta > 0;
-            const pctMeta = temMeta ? Math.min((dados.realizado / dados.meta) * 100, 100) : 0;
-            const barWidth = temMeta ? pctMeta : dados.percentualDoTotal;
-            const progressColor = temMeta
-              ? (pctMeta >= 80 ? 'bg-emerald-500' : pctMeta >= 50 ? 'bg-amber-500' : 'bg-rose-500')
-              : 'bg-blue-300';
-            return (
-              <div key={tipo} className="mb-4">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="font-semibold capitalize text-gray-700">{tipo}</span>
-                  <span className="text-gray-500">
-                    {temMeta
-                      ? `${formatCurrency(dados.realizado)} / ${formatCurrency(dados.meta)}`
-                      : formatCurrency(dados.realizado)}
-                  </span>
-                </div>
-                <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                  <div className={`h-full ${progressColor} rounded-full transition-all`} style={{ width: `${barWidth}%` }} />
-                </div>
-                <p className="text-xs text-gray-400 mt-1">
-                  {temMeta
-                    ? `${pctMeta.toFixed(1)}% da meta · `
-                    : 'sem meta · '}
-                  {dados.percentualDoTotal}% da produção
+
+        {/* ── 3 CARDS INTELIGENTES ── */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+
+          {/* CARD 1: Composição da Receita */}
+          <div className="rounded-2xl border border-gray-200 p-4 shadow-sm bg-white">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Composição da Receita</p>
+            <p className="text-[10px] text-gray-400 mb-3">Produção por tipo (sessões realizadas)</p>
+            <div className="space-y-3">
+              {Object.entries(metas.porTipo)
+                .sort(([, a], [, b]) => (b as any).realizado - (a as any).realizado)
+                .map(([tipo, dados]: [string, any]) => {
+                  const color = tipoColors[tipo] || '#6B7280';
+                  const pct   = dados.percentualDoTotal || 0;
+                  const label = tipoLabels[tipo] || tipo;
+                  const icon  = tipoIcons[tipo] || '';
+                  return (
+                    <div key={tipo}>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs font-semibold text-gray-700">{icon} {label}</span>
+                        <span className="text-xs font-black" style={{ color }}>{pct}%</span>
+                      </div>
+                      <div className="relative h-6 rounded-full bg-gray-100 overflow-hidden">
+                        <div
+                          className="h-full rounded-full flex items-center justify-end pr-2 transition-all duration-500"
+                          style={{ width: `${pct}%`, backgroundColor: color, minWidth: pct > 3 ? '2rem' : 0 }}
+                        >
+                          {pct >= 10 && <span className="text-[10px] font-black text-white">{pct}%</span>}
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-0.5">{formatCurrency(dados.realizado)}</p>
+                    </div>
+                  );
+                })}
+            </div>
+            {(() => {
+              const top = Object.entries(metas.porTipo).sort(([, a], [, b]) => (b as any).realizado - (a as any).realizado)[0];
+              return top ? (
+                <p className="text-[10px] text-gray-500 mt-3 pt-2 border-t border-gray-100">
+                  <span className="font-bold">Maior motor:</span> {tipoIcons[top[0]]} {tipoLabels[top[0]] || top[0]} ({(top[1] as any).percentualDoTotal}% da produção)
                 </p>
+              ) : null;
+            })()}
+          </div>
+
+          {/* CARD 2: Qualidade da Receita */}
+          <div className="rounded-2xl border border-gray-200 p-4 shadow-sm bg-white">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Qualidade da Receita</p>
+            <p className="text-[10px] text-gray-400 mb-3">Quanto do produzido já virou dinheiro</p>
+            <div className="space-y-3">
+              {([
+                { label: 'Já recebido em caixa',       value: caixaTotal,       color: '#10B981', icon: '💵' },
+                { label: 'Convênio (aguarda repasse)',  value: convenioAReceber, color: '#8B5CF6', icon: '🧾' },
+                { label: 'Pendente de quitação',       value: pendentesTotal,   color: '#F59E0B', icon: '⏳' },
+              ] as const).map((item) => {
+                const pct = producaoTotal > 0 ? Math.round((item.value / producaoTotal) * 100) : 0;
+                return (
+                  <div key={item.label}>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs text-gray-600">{item.icon} {item.label}</span>
+                      <span className="text-xs font-black" style={{ color: item.color }}>{pct}%</span>
+                    </div>
+                    <div className="relative h-5 rounded-full bg-gray-100 overflow-hidden">
+                      <div
+                        className="h-full rounded-full flex items-center justify-end pr-2"
+                        style={{ width: `${pct}%`, backgroundColor: item.color, minWidth: pct > 5 ? '1.8rem' : 0 }}
+                      >
+                        {pct >= 10 && <span className="text-[10px] font-black text-white">{pct}%</span>}
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-0.5">{formatCurrency(item.value)}</p>
+                  </div>
+                );
+              })}
+            </div>
+            <div className={`mt-3 pt-2 border-t border-gray-100 p-2 rounded-lg text-[10px] ${convenioAReceber > caixaTotal * 0.2 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
+              {convenioAReceber > caixaTotal * 0.2
+                ? `⚠️ ${producaoTotal > 0 ? Math.round((convenioAReceber / producaoTotal) * 100) : 0}% da produção depende de repasse de convênio`
+                : '✅ Boa qualidade — maior parte já convertida em caixa'}
+            </div>
+          </div>
+
+          {/* CARD 3: Projeção Inteligente */}
+          <div className="rounded-2xl border-2 p-4 shadow-sm" style={{ borderColor: metas.projecao.bateMeta ? '#10B981' : '#F59E0B', backgroundColor: metas.projecao.bateMeta ? '#F0FDF4' : '#FFFBEB' }}>
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Projeção de Fechamento</p>
+            <p className="text-3xl font-black text-gray-900 leading-tight mb-2">{formatCurrency(metas.projecao.final)}</p>
+            <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mb-3 ${metas.projecao.bateMeta ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
+              {metas.projecao.bateMeta
+                ? `✅ +${formatCurrency(metas.projecao.final - metaValor)} acima da meta`
+                : `⚠️ ${formatCurrency(metaValor - metas.projecao.final)} abaixo da meta`}
+            </div>
+            <div className="space-y-1.5 border-t border-gray-200 pt-2">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Ritmo atual</span>
+                <span className="font-black text-emerald-600">{formatCurrency(metas.realizado.hoje)}/dia</span>
               </div>
-            );
-          })}
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Necessário</span>
+                <span className="font-bold text-gray-700">{formatCurrency(metas.configuracao.metaDiariaNecessaria)}/dia</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Dias restantes</span>
+                <span className="font-bold text-gray-700">{metas.gap.diasRestantes} dias</span>
+              </div>
+              {metas.configuracao.metaDiariaNecessaria > 0 && metas.realizado.hoje > 0 && (
+                <div className={`mt-2 text-center py-1 rounded-full text-[10px] font-black ${metas.realizado.hoje >= metas.configuracao.metaDiariaNecessaria ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
+                  {metas.realizado.hoje >= metas.configuracao.metaDiariaNecessaria
+                    ? `+${(((metas.realizado.hoje / metas.configuracao.metaDiariaNecessaria) - 1) * 100).toFixed(0)}% acima do necessário`
+                    : `${(((metas.realizado.hoje / metas.configuracao.metaDiariaNecessaria) - 1) * 100).toFixed(0)}% abaixo do necessário`}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderDecisaoExecutiva = () => {
-    const getRiscoColor = (nivel: string) => {
-      switch (nivel) {
-        case 'alto': return { badge: 'rose', bg: 'bg-rose-50' };
-        case 'medio': return { badge: 'amber', bg: 'bg-amber-50' };
-        default: return { badge: 'emerald', bg: 'bg-emerald-50' };
-      }
-    };
-    const risco = getRiscoColor(riscoOperacional.nivel);
+    const varCaixa    = comparativos.variacao.caixa;
+    const varProducao = comparativos.variacao.producao;
+    const varDespesas = comparativos.variacao.despesas;
 
-    const getAcaoIcon = (tipo: string) => {
-      if (tipo.includes('particular')) return <DollarSign size={18} />;
-      if (tipo.includes('convenio')) return <Briefcase size={18} />;
-      if (tipo.includes('agenda')) return <Calendar size={18} />;
+    const metaMensal      = metas.configuracao.metaMensal;
+    const pctMetaCaixa    = metaMensal > 0 ? Math.min(Math.round((totalCaixa / metaMensal) * 100), 100) : 0;
+    const diffProdCaixa   = totalProducao - totalCaixa;
+    const convenioAmount  = revenue.byMethod.convenio || 0;
+    const particularPend  = (data as any)?.particularPendente || 0;
+    const pacotePend      = (data as any)?.pacotePendente || 0;
+    const totalNaoReceb   = particularPend + pacotePend + convenioAmount;
+    const pctNaoReceb     = totalProducao > 0 ? Math.round((totalNaoReceb / totalProducao) * 100) : 0;
+
+    const margemPct = totalCaixa > 0 ? ((totalCaixa - expenses.total) / totalCaixa) * 100 : 0;
+    const margemStatus = margemPct >= 35
+      ? { text: '🟢 Operação saudável', cls: 'bg-emerald-100 text-emerald-700' }
+      : margemPct >= 20
+      ? { text: '🟡 Margem apertada',   cls: 'bg-amber-100 text-amber-800'   }
+      : { text: '🔴 Margem crítica',    cls: 'bg-rose-100 text-rose-700'     };
+
+    const getRiscoTheme = (nivel: string) => ({
+      badge:     nivel === 'alto' ? 'rose'    : nivel === 'medio' ? 'amber'    : 'emerald',
+      bgCls:     nivel === 'alto' ? 'bg-rose-50' : nivel === 'medio' ? 'bg-amber-50' : 'bg-emerald-50',
+      borderHex: nivel === 'alto' ? '#EF444430' : nivel === 'medio' ? '#F59E0B30'    : '#10B98130',
+    });
+    const risco = getRiscoTheme(riscoOperacional.nivel);
+
+    const sugestoesAuto = ([
+      particularPend > 0 && `💬 Contatar pacientes com débito particular (${formatCurrency(particularPend)} em aberto)`,
+      convenioAmount > 0 && `📋 Emitir guias para ${formatCurrency(convenioAmount)} de convênio pendente`,
+      varCaixa < -10   && `📈 Caixa caiu ${Math.abs(varCaixa)}% — revisar agenda e conversão`,
+      riscoOperacional.nivel === 'alto' && `⚡ Risco alto — priorizar ações corretivas esta semana`,
+    ] as (string | false)[]).filter(Boolean) as string[];
+
+    const getAcaoColor = (p: string) => p === 'alta' ? 'rose' : p === 'media' ? 'amber' : 'emerald';
+    const getAcaoIcon  = (tipo: string) => {
+      if (tipo.includes('particular'))   return <DollarSign size={18} />;
+      if (tipo.includes('convenio'))     return <Briefcase size={18} />;
+      if (tipo.includes('agenda'))       return <Calendar size={18} />;
       if (tipo.includes('profissional')) return <Users size={18} />;
       return <Zap size={18} />;
     };
 
-    const getAcaoColor = (prioridade: string) => {
-      switch (prioridade) {
-        case 'alta': return 'rose';
-        case 'media': return 'amber';
-        default: return 'emerald';
-      }
-    };
-
-    const getProfStatusColor = (status: string) => {
-      switch (status) {
-        case 'top': return 'emerald';
-        case 'regular': return 'amber';
-        default: return 'rose';
-      }
-    };
-
     return (
-      <div className="space-y-8">
-        {/* Comparativos Mensais */}
-        <div>
-          <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
-            <TrendingUp size={22} /> Comparativos Mensais
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {[
-              { label: 'Caixa', atual: comparativos.mesAtual.caixa, anterior: comparativos.mesAnterior.caixa, var: comparativos.variacao.caixa },
-              { label: 'Produção', atual: comparativos.mesAtual.producao, anterior: comparativos.mesAnterior.producao, var: comparativos.variacao.producao },
-              { label: 'Despesas', atual: comparativos.mesAtual.despesas, anterior: comparativos.mesAnterior.despesas, var: comparativos.variacao.despesas },
-            ].map((item, i) => {
-              const isPositivo = item.var > 0;
-              const isDespesa = item.label === 'Despesas';
-              const corVar = isDespesa ? (isPositivo ? 'text-rose-600' : 'text-emerald-600') : (isPositivo ? 'text-emerald-600' : 'text-rose-600');
-              const cardColor = i === 0 ? '#10B981' : i === 1 ? '#3B82F6' : '#F59E0B';
-              const CardIcon = i === 0 ? DollarSign : i === 1 ? TrendingUp : Receipt;
-              return (
-                <div key={i} className="border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow" style={{ borderColor: `${cardColor}30`, backgroundColor: `${cardColor}06` }}>
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="rounded-xl p-2.5" style={{ backgroundColor: `${cardColor}20` }}>
-                      <CardIcon size={18} style={{ color: cardColor }} />
-                    </div>
-                    <p className="text-sm font-semibold text-gray-500">{item.label}</p>
-                  </div>
-                  <p className="text-2xl font-bold text-gray-900 mb-2">{formatCurrency(item.atual)}</p>
-                  <div className="pt-2 border-t border-gray-100">
-                    <div className="flex items-center gap-1">
-                      {isPositivo ? <TrendingUp size={14} className={corVar} /> : <TrendingDown size={14} className={corVar} />}
-                      <span className={`text-sm font-semibold ${corVar}`}>{isPositivo ? '+' : ''}{item.var}% vs mês anterior</span>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-0.5">Anterior: {formatCurrency(item.anterior)}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+      <div className="space-y-6">
 
-        {/* 🔴 Débitos de sessões */}
+        {/* ── 1. HERO GRID: hierarquia financeira clara ── */}
         <div>
-          <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
-            <AlertTriangle size={22} className="text-rose-500" /> Débitos de Sessões
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <button
-              onClick={() => openDebitosModal('mes')}
-              className="text-left p-5 rounded-2xl border shadow-sm hover:shadow-md transition-all"
-              style={{ borderColor: '#EF444430', backgroundColor: '#EF444406' }}
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <div className="rounded-xl p-2.5" style={{ backgroundColor: '#EF444420' }}>
-                  <AlertTriangle size={18} style={{ color: '#EF4444' }} />
-                </div>
-                <p className="text-sm font-semibold" style={{ color: '#EF4444' }}>Débito do Mês</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Comparativo Mensal</p>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+
+            {/* Caixa — card principal 3/5 */}
+            <div className="lg:col-span-3 rounded-2xl border-2 p-6 shadow-sm" style={{ borderColor: '#10B981', backgroundColor: '#F0FDF4' }}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-black uppercase tracking-widest text-emerald-700">💵 Caixa Real</span>
+                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${varCaixa >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                  {varCaixa >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                  {varCaixa >= 0 ? '+' : ''}{varCaixa}% vs anterior
+                </span>
               </div>
-              <p className="text-3xl font-extrabold text-gray-900">{formatCurrency(resumo?.pendentes?.vencidos?.total || 0)}</p>
-              <p className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-100">Sessões sem pagamento este mês → clique para ver</p>
-            </button>
-            <button
-              onClick={() => openDebitosModal('total')}
-              className="text-left p-5 rounded-2xl border shadow-sm hover:shadow-md transition-all"
-              style={{ borderColor: '#F59E0B30', backgroundColor: '#F59E0B06' }}
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <div className="rounded-xl p-2.5" style={{ backgroundColor: '#F59E0B20' }}>
-                  <Clock size={18} style={{ color: '#F59E0B' }} />
-                </div>
-                <p className="text-sm font-semibold" style={{ color: '#D97706' }}>Débito Total (histórico)</p>
-              </div>
-              <p className="text-3xl font-extrabold text-gray-900">
-                {loadingDebitosTotal ? '...' : formatCurrency(debitosTotalValue)}
+              <div className="text-5xl font-black text-gray-900 tracking-tight my-3">{formatCurrency(totalCaixa)}</div>
+              <p className="text-sm text-gray-500 mb-4">
+                Mês anterior: <span className="font-semibold text-gray-700">{formatCurrency(comparativos.mesAnterior.caixa)}</span>
+                {varCaixa < 0 && (
+                  <span className="ml-2 text-rose-600 font-semibold">
+                    · {formatCurrency(Math.abs(totalCaixa - comparativos.mesAnterior.caixa))} a menos
+                  </span>
+                )}
               </p>
-              <p className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-100">Todas as sessões em aberto → clique para ver</p>
-            </button>
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>Meta do mês atingida em caixa</span>
+                  <span className="font-black text-emerald-700">{pctMetaCaixa}%</span>
+                </div>
+                <div className="h-4 w-full bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-500 rounded-full transition-all duration-700 flex items-center justify-end pr-2"
+                    style={{ width: `${pctMetaCaixa}%` }}
+                  >
+                    {pctMetaCaixa > 12 && <span className="text-[10px] font-black text-white">{pctMetaCaixa}%</span>}
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400">Meta: {formatCurrency(metaMensal)}</p>
+              </div>
+            </div>
+
+            {/* Produção + Despesas — stack 2/5 */}
+            <div className="lg:col-span-2 flex flex-col gap-4">
+              <div className="flex-1 rounded-2xl border p-4 shadow-sm" style={{ borderColor: '#3B82F630', backgroundColor: '#EFF6FF' }}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-black uppercase tracking-widest text-blue-600">🏥 Produção</span>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${varProducao >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                    {varProducao >= 0 ? '+' : ''}{varProducao}%
+                  </span>
+                </div>
+                <div className="text-3xl font-black text-gray-900 mb-2">{formatCurrency(totalProducao)}</div>
+                <div className="space-y-0.5 pt-2 border-t border-blue-100">
+                  {diffProdCaixa > 0 && (
+                    <p className="text-xs font-semibold text-blue-700">+{formatCurrency(diffProdCaixa)} acima do caixa</p>
+                  )}
+                  {convenioAmount > 0 && (
+                    <p className="text-xs text-purple-600">🧾 Convênio pendente: <span className="font-bold">{formatCurrency(convenioAmount)}</span></p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex-1 rounded-2xl border p-4 shadow-sm" style={{ borderColor: '#F59E0B30', backgroundColor: '#FFFBEB' }}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-black uppercase tracking-widest text-amber-600">📊 Despesas</span>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${varDespesas <= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                    {varDespesas >= 0 ? '+' : ''}{varDespesas}%
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between mb-2">
+                  <div className="text-3xl font-black text-gray-900">{formatCurrency(expenses.total)}</div>
+                  <div className="text-right">
+                    <div className="text-xl font-black" style={{ color: margemPct >= 35 ? '#10B981' : margemPct >= 20 ? '#F59E0B' : '#EF4444' }}>
+                      {margemPct.toFixed(1)}%
+                    </div>
+                    <p className="text-[10px] text-gray-400">margem</p>
+                  </div>
+                </div>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${margemStatus.cls}`}>
+                  {margemStatus.text}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Risco Operacional */}
-        <div className={`p-5 rounded-2xl border ${risco.bg} border-gray-200 shadow-sm`}>
-          <div className="flex items-center gap-3 mb-3">
-            <AlertCircle size={28} className={`text-${risco.badge}-600`} />
-            <div>
-              <h3 className="text-lg font-bold text-gray-800">Risco Operacional</h3>
-              <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold uppercase bg-${risco.badge}-100 text-${risco.badge}-700`}>
+        {/* ── 2. PAINEL DE DÉBITOS — Alerta forte ── */}
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">🚨 Sessões sem Recebimento</p>
+          <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#EF444440', backgroundColor: '#FFF1F2' }}>
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-5">
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest text-rose-500 mb-1">Total não recebido este mês</p>
+                <div className="text-4xl font-black text-gray-900">{formatCurrency(totalNaoReceb)}</div>
+              </div>
+              <div className={`shrink-0 px-5 py-3 rounded-xl text-center ${pctNaoReceb >= 30 ? 'bg-rose-100' : pctNaoReceb >= 15 ? 'bg-amber-100' : 'bg-emerald-100'}`}>
+                <div className={`text-2xl font-black ${pctNaoReceb >= 30 ? 'text-rose-700' : pctNaoReceb >= 15 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                  {pctNaoReceb}%
+                </div>
+                <p className="text-[10px] text-gray-500">da produção</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+              {([
+                { label: 'Particular', value: particularPend, color: '#3B82F6', bg: '#EFF6FF', icon: '👤' },
+                { label: 'Pacote',     value: pacotePend,     color: '#8B5CF6', bg: '#F5F3FF', icon: '📦' },
+                { label: 'Convênio',   value: convenioAmount, color: '#7C3AED', bg: '#FAF5FF', icon: '🧾' },
+              ] as const).map((item) => (
+                <div key={item.label} className="rounded-xl p-3" style={{ backgroundColor: item.bg, borderLeft: `3px solid ${item.color}` }}>
+                  <p className="text-xs text-gray-500 mb-0.5">{item.icon} {item.label}</p>
+                  <p className="text-lg font-black" style={{ color: item.color }}>{formatCurrency(item.value)}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className={`p-3 rounded-xl text-sm font-semibold mb-3 ${pctNaoReceb >= 20 ? 'bg-rose-100 text-rose-800' : 'bg-amber-50 text-amber-800'}`}>
+              {pctNaoReceb >= 20
+                ? `⚠️ ${pctNaoReceb}% da produção ainda não virou caixa — atenção imediata necessária.`
+                : pctNaoReceb > 0
+                ? `📊 ${pctNaoReceb}% da produção em aberto — acompanhe o recebimento.`
+                : '✅ Toda a produção foi convertida em caixa.'}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => openDebitosModal('mes')}
+                className="flex-1 py-2 rounded-xl text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 transition-colors"
+              >
+                Ver débitos do mês
+              </button>
+              <button
+                onClick={() => openDebitosModal('total')}
+                className="flex-1 py-2 rounded-xl text-xs font-bold bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 transition-colors"
+              >
+                Histórico: {loadingDebitosTotal ? '…' : formatCurrency(debitosTotalValue)}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── 3. CENTRAL DE ATENÇÃO (Risco Operacional) ── */}
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">⚠️ Central de Atenção</p>
+          <div className={`rounded-2xl border-2 p-5 shadow-sm ${risco.bgCls}`} style={{ borderColor: risco.borderHex }}>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-black text-gray-800">Risco Operacional</h3>
+                <p className="text-xs text-gray-500 mt-0.5">{riscoOperacional.impacto}</p>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-xs font-black uppercase bg-${risco.badge}-100 text-${risco.badge}-700`}>
                 {riscoOperacional.nivel}
               </span>
             </div>
+
+            <div className="space-y-2 mb-4">
+              {riscoOperacional.motivos.map((m, i) => (
+                <div key={i} className="flex items-start gap-2.5 p-2.5 rounded-xl bg-white/60">
+                  <AlertCircle size={15} className={`shrink-0 mt-0.5 text-${risco.badge}-500`} />
+                  <span className="text-sm text-gray-700">{m}</span>
+                </div>
+              ))}
+            </div>
+
+            {sugestoesAuto.length > 0 && (
+              <div className="border-t border-gray-200/60 pt-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Sugestões automáticas</p>
+                <div className="space-y-1.5">
+                  {sugestoesAuto.map((s, i) => (
+                    <div key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                      <CheckCircle2 size={14} className="shrink-0 mt-0.5 text-emerald-500" />
+                      <span>{s}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          <ul className="space-y-1 mb-3">
-            {riscoOperacional.motivos.map((m, i) => (
-              <li key={i} className="flex items-start gap-2 text-gray-700">
-                <ArrowUpRight size={16} className="mt-0.5 text-gray-400" />
-                <span>{m}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="text-sm text-gray-600"><strong>Impacto esperado:</strong> {riscoOperacional.impacto}</p>
         </div>
 
-        {/* Ações Executivas */}
-        <div>
-          <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
-            <Zap size={22} /> Ações Executivas
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {acoesExecutivas.map((acao, idx) => {
-              const priorColor = getAcaoColor(acao.prioridade);
-              return (
-                <div key={idx} className={`border-l-4 border-${priorColor}-500 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow`}>
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className={`text-${priorColor}-600`}>{getAcaoIcon(acao.tipo)}</div>
-                      <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded-full bg-${priorColor}-100 text-${priorColor}-700`}>
-                        {acao.prioridade}
-                      </span>
-                    </div>
-                    <h4 className="font-bold text-gray-800 mb-1">{acao.descricao}</h4>
-                    <p className="text-sm text-gray-600 mb-2">{acao.motivo}</p>
-                    {acao.impactoEstimado !== undefined && (
-                      <p className="text-sm font-semibold text-gray-800 mt-2">Impacto estimado: {formatCurrency(acao.impactoEstimado)}</p>
-                    )}
-                    {acao.impactoRisco && (
-                      <p className="text-sm font-semibold text-rose-600 mt-1">Risco: {acao.impactoRisco}</p>
-                    )}
-                    <div className="mt-3 p-2 bg-gray-50 rounded-md">
-                      <p className="text-xs text-gray-500">Ação sugerida</p>
-                      <p className="text-sm font-semibold text-gray-800">{acao.acaoSugerida}</p>
+        {/* ── 4. AÇÕES EXECUTIVAS ── */}
+        {acoesExecutivas.length > 0 && (
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">⚡ Ações Executivas</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {acoesExecutivas.map((acao, idx) => {
+                const priorColor = getAcaoColor(acao.prioridade);
+                return (
+                  <div key={idx} className={`border-l-4 border-${priorColor}-500 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow`}>
+                    <div className="p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className={`text-${priorColor}-600`}>{getAcaoIcon(acao.tipo)}</div>
+                        <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded-full bg-${priorColor}-100 text-${priorColor}-700`}>
+                          {acao.prioridade}
+                        </span>
+                      </div>
+                      <h4 className="font-bold text-gray-800 mb-1">{acao.descricao}</h4>
+                      <p className="text-sm text-gray-600 mb-2">{acao.motivo}</p>
+                      {acao.impactoEstimado !== undefined && (
+                        <p className="text-sm font-semibold text-gray-800">Impacto: {formatCurrency(acao.impactoEstimado)}</p>
+                      )}
+                      {acao.impactoRisco && (
+                        <p className="text-sm font-semibold text-rose-600">Risco: {acao.impactoRisco}</p>
+                      )}
+                      <div className="mt-3 p-2 bg-gray-50 rounded-lg">
+                        <p className="text-xs text-gray-500">Próximo passo</p>
+                        <p className="text-sm font-semibold text-gray-800">{acao.acaoSugerida}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* 🆕 B: Pendências de Convênio */}
+        {/* ── 5. PENDÊNCIAS DE CONVÊNIO ── */}
         <div>
-          <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
-            <Briefcase size={22} /> Pendências de Convênio
-          </h3>
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">🏥 Pendências de Convênio</p>
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             {loadingInsurance ? (
               <div className="p-6 text-center text-gray-500">Carregando...</div>
             ) : pendingInsurance.length === 0 ? (
-              <div className="p-6 text-center text-emerald-600 font-medium">
-                ✅ Nenhum convênio pendente de faturamento
-              </div>
+              <div className="p-6 text-center text-emerald-600 font-medium">✅ Nenhum convênio pendente de faturamento</div>
             ) : (
               <div className="divide-y">
                 {pendingInsurance.flatMap(g =>
@@ -930,35 +1078,26 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                       paymentId: pay.paymentId,
                       grossAmount: pay.grossAmount,
                       status: pay.status,
-                      paymentDate: pay.paymentDate
+                      paymentDate: pay.paymentDate,
+                      sessionId: (pay as any).sessionId
                     }))
                   )
                 ).slice(0, 5).map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 hover:bg-gray-50"
-                  >
+                  <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 hover:bg-gray-50">
                     <div>
                       <p className="font-semibold text-gray-800">{item.patientName}</p>
                       <p className="text-sm text-gray-500">
-                        {item.provider} • {new Date(item.paymentDate).toLocaleDateString('pt-BR')} • {' '}
-                        <span className="font-medium text-gray-700">{formatCurrency(item.grossAmount)}</span>
+                        {item.provider} · {new Date(item.paymentDate).toLocaleDateString('pt-BR')} · <span className="font-medium text-gray-700">{formatCurrency(item.grossAmount)}</span>
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
                       {item.status === 'pending_billing' && (
-                        <button
-                          onClick={() => handleBillInsurance(item.sessionId)}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-amber-50 text-amber-700 hover:bg-amber-100 text-sm font-medium border border-amber-200"
-                        >
+                        <button onClick={() => handleBillInsurance(item.sessionId)} className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-amber-50 text-amber-700 hover:bg-amber-100 text-sm font-medium border border-amber-200">
                           <Send size={14} /> Faturar
                         </button>
                       )}
                       {item.status === 'billed' && (
-                        <button
-                          onClick={() => handleReceiveInsurance(item.sessionId, item.grossAmount)}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm font-medium border border-emerald-200"
-                        >
+                        <button onClick={() => handleReceiveInsurance(item.sessionId, item.grossAmount)} className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm font-medium border border-emerald-200">
                           <Check size={14} /> Receber
                         </button>
                       )}

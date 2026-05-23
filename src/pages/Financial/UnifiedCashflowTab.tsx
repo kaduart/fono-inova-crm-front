@@ -7,7 +7,9 @@ import { format, isSameDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useAppointmentsByType } from '../../hooks/useAppointmentsByType';
+import { useRetentionSlots } from '../../hooks/useRetentionSlots';
 import { cashflowService, CashflowV2Response } from '../../services/cashflowService';
+import { operationalService } from '../../services/operationalService';
 import API from '../../services/api';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
@@ -18,8 +20,10 @@ import WarningIcon from '@mui/icons-material/Warning';
 import PhoneIcon from '@mui/icons-material/Phone';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import PeopleIcon from '@mui/icons-material/People';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import PieChartIcon from '@mui/icons-material/PieChart';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
 interface DayData {
     date: string;
@@ -94,6 +98,10 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
     const [dailyCashflow, setDailyCashflow] = useState<CashflowV2Response | null>(null);
 
     const [monthData, setMonthData] = useState<DayData[]>([]);
+    const [monthResumo, setMonthResumo] = useState<{
+        caixaBruto: number; producaoTotal: number; convenioAReceber: number;
+        porTipo: { particular: number; pacote: number; convenio: number; liminar: number };
+    } | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState(0);
     const [viewMode, setViewMode] = useState<'day' | 'month'>('day');
@@ -110,6 +118,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
     const [newPatientsModalOpen, setNewPatientsModalOpen] = useState(false);
     const [newSpecialtyModalOpen, setNewSpecialtyModalOpen] = useState(false);
     const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
+
+    // 🏥 Dados operacionais: retenção + pacientes sem próxima sessão
+    const { data: retentionData } = useRetentionSlots('', 30);
+    const [patientsWithoutNext, setPatientsWithoutNext] = useState(0);
+    const [patientsWithoutNextRecurrent, setPatientsWithoutNextRecurrent] = useState(0);
+    const [patientsWithoutNextImpact, setPatientsWithoutNextImpact] = useState(0);
+    const [patientsWithoutNextLoading, setPatientsWithoutNextLoading] = useState(false);
 
     const fetchAnalyticsForPeriod = useCallback(async () => {
         if (dateRange) {
@@ -151,6 +166,20 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
         }
     }, [activeTab]);
 
+    // Busca pacientes sem próxima sessão (somente em modo dia)
+    useEffect(() => {
+        if (viewMode !== 'day') return;
+        setPatientsWithoutNextLoading(true);
+        operationalService.getPatientsWithoutNextSession()
+            .then(res => {
+                setPatientsWithoutNext(res.total);
+                setPatientsWithoutNextRecurrent(res.recurrent);
+                setPatientsWithoutNextImpact(res.impactMonthly);
+            })
+            .catch(err => console.error('[UnifiedCashflowTab] Erro ao buscar pacientes sem próxima sessão:', err))
+            .finally(() => setPatientsWithoutNextLoading(false));
+    }, [viewMode, selectedDate]);
+
     // Carrega dados do mês quando muda para visualização mensal ou quando o filtro global muda
     useEffect(() => {
         if (viewMode === 'month') {
@@ -183,6 +212,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
             const monthStr = `${year}-${String(month).padStart(2, '0')}`;
             const res = await cashflowService.getMonthlyCashflow(monthStr);
             setMonthData(res.data.data);
+            if (res.data.resumo) setMonthResumo(res.data.resumo);
         } catch (error) {
             console.error('Erro ao carregar dados do mês:', error);
         } finally {
@@ -242,6 +272,10 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
         const mediaDiaria = diasComMovimento > 0 ? totalCaixa / diasComMovimento : 0;
         return { totalCaixa, totalProducao, totalAtendimentos, diasComMovimento, mediaDiaria };
     }, [monthData]);
+
+    // 🏥 Dados de retenção para o card "Grade em risco"
+    const retentionCritical = retentionData?.summary?.criticalSlots || 0;
+    const retentionLoss = retentionData?.summary?.potentialLossMonthly || 0;
 
     // Agrupar dados do mês por semana para visualização
     const weeksData = useMemo(() => {
@@ -328,249 +362,323 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                 // ===== VISUALIZAÇÃO DIÁRIA =====
                 <div>
                 <div>
-                    {/* Cards Principais - Caixa e Produção */}
-                    <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5 ${isMultiDayRange ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
+                    {/* ========== LINHA 1: Saúde Operacional do Dia ========== */}
+                    <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 ${isMultiDayRange ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
 
-                        {/* ── Caixa Total ── */}
+                        {/* ── Caixa Hoje ── */}
                         <div className="border border-emerald-200/70 rounded-2xl bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
-                            <div className="flex items-center gap-3 mb-4">
+                            <div className="flex items-center gap-3 mb-3">
                                 <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
                                     <AttachMoneyIcon style={{ fontSize: 20 }} className="text-emerald-600" />
                                 </div>
                                 <div>
-                                    <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Caixa</div>
+                                    <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Caixa Hoje</div>
                                     <div className="text-[11px] text-gray-400 leading-tight">Dinheiro Recebido</div>
                                 </div>
                             </div>
-                            <div className="text-[28px] font-extrabold text-emerald-700 leading-none tracking-tight mb-3">
+                            <div className="text-[26px] font-extrabold text-emerald-700 leading-none tracking-tight mb-2">
                                 {formatCurrency(data.caixa.total)}
                             </div>
-                            {data.receitaReal != null && data.receitaDiferida != null && data.caixa.total > 0 && (
-                                <div className="mb-3">
-                                    <div className="flex rounded-full overflow-hidden h-1 mb-1.5">
-                                        <div className="bg-emerald-500 transition-all" style={{ width: `${(data.receitaReal / data.caixa.total) * 100}%` }} />
-                                        <div className="flex-1 bg-amber-200" />
-                                    </div>
-                                    <div className="flex justify-between text-[10px]">
-                                        <span className="text-emerald-600 font-medium">Recebido {formatCurrency(data.receitaReal)}</span>
-                                        <span className="text-amber-500">Diferido {formatCurrency(data.receitaDiferida)}</span>
-                                    </div>
-                                </div>
-                            )}
-                            {(data.caixa.pix > 0 || data.caixa.cartao > 0 || data.caixa.dinheiro > 0 || data.caixa.transferencia > 0) && (
-                                <div className="pt-3 border-t border-gray-100 space-y-2">
-                                    <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Forma de Pagamento</div>
-                                    {data.caixa.pix > 0 && (
-                                        <div className="flex items-center justify-between">
-                                            <span className="flex items-center gap-2 text-xs text-gray-600"><span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />Pix</span>
-                                            <span className="text-xs font-semibold text-gray-800">{formatCurrency(data.caixa.pix)}</span>
-                                        </div>
-                                    )}
-                                    {data.caixa.cartao > 0 && (
-                                        <div className="flex items-center justify-between">
-                                            <span className="flex items-center gap-2 text-xs text-gray-600"><span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />Cartão</span>
-                                            <span className="text-xs font-semibold text-gray-800">{formatCurrency(data.caixa.cartao)}</span>
-                                        </div>
-                                    )}
-                                    {data.caixa.dinheiro > 0 && (
-                                        <div className="flex items-center justify-between">
-                                            <span className="flex items-center gap-2 text-xs text-gray-600"><span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />Dinheiro</span>
-                                            <span className="text-xs font-semibold text-gray-800">{formatCurrency(data.caixa.dinheiro)}</span>
-                                        </div>
-                                    )}
-                                    {data.caixa.transferencia > 0 && (
-                                        <div className="flex items-center justify-between">
-                                            <span className="flex items-center gap-2 text-xs text-gray-600"><span className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />Transferência</span>
-                                            <span className="text-xs font-semibold text-gray-800">{formatCurrency(data.caixa.transferencia)}</span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
                             {(() => {
-                                const tipos = [data.porTipo?.particular, data.porTipo?.pacote, data.porTipo?.convenio, data.porTipo?.liminar].filter(v => v > 0);
-                                if (tipos.length < 2) return null;
+                                const variacao = data.comparativos?.variacaoVsOntem ?? 0;
+                                const pos = variacao >= 0;
                                 return (
-                                    <div className="pt-3 mt-3 border-t border-gray-100 space-y-2">
-                                        <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Tipo de Receita</div>
-                                        {data.porTipo?.particular > 0 && (
-                                            <div className="flex items-center justify-between">
-                                                <span className="flex items-center gap-2 text-xs text-gray-600"><span className="w-2 h-2 rounded-full bg-cyan-400 flex-shrink-0" />Particular</span>
-                                                <span className="text-xs font-semibold text-gray-800">{formatCurrency(data.porTipo.particular)}</span>
+                                    <div className={`flex items-center gap-1 text-xs mb-3 ${pos ? 'text-emerald-600' : 'text-red-500'}`}>
+                                        {pos ? <ArrowUpwardIcon style={{ fontSize: 14 }} /> : <ArrowDownwardIcon style={{ fontSize: 14 }} />}
+                                        <span className="font-semibold">{pos ? '+' : ''}{variacao}%</span>
+                                        <span className="text-gray-400">vs ontem ({formatCurrency(data.comparativos?.ontem ?? 0)})</span>
+                                    </div>
+                                );
+                            })()}
+                            {/* Entrada Real vs Antecipação */}
+                            {(() => {
+                                const porTipo = data.porTipo || {};
+                                const sessoesDoDia = (data.transacoes || []).reduce((s: number, t: any) => s + (t.tipo !== 'Pacote' ? (t.valor || 0) : 0), 0);
+                                const vendaPacotes = porTipo.pacote || 0;
+                                const outros = data.caixa.total - sessoesDoDia - vendaPacotes;
+                                return (
+                                    <div className="pt-3 border-t border-gray-100 space-y-2">
+                                        <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Origem do Caixa</div>
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="flex items-center gap-2 text-gray-600"><span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />Sessões do dia</span>
+                                            <span className="font-semibold text-gray-800">{formatCurrency(sessoesDoDia)}</span>
+                                        </div>
+                                        {vendaPacotes > 0 && (
+                                            <div className="flex items-center justify-between text-xs">
+                                                <span className="flex items-center gap-2 text-gray-600"><span className="w-2 h-2 rounded-full bg-indigo-400 flex-shrink-0" />Venda de pacotes</span>
+                                                <span className="font-semibold text-gray-800">{formatCurrency(vendaPacotes)}</span>
                                             </div>
                                         )}
-                                        {data.porTipo?.pacote > 0 && (
-                                            <div className="flex items-center justify-between">
-                                                <span className="flex items-center gap-2 text-xs text-gray-600"><span className="w-2 h-2 rounded-full bg-indigo-400 flex-shrink-0" />Sessão de Pacote</span>
-                                                <span className="text-xs font-semibold text-gray-800">{formatCurrency(data.porTipo.pacote)}</span>
-                                            </div>
-                                        )}
-                                        {data.porTipo?.convenio > 0 && (
-                                            <div className="flex items-center justify-between">
-                                                <span className="flex items-center gap-2 text-xs text-gray-600"><span className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />Convênio</span>
-                                                <span className="text-xs font-semibold text-gray-800">{formatCurrency(data.porTipo.convenio)}</span>
-                                            </div>
-                                        )}
-                                        {data.porTipo?.liminar > 0 && (
-                                            <div className="flex items-center justify-between">
-                                                <span className="flex items-center gap-2 text-xs text-gray-600"><span className="w-2 h-2 rounded-full bg-rose-400 flex-shrink-0" />Liminar</span>
-                                                <span className="text-xs font-semibold text-gray-800">{formatCurrency(data.porTipo.liminar)}</span>
+                                        {outros > 10 && (
+                                            <div className="flex items-center justify-between text-xs">
+                                                <span className="flex items-center gap-2 text-gray-600"><span className="w-2 h-2 rounded-full bg-gray-400 flex-shrink-0" />Outros</span>
+                                                <span className="font-semibold text-gray-800">{formatCurrency(outros)}</span>
                                             </div>
                                         )}
                                     </div>
                                 );
                             })()}
-                            {data.despesas?.total > 0 && (
-                                <div className="pt-3 mt-3 border-t border-gray-100 space-y-1.5">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs text-gray-500">Despesas</span>
-                                        <span className="text-xs font-medium text-red-500">-{formatCurrency(data.despesas.total)}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-semibold text-gray-700">Líquido</span>
-                                        <span className="text-xs font-bold text-gray-900">{formatCurrency(data.saldo?.liquido ?? data.caixa.total - data.despesas.total)}</span>
-                                    </div>
-                                </div>
-                            )}
                         </div>
 
-                        {/* ── Produção Clínica ── */}
+                        {/* ── Produção Hoje ── */}
                         <div className="border border-blue-200/70 rounded-2xl bg-gradient-to-br from-blue-50 to-white p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
-                            <div className="flex items-center gap-3 mb-4">
+                            <div className="flex items-center gap-3 mb-3">
                                 <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
                                     <ShowChartIcon style={{ fontSize: 20 }} className="text-blue-600" />
                                 </div>
                                 <div>
-                                    <div className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Produção</div>
-                                    <div className="text-[11px] text-gray-400 leading-tight">Clínica</div>
+                                    <div className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Produção Hoje</div>
+                                    <div className="text-[11px] text-gray-400 leading-tight">Sessões Realizadas</div>
                                 </div>
                             </div>
-                            <div className="text-[28px] font-extrabold text-blue-700 leading-none tracking-tight mb-2">
+                            <div className="text-[26px] font-extrabold text-blue-700 leading-none tracking-tight mb-2">
                                 {formatCurrency(data.producao.total)}
                             </div>
-                            <div className="text-xs text-gray-500 mb-1">
+                            <div className="text-xs text-gray-500 mb-3">
                                 <span className="font-semibold text-gray-700">{data.producao.quantidadeAtendimentos}</span> atendimentos
                                 <span className="mx-1.5 text-gray-300">·</span>
                                 Ticket: <span className="font-semibold text-gray-700">{formatCurrency(data.producao.ticketMedio)}</span>
                             </div>
-                            <div className="text-[10px] text-gray-400 italic mb-3">Valor gerado pelos atendimentos realizados</div>
                             {(() => {
-                                const convenioTotal = (data.conveniosAtendidos || []).reduce((s: number, c: any) => s + (c.valor || 0), 0);
-                                if (convenioTotal === 0 && data.producao.aReceber === 0) return null;
+                                const pros = new Set((data.transacoes || []).map((t: any) => t.profissional).filter(Boolean));
+                                if (pros.size === 0) return null;
+                                return (
+                                    <div className="flex items-center gap-1.5 text-xs text-blue-600 mb-3">
+                                        <PeopleIcon style={{ fontSize: 14 }} />
+                                        <span className="font-medium">{pros.size} profissional{pros.size !== 1 ? 'es' : ''} ativo{pros.size !== 1 ? 's' : ''}</span>
+                                    </div>
+                                );
+                            })()}
+                            {/* Risco: % não recebido + convênio dominante */}
+                            {(() => {
+                                const total = data.producao.total || 1;
+                                const naoRecebido = (data.producao.aReceber || 0) + ((data.conveniosAtendidos || []).reduce((s: number, c: any) => s + (c.valor || 0), 0));
+                                const pctNaoRecebido = Math.round((naoRecebido / total) * 100);
+                                const porTipo = data.producao.porTipo || {};
+                                const convenioDominante = (porTipo.convenio || 0) > total * 0.5;
                                 return (
                                     <div className="pt-3 border-t border-gray-100 space-y-2">
-                                        {convenioTotal > 0 && (
-                                            <div className="flex items-center justify-between">
-                                                <span className="flex items-center gap-2 text-xs text-gray-600"><span className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />Convênio (próx. mês)</span>
-                                                <span className="text-xs font-semibold text-purple-700">{formatCurrency(convenioTotal)}</span>
+                                        {pctNaoRecebido > 0 && (
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-xs font-semibold ${pctNaoRecebido > 50 ? 'text-red-600' : pctNaoRecebido > 25 ? 'text-amber-600' : 'text-blue-600'}`}>
+                                                    ⚠️ {pctNaoRecebido}% ainda não recebidos
+                                                </span>
                                             </div>
                                         )}
-                                        {data.producao.aReceber > 0 && (
-                                            <div className="flex items-center justify-between">
-                                                <span className="flex items-center gap-2 text-xs text-gray-600"><span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />A receber (particular)</span>
-                                                <span className="text-xs font-semibold text-amber-700">{formatCurrency(data.producao.aReceber)}</span>
+                                        {convenioDominante && (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-semibold text-purple-600">💳 Convênio dominante hoje</span>
                                             </div>
                                         )}
+                                        {(() => {
+                                            const tipos = data.producao.porTipo || {};
+                                            const items = [
+                                                { label: 'Particular', value: tipos.particular || 0, color: 'bg-blue-100 text-blue-700' },
+                                                { label: 'Pacote', value: tipos.pacote || 0, color: 'bg-indigo-100 text-indigo-700' },
+                                                { label: 'Convênio', value: tipos.convenio || 0, color: 'bg-purple-100 text-purple-700' },
+                                                { label: 'Liminar', value: tipos.liminar || 0, color: 'bg-orange-100 text-orange-700' },
+                                            ].filter(i => i.value > 0);
+                                            if (items.length === 0) return null;
+                                            return (
+                                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                                    {items.map(i => (
+                                                        <span key={i.label} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${i.color}`}>
+                                                            {i.label} {formatCurrency(i.value)}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 );
                             })()}
                         </div>
 
-                        {/* ── A Receber ── */}
-                        {(() => {
-                            const particular = data.producao.aReceber;
-                            const convenioTotal = (data.conveniosAtendidos || []).reduce((s: number, c: any) => s + (c.valor || 0), 0);
-                            const total = particular + convenioTotal;
-                            const nParticular = data.pendentesCobranca?.length || 0;
-                            const nConvenio = (data.conveniosAtendidos || []).length;
+                        {/* ── Agenda Hoje ── */}
+                        {!isMultiDayRange && (() => {
+                            const all = analyticsData?.all || [];
+                            const agendados = all.filter((a: any) => !['converted', 'pre_agendado'].includes(a.operationalStatus));
+                            const atendidos = all.filter((a: any) => a.operationalStatus === 'completed');
+                            const confirmados = all.filter((a: any) => a.operationalStatus === 'confirmed');
+                            const aguardando = all.filter((a: any) => a.operationalStatus === 'scheduled');
+                            const faltas = all.filter((a: any) => ['missed', 'canceled'].includes(a.operationalStatus));
+                            const pct = agendados.length > 0 ? Math.round((atendidos.length / agendados.length) * 100) : 0;
                             return (
-                                <div className="border border-amber-200/70 rounded-2xl bg-gradient-to-br from-amber-50 to-white p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
-                                            <WarningIcon style={{ fontSize: 20 }} className="text-amber-500" />
+                                <div className="border border-sky-200/70 rounded-2xl bg-gradient-to-br from-sky-50 to-white p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="w-9 h-9 rounded-xl bg-sky-100 flex items-center justify-center flex-shrink-0">
+                                            <CalendarTodayIcon style={{ fontSize: 20 }} className="text-sky-600" />
                                         </div>
                                         <div>
-                                            <div className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">A Receber</div>
-                                            <div className="text-[11px] text-gray-400 leading-tight">Valores em Aberto</div>
+                                            <div className="text-[10px] font-bold text-sky-600 uppercase tracking-widest">Agenda Hoje</div>
+                                            <div className="text-[11px] text-gray-400 leading-tight">Estado da Operação</div>
                                         </div>
                                     </div>
-                                    <div className="text-[28px] font-extrabold text-amber-700 leading-none tracking-tight mb-4">
-                                        {formatCurrency(total)}
+                                    <div className="flex items-baseline gap-2 mb-1">
+                                        <span className="text-[26px] font-extrabold text-sky-700 leading-none tracking-tight">{atendidos.length}</span>
+                                        <span className="text-sm text-gray-400">/ {agendados.length}</span>
                                     </div>
-                                    <div className="pt-3 border-t border-gray-100 space-y-3">
-                                        <div>
-                                            <div className="flex items-center justify-between mb-0.5">
-                                                <span className="flex items-center gap-2 text-xs font-semibold text-gray-700"><span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />Particular</span>
-                                                <span className="text-xs font-bold text-blue-700">{formatCurrency(particular)}</span>
-                                            </div>
-                                            <div className="text-[10px] text-gray-400 pl-4">{particular > 0 ? `${nParticular} paciente${nParticular !== 1 ? 's' : ''} em débito` : 'Sem débitos'}</div>
+                                    <div className="text-xs text-gray-500 mb-3">{pct}% de presença</div>
+                                    <div className="pt-3 border-t border-gray-100 grid grid-cols-2 gap-x-3 gap-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Atendidos</span>
+                                            <span className="text-sm font-bold text-emerald-600">{atendidos.length}</span>
                                         </div>
-                                        <div>
-                                            <div className="flex items-center justify-between mb-0.5">
-                                                <span className="flex items-center gap-2 text-xs font-semibold text-gray-700"><span className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />Convênio</span>
-                                                <span className="text-xs font-bold text-purple-700">{formatCurrency(convenioTotal)}</span>
-                                            </div>
-                                            <div className="text-[10px] text-gray-400 pl-4">{convenioTotal > 0 ? `${nConvenio} atendimento${nConvenio !== 1 ? 's' : ''} a faturar` : 'Nenhum'}</div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Confirmados</span>
+                                            <span className="text-sm font-bold text-sky-600">{confirmados.length}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Aguardando</span>
+                                            <span className="text-sm font-bold text-amber-600">{aguardando.length}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Faltas</span>
+                                            <span className="text-sm font-bold text-red-500">{faltas.length}</span>
                                         </div>
                                     </div>
                                 </div>
                             );
                         })()}
 
-                        {/* ── vs Ontem mini chart — escondido em range multi-dia ── */}
-                        {!isMultiDayRange && (() => {
-                            const todayTx = (data.transacoes || []) as any[];
-                            const yesterdayTx = (data.transacoesOntem || []) as any[];
-                            const HOURS = [7,8,9,10,11,12,13,14,15,16,17,18,19];
-                            const buildCum = (tx: any[]) => { let c=0; return HOURS.map(h=>{c+=tx.filter(t=>parseInt((t.hora||'0:0').split(':')[0])===h).reduce((s:number,t:any)=>s+(t.valor||0),0);return c;}); };
-                            const tV=buildCum(todayTx), yV=buildCum(yesterdayTx);
-                            const mx=Math.max(...tV,...yV,1);
-                            const W=200,H=52,PL=3,PR=3,PT=5,PB=13,cW=W-PL-PR,cH=H-PT-PB;
-                            const px=(i:number)=>PL+(i/(HOURS.length-1))*cW;
-                            const py=(v:number)=>PT+cH-(v/mx)*cH;
-                            const mkP=(vals:number[])=>{const pts=vals.map((v,i)=>[px(i),py(v)]as[number,number]);let d=`M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;for(let i=1;i<pts.length;i++){const[ax,ay]=pts[i-1],[bx,by]=pts[i],m=((ax+bx)/2).toFixed(1);d+=` C${m},${ay.toFixed(1)} ${m},${by.toFixed(1)} ${bx.toFixed(1)},${by.toFixed(1)}`;}return d;};
-                            const mkA=(vals:number[])=>{const pts=vals.map((v,i)=>[px(i),py(v)]as[number,number]);return`${mkP(vals)} L${pts[pts.length-1][0].toFixed(1)},${PT+cH} L${PL},${PT+cH} Z`;};
-                            const variacao=data.comparativos.variacaoVsOntem,pos=variacao>=0,lc=pos?'#10b981':'#ef4444';
-                            return (
-                                <div className={`border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow duration-200 ${pos ? 'border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white' : 'border-red-200/70 bg-gradient-to-br from-red-50 to-white'}`}>
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${pos ? 'bg-emerald-100' : 'bg-red-100'}`}>
-                                                <TrendingUpIcon style={{ fontSize: 20 }} className={pos ? 'text-emerald-600' : 'text-red-500'} />
-                                            </div>
-                                            <div>
-                                                <div className={`text-[10px] font-bold uppercase tracking-widest ${pos ? 'text-emerald-600' : 'text-red-500'}`}>vs Ontem</div>
-                                                <div className="text-[11px] text-gray-400 leading-tight">Evolução do Caixa</div>
-                                            </div>
-                                        </div>
-                                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${pos ? 'text-emerald-700 bg-emerald-100' : 'text-red-600 bg-red-100'}`}>
-                                            {pos ? '+' : ''}{Math.abs(variacao)}%
-                                        </span>
-                                    </div>
-                                    <div className={`text-[28px] font-extrabold leading-none tracking-tight mb-3 ${pos ? 'text-emerald-700' : 'text-red-700'}`}>
-                                        {formatCurrency(data.caixa.total)}
-                                    </div>
-                                    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{height:'52px'}} preserveAspectRatio="none">
-                                        <defs>
-                                            <linearGradient id="cg2T" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={lc} stopOpacity="0.2"/><stop offset="100%" stopColor={lc} stopOpacity="0"/></linearGradient>
-                                            <linearGradient id="cg2Y" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#60a5fa" stopOpacity="0.15"/><stop offset="100%" stopColor="#60a5fa" stopOpacity="0"/></linearGradient>
-                                        </defs>
-                                        <path d={mkA(yV)} fill="url(#cg2Y)"/>
-                                        <path d={mkA(tV)} fill="url(#cg2T)"/>
-                                        <path d={mkP(yV)} fill="none" stroke="#60a5fa" strokeWidth="1.2" strokeDasharray="3,2" strokeLinecap="round"/>
-                                        <path d={mkP(tV)} fill="none" stroke={lc} strokeWidth="1.8" strokeLinecap="round"/>
-                                        <circle cx={px(HOURS.length-1)} cy={py(tV[HOURS.length-1])} r="3" fill={lc} fillOpacity="0.25"/>
-                                        <circle cx={px(HOURS.length-1)} cy={py(tV[HOURS.length-1])} r="1.8" fill={lc}/>
-                                        {[0,6,12].map(i=>(<text key={i} x={px(i)} y={H-1} textAnchor="middle" fontSize="6" fill="#d1d5db">{HOURS[i]}h</text>))}
-                                    </svg>
-                                    <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-                                        <span className="text-xs text-gray-500">Ontem</span>
-                                        <span className="text-xs font-semibold text-gray-700">{formatCurrency(data.comparativos.ontem)}</span>
-                                    </div>
+                        {/* ── Pendências Hoje ── */}
+                        <div className="border border-amber-200/70 rounded-2xl bg-gradient-to-br from-amber-50 to-white p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                    <WarningIcon style={{ fontSize: 20 }} className="text-amber-600" />
                                 </div>
-                            );
-                        })()}
+                                <div>
+                                    <div className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Pendências Hoje</div>
+                                    <div className="text-[11px] text-gray-400 leading-tight">Ações Necessárias</div>
+                                </div>
+                            </div>
+                            {(() => {
+                                const nPendentes = data.pendentesCobranca?.length || 0;
+                                const nConvenios = data.conveniosAtendidos?.length || 0;
+                                const particular = data.producao.aReceber || 0;
+                                const convenioTotal = (data.conveniosAtendidos || []).reduce((s: number, c: any) => s + (c.valor || 0), 0);
+                                const totalAberto = particular + convenioTotal;
+                                return (
+                                    <>
+                                        <div className="text-[26px] font-extrabold text-amber-700 leading-none tracking-tight mb-1">
+                                            {formatCurrency(totalAberto)}
+                                        </div>
+                                        <div className="text-xs text-gray-500 mb-3">Total em aberto</div>
+                                        <div className="pt-3 border-t border-gray-100 space-y-2.5">
+                                            {nPendentes > 0 && (
+                                                <div className="flex items-start gap-2">
+                                                    <span className="text-lg leading-none">⚠️</span>
+                                                    <div className="flex-1">
+                                                        <div className="text-sm font-bold text-gray-800">{nPendentes} cobrança{nPendentes !== 1 ? 's' : ''} pendente{nPendentes !== 1 ? 's' : ''}</div>
+                                                        <div className="text-xs text-amber-700 font-semibold">{formatCurrency(particular)} aguardando</div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {nConvenios > 0 && (
+                                                <div className="flex items-start gap-2">
+                                                    <span className="text-lg leading-none">🏥</span>
+                                                    <div className="flex-1">
+                                                        <div className="text-sm font-bold text-gray-800">{nConvenios} convênio{nConvenios !== 1 ? 's' : ''} sem faturamento</div>
+                                                        <div className="text-xs text-purple-700 font-semibold">{formatCurrency(convenioTotal)} a faturar</div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {totalAberto === 0 && (
+                                                <div className="text-sm text-emerald-600 font-medium">🎉 Nenhuma pendência hoje!</div>
+                                            )}
+                                        </div>
+                                    </>
+                                );
+                            })()}
+                        </div>
                     </div>
 
+                    {/* ========== LINHA 2: Riscos Operacionais ========== */}
+                    {!isMultiDayRange && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                            {/* Sem próxima sessão */}
+                            <button
+                                onClick={() => setActiveTab(4)}
+                                className={`text-left rounded-xl border p-4 transition-all group ${patientsWithoutNext > 0 ? 'bg-red-50 border-red-200 hover:border-red-400 hover:shadow-md cursor-pointer' : 'bg-gray-50 border-gray-200 cursor-default'}`}
+                            >
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-lg">🚨</span>
+                                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Sem próxima sessão</span>
+                                    </div>
+                                    {patientsWithoutNext > 0 && (
+                                        <ArrowForwardIcon style={{ fontSize: 16 }} className="text-red-400 group-hover:text-red-600 transition-colors" />
+                                    )}
+                                </div>
+                                <div className={`text-2xl font-bold ${patientsWithoutNext > 0 ? 'text-red-700' : 'text-gray-400'}`}>{patientsWithoutNext}</div>
+                                <div className="text-[11px] text-gray-500">pacientes</div>
+                                {patientsWithoutNextRecurrent > 0 && (
+                                    <div className="mt-2 text-xs text-red-600 font-semibold">
+                                        {patientsWithoutNextRecurrent} recorrentes · {formatCurrency(patientsWithoutNextImpact)}/mês
+                                    </div>
+                                )}
+                            </button>
+
+                            {/* Grade em risco */}
+                            <button
+                                onClick={() => window.location.href = '/retention'}
+                                className={`text-left rounded-xl border p-4 transition-all group ${retentionCritical > 0 ? 'bg-orange-50 border-orange-200 hover:border-orange-400 hover:shadow-md cursor-pointer' : 'bg-gray-50 border-gray-200 cursor-default'}`}
+                            >
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-lg">⚠️</span>
+                                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Grade em risco</span>
+                                    </div>
+                                    {retentionCritical > 0 && (
+                                        <ArrowForwardIcon style={{ fontSize: 16 }} className="text-orange-400 group-hover:text-orange-600 transition-colors" />
+                                    )}
+                                </div>
+                                <div className={`text-2xl font-bold ${retentionCritical > 0 ? 'text-orange-700' : 'text-gray-400'}`}>{retentionCritical}</div>
+                                <div className="text-[11px] text-gray-500">horários críticos</div>
+                                {retentionLoss > 0 && (
+                                    <div className="mt-2 text-xs text-orange-600 font-semibold">
+                                        Perda potencial: {formatCurrency(retentionLoss)}/mês
+                                    </div>
+                                )}
+                            </button>
+
+                            {/* Cobranças */}
+                            <button
+                                onClick={() => setActiveTab(1)}
+                                className={`text-left rounded-xl border p-4 transition-all group ${(data.pendentesCobranca?.length || 0) > 0 ? 'bg-amber-50 border-amber-200 hover:border-amber-400 hover:shadow-md cursor-pointer' : 'bg-gray-50 border-gray-200 cursor-default'}`}
+                            >
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <WarningIcon style={{ fontSize: 18 }} className={(data.pendentesCobranca?.length || 0) > 0 ? 'text-amber-600' : 'text-gray-400'} />
+                                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Cobrança</span>
+                                    </div>
+                                    {(data.pendentesCobranca?.length || 0) > 0 && (
+                                        <ArrowForwardIcon style={{ fontSize: 16 }} className="text-amber-400 group-hover:text-amber-600 transition-colors" />
+                                    )}
+                                </div>
+                                <div className={`text-2xl font-bold ${(data.pendentesCobranca?.length || 0) > 0 ? 'text-amber-700' : 'text-gray-400'}`}>{data.pendentesCobranca?.length || 0}</div>
+                                <div className="text-[11px] text-gray-500">pendências</div>
+                            </button>
+
+                            {/* Convênios */}
+                            <button
+                                onClick={() => setActiveTab(3)}
+                                className={`text-left rounded-xl border p-4 transition-all group ${(data.conveniosAtendidos?.length || 0) > 0 ? 'bg-purple-50 border-purple-200 hover:border-purple-400 hover:shadow-md cursor-pointer' : 'bg-gray-50 border-gray-200 cursor-default'}`}
+                            >
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <ShowChartIcon style={{ fontSize: 18 }} className={(data.conveniosAtendidos?.length || 0) > 0 ? 'text-purple-600' : 'text-gray-400'} />
+                                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Convênios</span>
+                                    </div>
+                                    {(data.conveniosAtendidos?.length || 0) > 0 && (
+                                        <ArrowForwardIcon style={{ fontSize: 16 }} className="text-purple-400 group-hover:text-purple-600 transition-colors" />
+                                    )}
+                                </div>
+                                <div className={`text-2xl font-bold ${(data.conveniosAtendidos?.length || 0) > 0 ? 'text-purple-700' : 'text-gray-400'}`}>{data.conveniosAtendidos?.length || 0}</div>
+                                <div className="text-[11px] text-gray-500">para faturar</div>
+                            </button>
+                        </div>
+                    )}
                     {/* Card de Pacientes Novos {periodTitle} */}
                     {(() => {
                         const leads = analyticsData?.leads || [];
@@ -1156,32 +1264,49 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
             ) : viewMode === 'month' ? (
                 // ===== VISUALIZAÇÃO MENSAL =====
                 <div>
-                    {/* Cards Resumo do Mês */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-                        <div className="border border-emerald-200 rounded-xl bg-emerald-50 p-3">
-                            <div className="text-xs text-gray-600">Total em Caixa</div>
-                            <div className="text-2xl font-bold text-emerald-700">{formatCurrency(monthTotals.totalCaixa)}</div>
-                            <div className="text-xs text-gray-500">{monthTotals.diasComMovimento} dias com movimento</div>
-                        </div>
-                        <div className="border border-blue-200 rounded-xl bg-blue-50 p-3">
-                            <div className="text-xs text-gray-600">Produção Clínica</div>
-                            <div className="text-2xl font-bold text-blue-700">{formatCurrency(monthTotals.totalProducao)}</div>
-                            <div className="text-xs text-gray-500">{monthTotals.totalAtendimentos} atendimentos</div>
-                            <div className="text-[10px] text-gray-400 italic mt-0.5">Valor gerado pelos atendimentos</div>
-                        </div>
-                        <div className="border border-amber-200 rounded-xl bg-amber-50 p-3">
-                            <div className="text-xs text-gray-600">Média Diária</div>
-                            <div className="text-2xl font-bold text-amber-700">{formatCurrency(monthTotals.mediaDiaria)}</div>
-                            <div className="text-xs text-gray-500">Projeção: {formatCurrency(monthTotals.mediaDiaria * 30)}</div>
-                        </div>
-                        <div className="border border-purple-200 rounded-xl bg-purple-50 p-3">
-                            <div className="text-xs text-gray-600">Ticket Médio</div>
-                            <div className="text-2xl font-bold text-purple-700">
-                                {formatCurrency(monthTotals.totalAtendimentos > 0 ? monthTotals.totalProducao / monthTotals.totalAtendimentos : 0)}
+                    {/* Painel Analítico — Visão Gerencial */}
+                    {monthResumo && (
+                        <div className="mb-4 border border-gray-200 rounded-xl bg-white p-4">
+                            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Visão Gerencial</div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                                    <div className="text-[11px] text-gray-500 mb-0.5">Caixa Real</div>
+                                    <div className="text-xl font-bold text-emerald-700">{formatCurrency(monthResumo.caixaBruto)}</div>
+                                    <div className="text-[10px] text-gray-400 mt-1">dinheiro efetivamente recebido</div>
+                                </div>
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                    <div className="text-[11px] text-gray-500 mb-0.5">Produção Clínica</div>
+                                    <div className="text-xl font-bold text-blue-700">{formatCurrency(monthResumo.producaoTotal)}</div>
+                                    {monthResumo.convenioAReceber > 0 && (
+                                        <div className="text-[10px] text-purple-600 mt-1">
+                                            inclui {formatCurrency(monthResumo.convenioAReceber)} convênio a receber
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="bg-violet-50 border border-violet-200 rounded-lg p-3">
+                                    <div className="text-[11px] text-gray-500 mb-0.5">Resultado Econômico</div>
+                                    <div className="text-xl font-bold text-violet-700">{formatCurrency(monthResumo.caixaBruto + monthResumo.convenioAReceber)}</div>
+                                    <div className="text-[10px] text-gray-400 mt-1">caixa + convênio a receber</div>
+                                </div>
+                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                    <div className="text-[11px] text-gray-500 mb-0.5">Produção por tipo</div>
+                                    <div className="space-y-1 mt-1">
+                                        {[
+                                            { label: 'Particular', v: monthResumo.porTipo.particular, color: 'text-blue-600' },
+                                            { label: 'Pacote', v: monthResumo.porTipo.pacote, color: 'text-indigo-600' },
+                                            { label: 'Convênio', v: monthResumo.porTipo.convenio, color: 'text-purple-600' },
+                                            { label: 'Liminar', v: monthResumo.porTipo.liminar, color: 'text-orange-600' },
+                                        ].filter(i => i.v > 0).map(i => (
+                                            <div key={i.label} className="flex justify-between text-[11px]">
+                                                <span className="text-gray-500">{i.label}</span>
+                                                <span className={`font-semibold ${i.color}`}>{formatCurrency(i.v)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
-                            <div className="text-xs text-gray-500">por atendimento</div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Tabela de Dias */}
                     <div className="bg-white rounded-lg border border-gray-200 p-3">
@@ -1209,6 +1334,17 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                             </td>
                                         </tr>
                                     ))}
+                                    {monthData.some(d => d.caixa > 0 || d.producao > 0) && (
+                                        <tr className="border-t-2 border-gray-300 bg-gray-100 font-bold">
+                                            <td className="px-3 py-2">Total</td>
+                                            <td className="px-3 py-2 text-right text-emerald-700">{formatCurrency(monthResumo?.caixaBruto ?? monthTotals.totalCaixa)}</td>
+                                            <td className="px-3 py-2 text-right text-blue-700">{formatCurrency(monthResumo?.producaoTotal ?? monthTotals.totalProducao)}</td>
+                                            <td className="px-3 py-2 text-right text-gray-800">{monthTotals.totalAtendimentos}</td>
+                                            <td className="px-3 py-2 text-right text-gray-800">
+                                                {(monthResumo?.producaoTotal ?? monthTotals.totalProducao) > 0 ? (((monthResumo?.caixaBruto ?? monthTotals.totalCaixa) / (monthResumo?.producaoTotal ?? monthTotals.totalProducao)) * 100).toFixed(1) : 0}%
+                                            </td>
+                                        </tr>
+                                    )}
                                     {!monthData.some(d => d.caixa > 0 || d.producao > 0) && (
                                         <tr><td colSpan={5} className="text-center py-4 text-gray-500">Nenhum movimento neste mês</td></tr>
                                     )}

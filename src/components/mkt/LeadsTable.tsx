@@ -163,7 +163,6 @@ const LeadTable: React.FC<LeadTableProps> = ({
                     ))}
                 </tbody>
             </table>
-            </div>
 
             {leads.length === 0 && !loading && (
                 <div className="text-center py-8">

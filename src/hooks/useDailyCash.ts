@@ -46,7 +46,7 @@ export const useDailyCash = () => {
         total: 0,
         count: 0,
         porMetodo: { pix: 0, cartao: 0, dinheiro: 0, convenio: 0, outros: 0 },
-        porTipo: { particular: 0, convenio: 0, pacote: 0, liminar: 0 }
+        porTipo: { particular: 0, convenio: 0, pacote: 0, liminar: 0 },
         lista: []
     });
     const [loading, setLoading] = useState(false);
@@ -61,10 +61,10 @@ export const useDailyCash = () => {
             total: 0,
             count: 0,
             porMetodo: { pix: 0, cartao: 0, dinheiro: 0, convenio: 0, outros: 0 },
-            porTipo: { particular: 0, convenio: 0, pacote: 0, liminar: 0 }
+            porTipo: { particular: 0, convenio: 0, pacote: 0, liminar: 0 },
             lista: []
         });
-        
+
         setLoading(true);
         setError(null);
         
@@ -158,7 +158,7 @@ export const useDailyCash = () => {
             total: 0,
             count: 0,
             porMetodo: { pix: 0, cartao: 0, dinheiro: 0, convenio: 0, outros: 0 },
-            porTipo: { particular: 0, convenio: 0, pacote: 0, liminar: 0 }
+            porTipo: { particular: 0, convenio: 0, pacote: 0, liminar: 0 },
             lista: []
         });
     }, []);
