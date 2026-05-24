@@ -57,12 +57,18 @@ function PaymentStatusBadge({ status }: { status?: string }) {
 }
 
 export function PatientAppointmentsTable({ appointments }: Props) {
-  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const now = new Date();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthKey);
   const [selectedDay, setSelectedDay] = useState<string>('all');
 
-  // Extrai meses únicos dos appointments
+  // Extrai meses únicos dos appointments — sempre inclui o mês atual
   const months = useMemo(() => {
     const map = new Map<string, string>();
+    const now = new Date();
+    const nowKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const nowLabel = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    map.set(nowKey, nowLabel);
     appointments.forEach((appt) => {
       const d = new Date(appt.date);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;

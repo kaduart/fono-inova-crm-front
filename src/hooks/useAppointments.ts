@@ -165,7 +165,7 @@ export const useAppointments = () => {
             // 🚀 V2: Usa listV2 com filtro de patientId
             const response = await appointmentService.list({
                 patientId: id,
-                limit: 100
+                limit: 500
             });
             // Extrai appointments da resposta V2
             return response.data?.data?.appointments || response.data?.data || [];
