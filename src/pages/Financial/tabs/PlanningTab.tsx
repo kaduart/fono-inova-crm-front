@@ -490,114 +490,65 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
               <Chip size="small" label="Em andamento" sx={{ bgcolor: '#8B5CF620', color: '#8B5CF6', fontSize: '0.7rem' }} />
             )}
           </Box>
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <Card variant="outlined" sx={{ borderRadius: 2, height: '100%' }}>
-                <CardContent sx={{ p: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Avatar sx={{ bgcolor: '#8B5CF6', width: 36, height: 36 }}>
-                      <AttachMoney sx={{ fontSize: 18 }} />
-                    </Avatar>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary" fontWeight={500}>
-                        Meta do Mês
-                      </Typography>
-                      <Typography variant="h6" fontWeight="bold" color="#8B5CF6">
-                        {formatCurrency(monthlyOfMonth?.targets?.expectedRevenue || 0)}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <Card variant="outlined" sx={{ borderRadius: 2, height: '100%' }}>
-                <CardContent sx={{ p: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Avatar sx={{ bgcolor: '#10B981', width: 36, height: 36 }}>
-                      <CheckCircle sx={{ fontSize: 18 }} />
-                    </Avatar>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary" fontWeight={500}>
-                        Produção Realizada
-                      </Typography>
-                      <Typography variant="h6" fontWeight="bold" color="#10B981">
-                        {formatCurrency(dashData?.data?.resultadoEconomico || dashData?.resumo?.producao || monthlyOfMonth?.actual?.actualRevenue || 0)}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {monthlyOfMonth?.targets?.expectedRevenue > 0
-                          ? (((dashData?.data?.resultadoEconomico || dashData?.resumo?.producao || 0) / monthlyOfMonth.targets.expectedRevenue) * 100).toFixed(0)
-                          : (monthlyOfMonth?.progress?.revenuePercentage || 0).toFixed(0)}% da meta
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <Card variant="outlined" sx={{ borderRadius: 2, height: '100%' }}>
-                <CardContent sx={{ p: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Avatar sx={{ bgcolor: '#059669', width: 36, height: 36 }}>
-                      <AttachMoney sx={{ fontSize: 18 }} />
-                    </Avatar>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary" fontWeight={500}>
-                        Caixa Recebido
-                      </Typography>
-                      <Typography variant="h6" fontWeight="bold" color="#059669">
-                        {formatCurrency(dashData?.resumo?.caixa || 0)}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        dinheiro efetivamente recebido
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <Card variant="outlined" sx={{ borderRadius: 2, height: '100%' }}>
-                <CardContent sx={{ p: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Avatar sx={{ bgcolor: '#F59E0B', width: 36, height: 36 }}>
-                      <EventSeat sx={{ fontSize: 18 }} />
-                    </Avatar>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary" fontWeight={500}>
-                        Sessões
-                      </Typography>
-                      <Typography variant="h6" fontWeight="bold" color="#F59E0B">
-                        {monthlyOfMonth?.actual?.completedSessions || 0} / {monthlyOfMonth?.targets?.totalSessions || 0}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {(monthlyOfMonth?.progress?.sessionsPercentage || 0).toFixed(0)}% realizadas
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <Card variant="outlined" sx={{ borderRadius: 2, height: '100%' }}>
-                <CardContent sx={{ p: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Avatar sx={{ bgcolor: '#3B82F6', width: 36, height: 36 }}>
-                      <AccessTime sx={{ fontSize: 18 }} />
-                    </Avatar>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary" fontWeight={500}>
-                        Horas
-                      </Typography>
-                      <Typography variant="h6" fontWeight="bold" color="#3B82F6">
-                        {monthlyOfMonth?.actual?.workedHours?.toFixed(0) || 0}h / {monthlyOfMonth?.targets?.workHours || 0}h
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {/* Meta do Mês */}
+            <div className="rounded-2xl border-2 p-4 shadow-sm" style={{ borderColor: '#8B5CF6', backgroundColor: '#F5F3FF' }}>
+              <span className="text-xs font-black uppercase tracking-widest" style={{ color: '#7C3AED' }}>Meta do Mês</span>
+              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
+                {formatCurrency(monthlyOfMonth?.targets?.expectedRevenue || 0)}
+              </div>
+            </div>
+
+            {/* Produção Realizada */}
+            <div className="rounded-2xl border-2 p-4 shadow-sm" style={{ borderColor: '#10B981', backgroundColor: '#F0FDF4' }}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-black uppercase tracking-widest" style={{ color: '#059669' }}>Produção</span>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                  {(() => {
+                    const real = dashData?.data?.resultadoEconomico || dashData?.resumo?.producao || monthlyOfMonth?.actual?.actualRevenue || 0;
+                    const meta = monthlyOfMonth?.targets?.expectedRevenue || 0;
+                    return meta > 0 ? Math.min(100, (real / meta) * 100).toFixed(0) : 0;
+                  })()}%
+                </span>
+              </div>
+              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
+                {formatCurrency(dashData?.data?.resultadoEconomico || dashData?.resumo?.producao || monthlyOfMonth?.actual?.actualRevenue || 0)}
+              </div>
+              <div className="text-xs text-gray-500">da meta</div>
+            </div>
+
+            {/* Caixa Recebido */}
+            <div className="rounded-2xl border-2 p-4 shadow-sm" style={{ borderColor: '#059669', backgroundColor: '#ECFDF5' }}>
+              <span className="text-xs font-black uppercase tracking-widest" style={{ color: '#047857' }}>Caixa Recebido</span>
+              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
+                {formatCurrency(dashData?.resumo?.caixa || 0)}
+              </div>
+              <div className="text-xs text-gray-500">dinheiro recebido</div>
+            </div>
+
+            {/* Sessões */}
+            <div className="rounded-2xl border-2 p-4 shadow-sm" style={{ borderColor: '#F59E0B', backgroundColor: '#FFFBEB' }}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-black uppercase tracking-widest" style={{ color: '#B45309' }}>Sessões</span>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                  {(monthlyOfMonth?.progress?.sessionsPercentage || 0).toFixed(0)}%
+                </span>
+              </div>
+              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
+                {monthlyOfMonth?.actual?.completedSessions || 0} / {monthlyOfMonth?.targets?.totalSessions || 0}
+              </div>
+              <div className="text-xs text-gray-500">realizadas</div>
+            </div>
+
+            {/* Horas */}
+            <div className="rounded-2xl border-2 p-4 shadow-sm col-span-2 md:col-span-1" style={{ borderColor: '#3B82F6', backgroundColor: '#EFF6FF' }}>
+              <span className="text-xs font-black uppercase tracking-widest" style={{ color: '#1D4ED8' }}>Horas</span>
+              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
+                {monthlyOfMonth?.actual?.workedHours?.toFixed(0) || 0}h / {monthlyOfMonth?.targets?.workHours || 0}h
+              </div>
+              <div className="text-xs text-gray-500">trabalhadas</div>
+            </div>
+          </div>
         </Box>
       )}
 
@@ -1371,88 +1322,60 @@ const PlanningCard = ({
           <Divider sx={{ my: 1.5 }} />
 
           {/* Métricas */}
-          <Grid container spacing={1.5} sx={{ mb: 2 }}>
-            <Grid size={{ xs: 4 }}>
-              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#F9FAFB' }}>
-                <Typography variant="caption" color="text.secondary" display="block">
-                  Meta Receita
-                </Typography>
-                <Typography variant={isMonthly ? 'h6' : 'body1'} fontWeight="bold" color={typeColors.main}>
-                  {formatCurrency(planning.targets?.expectedRevenue || 0)}
-                </Typography>
-              </Paper>
-            </Grid>
-            <Grid size={{ xs: 4 }}>
-              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#f0fdf4' }}>
-                <Typography variant="caption" color="text.secondary" display="block">
-                  Resultado Econômico
-                </Typography>
-                <Typography variant={isMonthly ? 'h6' : 'body1'} fontWeight="bold" color="#059669">
-                  {formatCurrency(dashData?.data?.resultadoEconomico || planning.actual?.actualRevenue || 0)}
-                </Typography>
-              </Paper>
-            </Grid>
-            <Grid size={{ xs: 4 }}>
-              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#eff6ff' }}>
-                <Typography variant="caption" color="text.secondary" display="block">
-                  Caixa Recebido
-                </Typography>
-                <Typography variant={isMonthly ? 'h6' : 'body1'} fontWeight="bold" color="#2563eb">
-                  {formatCurrency(dashData?.resumo?.caixa || 0)}
-                </Typography>
-              </Paper>
-            </Grid>
-          </Grid>
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="rounded-xl border-2 p-3" style={{ borderColor: typeColors.border, backgroundColor: typeColors.bg }}>
+              <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Meta Receita</div>
+              <div className="text-base font-black text-gray-900 tracking-tight leading-none">
+                {formatCurrency(planning.targets?.expectedRevenue || 0)}
+              </div>
+            </div>
+            <div className="rounded-xl border-2 p-3" style={{ borderColor: '#10B981', backgroundColor: '#F0FDF4' }}>
+              <div className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">Resultado</div>
+              <div className="text-base font-black text-gray-900 tracking-tight leading-none">
+                {formatCurrency(dashData?.data?.resultadoEconomico || planning.actual?.actualRevenue || 0)}
+              </div>
+            </div>
+            <div className="rounded-xl border-2 p-3" style={{ borderColor: '#3B82F6', backgroundColor: '#EFF6FF' }}>
+              <div className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1">Caixa</div>
+              <div className="text-base font-black text-gray-900 tracking-tight leading-none">
+                {formatCurrency(dashData?.resumo?.caixa || 0)}
+              </div>
+            </div>
+          </div>
 
           {/* Progresso */}
-          <Box sx={{ mb: 1.5 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-              <Typography variant="caption" color="text.secondary">
-                Receita
-              </Typography>
-              <Typography variant="caption" fontWeight="600">
-                {(() => {
-                  const realizado = dashData?.data?.resultadoEconomico || dashData?.resumo?.producao || planning.actual?.actualRevenue || 0;
-                  const meta = planning.targets?.expectedRevenue || 0;
-                  return meta > 0 ? Math.min((realizado / meta) * 100, 100).toFixed(0) : 0;
-                })()}%
-              </Typography>
-            </Box>
-            <LinearProgress
-              variant="determinate"
-              value={(() => {
-                const realizado = dashData?.data?.resultadoEconomico || dashData?.resumo?.producao || planning.actual?.actualRevenue || 0;
-                const meta = planning.targets?.expectedRevenue || 0;
-                return meta > 0 ? Math.min((realizado / meta) * 100, 100) : 0;
-              })()}
-              sx={{
-                height: 6,
-                borderRadius: 3,
-                bgcolor: '#E5E7EB',
-                '& .MuiLinearProgress-bar': { bgcolor: (dashData?.data?.resultadoEconomico || dashData?.resumo?.producao || planning.actual?.actualRevenue || 0) >= (planning.targets?.expectedRevenue || 0) ? '#10B981' : typeColors.main },
-              }}
-            />
-          </Box>
-          <Box sx={{ mb: 1.5 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-              <Typography variant="caption" color="text.secondary">
-                Sessões
-              </Typography>
-              <Typography variant="caption" fontWeight="600">
-                {planning.progress?.sessionsPercentage || 0}%
-              </Typography>
-            </Box>
-            <LinearProgress
-              variant="determinate"
-              value={Math.min(planning.progress?.sessionsPercentage || 0, 100)}
-              sx={{
-                height: 6,
-                borderRadius: 3,
-                bgcolor: '#E5E7EB',
-                '& .MuiLinearProgress-bar': { bgcolor: planning.progress?.sessionsPercentage >= 100 ? '#10B981' : '#3B82F6' },
-              }}
-            />
-          </Box>
+          <div className="mb-3">
+            <p className="text-xs text-gray-400 mb-1">Receita</p>
+            {(() => {
+              const realizado = dashData?.data?.resultadoEconomico || dashData?.resumo?.producao || planning.actual?.actualRevenue || 0;
+              const meta = planning.targets?.expectedRevenue || 0;
+              const pct = meta > 0 ? Math.min((realizado / meta) * 100, 100) : 0;
+              const barColor = realizado >= meta ? '#10B981' : typeColors.main;
+              return (
+                <div className="h-4 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full flex items-center transition-all duration-700"
+                    style={{ width: `${pct}%`, backgroundColor: barColor, minWidth: pct > 0 ? '2.5rem' : 0 }}>
+                    {pct >= 8 && <span className="text-[10px] font-black text-white pl-2 leading-none">{pct.toFixed(0)}%</span>}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+          <div className="mb-3">
+            <p className="text-xs text-gray-400 mb-1">Sessões</p>
+            {(() => {
+              const pct = Math.min(planning.progress?.sessionsPercentage || 0, 100);
+              const barColor = pct >= 100 ? '#10B981' : '#3B82F6';
+              return (
+                <div className="h-4 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full flex items-center transition-all duration-700"
+                    style={{ width: `${pct}%`, backgroundColor: barColor, minWidth: pct > 0 ? '2.5rem' : 0 }}>
+                    {pct >= 8 && <span className="text-[10px] font-black text-white pl-2 leading-none">{pct.toFixed(0)}%</span>}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
 
           {/* Expandir detalhes */}
           <Collapse in={expanded}>

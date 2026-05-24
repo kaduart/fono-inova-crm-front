@@ -922,6 +922,11 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                     <p className="text-[10px] text-gray-400">margem</p>
                   </div>
                 </div>
+                {expenses.breakdown && (
+                  <div className="text-[10px] text-amber-700 mb-2 space-y-0.5">
+                    <p>{formatCurrency(expenses.breakdown.expenses ?? 0)} despesas · {formatCurrency(expenses.breakdown.comissoes ?? 0)} comissões</p>
+                  </div>
+                )}
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${margemStatus.cls}`}>
                   {margemStatus.text}
                 </span>
@@ -1614,21 +1619,22 @@ const BreakdownList = ({ items, total }: { items: Array<{ label: string; value: 
         const pct = total > 0 ? (item.value / total) * 100 : 0;
         return (
           <div key={idx}>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-2">
                 <span className={`w-2.5 h-2.5 rounded-full ${colorDot[item.color] ?? 'bg-gray-400'} shrink-0`} />
                 <span className="text-sm font-medium text-gray-700">{item.label}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-gray-900">{formatCurrency(item.value)}</span>
-                <span className="text-xs text-gray-400 w-10 text-right">{pct.toFixed(1)}%</span>
-              </div>
+              <span className="text-sm font-bold text-gray-900">{formatCurrency(item.value)}</span>
             </div>
-            <div className="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-4 w-full bg-gray-100 rounded-full overflow-hidden">
               <div
-                className={`h-full ${colorBar[item.color] ?? 'bg-gray-400'} rounded-full transition-all duration-700`}
-                style={{ width: `${pct}%` }}
-              />
+                className={`h-full ${colorBar[item.color] ?? 'bg-gray-400'} rounded-full transition-all duration-700 flex items-center justify-end`}
+                style={{ width: `${Math.max(pct, 0)}%`, minWidth: pct > 0 ? '2.5rem' : 0 }}
+              >
+                {pct >= 8 && (
+                  <span className="text-[10px] font-black text-white pr-2 leading-none">{pct.toFixed(1)}%</span>
+                )}
+              </div>
             </div>
           </div>
         );

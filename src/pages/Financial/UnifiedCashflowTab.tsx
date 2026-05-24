@@ -366,13 +366,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                     <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 ${isMultiDayRange ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
 
                         {/* ── Caixa Hoje ── */}
-                        <div className="border border-emerald-200/70 rounded-2xl bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
+                        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#10B981', backgroundColor: '#F0FDF4' }}>
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
                                     <AttachMoneyIcon style={{ fontSize: 20 }} className="text-emerald-600" />
                                 </div>
                                 <div>
-                                    <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Caixa Hoje</div>
+                                    <div className="text-xs font-black text-emerald-700 uppercase tracking-widest">Caixa Hoje</div>
                                     <div className="text-[11px] text-gray-400 leading-tight">Dinheiro Recebido</div>
                                 </div>
                             </div>
@@ -421,13 +421,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                         </div>
 
                         {/* ── Produção Hoje ── */}
-                        <div className="border border-blue-200/70 rounded-2xl bg-gradient-to-br from-blue-50 to-white p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
+                        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#3B82F6', backgroundColor: '#EFF6FF' }}>
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
                                     <ShowChartIcon style={{ fontSize: 20 }} className="text-blue-600" />
                                 </div>
                                 <div>
-                                    <div className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Produção Hoje</div>
+                                    <div className="text-xs font-black text-blue-700 uppercase tracking-widest">Produção Hoje</div>
                                     <div className="text-[11px] text-gray-400 leading-tight">Sessões Realizadas</div>
                                 </div>
                             </div>
@@ -504,13 +504,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                             const faltas = all.filter((a: any) => ['missed', 'canceled'].includes(a.operationalStatus));
                             const pct = agendados.length > 0 ? Math.round((atendidos.length / agendados.length) * 100) : 0;
                             return (
-                                <div className="border border-sky-200/70 rounded-2xl bg-gradient-to-br from-sky-50 to-white p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
+                                <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#0EA5E9', backgroundColor: '#F0F9FF' }}>
                                     <div className="flex items-center gap-3 mb-3">
                                         <div className="w-9 h-9 rounded-xl bg-sky-100 flex items-center justify-center flex-shrink-0">
                                             <CalendarTodayIcon style={{ fontSize: 20 }} className="text-sky-600" />
                                         </div>
                                         <div>
-                                            <div className="text-[10px] font-bold text-sky-600 uppercase tracking-widest">Agenda Hoje</div>
+                                            <div className="text-xs font-black text-sky-700 uppercase tracking-widest">Agenda Hoje</div>
                                             <div className="text-[11px] text-gray-400 leading-tight">Estado da Operação</div>
                                         </div>
                                     </div>
@@ -542,13 +542,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                         })()}
 
                         {/* ── Pendências Hoje ── */}
-                        <div className="border border-amber-200/70 rounded-2xl bg-gradient-to-br from-amber-50 to-white p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
+                        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#F59E0B', backgroundColor: '#FFFBEB' }}>
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
                                     <WarningIcon style={{ fontSize: 20 }} className="text-amber-600" />
                                 </div>
                                 <div>
-                                    <div className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Pendências Hoje</div>
+                                    <div className="text-xs font-black text-amber-700 uppercase tracking-widest">Pendências Hoje</div>
                                     <div className="text-[11px] text-gray-400 leading-tight">Ações Necessárias</div>
                                 </div>
                             </div>

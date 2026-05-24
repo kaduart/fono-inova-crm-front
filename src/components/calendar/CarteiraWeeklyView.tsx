@@ -537,7 +537,7 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
       {!loading && !error && data && (
         <div
           className="border border-gray-200 rounded-xl shadow-sm"
-          style={{ overflow: 'auto', maxHeight: 'calc(100vh - 280px)' }}
+          style={{ overflow: 'auto', maxHeight: 'calc(100vh - 160px)' }}
         >
           <div style={{ minWidth: 640 }}>
             {/* Cabeçalho dos dias — sticky */}
@@ -622,7 +622,7 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
             </div>
 
             {/* Linhas por horário */}
-            <div className="flex flex-col divide-y divide-gray-100">
+            <div className="flex flex-col divide-y divide-gray-100 pb-6">
               {allTimes.map((time, idx) => (
                 <div
                   key={time}
@@ -631,7 +631,7 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
                     display: 'grid',
                     gridTemplateColumns: GRID_COLS,
                     gap: 10,
-                    minHeight: 140,
+                    minHeight: 220,
                     backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fafafa',
                   }}
                 >
@@ -645,7 +645,7 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
                       <div
                         key={wd}
                         style={{
-                          minHeight: 130,
+                          minHeight: 210,
                           borderRight: notLast ? '2px dashed #cbd5e1' : undefined,
                           paddingRight: notLast ? 8 : undefined,
                         }}

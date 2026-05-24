@@ -40,7 +40,8 @@ import {
     User,
     ChevronDown,
     ChevronUp,
-    TrendingUp
+    TrendingUp,
+    TrendingDown
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -78,6 +79,19 @@ const STATUS_CONFIG: Record<string, { color: string; bgColor: string; label: str
     glosa: { color: '#EF4444', bgColor: '#EF444410', label: 'Glosado' }
 };
 
+const formatProviderName = (slug: string) => {
+  if (!slug) return 'Outros';
+  return slug
+    .split('-')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+    .replace('Anapolis', 'Anápolis')
+    .replace('Goiania', 'Goiânia')
+    .replace('Sao ', 'São ')
+    .replace('Saude', 'Saúde')
+    .replace('Brasilia', 'Brasília');
+};
+
 interface InsuranceTabProps {
     month: number;
     year: number;
@@ -88,7 +102,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const [receivables, setReceivables] = useState<InsuranceReceivableGroup[]>([]);
     const [allReceivables, setAllReceivables] = useState<InsuranceReceivableGroup[]>([]); // Todos os status para os cards
     const [loading, setLoading] = useState(false);
-    const [summary, setSummary] = useState({ totalProviders: 0, grandTotal: 0, pendingCount: 0 });
+    const [summary, setSummary] = useState({ totalProviders: 0, grandTotal: 0, pendingCount: 0, prevMonthTotal: null as number | null, change: null as number | null, changePercent: null as number | null });
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
     const [expandedPatients, setExpandedPatients] = useState<Record<string, boolean>>({});
     const [patientSpecialtyTabs, setPatientSpecialtyTabs] = useState<Record<string, string>>({});
@@ -256,10 +270,14 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 ), 0
             );
 
+            const apiSummary = allResponse.data.summary || {};
             setSummary({
                 totalProviders: validData.length,
                 grandTotal: validData.reduce((acc: number, g: any) => acc + (g.totalPending || 0), 0),
-                pendingCount: totalPending
+                pendingCount: totalPending,
+                prevMonthTotal: apiSummary.prevMonthTotal ?? null,
+                change: apiSummary.change ?? null,
+                changePercent: apiSummary.changePercent ?? null
             });
 
             const expanded: Record<string, boolean> = {};
@@ -671,96 +689,70 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                     const ms = getMonthSummary();
                     return (
                         <>
+                            {/* Produção Total */}
                             <Grid item xs={12} md={3}>
-                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#6366F120', borderRadius: 2, bgcolor: '#6366F105' }}>
-                                    <CardContent>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                            <Avatar sx={{ bgcolor: '#6366F1', width: 40, height: 40 }}>
-                                                <TrendingUp className="w-5 h-5 text-white" />
-                                            </Avatar>
-                                            <Box sx={{ flex: 1 }}>
-                                                <Typography variant="body2" color="text.secondary">
-                                                    Produção Total do Mês
-                                                </Typography>
-                                                <Typography variant="h5" fontWeight="bold" color="#6366F1">
-                                                    {(ms.totalAFaturar + ms.totalFaturado + ms.totalRecebido).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                                </Typography>
-                                                <Typography variant="caption" color="text.secondary">
-                                                    {ms.pendingCount + ms.receivedCount} atendimento{(ms.pendingCount + ms.receivedCount) !== 1 ? 's' : ''}
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                    </CardContent>
-                                </Card>
+                                <div className="rounded-2xl border-2 p-5 shadow-sm h-full" style={{ borderColor: '#6366F1', backgroundColor: '#F5F3FF' }}>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <span className="text-xs font-black uppercase tracking-widest text-purple-700">🏥 Produção Total</span>
+                                        {summary.changePercent !== null && (
+                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${(summary.change ?? 0) >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                                {(summary.change ?? 0) >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                                                {(summary.change ?? 0) >= 0 ? '+' : ''}{summary.changePercent}%
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="text-3xl font-black text-gray-900 tracking-tight my-2">
+                                        {(ms.totalAFaturar + ms.totalFaturado + ms.totalRecebido).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                    </div>
+                                    <p className="text-sm text-gray-500">{ms.pendingCount + ms.receivedCount} atendimentos</p>
+                                    {summary.prevMonthTotal !== null && (
+                                        <p className="text-xs text-gray-400 mt-1">
+                                            Mês anterior: <span className="font-semibold text-gray-600">{summary.prevMonthTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                        </p>
+                                    )}
+                                </div>
                             </Grid>
 
+                            {/* A Faturar */}
                             <Grid item xs={12} md={3}>
-                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#F59E0B20', borderRadius: 2 }}>
-                                    <CardContent>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                            <Avatar sx={{ bgcolor: '#F59E0B', width: 40, height: 40 }}>
-                                                <Clock className="w-5 h-5 text-white" />
-                                            </Avatar>
-                                            <Box sx={{ flex: 1 }}>
-                                                <Typography variant="body2" color="text.secondary">
-                                                    A Faturar no Mês
-                                                </Typography>
-                                                <Typography variant="h5" fontWeight="bold" color="#F59E0B">
-                                                    {ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                                </Typography>
-                                                <Typography variant="caption" color="text.secondary">
-                                                    {ms.pendingCount - ms.billedCount} atendimento{(ms.pendingCount - ms.billedCount) !== 1 ? 's' : ''}
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                    </CardContent>
-                                </Card>
+                                <div className="rounded-2xl border-2 p-5 shadow-sm h-full" style={{ borderColor: '#F59E0B', backgroundColor: '#FFFBEB' }}>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <span className="text-xs font-black uppercase tracking-widest text-amber-700">⏳ A Faturar</span>
+                                    </div>
+                                    <div className="text-3xl font-black text-gray-900 tracking-tight my-2">
+                                        {ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                    </div>
+                                    <p className="text-sm text-gray-500">{ms.pendingCount - ms.billedCount} atendimentos</p>
+                                    <p className="text-xs text-gray-400 mt-1">Aguardando envio ao convênio</p>
+                                </div>
                             </Grid>
 
+                            {/* Faturado */}
                             <Grid item xs={12} md={3}>
-                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#3B82F620', borderRadius: 2 }}>
-                                    <CardContent>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                            <Avatar sx={{ bgcolor: '#3B82F6', width: 40, height: 40 }}>
-                                                <Send className="w-5 h-5 text-white" />
-                                            </Avatar>
-                                            <Box sx={{ flex: 1 }}>
-                                                <Typography variant="body2" color="text.secondary">
-                                                    Faturado (Aguardando Pagto.)
-                                                </Typography>
-                                                <Typography variant="h5" fontWeight="bold" color="#3B82F6">
-                                                    {ms.totalFaturado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                                </Typography>
-                                                <Typography variant="caption" color="text.secondary">
-                                                    {ms.billedCount} atendimento{ms.billedCount !== 1 ? 's' : ''}
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                    </CardContent>
-                                </Card>
+                                <div className="rounded-2xl border-2 p-5 shadow-sm h-full" style={{ borderColor: '#3B82F6', backgroundColor: '#EFF6FF' }}>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <span className="text-xs font-black uppercase tracking-widest text-blue-700">📤 Faturado</span>
+                                    </div>
+                                    <div className="text-3xl font-black text-gray-900 tracking-tight my-2">
+                                        {ms.totalFaturado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                    </div>
+                                    <p className="text-sm text-gray-500">{ms.billedCount} atendimentos</p>
+                                    <p className="text-xs text-gray-400 mt-1">Aguardando pagamento do convênio</p>
+                                </div>
                             </Grid>
 
+                            {/* Recebido */}
                             <Grid item xs={12} md={3}>
-                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#10B98120', borderRadius: 2 }}>
-                                    <CardContent>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                            <Avatar sx={{ bgcolor: '#10B981', width: 40, height: 40 }}>
-                                                <DollarSign className="w-5 h-5 text-white" />
-                                            </Avatar>
-                                            <Box sx={{ flex: 1 }}>
-                                                <Typography variant="body2" color="text.secondary">
-                                                    Recebido no Mês
-                                                </Typography>
-                                                <Typography variant="h5" fontWeight="bold" color="#10B981">
-                                                    {ms.totalRecebido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                                </Typography>
-                                                <Typography variant="caption" color="text.secondary">
-                                                    {ms.receivedCount} atendimento{ms.receivedCount !== 1 ? 's' : ''}
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                    </CardContent>
-                                </Card>
+                                <div className="rounded-2xl border-2 p-5 shadow-sm h-full" style={{ borderColor: '#10B981', backgroundColor: '#F0FDF4' }}>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <span className="text-xs font-black uppercase tracking-widest text-emerald-700">✅ Recebido</span>
+                                    </div>
+                                    <div className="text-3xl font-black text-gray-900 tracking-tight my-2">
+                                        {ms.totalRecebido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                    </div>
+                                    <p className="text-sm text-gray-500">{ms.receivedCount} atendimentos</p>
+                                    <p className="text-xs text-gray-400 mt-1">Repasse recebido do convênio</p>
+                                </div>
                             </Grid>
                         </>
                     );
@@ -905,40 +897,42 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                 const isExpanded = expandedGroups[group._id] !== false;
 
                                 return (
-                                    <Card key={group._id} variant="outlined" sx={{ width: "100%", borderRadius: 2, overflow: 'hidden' }}>
+                                    <Card key={group._id} variant="outlined" sx={{ width: "100%", borderRadius: 2, overflow: 'hidden', border: '1px solid #E5E7EB' }}>
                                         {/* Header do Convênio */}
                                         <Box
                                             sx={{
-                                                p: 2,
-                                                bgcolor: '#F9FAFB',
-                                                borderBottom: isExpanded ? '1px solid' : 'none',
-                                                borderColor: 'grey.200',
+                                                px: 2.5,
+                                                py: 1.75,
+                                                background: 'linear-gradient(90deg, #EFF6FF 0%, #F9FAFB 100%)',
+                                                borderBottom: isExpanded ? '1px solid #E5E7EB' : 'none',
                                                 display: 'flex',
                                                 justifyContent: 'space-between',
                                                 alignItems: 'center',
                                                 cursor: 'pointer',
-                                                '&:hover': { bgcolor: '#F3F4F6' }
+                                                '&:hover': { background: 'linear-gradient(90deg, #DBEAFE 0%, #F3F4F6 100%)' }
                                             }}
                                             onClick={() => toggleGroup(group._id)}
                                         >
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                <Avatar sx={{ bgcolor: '#3B82F6', width: 32, height: 32 }}>
+                                                <Avatar sx={{ bgcolor: '#2563EB', width: 36, height: 36 }}>
                                                     <Building2 className="w-4 h-4 text-white" />
                                                 </Avatar>
                                                 <Box>
-                                                    <Typography fontWeight="600">{group._id}</Typography>
+                                                    <Typography fontWeight="700" fontSize="0.95rem" color="#1E40AF">
+                                                        {formatProviderName(group._id)}
+                                                    </Typography>
                                                     <Typography variant="caption" color="text.secondary">
-                                                        {patientsToShow.reduce((sum, p) => sum + (p.payments?.length || 0), 0)} atendimentos • {patientsToShow.length} paciente(s)
+                                                        {patientsToShow.reduce((sum, p) => sum + (p.payments?.length || 0), 0)} atendimentos • {patientsToShow.length} paciente{patientsToShow.length !== 1 ? 's' : ''}
                                                     </Typography>
                                                 </Box>
                                             </Box>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                                 <Chip
                                                     size="small"
-                                                    label={`R$ ${groupTotal.toLocaleString('pt-BR')}`}
-                                                    sx={{ bgcolor: '#3B82F6', color: 'white', fontWeight: 'bold' }}
+                                                    label={groupTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                    sx={{ bgcolor: '#2563EB', color: 'white', fontWeight: 'bold', fontSize: '0.8rem' }}
                                                 />
-                                                {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                                                {isExpanded ? <ChevronUp size={18} color="#6B7280" /> : <ChevronDown size={18} color="#6B7280" />}
                                             </Box>
                                         </Box>
 
