@@ -4,6 +4,7 @@ import { IAppointment } from '../../utils/types/types';
 
 interface Props {
   appointments: IAppointment[];
+  onMonthChange?: (month: string) => void;
 }
 
 const statusLabels: Record<string, string> = {
@@ -56,7 +57,7 @@ function PaymentStatusBadge({ status }: { status?: string }) {
   );
 }
 
-export function PatientAppointmentsTable({ appointments }: Props) {
+export function PatientAppointmentsTable({ appointments, onMonthChange }: Props) {
   const now = new Date();
   const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthKey);
@@ -92,22 +93,15 @@ export function PatientAppointmentsTable({ appointments }: Props) {
     return Array.from(set).sort((a, b) => Number(a) - Number(b));
   }, [appointments, selectedMonth]);
 
-  // Filtra appointments
+  // Filtro de dia client-side (mês já vem filtrado da API)
   const filtered = useMemo(() => {
     return appointments
       .filter((appt) => {
+        if (selectedDay === 'all') return true;
         const d = new Date(appt.date);
-        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        const dayKey = String(d.getDate()).padStart(2, '0');
-        if (selectedMonth !== 'all' && monthKey !== selectedMonth) return false;
-        if (selectedDay !== 'all' && dayKey !== selectedDay) return false;
-        return true;
+        return String(d.getDate()).padStart(2, '0') === selectedDay;
       })
-      .sort((a, b) => {
-        const da = new Date(a.date).getTime();
-        const db = new Date(b.date).getTime();
-        return db - da; // mais recente primeiro
-      });
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [appointments, selectedMonth, selectedDay]);
 
   const formatCurrency = (value?: number) => {
@@ -129,6 +123,7 @@ export function PatientAppointmentsTable({ appointments }: Props) {
   const clearFilters = () => {
     setSelectedMonth('all');
     setSelectedDay('all');
+    onMonthChange?.('all');
   };
 
   return (
@@ -154,6 +149,7 @@ export function PatientAppointmentsTable({ appointments }: Props) {
               onChange={(e) => {
                 setSelectedMonth(e.target.value);
                 setSelectedDay('all');
+                onMonthChange?.(e.target.value);
               }}
               className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer"
             >

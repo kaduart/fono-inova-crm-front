@@ -122,25 +122,29 @@ export default function PatientDashboard() {
     pollingState
   } = useAppointments();
 
+  const currentMonthKey = (() => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`;
+  })();
+
+  const loadAppointmentsByMonth = async (month: string) => {
+    if (!patientId) return;
+    try {
+      setIsLoading(true);
+      const data = await fetchAppointmentsByPatient(patientId, month === 'all' ? undefined : month);
+      setPatientAppointments(data || []);
+      setAllAppointmentsById(data || []);
+    } catch (err) {
+      console.error('Erro ao buscar agendamentos:', err);
+      toast.error('Erro ao carregar agendamentos do paciente');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // 🚀 V2: Busca agendamentos específicos do paciente (Event-Driven)
   useEffect(() => {
-    if (patientId) {
-      const loadAppointments = async () => {
-        try {
-          setIsLoading(true);
-          const data = await fetchAppointmentsByPatient(patientId);
-          setPatientAppointments(data || []);
-          setAllAppointmentsById(data || []);
-        } catch (err) {
-          console.error('Erro ao buscar agendamentos:', err);
-          toast.error('Erro ao carregar agendamentos do paciente');
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      loadAppointments();
-    }
+    loadAppointmentsByMonth(currentMonthKey);
   }, [patientId, fetchAppointmentsByPatient]);
   const handleNewAppointment = async (appointmentData: IAppointment) => {
     try {
@@ -635,7 +639,7 @@ export default function PatientDashboard() {
 
       {/* Tabela de todos os atendimentos com filtros por mês/dia */}
       <div className="mb-8">
-        <PatientAppointmentsTable appointments={allAppointmentsById} />
+        <PatientAppointmentsTable appointments={allAppointmentsById} onMonthChange={loadAppointmentsByMonth} />
       </div>
 
       {/* O restante do conteúdo permanece igual */}

@@ -159,15 +159,16 @@ export const useAppointments = () => {
         }
     }, []);
 
-    const fetchAppointmentsByPatient = useCallback(async (id: string) => {
+    const fetchAppointmentsByPatient = useCallback(async (id: string, month?: string) => {
         try {
             setLoading(true);
-            // 🚀 V2: Usa listV2 com filtro de patientId
-            const response = await appointmentService.list({
-                patientId: id,
-                limit: 500
-            });
-            // Extrai appointments da resposta V2
+            const params: any = { patientId: id, limit: 100 };
+            if (month) {
+                const [y, m] = month.split('-').map(Number);
+                params.startDate = new Date(y, m - 1, 1).toISOString().split('T')[0];
+                params.endDate = new Date(y, m, 0).toISOString().split('T')[0];
+            }
+            const response = await appointmentService.list(params);
             return response.data?.data?.appointments || response.data?.data || [];
         } catch (error) {
             setError('Falha ao buscar agendamento');
