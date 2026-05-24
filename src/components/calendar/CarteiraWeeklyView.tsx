@@ -631,7 +631,7 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
                     display: 'grid',
                     gridTemplateColumns: GRID_COLS,
                     gap: 10,
-                    minHeight: 220,
+                    minHeight: 140,
                     backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fafafa',
                   }}
                 >
@@ -645,7 +645,7 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
                       <div
                         key={wd}
                         style={{
-                          minHeight: 210,
+                          minHeight: 130,
                           borderRight: notLast ? '2px dashed #cbd5e1' : undefined,
                           paddingRight: notLast ? 8 : undefined,
                         }}
