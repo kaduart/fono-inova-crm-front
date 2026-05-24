@@ -39,7 +39,8 @@ import {
     Send,
     User,
     ChevronDown,
-    ChevronUp
+    ChevronUp,
+    TrendingUp
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -670,7 +671,30 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                     const ms = getMonthSummary();
                     return (
                         <>
-                            <Grid item xs={12} md={4}>
+                            <Grid item xs={12} md={3}>
+                                <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#6366F120', borderRadius: 2, bgcolor: '#6366F105' }}>
+                                    <CardContent>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                            <Avatar sx={{ bgcolor: '#6366F1', width: 40, height: 40 }}>
+                                                <TrendingUp className="w-5 h-5 text-white" />
+                                            </Avatar>
+                                            <Box sx={{ flex: 1 }}>
+                                                <Typography variant="body2" color="text.secondary">
+                                                    Produção Total do Mês
+                                                </Typography>
+                                                <Typography variant="h5" fontWeight="bold" color="#6366F1">
+                                                    {(ms.totalAFaturar + ms.totalFaturado + ms.totalRecebido).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {ms.pendingCount + ms.receivedCount} atendimento{(ms.pendingCount + ms.receivedCount) !== 1 ? 's' : ''}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+
+                            <Grid item xs={12} md={3}>
                                 <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#F59E0B20', borderRadius: 2 }}>
                                     <CardContent>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -685,7 +709,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                                     {ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                                 </Typography>
                                                 <Typography variant="caption" color="text.secondary">
-                                                    {ms.pendingCount} atendimento{ms.pendingCount !== 1 ? 's' : ''}
+                                                    {ms.pendingCount - ms.billedCount} atendimento{(ms.pendingCount - ms.billedCount) !== 1 ? 's' : ''}
                                                 </Typography>
                                             </Box>
                                         </Box>
@@ -693,7 +717,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                 </Card>
                             </Grid>
 
-                            <Grid item xs={12} md={4}>
+                            <Grid item xs={12} md={3}>
                                 <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#3B82F620', borderRadius: 2 }}>
                                     <CardContent>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -716,7 +740,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                 </Card>
                             </Grid>
 
-                            <Grid item xs={12} md={4}>
+                            <Grid item xs={12} md={3}>
                                 <Card elevation={0} sx={{ width: '100%', border: '1px solid', borderColor: '#10B98120', borderRadius: 2 }}>
                                     <CardContent>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
