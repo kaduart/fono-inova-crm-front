@@ -187,6 +187,8 @@ export interface V2FinancialPatientGroup {
 
 export interface PendentesV3 {
   total: number;
+  allPendingTotal?: number;
+  allParticularTotal?: number;
   convenio: {
     total: number;
     count: number;

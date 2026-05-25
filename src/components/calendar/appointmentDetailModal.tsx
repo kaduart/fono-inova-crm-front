@@ -5,9 +5,10 @@ import { toast } from 'react-toastify';
 import { validateAppointmentComplete } from '../../utils/appointmentCompleteGuard';
 import { getPatientFinancialSummary, FinancialSummary } from '../../services/financialSummaryService';
 import DatePicker, { registerLocale } from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import ReactInputMask from 'react-input-mask';
-import { INSURANCE_PROVIDERS, getProviderById } from '../../constants/insuranceProviders';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
+import { INSURANCE_PROVIDERS, getProviderById } from '../../constants/insuranceProviders';
 import { IDoctor, SelectedEvent } from '../../utils/types/types';
 import { mapToUpdateAppointmentDTO } from '../../dtos/appointment.dto';
 import { InputCurrency } from '../ui/InputCurrency';
@@ -80,6 +81,35 @@ const STATUS_VISUAL_CONFIG = {
     }
 };
 
+// 🔧 MAPA DE MENSAGENS DE ERRO — traduz códigos do backend em texto claro para a secretária
+const ERROR_MESSAGES: Record<string, string> = {
+    // Cancelamento
+    ALREADY_CANCELED:               'Este agendamento já foi cancelado anteriormente.',
+    CANNOT_CANCEL_COMPLETED:        'Não é possível cancelar: a sessão já foi concluída. Se necessário, acione o administrador.',
+    ALREADY_PROCESSING:             'Esta operação já está sendo processada. Aguarde alguns instantes e tente novamente.',
+    ALREADY_PROCESSING_CANCEL:      'O cancelamento já está em andamento. Aguarde alguns instantes.',
+    ALREADY_PROCESSING_COMPLETE:    'A finalização já está em andamento. Aguarde alguns instantes.',
+    // Edição
+    CANNOT_EDIT_COMPLETED_APPOINTMENT: 'Este atendimento já foi finalizado e não pode mais ser alterado.',
+    APPOINTMENT_SLOT_CONFLICT:      'Conflito de horário: já existe um agendamento neste dia/hora. Escolha outro horário.',
+    WRITE_CONFLICT:                 'Conflito de atualização simultânea. Os dados foram sincronizados — tente novamente.',
+    // Pacote
+    PACKAGE_UPDATE_FAILED:          'Sessão salva, mas houve problema ao atualizar o pacote. Avise o administrador.',
+    INSUFFICIENT_CREDIT:            'Guia de convênio esgotada: não há mais sessões disponíveis nesta guia.',
+    // Acesso
+    UNAUTHORIZED:                   'Você não tem permissão para realizar esta ação.',
+    NOT_FOUND:                      'Agendamento não encontrado. Ele pode ter sido removido.',
+    // Genérico
+    CONFLICT_STATE:                 'Operação inválida para o estado atual do agendamento.',
+    BUSINESS_RULE_VIOLATION:        'Esta ação não é permitida pelas regras do sistema.',
+};
+
+const resolveErrorMsg = (err: any, fallback: string): string => {
+    const code = err?.response?.data?.code;
+    if (code && ERROR_MESSAGES[code]) return ERROR_MESSAGES[code];
+    return err?.response?.data?.error || err?.message || fallback;
+};
+
 // 🔧 FUNÇÕES DE TRADUÇÃO
 const translateStatus = (status: string | undefined | null, type: 'operational' | 'clinical' | 'payment' = 'operational'): string => {
     if (!status) return '';
@@ -138,6 +168,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 })
                 .catch(err => {
                     console.error('❌ [AppointmentDetailModal] Erro ao buscar profissionais:', err);
+                    toast.warning('Não foi possível carregar a lista de profissionais. Verifique a conexão.', {
+                        id: 'doctors-load-error', autoClose: 5000
+                    });
                 })
                 .finally(() => setLoadingDoctors(false));
         } else {
@@ -196,7 +229,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     // 💰 NOVO: Modal de conta corrente
     const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
 
-    registerLocale("pt-BR", ptBR);
+    registerLocale('pt-BR', ptBR);
 
         // 🚨 CORREÇÃO: Quando a especialidade muda MANUALMENTE, LIMPA o médico se for incompatível
     // NÃO limpa na inicialização do modal (edição de agendamento existente)
@@ -358,7 +391,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
     const handleCancel = async () => {
         if (!cancelReason.trim()) {
-            alert('Por favor, informe o motivo do cancelamento');
+            toast.error('Informe o motivo do cancelamento antes de prosseguir.');
             return;
         }
 
@@ -371,13 +404,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             setActiveTab('details');
         } catch (err: any) {
             console.error('❌ [Modal] Erro ao cancelar:', err);
-
-            const errorMsg = err?.response?.data?.error ||
-                           err?.message ||
-                           'Erro ao cancelar agendamento. Tente novamente.';
-
+            const errorMsg = resolveErrorMsg(err, 'Erro ao cancelar agendamento. Tente novamente.');
             setCancelError(errorMsg);
-            toast.error(errorMsg, { id: `cancel-error-${event.id}` });
+            toast.error(errorMsg, { id: `cancel-error-${event.id}`, autoClose: 7000 });
         } finally {
             setIsCancelling(false);
         }
@@ -482,23 +511,21 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             console.log('[Modal] onCompleteAppointment RETORNOU — sucesso, aguardando finally');
             // ✅ Sucesso: o modal fecha via closeModalSignal do pai
         } catch (err: any) {
-            // 🐛 CORREÇÃO: Modal fica aberto quando dá erro
             console.error('❌ [Modal] Erro ao completar:', err);
-            
-            const errorMsg = err?.response?.data?.error || 
-                           err?.message || 
-                           'Erro ao finalizar sessão. Tente novamente.';
-            
-            toast.error(errorMsg, { id: `complete-error-${event.id}` });
-            
-            // Se for conflito de processing, mostra instrução específica
-            if (err?.response?.data?.code === 'ALREADY_PROCESSING') {
-                toast.info('Aguarde alguns segundos e tente novamente...', { 
-                    id: `complete-info-${event.id}` 
+            const code = err?.response?.data?.code;
+            const errorMsg = resolveErrorMsg(err, 'Erro ao finalizar sessão. Tente novamente.');
+            toast.error(errorMsg, { id: `complete-error-${event.id}`, autoClose: 7000 });
+            if (code === 'ALREADY_PROCESSING' || code === 'ALREADY_PROCESSING_COMPLETE') {
+                toast.info('Feche o modal, aguarde alguns segundos e tente novamente.', {
+                    id: `complete-info-${event.id}`, autoClose: 6000
                 });
             }
-            
-            // Importante: NÃO fecha o modal aqui! Usuário precisa ver o erro e tentar de novo
+            if (code === 'PACKAGE_UPDATE_FAILED') {
+                toast.warning('A sessão foi concluída, mas houve problema no pacote. Avise o administrador.', {
+                    id: `pkg-warn-${event.id}`, autoClose: false
+                });
+            }
+            // NÃO fecha o modal — secretária precisa ver o erro
         } finally {
             console.log('[Modal] ■ finally — zerando isCompleting e processingState');
             setIsCompleting(false);
@@ -508,12 +535,16 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
     const handleConvert = async () => {
         if (!onConvertPreAgendamento) {
-            alert('Funcionalidade de conversão não disponível');
+            toast.warning('Funcionalidade de conversão não disponível. Contate o administrador.');
             return;
         }
         setIsConverting(true);
         try {
             await onConvertPreAgendamento(event.id);
+        } catch (err: any) {
+            console.error('❌ [Modal] Erro ao converter pré-agendamento:', err);
+            const errorMsg = resolveErrorMsg(err, 'Erro ao converter pré-agendamento. Tente novamente.');
+            toast.error(errorMsg, { id: `convert-error-${event.id}`, autoClose: 7000 });
         } finally {
             setIsConverting(false);
         }
@@ -521,7 +552,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
     const handleEdit = async () => {
         if (!editedAppointment.date || !editedAppointment.time) {
-            alert('Data e hora são obrigatórias');
+            toast.error('Preencha a data e o horário antes de salvar.');
             return;
         }
         if (billingType === 'particular' && !paymentMethod) {
@@ -589,10 +620,13 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             await onEditAppointment(event.id, appointmentData);
         } catch (err: any) {
             console.error('❌ [Modal] Erro ao editar:', err);
-            toast.error(err?.message || 'Erro ao atualizar agendamento', { 
-                id: `edit-error-${event.id}` 
-            });
-            throw err; // Re-lança pro AdminDashboard tratar
+            // APPOINTMENT_SLOT_CONFLICT: AdminDashboard já exibe toast — evita duplicata
+            const errCode = err?.response?.data?.code;
+            if (errCode !== 'APPOINTMENT_SLOT_CONFLICT') {
+                const errMsg = err?.response?.data?.error || err?.message || 'Erro ao atualizar agendamento';
+                toast.error(errMsg, { id: `edit-error-${event.id}` });
+            }
+            throw err;
         } finally {
             setIsEditing(false);
             setProcessingState(null);
@@ -1071,15 +1105,10 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     Data *
                                 </label>
                                 <DatePicker
-                                    selected={(() => {
-                                        if (!editedAppointment.date) return null;
-                                        const d = buildLocalDateOnly(editedAppointment.date);
-                                        return isNaN(d.getTime()) ? null : d;
-                                    })()}
+                                    selected={editedAppointment.date ? new Date(editedAppointment.date + 'T00:00:00') : null}
                                     onChange={(date) => {
                                         if (!date) return;
-                                        const formatted = date.toLocaleDateString('sv-SE');
-                                        handleFieldChange('date', formatted);
+                                        handleFieldChange('date', date.toLocaleDateString('sv-SE'));
                                     }}
                                     customInput={
                                         <ReactInputMask
@@ -1101,20 +1130,20 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 <DatePicker
                                     selected={editedAppointment.time ? new Date(`1970-01-01T${editedAppointment.time}`) : null}
                                     onChange={(date) =>
-                                        handleFieldChange('time', date ? date.toTimeString().slice(0, 5) : '')
+                                        handleFieldChange('time', date?.toTimeString().slice(0, 5) ?? '')
                                     }
+                                    showTimeSelect
+                                    showTimeSelectOnly
+                                    timeIntervals={15}
+                                    timeFormat="HH:mm"
+                                    dateFormat="HH:mm"
+                                    placeholderText='HH:MM'
                                     customInput={
                                         <ReactInputMask
                                             mask="99:99"
                                             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
                                         />
                                     }
-                                    placeholderText='HH:MM'
-                                    showTimeSelect
-                                    showTimeSelectOnly
-                                    timeIntervals={15}
-                                    timeFormat="HH:mm"
-                                    dateFormat="HH:mm"
                                 />
                             </div>
                         </div>

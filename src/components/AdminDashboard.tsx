@@ -634,6 +634,14 @@ export default function AdminDashboard() {
 
             // Conflito (write conflict ou slot taken)
             if (error.response?.status === 409) {
+                if (errorData.code === 'APPOINTMENT_SLOT_CONFLICT') {
+                    toast.error(`⚠️ ${msg}`, {
+                        id: `slot-conflict-${appointmentId}`,
+                        autoClose: 8000,
+                        style: { fontWeight: 600 }
+                    });
+                    throw error;
+                }
                 toast.error(msg, { id: msg });
                 if (errorData.code === 'WRITE_CONFLICT') {
                     // 🔄 Atualização suave em vez de reload
@@ -641,8 +649,8 @@ export default function AdminDashboard() {
                     await fetchAppointments({ ...calendarDateRange, force: true });
                     await refreshDashboard();
                     // 🔔 Notifica outros componentes para atualizar
-                    window.dispatchEvent(new CustomEvent('appointments:refresh', { 
-                        detail: { timestamp: Date.now(), reason: 'write_conflict_resolved' } 
+                    window.dispatchEvent(new CustomEvent('appointments:refresh', {
+                        detail: { timestamp: Date.now(), reason: 'write_conflict_resolved' }
                     }));
                 }
                 throw error;

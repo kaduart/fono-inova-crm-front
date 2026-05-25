@@ -24,6 +24,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import api from '../../../services/api';
+import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useFinancialDashboardV3 } from '../../../hooks/useFinancialDashboardV3';
 import { ProjecaoCenarios } from './AnaliseProjecaoTab';
 import { DashboardEspecialidades } from '../components/DashboardEspecialidades';
@@ -289,9 +290,11 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   if (error) return <div className="p-4 rounded-lg bg-rose-50 text-rose-700 border border-rose-200">{error}</div>;
   if (!data || !resumo) return <div className="p-4 rounded-lg bg-sky-50 text-sky-700 border border-sky-200">Nenhum dado disponível</div>;
 
-  const { cash, revenue, expenses, metas, profissionais, insights, comparativos, riscoOperacional, acoesExecutivas, drillDown, indicadores } = data;
+  const { cash, revenue, expenses, metas, profissionais, insights, comparativos, riscoOperacional, acoesExecutivas, drillDown, indicadores, convenioAReceber, particularPendente, pacotePendente } = data;
   const totalCaixa = cash.total;
   const totalProducao = revenue.total;
+  const liminarAReceber = Math.max(0, (revenue.byMethod.liminar || 0) - (cash.breakdown.liminar || 0));
+  const resultadoEconomico = cash.total + convenioAReceber + liminarAReceber;
 
   // 🎯 RITMO OPERACIONAL — card herói
   const RitmoCard = () => {
@@ -359,11 +362,11 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
         />
         <MetricCard
           title="Produção"
-          subtitle="Sessões realizadas (recebidas + a receber)"
-          value={formatCurrency(totalProducao)}
+          subtitle="Caixa recebido + convênio/liminar a receber"
+          value={formatCurrency(resultadoEconomico)}
           icon={<Briefcase size={20} />}
           color="blue"
-          tooltip="Produção = soma das sessões concluídas neste mês × valor da sessão. Independe de quando o pagamento foi ou será recebido. Por isso difere do Caixa."
+          tooltip="Resultado econômico = dinheiro já recebido no caixa + repasses de convênio/liminar ainda pendentes. Representa o valor total produzido que será ou já foi recebido."
         />
         <MetricCard title="Despesas" subtitle="Despesas cadastradas + comissões" value={formatCurrency(expenses.total)} icon={<Receipt size={20} />} color="rose" />
         <MetricCard title="Lucro" subtitle="Caixa recebido menos todas as despesas" value={formatCurrency(indicadores?.lucro ?? totalCaixa - expenses.total)} icon={<TrendingUp size={20} />} color={(indicadores?.lucro ?? totalCaixa - expenses.total) >= 0 ? 'emerald' : 'rose'} />
@@ -510,7 +513,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           { label: 'Pacote', value: revenue.byMethod.pacote, color: 'purple' },
           { label: 'Convênio', value: revenue.byMethod.convenio, color: 'sky' },
           { label: 'Liminar', value: revenue.byMethod.liminar, color: 'amber' },
-        ]} total={totalProducao} />
+        ]} total={revenue.total} />
       </div>
       <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
         <h3 className="text-lg font-bold text-gray-800 mb-1">Status de Pagamento</h3>
@@ -519,31 +522,31 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-100">
             <div>
               <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">Pago no caixa</p>
-              <p className="text-xs text-emerald-600 mt-0.5">Particular + Pacote recebidos</p>
+              <p className="text-xs text-emerald-600 mt-0.5">Pagamentos efetivamente recebidos no mês</p>
             </div>
             <span className="text-2xl font-bold text-emerald-700">
-              {formatCurrency(revenue.byMethod.recebido - (revenue.byMethod.convenio || 0) - (revenue.byMethod.liminar || 0))}
+              {formatCurrency(cash.total)}
             </span>
           </div>
           <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50 border border-amber-100">
             <div>
               <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">A faturar ao plano</p>
               <p className="text-xs text-amber-600 mt-0.5">
-                Sessões entregues — cobrança no ciclo do convênio
-                {(revenue.byMethod.convenio || 0) > 0 && ` · Conv. ${formatCurrency(revenue.byMethod.convenio)}`}
-                {(revenue.byMethod.liminar || 0) > 0 && ` · Lim. ${formatCurrency(revenue.byMethod.liminar)}`}
+                Sessões entregues aguardando repasse
+                {convenioAReceber > 0 && ` · Conv. ${formatCurrency(convenioAReceber)}`}
+                {liminarAReceber > 0 && ` · Lim. ${formatCurrency(liminarAReceber)}`}
               </p>
             </div>
             <span className="text-2xl font-bold text-amber-700">
-              {formatCurrency((revenue.byMethod.convenio || 0) + (revenue.byMethod.liminar || 0))}
+              {formatCurrency(convenioAReceber + liminarAReceber)}
             </span>
           </div>
           <div className="flex items-center justify-between p-3 rounded-xl bg-rose-50 border border-rose-100">
             <div>
               <p className="text-xs font-semibold text-rose-700 uppercase tracking-wide">Não pago</p>
-              <p className="text-xs text-rose-600 mt-0.5">Particular/Pacote sem pagamento registrado</p>
+              <p className="text-xs text-rose-600 mt-0.5">Particular/Pacote com sessão realizada sem pagamento</p>
             </div>
-            <span className="text-2xl font-bold text-rose-700">{formatCurrency(revenue.byMethod.pendente)}</span>
+            <span className="text-2xl font-bold text-rose-700">{formatCurrency(particularPendente + pacotePendente)}</span>
           </div>
         </div>
       </div>
@@ -586,7 +589,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     const caixaTotal       = cash.total;
     const producaoTotal    = revenue.total;
     const convenioAReceber = Math.max(0, resultadoEcon - caixaTotal);
-    const pendentesTotal   = (data?.particularPendente || 0) + (data?.pacotePendente || 0);
+    const pendentesTotal   = resumo?.pendentes?.allParticularTotal ?? ((data?.particularPendente || 0) + (data?.pacotePendente || 0));
 
     const isVerde   = metas.statusMeta === 'verde';
     const isAmVerde = metas.statusMeta === 'amarelo-verde';
@@ -676,7 +679,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
               <div key={kpi.label} className="text-center">
                 <div className="text-lg leading-none mb-0.5">{kpi.icon}</div>
                 <p className="text-sm font-black" style={{ color: kpi.color }}>{formatCurrency(kpi.value)}</p>
-                <p className="text-[9px] text-gray-400 leading-tight">{kpi.label}</p>
+                <p className="text-[11px] text-gray-600 font-medium leading-tight">{kpi.label}</p>
               </div>
             ))}
           </div>
@@ -795,6 +798,86 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
             </div>
           </div>
         </div>
+
+        {/* ── COMPARATIVO MÊS ANTERIOR ── */}
+        {(() => {
+          const chartData = [
+            { name: 'Caixa', atual: comparativos.mesAtual.caixa, anterior: comparativos.mesAnterior.caixa },
+            { name: 'Produção', atual: comparativos.mesAtual.producao, anterior: comparativos.mesAnterior.producao },
+            { name: 'Despesas', atual: comparativos.mesAtual.despesas, anterior: comparativos.mesAnterior.despesas },
+          ];
+          return (
+            <div className="rounded-2xl bg-white border border-gray-100 p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-sm font-bold text-gray-800">Comparativo Mensal</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Este mês vs mês anterior</p>
+                </div>
+                <div className="flex items-center gap-4 text-xs font-medium text-gray-500">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block" />
+                    Mês anterior
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />
+                    Este mês
+                  </span>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={148}>
+                <BarChart data={chartData} margin={{ top: 12, right: 0, left: 0, bottom: 0 }} barCategoryGap="38%" barGap={3}>
+                  <XAxis axisLine={false} tickLine={false} dataKey="name" tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 600 }} />
+                  <Tooltip
+                    cursor={{ fill: '#F8FAFC', rx: 6 }}
+                    contentStyle={{ border: 'none', borderRadius: 12, boxShadow: '0 4px 24px rgba(0,0,0,0.10)', padding: '10px 16px', fontSize: 12 }}
+                    formatter={(v: number) => [formatCurrency(v)]}
+                    labelStyle={{ fontWeight: 700, color: '#1F2937', marginBottom: 4 }}
+                  />
+                  <Bar dataKey="anterior" fill="#E2E8F0" radius={[5,5,0,0]} maxBarSize={48} />
+                  <Bar dataKey="atual" fill="#3B82F6" radius={[5,5,0,0]} maxBarSize={48} />
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-gray-50">
+                {chartData.map(item => {
+                  const diff = item.anterior > 0 ? ((item.atual - item.anterior) / item.anterior) * 100 : 0;
+                  const isUp = diff >= 0;
+                  const isGood = item.name === 'Despesas' ? !isUp : isUp;
+                  return (
+                    <div key={item.name} className="text-center">
+                      <p className="text-xs font-semibold text-gray-500 mb-0.5">{item.name}</p>
+                      <p className="text-sm font-black text-gray-900">{formatCurrency(item.atual)}</p>
+                      <p className={`text-[11px] font-bold mt-0.5 ${isGood ? 'text-emerald-600' : 'text-rose-500'}`}>
+                        {isUp ? '↑' : '↓'} {Math.abs(diff).toFixed(1)}%
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── DÍVIDAS DE MESES ANTERIORES ── */}
+        {(() => {
+          const mesMesAtual = (data?.particularPendente || 0) + (data?.pacotePendente || 0);
+          const debitosMesAnterior = Math.max(0, pendentesTotal - mesMesAtual);
+          if (debitosMesAnterior <= 0) return null;
+          return (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
+              <div className="flex items-start gap-3">
+                <span className="text-xl">⚠️</span>
+                <div className="flex-1">
+                  <p className="text-xs font-black text-rose-800 uppercase tracking-wide mb-1">Dívidas de Meses Anteriores</p>
+                  <p className="text-xs text-rose-700">
+                    Além dos <strong>{formatCurrency(mesMesAtual)}</strong> pendentes deste mês, há
+                    {' '}<strong>{formatCurrency(debitosMesAnterior)}</strong> em débitos de sessões de meses anteriores ainda não quitados.
+                  </p>
+                  <p className="text-[11px] text-rose-600 mt-1 font-semibold">Total acumulado em aberto: {formatCurrency(pendentesTotal)}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   };
