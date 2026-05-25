@@ -87,6 +87,7 @@ const AppChat = lazyWithRetry(() => import('./mkt/whatsapp/AppChat'));
 // Componentes de abas específicas - só carregam quando a aba é aberta
 const AmandaMetricsDashboard = lazyWithRetry(() => import('./admin/AmandaMetricsDashboard'));
 const SystemUnifiedDashboard = lazyWithRetry(() => import('./admin/SystemUnifiedDashboard'));
+const WhatsAppConnectionCard = lazyWithRetry(() => import('./admin/WhatsAppConnectionCard'));
 const ManageDoctors = lazyWithRetry(() => import('./ManageDoctors/ManageDoctors'));
 const DoctorFormModal = lazyWithRetry(() => import('./ManageDoctors/DoctorFormModal'));
 const PatientModal = lazyWithRetry(() => import('./patients/PatientModal').then(m => ({ default: m.PatientModal })));
@@ -1078,7 +1079,14 @@ export default function AdminDashboard() {
                         </Suspense>
                     </TabErrorBoundary>
                 );
-
+            case 'WhatsApp':
+                return (
+                    <TabErrorBoundary tabName="WhatsApp">
+                        <Suspense fallback={<TabSpinner />}>
+                            <WhatsAppConnectionCard />
+                        </Suspense>
+                    </TabErrorBoundary>
+                );
             default:
                 return <div>Conteúdo não encontrado</div>;
         }

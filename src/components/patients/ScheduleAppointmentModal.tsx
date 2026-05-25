@@ -61,7 +61,7 @@ type Props = {
     shadowInfo?: ShadowInfoPayload | null;
 };
 
-const ScheduleAppointmentModal = ({
+const   = ({
     isOpen,
     onClose,
     onSave,

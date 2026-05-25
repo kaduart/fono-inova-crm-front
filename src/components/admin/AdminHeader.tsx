@@ -77,7 +77,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
         activeTab === "Leads" || activeTab === "Analytics" || activeTab === "SocialMedia" || activeTab === "ROI";
     
     const isSistemaActive =
-        activeTab === "Sistema" || activeTab === "AmandaMetrics";
+        activeTab === "Sistema" || activeTab === "AmandaMetrics" || activeTab === "WhatsApp";
 
     const handleLogout = async () => {
         await authLogout();
@@ -313,6 +313,16 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         <div className="flex flex-col">
                                             <span className="text-sm font-medium text-gray-800">Amanda AI</span>
                                             <span className="text-xs text-gray-500">Decisões RULE / HYBRID / AI</span>
+                                        </div>
+                                    </NavDropdownItem>
+                                    <NavDropdownItem
+                                        active={activeTab === "WhatsApp"}
+                                        onClick={() => handleTabChange("WhatsApp")}
+                                        icon={<MessageCircle className="h-4 w-4 text-green-600" />}
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-gray-800">WhatsApp Conexão</span>
+                                            <span className="text-xs text-gray-500">QR code, status e reconexão</span>
                                         </div>
                                     </NavDropdownItem>
                                 </div>
