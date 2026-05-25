@@ -107,6 +107,48 @@ function StabilityTooltip({ slot, children }: { slot: RetentionSlot; children: R
   );
 }
 
+// ── Lógica operacional ──────────────────────────────────────────────────────
+function computeProximaAcao(slot: RetentionSlot) {
+  const dias = slot.daysSinceLastSession;
+  if (slot.recentMissed >= 2 && !slot.nextSessionAt)
+    return { icon: '🚨', text: 'Reagendar urgente', sublabel: `${slot.recentMissed} faltas + sem próx. sessão`, level: 'critico' as const };
+  if (!slot.nextSessionAt && dias !== null && dias > 14)
+    return { icon: '🚨', text: 'Perdeu ritmo terapêutico', sublabel: `${dias} dias sem atendimento`, level: 'critico' as const };
+  if (!slot.nextSessionAt)
+    return { icon: '🚨', text: 'Agendar próxima sessão', sublabel: null, level: 'alto' as const };
+  if (slot.recentMissed >= 2)
+    return { icon: '⚠', text: 'Follow-up de faltas', sublabel: `${slot.recentMissed} faltas recentes`, level: 'medio' as const };
+  if (slot.packageRemaining > 0 && slot.packageRemaining <= 2)
+    return { icon: '📦', text: 'Oferecer renovação de pacote', sublabel: `${slot.packageRemaining} sess. restante${slot.packageRemaining > 1 ? 's' : ''}`, level: 'medio' as const };
+  if (slot.recentMissed >= 1)
+    return { icon: '⚠', text: 'Atenção — 1 falta recente', sublabel: null, level: 'baixo' as const };
+  if (slot.stability === 'atencao')
+    return { icon: '📉', text: 'Validar continuidade', sublabel: null, level: 'baixo' as const };
+  return { icon: '✓', text: 'Grade saudável', sublabel: null, level: 'ok' as const };
+}
+
+function computeRiscoEvasao(slot: RetentionSlot): 'alto' | 'medio' | 'baixo' | null {
+  let score = 0;
+  if (!slot.nextSessionAt) score += 40;
+  if (slot.recentMissed >= 2) score += 30;
+  else if (slot.recentMissed >= 1) score += 15;
+  if (slot.daysSinceLastSession !== null && slot.daysSinceLastSession > 14) score += 20;
+  if (slot.packageRemaining > 0 && slot.packageRemaining <= 2) score += 10;
+  if (slot.stability === 'risco' || slot.stability === 'atencao') score += 10;
+  if (score >= 60) return 'alto';
+  if (score >= 25) return 'medio';
+  if (score > 0) return 'baixo';
+  return null;
+}
+
+const ACAO_CFG = {
+  critico: { bg: '#fff1f2', border: '#fecdd3', text: '#be123c' },
+  alto:    { bg: '#fff7ed', border: '#fed7aa', text: '#c2410c' },
+  medio:   { bg: '#fffbeb', border: '#fde68a', text: '#92400e' },
+  baixo:   { bg: '#fefce8', border: '#fef08a', text: '#854d0e' },
+  ok:      { bg: '#f0fdf4', border: '#bbf7d0', text: '#15803d' },
+} as const;
+
 // ── Card ativo ──────────────────────────────────────────────────────────────
 function ActiveCell({ slot }: { slot: RetentionSlot }) {
   const cfg = STABILITY_CFG[slot.stability];
@@ -116,7 +158,31 @@ function ActiveCell({ slot }: { slot: RetentionSlot }) {
     ? slot.currentPatientName.split(' ').slice(0, 2).join(' ')
     : '—';
   const lastLabel = slot.daysSinceLastSession !== null
-    ? slot.daysSinceLastSession === 0 ? 'ult. hoje' : `ult. há ${slot.daysSinceLastSession}d`
+    ? slot.daysSinceLastSession === 0 ? 'última: hoje' : `última: há ${slot.daysSinceLastSession}d`
+    : null;
+  const nextLabel = slot.nextSessionAt ? (() => {
+    const diff = Math.ceil((new Date(slot.nextSessionAt).getTime() - Date.now()) / 86400000);
+    if (diff <= 0) return 'próx. hoje';
+    if (diff === 1) return 'próx. amanhã';
+    if (diff <= 7) return `próx. em ${diff}d`;
+    return `próx. ${new Date(slot.nextSessionAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`;
+  })() : null;
+
+  const acao = computeProximaAcao(slot);
+  const riscoEvasao = computeRiscoEvasao(slot);
+  const acaoCfg = ACAO_CFG[acao.level];
+
+  const scoreColor = slot.stabilityScore >= 90 ? '#16a34a'
+    : slot.stabilityScore >= 70 ? '#d97706'
+    : slot.stabilityScore >= 50 ? '#ea580c'
+    : '#dc2626';
+  const scoreBg = slot.stabilityScore >= 90 ? '#f0fdf4'
+    : slot.stabilityScore >= 70 ? '#fffbeb'
+    : slot.stabilityScore >= 50 ? '#fff7ed'
+    : '#fef2f2';
+
+  const valorEmRisco = riscoEvasao && riscoEvasao !== 'baixo' && slot.avgSessionValue > 0
+    ? slot.avgSessionValue * 4
     : null;
 
   return (
@@ -131,34 +197,67 @@ function ActiveCell({ slot }: { slot: RetentionSlot }) {
         }}
       >
         <div className="px-3 py-3 flex flex-col gap-2 h-full">
-          {/* Nome + WhatsApp + badge estabilidade */}
+
+          {/* LINHA 1 — Nome + badge + WA + Score */}
           <div className="flex items-center justify-between gap-1 min-w-0">
-            <span className="text-[13px] font-bold text-gray-800 truncate leading-tight">
-              {displayName}
-            </span>
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <span
-                className="text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none"
-                style={{ color: cfg.color, backgroundColor: cfg.badgeBg }}
-              >
-                {cfg.label}
+            <div className="flex items-center gap-1 min-w-0 flex-1">
+              <span className="text-sm font-bold text-gray-800 truncate leading-tight">
+                {displayName}
               </span>
               {slot.currentPatientPhone && (
                 <button
                   onClick={() => openWhatsApp(slot.currentPatientPhone, slot.currentPatientName || '')}
-                  className="p-1 rounded-full hover:bg-green-100 transition-colors"
+                  className="p-1 rounded-full hover:bg-green-100 transition-colors flex-shrink-0"
                   title="Enviar WhatsApp"
                 >
                   <MessageCircle size={13} className="text-green-500" />
                 </button>
               )}
             </div>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <span
+                className="text-[11px] font-bold px-1.5 py-0.5 rounded-full leading-none"
+                style={{ color: cfg.color, backgroundColor: cfg.badgeBg }}
+              >
+                {cfg.label}
+              </span>
+              <span
+                className="text-[13px] font-extrabold tabular-nums px-1.5 py-0.5 rounded-lg leading-none"
+                style={{ color: scoreColor, backgroundColor: scoreBg }}
+                title={`Score de estabilidade: ${slot.stabilityScore}/100`}
+              >
+                {slot.stabilityScore}
+              </span>
+            </div>
           </div>
 
-          {/* Presença + total */}
+          {/* LINHA 2 — Próxima ação */}
+          <div
+            className="px-2 py-1.5 rounded-lg flex items-start gap-1.5"
+            style={{ backgroundColor: acaoCfg.bg, border: `1px solid ${acaoCfg.border}` }}
+          >
+            <span className="text-sm leading-none flex-shrink-0 mt-px">{acao.icon}</span>
+            <div className="min-w-0">
+              <span className="text-[11px] font-bold leading-tight block" style={{ color: acaoCfg.text }}>
+                {acao.text}
+              </span>
+              {acao.sublabel && (
+                <span className="text-[10px] leading-none block mt-0.5" style={{ color: acaoCfg.text, opacity: 0.75 }}>
+                  {acao.sublabel}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* LINHA 3 — Presença */}
           <div className="flex items-center justify-between">
-            <span className="text-[11px] text-gray-400 font-medium uppercase tracking-wide">presença</span>
-            <span className="text-[11px] text-gray-400 tabular-nums">{slot.recurrenceCount} atend.</span>
+            <span className="text-xs text-gray-500 font-semibold uppercase tracking-wide">presença</span>
+            <div className="flex items-center gap-1.5">
+              {slot.slotTotalSessions > slot.recurrenceCount + 2 && (
+                <span className="text-[10px] text-gray-400 tabular-nums">{slot.slotTotalSessions} total</span>
+              )}
+              <span className="text-xs text-gray-500 tabular-nums">{slot.recurrenceCount} atend.</span>
+            </div>
           </div>
 
           {/* Barra + % */}
@@ -172,10 +271,10 @@ function ActiveCell({ slot }: { slot: RetentionSlot }) {
           </div>
 
           {/* Continuidade + valor mensal */}
-          <div className="flex items-center justify-between text-[10px] text-gray-500">
+          <div className="flex items-center justify-between text-xs text-gray-600">
             {slot.continuityMonths > 0 && (
               <span>
-                <span className="font-semibold text-gray-600">Acompanhamento:</span> {slot.continuityMonths} {slot.continuityMonths === 1 ? 'mês' : 'meses'}
+                <span className="font-semibold text-gray-700">Acompanham.:</span> {slot.continuityMonths} {slot.continuityMonths === 1 ? 'mês' : 'meses'}
               </span>
             )}
             {slot.avgSessionValue > 0 && (
@@ -185,22 +284,36 @@ function ActiveCell({ slot }: { slot: RetentionSlot }) {
             )}
           </div>
 
-          {/* Alertas + tipo + última visita */}
-          <div className="flex items-center gap-1 flex-wrap mt-auto">
-            {slot.packageRemaining > 0 && (
-              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none ${slot.packageRemaining <= 2 ? 'text-orange-700 bg-orange-100' : 'text-gray-500 bg-gray-100'}`}>
-                {slot.packageRemaining} restantes
-              </span>
-            )}
-            {!slot.nextSessionAt && (
-              <span className="text-[10px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full leading-none">
-                sem próx. sessão
-              </span>
-            )}
-            {lastLabel && (
-              <span className="text-[10px] text-gray-400 ml-auto tabular-nums">{lastLabel}</span>
-            )}
+          {/* Footer — badges + última + valor em risco */}
+          <div className="flex flex-col gap-1 mt-auto">
+            <div className="flex items-center gap-1 flex-wrap">
+              {slot.packageRemaining > 0 && (
+                <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full leading-none ${slot.packageRemaining <= 2 ? 'text-orange-700 bg-orange-100' : 'text-gray-600 bg-gray-100'}`}>
+                  📦 {slot.packageRemaining} sess.
+                </span>
+              )}
+              {!slot.nextSessionAt ? (
+                <span className="text-[11px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full leading-none">
+                  sem próx.
+                </span>
+              ) : nextLabel && (
+                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full leading-none">
+                  ✓ {nextLabel}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-1">
+              {lastLabel && (
+                <span className="text-[11px] text-gray-500 tabular-nums">{lastLabel}</span>
+              )}
+              {valorEmRisco && (
+                <span className="text-[11px] font-bold text-rose-600 ml-auto">
+                  ⚠ R${valorEmRisco.toLocaleString('pt-BR')} risco
+                </span>
+              )}
+            </div>
           </div>
+
         </div>
       </div>
     </StabilityTooltip>
@@ -302,6 +415,57 @@ function VacantCell({ slot }: { slot: RetentionSlot }) {
   );
 }
 
+// ── Painel de ação operacional ───────────────────────────────────────────────
+interface PainelItem {
+  filter: string;
+  icon: string;
+  label: string;
+  count: number;
+  activeColor: string;
+}
+
+function PainelResumo({ allSlots, viewFilter, setViewFilter }: {
+  allSlots: RetentionSlot[];
+  viewFilter: string;
+  setViewFilter: (v: string) => void;
+}) {
+  const active = allSlots.filter(s => !s.isVacant);
+  const items: PainelItem[] = [
+    { filter: 'sem_proxima_sessao', icon: '🚨', label: 'Sem próxima sessão', count: active.filter(s => !s.nextSessionAt).length, activeColor: '#fef2f2' },
+    { filter: 'faltosos',          icon: '⚠',  label: 'Faltas recentes',     count: active.filter(s => s.recentMissed >= 1).length, activeColor: '#fff7ed' },
+    { filter: 'pacote_acabando',   icon: '📦', label: 'Pacote acabando',      count: active.filter(s => s.packageRemaining > 0 && s.packageRemaining <= 3).length, activeColor: '#fffbeb' },
+    { filter: 'risco_alto',        icon: '🔥', label: 'Risco alto de evasão', count: active.filter(s => computeRiscoEvasao(s) === 'alto').length, activeColor: '#fef2f2' },
+  ].filter(i => i.count > 0);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
+      {items.map(item => {
+        const isActive = viewFilter === item.filter;
+        return (
+          <button
+            key={item.filter}
+            onClick={() => setViewFilter(isActive ? 'todos' : item.filter)}
+            className="flex items-center gap-3 p-3 rounded-xl border text-left transition-all hover:shadow-sm"
+            style={{
+              backgroundColor: isActive ? item.activeColor : '#ffffff',
+              borderColor: isActive ? '#fca5a5' : '#e5e7eb',
+              boxShadow: isActive ? '0 0 0 1px #fca5a5' : undefined,
+            }}
+          >
+            <span className="text-xl leading-none">{item.icon}</span>
+            <div>
+              <div className="text-xl font-bold text-gray-800 leading-tight">{item.count}</div>
+              <div className="text-[11px] text-gray-500 leading-tight">{item.label}</div>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 interface CarteiraWeeklyViewProps {
   doctors: IDoctor[];
 }
@@ -354,6 +518,9 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
       if (viewFilter === 'sem_proxima_sessao' && (slot.isVacant || slot.nextSessionAt)) return null;
       if (viewFilter === 'sem_continuidade' && (slot.isVacant || slot.continuityMonths >= 2)) return null;
       if (viewFilter === 'grade_risco' && slot.stability !== 'risco' && slot.stability !== 'atencao') return null;
+      if (viewFilter === 'faltosos' && (slot.isVacant || slot.recentMissed < 1)) return null;
+      if (viewFilter === 'pacote_acabando' && (slot.isVacant || slot.packageRemaining <= 0 || slot.packageRemaining > 3)) return null;
+      if (viewFilter === 'risco_alto' && (slot.isVacant || computeRiscoEvasao(slot) !== 'alto')) return null;
     }
 
     return slot;
@@ -418,6 +585,9 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
           </div>
         )}
       </div>
+
+      {/* Painel operacional — pacientes para contato */}
+      <PainelResumo allSlots={allSlots} viewFilter={viewFilter} setViewFilter={setViewFilter} />
 
       {/* Controles / Filtros */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 mb-4">
@@ -497,10 +667,13 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
               onChange={e => setViewFilter(e.target.value)}
             >
               <MenuItem value="todos">Todos</MenuItem>
+              <MenuItem value="sem_proxima_sessao">🚨 Sem próxima sessão</MenuItem>
+              <MenuItem value="faltosos">⚠ Faltas recentes</MenuItem>
+              <MenuItem value="pacote_acabando">📦 Pacote acabando</MenuItem>
+              <MenuItem value="risco_alto">🔥 Risco alto de evasão</MenuItem>
+              <MenuItem value="grade_risco">📉 Grade em risco</MenuItem>
               <MenuItem value="vagos">Horários vagos</MenuItem>
-              <MenuItem value="sem_proxima_sessao">Sem próxima sessão</MenuItem>
               <MenuItem value="sem_continuidade">Sem continuidade</MenuItem>
-              <MenuItem value="grade_risco">Grade em risco</MenuItem>
             </Select>
           </FormControl>
         </div>
@@ -632,7 +805,6 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
                     gridTemplateColumns: GRID_COLS,
                     gap: 10,
                     minHeight: 140,
-                    backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fafafa',
                   }}
                 >
                   <div className="flex items-center justify-end pr-2">
@@ -648,6 +820,8 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
                           minHeight: 130,
                           borderRight: notLast ? '2px dashed #cbd5e1' : undefined,
                           paddingRight: notLast ? 8 : undefined,
+                          backgroundColor: colIdx % 2 === 0 ? '#ffffff' : '#F8FAFC',
+                          borderRadius: 6,
                         }}
                       >
                         {slot ? (

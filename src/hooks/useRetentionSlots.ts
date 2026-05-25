@@ -24,6 +24,7 @@ export interface RetentionSlot {
   recurrenceCount:   number;
   slotTotalSessions: number;
   recentCompleted:   number;
+  recentMissed:      number;
   attendanceRate:   number;
   packageRemaining: number;
   nextSessionAt:    string | null;
