@@ -49,7 +49,7 @@ export function useWhatsAppWebStatus() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await API.get('/api/whatsapp-web/status', {
+      const res = await API.get('/whatsapp-web/status', {
         headers: {
           'Cache-Control': 'no-cache',
           Pragma: 'no-cache',
@@ -75,7 +75,7 @@ export function useWhatsAppWebStatus() {
 
   const reconnect = useCallback(async () => {
     try {
-      await API.post('/api/whatsapp-web/reconnect');
+      await API.post('/whatsapp-web/reconnect');
       await fetchStatus();
     } catch (err: any) {
       setState((prev) => ({
