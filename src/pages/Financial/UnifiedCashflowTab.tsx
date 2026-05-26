@@ -33,33 +33,27 @@ interface DayData {
 }
 
 const CashflowCardsSkeleton = () => {
+    const s = { bgcolor: 'rgba(255,255,255,0.10)' };
     const cardColors = ['#10B981', '#3B82F6', '#F59E0B', '#10B981'];
     return (
         <div className="p-2">
-            {/* Filtros de período */}
-            <div className="flex gap-2 mb-4 flex-wrap">
-                {[44, 52, 88, 112, 72, 88].map((w, i) => (
-                    <Skeleton key={i} variant="rounded" width={w} height={26} sx={{ borderRadius: 99 }} />
-                ))}
-            </div>
-            {/* 4 cards premium */}
+            {/* 4 cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
                 {cardColors.map((color, i) => (
-                    <div key={i} className="border rounded-2xl p-5 shadow-sm" style={{ borderColor: `${color}25`, backgroundColor: `${color}05` }}>
+                    <div key={i} className="border rounded-2xl p-5 shadow-sm" style={{ borderColor: `${color}40`, backgroundColor: `${color}12` }}>
                         <div className="flex items-center gap-3 mb-4">
-                            <Skeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 10, bgcolor: `${color}20` }} />
+                            <Skeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 10, ...s }} />
                             <div className="flex-1">
-                                <Skeleton variant="text" width="55%" height={11} sx={{ bgcolor: `${color}20` }} />
-                                <Skeleton variant="text" width="70%" height={11} />
+                                <Skeleton variant="text" width="55%" height={13} sx={s} />
+                                <Skeleton variant="text" width="70%" height={11} sx={s} />
                             </div>
                         </div>
-                        <Skeleton variant="text" width="80%" height={38} sx={{ bgcolor: `${color}18` }} />
-                        <div className="mt-3 pt-3 border-t border-gray-100 space-y-2.5">
-                            <Skeleton variant="text" width="35%" height={10} />
+                        <Skeleton variant="text" width="80%" height={40} sx={s} />
+                        <div className="mt-3 pt-3 border-t border-white/10 space-y-2.5">
                             {[0, 1, 2].map(j => (
                                 <div key={j} className="flex items-center justify-between">
-                                    <Skeleton variant="text" width="48%" height={13} />
-                                    <Skeleton variant="text" width="30%" height={13} />
+                                    <Skeleton variant="text" width="48%" height={13} sx={s} />
+                                    <Skeleton variant="text" width="30%" height={13} sx={s} />
                                 </div>
                             ))}
                         </div>
@@ -67,15 +61,15 @@ const CashflowCardsSkeleton = () => {
                 ))}
             </div>
             {/* Tabs */}
-            <div className="flex gap-1 border-b border-gray-200 pb-1 mb-3">
+            <div className="flex gap-1 border-b border-white/10 pb-1 mb-3">
                 {[90, 90, 80, 90, 110, 110].map((w, i) => (
-                    <Skeleton key={i} variant="rounded" width={w} height={36} sx={{ borderRadius: 6 }} />
+                    <Skeleton key={i} variant="rounded" width={w} height={36} sx={{ borderRadius: 6, ...s }} />
                 ))}
             </div>
             {/* Tabela */}
-            <Skeleton variant="rounded" width="100%" height={40} sx={{ borderRadius: 6, mb: 0.5 }} />
+            <Skeleton variant="rounded" width="100%" height={40} sx={{ borderRadius: 6, mb: 0.5, ...s }} />
             {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} variant="rounded" width="100%" height={52} sx={{ borderRadius: 6, mb: 0.5 }} />
+                <Skeleton key={i} variant="rounded" width="100%" height={52} sx={{ borderRadius: 6, mb: 0.5, ...s }} />
             ))}
         </div>
     );
@@ -392,17 +386,24 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                             })()}
                             {/* Entrada Real vs Antecipação */}
                             {(() => {
-                                const porTipo = data.porTipo || {};
-                                const sessoesDoDia = (data.transacoes || []).reduce((s: number, t: any) => s + (t.tipo !== 'Pacote' ? (t.valor || 0) : 0), 0);
-                                const vendaPacotes = porTipo.pacote || 0;
+                                const transacoes = data.transacoes || [];
+                                const sessoesDoDia = transacoes.reduce((s: number, t: any) => s + (t.tipo !== 'Pacote' || !t.isPackageSale ? (t.valor || 0) : 0), 0);
+                                const vendaPacotes = transacoes.reduce((s: number, t: any) => s + (t.isPackageSale ? (t.valor || 0) : 0), 0);
+                                const sessoesPacote = transacoes.reduce((s: number, t: any) => s + (t.tipo === 'Pacote' && !t.isPackageSale ? (t.valor || 0) : 0), 0);
                                 const outros = data.caixa.total - sessoesDoDia - vendaPacotes;
                                 return (
                                     <div className="pt-3 border-t border-gray-100 space-y-2">
                                         <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Origem do Caixa</div>
                                         <div className="flex items-center justify-between text-xs">
                                             <span className="flex items-center gap-2 text-gray-600"><span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />Sessões do dia</span>
-                                            <span className="font-semibold text-gray-800">{formatCurrency(sessoesDoDia)}</span>
+                                            <span className="font-semibold text-gray-800">{formatCurrency(sessoesDoDia - sessoesPacote)}</span>
                                         </div>
+                                        {sessoesPacote > 0 && (
+                                            <div className="flex items-center justify-between text-xs">
+                                                <span className="flex items-center gap-2 text-gray-600"><span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />Sessões de pacote</span>
+                                                <span className="font-semibold text-gray-800">{formatCurrency(sessoesPacote)}</span>
+                                            </div>
+                                        )}
                                         {vendaPacotes > 0 && (
                                             <div className="flex items-center justify-between text-xs">
                                                 <span className="flex items-center gap-2 text-gray-600"><span className="w-2 h-2 rounded-full bg-indigo-400 flex-shrink-0" />Venda de pacotes</span>
@@ -1354,7 +1355,15 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                     </div>
                 </div>
             ) : (
-                <CashflowCardsSkeleton />
+                <div className="flex flex-col items-center justify-center py-16 gap-4">
+                    <p className="text-gray-400 text-sm">Erro ao carregar dados. Verifique a conexão.</p>
+                    <button
+                        onClick={() => loadDayData()}
+                        className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+                    >
+                        Tentar novamente
+                    </button>
+                </div>
             )}
         </div>
     );

@@ -393,6 +393,7 @@ const FinancialDashboard = ({
         switch (currentTabId) {
             case 'caixa-unificado':
                 return (
+                    <>
                     <div className="flex flex-wrap items-center gap-2 mb-4">
                             <span className="text-xs font-medium text-gray-600">Período:</span>
                             {[
@@ -454,8 +455,9 @@ const FinancialDashboard = ({
                                     {chip.label}
                                 </button>
                             ))}
-                    <UnifiedCashflowTab month={selectedMonth} year={selectedYear} dateRange={cashflowRange} defaultViewMode={cashflowViewMode} />
                     </div>
+                    <UnifiedCashflowTab month={selectedMonth} year={selectedYear} dateRange={cashflowRange} defaultViewMode={cashflowViewMode} />
+                    </>
                 );
             case 'pagamentos':
                 return (
