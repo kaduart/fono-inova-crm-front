@@ -1,6 +1,6 @@
 // src/pages/Financial/FinancialDashboard.tsx - VERSÃO OTIMIZADA COM LAZY LOADING
 
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { Box, Grid, Paper, Skeleton, Tab, Tabs, Typography, useTheme, FormControl, Select, MenuItem } from '@mui/material';
 import {
     Calendar,
@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
 import { CashflowPageSkeleton } from './components/CashflowPageSkeleton';
+import UnifiedCashflowTab from './UnifiedCashflowTab';
 
 // 🔧 Helper para lazy loading com retry em caso de falha de chunk
 const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) => {
@@ -51,11 +52,11 @@ const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) 
 };
 
 // 🚀 LAZY LOAD: Só carrega quando a aba for ativada
+// NOTA: UnifiedCashflowTab é importado estaticamente (primeira tab — F5 instantâneo)
 const PaymentPage = lazyWithRetry(() => import('../../components/financial/PaymentPage'));
 const ExpensesTab = lazyWithRetry(() => import('./tabs/ExpensesTab'));
 const InsuranceTab = lazyWithRetry(() => import('./tabs/InsuranceTab'));
 const PlanningTab = lazyWithRetry(() => import('./tabs/PlanningTab'));
-const UnifiedCashflowTab = lazyWithRetry(() => import('./UnifiedCashflowTab'));
 const DashboardV3Tab = lazyWithRetry(() => import('./tabs/DashboardV3Tab'));
 
 // ── Skeletons por aba ─────────────────────────────────────────────────────────
@@ -354,6 +355,25 @@ const FinancialDashboard = ({
     const [cashflowViewMode, setCashflowViewMode] = useState<'day' | 'month'>('day');
     const theme = useTheme();
 
+    // 🚀 Prefetch all tab chunks on mount so tab switching feels instant
+    useEffect(() => {
+        requestIdleCallback?.(() => {
+            import('../../components/financial/PaymentPage');
+            import('./tabs/ExpensesTab');
+            import('./tabs/InsuranceTab');
+            import('./tabs/PlanningTab');
+            import('./UnifiedCashflowTab');
+            import('./tabs/DashboardV3Tab');
+        }) ?? setTimeout(() => {
+            import('../../components/financial/PaymentPage');
+            import('./tabs/ExpensesTab');
+            import('./tabs/InsuranceTab');
+            import('./tabs/PlanningTab');
+            import('./UnifiedCashflowTab');
+            import('./tabs/DashboardV3Tab');
+        }, 2000);
+    }, []);
+
     const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
         setCurrentTab(newValue);
     };
@@ -373,8 +393,7 @@ const FinancialDashboard = ({
         switch (currentTabId) {
             case 'caixa-unificado':
                 return (
-                    <Suspense fallback={<CashflowPageSkeleton />}>
-                        <div className="flex flex-wrap items-center gap-2 mb-4">
+                    <div className="flex flex-wrap items-center gap-2 mb-4">
                             <span className="text-xs font-medium text-gray-600">Período:</span>
                             {[
                                 { key: 'day', label: 'Hoje' },
@@ -435,9 +454,8 @@ const FinancialDashboard = ({
                                     {chip.label}
                                 </button>
                             ))}
-                        </div>
-                        <UnifiedCashflowTab month={selectedMonth} year={selectedYear} dateRange={cashflowRange} defaultViewMode={cashflowViewMode} />
-                    </Suspense>
+                    <UnifiedCashflowTab month={selectedMonth} year={selectedYear} dateRange={cashflowRange} defaultViewMode={cashflowViewMode} />
+                    </div>
                 );
             case 'pagamentos':
                 return (

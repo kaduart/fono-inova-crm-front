@@ -388,6 +388,7 @@ export const packageService = {
         paymentMethod: data.payment?.method || 'pix',
         amount: data.payment?.amount,
       });
+      window.dispatchEvent(new CustomEvent('session:completed'));
       return extractV2Data(response);
     }
     

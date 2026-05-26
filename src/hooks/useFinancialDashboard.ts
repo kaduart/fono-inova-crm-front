@@ -116,7 +116,7 @@ export const useFinancialDashboard = () => {
     
     try {
       const response = await api.get('/v2/financial/dashboard', {
-        params: { month: mes, year: ano, view }
+        params: { month: mes, year: ano, view, _t: Date.now() }
       });
       setData(response.data);
     } catch (err: any) {

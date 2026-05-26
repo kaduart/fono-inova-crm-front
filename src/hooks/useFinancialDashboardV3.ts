@@ -11,7 +11,7 @@ import moment from 'moment-timezone';
 const TIMEZONE = 'America/Sao_Paulo';
 
 // Cache de módulo: compartilhado entre todas as instâncias do hook (evita fetch duplicado)
-const MODULE_CACHE_TTL = 45 * 1000; // 45s — mês aberto precisa ser near real-time
+const MODULE_CACHE_TTL = 10 * 1000; // 10s — balanceamento entre performance e near real-time
 const _cache = new Map<string, { data: unknown; ts: number }>();
 const _inflight = new Map<string, Promise<unknown>>();
 
@@ -280,6 +280,15 @@ export interface DashboardV3Data {
   convenioAReceber: number;
   particularPendente: number;
   pacotePendente: number;
+  recebimentoProducao: {
+    total: number;
+    particular: number;
+    pacote: number;
+    convenio: number;
+    liminar: number;
+  };
+  retroativos: number;
+  aReceberProducao: number;
   metas: MetasV3;
   profissionais: {
     lista: ProfissionalV3[];
@@ -344,7 +353,7 @@ export const useFinancialDashboardV3 = () => {
       // Deduplica requests concorrentes para o mesmo mês/ano
       let req = _inflight.get(cacheKey) as Promise<DashboardV3Response> | undefined;
       if (!req) {
-        req = api.get('/v2/financial/dashboard', { params: { month: mes, year: ano } })
+        req = api.get('/v2/financial/dashboard', { params: { month: mes, year: ano, _t: Date.now() } })
           .then(r => r.data as DashboardV3Response)
           .finally(() => _inflight.delete(cacheKey));
         _inflight.set(cacheKey, req);
@@ -383,12 +392,19 @@ export const useCurrentMonthDashboardV3 = () => {
       hook.fetchDashboard(month, year);
     }
 
-    // Auto-refresh a cada 60s: cache de 45s garante re-fetch sempre
+    // Auto-refresh a cada 60s
     const interval = setInterval(() => {
       hook.fetchDashboard(month, year);
     }, 60 * 1000);
 
-    return () => clearInterval(interval);
+    // Refetch imediato após qualquer complete de sessão
+    const onSessionCompleted = () => hook.fetchDashboard(month, year);
+    window.addEventListener('session:completed', onSessionCompleted);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('session:completed', onSessionCompleted);
+    };
   }, [month, year, hook.fetchDashboard]);
 
   return hook;

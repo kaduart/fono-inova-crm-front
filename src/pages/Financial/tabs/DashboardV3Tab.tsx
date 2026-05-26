@@ -201,6 +201,16 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     }
   }, [activeTab, month, year, fetchPendingInsurance]);
 
+  // 🔄 Escuta evento global de refresh de caixa (disparado após completeSession)
+  useEffect(() => {
+    const handleCashRefresh = () => {
+      console.log('[DashboardV3Tab] cash:refresh recebido — refetching dashboard');
+      fetchDashboard(month, year);
+    };
+    window.addEventListener('cash:refresh', handleCashRefresh);
+    return () => window.removeEventListener('cash:refresh', handleCashRefresh);
+  }, [month, year, fetchDashboard]);
+
   if (loading) return (
     <div className="p-4">
       {/* Header */}
@@ -290,11 +300,14 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   if (error) return <div className="p-4 rounded-lg bg-rose-50 text-rose-700 border border-rose-200">{error}</div>;
   if (!data || !resumo) return <div className="p-4 rounded-lg bg-sky-50 text-sky-700 border border-sky-200">Nenhum dado disponível</div>;
 
-  const { cash, revenue, expenses, metas, profissionais, insights, comparativos, riscoOperacional, acoesExecutivas, drillDown, indicadores, convenioAReceber, particularPendente, pacotePendente } = data;
+  const { cash, revenue, expenses, metas, profissionais, insights, comparativos, riscoOperacional, acoesExecutivas, drillDown, indicadores, convenioAReceber, particularPendente, pacotePendente, recebimentoProducao, retroativos, aReceberProducao } = data;
   const totalCaixa = cash.total;
   const totalProducao = revenue.total;
   const liminarAReceber = Math.max(0, (revenue.byMethod.liminar || 0) - (cash.breakdown.liminar || 0));
-  const resultadoEconomico = cash.total + convenioAReceber + liminarAReceber;
+  const resultadoEconomico = totalProducao;
+  const totalRecebimentoProducao = recebimentoProducao?.total ?? 0;
+  const totalRetroativos = retroativos ?? Math.max(0, totalCaixa - totalRecebimentoProducao);
+  const totalAReceberProducao = aReceberProducao ?? Math.max(0, totalProducao - totalRecebimentoProducao);
 
   // 🎯 RITMO OPERACIONAL — card herói
   const RitmoCard = () => {
@@ -312,7 +325,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
       <div className={`p-4 md:p-6 rounded-2xl mb-6 border ${bgClass} border-gray-200 shadow-sm`}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
           <div className="md:col-span-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">RESULTADO ECONÔMICO — RITMO DO MÊS</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">PRODUÇÃO CLÍNICA — RITMO DO MÊS</span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-4xl md:text-5xl font-extrabold text-gray-900">{pctRealizado.toFixed(1)}%</span>
               <span className="text-xl text-gray-500">/ {pctEsperado.toFixed(1)}% esperado</span>
@@ -330,7 +343,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                 <span>Resultado econômico acumulado</span>
                 <span>Meta mensal</span>
               </div>
-              <p className="text-xs text-gray-400 mt-1.5">Caixa recebido + convênio entregue ainda não cobrado. Pacotes pagos à vista entram no mês do pagamento.</p>
+              <p className="text-xs text-gray-400 mt-1.5">Baseado em sessões realizadas (regime de competência). Caixa e Produção medem dimensões diferentes — não são diretamente comparáveis.</p>
             </div>
           </div>
           <div className="space-y-2">
@@ -351,33 +364,92 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   const renderVisaoGeral = () => (
     <div>
       <RitmoCard />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
-        <MetricCard
-          title="Caixa"
-          subtitle="Dinheiro efetivamente recebido no mês"
-          value={formatCurrency(totalCaixa)}
-          icon={<DollarSign size={20} />}
-          color="emerald"
-          tooltip="Caixa = pagamentos com status 'pago' cuja data de recebimento está neste mês. Ignora quando a sessão foi realizada — pode incluir pagamentos de sessões de outros meses."
-        />
-        <MetricCard
-          title="Produção"
-          subtitle="Caixa recebido + convênio/liminar a receber"
-          value={formatCurrency(resultadoEconomico)}
-          icon={<Briefcase size={20} />}
-          color="blue"
-          tooltip="Resultado econômico = dinheiro já recebido no caixa + repasses de convênio/liminar ainda pendentes. Representa o valor total produzido que será ou já foi recebido."
-        />
+
+      {/* ── VISÃO OPERACIONAL — o que importa pro gestor clínico ── */}
+      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Visão Operacional</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        {/* 1. Produção Clínica */}
+        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#3B82F640', backgroundColor: '#EFF6FF' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <Briefcase size={16} className="text-blue-600" />
+            <span className="text-xs font-black uppercase tracking-widest text-blue-600">Produção Clínica</span>
+          </div>
+          <div className="text-4xl font-black text-gray-900 my-2">{formatCurrency(totalProducao)}</div>
+          <p className="text-xs text-gray-500">Tudo que foi atendido neste mês</p>
+          <div className="mt-3 pt-2 border-t border-blue-100 grid grid-cols-2 gap-1 text-[11px] text-gray-500">
+            <span>Pacote: <strong>{formatCurrency(revenue.byMethod.pacote || 0)}</strong></span>
+            <span>Particular: <strong>{formatCurrency(revenue.byMethod.particular || 0)}</strong></span>
+            <span>Convênio: <strong>{formatCurrency(revenue.byMethod.convenio || 0)}</strong></span>
+            <span>Liminar: <strong>{formatCurrency(revenue.byMethod.liminar || 0)}</strong></span>
+          </div>
+        </div>
+
+        {/* 2. Recebido da Produção */}
+        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#10B98140', backgroundColor: '#F0FDF4' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <CheckCircle2 size={16} className="text-emerald-600" />
+            <span className="text-xs font-black uppercase tracking-widest text-emerald-600">Recebido da Produção</span>
+          </div>
+          <div className="text-4xl font-black text-gray-900 my-2">{formatCurrency(totalRecebimentoProducao)}</div>
+          <p className="text-xs text-gray-500">Da produção deste mês já convertida em caixa</p>
+          <div className="mt-3 pt-2 border-t border-emerald-100">
+            <div className="flex justify-between text-[11px] text-gray-500 mb-1">
+              <span>% da produção recebida</span>
+              <strong className="text-emerald-700">{totalProducao > 0 ? Math.round((totalRecebimentoProducao / totalProducao) * 100) : 0}%</strong>
+            </div>
+            <div className="h-2 w-full bg-emerald-100 rounded-full overflow-hidden">
+              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${totalProducao > 0 ? Math.min(100, Math.round((totalRecebimentoProducao / totalProducao) * 100)) : 0}%` }} />
+            </div>
+          </div>
+        </div>
+
+        {/* 3. A Receber */}
+        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#F59E0B40', backgroundColor: '#FFFBEB' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <AlertTriangle size={16} className="text-amber-600" />
+            <span className="text-xs font-black uppercase tracking-widest text-amber-600">A Receber</span>
+          </div>
+          <div className="text-4xl font-black text-gray-900 my-2">{formatCurrency(totalAReceberProducao)}</div>
+          <p className="text-xs text-gray-500">Produção realizada ainda não paga</p>
+          <div className="mt-3 pt-2 border-t border-amber-100 space-y-1 text-[11px]">
+            {convenioAReceber > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">🧾 Convênio pendente</span>
+                <strong className="text-amber-700">{formatCurrency(convenioAReceber)}</strong>
+              </div>
+            )}
+            {(particularPendente + pacotePendente) > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">👤 Particular/Pacote</span>
+                <strong className="text-amber-700">{formatCurrency(particularPendente + pacotePendente)}</strong>
+              </div>
+            )}
+            {liminarAReceber > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">⚖️ Liminar</span>
+                <strong className="text-amber-700">{formatCurrency(liminarAReceber)}</strong>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── CAIXA FINANCEIRO — secundário, inclui retroativos ── */}
+      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Caixa Financeiro (regime de caixa)</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="rounded-2xl border p-4 shadow-sm bg-white col-span-1 sm:col-span-2 lg:col-span-1">
+          <div className="flex items-center gap-2 mb-1">
+            <DollarSign size={14} className="text-gray-500" />
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Caixa Total</span>
+          </div>
+          <div className="text-2xl font-black text-gray-900">{formatCurrency(totalCaixa)}</div>
+          <p className="text-[11px] text-gray-400 mt-1">
+            Tudo que entrou em maio · inclui {formatCurrency(totalRetroativos)} de retroativos
+          </p>
+        </div>
+        <MetricCard title="Retroativos" subtitle="Recebimentos de meses anteriores" value={formatCurrency(totalRetroativos)} icon={<TrendingUp size={20} />} color="sky" />
         <MetricCard title="Despesas" subtitle="Despesas cadastradas + comissões" value={formatCurrency(expenses.total)} icon={<Receipt size={20} />} color="rose" />
-        <MetricCard title="Lucro" subtitle="Caixa recebido menos todas as despesas" value={formatCurrency(indicadores?.lucro ?? totalCaixa - expenses.total)} icon={<TrendingUp size={20} />} color={(indicadores?.lucro ?? totalCaixa - expenses.total) >= 0 ? 'emerald' : 'rose'} />
-        <MetricCard
-          title="Débitos do Mês"
-          subtitle="Sessões vencidas não pagas — clique para ver"
-          value={formatCurrency(resumo?.pendentes?.vencidos?.total || 0)}
-          icon={<AlertTriangle size={20} />}
-          color="amber"
-          onClick={() => openDebitosModal('mes')}
-        />
+        <MetricCard title="Lucro" subtitle="Caixa menos despesas" value={formatCurrency(indicadores?.lucro ?? totalCaixa - expenses.total)} icon={<TrendingUp size={20} />} color={(indicadores?.lucro ?? totalCaixa - expenses.total) >= 0 ? 'emerald' : 'rose'} />
       </div>
 
       {/* 🆕 CARDS DETALHADOS — SEPARAÇÃO CAIXA */}
@@ -435,13 +507,25 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-gray-500">Caixa hoje</p>
-              <span className="text-2xl font-bold text-gray-900">{formatCurrency(metas.realizado.hoje)}</span>
+              <span className="text-2xl font-bold text-gray-900">{formatCurrency(cash.today ?? metas.realizado.hoje)}</span>
               <p className="text-xs text-gray-400 mt-0.5">Dinheiro recebido hoje</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Produção hoje</p>
+              <span className="text-2xl font-bold text-emerald-600">{formatCurrency(revenue.today ?? metas.producaoHoje ?? 0)}</span>
+              <p className="text-xs text-gray-400 mt-0.5">Atendimentos realizados hoje</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Meta diária</p>
               <span className="text-2xl font-bold text-gray-900">{formatCurrency(metas.configuracao.metaDiariaNecessaria)}</span>
               <p className="text-xs text-gray-400 mt-0.5">Produção necessária/dia</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Gap hoje</p>
+              <span className={`text-2xl font-bold ${(revenue.today ?? metas.producaoHoje ?? 0) >= metas.configuracao.metaDiariaNecessaria ? 'text-emerald-600' : 'text-amber-600'}`}>
+                {formatCurrency((revenue.today ?? metas.producaoHoje ?? 0) - metas.configuracao.metaDiariaNecessaria)}
+              </span>
+              <p className="text-xs text-gray-400 mt-0.5">{(revenue.today ?? metas.producaoHoje ?? 0) >= metas.configuracao.metaDiariaNecessaria ? 'Acima da meta' : 'Abaixo da meta'}</p>
             </div>
           </div>
         </div>
@@ -521,11 +605,14 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
         <div className="space-y-4">
           <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-100">
             <div>
-              <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">Pago no caixa</p>
-              <p className="text-xs text-emerald-600 mt-0.5">Pagamentos efetivamente recebidos no mês</p>
+              <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">Recebido da produção</p>
+              <p className="text-xs text-emerald-600 mt-0.5">
+                Pago de sessões deste mês · caixa total {formatCurrency(cash.total)}
+                {totalRetroativos > 0 && ` (inclui ${formatCurrency(totalRetroativos)} de meses anteriores)`}
+              </p>
             </div>
             <span className="text-2xl font-bold text-emerald-700">
-              {formatCurrency(cash.total)}
+              {formatCurrency(totalRecebimentoProducao)}
             </span>
           </div>
           <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50 border border-amber-100">
@@ -585,10 +672,11 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   const renderMetas = () => {
     const metaValor        = metas.configuracao.metaMensal;
     const pctRealizado     = metas.ritmo.percentualRealizado;
-    const resultadoEcon    = metas.realizado.mes;
+    const metaRealizado    = metas.realizado.mes;
+    const resultadoEcon    = metaRealizado;
     const caixaTotal       = cash.total;
     const producaoTotal    = revenue.total;
-    const convenioAReceber = Math.max(0, resultadoEcon - caixaTotal);
+    // convenioAReceber usa o do outer scope (data.convenioAReceber = production.convenio - cash.convenio)
     const pendentesTotal   = resumo?.pendentes?.allParticularTotal ?? ((data?.particularPendente || 0) + (data?.pacotePendente || 0));
 
     const isVerde   = metas.statusMeta === 'verde';
@@ -673,7 +761,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
               { icon: '💵', label: 'Caixa recebido',     value: caixaTotal,       color: '#059669' },
               { icon: '🧾', label: 'Convênio a receber', value: convenioAReceber, color: '#7C3AED' },
               { icon: '🏥', label: 'Produção clínica',   value: producaoTotal,    color: '#2563EB' },
-              { icon: '⏳', label: 'Pendências',          value: pendentesTotal,   color: '#D97706' },
+              { icon: '⏳', label: 'A receber',             value: totalAReceberProducao, color: '#D97706' },
               { icon: '🎯', label: 'Falta para meta',    value: Math.max(0, metaValor - resultadoEcon), color: '#DC2626' },
             ] as const).map((kpi) => (
               <div key={kpi.label} className="text-center">
@@ -735,9 +823,9 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
             <p className="text-[10px] text-gray-400 mb-3">Quanto do produzido já virou dinheiro</p>
             <div className="space-y-3">
               {([
-                { label: 'Já recebido em caixa',       value: caixaTotal,       color: '#10B981', icon: '💵' },
-                { label: 'Convênio (aguarda repasse)',  value: convenioAReceber, color: '#8B5CF6', icon: '🧾' },
-                { label: 'Pendente de quitação',       value: pendentesTotal,   color: '#F59E0B', icon: '⏳' },
+                { label: 'Recebido da produção',       value: totalRecebimentoProducao,            color: '#10B981', icon: '💵' },
+                { label: 'Convênio (aguarda repasse)',  value: convenioAReceber,                    color: '#8B5CF6', icon: '🧾' },
+                { label: 'Particular/Pacote pendente', value: particularPendente + pacotePendente, color: '#F59E0B', icon: '⏳' },
               ] as const).map((item) => {
                 const pct = producaoTotal > 0 ? Math.round((item.value / producaoTotal) * 100) : 0;
                 return (
@@ -778,7 +866,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
             <div className="space-y-1.5 border-t border-gray-200 pt-2">
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500">Ritmo atual</span>
-                <span className="font-black text-emerald-600">{formatCurrency(metas.realizado.hoje)}/dia</span>
+                <span className="font-black text-emerald-600">{formatCurrency(cash.today ?? metas.realizado.hoje)}/dia</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500">Necessário</span>
@@ -788,11 +876,11 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                 <span className="text-gray-500">Dias restantes</span>
                 <span className="font-bold text-gray-700">{metas.gap.diasRestantes} dias</span>
               </div>
-              {metas.configuracao.metaDiariaNecessaria > 0 && metas.realizado.hoje > 0 && (
-                <div className={`mt-2 text-center py-1 rounded-full text-[10px] font-black ${metas.realizado.hoje >= metas.configuracao.metaDiariaNecessaria ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
-                  {metas.realizado.hoje >= metas.configuracao.metaDiariaNecessaria
-                    ? `+${(((metas.realizado.hoje / metas.configuracao.metaDiariaNecessaria) - 1) * 100).toFixed(0)}% acima do necessário`
-                    : `${(((metas.realizado.hoje / metas.configuracao.metaDiariaNecessaria) - 1) * 100).toFixed(0)}% abaixo do necessário`}
+              {metas.configuracao.metaDiariaNecessaria > 0 && (cash.today ?? metas.realizado.hoje) > 0 && (
+                <div className={`mt-2 text-center py-1 rounded-full text-[10px] font-black ${(cash.today ?? metas.realizado.hoje) >= metas.configuracao.metaDiariaNecessaria ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
+                  {(cash.today ?? metas.realizado.hoje) >= metas.configuracao.metaDiariaNecessaria
+                    ? `+${((((cash.today ?? metas.realizado.hoje) / metas.configuracao.metaDiariaNecessaria) - 1) * 100).toFixed(0)}% acima do necessário`
+                    : `${((((cash.today ?? metas.realizado.hoje) / metas.configuracao.metaDiariaNecessaria) - 1) * 100).toFixed(0)}% abaixo do necessário`}
                 </div>
               )}
             </div>
@@ -890,7 +978,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     const metaMensal      = metas.configuracao.metaMensal;
     const pctMetaCaixa    = metaMensal > 0 ? Math.min(Math.round((totalCaixa / metaMensal) * 100), 100) : 0;
     const diffProdCaixa   = totalProducao - totalCaixa;
-    const convenioAmount  = revenue.byMethod.convenio || 0;
+    const convenioAmount  = convenioAReceber || 0;
     const particularPend  = (data as any)?.particularPendente || 0;
     const pacotePend      = (data as any)?.pacotePendente || 0;
     const totalNaoReceb   = particularPend + pacotePend + convenioAmount;
@@ -979,12 +1067,22 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                   </span>
                 </div>
                 <div className="text-3xl font-black text-gray-900 mb-2">{formatCurrency(totalProducao)}</div>
-                <div className="space-y-0.5 pt-2 border-t border-blue-100">
-                  {diffProdCaixa > 0 && (
-                    <p className="text-xs font-semibold text-blue-700">+{formatCurrency(diffProdCaixa)} acima do caixa</p>
+                <div className="space-y-1 pt-2 border-t border-blue-100">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">✅ Já recebido</span>
+                    <span className="font-semibold text-emerald-700">{formatCurrency(totalRecebimentoProducao)}</span>
+                  </div>
+                  {totalAReceberProducao > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500">🕐 A receber</span>
+                      <span className="font-semibold text-amber-700">{formatCurrency(totalAReceberProducao)}</span>
+                    </div>
                   )}
                   {convenioAmount > 0 && (
-                    <p className="text-xs text-purple-600">🧾 Convênio pendente: <span className="font-bold">{formatCurrency(convenioAmount)}</span></p>
+                    <div className="flex justify-between text-xs pl-3">
+                      <span className="text-gray-400">↳ 🧾 Convênio</span>
+                      <span className="font-medium text-purple-600">{formatCurrency(convenioAmount)}</span>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1326,7 +1424,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                 onClick={() => setRankingSubTab(i)}
                 className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-all ${
                   rankingSubTab === i
-                    ? 'bg-gradient-to-r from-gray-800 to-gray-900 text-white shadow-md'
+                    ? 'bg-[#00B57A] text-white shadow-md'
                     : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
                 }`}
               >
@@ -1404,7 +1502,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
               onClick={() => setActiveTab(i)}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-all ${
                 activeTab === i
-                  ? 'bg-gradient-to-r from-gray-800 to-gray-900 text-white shadow-md'
+                  ? 'bg-[#00B57A] text-white shadow-md'
                   : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
               }`}
             >

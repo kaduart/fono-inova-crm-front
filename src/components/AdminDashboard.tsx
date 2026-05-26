@@ -1,5 +1,5 @@
 import { Box, Typography, useTheme } from '@mui/material';
-import { CashflowPageSkeleton } from '../pages/Financial/components/CashflowPageSkeleton';
+
 import { BarChart3, CalendarPlus } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -72,9 +72,9 @@ import AddAdminContent from './admin/AddAdminContent';
 import AdminHeader from './admin/AdminHeader';
 import DashboardContentOptimized from './admin/DashboardContentOptimized';
 import ProfileContent from './admin/ProfileContent';
+import FinancialDashboard from '../pages/Financial/FinancialDashboard';
 
-// 🚀 LAZY LOADING - Todos os componentes pesados só carregam quando necessário
-const FinancialDashboard = lazyWithRetry(() => import('../pages/Financial/FinancialDashboard'));
+// 🚀 LAZY LOADING - Componentes de abas secundárias só carregam quando necessário
 
 const FollowupPage = lazyWithRetry(() => import('../pages/FollowupPage'));
 const PreAgendamentosPage = lazyWithRetry(() => import('../pages/Secretaria/PreAgendamentosPage'));
@@ -258,6 +258,21 @@ export default function AdminDashboard() {
                 setUserRole(storedRole); // Se não for JSON, usa direto
             }
         }
+    }, []);
+
+    // 🚀 Prefetch lazy chunks das abas secundárias em background
+    useEffect(() => {
+        requestIdleCallback?.(() => {
+            import('../pages/FollowupPage');
+            import('../pages/Secretaria/PreAgendamentosPage');
+            import('./calendar/EnhancedCalendar');
+            import('./ManageDoctors/ManageDoctors');
+        }) ?? setTimeout(() => {
+            import('../pages/FollowupPage');
+            import('../pages/Secretaria/PreAgendamentosPage');
+            import('./calendar/EnhancedCalendar');
+            import('./ManageDoctors/ManageDoctors');
+        }, 3000);
     }, []);
 
     const theme = useTheme();
@@ -1010,9 +1025,7 @@ export default function AdminDashboard() {
             case 'Financeiro':
                 return (
                     <TabErrorBoundary tabName="Financeiro">
-                        <Suspense fallback={<CashflowPageSkeleton />}>
-                            <FinancialDashboard {...financialProps} />
-                        </Suspense>
+                        <FinancialDashboard {...financialProps} />
                     </TabErrorBoundary>
                 );
             case 'Leads':

@@ -280,7 +280,9 @@ export const appointmentService = {
             : `/appointments/${id}/complete`;     // ⚠️ V1 LEGADO: sync direto
 
         console.log(`[AppointmentService] complete: ${endpoint} (V2=${appointmentService.USE_V2_COMPLETE})`);
-        return API.patch<IAppointmentResponse>(endpoint, data);
+        const result = await API.patch<IAppointmentResponse>(endpoint, data);
+        window.dispatchEvent(new CustomEvent('session:completed'));
+        return result;
     },
 
     // 🚀 MIGRAÇÃO V2 - Flag de controle para cancelamento event-driven

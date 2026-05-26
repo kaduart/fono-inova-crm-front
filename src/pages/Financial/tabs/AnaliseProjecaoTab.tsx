@@ -131,6 +131,16 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
         });
     }, [mes, ano, fetchDashboard]);
 
+    // 🔄 Escuta evento global de refresh de caixa (disparado após completeSession)
+    useEffect(() => {
+        const handleCashRefresh = () => {
+            console.log('[AnaliseProjecaoTab] cash:refresh recebido — refetching dashboard');
+            fetchDashboard(mes, ano);
+        };
+        window.addEventListener('cash:refresh', handleCashRefresh);
+        return () => window.removeEventListener('cash:refresh', handleCashRefresh);
+    }, [mes, ano, fetchDashboard]);
+
     useEffect(() => {
         if (!dashData) return;
         const projecaoFinal = dashData?.metas?.projecao?.final || 0;
@@ -138,7 +148,8 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
             params: {
                 month: mes,
                 year: ano,
-                projecaoFinal
+                projecaoFinal,
+                realAtual: producao
             }
         }).then(res => {
             if (res.data?.success) {
@@ -220,7 +231,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                         {metaValor > 0 && (
                             <div className="flex flex-wrap gap-4 mt-2">
                                 <span className="text-xs text-gray-600">💵 Recebido: <strong>{formatCurrency(caixa)}</strong></span>
-                                <span className="text-xs text-gray-600">🧾 Convênio: <strong className="text-amber-600">{formatCurrency(Math.max(0, resultadoEconomico - caixa))}</strong></span>
+                                <span className="text-xs text-gray-600">🧾 Convênio: <strong className="text-amber-600">{formatCurrency(dashData?.convenioAReceber || 0)}</strong></span>
                                 <span className="text-xs text-gray-600">🏥 Produção: <strong className="text-blue-600">{formatCurrency(producao)}</strong></span>
                             </div>
                         )}
@@ -268,19 +279,19 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                         )}
                     </p>
 
-                    {/* Mini badges */}
+                    {/* Mini badges — decomposição fecha: recebido + a receber = produção */}
                     <div className="space-y-1.5 border-t border-emerald-100 pt-2">
-                        <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">💵 Caixa recebido</span>
-                            <span className="font-semibold">{formatCurrency(caixa)}</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">🧾 Convênio a receber</span>
-                            <span className="font-semibold text-amber-600">{formatCurrency(Math.max(0, resultadoEconomico - caixa))}</span>
-                        </div>
                         <div className="flex justify-between text-xs">
                             <span className="text-gray-500">🏥 Produção clínica</span>
                             <span className="font-semibold text-blue-600">{formatCurrency(producao)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                            <span className="text-gray-500">✅ Recebido da produção</span>
+                            <span className="font-semibold text-emerald-600">{formatCurrency(dashData?.recebimentoProducao?.total || 0)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                            <span className="text-gray-500">⏳ A receber (conv. + part.)</span>
+                            <span className="font-semibold text-amber-600">{formatCurrency(dashData?.aReceberProducao || 0)}</span>
                         </div>
                     </div>
                 </div>
