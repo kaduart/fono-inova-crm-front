@@ -1157,15 +1157,17 @@ export default function AdminDashboard() {
                 </Suspense>
             )}
 
-            <Suspense fallback={<ModalSkeleton />}>
-                <DoctorFormModal
-                    open={showModalAddProfessional}
-                    patients={patients}
-                    onClose={() => setShowModalAddProfessional(false)}
-                    onSubmitDoctor={handleSaveDoctor}
-                    loading={isLoading}
-                />
-            </Suspense>
+            {showModalAddProfessional && (
+                <Suspense fallback={<ModalSkeleton />}>
+                    <DoctorFormModal
+                        open={showModalAddProfessional}
+                        patients={patients}
+                        onClose={() => setShowModalAddProfessional(false)}
+                        onSubmitDoctor={handleSaveDoctor}
+                        loading={isLoading}
+                    />
+                </Suspense>
+            )}
 
             {paymentModalOpen && (
                 <Suspense fallback={<ModalSkeleton />}>
