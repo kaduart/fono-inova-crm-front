@@ -13,6 +13,7 @@ export interface PatientPackageDTO {
     sessionType: string;
     totalSessions: number;
     sessionsDone: number;
+    status?: 'active' | 'finished' | 'canceled';
 }
 
 export interface PatientNextAppointmentDTO {
@@ -134,6 +135,7 @@ function extractPackages(raw: any): PatientPackageDTO[] | undefined {
         sessionType: pkg.sessionType || 'N/A',
         totalSessions: pkg.totalSessions || 0,
         sessionsDone: pkg.sessionsDone || 0,
+        status: pkg.status || 'active',
     }));
 }
 

@@ -42,7 +42,7 @@ export const useDashboard = (): UseDashboardReturn => {
     const [charts, setCharts] = useState<DashboardCharts | null>(getCache('dashboard')?.charts || null);
     const [doctors, setDoctors] = useState<DoctorOverview[]>(Array.isArray(getCache('dashboard')?.doctorsOverview) ? getCache('dashboard')!.doctorsOverview : []);
     const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>(Array.isArray(getCache('dashboard')?.upcomingAppointments) ? getCache('dashboard')!.upcomingAppointments : []);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(!isCacheValid('dashboard'));
     const [error, setError] = useState<string | null>(null);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(
         getCache('dashboard') ? new Date() : null

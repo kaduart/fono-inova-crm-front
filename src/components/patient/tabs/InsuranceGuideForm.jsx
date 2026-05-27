@@ -1,55 +1,41 @@
 // src/components/patient/tabs/InsuranceGuideForm.jsx
 import React, { useEffect } from 'react';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  MenuItem,
-  Box,
-  Typography,
-  Alert
-} from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
-import { Save, X } from 'lucide-react';
+import { Save, X, FileText, Shield, AlertTriangle, Info } from 'lucide-react';
 import { format, addMonths } from 'date-fns';
 
-// Constantes de validação (sincronizadas com backend)
 const VALID_SPECIALTIES = [
-  'fonoaudiologia',
-  'psicologia',
-  'fisioterapia',
-  'terapia_ocupacional',
-  'psicopedagogia',
-  'psicomotricidade',
-  'musicoterapia',
-  'neuropsicologia'
+  { value: 'fonoaudiologia',      label: 'Fonoaudiologia' },
+  { value: 'psicologia',          label: 'Psicologia' },
+  { value: 'fisioterapia',        label: 'Fisioterapia' },
+  { value: 'terapia_ocupacional', label: 'Terapia Ocupacional' },
+  { value: 'psicopedagogia',      label: 'Psicopedagogia' },
+  { value: 'psicomotricidade',    label: 'Psicomotricidade' },
+  { value: 'musicoterapia',       label: 'Musicoterapia' },
+  { value: 'neuropsicologia',     label: 'Neuropsicologia' },
 ];
-
 
 const VALID_INSURANCES = [
-  'unimed-anapolis',
-  'unimed-goiania',
-  'unimed-campinas',
-  'hapvida',
-  'amil',
-  'bradesco-saude',
-  'sulamerica',
-  'outro'
+  { value: 'unimed-anapolis', label: 'Unimed Anápolis' },
+  { value: 'unimed-goiania',  label: 'Unimed Goiânia' },
+  { value: 'unimed-campinas', label: 'Unimed Campinas' },
+  { value: 'hapvida',         label: 'Hapvida' },
+  { value: 'amil',            label: 'Amil' },
+  { value: 'bradesco-saude',  label: 'Bradesco Saúde' },
+  { value: 'sulamerica',      label: 'SulAmérica' },
+  { value: 'outro',           label: 'Outro' },
 ];
 
-/**
- * Modal para criar/editar guias de convênio
- * @param {Object} props
- * @param {boolean} props.open
- * @param {Function} props.onClose
- * @param {Function} props.onSave
- * @param {Object} [props.guide]
- */
+const inputClass = (hasError) =>
+  `w-full px-3 py-2.5 border rounded-lg text-sm text-gray-800 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 transition-colors placeholder-gray-400 ${
+    hasError
+      ? 'border-red-300 focus:ring-red-200'
+      : 'border-gray-200 focus:ring-teal-200 focus:border-teal-400'
+  }`;
+
 const InsuranceGuideForm = ({ open, onClose, onSave, guide = null }) => {
   const isEditing = Boolean(guide);
+  const hasUsedSessions = isEditing && guide?.usedSessions > 0;
 
   const {
     control,
@@ -58,35 +44,34 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null }) => {
     formState: { errors, isSubmitting }
   } = useForm({
     defaultValues: {
-      number: '',
-      specialty: '',
-      insurance: '',
+      number:        '',
+      specialty:     '',
+      insurance:     '',
       totalSessions: '',
-      expiresAt: format(addMonths(new Date(), 3), 'yyyy-MM-dd'),
-      notes: ''
+      expiresAt:     format(addMonths(new Date(), 3), 'yyyy-MM-dd'),
+      notes:         ''
     }
   });
 
-  // Resetar formulário quando abrir/fechar ou mudar guia
   useEffect(() => {
     if (open) {
       if (guide) {
         reset({
-          number: guide.number || '',
-          specialty: guide.specialty || '',
-          insurance: guide.insurance || '',
+          number:        guide.number || '',
+          specialty:     guide.specialty || '',
+          insurance:     guide.insurance || '',
           totalSessions: guide.totalSessions || '',
-          expiresAt: guide.expiresAt ? format(new Date(guide.expiresAt), 'yyyy-MM-dd') : '',
-          notes: guide.notes || ''
+          expiresAt:     guide.expiresAt ? format(new Date(guide.expiresAt), 'yyyy-MM-dd') : '',
+          notes:         guide.notes || ''
         });
       } else {
         reset({
-          number: '',
-          specialty: '',
-          insurance: '',
+          number:        '',
+          specialty:     '',
+          insurance:     '',
           totalSessions: '',
-          expiresAt: format(addMonths(new Date(), 3), 'yyyy-MM-dd'),
-          notes: ''
+          expiresAt:     format(addMonths(new Date(), 3), 'yyyy-MM-dd'),
+          notes:         ''
         });
       }
     }
@@ -94,347 +79,239 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null }) => {
 
   const onSubmit = async (data) => {
     try {
-      const payload = {
-        number: data.number.trim(),
-        specialty: data.specialty.toLowerCase().trim(),
-        insurance: data.insurance.toLowerCase().trim(),
+      await onSave({
+        number:        data.number.trim(),
+        specialty:     data.specialty.toLowerCase().trim(),
+        insurance:     data.insurance.toLowerCase().trim(),
         totalSessions: parseInt(data.totalSessions, 10),
-        expiresAt: new Date(data.expiresAt).toISOString(),
-        notes: data.notes?.trim() || undefined
-      };
-
-      await onSave(payload);
+        expiresAt:     new Date(data.expiresAt).toISOString(),
+        notes:         data.notes?.trim() || undefined
+      });
     } catch (error) {
       console.error('Erro ao salvar guia:', error);
     }
   };
 
   const handleClose = () => {
-    if (!isSubmitting) {
-      reset();
-      onClose();
-    }
+    if (!isSubmitting) { reset(); onClose(); }
   };
 
+  if (!open) return null;
+
   return (
-    <Dialog
-      open={open}
-      onClose={handleClose}
-      maxWidth="sm"
-      fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: '12px',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-        }
-      }}
-    >
-      <DialogTitle sx={{ px: 3, py: 2.5, borderBottom: '1px solid #f0f0f0' }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 500, color: '#1a1a1a' }}>
-          {isEditing ? 'Editar guia' : 'Nova guia de convênio'}
-        </Typography>
-      </DialogTitle>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className={`bg-white rounded-2xl shadow-2xl w-full max-w-lg transition-all ${isSubmitting ? 'opacity-80 pointer-events-none' : ''}`}>
 
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <DialogContent sx={{ px: 3, py: 2.5 }}>
-          {/* Alertas informativos */}
-          {isEditing && guide?.usedSessions > 0 && (
-            <Alert
-              severity="warning"
-              sx={{
-                mb: 2.5,
-                p: 1.5,
-                borderRadius: '8px',
-                '& .MuiAlert-message': { fontSize: '0.8125rem', p: 0 }
-              }}
-            >
-              Esta guia já possui {guide.usedSessions} sessão(ões) utilizada(s).
-              Apenas alguns campos podem ser editados.
-            </Alert>
-          )}
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-teal-50 rounded-xl">
+              <Shield className="w-5 h-5 text-teal-600" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-gray-900">
+                {isEditing ? 'Editar guia de convênio' : 'Nova guia de convênio'}
+              </h3>
+              <p className="text-xs text-gray-400 mt-0.5">Autorização do convênio</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-          {!isEditing && (
-            <Alert
-              severity="info"
-              sx={{
-                mb: 2.5,
-                p: 1.5,
-                borderRadius: '8px',
-                '& .MuiAlert-message': { fontSize: '0.8125rem', p: 0 }
-              }}
-            >
-              Preencha os dados da guia conforme autorização do convênio.
-            </Alert>
-          )}
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <div className="px-6 py-4 space-y-4 max-h-[65vh] overflow-y-auto">
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {/* Número da guia */}
-            <Controller
-              name="number"
-              control={control}
-              rules={{
-                required: 'Número da guia é obrigatório',
-                minLength: {
-                  value: 3,
-                  message: 'Mínimo 3 caracteres'
-                }
-              }}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="Número da guia"
-                  fullWidth
-                  required
-                  size="small"
-                  error={Boolean(errors.number)}
-                  helperText={errors.number?.message}
-                  placeholder="Ex: 123456789"
-                  disabled={isEditing && guide?.usedSessions > 0}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '8px',
-                      backgroundColor: '#fafafa',
-                      '&:hover': {
-                        backgroundColor: '#f5f5f5',
-                      },
-                      '&.Mui-focused': {
-                        backgroundColor: '#fff',
-                      }
-                    },
-                    '& .MuiInputLabel-root': {
-                      fontSize: '0.875rem',
-                    }
-                  }}
+            {/* Alert: sessões usadas */}
+            {hasUsedSessions && (
+              <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-amber-800">
+                  Esta guia já possui <strong>{guide.usedSessions}</strong> sessão(ões) utilizada(s).
+                  Apenas alguns campos podem ser editados.
+                </p>
+              </div>
+            )}
+
+            {/* Alert: instrução de preenchimento */}
+            {!isEditing && (
+              <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-blue-800">Preencha os dados da guia conforme autorização do convênio.</p>
+              </div>
+            )}
+
+            {/* Grid 2 cols: número + total sessões */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                  Número da guia <span className="text-red-400">*</span>
+                </label>
+                <Controller
+                  name="number"
+                  control={control}
+                  rules={{ required: 'Obrigatório', minLength: { value: 3, message: 'Mínimo 3 caracteres' } }}
+                  render={({ field }) => (
+                    <input
+                      {...field}
+                      type="text"
+                      placeholder="Ex: 123456789"
+                      disabled={hasUsedSessions}
+                      className={inputClass(!!errors.number) + (hasUsedSessions ? ' opacity-50 cursor-not-allowed' : '')}
+                    />
+                  )}
                 />
-              )}
-            />
+                {errors.number && <p className="text-xs text-red-500 mt-1">{errors.number.message}</p>}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                  Total de sessões <span className="text-red-400">*</span>
+                </label>
+                <Controller
+                  name="totalSessions"
+                  control={control}
+                  rules={{ required: 'Obrigatório', min: { value: 1, message: 'Mínimo 1' }, max: { value: 999, message: 'Máximo 999' } }}
+                  render={({ field }) => (
+                    <input
+                      {...field}
+                      type="number"
+                      min={1}
+                      max={999}
+                      placeholder="Ex: 10"
+                      className={inputClass(!!errors.totalSessions)}
+                    />
+                  )}
+                />
+                {errors.totalSessions && <p className="text-xs text-red-500 mt-1">{errors.totalSessions.message}</p>}
+              </div>
+            </div>
 
             {/* Especialidade */}
-            <Controller
-              name="specialty"
-              control={control}
-              rules={{ required: 'Especialidade é obrigatória' }}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="Especialidade"
-                  fullWidth
-                  required
-                  select
-                  size="small"
-                  error={Boolean(errors.specialty)}
-                  helperText={errors.specialty?.message}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '8px',
-                      backgroundColor: '#fafafa',
-                    },
-                    '& .MuiInputLabel-root': {
-                      fontSize: '0.875rem',
-                    }
-                  }}
-                >
-                  {VALID_SPECIALTIES.map(specialty => (
-                    <MenuItem key={specialty} value={specialty} sx={{ fontSize: '0.875rem' }}>
-                      {specialty.charAt(0).toUpperCase() + specialty.slice(1).replace('-', ' ')}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              )}
-            />
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                Especialidade <span className="text-red-400">*</span>
+              </label>
+              <Controller
+                name="specialty"
+                control={control}
+                rules={{ required: 'Especialidade é obrigatória' }}
+                render={({ field }) => (
+                  <select {...field} className={inputClass(!!errors.specialty)}>
+                    <option value="">Selecione a especialidade</option>
+                    {VALID_SPECIALTIES.map(s => (
+                      <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
+                  </select>
+                )}
+              />
+              {errors.specialty && <p className="text-xs text-red-500 mt-1">{errors.specialty.message}</p>}
+            </div>
 
             {/* Convênio */}
-            <Controller
-              name="insurance"
-              control={control}
-              rules={{ required: 'Convênio é obrigatório' }}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="Convênio"
-                  fullWidth
-                  required
-                  select
-                  size="small"
-                  error={Boolean(errors.insurance)}
-                  helperText={errors.insurance?.message}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '8px',
-                      backgroundColor: '#fafafa',
-                    },
-                    '& .MuiInputLabel-root': {
-                      fontSize: '0.875rem',
-                    }
-                  }}
-                >
-                  {VALID_INSURANCES.map(insurance => (
-                    <MenuItem key={insurance} value={insurance} sx={{ fontSize: '0.875rem' }}>
-                      {insurance.split('-').map(word =>
-                        word.charAt(0).toUpperCase() + word.slice(1)
-                      ).join(' ')}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              )}
-            />
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                Convênio <span className="text-red-400">*</span>
+              </label>
+              <Controller
+                name="insurance"
+                control={control}
+                rules={{ required: 'Convênio é obrigatório' }}
+                render={({ field }) => (
+                  <select {...field} className={inputClass(!!errors.insurance)}>
+                    <option value="">Selecione o convênio</option>
+                    {VALID_INSURANCES.map(ins => (
+                      <option key={ins.value} value={ins.value}>{ins.label}</option>
+                    ))}
+                  </select>
+                )}
+              />
+              {errors.insurance && <p className="text-xs text-red-500 mt-1">{errors.insurance.message}</p>}
+            </div>
 
-            {/* Total de sessões */}
-            <Controller
-              name="totalSessions"
-              control={control}
-              rules={{
-                required: 'Total de sessões é obrigatório',
-                min: {
-                  value: 1,
-                  message: 'Mínimo 1 sessão'
-                },
-                max: {
-                  value: 999,
-                  message: 'Máximo 999 sessões'
-                }
-              }}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="Total de sessões"
-                  fullWidth
-                  required
-                  type="number"
-                  size="small"
-                  error={Boolean(errors.totalSessions)}
-                  helperText={errors.totalSessions?.message}
-                  inputProps={{ min: 1, max: 999 }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '8px',
-                      backgroundColor: '#fafafa',
-                    },
-                    '& .MuiInputLabel-root': {
-                      fontSize: '0.875rem',
-                    }
-                  }}
-                />
-              )}
-            />
-
-            {/* Data de expiração */}
-            <Controller
-              name="expiresAt"
-              control={control}
-              rules={{
-                required: 'Data de validade é obrigatória',
-                validate: (value) => {
-                  const selectedDate = new Date(value);
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-
-                  if (selectedDate < today) {
-                    return 'Data não pode ser anterior a hoje';
+            {/* Data de validade */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                Data de validade <span className="text-red-400">*</span>
+              </label>
+              <Controller
+                name="expiresAt"
+                control={control}
+                rules={{
+                  required: 'Data de validade é obrigatória',
+                  validate: (v) => {
+                    const d = new Date(v);
+                    const today = new Date(); today.setHours(0, 0, 0, 0);
+                    return d >= today || 'Data não pode ser anterior a hoje';
                   }
-                  return true;
-                }
-              }}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="Data de validade"
-                  fullWidth
-                  required
-                  type="date"
-                  size="small"
-                  error={Boolean(errors.expiresAt)}
-                  helperText={errors.expiresAt?.message}
-                  InputLabelProps={{ shrink: true }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '8px',
-                      backgroundColor: '#fafafa',
-                    },
-                    '& .MuiInputLabel-root': {
-                      fontSize: '0.875rem',
-                    }
-                  }}
-                />
-              )}
-            />
+                }}
+                render={({ field }) => (
+                  <input
+                    {...field}
+                    type="date"
+                    className={inputClass(!!errors.expiresAt)}
+                  />
+                )}
+              />
+              {errors.expiresAt && <p className="text-xs text-red-500 mt-1">{errors.expiresAt.message}</p>}
+            </div>
 
             {/* Observações */}
-            <Controller
-              name="notes"
-              control={control}
-              rules={{
-                maxLength: {
-                  value: 500,
-                  message: 'Máximo 500 caracteres'
-                }
-              }}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="Observações"
-                  fullWidth
-                  multiline
-                  rows={2}
-                  size="small"
-                  error={Boolean(errors.notes)}
-                  helperText={errors.notes?.message}
-                  placeholder="Ex: Autorização condicionada a avaliação inicial"
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '8px',
-                      backgroundColor: '#fafafa',
-                      '& textarea': {
-                        fontSize: '0.875rem',
-                      }
-                    },
-                    '& .MuiInputLabel-root': {
-                      fontSize: '0.875rem',
-                    }
-                  }}
-                />
-              )}
-            />
-          </Box>
-        </DialogContent>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Observações</label>
+              <Controller
+                name="notes"
+                control={control}
+                rules={{ maxLength: { value: 500, message: 'Máximo 500 caracteres' } }}
+                render={({ field }) => (
+                  <textarea
+                    {...field}
+                    rows={2}
+                    placeholder="Ex: Autorização condicionada a avaliação inicial"
+                    className={inputClass(!!errors.notes) + ' resize-none'}
+                  />
+                )}
+              />
+              {errors.notes && <p className="text-xs text-red-500 mt-1">{errors.notes.message}</p>}
+            </div>
+          </div>
 
-        <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #f0f0f0' }}>
-          <Button
-            onClick={handleClose}
-            disabled={isSubmitting}
-            startIcon={<X size={16} />}
-            sx={{
-              textTransform: 'none',
-              fontSize: '0.8125rem',
-              color: '#666',
-              '&:hover': {
-                backgroundColor: '#f5f5f5',
-              }
-            }}
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={isSubmitting}
-            startIcon={<Save size={16} />}
-            sx={{
-              textTransform: 'none',
-              fontSize: '0.8125rem',
-              backgroundColor: '#1976d2',
-              boxShadow: 'none',
-              '&:hover': {
-                backgroundColor: '#1565c0',
-                boxShadow: 'none',
-              }
-            }}
-          >
-            {isSubmitting ? 'Salvando...' : 'Salvar'}
-          </Button>
-        </DialogActions>
-      </form>
-    </Dialog>
+          {/* Footer */}
+          <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={isSubmitting}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-300 text-gray-600 text-sm font-medium hover:bg-gray-100 disabled:opacity-50 transition-colors"
+            >
+              <X className="w-4 h-4" /> Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm"
+            >
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  Salvando...
+                </>
+              ) : (
+                <><Save className="w-4 h-4" /> {isEditing ? 'Atualizar' : 'Criar guia'}</>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 };
 

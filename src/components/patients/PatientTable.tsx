@@ -1,6 +1,5 @@
 import { Calendar, ChevronDown, ChevronUp, DollarSign, Edit, Eye, FileHeart, List, Package, Phone, Search, Trash2, User, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from 'react';
-import { BsHourglass } from "react-icons/bs";
 import { Link } from "react-router-dom";
 import patientService from '../../services/patientService';
 import { PatientDTO, mapPatientListResponseDTO } from '../../dtos/patient.response.dto';
@@ -15,6 +14,7 @@ interface PatientTableProps {
     onDeletePatient?: (patient: PatientDTO) => void;
     onPaymentAdvancedSuccess?: (patient: PatientDTO) => void;
     onRegisterPayment?: (patient: PatientDTO) => void;
+    isRefreshing?: boolean;
 }
 
 interface CardProps {
@@ -83,24 +83,27 @@ const WhatsAppActionButtons: React.FC<WhatsAppActionButtonsProps> = ({
     </div>
 );
 
-const PackageAccordion: React.FC<PackageAccordionProps> = ({ packages }) => (
-    <div className="flex flex-col gap-1">
-        {packages?.slice(0, 2).map((pkg, idx) => (
-            <span
-                key={idx}
-                className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full text-xs font-medium"
-            >
-                <Package className="w-3 h-3" />
-                {pkg.sessionType} ({pkg.sessionsDone}/{pkg.totalSessions})
-            </span>
-        ))}
-        {packages && packages.length > 2 && (
-            <span className="text-xs text-gray-500 mt-0.5">
-                +{packages.length - 2} mais
-            </span>
-        )}
-    </div>
-);
+const PackageAccordion: React.FC<PackageAccordionProps> = ({ packages }) => {
+    const activePackages = packages?.filter(pkg => pkg.status === 'active') || [];
+    return (
+        <div className="flex flex-col gap-1">
+            {activePackages.slice(0, 2).map((pkg, idx) => (
+                <span
+                    key={idx}
+                    className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full text-xs font-medium"
+                >
+                    <Package className="w-3 h-3" />
+                    {pkg.sessionType} ({pkg.sessionsDone}/{pkg.totalSessions})
+                </span>
+            ))}
+            {activePackages.length > 2 && (
+                <span className="text-xs text-gray-500 mt-0.5">
+                    +{activePackages.length - 2} mais
+                </span>
+            )}
+        </div>
+    );
+};
 
 // ============================================================================
 // Utilitários
@@ -126,24 +129,17 @@ const PatientTable: React.FC<PatientTableProps> = ({
     onDeletePatient,
     onPaymentAdvancedSuccess,
     onRegisterPayment,
+    isRefreshing = false,
 }) => {
     // ------------------------------------------------------------
     // Hooks (sempre no topo)
     // ------------------------------------------------------------
     const [patients, setPatients] = useState<PatientDTO[]>(initialPatients);
-    
-    // Atualiza quando props mudam
-    useEffect(() => {
-        if (initialPatients && initialPatients.length > 0) {
-            setPatients(initialPatients);
-        }
-    }, [initialPatients]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isSearching, setIsSearching] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(5);
     const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
-    const [loading, setLoading] = useState(false);
     const [sortConfig, setSortConfig] = useState<{
         key: string;
         direction: 'ascending' | 'descending';
@@ -152,20 +148,26 @@ const PatientTable: React.FC<PatientTableProps> = ({
         direction: 'ascending',
     });
 
+    // Sincroniza com props apenas quando não há busca ativa (evita sobrescrever filtro)
+    useEffect(() => {
+        if (searchTerm === '' && initialPatients) {
+            setPatients(initialPatients);
+        }
+    }, [initialPatients, searchTerm]);
+
     // ------------------------------------------------------------
-    // 🚀 V2: Busca na API quando digita no filtro (Event-Driven)
+    // 🚀 V2: Busca na API SOMENTE quando o usuário digitar algo
     // ------------------------------------------------------------
     useEffect(() => {
+        if (!searchTerm.trim()) return;
+
         const fetchPatients = async () => {
             setIsSearching(true);
             try {
-                // 🚀 V2: Usa patientService para busca
                 const result = await patientService.list({
-                    search: searchTerm.trim() || undefined,
-                    limit: searchTerm.trim() ? 100 : 50
+                    search: searchTerm.trim(),
+                    limit: 100
                 });
-
-                console.log('✅ Recebido:', result.patients.length, 'pacientes');
                 setPatients(mapPatientListResponseDTO(result.patients));
                 setCurrentPage(1);
             } catch (error) {
@@ -175,7 +177,6 @@ const PatientTable: React.FC<PatientTableProps> = ({
             }
         };
 
-        // Debounce: espera 500ms após parar de digitar
         const timer = setTimeout(fetchPatients, 500);
         return () => clearTimeout(timer);
     }, [searchTerm]);
@@ -257,19 +258,16 @@ const PatientTable: React.FC<PatientTableProps> = ({
     // Renderização
     // ------------------------------------------------------------
     return (
-        <Card
-            className="bg-white border border-gray-200 rounded-xl hover:shadow-md transition-shadow"
-            sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                borderRadius: '12px',       // ajustado para minimalismo
-                border: '1px solid #f0f0f0',
-                overflow: 'hidden',
-                boxShadow: 'none',         // removido gradiente e sombra pesada
-            }}
-        >
-            <CardHeader>
-                <h3 className="flex items-center gap-3 text-xl font-semibold text-gray-800">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden relative">
+            {/* 🔄 Overlay suave de refresh — NÃO desmonta a tabela, preserva filtro */}
+            {isRefreshing && (
+                <div className="absolute inset-0 z-10 bg-white/60 backdrop-blur-[1px] flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-blue-600" />
+                </div>
+            )}
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100">
+                <h3 className="flex items-center gap-3 text-lg font-semibold text-gray-800">
                     <div className="p-1.5 bg-gray-100 rounded-lg">
                         <List className="w-5 h-5 text-gray-600" />
                     </div>
@@ -278,406 +276,304 @@ const PatientTable: React.FC<PatientTableProps> = ({
                         {isSearching ? '...' : filteredPatients.length} paciente{filteredPatients.length !== 1 ? 's' : ''}
                     </span>
                 </h3>
-            </CardHeader>
+            </div>
 
-            {loading ? (
-                <div className="flex justify-center py-12">
-                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-gray-300 border-t-gray-600"></div>
-                </div>
-            ) : (
-                <div>
+            <div className="p-4">
                     {/* Busca */}
-                    <div className="mb-6 px-6 pt-2">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <Input
-                                type="text"
-                                placeholder="Buscar por nome, telefone ou CPF..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-10 py-2 border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 text-sm"
-                            />
-                            {isSearching ? (
-                                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-gray-600" />
-                                </div>
-                            ) : searchTerm && (
-                                <button
-                                    onClick={() => setSearchTerm('')}
-                                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                >
-                                    <X className="w-4 h-4" />
-                                </button>
-                            )}
-                        </div>
+                    <div className="mb-4 relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder="Buscar por nome, telefone ou CPF..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-10 py-2 border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 text-sm"
+                        />
+                        {isSearching ? (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-gray-600" />
+                            </div>
+                        ) : searchTerm && (
+                            <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                <X className="w-4 h-4" />
+                            </button>
+                        )}
                     </div>
 
-                    {/* Mensagem quando não há pacientes */}
                     {isEmpty ? (
                         <div className="py-12 text-center">
-                            <div className="text-gray-400 mb-4">
-                                <User className="w-16 h-16 mx-auto" />
-                            </div>
-                            <h3 className="text-lg font-semibold text-gray-600 mb-2">
-                                Nenhum paciente encontrado
-                            </h3>
-                            <p className="text-gray-500">
+                            <User className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                            <h3 className="text-base font-semibold text-gray-600 mb-1">Nenhum paciente encontrado</h3>
+                            <p className="text-sm text-gray-400">
                                 {searchTerm ? 'Tente buscar com outros termos' : 'Os dados dos pacientes estão sendo carregados...'}
                             </p>
                         </div>
                     ) : (
-                    <>
-                    {/* Tabela */}
-                    <div className="overflow-x-auto border-t border-gray-100">
-                        <table className="min-w-full divide-y divide-gray-100">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        <div className="flex items-center gap-1.5">
-                                            <User className="w-3.5 h-3.5" />
-                                            Paciente
-                                        </div>
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        <div className="flex items-center gap-1.5">
-                                            <Package className="w-3.5 h-3.5" />
-                                            Atendimento
-                                        </div>
-                                    </th>
-                                    <th
-                                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                                        onClick={() => sortData('nextAppointment')}
-                                    >
-                                        <div className="flex items-center gap-1.5">
-                                            <Calendar className="w-3.5 h-3.5" />
-                                            Próxima consulta
-                                            {sortConfig.key === 'nextAppointment' && (
-                                                <span className="text-gray-700 font-medium">
-                                                    {sortConfig.direction === 'ascending' ? '↑' : '↓'}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        <div className="flex items-center gap-1.5">
-                                            <DollarSign className="w-3.5 h-3.5" />
-                                            Saldo
-                                        </div>
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        <div className="flex items-center gap-1.5">
-                                            <Package className="w-3.5 h-3.5" />
-                                            Pacotes
-                                        </div>
-                                    </th>
-                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Ações
-                                    </th>
-                                    <th className="px-6 py-3"></th>
-                                </tr>
-                            </thead>
+                        <>
+                            {/* Header row */}
+                            <div className="flex items-center gap-3 px-3 py-2 mb-1 border-b border-gray-200">
+                                <div className="flex-1 min-w-0">
+                                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                                        <User className="w-3 h-3" /> Paciente
+                                    </span>
+                                </div>
+                                <div className="w-28 shrink-0 hidden md:block">
+                                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                                        <Package className="w-3 h-3" /> Atendimento
+                                    </span>
+                                </div>
+                                <div className="w-40 shrink-0 hidden lg:block cursor-pointer" onClick={() => sortData('nextAppointment')}>
+                                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                                        <Calendar className="w-3 h-3" /> Próxima consulta
+                                        {sortConfig.key === 'nextAppointment' && (
+                                            <span className="text-gray-600">{sortConfig.direction === 'ascending' ? '↑' : '↓'}</span>
+                                        )}
+                                    </span>
+                                </div>
+                                <div className="w-28 shrink-0 hidden sm:block">
+                                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                                        <DollarSign className="w-3 h-3" /> Saldo
+                                    </span>
+                                </div>
+                                <div className="w-44 shrink-0 hidden xl:block">
+                                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                                        <Package className="w-3 h-3" /> Pacotes
+                                    </span>
+                                </div>
+                                <div className="w-36 shrink-0 text-center">
+                                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Ações</span>
+                                </div>
+                                <div className="w-6 shrink-0" />
+                            </div>
 
-                            <tbody className="bg-white divide-y divide-gray-50">
+                            {/* Rows */}
+                            <div className="space-y-1.5">
                                 {paginatedPatients.map((patient) => {
                                     const isExpanded = expandedRows[patient.id];
+                                    const hasDebt = (patient.debt ?? 0) > 0;
+                                    const rowAccent = hasDebt
+                                        ? 'border-l-[4px] border-l-red-400 bg-red-50 hover:bg-red-100'
+                                        : 'border-l-[4px] border-l-gray-200 bg-white hover:bg-gray-50';
+
                                     return (
-                                        <React.Fragment key={patient.id}>
-                                            <tr
-                                                className="hover:bg-gray-100 transition-colors cursor-pointer even:bg-green-50"
+                                        <div key={patient.id}>
+                                            <div
+                                                className={`flex items-center gap-3 px-3 py-3 rounded-lg border border-gray-200 transition-all shadow-sm cursor-pointer ${rowAccent}`}
                                                 onClick={() => toggleRow(patient.id)}
                                             >
                                                 {/* Paciente */}
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-700 font-medium text-sm">
-                                                            {patient.fullName?.charAt(0).toUpperCase()}
-                                                        </div>
-                                                        <div>
-                                                            <div className="font-medium text-gray-800 text-sm">
-                                                                {patient.fullName || '-'}
-                                                            </div>
-                                                            <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                                                                <Phone className="w-3 h-3" />
-                                                                {patient.phone || '-'}
-                                                            </div>
+                                                <div className="flex-1 min-w-0 flex items-center gap-2.5">
+                                                    <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 font-semibold text-sm shrink-0">
+                                                        {patient.fullName?.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <div className="font-semibold text-gray-800 text-sm truncate">{patient.fullName || '-'}</div>
+                                                        <div className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                                                            <Phone className="w-3 h-3" />
+                                                            {patient.phone || '-'}
                                                         </div>
                                                     </div>
-                                                </td>
+                                                </div>
 
-                                                {/* Atendimento (plano) */}
-                                                <td className="px-6 py-4">
+                                                {/* Atendimento */}
+                                                <div className="w-28 shrink-0 hidden md:block">
                                                     {(() => {
                                                         const planName = patient.healthPlan?.name;
                                                         const isConvenio = (planName && planName.toLowerCase() !== 'particular') || patient.tags?.includes('convenio');
-                                                        if (isConvenio) {
-                                                            return (
-                                                                <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md text-xs font-medium">
-                                                                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                                                                    {planName && planName.toLowerCase() !== 'particular' ? planName : 'Convênio'}
-                                                                </span>
-                                                            );
-                                                        }
-                                                        // Particular (explícito ou padrão)
-                                                        return (
-                                                            <span className="inline-flex items-center gap-1.5 bg-orange-50 text-orange-700 px-2.5 py-1 rounded-md text-xs font-medium">
+                                                        return isConvenio ? (
+                                                            <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md text-xs font-medium">
+                                                                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                                                                {planName && planName.toLowerCase() !== 'particular' ? planName : 'Convênio'}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="inline-flex items-center gap-1 bg-orange-50 text-orange-700 px-2 py-0.5 rounded-md text-xs font-medium">
                                                                 <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>
                                                                 Particular
                                                             </span>
                                                         );
                                                     })()}
-                                                </td>
+                                                </div>
 
                                                 {/* Próxima consulta */}
-                                                <td className="px-6 py-4">
+                                                <div className="w-40 shrink-0 hidden lg:block">
                                                     {patient.nextAppointment?.date ? (
-                                                        <div className="space-y-0.5">
-                                                            <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 px-2.5 py-1 rounded-md text-xs font-medium">
+                                                        <div>
+                                                            <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 px-2 py-0.5 rounded-md text-xs font-medium">
                                                                 <Calendar className="w-3 h-3" />
                                                                 {formatDateBrazilian(patient.nextAppointment.date)}
                                                             </span>
-                                                            <div className="text-xs text-gray-600">
-                                                                {patient.nextAppointment.doctor?.fullName || '-'}
-                                                            </div>
+                                                            <div className="text-xs text-gray-500 mt-0.5 truncate">{patient.nextAppointment.doctor?.fullName || '-'}</div>
                                                         </div>
                                                     ) : (
                                                         <span className="text-gray-400 text-xs">Sem agendamento</span>
                                                     )}
-                                                </td>
+                                                </div>
 
                                                 {/* Saldo */}
-                                                <td className="px-6 py-4">
+                                                <div className="w-28 shrink-0 hidden sm:block">
                                                     {(() => {
                                                         const saldo = patient.debt ?? 0;
                                                         const totalPending = patient.totalPending ?? 0;
-                                                        const totalPendingParticular = patient.totalPendingParticular ?? 0;
-                                                        const convenioPending = totalPending - totalPendingParticular;
-                                                        if (saldo > 0) {
-                                                            return (
-                                                                <div className="flex flex-col gap-1">
-                                                                    {/* Débito real do paciente */}
-                                                                    <span className="inline-flex items-center gap-1 text-red-600 font-semibold animate-pulse bg-red-100 px-2 py-1 rounded">
-                                                                        <DollarSign className="w-4 h-4" />
-                                                                        R$ {saldo.toFixed(2)}
-                                                                    </span>
-                                                                    {/* Hint de convênio pendente */}
-                                                                    {convenioPending > 0.01 && (
-                                                                        <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
-                                                                            + R$ {convenioPending.toFixed(2)} convênio
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        } else if (saldo < 0) {
-                                                            return (
-                                                                <span className="inline-flex items-center gap-1 text-green-700 font-medium">
-                                                                    <DollarSign className="w-4 h-4" />
-                                                                    -R$ {Math.abs(saldo).toFixed(2)}
+                                                        const convenioPending = totalPending - (patient.totalPendingParticular ?? 0);
+                                                        if (saldo > 0) return (
+                                                            <div>
+                                                                <span className="inline-flex items-center gap-0.5 text-red-600 font-semibold text-xs bg-red-100 px-2 py-0.5 rounded animate-pulse">
+                                                                    <DollarSign className="w-3 h-3" /> R$ {saldo.toFixed(2)}
                                                                 </span>
-                                                            );
-                                                        } else {
-                                                            return (
-                                                                <div className="flex flex-col gap-1">
-                                                                    <span className="text-gray-400 text-xs">R$ 0,00</span>
-                                                                    {convenioPending > 0.01 && (
-                                                                        <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
-                                                                            + R$ {convenioPending.toFixed(2)} convênio
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        }
+                                                                {convenioPending > 0.01 && (
+                                                                    <div className="text-[10px] text-blue-600 mt-0.5">+R$ {convenioPending.toFixed(2)} conv.</div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                        if (saldo < 0) return (
+                                                            <span className="inline-flex items-center gap-0.5 text-green-700 text-xs font-medium">
+                                                                <DollarSign className="w-3 h-3" /> -R$ {Math.abs(saldo).toFixed(2)}
+                                                            </span>
+                                                        );
+                                                        return (
+                                                            <div>
+                                                                <span className="text-gray-400 text-xs">R$ 0,00</span>
+                                                                {convenioPending > 0.01 && (
+                                                                    <div className="text-[10px] text-blue-600 mt-0.5">+R$ {convenioPending.toFixed(2)} conv.</div>
+                                                                )}
+                                                            </div>
+                                                        );
                                                     })()}
-                                                </td>
+                                                </div>
 
                                                 {/* Pacotes */}
-                                                <td className="px-6 py-4">
-                                                    {patient.packages && patient.packages.length > 0 ? (
+                                                <div className="w-44 shrink-0 hidden xl:block">
+                                                    {patient.packages?.some(pkg => pkg.status === 'active') ? (
                                                         <PackageAccordion packages={patient.packages} />
                                                     ) : (
                                                         <span className="text-gray-400 text-xs">Nenhum pacote</span>
                                                     )}
-                                                </td>
+                                                </div>
 
                                                 {/* Ações */}
-                                                <td className="px-6 py-4">
-                                                    <div className="flex gap-2 justify-center">
+                                                <div className="w-36 shrink-0">
+                                                    <div className="flex gap-0.5 items-center justify-center">
                                                         <Link
                                                             to={`/patient-dashboard/${patient.patientId || patient.id}`}
                                                             title="Ver detalhes"
-                                                            className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                                                            className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-white/60 rounded-lg transition-colors"
                                                             onClick={(e) => e.stopPropagation()}
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                         </Link>
-                                                       {/*  <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                onPaymentAdvancedSuccess?.(patient);
-                                                            }}
-                                                            title="Registrar Pagamento"
-                                                            className="p-1.5 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 rounded-md transition-colors"
-                                                        >
-                                                            <BsHourglass className="w-4 h-4" />
-                                                        </button> */}
                                                         <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                onEditPatient?.(patient);
-                                                            }}
+                                                            onClick={(e) => { e.stopPropagation(); onEditPatient?.(patient); }}
                                                             title="Editar"
-                                                            className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
+                                                            className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
                                                         >
                                                             <Edit className="w-4 h-4" />
                                                         </button>
                                                         <Link
                                                             to={`/patient-dashboard/${patient.patientId || patient.id}?tab=evolucoes`}
                                                             title="Ver evoluções"
-                                                            className="p-1.5 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-md transition-colors"
+                                                            className="p-1.5 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
                                                             onClick={(e) => e.stopPropagation()}
                                                         >
                                                             <FileHeart className="w-4 h-4" />
                                                         </Link>
                                                         <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                onDeletePatient?.(patient);
-                                                            }}
+                                                            onClick={(e) => { e.stopPropagation(); onDeletePatient?.(patient); }}
                                                             title="Deletar paciente"
-                                                            className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
+                                                            className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
                                                     </div>
-                                                </td>
+                                                </div>
 
-                                                {/* Expandir/recolher */}
-                                                <td className="px-6 py-4 text-right">
-                                                    <div className="p-1 hover:bg-gray-100 rounded-md transition-colors">
-                                                        {isExpanded ? (
-                                                            <ChevronUp className="w-4 h-4 text-gray-500" />
-                                                        ) : (
-                                                            <ChevronDown className="w-4 h-4 text-gray-500" />
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </tr>
+                                                {/* Chevron */}
+                                                <div className="w-6 shrink-0 flex justify-center">
+                                                    {isExpanded
+                                                        ? <ChevronUp className="w-4 h-4 text-gray-400" />
+                                                        : <ChevronDown className="w-4 h-4 text-gray-400" />
+                                                    }
+                                                </div>
+                                            </div>
 
-                                            {/* Linha expandida (WhatsApp) */}
+                                            {/* Expanded WhatsApp section */}
                                             {isExpanded && (
-                                                <tr className="bg-gray-50">
-                                                    <td colSpan={7} className="px-6 py-4">
-                                                        <div className="bg-white rounded-lg p-4 border border-gray-100">
-                                                            <h4 className="text-xs font-medium text-gray-700 mb-2 flex items-center gap-1.5">
-                                                                <div className="w-1 h-4 bg-green-500 rounded-full"></div>
-                                                                Enviar mensagem via WhatsApp
-                                                            </h4>
-                                                            {patient.phone && (
-                                                                <WhatsAppActionButtons
-                                                                    phone={
-                                                                        patient.phone.startsWith('+')
-                                                                            ? patient.phone.slice(1)
-                                                                            : patient.phone
-                                                                    }
-                                                                    nome={patient.name}
-                                                                    profissional={patient.nextAppointment?.doctor?.name}
-                                                                    data={
-                                                                        patient.nextAppointment?.date
-                                                                            ? new Date(patient.nextAppointment.date)
-                                                                            : undefined
-                                                                    }
-                                                                    hora={
-                                                                        patient.nextAppointment?.date
-                                                                            ? new Date(
-                                                                                patient.nextAppointment.date
-                                                                            ).toLocaleTimeString('pt-BR', {
-                                                                                hour: '2-digit',
-                                                                                minute: '2-digit',
-                                                                            })
-                                                                            : undefined
-                                                                    }
-                                                                    servico={patient.lastAppointment?.doctor?.specialty}
-                                                                    restantes="2"
-                                                                />
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                </tr>
+                                                <div className="mx-1 mb-1 bg-gray-50 rounded-b-lg border border-t-0 border-gray-200 px-4 py-3">
+                                                    <h4 className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1.5">
+                                                        <div className="w-1 h-4 bg-green-500 rounded-full"></div>
+                                                        Enviar mensagem via WhatsApp
+                                                    </h4>
+                                                    {patient.phone && (
+                                                        <WhatsAppActionButtons
+                                                            phone={patient.phone.startsWith('+') ? patient.phone.slice(1) : patient.phone}
+                                                            nome={patient.name}
+                                                            profissional={patient.nextAppointment?.doctor?.name}
+                                                            data={patient.nextAppointment?.date ? new Date(patient.nextAppointment.date) : undefined}
+                                                            hora={patient.nextAppointment?.date
+                                                                ? new Date(patient.nextAppointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                                                                : undefined
+                                                            }
+                                                            servico={patient.lastAppointment?.doctor?.specialty}
+                                                            restantes="2"
+                                                        />
+                                                    )}
+                                                </div>
                                             )}
-                                        </React.Fragment>
+                                        </div>
                                     );
                                 })}
-                            </tbody>
+                            </div>
 
-                            {/* Rodapé com paginação */}
-                            <tfoot className="bg-white border-t border-gray-100">
-                                <tr>
-                                    <td colSpan={7} className="px-6 py-4">
-                                        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                                            <div className="flex items-center gap-3 text-xs text-gray-500">
-                                                <span>
-                                                    Mostrando {startIndex + 1} -{' '}
-                                                    {Math.min(startIndex + itemsPerPage, filteredPatients.length)} de{' '}
-                                                    {filteredPatients.length}
-                                                </span>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-gray-600">Exibir:</span>
-                                                    <select
-                                                        value={itemsPerPage}
-                                                        onChange={handleItemsPerPageChange}
-                                                        className="border border-gray-200 rounded-md px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
-                                                    >
-                                                        <option value={5}>5</option>
-                                                        <option value={10}>10</option>
-                                                        <option value={20}>20</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => handlePageChange('prev')}
-                                                    disabled={currentPage === 1}
-                                                    className="px-3 py-1.5 border border-gray-200 rounded-md text-gray-600 text-xs font-medium hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                                                >
-                                                    Anterior
-                                                </button>
-                                                <div className="flex items-center gap-1">
-                                                    {Array.from({ length: totalPages }, (_, index) => {
-                                                        const page = index + 1;
-                                                        const isActive = currentPage === page;
-                                                        return (
-                                                            <button
-                                                                key={page}
-                                                                onClick={() => setCurrentPage(page)}
-                                                                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${isActive
-                                                                        ? 'bg-gray-800 text-white'
-                                                                        : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
-                                                                    }`}
-                                                            >
-                                                                {page}
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                                <button
-                                                    onClick={() => handlePageChange('next')}
-                                                    disabled={currentPage === totalPages}
-                                                    className="px-3 py-1.5 border border-gray-200 rounded-md text-gray-600 text-xs font-medium hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                                                >
-                                                    Próxima
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                    </>
+                            {/* Paginação */}
+                            <div className="mt-4 pt-3 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-3">
+                                <div className="flex items-center gap-3 text-xs text-gray-500">
+                                    <span>Mostrando {startIndex + 1} - {Math.min(startIndex + itemsPerPage, filteredPatients.length)} de {filteredPatients.length}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span>Exibir:</span>
+                                        <select
+                                            value={itemsPerPage}
+                                            onChange={handleItemsPerPageChange}
+                                            className="border border-gray-200 rounded-md px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400"
+                                        >
+                                            <option value={5}>5</option>
+                                            <option value={10}>10</option>
+                                            <option value={20}>20</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        onClick={() => handlePageChange('prev')}
+                                        disabled={currentPage === 1}
+                                        className="px-3 py-1.5 border border-gray-200 rounded-md text-gray-600 text-xs font-medium hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        Anterior
+                                    </button>
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                                        <button
+                                            key={page}
+                                            onClick={() => setCurrentPage(page)}
+                                            className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                                                currentPage === page
+                                                    ? 'bg-gray-800 text-white'
+                                                    : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
+                                            }`}
+                                        >
+                                            {page}
+                                        </button>
+                                    ))}
+                                    <button
+                                        onClick={() => handlePageChange('next')}
+                                        disabled={currentPage === totalPages}
+                                        className="px-3 py-1.5 border border-gray-200 rounded-md text-gray-600 text-xs font-medium hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        Próxima
+                                    </button>
+                                </div>
+                            </div>
+                        </>
                     )}
                 </div>
-            )}
-        </Card>
+        </div>
     );
 };
 

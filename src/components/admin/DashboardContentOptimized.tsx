@@ -95,46 +95,6 @@ const BirthdayCardSkeleton = memo(() => (
 
 BirthdayCardSkeleton.displayName = 'BirthdayCardSkeleton';
 
-// Skeleton que espelha o layout do PatientTable (header + 7 linhas)
-const PatientTableSkeleton = memo(() => (
-    <div className="space-y-3">
-        {/* Barra de busca + filtros */}
-        <div className="flex items-center gap-3 mb-4">
-            <MuiSkeleton variant="rounded" width="100%" height={40} sx={{ borderRadius: 10, maxWidth: 320 }} />
-            <MuiSkeleton variant="rounded" width={100} height={40} sx={{ borderRadius: 10 }} />
-            <MuiSkeleton variant="rounded" width={100} height={40} sx={{ borderRadius: 10 }} />
-        </div>
-        {/* Header */}
-        <div className="grid grid-cols-5 gap-4 px-4 pb-2 border-b border-gray-100">
-            {[120, 80, 90, 80, 60].map((w, i) => (
-                <MuiSkeleton key={i} variant="text" width={w} height={16} />
-            ))}
-        </div>
-        {/* Linhas */}
-        {Array.from({ length: 7 }).map((_, i) => (
-            <div key={i} className="grid grid-cols-5 gap-4 items-center px-4 py-2">
-                <div className="flex items-center gap-3">
-                    <MuiSkeleton variant="circular" width={36} height={36} sx={{ flexShrink: 0 }} />
-                    <div className="space-y-1 flex-1">
-                        <MuiSkeleton variant="text" width="70%" height={16} />
-                        <MuiSkeleton variant="text" width="55%" height={13} />
-                    </div>
-                </div>
-                <MuiSkeleton variant="text" width="65%" height={16} />
-                <MuiSkeleton variant="rounded" width={72} height={22} sx={{ borderRadius: 99 }} />
-                <MuiSkeleton variant="text" width="60%" height={16} />
-                <div className="flex gap-2">
-                    <MuiSkeleton variant="rounded" width={30} height={30} sx={{ borderRadius: 8 }} />
-                    <MuiSkeleton variant="rounded" width={30} height={30} sx={{ borderRadius: 8 }} />
-                    <MuiSkeleton variant="rounded" width={30} height={30} sx={{ borderRadius: 8 }} />
-                </div>
-            </div>
-        ))}
-    </div>
-));
-
-PatientTableSkeleton.displayName = 'PatientTableSkeleton';
-
 // Componente de métrica memoizado
 interface MetricCardProps {
     title: string;
@@ -317,7 +277,82 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     }, [stats?.calculatedAt]);
 
     if (loading) {
-        return <LoadingSpinner centered size="large" color="border-emerald-600" className="min-h-[400px]" />;
+        return (
+            <div className="space-y-4 p-4 animate-pulse">
+                {/* Header */}
+                <div className="flex justify-between items-center mb-2">
+                    <div className="h-4 w-48 bg-gray-200 rounded" />
+                    <div className="h-8 w-28 bg-gray-200 rounded-lg" />
+                </div>
+                {/* Patients section */}
+                <div className="border border-gray-200 rounded-xl overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 bg-blue-50">
+                        <div className="h-4 w-40 bg-blue-200 rounded" />
+                        <div className="h-4 w-4 bg-blue-200 rounded" />
+                    </div>
+                    <div className="p-4 space-y-2">
+                        {/* search bar skeleton */}
+                        <div className="h-9 bg-gray-100 rounded-lg mb-3" />
+                        {/* header row */}
+                        <div className="flex gap-3 px-3 py-2 border-b border-gray-100">
+                            <div className="flex-1 h-3 bg-gray-200 rounded" />
+                            <div className="w-28 h-3 bg-gray-200 rounded hidden md:block" />
+                            <div className="w-40 h-3 bg-gray-200 rounded hidden lg:block" />
+                            <div className="w-28 h-3 bg-gray-200 rounded hidden sm:block" />
+                            <div className="w-36 h-3 bg-gray-200 rounded" />
+                        </div>
+                        {/* rows */}
+                        {Array.from({ length: 5 }).map((_, i) => (
+                            <div key={i} className="flex items-center gap-3 px-3 py-3 rounded-lg border border-gray-100">
+                                <div className="w-8 h-8 rounded-full bg-gray-200 shrink-0" />
+                                <div className="flex-1 space-y-1.5">
+                                    <div className="h-3 bg-gray-200 rounded w-2/3" />
+                                    <div className="h-2.5 bg-gray-100 rounded w-1/3" />
+                                </div>
+                                <div className="w-28 h-6 bg-gray-100 rounded hidden md:block" />
+                                <div className="w-40 h-6 bg-gray-100 rounded hidden lg:block" />
+                                <div className="w-28 h-6 bg-gray-100 rounded hidden sm:block" />
+                                <div className="w-36 h-7 bg-gray-100 rounded" />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                {/* Metrics section */}
+                <div className="border border-gray-200 rounded-xl overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 bg-green-50">
+                        <div className="h-4 w-44 bg-green-200 rounded" />
+                        <div className="h-4 w-4 bg-green-200 rounded" />
+                    </div>
+                    <div className="p-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+                        {Array.from({ length: 8 }).map((_, i) => (
+                            <div key={i} className="border border-gray-100 rounded-lg p-4 space-y-2">
+                                <div className="h-3 bg-gray-200 rounded w-3/4" />
+                                <div className="h-7 bg-gray-200 rounded w-1/2" />
+                                <div className="h-2.5 bg-gray-100 rounded w-2/3" />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                {/* Doctors section */}
+                <div className="border border-gray-200 rounded-xl overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 bg-gray-50">
+                        <div className="h-4 w-36 bg-gray-200 rounded" />
+                        <div className="h-4 w-4 bg-gray-200 rounded" />
+                    </div>
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {Array.from({ length: 3 }).map((_, i) => (
+                            <div key={i} className="border border-gray-100 rounded-xl p-4 flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-gray-200 shrink-0" />
+                                <div className="flex-1 space-y-1.5">
+                                    <div className="h-3 bg-gray-200 rounded w-3/4" />
+                                    <div className="h-2.5 bg-gray-100 rounded w-1/2" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     return (
@@ -383,8 +418,9 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                     : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                 }
             >
-                {loading ? <PatientTableSkeleton /> : <PatientTable
+                <PatientTable
                     patients={safePatients}
+                    isRefreshing={loading}
                     onEditPatient={(patient) => {
                         setPatientToEdit(patient);
                         setIsModalOpen(true);
@@ -401,7 +437,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                         setPaymentModalOpen(true);
                     }}
                     onDeletePatient={onDeletePatient}
-                />}
+                />
             </AccordionSection>
 
             <hr className='m-5' />

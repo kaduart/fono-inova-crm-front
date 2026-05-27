@@ -861,16 +861,17 @@ export default function AdminDashboard() {
 
     // 🗑️ Handler para deletar paciente com confirmação
     const handleDeletePatient = useCallback(async (patient: IPatient) => {
-        if (!patient._id) return;
-        
+        const patientId = patient._id || (patient as any).patientId || (patient as any).id;
+        if (!patientId) return;
+
         const confirmed = await confirmToast(
             `Tem certeza que deseja excluir o paciente "${patient.fullName}"? Esta ação não pode ser desfeita.`
         );
-        
+
         if (!confirmed) return;
-        
+
         try {
-            await deletePatient(patient._id);
+            await deletePatient(patientId);
             toast.success('Paciente excluído com sucesso!');
             // 🔄 Atualiza o dashboard
             refreshDashboard();

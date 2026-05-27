@@ -1,6 +1,6 @@
 // src/services/insuranceGuideApi.ts
 import API from './api';
-import { extractErrorMessage } from '../utils/errorUtils';
+import { extractErrorMessage, extractErrorCode } from '../utils/errorUtils';
 
 export interface GuideAppointment {
   _id: string;
@@ -117,16 +117,6 @@ export const createGuide = async (data: CreateGuideData): Promise<InsuranceGuide
     const errorCode = extractErrorCode(error);
 
     // Mapear erros específicos
-    if (errorCode === 'DUPLICATE_GUIDE_NUMBER') {
-      throw new Error('Este número de guia já está cadastrado no sistema');
-    }
-    if (errorCode === 'INVALID_SPECIALTY') {
-      throw new Error('Especialidade inválida');
-    }
-    if (errorCode === 'INVALID_INSURANCE') {
-      throw new Error('Convênio inválido');
-    }
-
     throw new Error(extractErrorMessage(error, 'Erro ao criar guia'));
   }
 };

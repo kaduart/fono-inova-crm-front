@@ -575,39 +575,26 @@ const FinancialDashboard = ({
             </Paper>
 
             {/* Tabs */}
-            <Paper elevation={1} sx={{ borderRadius: 3, overflow: 'hidden' }}>
-                <Tabs
-                    value={currentTab}
-                    onChange={handleTabChange}
-                    variant="scrollable"
-                    scrollButtons="auto"
-                    sx={{
-                        borderBottom: 1,
-                        borderColor: 'divider',
-                        '& .MuiTabs-flexContainer': { gap: 1, px: 1 }
-                    }}
-                >
-                    {allTabs.map((tab, index) => (
-                        <Tab
-                            key={tab.id}
-                            label={tab.label}
-                            icon={tab.icon}
-                            iconPosition="start"
-                            sx={{
-                                minHeight: { xs: 48, md: 64 },
-                                textTransform: 'none',
-                                fontSize: { xs: '0.75rem', md: '1rem' },
-                                fontWeight: 500,
-                                borderRadius: 2,
-                            }}
-                        />
-                    ))}
-                </Tabs>
-
-                <Box key={currentTabId} sx={{ p: { xs: 0.5, sm: 1, md: 2 } }}>
+            <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                <div className="px-3 pt-3 pb-0 border-b border-gray-100">
+                    <div className="flex gap-1 overflow-x-auto bg-gray-100 rounded-xl p-1">
+                        {allTabs.map((tab, index) => (
+                            <button key={tab.id} onClick={() => setCurrentTab(index)}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 ${
+                                    currentTab === index
+                                        ? 'bg-white text-gray-900 shadow-sm font-semibold'
+                                        : 'text-gray-500 hover:text-gray-700'
+                                }`}>
+                                {tab.icon}
+                                <span>{tab.label}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                <div key={currentTabId} className="p-1 sm:p-2 md:p-4">
                     {renderActiveTab()}
-                </Box>
-            </Paper>
+                </div>
+            </div>
         </Box>
     );
 };

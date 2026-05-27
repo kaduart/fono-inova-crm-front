@@ -760,28 +760,26 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             </Grid>
 
             {/* Sub-tabs */}
-            <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
-                <Tabs
-                    value={subTab}
-                    onChange={(_, v) => setSubTab(v)}
-                    sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 1 }}
-                >
-                    <Tab
-                        icon={<Clock size={16} />}
-                        iconPosition="start"
-                        label={`A Faturar (${countByStatus(receivables, 'pending_billing')})`}
-                    />
-                    <Tab
-                        icon={<Send size={16} />}
-                        iconPosition="start"
-                        label={`Faturados (${countByStatus(receivables, 'billed')})`}
-                    />
-                    <Tab
-                        icon={<CheckCircle size={16} />}
-                        iconPosition="start"
-                        label={`Recebidos (${countByStatus(receivables, 'received')})`}
-                    />
-                </Tabs>
+            <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <div className="px-3 pt-3 pb-3 border-b border-gray-100">
+                    <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+                        {[
+                            { label: `A Faturar (${countByStatus(receivables, 'pending_billing')})`, icon: <Clock size={15} /> },
+                            { label: `Faturados (${countByStatus(receivables, 'billed')})`,          icon: <Send size={15} /> },
+                            { label: `Recebidos (${countByStatus(receivables, 'received')})`,        icon: <CheckCircle size={15} /> },
+                        ].map((tab, i) => (
+                            <button key={i} onClick={() => setSubTab(i)}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 ${
+                                    subTab === i
+                                        ? 'bg-white text-gray-900 shadow-sm font-semibold'
+                                        : 'text-gray-500 hover:text-gray-700'
+                                }`}>
+                                {tab.icon}
+                                <span>{tab.label}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
 
                 {/* Barra de Ações em Lote — sempre visível quando há itens na aba */}
                 {totalSelectable > 0 && (
@@ -970,7 +968,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                         </div>
                     )}
                 </Box>
-            </Paper>
+            </div>
 
             {/* Modal: Faturar em Lote */}
             <Dialog open={faturarLoteModalOpen} onClose={() => !faturarLoteLoading && setFaturarLoteModalOpen(false)} maxWidth="sm" fullWidth>

@@ -1018,16 +1018,33 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                     })()}
 
                     {/* Tabs de Detalhes */}
-                    <div className="mb-3 border-b border-gray-200 bg-white rounded-t-lg">
-                        <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} variant="scrollable" className="px-2">
-                            <Tab label={data.transacoes?.length > 0 ? `Transações (${data.transacoes.length})` : 'Transações'} icon={<ReceiptIcon fontSize="small" />} iconPosition="start" />
-                            <Tab label={data.pendentesCobranca?.length > 0 ? `Pendentes (${data.pendentesCobranca.length})` : 'Pendentes'} icon={<WarningIcon fontSize="small" />} iconPosition="start" />
-                            <Tab label={data.pacotesAtendidos?.length > 0 ? `Pacotes (${data.pacotesAtendidos.length})` : 'Pacotes'} icon={<InventoryIcon fontSize="small" />} iconPosition="start" />
-                            <Tab label={data.conveniosAtendidos?.length > 0 ? `Convênios (${data.conveniosAtendidos.length})` : 'Convênios'} icon={<ShowChartIcon fontSize="small" />} iconPosition="start" />
-                            <Tab label={dayAppointments.length > 0 ? `Agendamentos (${dayAppointments.length})` : 'Agendamentos'} icon={<CalendarTodayIcon fontSize="small" />} iconPosition="start" />
-                            <Tab label={Object.keys(data.producao?.porEspecialidade || {}).length > 0 ? `Especialidades (${Object.keys(data.producao.porEspecialidade).length})` : 'Especialidades'} icon={<PieChartIcon fontSize="small" />} iconPosition="start" />
-                            <Tab label="Profissionais" icon={<PeopleIcon fontSize="small" />} iconPosition="start" />
-                        </Tabs>
+                    <div className="mb-3">
+                        <div className="flex gap-1 overflow-x-auto bg-gray-100 rounded-xl p-1">
+                            {[
+                                { label: 'Transações',    count: data.transacoes?.length || 0,                                      icon: <ReceiptIcon style={{ fontSize: 15 }} /> },
+                                { label: 'Pendentes',     count: data.pendentesCobranca?.length || 0,                               icon: <WarningIcon style={{ fontSize: 15 }} /> },
+                                { label: 'Pacotes',       count: data.pacotesAtendidos?.length || 0,                                icon: <InventoryIcon style={{ fontSize: 15 }} /> },
+                                { label: 'Convênios',     count: data.conveniosAtendidos?.length || 0,                              icon: <ShowChartIcon style={{ fontSize: 15 }} /> },
+                                { label: 'Agendamentos',  count: dayAppointments.length || 0,                                       icon: <CalendarTodayIcon style={{ fontSize: 15 }} /> },
+                                { label: 'Especialidades',count: Object.keys(data.producao?.porEspecialidade || {}).length,          icon: <PieChartIcon style={{ fontSize: 15 }} /> },
+                                { label: 'Profissionais', count: 0,                                                                  icon: <PeopleIcon style={{ fontSize: 15 }} /> },
+                            ].map((tab, i) => (
+                                <button key={i} onClick={() => setActiveTab(i)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 ${
+                                        activeTab === i
+                                            ? 'bg-white text-gray-900 shadow-sm font-semibold'
+                                            : 'text-gray-500 hover:text-gray-700'
+                                    }`}>
+                                    {tab.icon}
+                                    <span>{tab.label}</span>
+                                    {tab.count > 0 && (
+                                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${activeTab === i ? 'bg-gray-100 text-gray-700' : 'bg-gray-200 text-gray-500'}`}>
+                                            {tab.count}
+                                        </span>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     {/* Tab 0: Transações */}
@@ -1250,31 +1267,31 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                     {/* Tab 4: Agendamentos {periodTitle} */}
                     {activeTab === 4 && (
                         <div className="bg-white rounded-lg border border-gray-200 p-3">
-                            <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
-                                <h3 className="text-base font-semibold">📅 Agendamentos {periodTitle} ({dayAppointments.length})</h3>
-                                <div className="flex flex-wrap gap-2">
-                                    <FormControl size="small" sx={{ minWidth: 140 }}>
-                                        <InputLabel>Filtrar status</InputLabel>
-                                        <Select value={appointmentFilter} label="Filtrar status" onChange={(e) => setAppointmentFilter(e.target.value)}>
-                                            <MenuItem value="all">Todos</MenuItem>
-                                            <MenuItem value="completed">✅ Atendidos</MenuItem>
-                                            <MenuItem value="scheduled">📋 Agendados</MenuItem>
-                                            <MenuItem value="confirmed">✔️ Confirmados</MenuItem>
-                                            <MenuItem value="canceled">❌ Cancelados</MenuItem>
-                                            <MenuItem value="pre_agendado">⏳ Pré-agendado</MenuItem>
-                                        </Select>
-                                    </FormControl>
+                            <div className="mb-3">
+                                <h3 className="text-base font-semibold mb-2">📅 Agendamentos {periodTitle} ({dayAppointments.length})</h3>
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                    {([
+                                        { value: 'all',          label: 'Todos' },
+                                        { value: 'completed',    label: 'Atendidos' },
+                                        { value: 'scheduled',    label: 'Agendados' },
+                                        { value: 'confirmed',    label: 'Confirmados' },
+                                        { value: 'canceled',     label: 'Cancelados' },
+                                        { value: 'pre_agendado', label: 'Pré-agendado' },
+                                    ] as const).map(opt => (
+                                        <button key={opt.value} onClick={() => setAppointmentFilter(opt.value)}
+                                            className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${appointmentFilter === opt.value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}>
+                                            {opt.label}
+                                        </button>
+                                    ))}
                                     {(() => {
                                         const profs = [...new Set(dayAppointments.map((a: any) => a.professionalName).filter(Boolean))].sort() as string[];
                                         if (profs.length <= 1) return null;
                                         return (
-                                            <FormControl size="small" sx={{ minWidth: 160 }}>
-                                                <InputLabel>Profissional</InputLabel>
-                                                <Select value={appointmentProfFilter} label="Profissional" onChange={(e) => setAppointmentProfFilter(e.target.value)}>
-                                                    <MenuItem value="all">Todos</MenuItem>
-                                                    {profs.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
-                                                </Select>
-                                            </FormControl>
+                                            <select value={appointmentProfFilter} onChange={(e) => setAppointmentProfFilter(e.target.value)}
+                                                className="px-2.5 py-1 rounded-full text-xs font-medium border border-gray-300 bg-white text-gray-600 hover:border-gray-400 outline-none cursor-pointer">
+                                                <option value="all">Todos profissionais</option>
+                                                {profs.map(p => <option key={p} value={p}>{p}</option>)}
+                                            </select>
                                         );
                                     })()}
                                 </div>
@@ -1323,16 +1340,19 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                         );
                                         let nowRendered = false;
                                         return (
-                                            <>
-                                            {/* Header fixo explicando colunas */}
-                                            <div className="flex items-center gap-3 px-3 py-1.5 mb-1 border-b border-gray-100 pl-11">
-                                                <span className="text-[11px] text-gray-400 w-10 shrink-0">Hora</span>
-                                                <span className="flex-1 text-[11px] text-gray-400">Paciente / Profissional</span>
-                                                <span className="text-[11px] text-gray-400 hidden md:inline shrink-0">Sit. Financeira</span>
-                                                <span className="text-[11px] text-gray-400 shrink-0">Status</span>
-                                                <span className="text-[11px] text-gray-400 w-16 text-right shrink-0">Valor</span>
-                                            </div>
                                             <div className="space-y-0 mt-1">
+                                            {/* Header — mesma estrutura dos grupos de hora */}
+                                            <div className="flex gap-2 py-0.5 mb-1">
+                                                <div className="w-7 shrink-0" />
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-3 px-3 pb-1.5 border-b border-gray-200">
+                                                        <span className="text-[11px] text-gray-400 w-10 shrink-0">Hora</span>
+                                                        <span className="flex-1 text-[11px] text-gray-400">Paciente / Status</span>
+                                                        <span className="text-[11px] text-gray-400 w-32 text-center shrink-0">Situação</span>
+                                                        <span className="text-[11px] text-gray-400 w-16 text-right shrink-0">Valor</span>
+                                                    </div>
+                                                </div>
+                                            </div>
                                                 {sortedHours.map((hour, idx) => {
                                                     const apts = hourGroups[hour];
                                                     const prevHourEnd = idx > 0 ? sortedHours[idx - 1] * 60 + 59 : -1;
@@ -1356,6 +1376,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                 <div className="flex-1 min-w-0">
                                                                                     <div className="flex items-center gap-1.5 flex-wrap">
                                                                                         <span className="text-[15px] font-semibold text-gray-900">{a.patientInfo?.fullName || a.patient?.fullName || '-'}</span>
+                                                                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${sc.badge}`}>{sc.label}</span>
                                                                                         {isNew && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 shrink-0">1ª vez</span>}
                                                                                     </div>
                                                                                     <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
@@ -1368,10 +1389,9 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                         )}
                                                                                     </div>
                                                                                 </div>
-                                                                                {sfText && a.operationalStatus !== 'canceled' && (
-                                                                                    <span className="text-xs text-gray-500 shrink-0 hidden md:inline">{sfText}</span>
-                                                                                )}
-                                                                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${sc.badge}`}>{sc.label}</span>
+                                                                                <span className="text-xs text-gray-500 w-32 text-center shrink-0">
+                                                                                    {a.operationalStatus !== 'canceled' ? sfText : ''}
+                                                                                </span>
                                                                                 <span className={`text-sm font-bold shrink-0 w-16 text-right ${valor > 0 ? 'text-gray-900' : 'text-gray-400'}`}>R${valor.toLocaleString('pt-BR')}</span>
                                                                             </div>
                                                                         );
@@ -1389,7 +1409,6 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                     </div>
                                                 )}
                                             </div>
-                                            </>
                                         );
                                     })()}
 
