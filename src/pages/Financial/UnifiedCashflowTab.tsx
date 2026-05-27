@@ -1060,90 +1060,80 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                         ))}
                                     </div>
                                 </div>
-                                <div className="overflow-x-auto">
-                                    <table className="min-w-full text-sm">
-                                        <thead className="bg-gray-50 border-b">
-                                            <tr>
-                                                <th className="px-3 py-2 text-left">Data / Hora</th>
-                                                <th className="px-3 py-2 text-left">Paciente</th>
-                                                <th className="px-3 py-2 text-left">Profissional</th>
-                                                <th className="px-3 py-2 text-left">Serviço</th>
-                                                <th className="px-3 py-2 text-left">Método</th>
-                                                <th className="px-3 py-2 text-left">Tipo</th>
-                                                <th className="px-3 py-2 text-left">Situação</th>
-                                                <th className="px-3 py-2 text-right">Valor</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {txFiltradas.map((t: any) => {
-                                                const subTipo = (t as any).isPackageSale ? 'Venda de Pacote' : (t.tipo === 'Pacote' ? 'Sessão de Pacote' : null);
-                                                const situacao = t.tipo === 'Convênio' ? 'A Faturar'
-                                                    : t.tipo === 'Liminar' ? 'Judicial'
-                                                    : (t as any).isPackageSale ? 'Pré-antecipado'
-                                                    : t.tipo === 'Pacote' ? 'Pré-pago'
-                                                    : 'Pago na Sessão';
-                                                const situacaoCls = situacao === 'Pré-pago' || situacao === 'Pré-antecipado' ? 'bg-indigo-100 text-indigo-700'
-                                                    : situacao === 'Pago na Sessão' ? 'bg-emerald-100 text-emerald-700'
-                                                    : situacao === 'A Faturar' ? 'bg-purple-100 text-purple-700'
-                                                    : situacao === 'Judicial' ? 'bg-orange-100 text-orange-700'
-                                                    : 'bg-gray-100 text-gray-600';
-                                                return (
-                                                    <tr key={t.id} className="border-b hover:bg-gray-50">
-                                                        <td className="px-3 py-2 whitespace-nowrap">
-                                                            <div className="text-xs text-gray-400">{t.data}</div>
-                                                            <div className="font-medium">{t.hora}</div>
-                                                        </td>
-                                                        <td className="px-3 py-2">{t.paciente}</td>
-                                                        <td className="px-3 py-2">
-                                                            <div>{t.profissional || '-'}</div>
-                                                            <div className="text-xs text-gray-500">{t.especialidade || '-'}</div>
-                                                        </td>
-                                                        <td className="px-3 py-2"><span className="px-2 py-0.5 rounded-full text-xs border border-gray-300">{t.servico}</span></td>
-                                                        <td className="px-3 py-2">
-                                                            <div>{t.metodo}</div>
-                                                            <div className="text-[10px] text-gray-400">
-                                                                {t.metodo === 'Pix' || t.metodo === 'Dinheiro' ? 'Imediato'
-                                                                : t.metodo === 'Cartão' ? 'D+30'
-                                                                : t.metodo === 'Transferência Bancária' ? 'D+1'
-                                                                : t.metodo === 'Convênio' ? 'D+60'
-                                                                : null}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-3 py-2">
-                                                            <div className="flex flex-col gap-0.5">
-                                                                <span className={`px-2 py-0.5 rounded-full text-xs w-fit ${
-                                                                    t.tipo === 'Pacote' ? 'bg-green-100 text-green-800' :
-                                                                    t.tipo === 'Convênio' ? 'bg-amber-100 text-amber-800' :
-                                                                    t.tipo === 'Liminar' ? 'bg-red-100 text-red-800' :
-                                                                    'bg-blue-100 text-blue-800'
-                                                                }`}>{t.tipo}</span>
-                                                                {subTipo && <span className="text-[10px] text-gray-400 pl-1">{subTipo}</span>}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-3 py-2">
-                                                            <span className={`px-2 py-0.5 rounded-full text-xs ${situacaoCls}`}>{situacao}</span>
-                                                        </td>
-                                                        <td className="px-3 py-2 text-right font-bold text-emerald-600">{formatCurrency(t.valor)}</td>
-                                                    </tr>
-                                                );
-                                            })}
-                                            {!txFiltradas.length && (
-                                                <tr><td colSpan={8} className="text-center py-4 text-gray-500">
-                                                    {txMetodoFilter !== 'all' || txTipoFilter !== 'all' ? 'Nenhuma transação com esse filtro' : `Nenhuma transação ${isRangeActive ? 'no período' : 'hoje'}`}
-                                                </td></tr>
-                                            )}
-                                        </tbody>
-                                        {txFiltradas.length > 0 && (
-                                            <tfoot className="bg-gray-50 border-t-2 border-gray-200">
-                                                <tr>
-                                                    <td colSpan={7} className="px-3 py-2 font-bold text-gray-700">
-                                                        Total ({txFiltradas.length}{txFiltradas.length !== allTx.length ? ` de ${allTx.length}` : ''})
-                                                    </td>
-                                                    <td className="px-3 py-2 text-right font-bold text-emerald-700">{formatCurrency(totalFiltrado)}</td>
-                                                </tr>
-                                            </tfoot>
-                                        )}
-                                    </table>
+                                {/* Header fixo explicando colunas da direita */}
+                                <div className="flex items-center gap-3 px-3 py-1.5 mb-1 border-b border-gray-100">
+                                    <span className="text-[11px] text-gray-400 w-20 shrink-0">Hora</span>
+                                    <span className="flex-1 text-[11px] text-gray-400">Paciente / Profissional</span>
+                                    <span className="text-[11px] text-gray-400 w-28 text-center shrink-0">Serviço</span>
+                                    <span className="text-[11px] text-gray-400 w-28 text-center shrink-0">Método</span>
+                                    <span className="text-[11px] text-gray-400 w-20 text-center shrink-0">Tipo</span>
+                                    <span className="text-[11px] text-gray-400 w-24 text-center shrink-0">Situação</span>
+                                    <span className="text-[11px] text-gray-400 w-20 text-right shrink-0">Valor</span>
+                                </div>
+                                <div className="space-y-1">
+                                    {txFiltradas.length === 0 ? (
+                                        <div className="text-center py-6 text-gray-400 text-sm">
+                                            {txMetodoFilter !== 'all' || txTipoFilter !== 'all' ? 'Nenhuma transação com esse filtro' : `Nenhuma transação ${isRangeActive ? 'no período' : 'hoje'}`}
+                                        </div>
+                                    ) : txFiltradas.map((t: any) => {
+                                        const subTipo = (t as any).isPackageSale ? 'Venda de Pacote' : (t.tipo === 'Pacote' ? 'Sessão de Pacote' : null);
+                                        const situacao = t.tipo === 'Convênio' ? 'A Faturar'
+                                            : t.tipo === 'Liminar' ? 'Judicial'
+                                            : (t as any).isPackageSale ? 'Pré-antecipado'
+                                            : t.tipo === 'Pacote' ? 'Pré-pago'
+                                            : 'Pago na Sessão';
+                                        const situacaoCls = situacao === 'Pré-pago' || situacao === 'Pré-antecipado' ? 'bg-indigo-100 text-indigo-700'
+                                            : situacao === 'Pago na Sessão' ? 'bg-emerald-100 text-emerald-700'
+                                            : situacao === 'A Faturar' ? 'bg-purple-100 text-purple-700'
+                                            : situacao === 'Judicial' ? 'bg-orange-100 text-orange-700'
+                                            : 'bg-gray-100 text-gray-600';
+                                        const borderCls = t.tipo === 'Liminar' ? 'border-orange-400'
+                                            : t.tipo === 'Pacote' ? 'border-green-500'
+                                            : t.tipo === 'Convênio' ? 'border-amber-400'
+                                            : 'border-blue-400';
+                                        const prazo = t.metodo === 'Pix' || t.metodo === 'Dinheiro' ? 'Imediato'
+                                            : t.metodo === 'Cartão' ? 'D+30'
+                                            : t.metodo === 'Transferência Bancária' ? 'D+1'
+                                            : t.metodo === 'Convênio' ? 'D+60' : null;
+                                        const tipoCls = t.tipo === 'Pacote' ? 'bg-green-100 text-green-800'
+                                            : t.tipo === 'Convênio' ? 'bg-amber-100 text-amber-800'
+                                            : t.tipo === 'Liminar' ? 'bg-orange-100 text-orange-800'
+                                            : 'bg-blue-100 text-blue-800';
+                                        return (
+                                            <div key={t.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 border-l-[3px] ${borderCls}`}>
+                                                <div className="w-20 shrink-0">
+                                                    <div className="text-[11px] text-gray-400">{t.data}</div>
+                                                    <div className="text-[15px] font-semibold text-gray-900 font-mono">{t.hora}</div>
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-[15px] font-semibold text-gray-900 truncate">{t.paciente}</div>
+                                                    <div className="text-xs text-gray-500 truncate">
+                                                        {[t.profissional, t.especialidade].filter(Boolean).join(' / ')}
+                                                    </div>
+                                                </div>
+                                                <div className="w-28 shrink-0 text-center">
+                                                    <span className="px-2 py-0.5 rounded-full text-xs border border-gray-300 text-gray-600">{t.servico}{subTipo ? ` · ${subTipo === 'Venda de Pacote' ? 'Venda' : 'Sessão'}` : ''}</span>
+                                                </div>
+                                                <div className="w-28 shrink-0 text-center">
+                                                    <div className="text-xs font-medium text-gray-700">{t.metodo}</div>
+                                                    {prazo && <div className="text-[10px] text-gray-400">{prazo}</div>}
+                                                </div>
+                                                <div className="w-20 shrink-0 text-center">
+                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${tipoCls}`}>{t.tipo}</span>
+                                                </div>
+                                                <div className="w-24 shrink-0 text-center">
+                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${situacaoCls}`}>{situacao}</span>
+                                                </div>
+                                                <div className="w-20 shrink-0 text-right font-bold text-emerald-600 text-sm">{formatCurrency(t.valor)}</div>
+                                            </div>
+                                        );
+                                    })}
+                                    {txFiltradas.length > 0 && (
+                                        <div className="flex justify-between items-center px-3 py-2 mt-2 rounded-lg bg-gray-100 border border-gray-200">
+                                            <span className="text-sm font-bold text-gray-700">Total ({txFiltradas.length}{txFiltradas.length !== allTx.length ? ` de ${allTx.length}` : ''})</span>
+                                            <span className="text-sm font-bold text-emerald-600">{formatCurrency(totalFiltrado)}</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         );
@@ -1296,122 +1286,112 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                 <Alert severity="info">Nenhum agendamento encontrado para {isRangeActive ? 'este período' : 'este dia'}.</Alert>
                             ) : (
                                 <>
-                                    <div className="overflow-x-auto">
-                                        <table className="min-w-full text-sm">
-                                            <thead className="bg-gray-50 border-b">
-                                                <tr>
-                                                    <th className="px-3 py-2 text-left">Data e Hora</th>
-                                                    <th className="px-3 py-2 text-left">Paciente</th>
-                                                    <th className="px-3 py-2 text-left">Profissional</th>
-                                                    <th className="px-3 py-2 text-left">Especialidade</th>
-                                                    <th className="px-3 py-2 text-left">Status</th>
-                                                    <th className="px-3 py-2 text-left">Tipo</th>
-                                                    <th className="px-3 py-2 text-right">Valor</th>
-                                                    <th className="px-3 py-2 text-left">Situação Financeira</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {[...dayAppointments]
-                                                    .filter((a: any) => (appointmentFilter === 'all' || a.operationalStatus === appointmentFilter) && (appointmentProfFilter === 'all' || a.professionalName === appointmentProfFilter))
-                                                    .sort((a: any, b: any) => {
-                                                        const toMinutes = (item: any) => {
-                                                            const t = item.time || (item.date ? format(parseISO(item.date), 'HH:mm') : '00:00');
-                                                            const [h, m] = t.split(':').map(Number);
-                                                            return (h || 0) * 60 + (m || 0);
-                                                        };
-                                                        return toMinutes(a) - toMinutes(b);
-                                                    })
-                                                    .map((a: any) => {
-                                                        const statusCls: Record<string, { cls: string; label: string }> = {
-                                                            completed:   { cls: 'bg-green-100 text-green-800',  label: 'Atendido' },
-                                                            scheduled:   { cls: 'bg-blue-100 text-blue-800',    label: 'Agendado' },
-                                                            confirmed:   { cls: 'bg-sky-100 text-sky-800',      label: 'Confirmado' },
-                                                            canceled:    { cls: 'bg-red-100 text-red-800',      label: 'Cancelado' },
-                                                            pre_agendado:{ cls: 'bg-amber-100 text-amber-800',  label: 'Pré-agendado' },
-                                                        };
-                                                        const sfCls: Record<string, { cls: string; label: string }> = {
-                                                            'Pré-pago':        { cls: 'bg-indigo-100 text-indigo-800', label: '📦 Pré-pago' },
-                                                            'Pago na Sessão':  { cls: 'bg-green-100 text-green-800',   label: '💰 Pago na Sessão' },
-                                                            'Avaliação Paga':  { cls: 'bg-green-100 text-green-800',   label: '💰 Avaliação Paga' },
-                                                            'Pago Parcial':    { cls: 'bg-amber-100 text-amber-800',   label: '⚠️ Pago Parcial' },
-                                                            'Pendente':        { cls: 'bg-amber-100 text-amber-800',   label: '⏳ Pendente' },
-                                                            'Pacote Pendente': { cls: 'bg-gray-100 text-gray-700',     label: '📦 Pacote Pendente' },
-                                                            'Convênio':        { cls: 'bg-blue-100 text-blue-800',     label: '🏥 Convênio' },
-                                                            'Liminar':         { cls: 'bg-purple-100 text-purple-800', label: '⚖️ Liminar' },
-                                                            'Cancelado':       { cls: 'bg-red-100 text-red-800',       label: '❌ Cancelado' },
-                                                        };
-                                                        const serviceMap: Record<string, string> = {
-                                                            consultation: 'Consulta', evaluation: 'Avaliação',
-                                                            session: 'Sessão', individual_session: 'Sessão Individual',
-                                                            package_session: 'Sessão de Pacote', tongue_tie_test: 'Teste da Linguinha',
-                                                            neuropsych_evaluation: 'Avaliação Neuropsicológica',
-                                                            return: 'Retorno', meet: 'Meet', alignment: 'Alinhamento'
-                                                        };
-                                                        const sc = statusCls[a.operationalStatus] || { cls: 'bg-gray-100 text-gray-700', label: a.operationalStatus };
-                                                        const sf = sfCls[a.statusFinanceiro]     || { cls: 'bg-gray-100 text-gray-700', label: a.statusFinanceiro || '-' };
-                                                        const tipoServico = serviceMap[a.serviceType] || a.serviceType || 'Sessão';
-                                                        const tipoCls = a.billingType === 'convenio' ? 'border-blue-300 text-blue-700' : a.package ? 'border-green-300 text-green-700' : 'border-gray-300 text-gray-600';
-                                                        return (
-                                                            <tr key={a._id} className={`border-b hover:bg-gray-50 ${a.operationalStatus === 'canceled' ? 'opacity-60' : ''}`}>
-                                                                <td className="px-3 py-2">{a.date ? format(parseISO(a.date), 'dd/MM') : '--/--'} {a.time || (a.date ? format(parseISO(a.date), 'HH:mm') : '--:--')}</td>
-                                                                <td className="px-3 py-2">
-                                                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                                                        <span className="font-medium text-gray-900 text-sm">{a.patientInfo?.fullName || a.patient?.fullName || '-'}</span>
-                                                                        {(analyticsData?.novos || []).some((n: any) => n._id === a._id) && (
-                                                                            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-700">🆕 1ª vez</span>
-                                                                        )}
-                                                                    </div>
-                                                                    {(a.patientInfo?.phone || a.patient?.phone) && (
-                                                                        <button className="inline-flex items-center gap-0.5 text-[10px] text-blue-500 hover:text-blue-700 mt-0.5"
-                                                                            onClick={() => handleOpenWhatsApp(a.patientInfo?.phone || a.patient?.phone || '')}>
-                                                                            <PhoneIcon style={{ fontSize: 10 }} />{a.patientInfo?.phone || a.patient?.phone}
-                                                                        </button>
-                                                                    )}
-                                                                    <div className="text-[10px] text-gray-400 mt-0.5">
-                                                                        {a.billingType === 'convenio' ? '🏥 Convênio'
-                                                                        : a.billingType === 'liminar' ? '⚖️ Liminar'
-                                                                        : (a.billingType === 'package' || !!a.package) ? '📦 Pacote'
-                                                                        : '💰 Particular'}
-                                                                    </div>
-                                                                </td>
-                                                                <td className="px-3 py-2">{a.professionalName || '-'}</td>
-                                                                <td className="px-3 py-2">{a.specialty || '-'}</td>
-                                                                <td className="px-3 py-2">
-                                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${sc.cls}`}>{sc.label}</span>
-                                                                </td>
-                                                                <td className="px-3 py-2">
-                                                                    <span className={`px-2 py-0.5 rounded-full text-xs border ${tipoCls}`}>{tipoServico}</span>
-                                                                </td>
-                                                                <td className="px-3 py-2 text-right font-bold">{formatCurrency(a.sessionValue || a.package?.sessionValue || 0)}</td>
-                                                                <td className="px-3 py-2">
-                                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${sf.cls}`}>{sf.label}</span>
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    })}
-                                            </tbody>
-                                            {(() => {
-                                                const filtered = dayAppointments.filter((a: any) =>
-                                                    (appointmentFilter === 'all' || a.operationalStatus === appointmentFilter) &&
-                                                    (appointmentProfFilter === 'all' || a.professionalName === appointmentProfFilter)
-                                                );
-                                                const atendidos = filtered.filter((a: any) => a.operationalStatus === 'completed');
-                                                if (atendidos.length === 0) return null;
-                                                const totalVal = atendidos.reduce((s: number, a: any) => s + (a.sessionValue || a.package?.sessionValue || 0), 0);
-                                                return (
-                                                    <tfoot className="bg-gray-50 border-t-2 border-gray-200">
-                                                        <tr>
-                                                            <td colSpan={6} className="px-3 py-2 font-bold text-gray-700">
-                                                                Atendidos: {atendidos.length}{filtered.length !== atendidos.length ? ` (de ${filtered.length} filtrados)` : ''}
-                                                            </td>
-                                                            <td className="px-3 py-2 text-right font-bold text-emerald-700">{formatCurrency(totalVal)}</td>
-                                                            <td />
-                                                        </tr>
-                                                    </tfoot>
-                                                );
-                                            })()}
-                                        </table>
-                                    </div>
+                                    {/* Timeline de agendamentos */}
+                                    {(() => {
+                                        const sfShort: Record<string, string> = {
+                                            'Pré-pago': '📦 Pré-pago', 'Pago na Sessão': '💰 Pago', 'Avaliação Paga': '💰 Pago',
+                                            'Pago Parcial': '⚠️ Parcial', 'Pendente': '⏳ Pendente', 'Pacote Pendente': '📦 Pte. Pacote',
+                                            'Convênio': '🏥 Convênio', 'Liminar': '⚖️ Liminar', 'Cancelado': '',
+                                        };
+                                        const statusMap: Record<string, { border: string; badge: string; label: string }> = {
+                                            completed:    { border: 'border-green-500',  badge: 'bg-green-100 text-green-800',  label: 'Atendido' },
+                                            scheduled:    { border: 'border-blue-400',   badge: 'bg-blue-100 text-blue-800',    label: 'Agendado' },
+                                            confirmed:    { border: 'border-sky-400',    badge: 'bg-sky-100 text-sky-800',      label: 'Confirmado' },
+                                            canceled:     { border: 'border-red-400',    badge: 'bg-red-100 text-red-800',      label: 'cancelado' },
+                                            pre_agendado: { border: 'border-amber-400',  badge: 'bg-amber-100 text-amber-800',  label: 'pré-agendado' },
+                                        };
+                                        const toMin = (t: string) => { const [h, m] = (t || '00:00').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+                                        const filtered = [...dayAppointments]
+                                            .filter((a: any) => (appointmentFilter === 'all' || a.operationalStatus === appointmentFilter) && (appointmentProfFilter === 'all' || a.professionalName === appointmentProfFilter))
+                                            .sort((a: any, b: any) => toMin(a.time || '00:00') - toMin(b.time || '00:00'));
+                                        const hourGroups: Record<number, any[]> = {};
+                                        filtered.forEach((a: any) => { const h = parseInt((a.time || '00:00').split(':')[0]) || 0; if (!hourGroups[h]) hourGroups[h] = []; hourGroups[h].push(a); });
+                                        const sortedHours = Object.keys(hourGroups).map(Number).sort((a, b) => a - b);
+                                        const now = new Date();
+                                        const nowMin = now.getHours() * 60 + now.getMinutes();
+                                        const nowStr = format(now, 'HH:mm');
+                                        const firstApptDate = dayAppointments[0]?.date ? format(parseISO(dayAppointments[0].date), 'yyyy-MM-dd') : null;
+                                        const todayStr = format(now, 'yyyy-MM-dd');
+                                        const isToday = firstApptDate === todayStr;
+                                        const atendidos = filtered.filter((a: any) => a.operationalStatus === 'completed');
+                                        const totalVal = atendidos.reduce((s: number, a: any) => s + (a.sessionValue || a.package?.sessionValue || 0), 0);
+                                        const NowMarker = () => (
+                                            <div className="flex items-center gap-2 py-1.5 px-1">
+                                                <span className="text-[11px] text-red-400 font-medium whitespace-nowrap">⏱ agora · {nowStr}</span>
+                                                <div className="flex-1 border-t border-dashed border-red-400 opacity-60" />
+                                            </div>
+                                        );
+                                        let nowRendered = false;
+                                        return (
+                                            <>
+                                            {/* Header fixo explicando colunas */}
+                                            <div className="flex items-center gap-3 px-3 py-1.5 mb-1 border-b border-gray-100 pl-11">
+                                                <span className="text-[11px] text-gray-400 w-10 shrink-0">Hora</span>
+                                                <span className="flex-1 text-[11px] text-gray-400">Paciente / Profissional</span>
+                                                <span className="text-[11px] text-gray-400 hidden md:inline shrink-0">Sit. Financeira</span>
+                                                <span className="text-[11px] text-gray-400 shrink-0">Status</span>
+                                                <span className="text-[11px] text-gray-400 w-16 text-right shrink-0">Valor</span>
+                                            </div>
+                                            <div className="space-y-0 mt-1">
+                                                {sortedHours.map((hour, idx) => {
+                                                    const apts = hourGroups[hour];
+                                                    const prevHourEnd = idx > 0 ? sortedHours[idx - 1] * 60 + 59 : -1;
+                                                    const showNowBefore = isToday && !nowRendered && prevHourEnd < nowMin && nowMin < hour * 60;
+                                                    if (showNowBefore) nowRendered = true;
+                                                    return (
+                                                        <div key={hour}>
+                                                            {showNowBefore && <NowMarker />}
+                                                            <div className="flex gap-2 py-0.5">
+                                                                <div className="w-7 text-[11px] text-gray-500 font-medium pt-2.5 text-right shrink-0 leading-none">{String(hour).padStart(2,'0')}h</div>
+                                                                <div className="flex-1 space-y-1">
+                                                                    {apts.map((a: any) => {
+                                                                        const sc = statusMap[a.operationalStatus] || { border: 'border-gray-500', badge: 'bg-gray-800 text-gray-300', label: a.operationalStatus };
+                                                                        const sfText = sfShort[a.statusFinanceiro] ?? (a.statusFinanceiro || '');
+                                                                        const isNew = (analyticsData?.novos || []).some((n: any) => n._id === a._id);
+                                                                        const valor = a.sessionValue || a.package?.sessionValue || 0;
+                                                                        const phone = a.patientInfo?.phone || a.patient?.phone;
+                                                                        return (
+                                                                            <div key={a._id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 border-l-[3px] ${sc.border} ${a.operationalStatus === 'canceled' ? 'opacity-50' : ''}`}>
+                                                                                <span className="text-xs text-gray-400 w-10 shrink-0 font-mono">{a.time || '--:--'}</span>
+                                                                                <div className="flex-1 min-w-0">
+                                                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                                                        <span className="text-[15px] font-semibold text-gray-900">{a.patientInfo?.fullName || a.patient?.fullName || '-'}</span>
+                                                                                        {isNew && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 shrink-0">1ª vez</span>}
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                                                                        <span className="text-xs text-gray-500">{[a.professionalName, a.specialty].filter(Boolean).join(' / ')}</span>
+                                                                                        {phone && (
+                                                                                            <button className="inline-flex items-center gap-0.5 text-xs text-blue-500 hover:text-blue-700"
+                                                                                                onClick={() => handleOpenWhatsApp(phone)}>
+                                                                                                <PhoneIcon style={{ fontSize: 11 }} />{phone}
+                                                                                            </button>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </div>
+                                                                                {sfText && a.operationalStatus !== 'canceled' && (
+                                                                                    <span className="text-xs text-gray-500 shrink-0 hidden md:inline">{sfText}</span>
+                                                                                )}
+                                                                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${sc.badge}`}>{sc.label}</span>
+                                                                                <span className={`text-sm font-bold shrink-0 w-16 text-right ${valor > 0 ? 'text-gray-900' : 'text-gray-400'}`}>R${valor.toLocaleString('pt-BR')}</span>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                                {isToday && !nowRendered && sortedHours.length > 0 && sortedHours[sortedHours.length - 1] * 60 + 59 < nowMin && <NowMarker />}
+                                                {atendidos.length > 0 && (
+                                                    <div className="flex justify-between items-center px-3 py-2 mt-3 rounded-lg bg-gray-100 border border-gray-200">
+                                                        <span className="text-sm font-bold text-gray-700">Atendidos: {atendidos.length}{filtered.length !== atendidos.length ? ` (de ${filtered.length})` : ''}</span>
+                                                        <span className="text-sm font-bold text-emerald-600">{formatCurrency(totalVal)}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            </>
+                                        );
+                                    })()}
 
                                     {/* Resumo por status */}
                                     {dayAppointments.length > 0 && (
