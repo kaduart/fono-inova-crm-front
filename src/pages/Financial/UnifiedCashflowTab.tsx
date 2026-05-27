@@ -6,6 +6,8 @@ import {
 import { format, isSameDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useChatNavigation } from '../../contexts/ChatNavigationContext';
 import { useAppointmentsByType } from '../../hooks/useAppointmentsByType';
 import { useRetentionSlots } from '../../hooks/useRetentionSlots';
 import { cashflowService, CashflowV2Response } from '../../services/cashflowService';
@@ -103,7 +105,20 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
     const [manualDateOverride, setManualDateOverride] = useState(false);
     const [dayAppointments, setDayAppointments] = useState<any[]>([]);
     const [appointmentFilter, setAppointmentFilter] = useState<string>('all');
+    const [appointmentProfFilter, setAppointmentProfFilter] = useState<string>('all');
+    const [txMetodoFilter, setTxMetodoFilter] = useState<string>('all');
+    const [txTipoFilter, setTxTipoFilter] = useState<string>('all');
     const [loadingAppointments, setLoadingAppointments] = useState(false);
+
+    const navigate = useNavigate();
+    const { setPendingContactPhone, setShouldOpenMessagesTab } = useChatNavigation();
+
+    const handleOpenWhatsApp = (phone: string) => {
+        const clean = phone.replace(/\D/g, '');
+        setPendingContactPhone(clean);
+        setShouldOpenMessagesTab(true);
+        navigate('/admin/messages');
+    };
 
     const isFirstRender = useRef(true);
 
@@ -356,6 +371,52 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                 // ===== VISUALIZAÇÃO DIÁRIA =====
                 <div>
                 <div>
+                    {/* ========== RECEITA PREVISTA vs REALIZADA ========== */}
+                    {(() => {
+                        const sessaoApts = dayAppointments.filter((a: any) => !['canceled', 'pre_agendado', 'converted'].includes(a.operationalStatus));
+                        const previsto = sessaoApts.reduce((s: number, a: any) => s + (a.sessionValue || a.package?.sessionValue || 0), 0);
+                        const recebido = data.caixa.total;
+                        const gap = previsto - recebido;
+                        const pct = previsto > 0 ? Math.min(100, Math.round((recebido / previsto) * 100)) : 100;
+                        const isLoadingApts = loadingAppointments && dayAppointments.length === 0;
+                        if (!isLoadingApts && previsto === 0) return null;
+                        return (
+                            <div className="mb-4 rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#6366F1', backgroundColor: '#F5F3FF' }}>
+                                <div className="text-[10px] font-black text-violet-700 uppercase tracking-widest mb-4">Receita Prevista × Realizada</div>
+                                <div className="grid grid-cols-3 gap-4 mb-4">
+                                    <div>
+                                        <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">Previsto</div>
+                                        <div className="text-xl font-bold text-violet-700">
+                                            {isLoadingApts ? <Skeleton width={80} height={28} sx={{ bgcolor: 'rgba(0,0,0,0.08)' }} /> : formatCurrency(previsto)}
+                                        </div>
+                                        <div className="text-[10px] text-gray-400 mt-0.5">{sessaoApts.length} sessões agendadas</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">Realizado</div>
+                                        <div className="text-xl font-bold text-emerald-700">{formatCurrency(recebido)}</div>
+                                        <div className="text-[10px] text-gray-400 mt-0.5">{data.transacoes?.length || 0} transações</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">{gap > 0 ? 'Não realizado' : 'Saldo'}</div>
+                                        <div className={`text-xl font-bold ${gap > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                                            {isLoadingApts ? <Skeleton width={80} height={28} sx={{ bgcolor: 'rgba(0,0,0,0.08)' }} /> : formatCurrency(Math.abs(gap))}
+                                        </div>
+                                        <div className={`text-[10px] mt-0.5 font-semibold ${gap > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                            {isLoadingApts ? '...' : gap > 0 ? `${100 - pct}% pendente/a receber` : 'acima do previsto'}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="w-full bg-violet-100 rounded-full h-2.5 overflow-hidden">
+                                    <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: isLoadingApts ? '0%' : `${pct}%` }} />
+                                </div>
+                                <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                                    <span>{isLoadingApts ? '...' : `${pct}% realizado`}</span>
+                                    <span>{!isLoadingApts && pct < 100 ? `${100 - pct}% ainda por entrar` : ''}</span>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
                     {/* ========== LINHA 1: Saúde Operacional do Dia ========== */}
                     <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 ${isMultiDayRange ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
 
@@ -922,6 +983,40 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                         );
                     })()}
 
+                    {/* ========== KPIs Executivos ========== */}
+                    {dayAppointments.length > 0 && (() => {
+                        const allApts = dayAppointments.filter((a: any) => !['converted', 'pre_agendado'].includes(a.operationalStatus));
+                        const cancelados = dayAppointments.filter((a: any) => a.operationalStatus === 'canceled');
+                        const receitaPerdida = cancelados.reduce((s: number, a: any) => s + (a.sessionValue || a.package?.sessionValue || 0), 0);
+                        const cancelRate = allApts.length > 0 ? Math.round((cancelados.length / allApts.length) * 100) : 0;
+                        const atendidos = dayAppointments.filter((a: any) => a.operationalStatus === 'completed').length;
+                        const ticketCaixa = (data.transacoes?.length || 0) > 0 ? data.caixa.total / data.transacoes!.length : 0;
+                        return (
+                            <div className="flex flex-wrap gap-2 mb-3 px-1">
+                                <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2">
+                                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide">Atendidos</span>
+                                    <span className="text-base font-bold text-emerald-700">{atendidos}</span>
+                                    <span className="text-[10px] text-gray-400">/ {allApts.length}</span>
+                                </div>
+                                <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2">
+                                    <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wide">Ticket Caixa</span>
+                                    <span className="text-base font-bold text-blue-700">{formatCurrency(ticketCaixa)}</span>
+                                </div>
+                                <div className={`flex items-center gap-2 rounded-xl px-4 py-2 border ${cancelRate > 20 ? 'bg-red-50 border-red-300' : cancelRate > 10 ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}>
+                                    <span className={`text-[10px] font-bold uppercase tracking-wide ${cancelRate > 20 ? 'text-red-700' : cancelRate > 10 ? 'text-amber-700' : 'text-gray-500'}`}>Cancelamentos</span>
+                                    <span className={`text-base font-bold ${cancelRate > 20 ? 'text-red-700' : cancelRate > 10 ? 'text-amber-700' : 'text-gray-500'}`}>{cancelRate}%</span>
+                                    <span className="text-[10px] text-gray-400">{cancelados.length} sess.</span>
+                                </div>
+                                {receitaPerdida > 0 && (
+                                    <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-2">
+                                        <span className="text-[10px] font-bold text-red-700 uppercase tracking-wide">Receita Perdida</span>
+                                        <span className="text-base font-bold text-red-700">{formatCurrency(receitaPerdida)}</span>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
+
                     {/* Tabs de Detalhes */}
                     <div className="mb-3 border-b border-gray-200 bg-white rounded-t-lg">
                         <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} variant="scrollable" className="px-2">
@@ -931,63 +1026,128 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                             <Tab label={data.conveniosAtendidos?.length > 0 ? `Convênios (${data.conveniosAtendidos.length})` : 'Convênios'} icon={<ShowChartIcon fontSize="small" />} iconPosition="start" />
                             <Tab label={dayAppointments.length > 0 ? `Agendamentos (${dayAppointments.length})` : 'Agendamentos'} icon={<CalendarTodayIcon fontSize="small" />} iconPosition="start" />
                             <Tab label={Object.keys(data.producao?.porEspecialidade || {}).length > 0 ? `Especialidades (${Object.keys(data.producao.porEspecialidade).length})` : 'Especialidades'} icon={<PieChartIcon fontSize="small" />} iconPosition="start" />
+                            <Tab label="Profissionais" icon={<PeopleIcon fontSize="small" />} iconPosition="start" />
                         </Tabs>
                     </div>
 
                     {/* Tab 0: Transações */}
-                    {activeTab === 0 && (
-                        <div className="bg-white rounded-lg border border-gray-200 p-3">
-                            <h3 className="text-base font-semibold mb-3">💳 Transações {periodTitle}</h3>
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full text-sm">
-                                    <thead className="bg-gray-50 border-b">
-                                        <tr>
-                                            <th className="px-3 py-2 text-left">Data / Hora</th>
-                                            <th className="px-3 py-2 text-left">Paciente</th>
-                                            <th className="px-3 py-2 text-left">Profissional</th>
-                                            <th className="px-3 py-2 text-left">Serviço</th>
-                                            <th className="px-3 py-2 text-left">Método</th>
-                                            <th className="px-3 py-2 text-left">Tipo</th>
-                                            <th className="px-3 py-2 text-left">Observação</th>
-                                            <th className="px-3 py-2 text-right">Valor</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {data.transacoes?.map((t) => (
-                                            <tr key={t.id} className="border-b hover:bg-gray-50">
-                                                <td className="px-3 py-2 whitespace-nowrap">
-                                                    <div className="text-xs text-gray-400">{t.data}</div>
-                                                    <div className="font-medium">{t.hora}</div>
-                                                </td>
-                                                <td className="px-3 py-2">{t.paciente}</td>
-                                                <td className="px-3 py-2">
-                                                    <div>{t.profissional || '-'}</div>
-                                                    <div className="text-xs text-gray-500">{t.especialidade || '-'}</div>
-                                                </td>
-                                                <td className="px-3 py-2"><span className="px-2 py-0.5 rounded-full text-xs border border-gray-300">{t.servico}</span></td>
-                                                <td className="px-3 py-2">{t.metodo}</td>
-                                                <td className="px-3 py-2">
-                                                    <span className={`px-2 py-0.5 rounded-full text-xs ${
-                                                        t.tipo === 'Pacote' ? 'bg-green-100 text-green-800' : 
-                                                        t.tipo === 'Convênio' ? 'bg-amber-100 text-amber-800' : 
-                                                        t.tipo === 'Liminar' ? 'bg-red-100 text-red-800' : 
-                                                        'bg-blue-100 text-blue-800'
-                                                    }`}>
-                                                        {t.tipo}
-                                                    </span>
-                                                </td>
-                                                <td className="px-3 py-2 max-w-[150px] truncate" title={t.observacao || '-'}>{t.observacao || '-'}</td>
-                                                <td className="px-3 py-2 text-right font-bold text-emerald-600">{formatCurrency(t.valor)}</td>
-                                            </tr>
+                    {activeTab === 0 && (() => {
+                        const allTx = data.transacoes || [];
+                        const metodos = [...new Set(allTx.map((t: any) => t.metodo))].filter(Boolean) as string[];
+                        const tipos = [...new Set(allTx.map((t: any) => t.tipo))].filter(Boolean) as string[];
+                        const txFiltradas = allTx.filter((t: any) =>
+                            (txMetodoFilter === 'all' || t.metodo === txMetodoFilter) &&
+                            (txTipoFilter === 'all' || t.tipo === txTipoFilter)
+                        );
+                        const totalFiltrado = txFiltradas.reduce((s: number, t: any) => s + t.valor, 0);
+                        return (
+                            <div className="bg-white rounded-lg border border-gray-200 p-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                                    <h3 className="text-base font-semibold">💳 Transações {periodTitle}</h3>
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                        {metodos.map(m => (
+                                            <button key={m} onClick={() => setTxMetodoFilter(txMetodoFilter === m ? 'all' : m)}
+                                                className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${txMetodoFilter === m ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}>
+                                                {m}
+                                            </button>
                                         ))}
-                                        {!data.transacoes?.length && (
-                                            <tr><td colSpan={8} className="text-center py-4 text-gray-500">Nenhuma transação {isRangeActive ? 'no período' : 'hoje'}</td></tr>
+                                        {metodos.length > 0 && tipos.length > 1 && <span className="text-gray-300 text-xs">|</span>}
+                                        {tipos.length > 1 && tipos.map(tp => (
+                                            <button key={tp} onClick={() => setTxTipoFilter(txTipoFilter === tp ? 'all' : tp)}
+                                                className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${txTipoFilter === tp ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}>
+                                                {tp}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full text-sm">
+                                        <thead className="bg-gray-50 border-b">
+                                            <tr>
+                                                <th className="px-3 py-2 text-left">Data / Hora</th>
+                                                <th className="px-3 py-2 text-left">Paciente</th>
+                                                <th className="px-3 py-2 text-left">Profissional</th>
+                                                <th className="px-3 py-2 text-left">Serviço</th>
+                                                <th className="px-3 py-2 text-left">Método</th>
+                                                <th className="px-3 py-2 text-left">Tipo</th>
+                                                <th className="px-3 py-2 text-left">Situação</th>
+                                                <th className="px-3 py-2 text-right">Valor</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {txFiltradas.map((t: any) => {
+                                                const subTipo = (t as any).isPackageSale ? 'Venda de Pacote' : (t.tipo === 'Pacote' ? 'Sessão de Pacote' : null);
+                                                const situacao = t.tipo === 'Convênio' ? 'A Faturar'
+                                                    : t.tipo === 'Liminar' ? 'Judicial'
+                                                    : (t as any).isPackageSale ? 'Pré-antecipado'
+                                                    : t.tipo === 'Pacote' ? 'Pré-pago'
+                                                    : 'Pago na Sessão';
+                                                const situacaoCls = situacao === 'Pré-pago' || situacao === 'Pré-antecipado' ? 'bg-indigo-100 text-indigo-700'
+                                                    : situacao === 'Pago na Sessão' ? 'bg-emerald-100 text-emerald-700'
+                                                    : situacao === 'A Faturar' ? 'bg-purple-100 text-purple-700'
+                                                    : situacao === 'Judicial' ? 'bg-orange-100 text-orange-700'
+                                                    : 'bg-gray-100 text-gray-600';
+                                                return (
+                                                    <tr key={t.id} className="border-b hover:bg-gray-50">
+                                                        <td className="px-3 py-2 whitespace-nowrap">
+                                                            <div className="text-xs text-gray-400">{t.data}</div>
+                                                            <div className="font-medium">{t.hora}</div>
+                                                        </td>
+                                                        <td className="px-3 py-2">{t.paciente}</td>
+                                                        <td className="px-3 py-2">
+                                                            <div>{t.profissional || '-'}</div>
+                                                            <div className="text-xs text-gray-500">{t.especialidade || '-'}</div>
+                                                        </td>
+                                                        <td className="px-3 py-2"><span className="px-2 py-0.5 rounded-full text-xs border border-gray-300">{t.servico}</span></td>
+                                                        <td className="px-3 py-2">
+                                                            <div>{t.metodo}</div>
+                                                            <div className="text-[10px] text-gray-400">
+                                                                {t.metodo === 'Pix' || t.metodo === 'Dinheiro' ? 'Imediato'
+                                                                : t.metodo === 'Cartão' ? 'D+30'
+                                                                : t.metodo === 'Transferência Bancária' ? 'D+1'
+                                                                : t.metodo === 'Convênio' ? 'D+60'
+                                                                : null}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-3 py-2">
+                                                            <div className="flex flex-col gap-0.5">
+                                                                <span className={`px-2 py-0.5 rounded-full text-xs w-fit ${
+                                                                    t.tipo === 'Pacote' ? 'bg-green-100 text-green-800' :
+                                                                    t.tipo === 'Convênio' ? 'bg-amber-100 text-amber-800' :
+                                                                    t.tipo === 'Liminar' ? 'bg-red-100 text-red-800' :
+                                                                    'bg-blue-100 text-blue-800'
+                                                                }`}>{t.tipo}</span>
+                                                                {subTipo && <span className="text-[10px] text-gray-400 pl-1">{subTipo}</span>}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-3 py-2">
+                                                            <span className={`px-2 py-0.5 rounded-full text-xs ${situacaoCls}`}>{situacao}</span>
+                                                        </td>
+                                                        <td className="px-3 py-2 text-right font-bold text-emerald-600">{formatCurrency(t.valor)}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                            {!txFiltradas.length && (
+                                                <tr><td colSpan={8} className="text-center py-4 text-gray-500">
+                                                    {txMetodoFilter !== 'all' || txTipoFilter !== 'all' ? 'Nenhuma transação com esse filtro' : `Nenhuma transação ${isRangeActive ? 'no período' : 'hoje'}`}
+                                                </td></tr>
+                                            )}
+                                        </tbody>
+                                        {txFiltradas.length > 0 && (
+                                            <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                                                <tr>
+                                                    <td colSpan={7} className="px-3 py-2 font-bold text-gray-700">
+                                                        Total ({txFiltradas.length}{txFiltradas.length !== allTx.length ? ` de ${allTx.length}` : ''})
+                                                    </td>
+                                                    <td className="px-3 py-2 text-right font-bold text-emerald-700">{formatCurrency(totalFiltrado)}</td>
+                                                </tr>
+                                            </tfoot>
                                         )}
-                                    </tbody>
-                                </table>
+                                    </table>
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                     {/* Tab 1: Pendentes */}
                     {activeTab === 1 && (
@@ -1013,7 +1173,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                         <div className="flex items-center gap-1">
                                                             {p.paciente}
                                                             {p.telefone !== '-' && (
-                                                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs bg-gray-100 cursor-pointer hover:bg-gray-200" onClick={() => window.open(`https://wa.me/55${p.telefone?.replace(/\D/g, '')}`, '_blank')}>
+                                                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs bg-gray-100 cursor-pointer hover:bg-gray-200" onClick={() => handleOpenWhatsApp(p.telefone || '')}>
                                                                     <PhoneIcon className="w-3 h-3" /> {p.telefone}
                                                                 </span>
                                                             )}
@@ -1102,21 +1262,32 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                         <div className="bg-white rounded-lg border border-gray-200 p-3">
                             <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
                                 <h3 className="text-base font-semibold">📅 Agendamentos {periodTitle} ({dayAppointments.length})</h3>
-                                <FormControl size="small" sx={{ minWidth: 140 }}>
-                                    <InputLabel>Filtrar status</InputLabel>
-                                    <Select
-                                        value={appointmentFilter}
-                                        label="Filtrar status"
-                                        onChange={(e) => setAppointmentFilter(e.target.value)}
-                                    >
-                                        <MenuItem value="all">Todos</MenuItem>
-                                        <MenuItem value="completed">✅ Atendidos</MenuItem>
-                                        <MenuItem value="scheduled">📋 Agendados</MenuItem>
-                                        <MenuItem value="confirmed">✔️ Confirmados</MenuItem>
-                                        <MenuItem value="canceled">❌ Cancelados</MenuItem>
-                                        <MenuItem value="pre_agendado">⏳ Pré-agendado</MenuItem>
-                                    </Select>
-                                </FormControl>
+                                <div className="flex flex-wrap gap-2">
+                                    <FormControl size="small" sx={{ minWidth: 140 }}>
+                                        <InputLabel>Filtrar status</InputLabel>
+                                        <Select value={appointmentFilter} label="Filtrar status" onChange={(e) => setAppointmentFilter(e.target.value)}>
+                                            <MenuItem value="all">Todos</MenuItem>
+                                            <MenuItem value="completed">✅ Atendidos</MenuItem>
+                                            <MenuItem value="scheduled">📋 Agendados</MenuItem>
+                                            <MenuItem value="confirmed">✔️ Confirmados</MenuItem>
+                                            <MenuItem value="canceled">❌ Cancelados</MenuItem>
+                                            <MenuItem value="pre_agendado">⏳ Pré-agendado</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                    {(() => {
+                                        const profs = [...new Set(dayAppointments.map((a: any) => a.professionalName).filter(Boolean))].sort() as string[];
+                                        if (profs.length <= 1) return null;
+                                        return (
+                                            <FormControl size="small" sx={{ minWidth: 160 }}>
+                                                <InputLabel>Profissional</InputLabel>
+                                                <Select value={appointmentProfFilter} label="Profissional" onChange={(e) => setAppointmentProfFilter(e.target.value)}>
+                                                    <MenuItem value="all">Todos</MenuItem>
+                                                    {profs.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                                                </Select>
+                                            </FormControl>
+                                        );
+                                    })()}
+                                </div>
                             </div>
 
                             {loadingAppointments ? (
@@ -1141,7 +1312,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                             </thead>
                                             <tbody>
                                                 {[...dayAppointments]
-                                                    .filter((a: any) => appointmentFilter === 'all' || a.operationalStatus === appointmentFilter)
+                                                    .filter((a: any) => (appointmentFilter === 'all' || a.operationalStatus === appointmentFilter) && (appointmentProfFilter === 'all' || a.professionalName === appointmentProfFilter))
                                                     .sort((a: any, b: any) => {
                                                         const toMinutes = (item: any) => {
                                                             const t = item.time || (item.date ? format(parseISO(item.date), 'HH:mm') : '00:00');
@@ -1159,15 +1330,15 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                             pre_agendado:{ cls: 'bg-amber-100 text-amber-800',  label: 'Pré-agendado' },
                                                         };
                                                         const sfCls: Record<string, { cls: string; label: string }> = {
-                                                            'Pré-pago':        { cls: 'bg-green-100 text-green-800',   label: 'Pré-pago' },
-                                                            'Pago na Sessão':  { cls: 'bg-green-100 text-green-800',   label: 'Pago na Sessão' },
-                                                            'Avaliação Paga':  { cls: 'bg-green-100 text-green-800',   label: 'Avaliação Paga' },
-                                                            'Pago Parcial':    { cls: 'bg-amber-100 text-amber-800',   label: 'Pago Parcial' },
-                                                            'Pendente':        { cls: 'bg-amber-100 text-amber-800',   label: 'Pendente' },
-                                                            'Pacote Pendente': { cls: 'bg-gray-100 text-gray-700',     label: 'Pacote Pendente' },
-                                                            'Convênio':        { cls: 'bg-blue-100 text-blue-800',     label: 'Convênio' },
-                                                            'Liminar':         { cls: 'bg-purple-100 text-purple-800', label: 'Liminar' },
-                                                            'Cancelado':       { cls: 'bg-red-100 text-red-800',       label: 'Cancelado' },
+                                                            'Pré-pago':        { cls: 'bg-indigo-100 text-indigo-800', label: '📦 Pré-pago' },
+                                                            'Pago na Sessão':  { cls: 'bg-green-100 text-green-800',   label: '💰 Pago na Sessão' },
+                                                            'Avaliação Paga':  { cls: 'bg-green-100 text-green-800',   label: '💰 Avaliação Paga' },
+                                                            'Pago Parcial':    { cls: 'bg-amber-100 text-amber-800',   label: '⚠️ Pago Parcial' },
+                                                            'Pendente':        { cls: 'bg-amber-100 text-amber-800',   label: '⏳ Pendente' },
+                                                            'Pacote Pendente': { cls: 'bg-gray-100 text-gray-700',     label: '📦 Pacote Pendente' },
+                                                            'Convênio':        { cls: 'bg-blue-100 text-blue-800',     label: '🏥 Convênio' },
+                                                            'Liminar':         { cls: 'bg-purple-100 text-purple-800', label: '⚖️ Liminar' },
+                                                            'Cancelado':       { cls: 'bg-red-100 text-red-800',       label: '❌ Cancelado' },
                                                         };
                                                         const serviceMap: Record<string, string> = {
                                                             consultation: 'Consulta', evaluation: 'Avaliação',
@@ -1183,7 +1354,26 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                         return (
                                                             <tr key={a._id} className={`border-b hover:bg-gray-50 ${a.operationalStatus === 'canceled' ? 'opacity-60' : ''}`}>
                                                                 <td className="px-3 py-2">{a.date ? format(parseISO(a.date), 'dd/MM') : '--/--'} {a.time || (a.date ? format(parseISO(a.date), 'HH:mm') : '--:--')}</td>
-                                                                <td className="px-3 py-2">{a.patientInfo?.fullName || a.patient?.fullName || '-'}</td>
+                                                                <td className="px-3 py-2">
+                                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                                        <span className="font-medium text-gray-900 text-sm">{a.patientInfo?.fullName || a.patient?.fullName || '-'}</span>
+                                                                        {(analyticsData?.novos || []).some((n: any) => n._id === a._id) && (
+                                                                            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-700">🆕 1ª vez</span>
+                                                                        )}
+                                                                    </div>
+                                                                    {(a.patientInfo?.phone || a.patient?.phone) && (
+                                                                        <button className="inline-flex items-center gap-0.5 text-[10px] text-blue-500 hover:text-blue-700 mt-0.5"
+                                                                            onClick={() => handleOpenWhatsApp(a.patientInfo?.phone || a.patient?.phone || '')}>
+                                                                            <PhoneIcon style={{ fontSize: 10 }} />{a.patientInfo?.phone || a.patient?.phone}
+                                                                        </button>
+                                                                    )}
+                                                                    <div className="text-[10px] text-gray-400 mt-0.5">
+                                                                        {a.billingType === 'convenio' ? '🏥 Convênio'
+                                                                        : a.billingType === 'liminar' ? '⚖️ Liminar'
+                                                                        : (a.billingType === 'package' || !!a.package) ? '📦 Pacote'
+                                                                        : '💰 Particular'}
+                                                                    </div>
+                                                                </td>
                                                                 <td className="px-3 py-2">{a.professionalName || '-'}</td>
                                                                 <td className="px-3 py-2">{a.specialty || '-'}</td>
                                                                 <td className="px-3 py-2">
@@ -1200,6 +1390,26 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                         );
                                                     })}
                                             </tbody>
+                                            {(() => {
+                                                const filtered = dayAppointments.filter((a: any) =>
+                                                    (appointmentFilter === 'all' || a.operationalStatus === appointmentFilter) &&
+                                                    (appointmentProfFilter === 'all' || a.professionalName === appointmentProfFilter)
+                                                );
+                                                const atendidos = filtered.filter((a: any) => a.operationalStatus === 'completed');
+                                                if (atendidos.length === 0) return null;
+                                                const totalVal = atendidos.reduce((s: number, a: any) => s + (a.sessionValue || a.package?.sessionValue || 0), 0);
+                                                return (
+                                                    <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                                                        <tr>
+                                                            <td colSpan={6} className="px-3 py-2 font-bold text-gray-700">
+                                                                Atendidos: {atendidos.length}{filtered.length !== atendidos.length ? ` (de ${filtered.length} filtrados)` : ''}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-right font-bold text-emerald-700">{formatCurrency(totalVal)}</td>
+                                                            <td />
+                                                        </tr>
+                                                    </tfoot>
+                                                );
+                                            })()}
                                         </table>
                                     </div>
 
@@ -1260,6 +1470,93 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                             </div>
                         </div>
                     )}
+
+                    {/* Tab 6: Profissionais */}
+                    {activeTab === 6 && (() => {
+                        const byProf: Record<string, { receita: number; sessoes: number; cancelados: number; atendimentos: number }> = {};
+                        const ensure = (k: string) => {
+                            if (!byProf[k]) byProf[k] = { receita: 0, sessoes: 0, cancelados: 0, atendimentos: 0 };
+                            return byProf[k];
+                        };
+                        for (const t of (data.transacoes || [])) {
+                            const p = ensure(t.profissional || 'Não informado');
+                            p.receita += t.valor;
+                            p.sessoes += 1;
+                        }
+                        for (const a of dayAppointments) {
+                            const prof = (a as any).professionalName || 'Não informado';
+                            if (!['converted', 'pre_agendado'].includes((a as any).operationalStatus)) ensure(prof).atendimentos += 1;
+                            if ((a as any).operationalStatus === 'canceled') ensure(prof).cancelados += 1;
+                        }
+                        const rows = Object.entries(byProf)
+                            .map(([nome, v]) => ({ nome, ...v, ticket: v.sessoes > 0 ? v.receita / v.sessoes : 0 }))
+                            .sort((a, b) => b.receita - a.receita);
+                        const totalReceita = rows.reduce((s, r) => s + r.receita, 0);
+                        const totalSessoes = rows.reduce((s, r) => s + r.sessoes, 0);
+                        const totalCancel = rows.reduce((s, r) => s + r.cancelados, 0);
+                        const totalApts = rows.reduce((s, r) => s + r.atendimentos, 0);
+                        return (
+                            <div className="bg-white rounded-lg border border-gray-200 p-3">
+                                <h3 className="text-base font-semibold mb-3">👥 Breakdown por Profissional</h3>
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full text-sm">
+                                        <thead className="bg-gray-50 border-b">
+                                            <tr>
+                                                <th className="px-3 py-2 text-left">Profissional</th>
+                                                <th className="px-3 py-2 text-center">Agendados</th>
+                                                <th className="px-3 py-2 text-center">Recebidos</th>
+                                                <th className="px-3 py-2 text-center">Cancelados</th>
+                                                <th className="px-3 py-2 text-right">Receita</th>
+                                                <th className="px-3 py-2 text-right">Ticket Médio</th>
+                                                <th className="px-3 py-2 text-right">% Receita</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {rows.map(r => {
+                                                const pct = totalReceita > 0 ? Math.round((r.receita / totalReceita) * 100) : 0;
+                                                return (
+                                                    <tr key={r.nome} className="border-b hover:bg-gray-50">
+                                                        <td className="px-3 py-2 font-medium text-gray-800">{r.nome}</td>
+                                                        <td className="px-3 py-2 text-center text-gray-600">{r.atendimentos}</td>
+                                                        <td className="px-3 py-2 text-center font-semibold text-emerald-700">{r.sessoes}</td>
+                                                        <td className="px-3 py-2 text-center">
+                                                            {r.cancelados > 0 ? <span className="text-red-500 font-semibold">{r.cancelados}</span> : <span className="text-gray-300">—</span>}
+                                                        </td>
+                                                        <td className="px-3 py-2 text-right font-bold text-emerald-700">{formatCurrency(r.receita)}</td>
+                                                        <td className="px-3 py-2 text-right text-gray-600">{formatCurrency(r.ticket)}</td>
+                                                        <td className="px-3 py-2 text-right">
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                <div className="w-16 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                                                    <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${pct}%` }} />
+                                                                </div>
+                                                                <span className="text-xs font-semibold text-gray-500 w-8 text-right">{pct}%</span>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                            {rows.length === 0 && (
+                                                <tr><td colSpan={7} className="text-center py-4 text-gray-500">Nenhum dado disponível</td></tr>
+                                            )}
+                                        </tbody>
+                                        {rows.length > 1 && (
+                                            <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                                                <tr>
+                                                    <td className="px-3 py-2 font-bold text-gray-700">Total</td>
+                                                    <td className="px-3 py-2 text-center font-semibold text-gray-700">{totalApts}</td>
+                                                    <td className="px-3 py-2 text-center font-semibold text-emerald-700">{totalSessoes}</td>
+                                                    <td className="px-3 py-2 text-center font-semibold text-red-500">{totalCancel > 0 ? totalCancel : '—'}</td>
+                                                    <td className="px-3 py-2 text-right font-bold text-emerald-700">{formatCurrency(totalReceita)}</td>
+                                                    <td className="px-3 py-2 text-right font-bold text-gray-600">{formatCurrency(totalSessoes > 0 ? totalReceita / totalSessoes : 0)}</td>
+                                                    <td className="px-3 py-2 text-right font-bold text-gray-500">100%</td>
+                                                </tr>
+                                            </tfoot>
+                                        )}
+                                    </table>
+                                </div>
+                            </div>
+                        );
+                    })()}
                 </div>
                 </div>
             ) : viewMode === 'month' ? (
