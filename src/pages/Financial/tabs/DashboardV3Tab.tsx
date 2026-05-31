@@ -343,12 +343,12 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                 <span>Resultado econômico acumulado</span>
                 <span>Meta mensal</span>
               </div>
-              <p className="text-xs text-gray-400 mt-1.5">Baseado em sessões realizadas (regime de competência). Caixa e Produção medem dimensões diferentes — não são diretamente comparáveis.</p>
+              <p className="text-xs text-gray-400 mt-1.5">Baseado em dinheiro recebido (regime de caixa). Meta = Caixa, não Produção. Retroativos são contabilizados.</p>
             </div>
           </div>
           <div className="space-y-2">
-            <MetricRow label="Esperado até hoje (produção)" value={formatCurrency(metas.ritmo.esperadoAteAgora)} />
-            <MetricRow label="Produção realizada" value={formatCurrency(metas.ritmo.realizadoAteAgora)} />
+            <MetricRow label="Esperado até hoje (caixa)" value={formatCurrency(metas.ritmo.esperadoAteAgora)} />
+            <MetricRow label="Caixa realizado" value={formatCurrency(metas.ritmo.realizadoAteAgora)} />
             <MetricRow
               label="Diferença"
               value={formatCurrency(metas.ritmo.diferenca)}
@@ -511,21 +511,16 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
               <p className="text-xs text-gray-400 mt-0.5">Dinheiro recebido hoje</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Produção hoje</p>
-              <span className="text-2xl font-bold text-emerald-600">{formatCurrency(revenue.today ?? metas.producaoHoje ?? 0)}</span>
-              <p className="text-xs text-gray-400 mt-0.5">Atendimentos realizados hoje</p>
-            </div>
-            <div>
               <p className="text-sm text-gray-500">Meta diária</p>
               <span className="text-2xl font-bold text-gray-900">{formatCurrency(metas.configuracao.metaDiariaNecessaria)}</span>
-              <p className="text-xs text-gray-400 mt-0.5">Produção necessária/dia</p>
+              <p className="text-xs text-gray-400 mt-0.5">Caixa necessário/dia</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Gap hoje</p>
-              <span className={`text-2xl font-bold ${(revenue.today ?? metas.producaoHoje ?? 0) >= metas.configuracao.metaDiariaNecessaria ? 'text-emerald-600' : 'text-amber-600'}`}>
-                {formatCurrency((revenue.today ?? metas.producaoHoje ?? 0) - metas.configuracao.metaDiariaNecessaria)}
+              <span className={`text-2xl font-bold ${(cash.today ?? metas.realizado.hoje ?? 0) >= metas.configuracao.metaDiariaNecessaria ? 'text-emerald-600' : 'text-amber-600'}`}>
+                {formatCurrency((cash.today ?? metas.realizado.hoje ?? 0) - metas.configuracao.metaDiariaNecessaria)}
               </span>
-              <p className="text-xs text-gray-400 mt-0.5">{(revenue.today ?? metas.producaoHoje ?? 0) >= metas.configuracao.metaDiariaNecessaria ? 'Acima da meta' : 'Abaixo da meta'}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{(cash.today ?? metas.realizado.hoje ?? 0) >= metas.configuracao.metaDiariaNecessaria ? 'Acima da meta' : 'Abaixo da meta'}</p>
             </div>
           </div>
         </div>
@@ -779,7 +774,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           {/* CARD 1: Composição da Receita */}
           <div className="rounded-2xl border border-gray-200 p-4 shadow-sm bg-white">
             <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Composição da Receita</p>
-            <p className="text-[10px] text-gray-400 mb-3">Produção por tipo (sessões realizadas)</p>
+            <p className="text-[10px] text-gray-400 mb-3">Caixa por tipo (dinheiro recebido)</p>
             <div className="space-y-3">
               {Object.entries(metas.porTipo)
                 .sort(([, a], [, b]) => (b as any).realizado - (a as any).realizado)
@@ -811,7 +806,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
               const top = Object.entries(metas.porTipo).sort(([, a], [, b]) => (b as any).realizado - (a as any).realizado)[0];
               return top ? (
                 <p className="text-[10px] text-gray-500 mt-3 pt-2 border-t border-gray-100">
-                  <span className="font-bold">Maior motor:</span> {tipoIcons[top[0]]} {tipoLabels[top[0]] || top[0]} ({(top[1] as any).percentualDoTotal}% da produção)
+                  <span className="font-bold">Maior motor:</span> {tipoIcons[top[0]]} {tipoLabels[top[0]] || top[0]} ({(top[1] as any).percentualDoTotal}% do caixa)
                 </p>
               ) : null;
             })()}

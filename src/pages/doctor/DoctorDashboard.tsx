@@ -10,14 +10,17 @@ import useDoctorDashboard from '../../hooks/useDoctorDashboard';
 import patientService from '../../services/patientService';
 import { IPatient } from '../../utils/types/types';
 import { extractErrorMessage } from '../../utils/errorUtils';
-import AppointmentsSection from '../../components/doctor/AppointmentsSection';
-import AttendanceOverview from '../../components/doctor/AttendanceOverview';
+import DoctorCalendarTab from '../../components/doctor/tabs/DoctorCalendarTab';
 import PatientDetail from '../../components/doctor/patient/PatientDetail';
 import PatientsTable from '../../components/doctor/patient/PatientsTable';
-import ReportsSection from '../../components/doctor/ReportsSection';
+import DoctorInsightsSection from '../../components/doctor/DoctorInsightsSection';
 import SpecialtyStatsCard from '../../components/doctor/SpecialtyStatsCard';
+import useDoctorInsights from '../../hooks/useDoctorInsights';
+import ScheduleAppointmentModal from '../../components/patients/ScheduleAppointmentModal';
+import appointmentService from '../../services/appointmentService';
 import TherapyEvolution from '../../components/doctor/TherapyEvolution';
 import TodayAppointmentsCard from '../../components/doctor/TodayAppointmentsCard';
+import DoctorFinancialTab from '../../components/doctor/tabs/DoctorFinancialTab';
 import { Activity, Calendar, CheckCircle, Users } from 'lucide-react';
 import KPICard from '../../components/doctor/DoctorKPICard';
 import AlertsPanel from '../../components/doctor/AlertsPanel';
@@ -121,6 +124,11 @@ export default function DoctorDashboard() {
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
   const [isLoading, setIsLoading] = useState(false);
 
+  // ── Insights: schedule modal ──────────────────────────────────────────────
+  const [scheduleRiskTarget, setScheduleRiskTarget] = useState<{ _id: string; fullName: string; lastSessionType?: string } | null>(null);
+  const [scheduleModalLoading, setScheduleModalLoading] = useState(false);
+  const [scheduleModalSignal, setScheduleModalSignal] = useState(0);
+
   const {
     doctorData,
     doctorId,
@@ -130,17 +138,18 @@ export default function DoctorDashboard() {
     futureAppointments,
     calendarEvents,
     therapySessions,
-    attendanceSummary,
     loading,
     loadOverview,
     loadAppointments,
     loadTherapy,
-    loadAttendance,
     loadPatients,
+    ensurePatientsLoaded,
     patientsPagination,
     setPatientsPagination,
     handleUpdateStatus
   } = useDoctorDashboard();
+
+  const doctorInsights = useDoctorInsights(doctorId);
 
   // 🚀 Lazy loading: carrega dados da aba ativa
   useEffect(() => {
@@ -160,11 +169,43 @@ export default function DoctorDashboard() {
         loadTherapy();
         loadPatients();
         break;
-      case 'attendance':
-        loadAttendance();
+      case 'insights':
+        doctorInsights.refresh();
+        break;
+      case 'financial':
+        // DoctorFinancialTab carrega seus próprios dados
         break;
     }
   }, [activeTab, doctorId]); // Só recarrega quando muda a aba ou carrega o doctorId
+
+  // ── Insights: agenda paciente em risco ───────────────────────────────────
+  const handleScheduleRiskPatient = useCallback((patientId: string, patientName: string, hints?: { lastSessionType?: string }) => {
+    setScheduleRiskTarget({ _id: patientId, fullName: patientName, lastSessionType: hints?.lastSessionType });
+    ensurePatientsLoaded();
+  }, [ensurePatientsLoaded]);
+
+  const handleSaveRiskSchedule = useCallback(async (data: any) => {
+    setScheduleModalLoading(true);
+    try {
+      await appointmentService.create(data);
+      toast.success('Consulta reagendada com sucesso!');
+      setScheduleModalSignal(s => s + 1); // fecha modal via closeModalSignal
+      loadOverview(true);       // atualiza consultas de hoje
+      doctorInsights.refresh(); // atualiza métricas de risco
+    } catch (err: any) {
+      throw err; // deixa o modal exibir a mensagem inline
+    } finally {
+      setScheduleModalLoading(false);
+    }
+  }, [doctorInsights, loadOverview]);
+
+  // ── Insights: ver histórico do paciente ──────────────────────────────────
+  const handleViewPatientHistory = useCallback((patientId: string, patientName: string) => {
+    // Navega para detalhe do paciente (PatientDetail busca seus próprios dados por ID)
+    setSelectedPatient({ _id: patientId, fullName: patientName } as IPatient);
+    setViewMode('detail');
+    setActiveTab('patients');
+  }, []);
 
   const handleOpenPatientModal = useCallback((patient: IPatient) => {
     setSelectedPatient(patient);
@@ -284,6 +325,42 @@ export default function DoctorDashboard() {
     const alerts: any[] = [];
     const patientsList = patients ?? [];
     const appointmentsList = appointments ?? [];
+
+    // 🎂 Aniversariantes do mês (apenas pacientes deste médico)
+    const currentMonth = new Date().getMonth();
+    const currentDay = new Date().getDate();
+    const birthdayPatients = patientsList.filter(p => {
+      if (!p.dateOfBirth) return false;
+      try {
+        const birthMonth = new Date(p.dateOfBirth).getMonth();
+        return birthMonth === currentMonth;
+      } catch { return false; }
+    }).sort((a, b) => {
+      const dayA = new Date(a.dateOfBirth!).getDate();
+      const dayB = new Date(b.dateOfBirth!).getDate();
+      // Hoje primeiro, depois ordem crescente
+      const distA = ((dayA - currentDay) + 31) % 31;
+      const distB = ((dayB - currentDay) + 31) % 31;
+      return distA - distB;
+    });
+
+    if (birthdayPatients.length > 0) {
+      const todayBirthdays = birthdayPatients.filter(p => new Date(p.dateOfBirth!).getDate() === currentDay);
+      const preview = birthdayPatients.slice(0, 3).map(p => p.fullName).join(', ');
+      const extra = birthdayPatients.length > 3 ? ` e mais ${birthdayPatients.length - 3}` : '';
+      alerts.push({
+        id: 'birthdays',
+        type: todayBirthdays.length > 0 ? 'urgent' : 'info',
+        title: todayBirthdays.length > 0
+          ? `🎂 Aniversário hoje: ${todayBirthdays.map(p => p.fullName).join(', ')}`
+          : `🎂 Aniversariantes do mês (${birthdayPatients.length})`,
+        description: todayBirthdays.length > 0
+          ? `Não esqueça de parabenizar!`
+          : `${preview}${extra}`,
+        count: birthdayPatients.length,
+        onClick: () => handleTabChange('patients')
+      });
+    }
 
     const patientsWithoutEvolution = patientsList.filter(p => {
       const lastAppointmentDate = p.lastAppointment || p.stats?.lastAppointmentDate;
@@ -449,33 +526,43 @@ export default function DoctorDashboard() {
       case 'appointments':
         return (
           <div className="p-6">
-            <AppointmentsSection
-              futureAppointments={futureAppointments ?? []}
-              calendarEvents={calendarEvents ?? []}
-              patients={patients ?? []}
-              doctorData={doctorData}
-              onUpdateStatus={handleUpdateStatus}
-              onPatientClick={handleOpenPatientModal}
+            {doctorId ? (
+              <DoctorCalendarTab doctorId={doctorId} />
+            ) : (
+              <div className="text-center py-12">
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">Carregando agenda...</h2>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'insights':
+        return (
+          <div className="p-6">
+            <DoctorInsightsSection
+              insights={doctorInsights.insights}
+              loading={doctorInsights.loading}
+              error={doctorInsights.error}
+              timeRange={doctorInsights.timeRange}
+              onTimeRangeChange={doctorInsights.setTimeRange}
+              onRefresh={doctorInsights.refresh}
+              onPatientClick={(patientId, patientName) => {
+                const found = patients?.find(p => p._id === patientId);
+                if (found) handleOpenPatientModal(found);
+              }}
+              onSchedule={handleScheduleRiskPatient}
+              onViewHistory={handleViewPatientHistory}
             />
           </div>
         );
 
-      case 'reports':
+      case 'financial':
         return (
           <div className="p-6">
-            <ReportsSection />
-          </div>
-        );
-
-      case 'attendance':
-        return (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">
-              Frequência dos Pacientes
-            </h2>
-            <AttendanceOverview
-              doctorId={doctorData?._id}
-              onPatientClick={handleOpenPatientModal}
+            <DoctorFinancialTab
+              doctorId={doctorId}
+              appointments={appointments ?? []}
+              patients={patients ?? []}
             />
           </div>
         );
@@ -533,6 +620,26 @@ export default function DoctorDashboard() {
           patient={selectedPatient || initialPatientState}
           onClose={handleClosePatientModal}
           onSaveSuccess={handleSavePatient}
+        />
+      )}
+
+      {/* ── Modal de reagendamento (risk cards) ── */}
+      {scheduleRiskTarget && (
+        <ScheduleAppointmentModal
+          isOpen={!!scheduleRiskTarget}
+          onClose={() => setScheduleRiskTarget(null)}
+          onSave={handleSaveRiskSchedule}
+          isLoading={scheduleModalLoading}
+          closeModalSignal={scheduleModalSignal}
+          initialData={{
+            patientId: scheduleRiskTarget._id,
+            doctorId: doctorId || '',
+            date: '',
+            time: '',
+            sessionType: scheduleRiskTarget.lastSessionType || 'individual_session',
+          } as any}
+          patients={patients?.length ? patients : [{ _id: scheduleRiskTarget._id, fullName: scheduleRiskTarget.fullName } as any]}
+          doctors={doctorData ? [{ _id: doctorId, fullName: doctorData.fullName || doctorData.name }] as any : []}
         />
       )}
     </div>

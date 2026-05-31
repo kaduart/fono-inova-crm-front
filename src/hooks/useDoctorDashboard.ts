@@ -1,7 +1,6 @@
 // src/hooks/useDoctorDashboard.ts
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
-import API from '../services/api';
 import doctorService, {
   fetchFutureAppointments,
   fetchPatients,
@@ -13,12 +12,14 @@ import doctorService, {
 import { Appointment } from '../utils/types';
 import { IPatient } from '../utils/types/types';
 import { extractErrorMessage } from '../utils/errorUtils';
+import { useAuth } from '../contexts/AuthContext';
 
 interface UseDoctorDashboardOptions {
   skipCache?: boolean;
 }
 
 export default function useDoctorDashboard(options: UseDoctorDashboardOptions = {}) {
+  const { user: authUser } = useAuth();
   const [userRole, setUserRole] = useState<string | null>(null);
   const [doctorData, setDoctorData] = useState<any>(null);
   const [doctorId, setDoctorId] = useState<string | null>(null);
@@ -56,56 +57,39 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
     patients: false
   });
 
-  const isDoctor = userRole === 'doctor';
+  const isDoctor = userRole === 'doctor' || userRole === 'doctor-private';
   const { skipCache = false } = options;
 
-  // Carrega role do usuário (apenas uma vez)
+  // Inicializa role e doctorId diretamente do AuthContext (sem chamada extra)
   useEffect(() => {
-    const storedRole = localStorage.getItem('userRole');
-    if (storedRole) {
-      try {
-        setUserRole(JSON.parse(storedRole));
-      } catch {
-        setUserRole(storedRole);
-      }
-    } else {
-      setUserRole('doctor');
-    }
-  }, []);
+    if (!authUser) { console.log('[Dashboard] authUser ainda null — aguardando AuthContext'); return; }
+    const role = authUser.role as string;
+    const id = (authUser as any)._id || (authUser as any).id;
+    console.log(`[Dashboard] authUser pronto → role=${role} id=${id}`);
+    setUserRole(role);
+    if (id) setDoctorId(id);
+    setDoctorData(authUser);
+  }, [authUser]);
 
-  // Carrega dados básicos do médico (apenas uma vez)
-  useEffect(() => {
-    if (!userRole) return;
-    
-    const loadDoctorProfile = async () => {
-      try {
-        const doctorRes = await API.get('/users/me');
-        const docId = doctorRes.data?.id || doctorRes.data?._id;
-        setDoctorData(doctorRes.data);
-        setDoctorId(docId);
-      } catch (error) {
-        console.error('[useDoctorDashboard] Erro ao carregar perfil:', error);
-        toast.error('Erro ao carregar dados do perfil');
-      }
-    };
-    
-    loadDoctorProfile();
-  }, [userRole]);
+  // AuthContext já fez /users/me — não chamar de novo para evitar 304→res.data=null→skeleton
 
   // 🎯 Carrega dados da aba Overview (KPIs, alertas, pacientes de hoje)
   const loadOverview = useCallback(async (force = false) => {
-    if (!doctorId) return;
-    if (loadingTabsState.overview && !force) return;
+    if (!doctorId) { console.log('[Overview] doctorId ausente — skip'); return; }
+    if (loadingTabsState.overview && !force) { console.log('[Overview] já carregando — skip'); return; }
 
+    console.log(`[Overview] iniciando fetch (doctorId=${doctorId} force=${force})`);
     setLoadingTabsState(prev => ({ ...prev, overview: true }));
 
     try {
+      const t0 = Date.now();
       const [patientsRes, appointmentsRes, statsRes, futureRes] = await Promise.all([
-        fetchPatients(doctorId),
+        fetchPatients({ limit: 20 }),
         fetchTodaysAppointments(doctorId),
         fetchStats(doctorId),
         fetchFutureAppointments(doctorId)
       ]);
+      console.log(`[Overview] ✅ dados carregados em ${Date.now() - t0}ms — pacientes=${patientsRes?.length ?? (patientsRes as any)?.data?.length ?? 0} consultas=${(appointmentsRes as any[])?.length ?? 0}`);
 
       setOverviewData({
         patients: patientsRes || [],
@@ -322,6 +306,13 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
     }
   }, [isDoctor]);
 
+  // Patient access gateway — reutilizado em Reagendar, Ver histórico, Quick Actions
+  const ensurePatientsLoaded = useCallback(async () => {
+    if (overviewData.patients.length > 0) return; // cache válido
+    if (loadingTabsState.patients) return;         // já carregando
+    await loadPatients(true);
+  }, [overviewData.patients.length, loadingTabsState.patients, loadPatients]);
+
   // Força refresh de uma aba específica
   const refreshTab = useCallback((tab: string) => {
     switch (tab) {
@@ -368,6 +359,7 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
     loadAttendance,
     loadPatients,
     loadAdminData,
+    ensurePatientsLoaded,
 
     // Ações
     handleUpdateStatus,

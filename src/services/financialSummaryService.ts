@@ -51,3 +51,26 @@ export async function getPatientPaidPayments(patientId: string): Promise<Pending
   const res = await API.get(`/v2/financial/patient/${patientId}/paid-payments`);
   return res.data.data;
 }
+
+export interface ReceivePaymentRequest {
+  patientId: string;
+  amount: number;
+  method: string;
+  mode?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface ReceivePaymentResponse {
+  success: boolean;
+  receiptId: string;
+  jobId: string;
+  status: string;
+  message: string;
+  amount: number;
+  patientId: string;
+}
+
+export async function receivePayment(data: ReceivePaymentRequest): Promise<ReceivePaymentResponse> {
+  const res = await API.post('/v2/financial/receive', data);
+  return res.data;
+}

@@ -1,6 +1,6 @@
 import { ptBR } from 'date-fns/locale';
 import { Building2, Calendar, CheckCircle, ClipboardCheck, Clock, DollarSign, PencilIcon, Stethoscope, User, X, XCircle } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { validateAppointmentComplete } from '../../utils/appointmentCompleteGuard';
 import { getPatientFinancialSummary, FinancialSummary } from '../../services/financialSummaryService';
@@ -17,6 +17,10 @@ import { Label } from '../ui/Label';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Select } from '../ui/Select';
 import API from '../../services/api';
+import {
+    CalendarPermissions,
+    getDefaultPermissions,
+} from '../../types/calendarCapabilities';
 
 interface AppointmentDetailModalProps {
     isOpen: boolean;
@@ -30,6 +34,7 @@ interface AppointmentDetailModalProps {
     onCancelAdvancedSession?: (sessionId: string) => void;
     onConvertPreAgendamento?: (id: string) => Promise<void>;
     onRefreshAppointments?: () => void;
+    permissions?: CalendarPermissions;
 }
 
 // 🔧 SISTEMA DE TRADUÇÃO DE STATUS
@@ -136,8 +141,10 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     patients = [],
     onCancelAdvancedSession,
     onConvertPreAgendamento,
-    onRefreshAppointments
+    onRefreshAppointments,
+    permissions: permissionsProp,
 }) => {
+    const permissions = permissionsProp ?? getDefaultPermissions('admin');
     // 🆕 BUSCAR LISTA DE PROFISSIONAIS do backend quando o modal abrir
     const [allDoctors, setAllDoctors] = useState<IDoctor[]>(doctors || []);
     const [loadingDoctors, setLoadingDoctors] = useState(false);
@@ -189,6 +196,22 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     }
     
     const [activeTab, setActiveTab] = useState<'details' | 'confirm' | 'cancel' | 'edit'>('details');
+
+    // 🎯 CAPABILITY: lista de tabs disponíveis baseada nas permissions
+    const availableTabs = useMemo(() => {
+        const tabs: Array<'details' | 'confirm' | 'cancel' | 'edit'> = ['details'];
+        if (permissions.canComplete) tabs.push('confirm');
+        if (permissions.canEdit) tabs.push('edit');
+        if (permissions.canCancel) tabs.push('cancel');
+        return tabs;
+    }, [permissions.canComplete, permissions.canEdit, permissions.canCancel]);
+
+    // Se a tab ativa não estiver mais disponível, volta para details
+    useEffect(() => {
+        if (!availableTabs.includes(activeTab)) {
+            setActiveTab('details');
+        }
+    }, [availableTabs, activeTab]);
     const [cancelReason, setCancelReason] = useState('');
     const [cancelError, setCancelError] = useState('');
     const [isCancelling, setIsCancelling] = useState(false);
@@ -670,43 +693,47 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             </div>
                         )}
                         
-                        {/* 🚨 ALERTA: Sessão de pacote ainda sem pagamento */}
-                        {(event?.extendedProps?.__isPackageAppointment || event?.extendedProps?.serviceType === 'package_session') && !event?.extendedProps?.__hasPayment && (
-                            <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl border border-amber-200">
-                                <DollarSign className="w-4 h-4 text-amber-600" />
-                                <span className="font-medium text-sm text-amber-800">
-                                    💳 Sessão do pacote ainda não paga. O pagamento pode ser registrado ao concluir ou manualmente.
-                                </span>
-                            </div>
-                        )}
+                        {permissions.canSeeFinancial && (
+                            <>
+                                {/* 🚨 ALERTA: Sessão de pacote ainda sem pagamento */}
+                                {(event?.extendedProps?.__isPackageAppointment || event?.extendedProps?.serviceType === 'package_session') && !event?.extendedProps?.__hasPayment && (
+                                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl border border-amber-200">
+                                        <DollarSign className="w-4 h-4 text-amber-600" />
+                                        <span className="font-medium text-sm text-amber-800">
+                                            💳 Sessão do pacote ainda não paga. O pagamento pode ser registrado ao concluir ou manualmente.
+                                        </span>
+                                    </div>
+                                )}
 
-                        {event?.extendedProps?.paymentStatus && (
-                            <div className={`flex items-center gap-2 p-3 rounded-xl border ${event.extendedProps.paymentStatus === 'paid' || event.extendedProps.paymentStatus === 'package_paid'
-                                ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-100'
-                                : event.extendedProps.paymentStatus === 'partial'
-                                    ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-100'
-                                    : 'bg-gradient-to-r from-red-50 to-rose-50 border-red-100'
-                            }`}>
-                                <DollarSign className={`w-4 h-4 ${event.extendedProps.paymentStatus === 'paid' || event.extendedProps.paymentStatus === 'package_paid'
-                                    ? 'text-green-600'
-                                    : event.extendedProps.paymentStatus === 'partial'
-                                        ? 'text-yellow-600'
-                                        : 'text-red-600'
-                                }`} />
-                                <span className="font-medium text-sm text-gray-700">Status Financeiro:</span>
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${event.extendedProps.paymentStatus === 'paid' || event.extendedProps.paymentStatus === 'package_paid'
-                                    ? 'bg-green-100 text-green-800 border border-green-200'
-                                    : event.extendedProps.paymentStatus === 'partial'
-                                        ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
-                                        : 'bg-red-100 text-red-800 border border-red-200'
+                                {event?.extendedProps?.paymentStatus && (
+                                    <div className={`flex items-center gap-2 p-3 rounded-xl border ${event.extendedProps.paymentStatus === 'paid' || event.extendedProps.paymentStatus === 'package_paid'
+                                        ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-100'
+                                        : event.extendedProps.paymentStatus === 'partial'
+                                            ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-100'
+                                            : 'bg-gradient-to-r from-red-50 to-rose-50 border-red-100'
                                     }`}>
-                                    {translateStatus(event.extendedProps.paymentStatus, 'payment')}
-                                </span>
-                            </div>
+                                        <DollarSign className={`w-4 h-4 ${event.extendedProps.paymentStatus === 'paid' || event.extendedProps.paymentStatus === 'package_paid'
+                                            ? 'text-green-600'
+                                            : event.extendedProps.paymentStatus === 'partial'
+                                                ? 'text-yellow-600'
+                                                : 'text-red-600'
+                                        }`} />
+                                        <span className="font-medium text-sm text-gray-700">Status Financeiro:</span>
+                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${event.extendedProps.paymentStatus === 'paid' || event.extendedProps.paymentStatus === 'package_paid'
+                                            ? 'bg-green-100 text-green-800 border border-green-200'
+                                            : event.extendedProps.paymentStatus === 'partial'
+                                                ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                                                : 'bg-red-100 text-red-800 border border-red-200'
+                                            }`}>
+                                            {translateStatus(event.extendedProps.paymentStatus, 'payment')}
+                                        </span>
+                                    </div>
+                                )}
+                            </>
                         )}
                         
                         {/* 💰 ALERTA DE SALDO DEVEDOR DO PACIENTE */}
-                        {patientFinancial && patientFinancial.sessionDebt > 0 ? (
+                        {permissions.canSeeDebt && patientFinancial && patientFinancial.sessionDebt > 0 ? (
                             <button
                                 onClick={() => setIsBalanceModalOpen(true)}
                                 className="w-full flex items-center gap-3 p-4 bg-gradient-to-r from-red-50 to-rose-50 rounded-xl border-2 border-red-300 hover:border-red-400 hover:shadow-md transition-all text-left"
@@ -724,7 +751,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     R$ {patientFinancial.sessionDebt.toFixed(2).replace('.', ',')}
                                 </span>
                             </button>
-                        ) : event?.patient?.id && (
+                        ) : permissions.canSeeDebt && event?.patient?.id && (
                             <div className="flex justify-end">
                                 <button
                                     onClick={() => setIsBalanceModalOpen(true)}
@@ -902,8 +929,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             </div>
                         </div>
                         
-                        {/* 💰 SEÇÃO DE SALDO DEVEDOR — oculta para convênio/liminar */}
-                        {!(
+                        {/* 💰 SEÇÃO DE SALDO DEVEDOR — oculta para convênio/liminar e sem permission */}
+                        {permissions.canSeeDebt && !(
                             ['convenio', 'liminar'].includes(event?.billingType ?? '') ||
                             ['convenio', 'liminar'].includes(billingType) ||
                             event?.paymentMethod === 'convenio' ||
@@ -1243,137 +1270,141 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             </div>
                         </div>
 
-                        {/* 🆕 NOVO: Seção de Pagamento */}
-                        <div className="bg-green-50 p-4 rounded-lg border border-green-100 mt-6">
-                                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                                    <span className="bg-green-100 p-2 rounded-full">
-                                        <DollarSign size={18} className="text-green-600" />
-                                    </span>
-                                    Pagamento
-                                </h3>
+                        {permissions.canSeeFinancial && (
+                            <>
+                            {/* 🆕 NOVO: Seção de Pagamento */}
+                            <div className="bg-green-50 p-4 rounded-lg border border-green-100 mt-6">
+                                    <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                        <span className="bg-green-100 p-2 rounded-full">
+                                            <DollarSign size={18} className="text-green-600" />
+                                        </span>
+                                        Pagamento
+                                    </h3>
 
-                                {/* Toggle Particular/Convênio */}
-                                <div className="mb-4">
-                                    <Label className="block mb-2 font-medium text-gray-700">
-                                        Tipo de Pagamento
-                                    </Label>
-                                    <div className="flex gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => setBillingType('particular')}
-                                            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
-                                                (billingType || event?.billingType || 'particular') === 'particular'
-                                                    ? 'bg-green-600 text-white'
-                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                            }`}
-                                        >
-                                            💵 Particular
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setBillingType('convenio')}
-                                            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
-                                                (billingType || event?.billingType) === 'convenio'
-                                                    ? 'bg-blue-600 text-white'
-                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                            }`}
-                                        >
-                                            🏥 Convênio
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Campos Particular */}
-                                {billingType === 'particular' && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <Label className="block mb-2 font-medium text-gray-700">
-                                                Valor
-                                            </Label>
-                                            <InputCurrency
-                                                name="paymentAmount"
-                                                value={paymentAmount || event?.sessionValue || event?.paymentAmount || 0}
-                                                onChange={(e) => setPaymentAmount(Number(e.target.value))}
-                                                className="w-full p-3 bg-white border border-gray-300 rounded-lg"
-                                            />
-                                        </div>
-                                        <div>
-                                            <Label className="block mb-2 font-medium text-gray-700">
-                                                Método de Pagamento
-                                            </Label>
-                                            <Select
-                                                value={paymentMethod || event?.paymentMethod || ''}
-                                                onChange={(e) => setPaymentMethod(e.target.value)}
-                                                className="w-full p-3 bg-white border border-gray-300 rounded-lg"
+                                    {/* Toggle Particular/Convênio */}
+                                    <div className="mb-4">
+                                        <Label className="block mb-2 font-medium text-gray-700">
+                                            Tipo de Pagamento
+                                        </Label>
+                                        <div className="flex gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setBillingType('particular')}
+                                                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                                                    (billingType || event?.billingType || 'particular') === 'particular'
+                                                        ? 'bg-green-600 text-white'
+                                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                }`}
                                             >
-                                                <option value="">— Selecione —</option>
-                                                <option value="dinheiro">Dinheiro</option>
-                                                <option value="pix">PIX</option>
-                                                <option value="credito">Cartão de Crédito</option>
-                                                <option value="debito">Cartão de Débito</option>
-                                                <option value="transferencia">Transferência</option>
-                                            </Select>
+                                                💵 Particular
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setBillingType('convenio')}
+                                                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                                                    (billingType || event?.billingType) === 'convenio'
+                                                        ? 'bg-blue-600 text-white'
+                                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                }`}
+                                            >
+                                                🏥 Convênio
+                                            </button>
                                         </div>
                                     </div>
-                                )}
 
-                                {/* Campos Convênio */}
-                                {billingType === 'convenio' && (
-                                    <div className="space-y-4">
+                                    {/* Campos Particular */}
+                                    {billingType === 'particular' && (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
                                                 <Label className="block mb-2 font-medium text-gray-700">
-                                                    <Building2 size={16} className="inline mr-1" />
-                                                    Convênio *
-                                                </Label>
-                                                <Select
-                                                    value={insuranceProvider}
-                                                    onChange={(e) => {
-                                                        const provider = getProviderById(e.target.value);
-                                                        setInsuranceProvider(e.target.value);
-                                                        setInsuranceValue(provider?.defaultValue || 0);
-                                                    }}
-                                                    className="w-full p-3 bg-white border border-gray-300 rounded-lg"
-                                                >
-                                                    <option value="">Selecione o convênio</option>
-                                                    {INSURANCE_PROVIDERS.map(p => (
-                                                        <option key={p.id} value={p.id}>
-                                                            {p.name} {p.city ? `(${p.city})` : ''}
-                                                        </option>
-                                                    ))}
-                                                </Select>
-                                            </div>
-                                            <div>
-                                                <Label className="block mb-2 font-medium text-gray-700">
-                                                    Valor Tabela
+                                                    Valor
                                                 </Label>
                                                 <InputCurrency
-                                                    name="insuranceValue"
-                                                    value={insuranceValue}
-                                                    onChange={(e) => setInsuranceValue(Number(e.target.value))}
+                                                    name="paymentAmount"
+                                                    value={paymentAmount || event?.sessionValue || event?.paymentAmount || 0}
+                                                    onChange={(e) => setPaymentAmount(Number(e.target.value))}
                                                     className="w-full p-3 bg-white border border-gray-300 rounded-lg"
                                                 />
                                             </div>
+                                            <div>
+                                                <Label className="block mb-2 font-medium text-gray-700">
+                                                    Método de Pagamento
+                                                </Label>
+                                                <Select
+                                                    value={paymentMethod || event?.paymentMethod || ''}
+                                                    onChange={(e) => setPaymentMethod(e.target.value)}
+                                                    className="w-full p-3 bg-white border border-gray-300 rounded-lg"
+                                                >
+                                                    <option value="">— Selecione —</option>
+                                                    <option value="dinheiro">Dinheiro</option>
+                                                    <option value="pix">PIX</option>
+                                                    <option value="credito">Cartão de Crédito</option>
+                                                    <option value="debito">Cartão de Débito</option>
+                                                    <option value="transferencia">Transferência</option>
+                                                </Select>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <Label className="block mb-2 font-medium text-gray-700">
-                                                Código da Guia/Autorização (opcional)
-                                            </Label>
-                                            <input
-                                                type="text"
-                                                value={authorizationCode}
-                                                onChange={(e) => setAuthorizationCode(e.target.value)}
-                                                placeholder="Ex: 123456789"
-                                                className="w-full p-3 bg-white border border-gray-300 rounded-lg"
-                                            />
+                                    )}
+
+                                    {/* Campos Convênio */}
+                                    {billingType === 'convenio' && (
+                                        <div className="space-y-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <Label className="block mb-2 font-medium text-gray-700">
+                                                        <Building2 size={16} className="inline mr-1" />
+                                                        Convênio *
+                                                    </Label>
+                                                    <Select
+                                                        value={insuranceProvider}
+                                                        onChange={(e) => {
+                                                            const provider = getProviderById(e.target.value);
+                                                            setInsuranceProvider(e.target.value);
+                                                            setInsuranceValue(provider?.defaultValue || 0);
+                                                        }}
+                                                        className="w-full p-3 bg-white border border-gray-300 rounded-lg"
+                                                    >
+                                                        <option value="">Selecione o convênio</option>
+                                                        {INSURANCE_PROVIDERS.map(p => (
+                                                            <option key={p.id} value={p.id}>
+                                                                {p.name} {p.city ? `(${p.city})` : ''}
+                                                            </option>
+                                                        ))}
+                                                    </Select>
+                                                </div>
+                                                <div>
+                                                    <Label className="block mb-2 font-medium text-gray-700">
+                                                        Valor Tabela
+                                                    </Label>
+                                                    <InputCurrency
+                                                        name="insuranceValue"
+                                                        value={insuranceValue}
+                                                        onChange={(e) => setInsuranceValue(Number(e.target.value))}
+                                                        className="w-full p-3 bg-white border border-gray-300 rounded-lg"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <Label className="block mb-2 font-medium text-gray-700">
+                                                    Código da Guia/Autorização (opcional)
+                                                </Label>
+                                                <input
+                                                    type="text"
+                                                    value={authorizationCode}
+                                                    onChange={(e) => setAuthorizationCode(e.target.value)}
+                                                    placeholder="Ex: 123456789"
+                                                    className="w-full p-3 bg-white border border-gray-300 rounded-lg"
+                                                />
+                                            </div>
+                                            <div className="bg-blue-100 p-3 rounded-lg text-sm text-blue-800">
+                                                💡 Atendimento será registrado com valor R$ 0,00 no caixa do dia.
+                                                O valor só entrará após confirmação de recebimento do convênio.
+                                            </div>
                                         </div>
-                                        <div className="bg-blue-100 p-3 rounded-lg text-sm text-blue-800">
-                                            💡 Atendimento será registrado com valor R$ 0,00 no caixa do dia.
-                                            O valor só entrará após confirmação de recebimento do convênio.
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                                    )}
+                                </div>
+                            </>
+                        )}
                     </div>
                 );
 
@@ -1385,8 +1416,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     const renderActionButton = () => {
         switch (activeTab) {
             case 'confirm':
-                // 🔔 Se for pré-agendamento, mostra botão de converter
+                // 🔔 Se for pré-agendamento, mostra botão de converter (se tiver permission)
                 if (event?.__isPreAgendamento) {
+                    if (!permissions.canConvertPreAgendamento) {
+                        return null;
+                    }
                     return (
                         <button
                             onClick={handleConvert}
@@ -1551,7 +1585,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 {/* Abas laterais - Desktop */}
                 <div className="hidden md:flex w-1/4 bg-gradient-to-b from-green-50 via-emerald-50 to-cyan-50 rounded-l-3xl p-6 flex-col border-r-2 border-green-100">
                     <div className="space-y-3">
-                        {(['details', 'confirm', 'edit', 'cancel'] as const).map((tab) => {
+                        {availableTabs.map((tab) => {
                             const config = getTabConfig(tab);
                             const Icon = config.icon;
                             return (
@@ -1574,7 +1608,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 {/* Abas Mobile */}
                 <div className="md:hidden bg-gradient-to-r from-gray-50 to-green-50 p-3 border-b-2 border-gray-200">
                     <div className="flex overflow-x-auto space-x-2">
-                        {(['details', 'confirm', 'edit', 'cancel'] as const).map((tab) => {
+                        {availableTabs.map((tab) => {
                             const config = getTabConfig(tab);
                             const Icon = config.icon;
                             return (

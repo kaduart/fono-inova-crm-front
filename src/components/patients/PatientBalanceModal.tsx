@@ -2,11 +2,12 @@
 // Orquestrador enxuto — delega UI para subcomponentes em balance/
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { X, ArrowDownCircle, CheckCircle, Plus } from 'lucide-react';
+import { X, ArrowDownCircle, CheckCircle, Plus, Banknote } from 'lucide-react';
 import {
   getPatientPendingPayments,
   getPatientPaidPayments,
   getPatientFinancialSummary,
+  receivePayment,
   type FinancialSummary,
 } from '../../services/financialSummaryService';
 import API from '../../services/api';
@@ -56,7 +57,7 @@ interface Props {
   onRefresh?: () => void;
 }
 
-type Tab = 'pending' | 'paid' | 'add';
+type Tab = 'pending' | 'paid' | 'add' | 'receive';
 type ConfirmMode = 'quick' | 'bulk';
 
 export const PatientBalanceModal: React.FC<Props> = ({
@@ -80,6 +81,10 @@ export const PatientBalanceModal: React.FC<Props> = ({
 
   const [addAmount, setAddAmount] = useState(0);
   const [addDescription, setAddDescription] = useState('');
+
+  const [receiveAmount, setReceiveAmount] = useState('');
+  const [receiveMethod, setReceiveMethod] = useState('pix');
+  const [receiveResult, setReceiveResult] = useState<{ receiptId: string; jobId: string; message: string } | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!patientId) return;
@@ -107,6 +112,9 @@ export const PatientBalanceModal: React.FC<Props> = ({
       setSelectedPayments(new Set());
       setConfirmMode(null);
       setQuickPaymentId(null);
+      setReceiveResult(null);
+      setReceiveAmount('');
+      setReceiveMethod('pix');
     }
   }, [isOpen, fetchData]);
 
@@ -234,6 +242,36 @@ export const PatientBalanceModal: React.FC<Props> = ({
     }
   };
 
+  const handleReceivePayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amount = parseFloat(receiveAmount.replace(',', '.'));
+    if (isNaN(amount) || amount <= 0) {
+      alert('Valor deve ser maior que zero');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const res = await receivePayment({
+        patientId,
+        amount,
+        method: receiveMethod,
+        mode: 'auto',
+      });
+      setReceiveResult({
+        receiptId: res.receiptId,
+        jobId: res.jobId,
+        message: res.message,
+      });
+      setReceiveAmount('');
+      await fetchData();
+      onRefresh?.();
+    } catch (error: any) {
+      alert(extractErrorMessage(error, 'Erro ao registrar recebimento'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const openQuickPayment = (id: string) => {
     setQuickPaymentId(id);
     setConfirmMethod('dinheiro');
@@ -289,6 +327,13 @@ export const PatientBalanceModal: React.FC<Props> = ({
             label="Registrar"
             activeClass="text-amber-600 border-amber-500 bg-amber-50 dark:bg-amber-900/20"
           />
+          <TabButton
+            active={activeTab === 'receive'}
+            onClick={() => setActiveTab('receive')}
+            icon={<Banknote className="w-4 h-4" />}
+            label="Receber"
+            activeClass="text-emerald-600 border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20"
+          />
         </div>
 
         {/* Content */}
@@ -309,7 +354,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
             />
           ) : activeTab === 'paid' ? (
             <PatientBalancePaidTab payments={paidPayments} />
-          ) : (
+          ) : activeTab === 'add' ? (
             <PatientBalanceAddTab
               amount={addAmount}
               description={addDescription}
@@ -318,6 +363,71 @@ export const PatientBalanceModal: React.FC<Props> = ({
               onDescriptionChange={setAddDescription}
               onSubmit={handleCreatePending}
             />
+          ) : (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Registrar Recebimento
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                O valor será alocado automaticamente contra os débitos pendentes (FIFO).
+              </p>
+              <form onSubmit={handleReceivePayment} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Valor Recebido (R$)
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={receiveAmount}
+                    onChange={(e) => setReceiveAmount(e.target.value)}
+                    placeholder="0,00"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-800 dark:text-white"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Método
+                  </label>
+                  <select
+                    value={receiveMethod}
+                    onChange={(e) => setReceiveMethod(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-800 dark:text-white"
+                    disabled={isSubmitting}
+                  >
+                    <option value="pix">PIX</option>
+                    <option value="dinheiro">Dinheiro</option>
+                    <option value="cartao_credito">Cartão Crédito</option>
+                    <option value="cartao_debito">Cartão Débito</option>
+                    <option value="transferencia">Transferência</option>
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? 'Processando...' : 'Confirmar Recebimento'}
+                </button>
+              </form>
+              {receiveResult && (
+                <div className="mt-4 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                  <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
+                    ✅ Recebimento registrado!
+                  </p>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-1">
+                    {receiveResult.message}
+                  </p>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-mono">
+                    Receipt: {receiveResult.receiptId}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    O worker está processando a alocação automaticamente.
+                  </p>
+                </div>
+              )}
+            </div>
           )}
         </div>
 

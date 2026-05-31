@@ -118,6 +118,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, allowedRoles }) =
             case 'admin':
                 return <Navigate to="/admin" replace />;
             case 'doctor':
+            case 'doctor-private':
                 return <Navigate to="/doctor" replace />;
             case 'patient':
                 return <Navigate to="/patient" replace />;
@@ -160,10 +161,10 @@ const AppRoutes: React.FC = () => {
                 {/* ==================== ROTAS PÚBLICAS ==================== */}
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={
-                    user && !forceLogin ? <Navigate to={`/${user.role}`} replace /> : <Login />
+                    user && !forceLogin ? <Navigate to={`/${user.role === 'doctor-private' ? 'doctor' : user.role}`} replace /> : <Login />
                 } />
                 <Route path="/signup" element={
-                    user && !forceLogin ? <Navigate to={`/${user.role}`} replace /> : <SignUp />
+                    user && !forceLogin ? <Navigate to={`/${user.role === 'doctor-private' ? 'doctor' : user.role}`} replace /> : <SignUp />
                 } />
                 <Route path="/reset-password/:token" element={<ResetPassword />} />
 
@@ -242,7 +243,7 @@ const AppRoutes: React.FC = () => {
 
                 {/* Rotas de Doctor */}
                 <Route path="/doctor" element={
-                    <PrivateRoute allowedRoles={['doctor', 'admin']}>
+                    <PrivateRoute allowedRoles={['doctor', 'doctor-private', 'admin']}>
                         <DoctorDashboard />
                     </PrivateRoute>
                 } />
@@ -261,39 +262,39 @@ const AppRoutes: React.FC = () => {
 
                 {/* Gestão de Pacientes */}
                 <Route path="/patients" element={
-                    <PrivateRoute allowedRoles={['admin', 'doctor']}>
+                    <PrivateRoute allowedRoles={['admin', 'doctor', 'doctor-private']}>
                         <PatientsTable />
                     </PrivateRoute>
                 } />
                 <Route path="/patients/:id" element={
-                    <PrivateRoute allowedRoles={['admin', 'doctor']}>
+                    <PrivateRoute allowedRoles={['admin', 'doctor', 'doctor-private']}>
                         <PatientDetail />
                     </PrivateRoute>
                 } />
                 <Route path="/patients/:id/medical-reports" element={
-                    <PrivateRoute allowedRoles={['admin', 'doctor']}>
+                    <PrivateRoute allowedRoles={['admin', 'doctor', 'doctor-private']}>
                         <MedicalReportsSection />
                     </PrivateRoute>
                 } />
 
                 {/* Agendamentos */}
                 <Route path="/appointments-v2" element={
-                    <PrivateRoute allowedRoles={['admin', 'doctor', 'recepcao']}>
+                    <PrivateRoute allowedRoles={['admin', 'doctor', 'doctor-private', 'recepcao']}>
                         <AppointmentPage />
                     </PrivateRoute>
                 } />
                 <Route path="/create-appointment" element={
-                    <PrivateRoute allowedRoles={['admin', 'doctor']}>
+                    <PrivateRoute allowedRoles={['admin', 'doctor', 'doctor-private']}>
                         <CreateAppointmentPage />
                     </PrivateRoute>
                 } />
                 <Route path="/schedule" element={
-                    <PrivateRoute allowedRoles={['admin', 'doctor']}>
+                    <PrivateRoute allowedRoles={['admin', 'doctor', 'doctor-private']}>
                         <SchedulePage />
                     </PrivateRoute>
                 } />
                 <Route path="/pre-agendamentos" element={
-                    <PrivateRoute allowedRoles={['admin', 'doctor']}>
+                    <PrivateRoute allowedRoles={['admin', 'doctor', 'doctor-private']}>
                         <PreAgendamentosPage />
                     </PrivateRoute>
                 } />
@@ -315,7 +316,7 @@ const AppRoutes: React.FC = () => {
                     </PrivateRoute>
                 } />
                 <Route path="/retention" element={
-                    <PrivateRoute allowedRoles={['admin', 'doctor']}>
+                    <PrivateRoute allowedRoles={['admin', 'doctor', 'doctor-private']}>
                         <CarteiraView />
                     </PrivateRoute>
                 } />

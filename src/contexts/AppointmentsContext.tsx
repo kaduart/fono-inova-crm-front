@@ -10,7 +10,7 @@ interface AppointmentsContextData {
     appointments: IAppointment[];
     isLoading: boolean;
     currentPeriod: { startDate?: string; endDate?: string } | null;
-    fetchAppointments: (filters?: { startDate?: string; endDate?: string; force?: boolean; patientName?: string }) => Promise<void>;
+    fetchAppointments: (filters?: { startDate?: string; endDate?: string; force?: boolean; patientName?: string; doctorId?: string }) => Promise<void>;
     createAppointment: (data: any) => Promise<any>;
     updateAppointment: (id: string, data: any) => Promise<any>;
     completeAppointment: (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => Promise<any>;
@@ -47,7 +47,7 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     appointmentsRef.current = appointments;
 
     // 🚀 LOAD COM CACHE POR PERÍODO + PROTEÇÃO DE CONCORRÊNCIA
-    const fetchAppointments = useCallback(async (filters?: { startDate?: string; endDate?: string; force?: boolean; patientName?: string }) => {
+    const fetchAppointments = useCallback(async (filters?: { startDate?: string; endDate?: string; force?: boolean; patientName?: string; doctorId?: string }) => {
         const effectiveFilters = filters || currentFiltersRef.current;
         const forceRefresh = filters?.force;
 
@@ -94,6 +94,7 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 ...(effectiveFilters?.startDate && { startDate: effectiveFilters.startDate }),
                 ...(effectiveFilters?.endDate && { endDate: effectiveFilters.endDate }),
                 ...(effectiveFilters?.patientName && { patientName: effectiveFilters.patientName }),
+                ...(effectiveFilters?.doctorId && { doctorId: effectiveFilters.doctorId }),
                 ...(forceRefresh && { _t: Date.now() }),
             });
             

@@ -618,6 +618,7 @@ export default function TherapyPackageCard({
                   {pack.financialStatus === 'paid_with_credit' ? 'Pago antecipado' : 'Pago integralmente'}
                 </p>
               )}
+              {/* @deprecated LEGADO — fallback pack.totalPaid. Não usar. Fonte de verdade: financial.particularPaid */}
               {financial === null && (pack.totalPaid || 0) > 0 && (
                 <div className="text-xs text-emerald-600 mt-1">
                   Pago: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pack.totalPaid)}
@@ -634,6 +635,7 @@ export default function TherapyPackageCard({
                   <TrendingUp className="h-4 w-4 text-blue-600" />
                   <span className="text-sm font-medium text-gray-700">💳 Crédito restante</span>
                 </div>
+                {/* @deprecated LEGADO — pack.balance é legado e pode estar inflado. Fonte de verdade: financial.sessionDebt */}
                 <div className="text-lg font-bold text-blue-600">
                   {new Intl.NumberFormat('pt-BR', {
                     style: 'currency',

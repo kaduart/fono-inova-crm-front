@@ -284,9 +284,9 @@ export const packageService = {
     return extractV2Data(response);
   },
 
-  listPackages: async (params: PaginationParams & { patientId: string }) => {
+  listPackages: async (params: PaginationParams & { patientId?: string; doctorId?: string }) => {
     console.log('[packageService] listPackages chamado:', params);
-    
+
     const response = await API.get<IPaginatedPackageResponse>('/v2/packages', {
       params: {
         page: params.page || 1,
@@ -295,7 +295,8 @@ export const packageService = {
         type: params.type,
         startDate: params.startDate?.toISOString(),
         endDate: params.endDate?.toISOString(),
-        patientId: params.patientId
+        ...(params.patientId && { patientId: params.patientId }),
+        ...(params.doctorId && { doctorId: params.doctorId }),
       }
     });
     

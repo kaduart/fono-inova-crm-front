@@ -173,9 +173,31 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
     if (loading) return <LoadingSpinner centered size="large" color="border-emerald-600" className="min-h-[400px]" />;
 
     // ── Cálculos estratégicos ──
-    const resultadoEconomico = dashData?.metas?.realizado?.mes || 0;
-    const producao = dashData?.revenue?.total || 0;
+    //
+    // TRÊS DIMENSÕES FINANCEIRAS (separadas, nunca somadas diretamente):
+    //   1. CAIXA    = dinheiro que ENTROU (fato)
+    //   2. PRODUÇÃO = sessões executadas (fato operacional)
+    //   3. BACKLOG  = sessões futuras contratadas (projeção)
+    //
+    // SEPARAÇÃO CRÍTICA DE BACKLOG:
+    //   - OPERACIONAL (prepaid/full): sessões pagas mas NÃO realizadas.
+    //     NÃO gera caixa futuro. Mostra quanto a clínica ainda precisa EXECUTAR.
+    //   - FINANCEIRO (per_session): sessões NÃO pagas e NÃO realizadas.
+    //     VAI gerar caixa futuro. Mostra quanto a clínica ainda vai RECEBER.
+    //
+    // PREVISÃO REALISTA = caixa + aReceber + backlogFinanceiroComFator
+    // NUNCA somar backlogOperacional — o caixa já capturou esse valor.
+    //
+    // ⚠️ NÃO somar caixa + produção + backlog sem filtros — duplica.
     const caixa = dashData?.cash?.total || 0;
+    const producao = dashData?.revenue?.total || 0;
+    const aReceber = dashData?.aReceberProducao || 0;
+    const receitaRealizavel = dashData?.receitaRealizavel || 0;   // projeção (caixa + aReceber + backlogFinanceiro)
+    const backlogOperacional = dashData?.backlogOperacional || 0;
+    const backlogFinanceiro = dashData?.backlogFinanceiro || 0;
+    const backlogFinanceiroComFator = dashData?.backlogFinanceiroComFator || 0;
+    const backlogContratado = dashData?.backlogContratado || 0;
+    const resultadoEconomico = dashData?.metas?.realizado?.mes || 0; // = caixa (fato)
     const metaValor = dashData?.metas?.configuracao?.metaMensal || 0;
     const percentualAtual = dashData?.metas?.ritmo?.percentualRealizado || 0;
     const cenarioEsperado = dashData?.metas?.projecao?.final || 0;
@@ -230,9 +252,18 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                         <p className="text-sm font-medium text-gray-800">{statusPhrase}</p>
                         {metaValor > 0 && (
                             <div className="flex flex-wrap gap-4 mt-2">
-                                <span className="text-xs text-gray-600">💵 Recebido: <strong>{formatCurrency(caixa)}</strong></span>
-                                <span className="text-xs text-gray-600">🧾 Convênio: <strong className="text-amber-600">{formatCurrency(dashData?.convenioAReceber || 0)}</strong></span>
+                                <span className="text-xs text-gray-600">💵 Caixa realizado: <strong className="text-emerald-700">{formatCurrency(caixa)}</strong></span>
+                                <span className="text-xs text-gray-600">🧾 A receber: <strong className="text-amber-600">{formatCurrency(aReceber)}</strong></span>
                                 <span className="text-xs text-gray-600">🏥 Produção: <strong className="text-blue-600">{formatCurrency(producao)}</strong></span>
+                                {backlogOperacional > 0 && (
+                                    <span className="text-xs text-gray-600">📦 Backlog operacional: <strong className="text-purple-600">{formatCurrency(backlogOperacional)}</strong> <span className="text-gray-400">(sessões pagas a executar)</span></span>
+                                )}
+                                {backlogFinanceiro > 0 && (
+                                    <span className="text-xs text-gray-600">💰 Backlog financeiro: <strong className="text-emerald-600">{formatCurrency(backlogFinanceiro)}</strong> <span className="text-gray-400">(sessões a pagar no futuro)</span></span>
+                                )}
+                                {receitaRealizavel > caixa && (
+                                    <span className="text-xs text-gray-600">🔮 Previsão: <strong className="text-sky-600">{formatCurrency(receitaRealizavel)}</strong> <span className="text-gray-400">(caixa + aReceber + backlogFinanceiro)</span></span>
+                                )}
                             </div>
                         )}
                     </div>
@@ -279,20 +310,49 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                         )}
                     </p>
 
-                    {/* Mini badges — decomposição fecha: recebido + a receber = produção */}
+                    {/* Mini badges — FATO vs PROJEÇÃO */}
                     <div className="space-y-1.5 border-t border-emerald-100 pt-2">
                         <div className="flex justify-between text-xs">
+                            <span className="text-gray-700 font-semibold">💵 Caixa realizado (meta)</span>
+                            <span className="font-bold text-emerald-700">{formatCurrency(resultadoEconomico)}</span>
+                        </div>
+                        {aReceber > 0 && (
+                            <div className="flex justify-between text-xs">
+                                <span className="text-gray-500">⏳ A receber (conv. + part.)</span>
+                                <span className="font-semibold text-amber-600">{formatCurrency(aReceber)}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between text-xs">
                             <span className="text-gray-500">🏥 Produção clínica</span>
-                            <span className="font-semibold text-blue-600">{formatCurrency(producao)}</span>
+                            <span className="font-semibold text-blue-500">{formatCurrency(producao)}</span>
                         </div>
-                        <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">✅ Recebido da produção</span>
-                            <span className="font-semibold text-emerald-600">{formatCurrency(dashData?.recebimentoProducao?.total || 0)}</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">⏳ A receber (conv. + part.)</span>
-                            <span className="font-semibold text-amber-600">{formatCurrency(dashData?.aReceberProducao || 0)}</span>
-                        </div>
+                        {backlogOperacional > 0 && (
+                            <div className="flex justify-between text-xs bg-purple-50 rounded px-2 py-1">
+                                <span className="text-gray-500">📦 Backlog operacional</span>
+                                <span className="font-semibold text-purple-600">
+                                    {formatCurrency(backlogOperacional)}
+                                    <span className="text-gray-400 font-normal ml-1">(prepaid — já recebeu)</span>
+                                </span>
+                            </div>
+                        )}
+                        {backlogFinanceiro > 0 && (
+                            <div className="flex justify-between text-xs bg-emerald-50 rounded px-2 py-1">
+                                <span className="text-gray-500">💰 Backlog financeiro</span>
+                                <span className="font-semibold text-emerald-600">
+                                    {formatCurrency(backlogFinanceiro)}
+                                    <span className="text-gray-400 font-normal ml-1">(per_session — vai receber)</span>
+                                </span>
+                            </div>
+                        )}
+                        {receitaRealizavel > caixa && (
+                            <div className="flex justify-between text-xs bg-sky-50 rounded px-2 py-1 border border-sky-100">
+                                <span className="text-gray-500">🔮 Previsão realista</span>
+                                <span className="font-semibold text-sky-700">
+                                    {formatCurrency(receitaRealizavel)}
+                                    <span className="text-gray-400 font-normal ml-1">(caixa + aReceber + backlogFin)</span>
+                                </span>
+                            </div>
+                        )}
                     </div>
                 </div>
 

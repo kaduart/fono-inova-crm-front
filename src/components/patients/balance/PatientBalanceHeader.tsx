@@ -9,13 +9,20 @@ interface Props {
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
+/**
+ * PatientBalanceHeader
+ *
+ * Usa totalPending (soma dos payments pending legados) pois a migração V2
+ * ainda está incompleta. sessionDebt será usado quando todos os appointments
+ * gerarem session_charge V2 automaticamente.
+ */
 export const PatientBalanceHeader: React.FC<Props> = ({ summary, patientName }) => {
-  const totalPending = summary?.totalPending || 0;
+  const sessionDebt = summary?.totalPending || 0;
   const pendingCount = summary?.pendingCount || 0;
   const totalPaid = summary?.totalPaid || 0;
   const paidCount = summary?.paidCount || 0;
   const completedSessions = summary?.completedSessions || 0;
-  const volume = totalPending + totalPaid;
+  const volume = sessionDebt + totalPaid;
 
   return (
     <div className="bg-gradient-to-r from-slate-800 to-slate-900 p-5 text-white flex-shrink-0">
@@ -38,7 +45,7 @@ export const PatientBalanceHeader: React.FC<Props> = ({ summary, patientName }) 
               <AlertTriangle className="w-3.5 h-3.5" />
               <span className="text-[10px] font-bold uppercase tracking-wider">Saldo Devedor</span>
             </div>
-            <p className="text-xl sm:text-2xl font-bold">{formatCurrency(totalPending)}</p>
+            <p className="text-xl sm:text-2xl font-bold">{formatCurrency(sessionDebt)}</p>
             {pendingCount > 0 && (
               <p className="text-[11px] text-red-200 mt-1">
                 {pendingCount} sessão{pendingCount !== 1 ? 'ões' : ''} em aberto

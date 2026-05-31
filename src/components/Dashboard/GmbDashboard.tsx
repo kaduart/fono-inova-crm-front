@@ -87,6 +87,7 @@ const GmbDashboard = () => {
   const [creatingAssisted, setCreatingAssisted] = useState(false);
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [republishingId, setRepublishingId] = useState<string | null>(null);
+  const [publishingAll, setPublishingAll] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [regeneratingImageId, setRegeneratingImageId] = useState<string | null>(null);
   const [selectedEspecialidade, setSelectedEspecialidade] = useState<string>('');
@@ -225,6 +226,61 @@ const GmbDashboard = () => {
       toast.error(err.response?.data?.error || 'Erro ao republicar');
     } finally {
       setRepublishingId(null);
+    }
+  };
+
+  const [fixingImages, setFixingImages] = useState(false);
+
+  const handleFixMissingImages = async () => {
+    if (!confirm('Regenerar imagens dos posts sem imagem e publicar automaticamente?\n\nIsso pode levar alguns minutos.')) return;
+    setFixingImages(true);
+    try {
+      const response = await API.post('/gmb/admin/fix-missing-images');
+      const { resultados, message } = response.data;
+      const publicados = resultados?.filter((r: any) => r.status === 'published').length ?? 0;
+      const imagensOk = resultados?.filter((r: any) => r.status === 'image_ok_scheduled').length ?? 0;
+      const erros = resultados?.filter((r: any) => ['error', 'image_failed'].includes(r.status)) ?? [];
+
+      if (publicados > 0) toast.success(`✅ ${publicados} post(s) publicados!`);
+      if (imagensOk > 0) toast.success(`🖼️ ${imagensOk} imagem(ns) regenerada(s) — aguardando horário`);
+      erros.forEach((e: any) => toast.error(`❌ ${e.theme}: ${e.reason || 'falha na imagem'}`));
+      if (publicados === 0 && imagensOk === 0 && erros.length === 0) toast.info(message);
+      refresh();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Erro ao regenerar imagens');
+    } finally {
+      setFixingImages(false);
+    }
+  };
+
+  const handlePublishAllPending = async () => {
+    if (!confirm('Forçar publicação de todos os posts agendados vencidos?\n\nIsso enviará os posts ao Make imediatamente.')) return;
+    setPublishingAll(true);
+    try {
+      const response = await API.post('/gmb/admin/trigger-publish');
+      const { resultados, message } = response.data;
+      const publicados = resultados?.filter((r: any) => r.status === 'published').length ?? 0;
+      const sem_imagem = resultados?.filter((r: any) => r.status === 'skipped').length ?? 0;
+      const erros = resultados?.filter((r: any) => r.status === 'error') ?? [];
+
+      if (publicados > 0) {
+        toast.success(`✅ ${publicados} post(s) enviados ao Make!`);
+      }
+      if (sem_imagem > 0) {
+        toast.warn(`⚠️ ${sem_imagem} post(s) pulados (sem imagem)`);
+      }
+      erros.forEach((e: any) => toast.error(`❌ ${e.theme}: ${e.reason}`));
+      if (publicados === 0 && sem_imagem === 0 && erros.length === 0) {
+        toast.info(response.data.message || 'Nenhum post pendente encontrado');
+        if (response.data.diagnostico) {
+          console.warn('[GMB] Diagnóstico:', response.data.diagnostico);
+        }
+      }
+      refresh();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Erro ao publicar');
+    } finally {
+      setPublishingAll(false);
     }
   };
 
@@ -421,6 +477,28 @@ const GmbDashboard = () => {
             >
               <RefreshIcon />
               Gerar Semana
+            </button>
+
+            {makeStatus?.configured && (
+              <button
+                onClick={handlePublishAllPending}
+                disabled={publishingAll}
+                className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 font-semibold"
+                title="Força envio imediato de todos os posts agendados vencidos ao Make"
+              >
+                {publishingAll ? <span className="animate-spin">⏳</span> : '🚀'}
+                {publishingAll ? 'Publicando...' : 'Publicar Pendentes'}
+              </button>
+            )}
+
+            <button
+              onClick={handleFixMissingImages}
+              disabled={fixingImages}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 font-semibold"
+              title="Regenera imagens dos posts sem imagem e os publica"
+            >
+              {fixingImages ? <span className="animate-spin">⏳</span> : '🖼️'}
+              {fixingImages ? 'Gerando imagens...' : 'Corrigir Sem Imagem'}
             </button>
 
             {/* 🤖 Botão de Publicação Assistida */}

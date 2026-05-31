@@ -1,4 +1,4 @@
-import { Calendar, DollarSign, User, Users, X, AlertTriangle } from 'lucide-react';
+import { Calendar, DollarSign, User, UserPlus, Users, X, AlertTriangle } from 'lucide-react';
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import DatePicker, { registerLocale } from 'react-datepicker';
 
@@ -83,6 +83,12 @@ const ScheduleAppointmentModal = ({
     const [searchedPatients, setSearchedPatients] = useState<IPatient[]>([]);
     const [isSearching, setIsSearching] = useState(false);
 
+    // 👇 NOVO PACIENTE inline
+    const [isNewPatient, setIsNewPatient] = useState(false);
+    const [newPatientName, setNewPatientName] = useState('');
+    const [newPatientPhone, setNewPatientPhone] = useState('');
+    const [newPatientBirthDate, setNewPatientBirthDate] = useState('');
+
     // 👇 NOVO: Buscar doutores quando modal abrir (se não vier dos props)
     const [localDoctors, setLocalDoctors] = useState<IDoctor[]>([]);
     const [isLoadingDoctors, setIsLoadingDoctors] = useState(false);
@@ -128,10 +134,11 @@ const ScheduleAppointmentModal = ({
     // 🔍 Busca pacientes no backend quando digitar (com debounce)
     useEffect(() => {
         const searchTerm = patientSearch.trim();
-        
-        // Se não tem termo de busca, limpa resultados
+
+        // Limpa resultados anteriores imediatamente — evita exibir lista obsoleta do onFocus
+        setSearchedPatients([]);
+
         if (searchTerm.length < 2) {
-            setSearchedPatients([]);
             return;
         }
 
@@ -174,7 +181,13 @@ const ScheduleAppointmentModal = ({
 
     registerLocale("pt-BR", ptBR);
 
+    const prevIsOpenRef = useRef(false);
     useEffect(() => {
+        const justOpened = isOpen && !prevIsOpenRef.current;
+        prevIsOpenRef.current = isOpen;
+
+        if (!justOpened) return; // só age na transição fechado → aberto
+
         if (initialData) {
             const isoDate = new Date(initialData.date);
             const formattedDate = isoDate.toISOString().split('T')[0];
@@ -185,8 +198,6 @@ const ScheduleAppointmentModal = ({
                 serviceType: initialData.serviceType || 'individual_session'
             });
             setServiceType(initialData.serviceType || 'individual_session');
-
-            // 🔧 ADICIONAR: Sincroniza billingType do initialData
             setBillingType(initialData.billingType || 'particular');
             setInsuranceProvider(initialData.insuranceProvider || '');
             setInsuranceValue(initialData.insuranceValue || 0);
@@ -194,8 +205,6 @@ const ScheduleAppointmentModal = ({
         } else {
             setFormData(defaultForm);
             setServiceType('individual_session');
-
-            // 🔧 ADICIONAR: Reset completo ao fechar/reabrir
             setBillingType('particular');
             setInsuranceProvider('');
             setInsuranceValue(0);
@@ -204,6 +213,10 @@ const ScheduleAppointmentModal = ({
             setSearchedPatients([]);
             setSelectedPatient(null);
             setPackages([]);
+            setIsNewPatient(false);
+            setNewPatientName('');
+            setNewPatientPhone('');
+            setNewPatientBirthDate('');
         }
     }, [initialData, isOpen]);
 
@@ -288,11 +301,51 @@ const ScheduleAppointmentModal = ({
     };
 
     const [submitError, setSubmitError] = useState<string | null>(null);
+    const [isCreatingPatient, setIsCreatingPatient] = useState(false);
 
     const handleSubmit = async () => {
         setSubmitError(null);
         if (serviceType === 'package_session') {
             formData.paymentAmount = 0;
+        }
+
+        // Novo paciente: cria no backend antes de agendar
+        let justCreatedPatientId: string | null = null;
+        if (isNewPatient) {
+            setIsCreatingPatient(true);
+            try {
+                const created = await patientService.create({
+                    fullName: newPatientName.trim(),
+                    phone: newPatientPhone.replace(/\D/g, ''),
+                    dateOfBirth: newPatientBirthDate ? new Date(newPatientBirthDate).toISOString() : '',
+                    gender: '', maritalStatus: '', profession: '', placeOfBirth: '',
+                    address: { street: '', number: '', district: '', city: '', state: '', zipCode: '' },
+                    email: '', cpf: '', rg: '', specialties: [], mainComplaint: '',
+                    clinicalHistory: '', medications: '', allergies: '', familyHistory: '',
+                    healthPlan: { name: '', policyNumber: '' }, legalGuardian: '',
+                    emergencyContact: { name: '', phone: '', relationship: '' },
+                    appointments: [], imageAuthorization: false, birthCertificate: '',
+                    packages: [], nextAppointment: '', lastAppointment: '',
+                } as any);
+                // patientService.create() retorna { patient, isAsync, eventId }
+                const newId = created?.patient?._id
+                    || created?.patient?.id
+                    || created?._id;
+                if (!newId) throw new Error('Paciente criado mas ID não retornado');
+                justCreatedPatientId = newId;
+                setFormData(prev => ({ ...prev, patientId: newId }));
+                formData.patientId = newId;
+            } catch (err: any) {
+                // Se o paciente foi criado mas algo falhou depois, tenta rollback
+                if (justCreatedPatientId) {
+                    try { await patientService.delete(justCreatedPatientId, { reason: 'rollback_id_read_failed', skipPolling: true }); } catch {}
+                }
+                setSubmitError('Erro ao criar paciente: ' + (err?.response?.data?.message || err?.message || ''));
+                setIsCreatingPatient(false);
+                return;
+            } finally {
+                setIsCreatingPatient(false);
+            }
         }
 
         // 🏥 Se for convênio, montar objeto insurance completo
@@ -314,24 +367,33 @@ const ScheduleAppointmentModal = ({
             insuranceProvider,
             authorizationCode,
             insuranceValue,
-            insurance,  // 🏥 Objeto completo
-            // packageId só incluído se for particular + package_session
+            insurance,
             ...(billingType !== 'convenio' && packageId ? { packageId } : {}),
         };
-
-        console.log('🔴 PAYLOAD NO MODAL:', JSON.stringify(payload, null, 2));
 
         try {
             await onSave(payload);
         } catch (err: any) {
-            const msg = err?.response?.data?.message || err?.message || 'Erro ao criar agendamento';
+            // Rollback: se o paciente foi criado agora mas o agendamento falhou, deleta o paciente
+            if (justCreatedPatientId) {
+                try {
+                    await patientService.delete(justCreatedPatientId, { reason: 'rollback_appointment_failed', skipPolling: true });
+                } catch (rollbackErr) {
+                    console.error('[Rollback] Falha ao deletar paciente criado:', rollbackErr);
+                }
+            }
+            const msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Erro ao criar agendamento';
             setSubmitError(msg);
         }
     };
 
     const canSchedule = useMemo(() => {
-        // Verifica campos obrigatórios básicos
-        if (!formData.patientId || !formData.doctorId || !formData.date || !formData.time || !formData.sessionType) {
+        // Paciente: pode ser existente (patientId) ou novo (isNewPatient + nome + telefone)
+        const patientReady = isNewPatient
+            ? newPatientName.trim().length >= 2 && newPatientPhone.trim().length >= 8
+            : !!formData.patientId;
+
+        if (!patientReady || !formData.doctorId || !formData.date || !formData.time || !formData.sessionType) {
             return false;
         }
 
@@ -435,59 +497,109 @@ const ScheduleAppointmentModal = ({
                             <User size={18} /> Paciente
                         </Label>
 
-                        {/* Campo de busca */}
-                        <div className="relative">
-                            <input
-                                type="text"
-                                value={patientSearch}
-                                onChange={(e) => setPatientSearch(e.target.value)}
-                                onFocus={() => {
-                                    // 🎯 MOSTRA TODOS OS PACIENTES ao focar (se tiver menos de 50)
-                                    if (patients && patients.length > 0 && patients.length < 50 && patientSearch.length === 0) {
-                                        setSearchedPatients(patients);
-                                    }
-                                }}
-                                placeholder="Digite o nome do paciente..."
-                                className="w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm pr-10"
-                            />
-                            {isSearching && (
-                                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                                    <svg className="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Dropdown dinâmico */}
-                        {patientSearch.length > 0 && filteredPatients.length > 0 && (
-                            <ul className="absolute z-10 w-full mt-1 max-h-40 overflow-auto bg-white border border-gray-300 rounded-lg shadow-md">
-                                {filteredPatients.map((patient, index) => (
-                                    <li
-                                        key={patient._id || `${patient.fullName}-${index}`}
-                                        onClick={() => {
-                                            setSelectedPatient(patient);
-                                            setPatientSearch(patient.fullName);
-                                            setFormData((prev) => ({ ...prev, patientId: patient._id }));
-                                            setPackages((patient as any)?.packages || []);
-                                            setSearchedPatients([]); // 👈 FECHA O DROPDOWN após selecionar
-                                        }}
-                                        className="px-3 py-2 cursor-pointer hover:bg-blue-50 text-sm text-gray-700"
-                                    >
-                                        {patient.fullName}
-                                    </li>
-                                ))}
-                            </ul>
+                        {/* Campo de busca — oculto quando no modo novo paciente */}
+                        {!isNewPatient && (
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={patientSearch}
+                                    onChange={(e) => setPatientSearch(e.target.value)}
+                                    placeholder="Digite o nome do paciente..."
+                                    className="w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm pr-10"
+                                />
+                                {isSearching && (
+                                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                                        <svg className="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    </div>
+                                )}
+                            </div>
                         )}
 
-                        {patientSearch.length > 0 && filteredPatients.length === 0 && (
-                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-md px-3 py-2 text-sm text-gray-500">
-                                {isSearching 
-                                    ? 'Buscando...' 
-                                    : patientSearch.length < 2 
-                                        ? 'Digite pelo menos 2 caracteres...'
-                                        : 'Nenhum paciente encontrado'}
+                        {/* Dropdown dinâmico — só mostra quando NÃO estiver no modo novo paciente */}
+                        {!isNewPatient && patientSearch.trim().length >= 2 && (
+                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-md overflow-hidden">
+                                {isSearching ? (
+                                    <div className="px-3 py-2 text-sm text-gray-500">Buscando...</div>
+                                ) : (
+                                    <>
+                                        {filteredPatients.length === 0 ? (
+                                            <div className="px-3 py-2 text-sm text-gray-400">Nenhum paciente encontrado</div>
+                                        ) : (
+                                            <ul className="max-h-40 overflow-auto">
+                                                {filteredPatients.map((patient, index) => (
+                                                    <li
+                                                        key={patient._id || `${patient.fullName}-${index}`}
+                                                        onClick={() => {
+                                                            setSelectedPatient(patient);
+                                                            setPatientSearch(patient.fullName);
+                                                            setFormData((prev) => ({ ...prev, patientId: patient._id }));
+                                                            setPackages((patient as any)?.packages || []);
+                                                            setSearchedPatients([]);
+                                                        }}
+                                                        className="px-3 py-2 cursor-pointer hover:bg-blue-50 text-sm text-gray-700"
+                                                    >
+                                                        {patient.fullName}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsNewPatient(true);
+                                                setNewPatientName(patientSearch.trim());
+                                                setSearchedPatients([]);
+                                            }}
+                                            className="w-full px-3 py-2.5 text-left text-sm text-blue-700 hover:bg-blue-50 border-t border-gray-100 flex items-center gap-2 font-medium"
+                                        >
+                                            <UserPlus size={15} />
+                                            Criar novo: "{patientSearch}"
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Mini-form para novo paciente */}
+                        {isNewPatient && (
+                            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                                <div className="flex items-center justify-between mb-1">
+                                    <p className="text-xs font-semibold text-blue-800 flex items-center gap-1.5">
+                                        <UserPlus size={13} /> Novo paciente
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setIsNewPatient(false); setNewPatientName(''); setNewPatientPhone(''); setNewPatientBirthDate(''); }}
+                                        className="text-gray-400 hover:text-gray-600"
+                                    >
+                                        <X size={13} />
+                                    </button>
+                                </div>
+                                <input
+                                    type="text"
+                                    placeholder="Nome completo *"
+                                    value={newPatientName}
+                                    onChange={(e) => setNewPatientName(e.target.value)}
+                                    className="w-full p-2 text-sm border border-blue-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
+                                    autoFocus
+                                />
+                                <input
+                                    type="tel"
+                                    placeholder="Telefone *"
+                                    value={newPatientPhone}
+                                    onChange={(e) => setNewPatientPhone(e.target.value)}
+                                    className="w-full p-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <input
+                                    type="date"
+                                    placeholder="Data de nascimento"
+                                    value={newPatientBirthDate}
+                                    onChange={(e) => setNewPatientBirthDate(e.target.value)}
+                                    className="w-full p-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
                             </div>
                         )}
                     </div>
@@ -570,8 +682,8 @@ const ScheduleAppointmentModal = ({
                             toast.success(`✅ Agendamento criado: ${slot.date} às ${slot.time}`);
                         } catch (err: any) {
                             console.error('[ScheduleAppointmentModal] Erro ao agendar:', err);
-                            toast.error(err?.response?.data?.message || err?.message || 'Erro ao criar agendamento');
-                            throw err;
+                            const msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Erro ao criar agendamento';
+                            setSubmitError(msg);
                         }
                     }}
                 />
@@ -933,14 +1045,22 @@ const ScheduleAppointmentModal = ({
                     Cancelar
                 </Button>
                 <Button
-                    disabled={!canSchedule || isLoading}
+                    disabled={!canSchedule || isLoading || isCreatingPatient}
                     onClick={handleSubmit}
-                    className={`px-6 py-3 text-white transition-colors flex items-center justify-center gap-2 ${!canSchedule || isLoading
+                    className={`px-6 py-3 text-white transition-colors flex items-center justify-center gap-2 ${!canSchedule || isLoading || isCreatingPatient
                         ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed'
                         : 'bg-blue-600 hover:bg-blue-700'
                         }`}
                 >
-                    {isLoading ? (
+                    {isCreatingPatient ? (
+                        <>
+                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Criando paciente...
+                        </>
+                    ) : isLoading ? (
                         <>
                             <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

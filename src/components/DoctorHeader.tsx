@@ -1,8 +1,9 @@
 // src/pages/doctor/components/DoctorHeader.tsx
 import {
+    BarChart2,
     Calendar,
     ChevronDown,
-    FileText,
+    DollarSign,
     Home,
     LogOut,
     Menu,
@@ -31,7 +32,8 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
     onLogout,
 }) => {
     const navigate = useNavigate();
-    const { logout: authLogout } = useAuth();
+    const { logout: authLogout, user } = useAuth();
+    const isPrivate = user?.role === 'doctor-private';
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
     const [openMenu, setOpenMenu] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -164,41 +166,23 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
                             Agenda
                         </NavButton>
 
-                        <div className="relative">
-                            <NavButton
-                                active={activeTab === "reports"}
-                                onClick={() => toggleMenu("relatorios")}
-                                icon={<FileText size={16} className="text-cyan-500" />}
-                                hasChevron
-                            >
-                                Relatórios
-                            </NavButton>
+                        <NavButton
+                            active={activeTab === "insights"}
+                            onClick={() => handleTabChange("insights")}
+                            icon={<BarChart2 size={16} className="text-cyan-400" />}
+                        >
+                            Insights
+                        </NavButton>
 
-                            {openMenu === "relatorios" && (
-                                <div className="absolute z-10 mt-2 w-56 rounded-lg shadow-xl bg-white border border-emerald-200 py-2">
-                                    <NavDropdownItem
-                                        active={activeTab === "reports"}
-                                        onClick={() => handleTabChange("reports")}
-                                        icon={<FileText className="h-4 w-4 text-cyan-500" />}
-                                    >
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-gray-800">Relatórios Clínicos</span>
-                                            <span className="text-xs text-gray-500">Evolução e progresso</span>
-                                        </div>
-                                    </NavDropdownItem>
-                                    <NavDropdownItem
-                                        active={activeTab === "attendance"}
-                                        onClick={() => handleTabChange("attendance")}
-                                        icon={<Users className="h-4 w-4 text-purple-500" />}
-                                    >
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-gray-800">Frequência</span>
-                                            <span className="text-xs text-gray-500">Controle de presença</span>
-                                        </div>
-                                    </NavDropdownItem>
-                                </div>
-                            )}
-                        </div>
+                        {isPrivate && (
+                            <NavButton
+                                active={activeTab === "financial"}
+                                onClick={() => handleTabChange("financial")}
+                                icon={<DollarSign size={16} className="text-amber-500" />}
+                            >
+                                Financeiro
+                            </NavButton>
+                        )}
 
                         <NavButton
                             active={activeTab === "messages"}
@@ -293,13 +277,14 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
                         <button onClick={() => handleMobileTabChange("appointments")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "appointments" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
                             <Calendar size={18} className="text-amber-400" /> Agenda
                         </button>
-                        <p className="px-3 pt-2 pb-1 text-xs text-emerald-300 font-semibold uppercase tracking-wide">Relatórios</p>
-                        <button onClick={() => handleMobileTabChange("reports")} className={`flex items-center gap-3 w-full px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "reports" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
-                            <FileText size={18} className="text-cyan-400" /> Relatórios Clínicos
+                        <button onClick={() => handleMobileTabChange("insights")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "insights" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
+                            <BarChart2 size={18} className="text-cyan-400" /> Insights
                         </button>
-                        <button onClick={() => handleMobileTabChange("attendance")} className={`flex items-center gap-3 w-full px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "attendance" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
-                            <Users size={18} className="text-purple-400" /> Frequência
-                        </button>
+                        {isPrivate && (
+                            <button onClick={() => handleMobileTabChange("financial")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "financial" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
+                                <DollarSign size={18} className="text-amber-400" /> Financeiro
+                            </button>
+                        )}
                         <button onClick={() => handleMobileTabChange("messages")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "messages" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
                             <MessageCircle size={18} className="text-emerald-400" /> Mensagens
                         </button>

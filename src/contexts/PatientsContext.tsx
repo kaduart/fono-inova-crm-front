@@ -17,6 +17,7 @@ import {
 } from '../utils/cacheManager';
 import { socketManager } from '../utils/socketManager';
 import { extractErrorMessage } from '../utils/errorUtils';
+import { getAuthToken } from '../services/authService';
 
 interface PatientOverview {
   name: string;
@@ -72,8 +73,8 @@ export const PatientsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
    * 🔄 Carrega pacientes do servidor
    */
   const loadPatients = useCallback(async (forceRefresh = false) => {
-    // Verificar se tem token antes de carregar
-    const token = localStorage.getItem('token');
+    // Usa a mesma função de authService que api.ts usa (verifica expiração também)
+    const token = getAuthToken();
     if (!token) {
       console.log('⏳ PatientsContext: Token não disponível, skip load');
       return;
@@ -131,6 +132,8 @@ export const PatientsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           console.log(`✅ PatientsContext: ${patientsData.length} pacientes carregados (total: ${totalData.totalPatients})`);
         }
       } catch (err: any) {
+        // Token ausente/expirado é esperado — não loga como erro
+        if (err?.message === 'Token não disponível') return;
         console.error('❌ PatientsContext: Erro ao buscar pacientes:', err);
         if (isMounted.current) {
           setError(extractErrorMessage(err, 'Erro ao carregar pacientes'));
@@ -303,8 +306,8 @@ export const PatientsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       invalidateCache('patients');
     };
 
-    // Só carrega se tiver token
-    const token = localStorage.getItem('token');
+    // Só carrega se tiver token válido (mesma verificação de api.ts)
+    const token = getAuthToken();
     if (token && isInitialLoad.current) {
       isInitialLoad.current = false;
       loadPatients();

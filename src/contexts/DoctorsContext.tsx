@@ -52,6 +52,11 @@ export const DoctorsProvider: React.FC<{ children: React.ReactNode }> = ({ child
    * 🔄 Carrega médicos do servidor
    */
   const loadDoctors = useCallback(async (forceRefresh = false) => {
+    // Médicos não precisam da lista de todos os profissionais (só admin/secretária)
+    const storedRole = localStorage.getItem('userRole');
+    const role = storedRole ? JSON.parse(storedRole) : null;
+    if (role === 'doctor' || role === 'doctor-private') return;
+
     // Verificar se tem token antes de carregar
     const token = localStorage.getItem('token');
     if (!token) {

@@ -29,6 +29,7 @@ export const useAuthNavigation = () => {
       // 3. Redireciona baseado no role (agora simplificado)
       switch (data.user.role) {
         case 'doctor':
+        case 'doctor-private':
           navigate('/doctor');
           break;
         case 'admin':

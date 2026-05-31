@@ -62,54 +62,9 @@ export default function TherapyPackageManager({ packages, patient, doctors, tota
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-green-50 p-6">
+        <div className="p-6">
             <div className="max-w-7xl mx-auto">
-                {/* Header com Gradiente */}
-                <div className="bg-gradient-to-r from-emerald-600 to-green-700 rounded-2xl shadow-xl p-8 text-white mb-8">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <div className="flex items-center gap-3 mb-3">
-                                <div className="p-3 bg-white bg-opacity-20 rounded-xl">
-                                    <PackageIcon className="w-8 h-8" />
-                                </div>
-                                <div>
-                                    <h1 className="text-3xl font-bold">Gerenciador de Pacotes</h1>
-                                    <p className="text-emerald-100 mt-1">
-                                        Gerenciando pacotes de terapia para {patient.fullName}
-                                    </p>
-                                </div>
-                            </div>
-                            
-                            {/* Estatísticas */}
-                            <div className="flex gap-6 mt-6">
-                                <div className="text-center">
-                                    <div className="text-2xl font-bold">{stats.total}</div>
-                                    <div className="text-emerald-100 text-sm">Total</div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-2xl font-bold">{stats.active}</div>
-                                    <div className="text-emerald-100 text-sm">Ativos</div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-2xl font-bold">{stats.completed}</div>
-                                    <div className="text-emerald-100 text-sm">Completos</div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-2xl font-bold">{stats.pending}</div>
-                                    <div className="text-emerald-100 text-sm">Pendentes</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={handleNew}
-                            className="bg-white text-emerald-700 px-6 py-3 rounded-xl hover:bg-gray-50 transition-all duration-200 font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl"
-                        >
-                            <Plus className="w-5 h-5" />
-                            Novo Pacote
-                        </button>
-                    </div>
-                </div>
+               
 
                 {/* Barra de Ferramentas */}
                 <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-gray-200">

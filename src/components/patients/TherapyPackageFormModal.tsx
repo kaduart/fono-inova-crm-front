@@ -328,12 +328,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             }
 
             setV2ImportedSessions(prev => [...prev, ...newSessions]);
-            setSelectedDebtIds(prev => {
-                const next = new Set(prev);
-                newSessions.forEach((s: any) => next.add(s.v2PaymentId));
-                return next;
-            });
-            toast.success(`${newSessions.length} pendência(s) carregadas.`);
+            toast.success(`${newSessions.length} pendência(s) carregadas. Selecione as que deseja absorver.`);
         } catch (err: any) {
             toast.error(err?.response?.data?.message || 'Erro ao buscar pendências.');
         } finally {
@@ -689,8 +684,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
     const formatAppointmentDate = (dateString: string) => {
         if (!dateString) return 'Data inválida';
-        const isoDate = `${dateString}T00:00:00`;
-        const dateObj = new Date(isoDate);
+        const datePart = dateString.includes('T') ? dateString.split('T')[0] : dateString;
+        const dateObj = new Date(`${datePart}T00:00:00`);
         if (isNaN(dateObj.getTime())) return dateString;
         return dateObj.toLocaleDateString('pt-BR');
     };

@@ -234,19 +234,26 @@ export function SystemHealthProvider({ children }: { children: ReactNode }) {
                 timestamp: new Date().toISOString(),
                 checks: res.data.checks,
             });
-        } catch {
-            setWhatsappHealth({
-                status: 'critical',
-                timestamp: new Date().toISOString(),
-                checks: {
-                    workersEnabled: false,
-                    redisConnected: false,
-                    inboundQueueOk: false,
-                    persistenceQueueOk: false,
-                    pendingEvents: 0,
-                    recentFailures: 0,
-                },
-            });
+        } catch (err: any) {
+            // Erro de rede (backend inacessível) não é Redis down — não exibe banner
+            // Só mostra banner quando o backend está acessível e reporta problema real (ex: resposta 503)
+            const isServerResponse = err?.response?.status != null;
+            if (isServerResponse) {
+                setWhatsappHealth({
+                    status: 'critical',
+                    timestamp: new Date().toISOString(),
+                    checks: {
+                        workersEnabled: false,
+                        redisConnected: false,
+                        inboundQueueOk: false,
+                        persistenceQueueOk: false,
+                        pendingEventsCritical: 0,
+                        pendingEventsWarning: 0,
+                        recentFailures: 0,
+                    },
+                });
+            }
+            // se não há resposta do servidor, mantém estado anterior (ou null inicial)
         } finally {
             setLoadingWhatsapp(false);
         }

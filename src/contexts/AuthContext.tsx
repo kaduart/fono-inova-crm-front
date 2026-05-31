@@ -5,7 +5,7 @@ import { SESSION_CONFIG } from '../constants/session';
 import API from '../services/api';
 import { getAuthToken, isTokenExpired, getTokenTimeRemaining } from '../services/authService';
 
-type UserRole = 'doctor' | 'admin' | 'patient';
+type UserRole = 'doctor' | 'doctor-private' | 'admin' | 'patient';
 
 export interface User {
   _id: string;

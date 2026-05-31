@@ -17,6 +17,13 @@ import CarteiraView from './CarteiraView';
 import CarteiraWeeklyView from './CarteiraWeeklyView';
 import API from '../../services/api';
 import { getHolidays, holidaysToMap, isHoliday as isHolidayUtil, Holiday } from '../../services/calendarService';
+import {
+    CalendarMode,
+    CalendarPermissions,
+    CalendarFeatureFlags,
+    getDefaultPermissions,
+    getDefaultFeatureFlags,
+} from '../../types/calendarCapabilities';
 
 interface EnhancedCalendarProps {
     appointments: IAppointment[];
@@ -35,6 +42,9 @@ interface EnhancedCalendarProps {
     onConvertPreAgendamento?: (id: string) => Promise<void>;
     onRefreshAppointments?: () => void;
     loading?: boolean; // 🆕 NOVO: Estado de loading
+    calendarMode?: CalendarMode;
+    permissions?: CalendarPermissions;
+    featureFlags?: CalendarFeatureFlags;
 }
 
 export const PAYMENT_STATUS_CONFIG = {
@@ -202,8 +212,14 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     statusConfig = OPERATIONAL_STATUS_CONFIG,
     onConvertPreAgendamento,
     onRefreshAppointments,
-    loading = false // 🆕 NOVO: Default false
+    loading = false, // 🆕 NOVO: Default false
+    calendarMode = 'admin',
+    permissions: permissionsProp,
+    featureFlags: featureFlagsProp,
 }) => {
+    // 🎯 CAPABILITY-BASED: defaults seguros (admin = tudo liberado)
+    const permissions = permissionsProp ?? getDefaultPermissions(calendarMode);
+    const featureFlags = featureFlagsProp ?? getDefaultFeatureFlags(calendarMode);
     const calendarRef = useRef<FullCalendar | null>(null);
     const [openSchedule, setOpenSchedule] = useState(false);
     const [appointmentData, setAppointmentData] = useState<IAppointment | null>(null);
@@ -242,6 +258,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     const [hoveredDay, setHoveredDay] = useState<string | null>(null);
     const [activePopup, setActivePopup] = useState<{ dateStr: string; dayAppts: IAppointment[]; rect: DOMRect } | null>(null);
     const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    // 🆕 Modal de dia (mobile + click desktop) — acessível sem hover
+    const [dayModalOpen, setDayModalOpen] = useState(false);
+    const [dayModalData, setDayModalData] = useState<{ dateStr: string; dayAppts: IAppointment[] } | null>(null);
     const clearHoverTimeout = () => {
         if (hoverTimeoutRef.current) {
             clearTimeout(hoverTimeoutRef.current);
@@ -1397,47 +1417,52 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         </div>
                     </div>
 
-                    <Button
-                        variant="contained"
-                        startIcon={<Plus size={18} />}
-                        onClick={() => handleOpenSchedule(null, 'create')}
-                        sx={{
-                            borderRadius: 2,
-                            px: 3,
-                            py: 1.5,
-                            fontWeight: 'bold',
-                            background: `linear-gradient(135deg, rgb(55,171,135), rgb(40,130,100))`,
-                            '&:hover': {
-                                background: `linear-gradient(135deg, rgb(60,180,140), rgb(35,115,90))`,
-                                transform: 'translateY(-1px)',
-                                boxShadow: 4,
-                            },
-                            transition: 'all 0.25s ease-in-out',
-                        }}
-                    >
-                        Novo Agendamento
-                    </Button>
+                    {permissions.canCreate && (
+                        <Button
+                            variant="contained"
+                            startIcon={<Plus size={18} />}
+                            onClick={() => handleOpenSchedule(null, 'create')}
+                            sx={{
+                                borderRadius: 2,
+                                px: 3,
+                                py: 1.5,
+                                fontWeight: 'bold',
+                                background: `linear-gradient(135deg, rgb(55,171,135), rgb(40,130,100))`,
+                                '&:hover': {
+                                    background: `linear-gradient(135deg, rgb(60,180,140), rgb(35,115,90))`,
+                                    transform: 'translateY(-1px)',
+                                    boxShadow: 4,
+                                },
+                                transition: 'all 0.25s ease-in-out',
+                            }}
+                        >
+                            Novo Agendamento
+                        </Button>
+                    )}
                 </div>
             </Paper>
 
-            {/* ── Toggle Agenda / Acompanhamento ── */}
+            {/* ── Toggle Agenda / Acompanhamento / Recorrência ── */}
             <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                {(['agenda', 'carteira', 'semanal'] as const).map(tab => (
-                    <button
-                        key={tab}
-                        onClick={() => setCalendarView(tab)}
-                        className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-                            calendarView === tab
-                                ? 'bg-[#00C087] text-white shadow'
-                                : 'bg-white text-gray-600 border border-gray-200 hover:border-[#00C087] hover:text-[#00C087]'
-                        }`}
-                    >
-                        {tab === 'agenda' ? 'Agenda' : tab === 'carteira' ? 'Acompanhamento' : 'Recorrência'}
-                    </button>
-                ))}
+                {(['agenda'] as const)
+                    .concat(featureFlags.showCarteiraView ? ['carteira'] as const : [])
+                    .concat(featureFlags.showRecorrenciaView ? ['semanal'] as const : [])
+                    .map(tab => (
+                        <button
+                            key={tab}
+                            onClick={() => setCalendarView(tab)}
+                            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                                calendarView === tab
+                                    ? 'bg-[#00C087] text-white shadow'
+                                    : 'bg-white text-gray-600 border border-gray-200 hover:border-[#00C087] hover:text-[#00C087]'
+                            }`}
+                        >
+                            {tab === 'agenda' ? 'Agenda' : tab === 'carteira' ? 'Acompanhamento' : 'Recorrência'}
+                        </button>
+                    ))}
             </Box>
 
-            {calendarView === 'carteira' && (
+            {featureFlags.showCarteiraView && calendarView === 'carteira' && (
                 <Paper elevation={1} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'grey.200', bgcolor: 'white', minHeight: 500 }}>
                     <CarteiraView
                         doctors={doctors}
@@ -1446,7 +1471,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 </Paper>
             )}
 
-            {calendarView === 'semanal' && (
+            {featureFlags.showRecorrenciaView && calendarView === 'semanal' && (
                 <Paper elevation={1} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'grey.200', bgcolor: 'white', minHeight: 500 }}>
                     <CarteiraWeeklyView doctors={doctors} />
                 </Paper>
@@ -1604,7 +1629,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         
                         return (
                             <div
-                                className="flex flex-col items-end p-1 h-full relative"
+                                className="flex flex-col items-end p-1 h-full relative cursor-pointer"
                                 style={hoveredDay === dateStr ? { zIndex: 9999, position: 'relative' } : undefined}
                                 onMouseEnter={(e) => {
                                     clearHoverTimeout();
@@ -1614,6 +1639,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                     }
                                 }}
                                 onMouseLeave={scheduleHide}
+                                onClick={() => {
+                                    if (dayCount > 0) {
+                                        setDayModalData({ dateStr, dayAppts });
+                                        setDayModalOpen(true);
+                                    }
+                                }}
                             >
                                 <span
                                     className={`text-sm rounded-full w-7 h-7 flex items-center justify-center transition-all ${arg.isToday
@@ -1642,88 +1673,89 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 />
             </Paper>
 
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mt: 3 }}>
-                <Paper elevation={1} sx={{ p: 3, borderRadius: 2, flex: 1, minWidth: 300 }}>
-                    <Typography variant="h6" fontWeight="bold" gutterBottom color="grey.800">
-                        📅 Status do Agendamento
-                    </Typography>
-                    <Typography variant="body2" color="grey.600" sx={{ mb: 2 }}>
-                        Indicado pela cor da borda esquerda
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                        {Object.entries(OPERATIONAL_STATUS_VISUAL_CONFIG).map(([status, config]) => {
-                            const IconComponent = config.icon;
-                            return (
-                                <Box key={status} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                    <Box sx={{
-                                        width: 4,
-                                        height: 24,
-                                        backgroundColor: config.color,
-                                        borderRadius: 1
-                                    }} />
-                                    <IconComponent size={16} color={config.color} />
-                                    <Typography variant="body2" fontWeight="medium">
-                                        {config.label}
-                                    </Typography>
-                                </Box>
-                            );
-                        })}
-                    </Box>
-                </Paper>
-
-                <Paper
-                    elevation={2}
-                    sx={{
-                        p: 3,
-                        borderRadius: 2,
-                        flex: 1,
-                        minWidth: 300,
-                        background: "linear-gradient(135deg, #ffffff, #f9fafb)",
-                    }}
-                >
-                    <Typography variant="h6" fontWeight="bold" gutterBottom color="grey.800">
-                        💰 Status do Pagamento
-                    </Typography>
-                    <Typography variant="body2" color="grey.600" sx={{ mb: 2 }}>
-                        Indicado pela cor de fundo do card
-                    </Typography>
-
-                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-                        {Object.entries(PAYMENT_STATUS_CONFIG).map(([status, config]) => {
-                            const IconComponent = config.icon;
-                            return (
-                                <Box
-                                    key={status}
-                                    sx={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "space-between",
-                                        backgroundColor: config.bgColor,
-                                        border: `3px solid ${config.color}`,
-                                        borderRadius: 2,
-                                        px: 2,
-                                        py: 1,
-                                        boxShadow: `0 0 8px ${config.color}30`,
-                                        transition: "all 0.2s ease-in-out",
-                                        "&:hover": {
-                                            transform: "scale(1.02)",
-                                            boxShadow: `0 0 10px ${config.color}60`,
-                                        },
-                                    }}
-                                >
-                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                                        <IconComponent size={18} color={config.color} />
-                                        <Typography variant="body2" fontWeight="medium" sx={{ color: config.textColor }}>
+            {featureFlags.showLegendas && (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mt: 3 }}>
+                    <Paper elevation={1} sx={{ p: 3, borderRadius: 2, flex: 1, minWidth: 300 }}>
+                        <Typography variant="h6" fontWeight="bold" gutterBottom color="grey.800">
+                            📅 Status do Agendamento
+                        </Typography>
+                        <Typography variant="body2" color="grey.600" sx={{ mb: 2 }}>
+                            Indicado pela cor da borda esquerda
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                            {Object.entries(OPERATIONAL_STATUS_VISUAL_CONFIG).map(([status, config]) => {
+                                const IconComponent = config.icon;
+                                return (
+                                    <Box key={status} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <Box sx={{
+                                            width: 4,
+                                            height: 24,
+                                            backgroundColor: config.color,
+                                            borderRadius: 1
+                                        }} />
+                                        <IconComponent size={16} color={config.color} />
+                                        <Typography variant="body2" fontWeight="medium">
                                             {config.label}
                                         </Typography>
                                     </Box>
-                                </Box>
-                            );
-                        })}
-                    </Box>
-                </Paper>
+                                );
+                            })}
+                        </Box>
+                    </Paper>
 
-                <style>{`
+                    <Paper
+                        elevation={2}
+                        sx={{
+                            p: 3,
+                            borderRadius: 2,
+                            flex: 1,
+                            minWidth: 300,
+                            background: "linear-gradient(135deg, #ffffff, #f9fafb)",
+                        }}
+                    >
+                        <Typography variant="h6" fontWeight="bold" gutterBottom color="grey.800">
+                            💰 Status do Pagamento
+                        </Typography>
+                        <Typography variant="body2" color="grey.600" sx={{ mb: 2 }}>
+                            Indicado pela cor de fundo do card
+                        </Typography>
+
+                        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                            {Object.entries(PAYMENT_STATUS_CONFIG).map(([status, config]) => {
+                                const IconComponent = config.icon;
+                                return (
+                                    <Box
+                                        key={status}
+                                        sx={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "space-between",
+                                            backgroundColor: config.bgColor,
+                                            border: `3px solid ${config.color}`,
+                                            borderRadius: 2,
+                                            px: 2,
+                                            py: 1,
+                                            boxShadow: `0 0 8px ${config.color}30`,
+                                            transition: "all 0.2s ease-in-out",
+                                            "&:hover": {
+                                                transform: "scale(1.02)",
+                                                boxShadow: `0 0 10px ${config.color}60`,
+                                            },
+                                        }}
+                                    >
+                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                                            <IconComponent size={18} color={config.color} />
+                                            <Typography variant="body2" fontWeight="medium" sx={{ color: config.textColor }}>
+                                                {config.label}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                );
+                            })}
+                        </Box>
+                    </Paper>
+
+                    <style>{`
                     .fc-timegrid-more-link {
                         top: 75px !important;
                         bottom: -102px !important;
@@ -1760,6 +1792,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     }
                 `}</style>
             </Box>
+            )}
 
             <ScheduleAppointmentModal
                 isOpen={openSchedule}
@@ -1782,12 +1815,13 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 event={selectedEvent}
                 doctors={doctors}
                 patients={patients}
+                permissions={permissions}
             />
 
             {/* 🆕 PORTAL: Popup do dia — renderiza fora do DOM para ficar acima de tudo */}
             {activePopup && createPortal(
                 <div
-                    className="fixed z-[99999] w-[360px] max-h-[520px] overflow-auto bg-white rounded-xl shadow-2xl border border-gray-200 p-3 space-y-3"
+                    className="fixed z-[99999] w-[360px] max-h-[520px] overflow-auto bg-white rounded-xl shadow-2xl border border-gray-200 p-3 space-y-3 hidden md:block"
                     style={{
                         top: activePopup.rect.bottom + 6,
                         left: Math.min(
@@ -1810,6 +1844,46 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             onClick={() => openAppointmentDetail(appt)}
                         />
                     ))}
+                </div>,
+                document.body
+            )}
+
+            {/* 🆕 MODAL DE DIA — Mobile + Click desktop (acessível sem hover) */}
+            {dayModalOpen && dayModalData && createPortal(
+                <div
+                    className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) setDayModalOpen(false);
+                    }}
+                >
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-auto flex flex-col">
+                        <div className="sticky top-0 bg-white z-10 px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                            <h3 className="text-base font-bold text-gray-800">
+                                📅 {new Date(dayModalData.dateStr + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                            </h3>
+                            <button
+                                onClick={() => setDayModalOpen(false)}
+                                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                                aria-label="Fechar"
+                            >
+                                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                        <div className="p-4 space-y-3">
+                            {[...dayModalData.dayAppts].sort((a, b) => (a.time || '').localeCompare(b.time || '')).map((appt) => (
+                                <AppointmentEventCard
+                                    key={appt._id || appt.id}
+                                    appointment={appt}
+                                    timeText={appt.time}
+                                    variant="expanded"
+                                    onClick={() => {
+                                        setDayModalOpen(false);
+                                        openAppointmentDetail(appt);
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    </div>
                 </div>,
                 document.body
             )}

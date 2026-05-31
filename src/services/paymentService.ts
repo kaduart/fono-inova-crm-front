@@ -170,8 +170,13 @@ export const getPaymentsV2 = (filters: {
     search?: string;
     page?: number;
     limit?: number;
+    doctorId?: string;
 } = {}) =>
     API.get('/v2/payments', { params: filters });
+
+// Retorna evolução de N meses em UMA chamada (substitui N chamadas individuais)
+export const getPaymentsChart = (doctorId: string, months = 6) =>
+    API.get('/v2/payments/stats/chart', { params: { doctorId, months } });
 
 // Feature Flag para usar V2 ou legado
 export const USE_V2_PAYMENTS = true;

@@ -448,16 +448,21 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                             {/* Entrada Real vs Antecipação */}
                             {(() => {
                                 const transacoes = data.transacoes || [];
-                                const sessoesDoDia = transacoes.reduce((s: number, t: any) => s + (t.tipo !== 'Pacote' || !t.isPackageSale ? (t.valor || 0) : 0), 0);
                                 const vendaPacotes = transacoes.reduce((s: number, t: any) => s + (t.isPackageSale ? (t.valor || 0) : 0), 0);
                                 const sessoesPacote = transacoes.reduce((s: number, t: any) => s + (t.tipo === 'Pacote' && !t.isPackageSale ? (t.valor || 0) : 0), 0);
-                                const outros = data.caixa.total - sessoesDoDia - vendaPacotes;
+                                const avaliacoesDoDia = transacoes.reduce((s: number, t: any) => s + (t.tipo !== 'Pacote' && !t.isPackageSale && (t.servico === 'Avaliação' || t.servico === 'Avaliação Neuropsicológica') ? (t.valor || 0) : 0), 0);
+                                const sessoesDoDia = transacoes.reduce((s: number, t: any) => s + (t.tipo !== 'Pacote' && !t.isPackageSale && t.servico !== 'Avaliação' && t.servico !== 'Avaliação Neuropsicológica' ? (t.valor || 0) : 0), 0);
+                                const outros = data.caixa.total - sessoesDoDia - avaliacoesDoDia - sessoesPacote - vendaPacotes;
                                 return (
                                     <div className="pt-3 border-t border-gray-100 space-y-2">
                                         <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Origem do Caixa</div>
                                         <div className="flex items-center justify-between text-xs">
                                             <span className="flex items-center gap-2 text-gray-600"><span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />Sessões do dia</span>
-                                            <span className="font-semibold text-gray-800">{formatCurrency(sessoesDoDia - sessoesPacote)}</span>
+                                            <span className="font-semibold text-gray-800">{formatCurrency(sessoesDoDia)}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="flex items-center gap-2 text-gray-600"><span className="w-2 h-2 rounded-full bg-pink-400 flex-shrink-0" />Avaliações do dia</span>
+                                            <span className="font-semibold text-gray-800">{formatCurrency(avaliacoesDoDia)}</span>
                                         </div>
                                         {sessoesPacote > 0 && (
                                             <div className="flex items-center justify-between text-xs">
@@ -1097,7 +1102,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                         const situacao = t.tipo === 'Convênio' ? 'A Faturar'
                                             : t.tipo === 'Liminar' ? 'Judicial'
                                             : (t as any).isPackageSale ? 'Pré-antecipado'
-                                            : t.tipo === 'Pacote' ? 'Pré-pago'
+                                            : t.tipo === 'Pacote' && (t as any).paymentModel === 'prepaid' ? 'Pré-pago'
                                             : 'Pago na Sessão';
                                         const situacaoCls = situacao === 'Pré-pago' || situacao === 'Pré-antecipado' ? 'bg-indigo-100 text-indigo-700'
                                             : situacao === 'Pago na Sessão' ? 'bg-emerald-100 text-emerald-700'
@@ -1307,15 +1312,15 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                     {(() => {
                                         const sfShort: Record<string, string> = {
                                             'Pré-pago': '📦 Pré-pago', 'Pago na Sessão': '💰 Pago', 'Avaliação Paga': '💰 Pago',
-                                            'Pago Parcial': '⚠️ Parcial', 'Pendente': '⏳ Pendente', 'Pacote Pendente': '📦 Pte. Pacote',
+                                            'Pago Parcial': '⚠️ Parcial', 'Pendente': '⏳ Pendente', 'Pacote Pendente': '📦 Sessao Pendente',
                                             'Convênio': '🏥 Convênio', 'Liminar': '⚖️ Liminar', 'Cancelado': '',
                                         };
                                         const statusMap: Record<string, { border: string; badge: string; label: string }> = {
-                                            completed:    { border: 'border-green-500',  badge: 'bg-green-100 text-green-800',  label: 'Atendido' },
-                                            scheduled:    { border: 'border-blue-400',   badge: 'bg-blue-100 text-blue-800',    label: 'Agendado' },
-                                            confirmed:    { border: 'border-sky-400',    badge: 'bg-sky-100 text-sky-800',      label: 'Confirmado' },
-                                            canceled:     { border: 'border-red-400',    badge: 'bg-red-100 text-red-800',      label: 'cancelado' },
-                                            pre_agendado: { border: 'border-amber-400',  badge: 'bg-amber-100 text-amber-800',  label: 'pré-agendado' },
+                                            completed:    { border: 'border-l-green-500',  badge: 'bg-green-100 text-green-800',  label: 'Atendido' },
+                                            scheduled:    { border: 'border-l-blue-500',   badge: 'bg-blue-100 text-blue-800',    label: 'Agendado' },
+                                            confirmed:    { border: 'border-l-sky-400',    badge: 'bg-sky-100 text-sky-800',      label: 'Confirmado' },
+                                            canceled:     { border: 'border-l-red-400',    badge: 'bg-red-100 text-red-800',      label: 'cancelado' },
+                                            pre_agendado: { border: 'border-l-amber-400',  badge: 'bg-amber-100 text-amber-800',  label: 'pré-agendado' },
                                         };
                                         const toMin = (t: string) => { const [h, m] = (t || '00:00').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
                                         const filtered = [...dayAppointments]
@@ -1371,7 +1376,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                         const valor = a.sessionValue || a.package?.sessionValue || 0;
                                                                         const phone = a.patientInfo?.phone || a.patient?.phone;
                                                                         return (
-                                                                            <div key={a._id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 border-l-[3px] ${sc.border} ${a.operationalStatus === 'canceled' ? 'opacity-50' : ''}`}>
+                                                                            <div key={a._id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200 border-l-[3px] ${sc.border} ${a.operationalStatus === 'completed' ? 'bg-green-50' : 'bg-gray-50'} ${a.operationalStatus === 'canceled' ? 'opacity-50' : ''}`}>
                                                                                 <span className="text-xs text-gray-400 w-10 shrink-0 font-mono">{a.time || '--:--'}</span>
                                                                                 <div className="flex-1 min-w-0">
                                                                                     <div className="flex items-center gap-1.5 flex-wrap">

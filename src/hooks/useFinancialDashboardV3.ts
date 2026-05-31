@@ -289,6 +289,13 @@ export interface DashboardV3Data {
   };
   retroativos: number;
   aReceberProducao: number;
+  backlogContratado: number;
+  backlogSessions: number;
+  backlogOperacional: number;
+  backlogFinanceiro: number;
+  backlogFinanceiroComFator: number;
+  backlogPorTipo: Record<string, any>;
+  receitaRealizavel: number;
   metas: MetasV3;
   profissionais: {
     lista: ProfissionalV3[];
@@ -322,6 +329,13 @@ export interface DashboardV3Response {
     pendentes?: PendentesV3;
     saldo: number;
     despesas: { total: number; count: number };
+    backlogContratado: number;
+    backlogSessions: number;
+    backlogOperacional: number;
+    backlogFinanceiro: number;
+    backlogFinanceiroComFator: number;
+    backlogPorTipo: Record<string, any>;
+    receitaRealizavel: number;
     metas: MetasV3;
     profissionais: ProfissionalV3[];
     indicadores: IndicadoresV3;
