@@ -16,7 +16,7 @@ import { NavigateBefore, NavigateNext } from '@mui/icons-material';
 import { TrendingUp, TrendingDown, Target, Calendar, RefreshCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useFinancialDashboardV3 } from '../../../hooks/useFinancialDashboardV3';
+import { useFinancialDashboardV3, DashboardV3Data } from '../../../hooks/useFinancialDashboardV3';
 import { IAppointment } from '../../../utils/types/types';
 import { DashboardEspecialidades } from '../components/DashboardEspecialidades';
 import { RankingProfissionais } from '../components/RankingProfissionais';
@@ -93,9 +93,10 @@ const ProjectionTooltip = ({ active, payload }: any) => {
 interface ProjecaoCenariosProps {
     month: number;
     year: number;
+    data?: DashboardV3Data | null;
 }
 
-export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, year: ano }) => {
+export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, year: ano, data: propData }) => {
     const [pageRealizados, setPageRealizados] = useState(0);
     const [pageAgendados, setPageAgendados] = useState(0);
     const [pagePendentes, setPagePendentes] = useState(0);
@@ -104,15 +105,22 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
     const [appointments, setAppointments] = useState<IAppointment[]>([]);
     const [appointmentsLoading, setAppointmentsLoading] = useState(false);
 
-    const { data: dashData, loading: dashLoading, fetchDashboard } = useFinancialDashboardV3();
+    const hook = useFinancialDashboardV3();
+    const dashData = propData ?? hook.data;
+    const dashLoading = propData ? false : hook.loading;
+    const fetchDashboard = hook.fetchDashboard;
 
     useEffect(() => {
-        fetchDashboard(mes, ano);
         setPageRealizados(0);
         setPageAgendados(0);
         setPagePendentes(0);
         setProjectionData([]);
         setProjectionMeta(null);
+
+        // Só busca dashboard se não recebeu via props
+        if (!propData) {
+            fetchDashboard(mes, ano);
+        }
 
         setAppointmentsLoading(true);
         const startDate = `${ano}-${String(mes).padStart(2, '0')}-01`;
@@ -129,17 +137,18 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
         }).finally(() => {
             setAppointmentsLoading(false);
         });
-    }, [mes, ano, fetchDashboard]);
+    }, [mes, ano, propData, fetchDashboard]);
 
     // 🔄 Escuta evento global de refresh de caixa (disparado após completeSession)
     useEffect(() => {
+        if (propData) return; // não refetch se dados vieram do pai
         const handleCashRefresh = () => {
             console.log('[AnaliseProjecaoTab] cash:refresh recebido — refetching dashboard');
             fetchDashboard(mes, ano);
         };
         window.addEventListener('cash:refresh', handleCashRefresh);
         return () => window.removeEventListener('cash:refresh', handleCashRefresh);
-    }, [mes, ano, fetchDashboard]);
+    }, [mes, ano, fetchDashboard, propData]);
 
     useEffect(() => {
         if (!dashData) return;
@@ -149,7 +158,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                 month: mes,
                 year: ano,
                 projecaoFinal,
-                realAtual: producao
+                realAtual: dashData?.revenue?.total || 0
             }
         }).then(res => {
             if (res.data?.success) {
@@ -171,6 +180,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
 
     const loading = dashLoading || appointmentsLoading;
     if (loading) return <LoadingSpinner centered size="large" color="border-emerald-600" className="min-h-[400px]" />;
+    if (!dashData || !dashData.metas) return <div className="p-4 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">Dados de metas e projeções indisponíveis para este período.</div>;
 
     // ── Cálculos estratégicos ──
     //
@@ -197,7 +207,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
     const backlogFinanceiro = dashData?.backlogFinanceiro || 0;
     const backlogFinanceiroComFator = dashData?.backlogFinanceiroComFator || 0;
     const backlogContratado = dashData?.backlogContratado || 0;
-    const resultadoEconomico = dashData?.metas?.realizado?.mes || 0; // = caixa (fato)
+    const resultadoEconomico = dashData?.metas?.realizado?.mes || 0; // = receita reconhecida (caixa + convenio a receber)
     const metaValor = dashData?.metas?.configuracao?.metaMensal || 0;
     const percentualAtual = dashData?.metas?.ritmo?.percentualRealizado || 0;
     const cenarioEsperado = dashData?.metas?.projecao?.final || 0;
@@ -313,7 +323,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                     {/* Mini badges — FATO vs PROJEÇÃO */}
                     <div className="space-y-1.5 border-t border-emerald-100 pt-2">
                         <div className="flex justify-between text-xs">
-                            <span className="text-gray-700 font-semibold">💵 Caixa realizado (meta)</span>
+                            <span className="text-gray-700 font-semibold">💰 Receita Reconhecida</span>
                             <span className="font-bold text-emerald-700">{formatCurrency(resultadoEconomico)}</span>
                         </div>
                         {aReceber > 0 && (
@@ -597,11 +607,9 @@ interface AnaliseProjecaoTabProps {
 
 const AnaliseProjecaoTab: React.FC<AnaliseProjecaoTabProps> = ({ month, year }) => {
     const [activeTab, setActiveTab] = useState(0);
-    const [mountKey, setMountKey] = useState(0);
 
     const handleTabChange = (_: any, newTab: number) => {
         setActiveTab(newTab);
-        setMountKey(prev => prev + 1);
     };
 
     return (
@@ -619,10 +627,10 @@ const AnaliseProjecaoTab: React.FC<AnaliseProjecaoTabProps> = ({ month, year }) 
                 ))}
             </Tabs>
 
-            {activeTab === 0 && <ProjecaoCenarios key={`proj-${mountKey}`} month={month} year={year} />}
-            {activeTab === 1 && <DashboardEspecialidades key={`esp-${mountKey}`} />}
-            {activeTab === 2 && <RankingProfissionais key={`rank-${mountKey}`} />}
-            {activeTab === 3 && <ListaPacientesVIP key={`vip-${mountKey}`} />}
+            {activeTab === 0 && <ProjecaoCenarios month={month} year={year} />}
+            {activeTab === 1 && <DashboardEspecialidades />}
+            {activeTab === 2 && <RankingProfissionais />}
+            {activeTab === 3 && <ListaPacientesVIP />}
         </div>
     );
 };

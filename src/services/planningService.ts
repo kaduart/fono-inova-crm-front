@@ -13,6 +13,8 @@ export interface Planning {
         workHours: number;
         availableSlots: number;
         expectedRevenue: number;
+        averageTicket?: number;
+        commercialTicket?: number;
     };
     actual: {
         completedSessions: number;
@@ -26,6 +28,7 @@ export interface Planning {
         slotsPercentage: number;
         revenuePercentage: number;
         overallStatus: 'on_track' | 'at_risk' | 'behind' | 'achieved';
+        gapRevenue?: number;
     };
     byDoctor?: Array<{
         doctor: any;
@@ -40,6 +43,27 @@ export interface Planning {
     updatedAt: string;
 }
 
+export interface MonthlyProjection {
+    projectedRevenue: number;
+    composition: {
+        pacotes: number;
+        convenios: number;
+        perSession: number;
+        recorrentes: number;
+    };
+    totalAppointments: number;
+    breakdownByStatus: Record<string, { count: number; projected: number }>;
+}
+
+export interface StrategicOverview {
+    revenueGoal: number;
+    committedRevenue: number;
+    gap: number;
+    averageTicket: number;
+    patientsNeeded: number;
+    totalAppointments: number;
+}
+
 export const planningService = {
     // Criar planejamento
     create: async (data: Partial<Planning>) => {
@@ -50,7 +74,7 @@ export const planningService = {
     // Listar planejamentos
     getAll: async (filters?: { type?: string; status?: string; startDate?: string; endDate?: string; month?: number; year?: number }) => {
         const response = await api.get('/planning', { params: filters });
-        return response.data;
+        return response.data as { success: boolean; count: number; data: Planning[]; projection?: MonthlyProjection };
     },
 
     // Atualizar planejamento
@@ -92,7 +116,7 @@ export const planningService = {
     // Buscar com atualização automática
     getAllWithRefresh: async (filters?: { type?: string; status?: string; startDate?: string; endDate?: string; month?: number; year?: number }) => {
         const response = await api.get('/planning', { params: { ...filters, refresh: true } });
-        return response.data;
+        return response.data as { success: boolean; count: number; data: Planning[]; projection?: MonthlyProjection };
     },
 
     // Buscar detalhes completos de um planejamento
@@ -102,7 +126,7 @@ export const planningService = {
     },
 
     // Gerar todas as semanas de um mês dividindo a meta mensal proporcionalmente
-    generateWeeklyForMonth: async (params: { month: number; year: number; monthlyRevenue: number; totalSessions?: number; workHours?: number }) => {
+    generateWeeklyForMonth: async (params: { month: number; year: number; monthlyRevenue: number; totalSessions?: number; workHours?: number; averageTicket?: number }) => {
         const response = await api.post('/planning/generate-weekly-for-month', params);
         return response.data;
     }

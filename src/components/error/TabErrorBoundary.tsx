@@ -1,5 +1,5 @@
 // src/components/error/TabErrorBoundary.tsx
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import {React,  Component, ErrorInfo, ReactNode } from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
 interface Props {

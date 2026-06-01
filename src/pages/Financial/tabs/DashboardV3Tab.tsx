@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Skeleton } from '@mui/material';
 import {
   LayoutDashboard,
@@ -26,7 +26,7 @@ import {
 import api from '../../../services/api';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useFinancialDashboardV3 } from '../../../hooks/useFinancialDashboardV3';
-import { ProjecaoCenarios } from './AnaliseProjecaoTab';
+const ProjecaoCenarios = React.lazy(() => import('./AnaliseProjecaoTab').then(m => ({ default: m.ProjecaoCenarios })));
 import { DashboardEspecialidades } from '../components/DashboardEspecialidades';
 import { RankingProfissionais } from '../components/RankingProfissionais';
 import { ListaPacientesVIP } from '../components/ListaPacientesVIP';
@@ -183,12 +183,15 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
 
   // Carrega dados principais ao montar ou mudar mês/ano
   useEffect(() => {
-    fetchDashboard(month, year);
     // Reseta flag de convênio para forçar re-fetch quando mês mudar
     insuranceLoaded.current = '';
     // Carrega débito total na montagem para exibir no card sem precisar clicar
     debitosTotalLoaded.current = false;
-    fetchDebitosTotal();
+    // Paraleliza as duas requisições independentes
+    Promise.all([
+      fetchDashboard(month, year),
+      fetchDebitosTotal()
+    ]);
   }, [month, year, fetchDashboard, fetchDebitosTotal]);
 
   // Lazy: só busca convênios quando o tab que os usa estiver ativo
@@ -210,6 +213,60 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     window.addEventListener('cash:refresh', handleCashRefresh);
     return () => window.removeEventListener('cash:refresh', handleCashRefresh);
   }, [month, year, fetchDashboard]);
+
+  // 🎯 RITMO OPERACIONAL — deve ficar ANTES dos early returns (Rules of Hooks)
+  const ritmoCardEl = useMemo(() => {
+    const metas = data?.metas;
+    if (!metas?.ritmo) return null;
+    const pctEsperado = metas.ritmo.percentualEsperado ?? 0;
+    const pctRealizado = metas.ritmo.percentualRealizado ?? 0;
+    const diff = pctRealizado - pctEsperado;
+    const isAtrasado = diff < 0;
+    const bgClass = getMetaBg(metas.statusMeta || 'vermelho');
+    const progressColor =
+      metas.statusMeta === 'verde' ? 'bg-emerald-500' :
+      metas.statusMeta === 'amarelo-verde' ? 'bg-amber-500' :
+      metas.statusMeta === 'amarelo' ? 'bg-amber-500' : 'bg-rose-500';
+
+    return (
+      <div className={`p-4 md:p-6 rounded-2xl mb-6 border ${bgClass} border-gray-200 shadow-sm`}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+          <div className="md:col-span-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">PRODUÇÃO CLÍNICA — RITMO DO MÊS</span>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-4xl md:text-5xl font-extrabold text-gray-900">{pctRealizado.toFixed(1)}%</span>
+              <span className="text-xl text-gray-500">/ {pctEsperado.toFixed(1)}% esperado</span>
+            </div>
+            <p className="text-gray-600 mt-2">
+              {isAtrasado
+                ? `Você está ${Math.abs(diff).toFixed(1)} pontos percentuais abaixo do ritmo necessário para bater a meta.`
+                : `Você está ${diff.toFixed(1)} pontos percentuais acima do ritmo esperado. Continue assim!`}
+            </p>
+            <div className="mt-4">
+              <div className="h-3 w-full bg-gray-200 rounded-full overflow-hidden">
+                <div className={`h-full ${progressColor} rounded-full transition-all`} style={{ width: `${Math.min(pctRealizado, 100)}%` }}></div>
+              </div>
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>Resultado econômico acumulado</span>
+                <span>Meta mensal</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1.5">Baseado em dinheiro recebido (regime de caixa). Meta = Caixa, não Produção. Retroativos são contabilizados.</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <MetricRow label="Esperado até hoje (caixa)" value={formatCurrency(metas.ritmo.esperadoAteAgora ?? 0)} />
+            <MetricRow label="Caixa realizado" value={formatCurrency(metas.ritmo.realizadoAteAgora ?? 0)} />
+            <MetricRow
+              label="Diferença"
+              value={formatCurrency(metas.ritmo.diferenca ?? 0)}
+              valueColor={(metas.ritmo.diferenca ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}
+            />
+            <MetricRow label="Gap diário necessário" value={formatCurrency(metas.gap?.porDia ?? 0)} />
+          </div>
+        </div>
+      </div>
+    );
+  }, [data?.metas?.ritmo?.percentualEsperado, data?.metas?.ritmo?.percentualRealizado, data?.metas?.ritmo?.esperadoAteAgora, data?.metas?.ritmo?.realizadoAteAgora, data?.metas?.ritmo?.diferenca, data?.metas?.gap?.porDia, data?.metas?.statusMeta]);
 
   if (loading) return (
     <div className="p-4">
@@ -309,61 +366,10 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   const totalRetroativos = retroativos ?? Math.max(0, totalCaixa - totalRecebimentoProducao);
   const totalAReceberProducao = aReceberProducao ?? Math.max(0, totalProducao - totalRecebimentoProducao);
 
-  // 🎯 RITMO OPERACIONAL — card herói
-  const RitmoCard = () => {
-    const pctEsperado = metas.ritmo.percentualEsperado;
-    const pctRealizado = metas.ritmo.percentualRealizado;
-    const diff = pctRealizado - pctEsperado;
-    const isAtrasado = diff < 0;
-    const bgClass = getMetaBg(metas.statusMeta);
-    const progressColor = 
-      metas.statusMeta === 'verde' ? 'bg-emerald-500' :
-      metas.statusMeta === 'amarelo-verde' ? 'bg-amber-500' :
-      metas.statusMeta === 'amarelo' ? 'bg-amber-500' : 'bg-rose-500';
-
-    return (
-      <div className={`p-4 md:p-6 rounded-2xl mb-6 border ${bgClass} border-gray-200 shadow-sm`}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-          <div className="md:col-span-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">PRODUÇÃO CLÍNICA — RITMO DO MÊS</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-4xl md:text-5xl font-extrabold text-gray-900">{pctRealizado.toFixed(1)}%</span>
-              <span className="text-xl text-gray-500">/ {pctEsperado.toFixed(1)}% esperado</span>
-            </div>
-            <p className="text-gray-600 mt-2">
-              {isAtrasado
-                ? `Você está ${Math.abs(diff).toFixed(1)} pontos percentuais abaixo do ritmo necessário para bater a meta.`
-                : `Você está ${diff.toFixed(1)} pontos percentuais acima do ritmo esperado. Continue assim!`}
-            </p>
-            <div className="mt-4">
-              <div className="h-3 w-full bg-gray-200 rounded-full overflow-hidden">
-                <div className={`h-full ${progressColor} rounded-full transition-all`} style={{ width: `${Math.min(pctRealizado, 100)}%` }}></div>
-              </div>
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>Resultado econômico acumulado</span>
-                <span>Meta mensal</span>
-              </div>
-              <p className="text-xs text-gray-400 mt-1.5">Baseado em dinheiro recebido (regime de caixa). Meta = Caixa, não Produção. Retroativos são contabilizados.</p>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <MetricRow label="Esperado até hoje (caixa)" value={formatCurrency(metas.ritmo.esperadoAteAgora)} />
-            <MetricRow label="Caixa realizado" value={formatCurrency(metas.ritmo.realizadoAteAgora)} />
-            <MetricRow
-              label="Diferença"
-              value={formatCurrency(metas.ritmo.diferenca)}
-              valueColor={metas.ritmo.diferenca >= 0 ? 'text-emerald-600' : 'text-rose-600'}
-            />
-            <MetricRow label="Gap diário necessário" value={formatCurrency(metas.gap.porDia)} />
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   const renderVisaoGeral = () => (
     <div>
-      <RitmoCard />
+      {ritmoCardEl}
 
       {/* ── VISÃO OPERACIONAL — o que importa pro gestor clínico ── */}
       <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Visão Operacional</p>
@@ -488,18 +494,18 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           <h3 className="text-lg font-bold text-gray-800 mb-1">Projeção de Fechamento</h3>
           <p className="text-xs text-gray-400 mb-3">Baseado em produção do mês (não em caixa)</p>
           <div className="flex items-center gap-3 mb-4">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${metas.projecao.bateMeta ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-              {metas.projecao.bateMeta ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${metas?.projecao?.bateMeta ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+              {metas?.projecao?.bateMeta ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
             </div>
             <div>
-              <span className="text-2xl font-bold text-gray-900">{formatCurrency(metas.projecao.final)}</span>
-              <p className="text-sm text-gray-500">vs meta de {formatCurrency(metas.configuracao.metaMensal)}</p>
+              <span className="text-2xl font-bold text-gray-900">{formatCurrency(metas?.projecao?.final ?? 0)}</span>
+              <p className="text-sm text-gray-500">vs meta de {formatCurrency(metas?.configuracao?.metaMensal ?? 0)}</p>
             </div>
           </div>
-          <div className={`p-3 rounded-lg ${metas.projecao.bateMeta ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'} text-sm`}>
-            {metas.projecao.bateMeta
+          <div className={`p-3 rounded-lg ${metas?.projecao?.bateMeta ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'} text-sm`}>
+            {metas?.projecao?.bateMeta
               ? '✅ Projeção indica que a meta será atingida.'
-              : `⚠️ Faltam ${formatCurrency(metas.gap.valor)} para bater a meta com ${metas.gap.diasRestantes} dias restantes.`}
+              : `⚠️ Faltam ${formatCurrency(metas?.gap?.valor ?? 0)} para bater a meta com ${metas?.gap?.diasRestantes ?? 0} dias restantes.`}
           </div>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
@@ -507,20 +513,20 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-gray-500">Caixa hoje</p>
-              <span className="text-2xl font-bold text-gray-900">{formatCurrency(cash.today ?? metas.realizado.hoje)}</span>
+              <span className="text-2xl font-bold text-gray-900">{formatCurrency(cash.today ?? metas?.realizado?.hoje ?? 0)}</span>
               <p className="text-xs text-gray-400 mt-0.5">Dinheiro recebido hoje</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Meta diária</p>
-              <span className="text-2xl font-bold text-gray-900">{formatCurrency(metas.configuracao.metaDiariaNecessaria)}</span>
+              <span className="text-2xl font-bold text-gray-900">{formatCurrency(metas?.configuracao?.metaDiariaNecessaria ?? 0)}</span>
               <p className="text-xs text-gray-400 mt-0.5">Caixa necessário/dia</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Gap hoje</p>
-              <span className={`text-2xl font-bold ${(cash.today ?? metas.realizado.hoje ?? 0) >= metas.configuracao.metaDiariaNecessaria ? 'text-emerald-600' : 'text-amber-600'}`}>
-                {formatCurrency((cash.today ?? metas.realizado.hoje ?? 0) - metas.configuracao.metaDiariaNecessaria)}
+              <span className={`text-2xl font-bold ${(cash.today ?? metas?.realizado?.hoje ?? 0) >= (metas?.configuracao?.metaDiariaNecessaria ?? 0) ? 'text-emerald-600' : 'text-amber-600'}`}>
+                {formatCurrency((cash.today ?? metas?.realizado?.hoje ?? 0) - (metas?.configuracao?.metaDiariaNecessaria ?? 0))}
               </span>
-              <p className="text-xs text-gray-400 mt-0.5">{(cash.today ?? metas.realizado.hoje ?? 0) >= metas.configuracao.metaDiariaNecessaria ? 'Acima da meta' : 'Abaixo da meta'}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{(cash.today ?? metas?.realizado?.hoje ?? 0) >= (metas?.configuracao?.metaDiariaNecessaria ?? 0) ? 'Acima da meta' : 'Abaixo da meta'}</p>
             </div>
           </div>
         </div>
@@ -665,12 +671,14 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   };
 
   const renderMetas = () => {
-    const metaValor        = metas.configuracao.metaMensal;
-    const pctRealizado     = metas.ritmo.percentualRealizado;
-    const metaRealizado    = metas.realizado.mes;
+    if (!metas) return <div className="p-4 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">Dados de metas indisponíveis para este período.</div>;
+
+    const metaValor        = metas.configuracao?.metaMensal ?? 0;
+    const pctRealizado     = metas.ritmo?.percentualRealizado ?? 0;
+    const metaRealizado    = metas.realizado?.mes ?? 0;
     const resultadoEcon    = metaRealizado;
-    const caixaTotal       = cash.total;
-    const producaoTotal    = revenue.total;
+    const caixaTotal       = cash?.total ?? 0;
+    const producaoTotal    = revenue?.total ?? 0;
     // convenioAReceber usa o do outer scope (data.convenioAReceber = production.convenio - cash.convenio)
     const pendentesTotal   = resumo?.pendentes?.allParticularTotal ?? ((data?.particularPendente || 0) + (data?.pacotePendente || 0));
 
@@ -683,11 +691,11 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
 
     const textoExecutivo = (() => {
       if (pctRealizado >= 100) return 'Meta atingida! Excelente desempenho no período.';
-      const diff = pctRealizado - metas.ritmo.percentualEsperado;
-      if (diff >= 5)  return `Acima do esperado — ${pctRealizado.toFixed(0)}% concluído com ${metas.ritmo.percentualEsperado.toFixed(0)}% do período decorrido.`;
-      if (diff >= -5) return `No ritmo da meta — ${pctRealizado.toFixed(0)}% concluído com ${metas.ritmo.percentualEsperado.toFixed(0)}% do período decorrido.`;
+      const diff = pctRealizado - (metas.ritmo?.percentualEsperado ?? 0);
+      if (diff >= 5)  return `Acima do esperado — ${pctRealizado.toFixed(0)}% concluído com ${(metas.ritmo?.percentualEsperado ?? 0).toFixed(0)}% do período decorrido.`;
+      if (diff >= -5) return `No ritmo da meta — ${pctRealizado.toFixed(0)}% concluído com ${(metas.ritmo?.percentualEsperado ?? 0).toFixed(0)}% do período decorrido.`;
       if (convenioAReceber > 0) return `Atingimento depende do recebimento dos convênios pendentes (${formatCurrency(convenioAReceber)}).`;
-      return `${Math.abs(diff).toFixed(0)}% abaixo do esperado — necessário ${formatCurrency(metas.gap.porDia)}/dia para recuperar.`;
+      return `${Math.abs(diff).toFixed(0)}% abaixo do esperado — necessário ${formatCurrency(metas.gap?.porDia ?? 0)}/dia para recuperar.`;
     })();
 
     const tipoColors: Record<string, string> = {
@@ -773,10 +781,10 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
 
           {/* CARD 1: Composição da Receita */}
           <div className="rounded-2xl border border-gray-200 p-4 shadow-sm bg-white">
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Composição da Receita</p>
-            <p className="text-[10px] text-gray-400 mb-3">Caixa por tipo (dinheiro recebido)</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Produção por Tipo</p>
+            <p className="text-[10px] text-gray-400 mb-3">Serviços executados por tipo (não é caixa recebido)</p>
             <div className="space-y-3">
-              {Object.entries(metas.porTipo)
+              {Object.entries(metas.porTipo || {})
                 .sort(([, a], [, b]) => (b as any).realizado - (a as any).realizado)
                 .map(([tipo, dados]: [string, any]) => {
                   const color = tipoColors[tipo] || '#6B7280';
@@ -803,7 +811,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                 })}
             </div>
             {(() => {
-              const top = Object.entries(metas.porTipo).sort(([, a], [, b]) => (b as any).realizado - (a as any).realizado)[0];
+              const top = Object.entries(metas.porTipo || {}).sort(([, a], [, b]) => (b as any).realizado - (a as any).realizado)[0];
               return top ? (
                 <p className="text-[10px] text-gray-500 mt-3 pt-2 border-t border-gray-100">
                   <span className="font-bold">Maior motor:</span> {tipoIcons[top[0]]} {tipoLabels[top[0]] || top[0]} ({(top[1] as any).percentualDoTotal}% do caixa)
@@ -850,32 +858,32 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           </div>
 
           {/* CARD 3: Projeção Inteligente */}
-          <div className="rounded-2xl border-2 p-4 shadow-sm" style={{ borderColor: metas.projecao.bateMeta ? '#10B981' : '#F59E0B', backgroundColor: metas.projecao.bateMeta ? '#F0FDF4' : '#FFFBEB' }}>
+          <div className="rounded-2xl border-2 p-4 shadow-sm" style={{ borderColor: metas?.projecao?.bateMeta ? '#10B981' : '#F59E0B', backgroundColor: metas?.projecao?.bateMeta ? '#F0FDF4' : '#FFFBEB' }}>
             <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Projeção de Fechamento</p>
-            <p className="text-3xl font-black text-gray-900 leading-tight mb-2">{formatCurrency(metas.projecao.final)}</p>
-            <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mb-3 ${metas.projecao.bateMeta ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
-              {metas.projecao.bateMeta
-                ? `✅ +${formatCurrency(metas.projecao.final - metaValor)} acima da meta`
-                : `⚠️ ${formatCurrency(metaValor - metas.projecao.final)} abaixo da meta`}
+            <p className="text-3xl font-black text-gray-900 leading-tight mb-2">{formatCurrency(metas?.projecao?.final ?? 0)}</p>
+            <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mb-3 ${metas?.projecao?.bateMeta ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
+              {metas?.projecao?.bateMeta
+                ? `✅ +${formatCurrency((metas?.projecao?.final ?? 0) - metaValor)} acima da meta`
+                : `⚠️ ${formatCurrency(metaValor - (metas?.projecao?.final ?? 0))} abaixo da meta`}
             </div>
             <div className="space-y-1.5 border-t border-gray-200 pt-2">
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500">Ritmo atual</span>
-                <span className="font-black text-emerald-600">{formatCurrency(cash.today ?? metas.realizado.hoje)}/dia</span>
+                <span className="font-black text-emerald-600">{formatCurrency(cash.today ?? metas?.realizado?.hoje ?? 0)}/dia</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500">Necessário</span>
-                <span className="font-bold text-gray-700">{formatCurrency(metas.configuracao.metaDiariaNecessaria)}/dia</span>
+                <span className="font-bold text-gray-700">{formatCurrency(metas?.configuracao?.metaDiariaNecessaria ?? 0)}/dia</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500">Dias restantes</span>
-                <span className="font-bold text-gray-700">{metas.gap.diasRestantes} dias</span>
+                <span className="font-bold text-gray-700">{metas?.gap?.diasRestantes ?? 0} dias</span>
               </div>
-              {metas.configuracao.metaDiariaNecessaria > 0 && (cash.today ?? metas.realizado.hoje) > 0 && (
-                <div className={`mt-2 text-center py-1 rounded-full text-[10px] font-black ${(cash.today ?? metas.realizado.hoje) >= metas.configuracao.metaDiariaNecessaria ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
-                  {(cash.today ?? metas.realizado.hoje) >= metas.configuracao.metaDiariaNecessaria
-                    ? `+${((((cash.today ?? metas.realizado.hoje) / metas.configuracao.metaDiariaNecessaria) - 1) * 100).toFixed(0)}% acima do necessário`
-                    : `${((((cash.today ?? metas.realizado.hoje) / metas.configuracao.metaDiariaNecessaria) - 1) * 100).toFixed(0)}% abaixo do necessário`}
+              {(metas?.configuracao?.metaDiariaNecessaria ?? 0) > 0 && (cash.today ?? metas?.realizado?.hoje ?? 0) > 0 && (
+                <div className={`mt-2 text-center py-1 rounded-full text-[10px] font-black ${(cash.today ?? metas?.realizado?.hoje ?? 0) >= (metas?.configuracao?.metaDiariaNecessaria ?? 0) ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
+                  {(cash.today ?? metas?.realizado?.hoje ?? 0) >= (metas?.configuracao?.metaDiariaNecessaria ?? 0)
+                    ? `+${((((cash.today ?? metas?.realizado?.hoje ?? 0) / (metas?.configuracao?.metaDiariaNecessaria ?? 1)) - 1) * 100).toFixed(0)}% acima do necessário`
+                    : `${((((cash.today ?? metas?.realizado?.hoje ?? 0) / (metas?.configuracao?.metaDiariaNecessaria ?? 1)) - 1) * 100).toFixed(0)}% abaixo do necessário`}
                 </div>
               )}
             </div>
@@ -883,11 +891,11 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
         </div>
 
         {/* ── COMPARATIVO MÊS ANTERIOR ── */}
-        {(() => {
+        {comparativos && (() => {
           const chartData = [
-            { name: 'Caixa', atual: comparativos.mesAtual.caixa, anterior: comparativos.mesAnterior.caixa },
-            { name: 'Produção', atual: comparativos.mesAtual.producao, anterior: comparativos.mesAnterior.producao },
-            { name: 'Despesas', atual: comparativos.mesAtual.despesas, anterior: comparativos.mesAnterior.despesas },
+            { name: 'Caixa', atual: comparativos.mesAtual?.caixa ?? 0, anterior: comparativos.mesAnterior?.caixa ?? 0 },
+            { name: 'Produção', atual: comparativos.mesAtual?.producao ?? 0, anterior: comparativos.mesAnterior?.producao ?? 0 },
+            { name: 'Despesas', atual: comparativos.mesAtual?.despesas ?? 0, anterior: comparativos.mesAnterior?.despesas ?? 0 },
           ];
           return (
             <div className="rounded-2xl bg-white border border-gray-100 p-5 shadow-sm">
@@ -966,11 +974,11 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   };
 
   const renderDecisaoExecutiva = () => {
-    const varCaixa    = comparativos.variacao.caixa;
-    const varProducao = comparativos.variacao.producao;
-    const varDespesas = comparativos.variacao.despesas;
+    const varCaixa    = comparativos?.variacao?.caixa ?? 0;
+    const varProducao = comparativos?.variacao?.producao ?? 0;
+    const varDespesas = comparativos?.variacao?.despesas ?? 0;
 
-    const metaMensal      = metas.configuracao.metaMensal;
+    const metaMensal      = metas?.configuracao?.metaMensal ?? 0;
     const pctMetaCaixa    = metaMensal > 0 ? Math.min(Math.round((totalCaixa / metaMensal) * 100), 100) : 0;
     const diffProdCaixa   = totalProducao - totalCaixa;
     const convenioAmount  = convenioAReceber || 0;
@@ -1028,10 +1036,10 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
               </div>
               <div className="text-5xl font-black text-gray-900 tracking-tight my-3">{formatCurrency(totalCaixa)}</div>
               <p className="text-sm text-gray-500 mb-4">
-                Mês anterior: <span className="font-semibold text-gray-700">{formatCurrency(comparativos.mesAnterior.caixa)}</span>
+                Mês anterior: <span className="font-semibold text-gray-700">{formatCurrency(comparativos?.mesAnterior?.caixa ?? 0)}</span>
                 {varCaixa < 0 && (
                   <span className="ml-2 text-rose-600 font-semibold">
-                    · {formatCurrency(Math.abs(totalCaixa - comparativos.mesAnterior.caixa))} a menos
+                    · {formatCurrency(Math.abs(totalCaixa - (comparativos?.mesAnterior?.caixa ?? 0)))} a menos
                   </span>
                 )}
               </p>
@@ -1307,7 +1315,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
             <Lightbulb size={22} /> Insights
           </h3>
           <ul className="space-y-2">
-            {insights.insights.map((text, idx) => (
+            {(insights?.insights || []).map((text, idx) => (
               <li key={idx} className="flex items-start gap-2 text-gray-700">
                 <Info size={18} className="text-blue-500 shrink-0 mt-0.5" />
                 <span>{text}</span>
@@ -1319,12 +1327,12 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-3">
             <AlertCircle size={22} /> Alertas
           </h3>
-          {insights.alertas.length === 0 ? (
+          {(insights?.alertas || []).length === 0 ? (
             <div className="p-3 rounded-lg bg-emerald-50 text-emerald-800 text-sm">
               ✅ Tudo certo — Nenhum alerta crítico no momento.
             </div>
           ) : (
-            insights.alertas.map((alerta, idx) => (
+            (insights?.alertas || []).map((alerta, idx) => (
               <div key={idx} className={`p-3 rounded-lg mb-2 text-sm ${
                 alerta.nivel === 'alto' ? 'bg-rose-50 text-rose-800' :
                 alerta.nivel === 'medio' ? 'bg-amber-50 text-amber-800' : 'bg-sky-50 text-sky-800'
@@ -1342,7 +1350,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           <Users size={22} /> Ranking de Profissionais
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {profissionais.ranking.slice(0, 5).map((prof, idx) => (
+          {(profissionais?.ranking || []).slice(0, 5).map((prof, idx) => (
             <div key={prof.id} className="border border-gray-100 rounded-2xl p-4 bg-gray-50">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-bold">#{idx+1}</div>
@@ -1366,7 +1374,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           <TrendingUp size={22} /> Ranking por Lucro
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {profissionais.rankingPorLucro?.slice(0, 5).map((prof, idx) => (
+          {(profissionais?.rankingPorLucro || []).slice(0, 5).map((prof, idx) => (
             <div key={prof.id} className="border border-gray-100 rounded-2xl p-4 bg-gray-50">
               <div className="flex items-center gap-2 mb-2">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${prof.lucro >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>#{idx+1}</div>
@@ -1385,11 +1393,11 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
         </div>
       </div>
 
-      {insights.recomendacoes.length > 0 && (
+      {(insights?.recomendacoes || []).length > 0 && (
         <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5 shadow-sm">
           <h3 className="text-lg font-bold text-gray-800 mb-3">Recomendações</h3>
           <ul className="space-y-2">
-            {insights.recomendacoes.map((text, idx) => (
+            {(insights?.recomendacoes || []).map((text, idx) => (
               <li key={idx} className="flex items-start gap-2 text-gray-700">
                 <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" />
                 <span>{text}</span>
@@ -1448,7 +1456,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                   <span>Comissão</span>
                   <span>Status</span>
                 </div>
-                {drillDown.profissionais.map((prof) => (
+                {(drillDown?.profissionais || []).map((prof) => (
                   <div key={prof.id} className="min-w-[800px] grid grid-cols-7 gap-3 p-4 border-b last:border-b-0 items-center">
                     <div>
                       <p className="font-semibold text-gray-800">{prof.nome}</p>
@@ -1515,7 +1523,11 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
         {activeTab === 3 && renderProducao()}
         {activeTab === 4 && renderDespesas()}
         {activeTab === 5 && renderMetas()}
-        {activeTab === 6 && <ProjecaoCenarios month={month} year={year} />}
+        {activeTab === 6 && (
+          <React.Suspense fallback={<div className="p-8 text-center text-gray-500">Carregando projeções...</div>}>
+            <ProjecaoCenarios month={month} year={year} data={data} />
+          </React.Suspense>
+        )}
         {activeTab === 7 && renderInsights()}
         {activeTab === 8 && renderRankingTab()}
       </div>

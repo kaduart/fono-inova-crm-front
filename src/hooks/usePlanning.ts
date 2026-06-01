@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 
 export const usePlanning = () => {
     const [plannings, setPlannings] = useState<Planning[]>([]);
+    const [projection, setProjection] = useState<any>(null);
     const [loading, setLoading] = useState(false);
 
     const fetchPlannings = useCallback(async (filters?: any) => {
@@ -13,6 +14,7 @@ export const usePlanning = () => {
             // Usar refresh=true para recalcular automaticamente
             const response = await planningService.getAllWithRefresh(filters);
             setPlannings(response.data);
+            setProjection(response.projection || null);
         } catch (error: any) {
             toast.error('Erro ao carregar planejamentos');
         } finally {
@@ -131,6 +133,7 @@ export const usePlanning = () => {
     return {
         plannings,
         loading,
+        projection,
         fetchPlannings,
         createPlanning,
         updatePlanning,

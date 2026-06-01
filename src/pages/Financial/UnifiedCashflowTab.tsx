@@ -134,6 +134,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
     const [patientsWithoutNextRecurrent, setPatientsWithoutNextRecurrent] = useState(0);
     const [patientsWithoutNextImpact, setPatientsWithoutNextImpact] = useState(0);
     const [patientsWithoutNextLoading, setPatientsWithoutNextLoading] = useState(false);
+    const [patientsWithoutNextList, setPatientsWithoutNextList] = useState<any[]>([]);
+    const [semProximaModalOpen, setSemProximaModalOpen] = useState(false);
 
     const fetchAnalyticsForPeriod = useCallback(async () => {
         if (dateRange) {
@@ -184,6 +186,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                 setPatientsWithoutNext(res.total);
                 setPatientsWithoutNextRecurrent(res.recurrent);
                 setPatientsWithoutNextImpact(res.impactMonthly);
+                setPatientsWithoutNextList(res.patients || []);
             })
             .catch(err => console.error('[UnifiedCashflowTab] Erro ao buscar pacientes sem próxima sessão:', err))
             .finally(() => setPatientsWithoutNextLoading(false));
@@ -665,7 +668,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
                             {/* Sem próxima sessão */}
                             <button
-                                onClick={() => setActiveTab(4)}
+                                onClick={() => patientsWithoutNext > 0 && setSemProximaModalOpen(true)}
                                 className={`text-left rounded-xl border p-4 transition-all group ${patientsWithoutNext > 0 ? 'bg-red-50 border-red-200 hover:border-red-400 hover:shadow-md cursor-pointer' : 'bg-gray-50 border-gray-200 cursor-default'}`}
                             >
                                 <div className="flex items-center justify-between mb-2">
@@ -688,7 +691,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
 
                             {/* Grade em risco */}
                             <button
-                                onClick={() => window.location.href = '/retention'}
+                                onClick={() => navigate('/retention')}
                                 className={`text-left rounded-xl border p-4 transition-all group ${retentionCritical > 0 ? 'bg-orange-50 border-orange-200 hover:border-orange-400 hover:shadow-md cursor-pointer' : 'bg-gray-50 border-gray-200 cursor-default'}`}
                             >
                                 <div className="flex items-center justify-between mb-2">
@@ -987,6 +990,61 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                             </div>
                         );
                     })()}
+
+                    {/* ========== Modal: Sem Próxima Sessão ========== */}
+                    {semProximaModalOpen && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setSemProximaModalOpen(false)}>
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                                <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                                    <div>
+                                        <h3 className="text-base font-bold text-red-700">🚨 Pacientes sem próxima sessão</h3>
+                                        <p className="text-xs text-gray-500 mt-0.5">Atendidos hoje sem agendamento futuro</p>
+                                    </div>
+                                    <button onClick={() => setSemProximaModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
+                                </div>
+                                <div className="overflow-y-auto flex-1 p-4 space-y-3">
+                                    {patientsWithoutNextList.length === 0 ? (
+                                        <p className="text-sm text-gray-400 text-center py-6">Nenhum paciente encontrado.</p>
+                                    ) : patientsWithoutNextList.map((p: any) => (
+                                        <div key={p.patientId} className="p-3 rounded-xl bg-red-50 border border-red-100 space-y-2">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-bold text-gray-800 truncate">{p.name}</p>
+                                                    <div className="flex flex-wrap gap-1.5 mt-1">
+                                                        {p.specialty && (
+                                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-700">{p.specialty}</span>
+                                                        )}
+                                                        {p.lastSessionTime && (
+                                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">🕐 {p.lastSessionTime}</span>
+                                                        )}
+                                                        {p.count > 1 && (
+                                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-orange-100 text-orange-700">{p.count} sessões hoje</span>
+                                                        )}
+                                                    </div>
+                                                    {p.phone && (
+                                                        <p className="text-xs text-gray-400 mt-1">{p.phone}</p>
+                                                    )}
+                                                </div>
+                                                {p.phone && (
+                                                    <button
+                                                        onClick={() => handleOpenWhatsApp(p.phone)}
+                                                        className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-medium"
+                                                    >
+                                                        💬 WhatsApp
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="p-4 border-t border-gray-100 text-center text-xs text-gray-400">
+                                    {patientsWithoutNextRecurrent > 0 && (
+                                        <span className="text-red-600 font-semibold">{patientsWithoutNextRecurrent} recorrentes · {formatCurrency(patientsWithoutNextImpact)}/mês em risco</span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* ========== KPIs Executivos ========== */}
                     {dayAppointments.length > 0 && (() => {
