@@ -124,9 +124,6 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
 
     // PatientsSummaryCard data
     const { data: analyticsData, loading: analyticsLoading, fetch: fetchAnalytics } = useAppointmentsByType();
-    const [newPatientsModalOpen, setNewPatientsModalOpen] = useState(false);
-    const [newSpecialtyModalOpen, setNewSpecialtyModalOpen] = useState(false);
-    const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
 
     // 🏥 Dados operacionais: retenção + pacientes sem próxima sessão
     const { data: retentionData } = useRetentionSlots('', 30);
@@ -136,6 +133,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
     const [patientsWithoutNextLoading, setPatientsWithoutNextLoading] = useState(false);
     const [patientsWithoutNextList, setPatientsWithoutNextList] = useState<any[]>([]);
     const [semProximaModalOpen, setSemProximaModalOpen] = useState(false);
+    const [newPatientsModalOpen, setNewPatientsModalOpen] = useState(false);
+    const [newSpecialtyModalOpen, setNewSpecialtyModalOpen] = useState(false);
 
     const fetchAnalyticsForPeriod = useCallback(async () => {
         if (dateRange) {
@@ -569,10 +568,9 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                             const all = analyticsData?.all || [];
                             const agendados = all.filter((a: any) => !['converted', 'pre_agendado'].includes(a.operationalStatus));
                             const atendidos = all.filter((a: any) => a.operationalStatus === 'completed');
-                            const confirmados = all.filter((a: any) => a.operationalStatus === 'confirmed');
                             const aguardando = all.filter((a: any) => a.operationalStatus === 'scheduled');
-                            const faltas = all.filter((a: any) => ['missed', 'canceled'].includes(a.operationalStatus));
-                            const pct = agendados.length > 0 ? Math.round((atendidos.length / agendados.length) * 100) : 0;
+                            const preAgendadosNovos = (analyticsData?.leads || []).length;
+                            const novaEspecialidade = (analyticsData?.novosEspecialidade || []).length;
                             return (
                                 <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#0EA5E9', backgroundColor: '#F0F9FF' }}>
                                     <div className="flex items-center gap-3 mb-3">
@@ -588,24 +586,23 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                         <span className="text-[26px] font-extrabold text-sky-700 leading-none tracking-tight">{atendidos.length}</span>
                                         <span className="text-sm text-gray-400">/ {agendados.length}</span>
                                     </div>
-                                    <div className="text-xs text-gray-500 mb-3">{pct}% de presença</div>
-                                    <div className="pt-3 border-t border-gray-100 grid grid-cols-2 gap-x-3 gap-y-2">
+                                    <div className="pt-3 border-t border-gray-100 flex flex-col gap-y-2">
                                         <div className="flex items-center justify-between">
                                             <span className="text-[10px] text-gray-500 uppercase tracking-wide">Atendidos</span>
                                             <span className="text-sm font-bold text-emerald-600">{atendidos.length}</span>
                                         </div>
                                         <div className="flex items-center justify-between">
-                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Confirmados</span>
-                                            <span className="text-sm font-bold text-sky-600">{confirmados.length}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between">
                                             <span className="text-[10px] text-gray-500 uppercase tracking-wide">Aguardando</span>
                                             <span className="text-sm font-bold text-amber-600">{aguardando.length}</span>
                                         </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Faltas</span>
-                                            <span className="text-sm font-bold text-red-500">{faltas.length}</span>
-                                        </div>
+                                        <button onClick={() => preAgendadosNovos > 0 && setNewPatientsModalOpen(true)} className={`flex items-center justify-between w-full text-left rounded px-1 -mx-1 transition-colors ${preAgendadosNovos > 0 ? 'hover:bg-pink-50 cursor-pointer' : 'cursor-default'}`}>
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Pré-agendados novos</span>
+                                            <span className="text-sm font-bold text-pink-600">{preAgendadosNovos}</span>
+                                        </button>
+                                        <button onClick={() => novaEspecialidade > 0 && setNewSpecialtyModalOpen(true)} className={`flex items-center justify-between w-full text-left rounded px-1 -mx-1 transition-colors ${novaEspecialidade > 0 ? 'hover:bg-amber-50 cursor-pointer' : 'cursor-default'}`}>
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Nova especialidade</span>
+                                            <span className="text-sm font-bold text-amber-600">{novaEspecialidade}</span>
+                                        </button>
                                     </div>
                                 </div>
                             );
@@ -749,244 +746,115 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                             </button>
                         </div>
                     )}
-                    {/* Card de Pacientes Novos {periodTitle} */}
-                    {(() => {
+
+                    {/* Modal: Pré-agendados Novos */}
+                    {newPatientsModalOpen && (() => {
                         const leads = analyticsData?.leads || [];
-                        const svcLabel: Record<string, string> = {
-                            'evaluation': 'Avaliação', 'session': 'Sessão', 'package_session': 'Sessão Pacote',
-                            'tongue_tie_test': 'Teste Linguinha', 'neuropsych_evaluation': 'Aval. Neuropsic.',
-                            'individual_session': 'Sessão Avulsa', 'package': 'Pacote'
-                        };
+                        const svcLabel: Record<string, string> = { evaluation: 'Avaliação', session: 'Sessão', package_session: 'Sessão Pacote', tongue_tie_test: 'Teste Linguinha', neuropsych_evaluation: 'Aval. Neuropsic.', individual_session: 'Sessão Avulsa', package: 'Pacote' };
+                        const billingColor: Record<string, string> = { particular: 'bg-blue-100 text-blue-700', convenio: 'bg-purple-100 text-purple-700', liminar: 'bg-orange-100 text-orange-700', package: 'bg-indigo-100 text-indigo-700' };
                         return (
-                            <div className="mb-4">
-                                <div className="flex items-center justify-between mb-2 px-0.5">
-                                    <h3 className="text-sm font-semibold text-gray-700">Pacientes Novos</h3>
-                                    <span className="text-xs text-gray-400">{isRangeActive && dateRange ? formatDateRange(dateRange) : format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })}</span>
-                                </div>
-                                <div className="grid grid-cols-3 gap-3">
-                                <button
-                                    onClick={() => leads.length > 0 && setNewPatientsModalOpen(true)}
-                                    className={`text-left p-3 rounded-xl border transition-all ${leads.length > 0 ? 'bg-pink-50 border-pink-200 hover:border-pink-400 cursor-pointer' : 'bg-gray-50 border-gray-200 cursor-default'}`}
-                                >
-                                    <div className="text-[9px] font-semibold text-pink-500 uppercase tracking-wide mb-0.5">Pré-agendados novos</div>
-                                    <div className="text-2xl font-bold text-pink-600">{leads.length}</div>
-                                    <div className="text-[11px] text-gray-400">1ª vez na clínica</div>
-                                </button>
-                                {(() => {
-                                    const novosEsp = analyticsData?.novosEspecialidade || [];
-                                    return (
-                                        <button
-                                            onClick={() => novosEsp.length > 0 && setNewSpecialtyModalOpen(true)}
-                                            className={`text-left p-3 rounded-xl border transition-all ${novosEsp.length > 0 ? 'bg-amber-50 border-amber-200 hover:border-amber-400 cursor-pointer' : 'bg-gray-50 border-gray-200 cursor-default'}`}
-                                        >
-                                            <div className="text-[9px] font-semibold text-amber-600 uppercase tracking-wide mb-0.5">Nova especialidade</div>
-                                            <div className="text-2xl font-bold text-amber-600">{novosEsp.length}</div>
-                                            <div className="text-[11px] text-gray-400">Paciente existente</div>
-                                        </button>
-                                    );
-                                })()}
-                                {(() => {
-                                    const all = analyticsData?.all || [];
-                                    const agendados = all.filter((a: any) => !['converted', 'pre_agendado'].includes(a.operationalStatus));
-                                    const atendidos = all.filter((a: any) => a.operationalStatus === 'completed');
-                                    const faltas = all.filter((a: any) => ['missed', 'canceled'].includes(a.operationalStatus));
-                                    const restantes = agendados.length - atendidos.length - faltas.length;
-                                    const pct = agendados.length > 0 ? Math.round((atendidos.length / agendados.length) * 100) : 0;
-                                    return (
-                                        <button
-                                            onClick={() => agendados.length > 0 && setAttendanceModalOpen(true)}
-                                            className={`text-left p-3 rounded-xl border transition-all w-full ${atendidos.length > 0 ? 'bg-emerald-50 border-emerald-200 hover:border-emerald-400 cursor-pointer' : 'bg-gray-50 border-gray-200 cursor-default'}`}
-                                        >
-                                            <div className="text-[9px] font-semibold text-emerald-600 uppercase tracking-wide mb-0.5">Comparecimento</div>
-                                            <div className="flex items-baseline gap-1">
-                                                <div className="text-2xl font-bold text-emerald-600">{atendidos.length}</div>
-                                                <div className="text-xs text-gray-400">/ {agendados.length}</div>
-                                            </div>
-                                            <div className="text-[11px] text-gray-500">{pct}% presença</div>
-                                            <div className="flex gap-2 mt-0.5">
-                                                {faltas.length > 0 && <span className="text-[9px] text-red-500">{faltas.length}F</span>}
-                                                {restantes > 0 && <span className="text-[9px] text-amber-500">{restantes}R</span>}
-                                            </div>
-                                        </button>
-                                    );
-                                })()}
-                                </div>
-
-                                {/* Modal: Pré-agendados Novos */}
-                                {newPatientsModalOpen && (
-                                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setNewPatientsModalOpen(false)}>
-                                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                                            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                                                <div>
-                                                    <h3 className="text-xl font-bold text-gray-900">Pré-agendados Novos</h3>
-                                                    <p className="text-sm text-gray-500 mt-1">{isRangeActive && dateRange ? formatDateRange(dateRange) : format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })}</p>
-                                                </div>
-                                                <button onClick={() => setNewPatientsModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
-                                            </div>
-                                            <div className="overflow-y-auto p-6">
-                                                {leads.length === 0 ? (
-                                                    <p className="text-center text-gray-500 py-8">Nenhum pré-agendado novo encontrado.</p>
-                                                ) : (
-                                                    <div className="space-y-3">
-                                                        {leads.map((apt: any) => {
-                                                            const svcText = apt.serviceType ? (svcLabel[apt.serviceType] || apt.serviceType) : null;
-                                                            const billingColor: Record<string, string> = { particular: 'bg-blue-100 text-blue-700', convenio: 'bg-purple-100 text-purple-700', liminar: 'bg-orange-100 text-orange-700', package: 'bg-indigo-100 text-indigo-700' };
-                                                            return (
-                                                                <div key={apt._id} className="bg-gray-50 rounded-lg p-4 border border-gray-100 hover:bg-gray-100 transition-colors">
-                                                                    <div className="flex items-start justify-between gap-2">
-                                                                        <div className="flex-1">
-                                                                            <div className="flex items-center gap-2 flex-wrap">
-                                                                                <p className="font-semibold text-gray-900">{apt.patientInfo?.fullName || apt.patient?.fullName || 'Nome não informado'}</p>
-                                                                                <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full text-[10px] font-bold">⭐ 1ª Visita</span>
-                                                                            </div>
-                                                                            <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
-                                                                                <span>📞 {apt.patientInfo?.phone || apt.patient?.phone || 'Sem telefone'}</span>
-                                                                                <span>📅 {apt.date ? new Date(apt.date).toLocaleDateString('pt-BR') : ''} {apt.time}</span>
-                                                                            </div>
-                                                                            <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                                                                <span className="text-xs text-gray-500">👤 {apt.doctor?.fullName || apt.professionalName || 'Profissional não informado'}</span>
-                                                                                {apt.specialty && <span className="bg-green-200 text-green-700 px-1.5 py-0.5 rounded-full text-[10px] uppercase font-medium">{apt.specialty}</span>}
-                                                                                {svcText && <span className="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full text-[10px] font-medium">{svcText}</span>}
-                                                                                {apt.billingType && <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${billingColor[apt.billingType] || 'bg-gray-100 text-gray-600'}`}>{apt.billingType === 'particular' ? 'Particular' : apt.billingType === 'convenio' ? 'Convênio' : apt.billingType}</span>}
-                                                                            </div>
-                                                                        </div>
-                                                                        <span className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${apt.operationalStatus === 'pre_agendado' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}`}>
-                                                                            {apt.operationalStatus === 'pre_agendado' ? 'Pré-agendado' : 'Agendado'}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl text-sm text-gray-600 text-center">
-                                                <strong>{leads.length}</strong> paciente{leads.length !== 1 ? 's' : ''} novo{leads.length !== 1 ? 's' : ''} {isRangeActive ? 'no período' : 'hoje'}
-                                            </div>
+                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setNewPatientsModalOpen(false)}>
+                                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                                    <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                                        <div>
+                                            <h3 className="text-xl font-bold text-gray-900">Pré-agendados Novos</h3>
+                                            <p className="text-sm text-gray-500 mt-1">{isRangeActive && dateRange ? formatDateRange(dateRange) : format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })}</p>
                                         </div>
+                                        <button onClick={() => setNewPatientsModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
                                     </div>
-                                )}
-
-                                {/* Modal: Novos na Especialidade */}
-                                {newSpecialtyModalOpen && (() => {
-                                    const novosEsp = analyticsData?.novosEspecialidade || [];
-                                    return (
-                                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setNewSpecialtyModalOpen(false)}>
-                                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                                                <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                                                    <div>
-                                                        <h3 className="text-xl font-bold text-gray-900">Novos na Especialidade</h3>
-                                                        <p className="text-sm text-gray-500 mt-1">{isRangeActive && dateRange ? formatDateRange(dateRange) : format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })}</p>
-                                                    </div>
-                                                    <button onClick={() => setNewSpecialtyModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
-                                                </div>
-                                                <div className="overflow-y-auto p-6">
-                                                    {novosEsp.length === 0 ? (
-                                                        <p className="text-center text-gray-500 py-8">Nenhum paciente com nova especialidade {isRangeActive ? 'no período' : 'hoje'}.</p>
-                                                    ) : (
-                                                        <div className="space-y-3">
-                                                            {novosEsp.map((apt: any) => {
-                                                                const svcText = apt.serviceType ? ({
-                                                                    'evaluation': 'Avaliação', 'session': 'Sessão', 'package_session': 'Sessão Pacote',
-                                                                    'tongue_tie_test': 'Teste Linguinha', 'neuropsych_evaluation': 'Aval. Neuropsic.',
-                                                                    'individual_session': 'Sessão Avulsa', 'package': 'Pacote'
-                                                                }[apt.serviceType] || apt.serviceType) : null;
-                                                                const billingColor: Record<string, string> = { particular: 'bg-blue-100 text-blue-700', convenio: 'bg-purple-100 text-purple-700', liminar: 'bg-orange-100 text-orange-700', package: 'bg-indigo-100 text-indigo-700' };
-                                                                return (
-                                                                    <div key={apt._id} className="bg-gray-50 rounded-lg p-4 border border-gray-100 hover:bg-gray-100 transition-colors">
-                                                                        <div className="flex items-start justify-between gap-2">
-                                                                            <div className="flex-1">
-                                                                                <div className="flex items-center gap-2 flex-wrap">
-                                                                                    <p className="font-semibold text-gray-900">{apt.patientInfo?.fullName || apt.patient?.fullName || 'Nome não informado'}</p>
-                                                                                    <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full text-[10px] font-bold">✨ Nova Especialidade</span>
-                                                                                </div>
-                                                                                <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
-                                                                                    <span>📞 {apt.patientInfo?.phone || apt.patient?.phone || 'Sem telefone'}</span>
-                                                                                    <span>📅 {apt.date ? new Date(apt.date).toLocaleDateString('pt-BR') : ''} {apt.time}</span>
-                                                                                </div>
-                                                                                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                                                                    <span className="text-xs text-gray-500">👤 {apt.doctor?.fullName || apt.professionalName || 'Profissional não informado'}</span>
-                                                                                    {apt.specialty && <span className="bg-green-200 text-green-700 px-1.5 py-0.5 rounded-full text-[10px] uppercase font-medium">{apt.specialty}</span>}
-                                                                                    {svcText && <span className="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full text-[10px] font-medium">{svcText}</span>}
-                                                                                    {apt.billingType && <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${billingColor[apt.billingType] || 'bg-gray-100 text-gray-600'}`}>{apt.billingType === 'particular' ? 'Particular' : apt.billingType === 'convenio' ? 'Convênio' : apt.billingType}</span>}
-                                                                                </div>
-                                                                            </div>
-                                                                            <span className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${apt.operationalStatus === 'pre_agendado' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}`}>
-                                                                                {apt.operationalStatus === 'pre_agendado' ? 'Pré-agendado' : 'Agendado'}
-                                                                            </span>
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })}
+                                    <div className="overflow-y-auto p-6">
+                                        {leads.length === 0 ? (
+                                            <p className="text-center text-gray-500 py-8">Nenhum pré-agendado novo encontrado.</p>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {leads.map((apt: any) => (
+                                                    <div key={apt._id} className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                    <p className="font-semibold text-gray-900">{apt.patientInfo?.fullName || apt.patient?.fullName || 'Nome não informado'}</p>
+                                                                    <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full text-[10px] font-bold">⭐ 1ª Visita</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
+                                                                    <span>📞 {apt.patientInfo?.phone || apt.patient?.phone || 'Sem telefone'}</span>
+                                                                    <span>📅 {apt.date ? new Date(apt.date).toLocaleDateString('pt-BR') : ''} {apt.time}</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                                                    <span className="text-xs text-gray-500">👤 {apt.doctor?.fullName || apt.professionalName || 'Profissional não informado'}</span>
+                                                                    {apt.specialty && <span className="bg-green-200 text-green-700 px-1.5 py-0.5 rounded-full text-[10px] uppercase font-medium">{apt.specialty}</span>}
+                                                                    {apt.serviceType && <span className="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full text-[10px] font-medium">{svcLabel[apt.serviceType] || apt.serviceType}</span>}
+                                                                    {apt.billingType && <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${billingColor[apt.billingType] || 'bg-gray-100 text-gray-600'}`}>{apt.billingType === 'particular' ? 'Particular' : apt.billingType === 'convenio' ? 'Convênio' : apt.billingType}</span>}
+                                                                </div>
+                                                            </div>
+                                                            <span className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${apt.operationalStatus === 'pre_agendado' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                                {apt.operationalStatus === 'pre_agendado' ? 'Pré-agendado' : 'Agendado'}
+                                                            </span>
                                                         </div>
-                                                    )}
-                                                </div>
-                                                <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl text-sm text-gray-600 text-center">
-                                                    <strong>{novosEsp.length}</strong> paciente{novosEsp.length !== 1 ? 's' : ''} com nova especialidade {isRangeActive ? 'no período' : 'hoje'}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
-
-                                {/* Modal: Atendidos {periodTitle} */}
-                                {attendanceModalOpen && (() => {
-                                    const all = analyticsData?.all || [];
-                                    const atendidos = all.filter((a: any) => a.operationalStatus === 'completed');
-                                    return (
-                                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setAttendanceModalOpen(false)}>
-                                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                                                <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                                                    <div>
-                                                        <h3 className="text-xl font-bold text-gray-900">Atendidos {periodTitle}</h3>
-                                                        <p className="text-sm text-gray-500 mt-1">{isRangeActive && dateRange ? formatDateRange(dateRange) : format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })}</p>
                                                     </div>
-                                                    <button onClick={() => setAttendanceModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
-                                                </div>
-                                                <div className="overflow-y-auto p-6">
-                                                    {atendidos.length === 0 ? (
-                                                        <p className="text-center text-gray-500 py-8">Nenhum atendimento realizado {isRangeActive ? 'no período' : 'hoje'}.</p>
-                                                    ) : (
-                                                        <div className="space-y-3">
-                                                            {atendidos.map((apt: any) => {
-                                                                const svcText = apt.serviceType ? ({
-                                                                    'evaluation': 'Avaliação', 'session': 'Sessão', 'package_session': 'Sessão Pacote',
-                                                                    'tongue_tie_test': 'Teste Linguinha', 'neuropsych_evaluation': 'Aval. Neuropsic.',
-                                                                    'individual_session': 'Sessão Avulsa', 'package': 'Pacote'
-                                                                }[apt.serviceType] || apt.serviceType) : null;
-                                                                const billingColor: Record<string, string> = { particular: 'bg-blue-100 text-blue-700', convenio: 'bg-purple-100 text-purple-700', liminar: 'bg-orange-100 text-orange-700', package: 'bg-indigo-100 text-indigo-700' };
-                                                                return (
-                                                                    <div key={apt._id} className="bg-gray-50 rounded-lg p-4 border border-gray-100 hover:bg-gray-100 transition-colors">
-                                                                        <div className="flex items-start justify-between gap-2">
-                                                                            <div className="flex-1">
-                                                                                <div className="flex items-center gap-2 flex-wrap">
-                                                                                    <p className="font-semibold text-gray-900">{apt.patientInfo?.fullName || apt.patient?.fullName || 'Nome não informado'}</p>
-                                                                                    <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full text-[10px] font-bold">✓ Atendido</span>
-                                                                                </div>
-                                                                                <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
-                                                                                    <span>📅 {apt.date ? new Date(apt.date).toLocaleDateString('pt-BR') : ''} {apt.time}</span>
-                                                                                </div>
-                                                                                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                                                                    <span className="text-xs text-gray-500">👤 {apt.doctor?.fullName || apt.professionalName || 'Profissional não informado'}</span>
-                                                                                    {apt.specialty && <span className="bg-green-200 text-green-700 px-1.5 py-0.5 rounded-full text-[10px] uppercase font-medium">{apt.specialty}</span>}
-                                                                                    {svcText && <span className="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full text-[10px] font-medium">{svcText}</span>}
-                                                                                    {apt.billingType && <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${billingColor[apt.billingType] || 'bg-gray-100 text-gray-600'}`}>{apt.billingType === 'particular' ? 'Particular' : apt.billingType === 'convenio' ? 'Convênio' : apt.billingType}</span>}
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="p-4 border-t border-gray-100 text-center text-sm text-gray-500">
-                                                    {atendidos.length} atendimento{atendidos.length !== 1 ? 's' : ''} realizado{atendidos.length !== 1 ? 's' : ''} {isRangeActive ? 'no período' : 'hoje'}
-                                                </div>
+                                                ))}
                                             </div>
+                                        )}
+                                    </div>
+                                    <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl text-sm text-gray-600 text-center">
+                                        <strong>{leads.length}</strong> paciente{leads.length !== 1 ? 's' : ''} novo{leads.length !== 1 ? 's' : ''} {isRangeActive ? 'no período' : 'hoje'}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* Modal: Novos na Especialidade */}
+                    {newSpecialtyModalOpen && (() => {
+                        const novosEsp = analyticsData?.novosEspecialidade || [];
+                        const svcLabel: Record<string, string> = { evaluation: 'Avaliação', session: 'Sessão', package_session: 'Sessão Pacote', tongue_tie_test: 'Teste Linguinha', neuropsych_evaluation: 'Aval. Neuropsic.', individual_session: 'Sessão Avulsa', package: 'Pacote' };
+                        const billingColor: Record<string, string> = { particular: 'bg-blue-100 text-blue-700', convenio: 'bg-purple-100 text-purple-700', liminar: 'bg-orange-100 text-orange-700', package: 'bg-indigo-100 text-indigo-700' };
+                        return (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setNewSpecialtyModalOpen(false)}>
+                                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                                    <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                                        <div>
+                                            <h3 className="text-xl font-bold text-gray-900">Novos na Especialidade</h3>
+                                            <p className="text-sm text-gray-500 mt-1">{isRangeActive && dateRange ? formatDateRange(dateRange) : format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })}</p>
                                         </div>
-                                    );
-                                })()}
+                                        <button onClick={() => setNewSpecialtyModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
+                                    </div>
+                                    <div className="overflow-y-auto p-6">
+                                        {novosEsp.length === 0 ? (
+                                            <p className="text-center text-gray-500 py-8">Nenhum paciente com nova especialidade {isRangeActive ? 'no período' : 'hoje'}.</p>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {novosEsp.map((apt: any) => (
+                                                    <div key={apt._id} className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                    <p className="font-semibold text-gray-900">{apt.patientInfo?.fullName || apt.patient?.fullName || 'Nome não informado'}</p>
+                                                                    <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full text-[10px] font-bold">✨ Nova Especialidade</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
+                                                                    <span>📞 {apt.patientInfo?.phone || apt.patient?.phone || 'Sem telefone'}</span>
+                                                                    <span>📅 {apt.date ? new Date(apt.date).toLocaleDateString('pt-BR') : ''} {apt.time}</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                                                    <span className="text-xs text-gray-500">👤 {apt.doctor?.fullName || apt.professionalName || 'Profissional não informado'}</span>
+                                                                    {apt.specialty && <span className="bg-green-200 text-green-700 px-1.5 py-0.5 rounded-full text-[10px] uppercase font-medium">{apt.specialty}</span>}
+                                                                    {apt.serviceType && <span className="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full text-[10px] font-medium">{svcLabel[apt.serviceType] || apt.serviceType}</span>}
+                                                                    {apt.billingType && <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${billingColor[apt.billingType] || 'bg-gray-100 text-gray-600'}`}>{apt.billingType === 'particular' ? 'Particular' : apt.billingType === 'convenio' ? 'Convênio' : apt.billingType}</span>}
+                                                                </div>
+                                                            </div>
+                                                            <span className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${apt.operationalStatus === 'pre_agendado' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                                {apt.operationalStatus === 'pre_agendado' ? 'Pré-agendado' : 'Agendado'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl text-sm text-gray-600 text-center">
+                                        <strong>{novosEsp.length}</strong> paciente{novosEsp.length !== 1 ? 's' : ''} com nova especialidade {isRangeActive ? 'no período' : 'hoje'}
+                                    </div>
+                                </div>
                             </div>
                         );
                     })()}
