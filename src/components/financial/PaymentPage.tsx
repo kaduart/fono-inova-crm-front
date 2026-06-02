@@ -357,7 +357,7 @@ export const PatientsSummaryCard = ({
                                                     <div className="flex items-center gap-2 flex-wrap">
                                                         <p className="font-semibold text-gray-900">{apt.patientInfo?.fullName || apt.patient?.fullName || 'Nome não informado'}</p>
                                                         {apt.isFirstVisit && (
-                                                            <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full text-[10px] font-bold">⭐ 1ª Visita</span>
+                                                            <span className="bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-full text-[10px] font-bold">⭐ 1ª Visita</span>
                                                         )}
                                                         {apt.isReturningAfter45Days && !apt.isFirstVisit && (
                                                             <span className="bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-full text-[10px] font-bold">↩ Retorno 45d+</span>

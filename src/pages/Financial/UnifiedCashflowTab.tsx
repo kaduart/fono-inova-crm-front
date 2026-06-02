@@ -773,7 +773,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                             <div className="flex-1">
                                                                 <div className="flex items-center gap-2 flex-wrap">
                                                                     <p className="font-semibold text-gray-900">{apt.patientInfo?.fullName || apt.patient?.fullName || 'Nome não informado'}</p>
-                                                                    <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full text-[10px] font-bold">⭐ 1ª Visita</span>
+                                                                    <span className="bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-full text-[10px] font-bold">⭐ 1ª Visita</span>
                                                                 </div>
                                                                 <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
                                                                     <span>📞 {apt.patientInfo?.phone || apt.patient?.phone || 'Sem telefone'}</span>
@@ -1029,6 +1029,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                             : t.tipo === 'Liminar' ? 'Judicial'
                                             : (t as any).isPackageSale ? 'Pré-antecipado'
                                             : t.tipo === 'Pacote' && (t as any).paymentModel === 'prepaid' ? 'Pré-pago'
+                                            : (t as any).isPrepago ? 'Pré-pago'
                                             : 'Pago na Sessão';
                                         const situacaoCls = situacao === 'Pré-pago' || situacao === 'Pré-antecipado' ? 'bg-indigo-100 text-indigo-700'
                                             : situacao === 'Pago na Sessão' ? 'bg-emerald-100 text-emerald-700'
@@ -1308,7 +1309,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                     <div className="flex items-center gap-1.5 flex-wrap">
                                                                                         <span className="text-[15px] font-semibold text-gray-900">{a.patientInfo?.fullName || a.patient?.fullName || '-'}</span>
                                                                                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${sc.badge}`}>{sc.label}</span>
-                                                                                        {isNew && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 shrink-0">1ª vez</span>}
+                                                                                        {isNew && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 shrink-0">1ª vez</span>}
                                                                                     </div>
                                                                                     <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
                                                                                         <span className="text-xs text-gray-500">{[a.professionalName, a.specialty].filter(Boolean).join(' / ')}</span>

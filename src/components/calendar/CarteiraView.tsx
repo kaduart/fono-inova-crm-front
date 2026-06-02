@@ -13,6 +13,7 @@ import {
 import { AlertTriangle, Calendar, Ghost, MessageCircle, Sparkles, TrendingUp, UserCheck, Users } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { useRetention, RetentionLifecycle, RetentionPatient } from '../../hooks/useRetention';
+import { useDoctorsContext } from '../../contexts/DoctorsContext';
 import { IDoctor } from '../../utils/types/types';
 
 // ─── Configuração visual de cada lifecycle ────────────────────────────────────
@@ -235,13 +236,16 @@ function PatientCard({ patient }: { patient: RetentionPatient }) {
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 interface CarteiraViewProps {
-  doctors: IDoctor[];
-  currentMonth: string; // "YYYY-MM"
+  doctors?: IDoctor[];
+  currentMonth?: string;
 }
 
 type LifecycleFilter = 'todos' | RetentionLifecycle | 'orphan';
 
-export default function CarteiraView({ doctors, currentMonth }: CarteiraViewProps) {
+export default function CarteiraView({ doctors: doctorsProp, currentMonth: currentMonthProp }: CarteiraViewProps) {
+  const { doctors: doctorsCtx } = useDoctorsContext();
+  const doctors = doctorsProp ?? (doctorsCtx as unknown as IDoctor[]);
+  const currentMonth = currentMonthProp ?? new Date().toISOString().slice(0, 7);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
   const [lifecycleFilter, setLifecycleFilter] = useState<LifecycleFilter>('todos');
 
