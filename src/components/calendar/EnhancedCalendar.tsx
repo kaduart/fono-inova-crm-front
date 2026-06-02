@@ -7,6 +7,7 @@ import { ptBR } from "date-fns/locale";
 import { AlertCircle, Calendar, CheckCircle, Clock, DollarSign, Plus, User, XCircle } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { getSpecialtyLabel } from '../../constants/specialties';
 import { INSURANCE_PROVIDERS } from '../../constants/insuranceProviders';
 import { OPERATIONAL_STATUS_CONFIG, StatusConfig } from '../../services/appointmentService';
 import { IAppointment, IDoctor, IPatient, ScheduleAppointment, SelectedEvent } from '../../utils/types/types';
@@ -780,17 +781,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         };
         const serviceLabel = SERVICE_TYPE_LABELS[serviceType] || serviceType;
 
-        const SPECIALTY_LABELS: Record<string, string> = {
-            'fonoaudiologia': 'Fonoaudiologia',
-            'neuroped': 'Neuropediatra',
-            'neuropsicologia': 'Neuropsicologia',
-            'psicologia': 'Psicologia',
-            'nutricao': 'Nutrição',
-            'psiquiatria': 'Psiquiatria',
-            'pediatria': 'Pediatria',
-            'geral': 'Clínico Geral',
-        };
-        const specialtyLabel = SPECIALTY_LABELS[specialty] || specialty;
+        const specialtyLabel = getSpecialtyLabel(specialty);
 
         const billingType = appointment.billingType;
         const insuranceProvider = appointment.insuranceProvider;
@@ -1124,17 +1115,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         };
         const serviceLabel = SERVICE_TYPE_LABELS[serviceType] || serviceType;
 
-        const SPECIALTY_LABELS: Record<string, string> = {
-            'fonoaudiologia': 'Fonoaudiologia',
-            'neuroped': 'Neuropediatra',
-            'neuropsicologia': 'Neuropsicologia',
-            'psicologia': 'Psicologia',
-            'nutricao': 'Nutrição',
-            'psiquiatria': 'Psiquiatria',
-            'pediatria': 'Pediatria',
-            'geral': 'Clínico Geral',
-        };
-        const specialtyLabel = SPECIALTY_LABELS[specialty] || specialty;
+        const specialtyLabel = getSpecialtyLabel(specialty);
 
         // 🆕 DADOS DE CONVÊNIO
         const billingType = arg.event.extendedProps.billingType;

@@ -46,6 +46,7 @@ import {
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import InputCurrency from '../../../components/ui/InputCurrency';
+import { getSpecialtyLabel } from '../../../constants/specialties';
 import { PatientAccordionSection } from './PatientAccordionSection';
 import ConvenioManagerModal from '../components/ConvenioManagerModal';
 import doctorService from '../../../services/doctorService';
@@ -213,20 +214,6 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             grouped[specialty].push(payment);
         });
         return grouped;
-    };
-
-    const getSpecialtyLabel = (specialty: string) => {
-        const labels: Record<string, string> = {
-            fonoaudiologia: 'Fonoaudiologia',
-            psicologia: 'Psicologia',
-            terapia_ocupacional: 'Terapia Ocupacional',
-            fisioterapia: 'Fisioterapia',
-            psicomotricidade: 'Psicomotricidade',
-            musicoterapia: 'Musicoterapia',
-            psicopedagogia: 'Psicopedagogia',
-            neuropsicologia: 'Neuropsicologia'
-        };
-        return labels[specialty] || specialty;
     };
 
     useEffect(() => {

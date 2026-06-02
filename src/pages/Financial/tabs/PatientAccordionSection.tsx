@@ -88,17 +88,7 @@ const formatDateBR = (dateString: string): string => {
     return `${day}/${month}/${year}`;
 };
 
-const SPECIALTY_LABELS: Record<string, string> = {
-    fonoaudiologia: 'Fonoaudiologia',
-    psicologia: 'Psicologia',
-    terapia_ocupacional: 'Terapia Ocupacional',
-    fisioterapia: 'Fisioterapia',
-    psicomotricidade: 'Psicomotricidade',
-    musicoterapia: 'Musicoterapia',
-    psicopedagogia: 'Psicopedagogia',
-    neuropsicologia: 'Neuropsicologia',
-    'N/A': 'Outros'
-};
+import { getSpecialtyLabel } from '../../../constants/specialties';
 
 export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = ({
     patient,
@@ -223,7 +213,7 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
                                 value={specialty}
                                 label={
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <span>{SPECIALTY_LABELS[specialty] || specialty}</span>
+                                        <span>{getSpecialtyLabel(specialty)}</span>
                                         <Chip 
                                             size="small" 
                                             label={groupedBySpecialty[specialty].length}

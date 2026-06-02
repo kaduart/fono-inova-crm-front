@@ -1,18 +1,8 @@
+import { getSpecialtyLabel } from '../../constants/specialties';
 import { TherapeuticPlan } from '../../services/liminarContractService';
 
 const DAY_LABELS: Record<number, string> = {
   0: 'Dom', 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sáb',
-};
-
-const SPECIALTY_LABELS: Record<string, string> = {
-  fonoaudiologia: 'Fonoaudiologia',
-  terapia_ocupacional: 'Terapia Ocupacional',
-  psicologia: 'Psicologia',
-  fisioterapia: 'Fisioterapia',
-  psicomotricidade: 'Psicomotricidade',
-  musicoterapia: 'Musicoterapia',
-  psicopedagogia: 'Psicopedagogia',
-  neuropediatria: 'Neuropediatria',
 };
 
 interface Props {
@@ -38,7 +28,7 @@ export default function PlanView({ plan, onSpecialtyClick }: Props) {
           }`}
         >
           <p className="text-sm font-semibold text-green-800 mb-1.5">
-            {SPECIALTY_LABELS[specialty] ?? specialty}
+            {getSpecialtyLabel(specialty)}
             <span className="ml-2 text-xs font-normal text-gray-500">
               R$ {Number(config.sessionValue).toFixed(2)}/sessão
             </span>

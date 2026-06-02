@@ -42,18 +42,7 @@ const WEEKDAY_LABELS: Record<number, string> = {
 };
 const WEEKDAY_ORDER = [2, 3, 4, 5, 6];
 
-const SPECIALTY_LABELS: Record<string, string> = {
-  fonoaudiologia:      'Fonoaudiologia',
-  terapia_ocupacional: 'Terapia Ocupacional',
-  psicologia:          'Psicologia',
-  fisioterapia:        'Fisioterapia',
-  pediatria:           'Pediatria',
-  neuroped:            'Neuropediatria',
-  psicomotricidade:    'Psicomotricidade',
-  musicoterapia:       'Musicoterapia',
-  psicopedagogia:      'Psicopedagogia',
-  aba:                 'ABA',
-};
+import { getSpecialtyLabel } from '../../constants/specialties';
 
 const GRID_COLS = '44px repeat(5, 1fr)';
 const TOTAL_DAILY_SLOTS = 16;
@@ -634,7 +623,7 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
             >
               <MenuItem value="">Todas</MenuItem>
               {specialties.map(sp => (
-                <MenuItem key={sp} value={sp}>{SPECIALTY_LABELS[sp] ?? sp}</MenuItem>
+                <MenuItem key={sp} value={sp}>{getSpecialtyLabel(sp)}</MenuItem>
               ))}
             </Select>
           </FormControl>

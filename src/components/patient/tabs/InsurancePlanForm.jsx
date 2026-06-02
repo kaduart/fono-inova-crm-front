@@ -19,10 +19,9 @@ import { format } from 'date-fns';
 import API from '../../../services/api';
 import { toast } from 'react-hot-toast';
 
-const VALID_SPECIALTIES = [
-  'fonoaudiologia', 'psicologia', 'fisioterapia', 'terapia_ocupacional', 'neuropsicologia',
-  'psicopedagogia', 'psicomotricidade', 'musicoterapia', 'neuropsicologia'
-];
+import { SPECIALTY_VALUES } from '../../../constants/specialties';
+
+const VALID_SPECIALTIES = SPECIALTY_VALUES;
 
 const DAYS = [
   { value: 1, label: 'Segunda' },

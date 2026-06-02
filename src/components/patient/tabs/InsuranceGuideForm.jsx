@@ -4,16 +4,9 @@ import { useForm, Controller } from 'react-hook-form';
 import { Save, X, FileText, Shield, AlertTriangle, Info } from 'lucide-react';
 import { format, addMonths } from 'date-fns';
 
-const VALID_SPECIALTIES = [
-  { value: 'fonoaudiologia',      label: 'Fonoaudiologia' },
-  { value: 'psicologia',          label: 'Psicologia' },
-  { value: 'fisioterapia',        label: 'Fisioterapia' },
-  { value: 'terapia_ocupacional', label: 'Terapia Ocupacional' },
-  { value: 'psicopedagogia',      label: 'Psicopedagogia' },
-  { value: 'psicomotricidade',    label: 'Psicomotricidade' },
-  { value: 'musicoterapia',       label: 'Musicoterapia' },
-  { value: 'neuropsicologia',     label: 'Neuropsicologia' },
-];
+import { SPECIALTY_OPTIONS } from '../../../constants/specialties';
+
+const VALID_SPECIALTIES = SPECIALTY_OPTIONS;
 
 const VALID_INSURANCES = [
   { value: 'unimed-anapolis', label: 'Unimed Anápolis' },

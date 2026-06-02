@@ -29,6 +29,13 @@ export type Doctor = {
   phoneNumber: string;
   active: string;
   role: DoctorRole;
+  status?: 'ativo' | 'ferias' | 'afastado' | 'inativo';
+  maxSlots?: number;
+  patients?: number;
+  weeklySessions?: number;
+  monthlySessions?: number;
+  occupancy?: number;
+  deactivatedAt?: string;
   weeklyAvailability?: Array<{ day: string; times: string[] }>;
   createdAt?: string;
   updatedAt?: string;
@@ -94,6 +101,11 @@ export const doctorService = {
 
   async getInactiveDoctors(): Promise<{ data: Doctor[] }> {
     const response = await API.get<ListDoctorsResponse>('/v2/doctors?status=inactive');
+    return { data: response.data.data.doctors };
+  },
+
+  async getDoctorsWithStats(status?: 'active' | 'inactive' | 'all'): Promise<{ data: Doctor[] }> {
+    const response = await API.get<{ success: boolean; data: { doctors: Doctor[] } }>(`/v2/doctors/stats?status=${status || 'all'}`);
     return { data: response.data.data.doctors };
   },
 

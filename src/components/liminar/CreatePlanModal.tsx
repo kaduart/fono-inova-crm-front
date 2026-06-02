@@ -7,15 +7,17 @@ import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 
+import { getSpecialtyLabel } from '../../constants/specialties';
+
 const SPECIALTIES = [
-  { value: 'fonoaudiologia', label: 'Fonoaudiologia' },
-  { value: 'terapia_ocupacional', label: 'Terapia Ocupacional' },
-  { value: 'psicologia', label: 'Psicologia' },
-  { value: 'fisioterapia', label: 'Fisioterapia' },
-  { value: 'psicomotricidade', label: 'Psicomotricidade' },
-  { value: 'musicoterapia', label: 'Musicoterapia' },
-  { value: 'psicopedagogia', label: 'Psicopedagogia' },
-  { value: 'neuropediatria', label: 'Neuropediatria' },
+  { value: 'fonoaudiologia', label: getSpecialtyLabel('fonoaudiologia') },
+  { value: 'terapia_ocupacional', label: getSpecialtyLabel('terapia_ocupacional') },
+  { value: 'psicologia', label: getSpecialtyLabel('psicologia') },
+  { value: 'fisioterapia', label: getSpecialtyLabel('fisioterapia') },
+  { value: 'psicomotricidade', label: getSpecialtyLabel('psicomotricidade') },
+  { value: 'musicoterapia', label: getSpecialtyLabel('musicoterapia') },
+  { value: 'psicopedagogia', label: getSpecialtyLabel('psicopedagogia') },
+  { value: 'neuropediatria', label: getSpecialtyLabel('neuropediatria') },
 ];
 
 const WEEKDAYS = [
