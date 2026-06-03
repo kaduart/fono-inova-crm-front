@@ -135,9 +135,7 @@ const AppRoutes: React.FC = () => {
     const location = useLocation();
     const [searchParams] = useSearchParams();
 
-    // 🔄 Loading de auth é tratado pelo LoadingOverlay no App.tsx
-    // Não renderiza nada aqui para evitar duplo loading
-    if (isLoading) return null;
+    if (isLoading) return <PageLoader />;
 
     // 🔒 Protege domínio - redireciona para o domínio oficial se necessário
     const APP_URL = import.meta.env.VITE_APP_URL || 'https://app.clinicafonoinova.com.br';

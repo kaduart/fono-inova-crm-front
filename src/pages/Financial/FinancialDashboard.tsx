@@ -39,7 +39,13 @@ const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) 
             });
           }
           
-          console.error('[FinancialDashboard] Chunk failed after all retries. NOT reloading — check build output.', error);
+          const reloadKey = 'chunk_reload_attempted';
+          const alreadyReloaded = sessionStorage.getItem(reloadKey);
+          if (!alreadyReloaded) {
+            sessionStorage.setItem(reloadKey, '1');
+            window.location.reload();
+          }
+          console.error('[FinancialDashboard] Chunk failed after all retries + reload.', error);
           throw error;
         }
         
