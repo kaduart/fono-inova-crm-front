@@ -182,17 +182,17 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   const insuranceLoaded = useRef<string>('');
 
   // Carrega dados principais ao montar ou mudar mês/ano
+  // 🎯 Débitos totais: carrega UMA VEZ na montagem (não depende de mês/ano)
+  useEffect(() => {
+    fetchDebitosTotal();
+  }, [fetchDebitosTotal]);
+
   useEffect(() => {
     // Reseta flag de convênio para forçar re-fetch quando mês mudar
     insuranceLoaded.current = '';
-    // Carrega débito total na montagem para exibir no card sem precisar clicar
-    debitosTotalLoaded.current = false;
     // Paraleliza as duas requisições independentes
-    Promise.all([
-      fetchDashboard(month, year),
-      fetchDebitosTotal()
-    ]);
-  }, [month, year, fetchDashboard, fetchDebitosTotal]);
+    fetchDashboard(month, year);
+  }, [month, year, fetchDashboard]);
 
   // Lazy: só busca convênios quando o tab que os usa estiver ativo
   useEffect(() => {
@@ -214,12 +214,21 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     return () => window.removeEventListener('cash:refresh', handleCashRefresh);
   }, [month, year, fetchDashboard]);
 
+  // 🎯 Variáveis derivadas — devem ficar ANTES do ritmoCardEl (evita TDZ)
+  const totalCaixa = data?.cash?.total ?? 0;
+  const totalProducao = data?.revenue?.total ?? 0;
+  const liminarAReceber = data ? Math.max(0, (data.revenue?.byMethod?.liminar || 0) - (data.cash?.breakdown?.liminar || 0)) : 0;
+  const totalRecebimentoProducao = data?.recebimentoProducao?.total ?? 0;
+  const totalRetroativos = data?.retroativos ?? 0;
+  const totalAReceberProducao = data?.aReceberProducao ?? 0;
+
   // 🎯 RITMO OPERACIONAL — deve ficar ANTES dos early returns (Rules of Hooks)
   const ritmoCardEl = useMemo(() => {
     const metas = data?.metas;
     if (!metas?.ritmo) return null;
     const pctEsperado = metas.ritmo.percentualEsperado ?? 0;
-    const pctRealizado = metas.ritmo.percentualRealizado ?? 0;
+    // 🎯 META PRINCIPAL = PRODUÇÃO
+    const pctRealizado = metas.camadas?.producao?.percentual ?? metas.ritmo.percentualRealizado ?? 0;
     const diff = pctRealizado - pctEsperado;
     const isAtrasado = diff < 0;
     const bgClass = getMetaBg(metas.statusMeta || 'vermelho');
@@ -250,16 +259,18 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                 <span>Resultado econômico acumulado</span>
                 <span>Meta mensal</span>
               </div>
-              <p className="text-xs text-gray-400 mt-1.5">Baseado em dinheiro recebido (regime de caixa). Meta = Caixa, não Produção. Retroativos são contabilizados.</p>
+              <p className="text-xs text-gray-400 mt-1.5">Baseado em produção realizada (sessões completadas). Meta = Produção, não Caixa. Retroativos são contabilizados.</p>
             </div>
           </div>
           <div className="space-y-2">
-            <MetricRow label="Esperado até hoje (caixa)" value={formatCurrency(metas.ritmo.esperadoAteAgora ?? 0)} />
-            <MetricRow label="Caixa realizado" value={formatCurrency(metas.ritmo.realizadoAteAgora ?? 0)} />
+            <MetricRow label="Esperado até hoje (produção)" value={formatCurrency(metas.ritmo.esperadoAteAgora ?? 0)} />
+            {/* 🎯 Produção vem da API — não recalcula */}
+            <MetricRow label="Produção realizada" value={formatCurrency(metas.camadas?.producao?.atingido ?? totalProducao)} />
+            <MetricRow label="Caixa realizado" value={formatCurrency(totalCaixa)} />
             <MetricRow
-              label="Diferença"
-              value={formatCurrency(metas.ritmo.diferenca ?? 0)}
-              valueColor={(metas.ritmo.diferenca ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}
+              label="Diferença produção"
+              value={formatCurrency((metas.camadas?.producao?.atingido ?? 0) - (metas.ritmo.esperadoAteAgora ?? 0))}
+              valueColor={((metas.camadas?.producao?.atingido ?? 0) - (metas.ritmo.esperadoAteAgora ?? 0)) >= 0 ? 'text-emerald-600' : 'text-rose-600'}
             />
             <MetricRow label="Gap diário necessário" value={formatCurrency(metas.gap?.porDia ?? 0)} />
           </div>
@@ -358,14 +369,9 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   if (!data || !resumo) return <div className="p-4 rounded-lg bg-sky-50 text-sky-700 border border-sky-200">Nenhum dado disponível</div>;
 
   const { cash, revenue, expenses, metas, profissionais, insights, comparativos, riscoOperacional, acoesExecutivas, drillDown, indicadores, convenioAReceber, particularPendente, pacotePendente, recebimentoProducao, retroativos, aReceberProducao } = data;
-  const totalCaixa = cash.total;
-  const totalProducao = revenue.total;
-  const liminarAReceber = Math.max(0, (revenue.byMethod.liminar || 0) - (cash.breakdown.liminar || 0));
-  const resultadoEconomico = totalProducao;
-  const totalRecebimentoProducao = recebimentoProducao?.total ?? 0;
-  const totalRetroativos = retroativos ?? Math.max(0, totalCaixa - totalRecebimentoProducao);
-  const totalAReceberProducao = aReceberProducao ?? Math.max(0, totalProducao - totalRecebimentoProducao);
-
+  // ─── 🎯 APENAS RENDERIZAR — nenhum recálculo semântico aqui ───
+  // Todos os valores abaixo vêm PRONTOS da API. Frontend não recalcula.
+  // NOTA: totalCaixa/totalProducao já declarados acima (antes do ritmoCardEl) para evitar TDZ.
 
   const renderVisaoGeral = () => (
     <div>
@@ -379,6 +385,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           <div className="flex items-center gap-2 mb-1">
             <Briefcase size={16} className="text-blue-600" />
             <span className="text-xs font-black uppercase tracking-widest text-blue-600">Produção Clínica</span>
+            <Info size={12} className="text-blue-400 cursor-help" title="Sessões atendidas (status=completed) + convênios completados. NÃO é caixa recebido." />
           </div>
           <div className="text-4xl font-black text-gray-900 my-2">{formatCurrency(totalProducao)}</div>
           <p className="text-xs text-gray-500">Tudo que foi atendido neste mês</p>
@@ -395,6 +402,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           <div className="flex items-center gap-2 mb-1">
             <CheckCircle2 size={16} className="text-emerald-600" />
             <span className="text-xs font-black uppercase tracking-widest text-emerald-600">Recebido da Produção</span>
+            <Info size={12} className="text-emerald-400 cursor-help" title="Parcela da produção deste mês que já virou caixa (pagamentos recebidos)." />
           </div>
           <div className="text-4xl font-black text-gray-900 my-2">{formatCurrency(totalRecebimentoProducao)}</div>
           <p className="text-xs text-gray-500">Da produção deste mês já convertida em caixa</p>
@@ -414,6 +422,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           <div className="flex items-center gap-2 mb-1">
             <AlertTriangle size={16} className="text-amber-600" />
             <span className="text-xs font-black uppercase tracking-widest text-amber-600">A Receber</span>
+            <Info size={12} className="text-amber-400 cursor-help" title="Produção realizada mas ainda não paga. Pipeline legítimo de recebimento futuro." />
           </div>
           <div className="text-4xl font-black text-gray-900 my-2">{formatCurrency(totalAReceberProducao)}</div>
           <p className="text-xs text-gray-500">Produção realizada ainda não paga</p>
@@ -447,6 +456,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           <div className="flex items-center gap-2 mb-1">
             <DollarSign size={14} className="text-gray-500" />
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Caixa Total</span>
+            <Info size={12} className="text-gray-400 cursor-help" title="Todo dinheiro que entrou neste mês (regime de caixa). Inclui retroativos de meses anteriores." />
           </div>
           <div className="text-2xl font-black text-gray-900">{formatCurrency(totalCaixa)}</div>
           <p className="text-[11px] text-gray-400 mt-1">
@@ -491,21 +501,24 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
-          <h3 className="text-lg font-bold text-gray-800 mb-1">Projeção de Fechamento</h3>
-          <p className="text-xs text-gray-400 mb-3">Baseado em produção do mês (não em caixa)</p>
+          <h3 className="text-lg font-bold text-gray-800 mb-1">Projeção Esperada</h3>
+          <p className="text-xs text-gray-400 mb-3">Cenário conservador (não extrapolação linear)</p>
           <div className="flex items-center gap-3 mb-4">
             <div className={`w-12 h-12 rounded-full flex items-center justify-center ${metas?.projecao?.bateMeta ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
               {metas?.projecao?.bateMeta ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
             </div>
             <div>
-              <span className="text-2xl font-bold text-gray-900">{formatCurrency(metas?.projecao?.final ?? 0)}</span>
+              <span className="text-2xl font-bold text-gray-900">{formatCurrency(metas?.projecao?.esperada ?? metas?.projecao?.final ?? 0)}</span>
               <p className="text-sm text-gray-500">vs meta de {formatCurrency(metas?.configuracao?.metaMensal ?? 0)}</p>
             </div>
           </div>
           <div className={`p-3 rounded-lg ${metas?.projecao?.bateMeta ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'} text-sm`}>
             {metas?.projecao?.bateMeta
-              ? '✅ Projeção indica que a meta será atingida.'
+              ? '✅ Projeção esperada indica que a meta será atingida.'
               : `⚠️ Faltam ${formatCurrency(metas?.gap?.valor ?? 0)} para bater a meta com ${metas?.gap?.diasRestantes ?? 0} dias restantes.`}
+            {metas?.projecao?.bateMetaOtimista && !metas?.projecao?.bateMeta && (
+              <p className="mt-1 text-xs opacity-75">Cenário otimista (extrapolação): {formatCurrency(metas?.projecao?.final ?? 0)}</p>
+            )}
           </div>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
@@ -674,8 +687,9 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     if (!metas) return <div className="p-4 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">Dados de metas indisponíveis para este período.</div>;
 
     const metaValor        = metas.configuracao?.metaMensal ?? 0;
-    const pctRealizado     = metas.ritmo?.percentualRealizado ?? 0;
-    const metaRealizado    = metas.realizado?.mes ?? 0;
+    // 🎯 META PRINCIPAL = PRODUÇÃO — usa APENAS o que vem da API
+    const pctRealizado     = metas.camadas?.producao?.percentual ?? 0;
+    const metaRealizado    = metas.camadas?.producao?.atingido ?? totalProducao;
     const resultadoEcon    = metaRealizado;
     const caixaTotal       = cash?.total ?? 0;
     const producaoTotal    = revenue?.total ?? 0;
@@ -859,17 +873,17 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
 
           {/* CARD 3: Projeção Inteligente */}
           <div className="rounded-2xl border-2 p-4 shadow-sm" style={{ borderColor: metas?.projecao?.bateMeta ? '#10B981' : '#F59E0B', backgroundColor: metas?.projecao?.bateMeta ? '#F0FDF4' : '#FFFBEB' }}>
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Projeção de Fechamento</p>
-            <p className="text-3xl font-black text-gray-900 leading-tight mb-2">{formatCurrency(metas?.projecao?.final ?? 0)}</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Projeção Esperada (Conservadora)</p>
+            <p className="text-3xl font-black text-gray-900 leading-tight mb-2">{formatCurrency(metas?.projecao?.esperada ?? metas?.projecao?.final ?? 0)}</p>
             <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mb-3 ${metas?.projecao?.bateMeta ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
               {metas?.projecao?.bateMeta
-                ? `✅ +${formatCurrency((metas?.projecao?.final ?? 0) - metaValor)} acima da meta`
-                : `⚠️ ${formatCurrency(metaValor - (metas?.projecao?.final ?? 0))} abaixo da meta`}
+                ? `✅ +${formatCurrency((metas?.projecao?.esperada ?? 0) - metaValor)} acima da meta`
+                : `⚠️ ${formatCurrency(metaValor - (metas?.projecao?.esperada ?? 0))} abaixo da meta`}
             </div>
             <div className="space-y-1.5 border-t border-gray-200 pt-2">
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500">Ritmo atual</span>
-                <span className="font-black text-emerald-600">{formatCurrency(cash.today ?? metas?.realizado?.hoje ?? 0)}/dia</span>
+                <span className="font-black text-emerald-600">{formatCurrency(metas?.ritmo?.mediaDiariaAtual ?? 0)}/dia</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500">Necessário</span>
@@ -879,11 +893,11 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                 <span className="text-gray-500">Dias restantes</span>
                 <span className="font-bold text-gray-700">{metas?.gap?.diasRestantes ?? 0} dias</span>
               </div>
-              {(metas?.configuracao?.metaDiariaNecessaria ?? 0) > 0 && (cash.today ?? metas?.realizado?.hoje ?? 0) > 0 && (
-                <div className={`mt-2 text-center py-1 rounded-full text-[10px] font-black ${(cash.today ?? metas?.realizado?.hoje ?? 0) >= (metas?.configuracao?.metaDiariaNecessaria ?? 0) ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
-                  {(cash.today ?? metas?.realizado?.hoje ?? 0) >= (metas?.configuracao?.metaDiariaNecessaria ?? 0)
-                    ? `+${((((cash.today ?? metas?.realizado?.hoje ?? 0) / (metas?.configuracao?.metaDiariaNecessaria ?? 1)) - 1) * 100).toFixed(0)}% acima do necessário`
-                    : `${((((cash.today ?? metas?.realizado?.hoje ?? 0) / (metas?.configuracao?.metaDiariaNecessaria ?? 1)) - 1) * 100).toFixed(0)}% abaixo do necessário`}
+              {(metas?.configuracao?.metaDiariaNecessaria ?? 0) > 0 && (metas?.ritmo?.mediaDiariaAtual ?? 0) > 0 && (
+                <div className={`mt-2 text-center py-1 rounded-full text-[10px] font-black ${(metas?.ritmo?.mediaDiariaAtual ?? 0) >= (metas?.configuracao?.metaDiariaNecessaria ?? 0) ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
+                  {(metas?.ritmo?.mediaDiariaAtual ?? 0) >= (metas?.configuracao?.metaDiariaNecessaria ?? 0)
+                    ? `+${((((metas?.ritmo?.mediaDiariaAtual ?? 0) / (metas?.configuracao?.metaDiariaNecessaria ?? 1)) - 1) * 100).toFixed(0)}% acima do necessário`
+                    : `${((((metas?.ritmo?.mediaDiariaAtual ?? 0) / (metas?.configuracao?.metaDiariaNecessaria ?? 1)) - 1) * 100).toFixed(0)}% abaixo do necessário`}
                 </div>
               )}
             </div>
@@ -979,7 +993,9 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     const varDespesas = comparativos?.variacao?.despesas ?? 0;
 
     const metaMensal      = metas?.configuracao?.metaMensal ?? 0;
-    const pctMetaCaixa    = metaMensal > 0 ? Math.min(Math.round((totalCaixa / metaMensal) * 100), 100) : 0;
+    // 🎯 APENAS RENDERIZAR — percentuais vêm PRONTOS da API
+    const pctMetaProducao = Math.round(metas.camadas?.producao?.percentual ?? 0);
+    const pctMetaCaixa    = Math.round(metas.camadas?.caixa?.percentual ?? 0);
     const diffProdCaixa   = totalProducao - totalCaixa;
     const convenioAmount  = convenioAReceber || 0;
     const particularPend  = (data as any)?.particularPendente || 0;
@@ -987,7 +1003,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     const totalNaoReceb   = particularPend + pacotePend + convenioAmount;
     const pctNaoReceb     = totalProducao > 0 ? Math.round((totalNaoReceb / totalProducao) * 100) : 0;
 
-    const margemPct = totalCaixa > 0 ? ((totalCaixa - expenses.total) / totalCaixa) * 100 : 0;
+    const margemPct = indicadores?.margemPercentual ?? 0; // ← vem da API
     const margemStatus = margemPct >= 35
       ? { text: '🟢 Operação saudável', cls: 'bg-emerald-100 text-emerald-700' }
       : margemPct >= 20
@@ -1045,18 +1061,21 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
               </p>
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs text-gray-500">
-                  <span>Meta do mês atingida em caixa</span>
-                  <span className="font-black text-emerald-700">{pctMetaCaixa}%</span>
+                  <span>Meta do mês atingida em <strong>produção</strong></span>
+                  <span className="font-black text-emerald-700">{pctMetaProducao}%</span>
                 </div>
                 <div className="h-4 w-full bg-gray-200 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-emerald-500 rounded-full transition-all duration-700 flex items-center justify-end pr-2"
-                    style={{ width: `${pctMetaCaixa}%` }}
+                    style={{ width: `${pctMetaProducao}%` }}
                   >
-                    {pctMetaCaixa > 12 && <span className="text-[10px] font-black text-white">{pctMetaCaixa}%</span>}
+                    {pctMetaProducao > 12 && <span className="text-[10px] font-black text-white">{pctMetaProducao}%</span>}
                   </div>
                 </div>
-                <p className="text-xs text-gray-400">Meta: {formatCurrency(metaMensal)}</p>
+                <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                  <span>Caixa: {pctMetaCaixa}%</span>
+                  <span>Meta: {formatCurrency(metaMensal)}</span>
+                </div>
               </div>
             </div>
 

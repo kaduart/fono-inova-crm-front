@@ -29,8 +29,11 @@ export interface MetasV3 {
     metaMensal: number;
     diasUteis: number;
     metaDiariaNecessaria: number;
+    tipoMeta: 'producao' | 'caixa' | 'receitaProjetada';
   };
   realizado: { mes: number; hoje: number };
+  realizadoLegado?: { mes: number; hoje: number };
+  producaoHoje?: number;
   ritmo: {
     esperadoAteAgora: number;
     realizadoAteAgora: number;
@@ -39,7 +42,7 @@ export interface MetasV3 {
     percentualEsperado: number;
     percentualRealizado: number;
   };
-  projecao: { final: number; bateMeta: boolean };
+  projecao: { final: number; esperada: number; bateMeta: boolean; bateMetaOtimista: boolean };
   gap: { valor: number; porDia: number; diasRestantes: number };
   statusMeta: 'verde' | 'amarelo-verde' | 'amarelo' | 'vermelho';
   alertas: {
@@ -53,6 +56,12 @@ export interface MetasV3 {
     pacote: { meta: number; realizado: number; percentualDoTotal: number };
     convenio: { meta: number; realizado: number; percentualDoTotal: number };
     liminar: { meta: number; realizado: number; percentualDoTotal: number };
+  };
+  // 🆕 Camadas semânticas — frontend NÃO recalcula, usa estes valores
+  camadas?: {
+    producao: { atingido: number; percentual: number };
+    caixa: { atingido: number; percentual: number };
+    receitaProjetada: { atingido: number; percentual: number };
   };
 }
 
