@@ -26,6 +26,7 @@ import {
 import api from '../../../services/api';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useFinancialDashboardV3 } from '../../../hooks/useFinancialDashboardV3';
+import { useAppointmentsByType } from '../../../hooks/useAppointmentsByType';
 const ProjecaoCenarios = React.lazy(() => import('./AnaliseProjecaoTab').then(m => ({ default: m.ProjecaoCenarios })));
 import { DashboardEspecialidades } from '../components/DashboardEspecialidades';
 import { RankingProfissionais } from '../components/RankingProfissionais';
@@ -71,6 +72,11 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   // 🆕 B: Pendências de convênio
   const [pendingInsurance, setPendingInsurance] = useState<InsuranceReceivableGroup[]>([]);
   const [loadingInsurance, setLoadingInsurance] = useState(false);
+
+  // 🆕 C: Novos agendamentos do mês (comparação com mês anterior)
+  const { fetch: fetchAppointmentsByType } = useAppointmentsByType();
+  const [agendamentosMes, setAgendamentosMes] = useState<{ total: number; leads: number; novos: number; retornos: number } | null>(null);
+  const [agendamentosMesAnterior, setAgendamentosMesAnterior] = useState<{ total: number; leads: number; novos: number; retornos: number } | null>(null);
 
   const fetchPendingInsurance = useCallback(async () => {
     setLoadingInsurance(true);
@@ -193,6 +199,36 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     // Paraleliza as duas requisições independentes
     fetchDashboard(month, year);
   }, [month, year, fetchDashboard]);
+
+  // 🆕 Busca novos agendamentos do mês e compara com mês anterior
+  useEffect(() => {
+    const startCurrent = `${year}-${String(month).padStart(2, '0')}-01`;
+    const endCurrent = new Date(year, month, 0).toISOString().split('T')[0];
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
+    const startPrev = `${prevYear}-${String(prevMonth).padStart(2, '0')}-01`;
+    const endPrev = new Date(prevYear, prevMonth, 0).toISOString().split('T')[0];
+
+    fetchAppointmentsByType({ startDate: startCurrent, endDate: endCurrent, mode: 'createdAt' }).then(res => {
+      const details = res?.details;
+      setAgendamentosMes({
+        total: details?.all?.length || 0,
+        leads: details?.leads?.length || 0,
+        novos: details?.novos?.length || 0,
+        retornos: details?.retornos45?.length || 0,
+      });
+    }).catch(() => setAgendamentosMes(null));
+
+    fetchAppointmentsByType({ startDate: startPrev, endDate: endPrev, mode: 'createdAt' }).then(res => {
+      const details = res?.details;
+      setAgendamentosMesAnterior({
+        total: details?.all?.length || 0,
+        leads: details?.leads?.length || 0,
+        novos: details?.novos?.length || 0,
+        retornos: details?.retornos45?.length || 0,
+      });
+    }).catch(() => setAgendamentosMesAnterior(null));
+  }, [month, year, fetchAppointmentsByType]);
 
   // Lazy: só busca convênios quando o tab que os usa estiver ativo
   useEffect(() => {
@@ -447,6 +483,73 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
             )}
           </div>
         </div>
+      </div>
+
+      {/* ── AGENDA & PACIENTES — novos agendamentos do mês ── */}
+      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Agenda & Pacientes — Novos no Mês</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* Card principal: Total de agendamentos criados no mês */}
+        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#EC489940', backgroundColor: '#FDF2F8' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <Calendar size={16} className="text-pink-600" />
+            <span className="text-xs font-black uppercase tracking-widest text-pink-600">Agendamentos Novos</span>
+            <Info size={12} className="text-pink-400 cursor-help" title="Total de agendamentos CRIADOS neste mês (independente da data da sessão)." />
+          </div>
+          <div className="text-4xl font-black text-gray-900 my-2">{agendamentosMes?.total ?? 0}</div>
+          <div className="flex items-center gap-2 text-xs">
+            {agendamentosMesAnterior && (
+              <>
+                <span className={agendamentosMes.total >= agendamentosMesAnterior.total ? 'text-emerald-600' : 'text-rose-600'}>
+                  {agendamentosMes.total >= agendamentosMesAnterior.total ? '↑' : '↓'} {Math.abs(agendamentosMes.total - agendamentosMesAnterior.total)}
+                </span>
+                <span className="text-gray-400">vs mês anterior ({agendamentosMesAnterior.total})</span>
+              </>
+            )}
+          </div>
+          <div className="mt-3 pt-2 border-t border-pink-100 space-y-1 text-[11px]">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Pré-agendados (leads)</span>
+              <strong className="text-pink-700">{agendamentosMes?.leads ?? 0}</strong>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Novos pacientes</span>
+              <strong className="text-pink-700">{agendamentosMes?.novos ?? 0}</strong>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Retornos 45+ dias</span>
+              <strong className="text-pink-700">{agendamentosMes?.retornos ?? 0}</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Card: Comparação mês a mês */}
+        <div className="rounded-2xl border p-4 shadow-sm bg-white">
+          <div className="flex items-center gap-2 mb-1">
+            <TrendingUp size={14} className="text-gray-500" />
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Comparativo Mês Anterior</span>
+          </div>
+          <div className="text-2xl font-black text-gray-900">{agendamentosMesAnterior?.total ?? 0}</div>
+          <p className="text-[11px] text-gray-400 mt-1">
+            {agendamentosMes && agendamentosMesAnterior
+              ? `${((agendamentosMes.total / Math.max(1, agendamentosMesAnterior.total) - 1) * 100).toFixed(1)}% ${agendamentosMes.total >= agendamentosMesAnterior.total ? 'a mais' : 'a menos'} que o mês anterior`
+              : 'Carregando...'}
+          </p>
+        </div>
+
+        <MetricCard
+          title="Taxa de Novos"
+          subtitle="% de agendamentos de novos pacientes"
+          value={`${agendamentosMes && agendamentosMes.total > 0 ? Math.round((agendamentosMes.novos / agendamentosMes.total) * 100) : 0}%`}
+          icon={<Users size={20} />}
+          color="sky"
+        />
+        <MetricCard
+          title="Taxa de Retorno"
+          subtitle="% de retornos após 45+ dias"
+          value={`${agendamentosMes && agendamentosMes.total > 0 ? Math.round((agendamentosMes.retornos / agendamentosMes.total) * 100) : 0}%`}
+          icon={<Calendar size={20} />}
+          color="amber"
+        />
       </div>
 
       {/* ── CAIXA FINANCEIRO — secundário, inclui retroativos ── */}

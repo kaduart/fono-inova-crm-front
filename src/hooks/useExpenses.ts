@@ -59,15 +59,14 @@ export const useExpenses = () => {
     try {
       const response = await expenseService.cancel(id);
       toast.success(response.message);
-      
+
       // 🚀 Invalida dashboard pois despesas afetam o financeiro
       invalidateCache('dashboard');
-      
-      await fetchExpenses();
     } catch (error: any) {
       toast.error(extractErrorMessage(error, 'Erro ao cancelar despesa'));
+      throw error;
     }
-  }, [fetchExpenses]);
+  }, []);
 
   const generateCommissions = useCallback(async (month?: number, year?: number) => {
     try {

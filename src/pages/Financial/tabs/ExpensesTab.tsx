@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import { useExpenses } from '../../../hooks/useExpenses';
 import ExpenseModal from '../components/ExpenseModal';
-import { format } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 // Configuração de categorias com cores e ícones
@@ -102,6 +102,19 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
       return JSON.parse(notes);
     } catch {
       return null;
+    }
+  };
+
+  const safeFormat = (dateValue: any, formatStr: string): string => {
+    try {
+      if (!dateValue) return '-';
+      const d = typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)
+        ? parseISO(dateValue)
+        : new Date(dateValue);
+      if (!isValid(d)) return '-';
+      return format(d, formatStr);
+    } catch {
+      return '-';
     }
   };
 
@@ -182,8 +195,11 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
         <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
           <button
             onClick={async () => {
-              await generateCommissions(filters.month, filters.year);
-              fetchExpenses(filters);
+              try {
+                await generateCommissions(filters.month, filters.year);
+              } finally {
+                fetchExpenses(filters);
+              }
             }}
             className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
           >
@@ -370,13 +386,13 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                           </button>
                         </td>
                         <td className="px-3 py-2">
-                          {expense.date ? format(new Date(expense.date), 'dd/MM/yyyy') : '-'}
+                          {safeFormat(expense.date, 'dd/MM/yyyy')}
                         </td>
                         <td className="px-3 py-2">
                           <div className="font-medium">{expense.description}</div>
                           {expense.workPeriod?.start && expense.workPeriod?.end && (
                             <div className="text-xs text-gray-400">
-                              Período: {format(new Date(expense.workPeriod.start), 'dd/MM')} - {format(new Date(expense.workPeriod.end), 'dd/MM/yyyy')}
+                              Período: {safeFormat(expense.workPeriod.start, 'dd/MM')} - {safeFormat(expense.workPeriod.end, 'dd/MM/yyyy')}
                             </div>
                           )}
                         </td>
@@ -425,9 +441,10 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                             </Tooltip>
                             <Tooltip title="Cancelar">
                               <button
-                                onClick={() => {
+                                onClick={async () => {
                                   if (confirm('Cancelar esta despesa?')) {
-                                    cancelExpense(expense._id);
+                                    await cancelExpense(expense._id);
+                                    fetchExpenses(filters);
                                   }
                                 }}
                                 className="p-1 rounded hover:bg-gray-100 text-red-600"
@@ -478,11 +495,11 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                                     <div className="space-y-2 text-sm">
                                       <div className="flex justify-between">
                                         <span>Data início</span>
-                                        <span className="font-medium">{expense.workPeriod?.start ? format(new Date(expense.workPeriod.start), 'dd/MM/yyyy') : '-'}</span>
+                                        <span className="font-medium">{safeFormat(expense.workPeriod?.start, 'dd/MM/yyyy')}</span>
                                       </div>
                                       <div className="flex justify-between">
                                         <span>Data fim</span>
-                                        <span className="font-medium">{expense.workPeriod?.end ? format(new Date(expense.workPeriod.end), 'dd/MM/yyyy') : '-'}</span>
+                                        <span className="font-medium">{safeFormat(expense.workPeriod?.end, 'dd/MM/yyyy')}</span>
                                       </div>
                                       <div className="flex justify-between">
                                         <span>Total de sessões</span>
