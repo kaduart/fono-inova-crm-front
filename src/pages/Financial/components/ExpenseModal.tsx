@@ -17,7 +17,7 @@ type ExpenseModalProps = {
     open: boolean;
     onClose: () => void;
     expense: Expense | null;
-    onSaved: () => void;
+    onSaved: (savedExpense?: Expense) => void;
 };
 
 type FormState = {
@@ -92,13 +92,14 @@ const ExpenseModal = ({ open, onClose, expense, onSaved }: ExpenseModalProps) =>
                 notes: form.notes,
             };
 
+            let savedExpense: Expense | undefined;
             if (isEditing && expense) {
-                await updateExpense(expense._id, payload);
+                savedExpense = await updateExpense(expense._id, payload);
             } else {
-                await createExpense(payload);
+                savedExpense = await createExpense(payload);
             }
 
-            onSaved();
+            onSaved(savedExpense);
         } finally {
             setIsSubmitting(false);
         }

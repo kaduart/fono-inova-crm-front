@@ -4,6 +4,7 @@ import {
   CheckCircle,
   DollarSign,
   MoreVertical,
+  Pencil,
   Plus,
   RefreshCw,
   Scale,
@@ -13,7 +14,11 @@ import {
 import { useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { ContractWithPlan } from '../../hooks/useLiminarContracts';
+import { appointmentService } from '../../services/appointmentService';
+import doctorService from '../../services/doctorService';
 import liminarContractService from '../../services/liminarContractService';
+import { IDoctor, SelectedEvent } from '../../utils/types/types';
+import AppointmentDetailModal from '../calendar/appointmentDetailModal';
 import CreatePlanModal from './CreatePlanModal';
 import PlanView from './PlanView';
 
@@ -72,6 +77,19 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
   const [specialtyModal, setSpecialtyModal] = useState<{ open: boolean; specialty: string; sessions: any[]; loading: boolean }>({
     open: false, specialty: '', sessions: [], loading: false,
   });
+  const [editingAppointment, setEditingAppointment] = useState<SelectedEvent | null>(null);
+
+  const [editTherapyModal, setEditTherapyModal] = useState<{
+    open: boolean;
+    specialty: string;
+    doctorId: string;
+    sessionValue: number;
+    sessionDurationMinutes: number;
+    slots: Array<{ dayOfWeek: number | ''; time: string }>;
+  }>({ open: false, specialty: '', doctorId: '', sessionValue: 0, sessionDurationMinutes: 40, slots: [] });
+  const [modalDoctors, setModalDoctors] = useState<Array<{ _id: string; fullName: string; specialty?: string }>>([]);
+  const [modalDoctorsLoading, setModalDoctorsLoading] = useState(false);
+  const [savingTherapy, setSavingTherapy] = useState(false);
 
   const available = committed?.available ?? contract.creditBalance;
   const balancePct = contract.totalCredit > 0
@@ -156,6 +174,72 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
     } catch {
       toast.error('Erro ao carregar sessões');
       setSpecialtyModal((prev) => ({ ...prev, loading: false }));
+    }
+  }
+
+  function sessionToEvent(s: any): SelectedEvent {
+    const dateObj = new Date(s.date);
+    return {
+      id: s._id,
+      patient: { id: s.patient?._id ?? s.patient, fullName: s.patient?.fullName ?? '' },
+      doctor: { id: s.doctor?._id ?? s.doctor, fullName: s.doctor?.fullName ?? '' },
+      date: dateObj,
+      startTime: s.time,
+      formattedDate: dateObj.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }),
+      backgroundColor: '#3B82F6',
+      borderColor: '#2563EB',
+      start: `${s.date.slice(0, 10)}T${s.time}`,
+      operationalStatus: s.operationalStatus,
+      sessionValue: s.sessionValue,
+      specialty: s.specialty,
+      package: s.package ?? null,
+      __isPreAgendamento: s.operationalStatus === 'pre_agendado',
+    };
+  }
+
+  async function openEditTherapyModal(specialty: string, config?: any) {
+    setEditTherapyModal({
+      open: true,
+      specialty,
+      doctorId: config?.doctor ?? '',
+      sessionValue: config?.sessionValue ?? 0,
+      sessionDurationMinutes: config?.sessionDurationMinutes ?? 40,
+      slots: (config?.slots ?? [{ dayOfWeek: '', time: '' }]).map((s: any) => ({ ...s })),
+    });
+    if (modalDoctors.length === 0) {
+      setModalDoctorsLoading(true);
+      try {
+        const res = await doctorService.getActiveDoctors();
+        setModalDoctors(res?.data ?? []);
+      } catch {}
+      finally { setModalDoctorsLoading(false); }
+    }
+  }
+
+  async function handleSaveTherapy() {
+    if (!plan) return;
+    setSavingTherapy(true);
+    try {
+      const result = await liminarContractService.updateTherapy(
+        contract._id, plan._id, editTherapyModal.specialty, {
+          doctorId: editTherapyModal.doctorId || undefined,
+          sessionValue: editTherapyModal.sessionValue,
+          sessionDurationMinutes: editTherapyModal.sessionDurationMinutes,
+          slots: editTherapyModal.slots
+            .filter(s => s.dayOfWeek !== '' && s.time)
+            .map(s => ({ dayOfWeek: Number(s.dayOfWeek), time: s.time })),
+        }
+      );
+      const msg = result.appointmentsUpdated > 0
+        ? `Terapia atualizada! ${result.appointmentsUpdated} sessão(ões) pendente(s) atualizada(s).`
+        : 'Terapia atualizada no plano.';
+      toast.success(msg);
+      setEditTherapyModal(p => ({ ...p, open: false }));
+      onRefresh();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error ?? 'Erro ao atualizar terapia');
+    } finally {
+      setSavingTherapy(false);
     }
   }
 
@@ -269,9 +353,18 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                       <span className="font-medium capitalize" style={{ color: '#1A2C3E' }}>
                         {specialty.replace(/_/g, ' ')}
                       </span>
-                      <span style={{ color: '#5B6E8C' }}>
-                        {(config.slots ?? []).length}×/sem · R$ {fmt(config.sessionValue ?? 0)}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span style={{ color: '#5B6E8C' }}>
+                          {(config.slots ?? []).length}×/sem · R$ {fmt(config.sessionValue ?? 0)}
+                        </span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openEditTherapyModal(specialty, config); }}
+                          className="p-0.5 rounded hover:bg-slate-200 transition-colors"
+                          title="Editar terapia"
+                        >
+                          <Pencil className="w-3 h-3" style={{ color: '#A0AABF' }} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -282,7 +375,11 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
 
               {planExpanded && (
                 <div className="mt-3 border-t pt-3" style={{ borderColor: '#EDF2F7' }}>
-                  <PlanView plan={plan} onSpecialtyClick={openSpecialtyModal} />
+                  <PlanView
+                    plan={plan}
+                    onSpecialtyClick={openSpecialtyModal}
+                    onEditDoctor={(specialty) => openEditTherapyModal(specialty, plan.therapies?.[specialty])}
+                  />
                 </div>
               )}
 
@@ -406,6 +503,153 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
         </div>
       )}
 
+      {/* ── Modal: Editar Agendamento (cockpit completo) ── */}
+      {editingAppointment && (
+        <AppointmentDetailModal
+          isOpen={!!editingAppointment}
+          onClose={() => { setEditingAppointment(null); onRefresh(); }}
+          event={editingAppointment}
+          doctors={[] as IDoctor[]}
+          onCancelAppointment={async (id, reason) => {
+            await appointmentService.cancel(id, { reason });
+            toast.success('Agendamento cancelado');
+            setEditingAppointment(null);
+            onRefresh();
+          }}
+          onCompleteAppointment={async (_id, _data) => {
+            toast.info('Use a tela de agenda para completar a sessão');
+            setEditingAppointment(null);
+          }}
+          onEditAppointment={async (id, data) => {
+            await appointmentService.update(id, data);
+            toast.success('Agendamento atualizado');
+            setEditingAppointment(null);
+            onRefresh();
+          }}
+        />
+      )}
+
+      {/* ── Modal: Editar Terapia ── */}
+      {editTherapyModal.open && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div>
+                <h3 className="font-bold text-slate-800">Editar terapia</h3>
+                <p className="text-xs text-slate-500 mt-0.5 capitalize">{editTherapyModal.specialty.replace(/_/g, ' ')}</p>
+              </div>
+              <button onClick={() => setEditTherapyModal(p => ({ ...p, open: false }))} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+              {/* Profissional */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Profissional</label>
+                {modalDoctorsLoading ? (
+                  <div className="flex justify-center py-3">
+                    <div className="w-5 h-5 border-2 border-slate-300 border-t-emerald-500 rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <select
+                    value={editTherapyModal.doctorId}
+                    onChange={(e) => setEditTherapyModal(p => ({ ...p, doctorId: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:ring-2 focus:ring-emerald-400"
+                  >
+                    <option value="">Sem profissional</option>
+                    {modalDoctors
+                      .filter(d => !editTherapyModal.specialty || (d.specialty || '').toLowerCase() === editTherapyModal.specialty.toLowerCase())
+                      .map(d => <option key={d._id} value={d._id}>{d.fullName}</option>)}
+                  </select>
+                )}
+              </div>
+
+              {/* Valor por sessão + Duração */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Valor por sessão (R$)</label>
+                  <input
+                    type="number" min="0" step="0.01"
+                    value={editTherapyModal.sessionValue}
+                    onChange={(e) => setEditTherapyModal(p => ({ ...p, sessionValue: Number(e.target.value) }))}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:ring-2 focus:ring-emerald-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Duração (min)</label>
+                  <input
+                    type="number" min="15" max="180"
+                    value={editTherapyModal.sessionDurationMinutes}
+                    onChange={(e) => setEditTherapyModal(p => ({ ...p, sessionDurationMinutes: Number(e.target.value) }))}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:ring-2 focus:ring-emerald-400"
+                  />
+                </div>
+              </div>
+
+              {/* Horários */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Horários semanais</label>
+                <div className="space-y-2">
+                  {editTherapyModal.slots.map((slot, i) => (
+                    <div key={i} className="flex gap-2 items-center">
+                      <select
+                        value={slot.dayOfWeek}
+                        onChange={(e) => setEditTherapyModal(p => ({ ...p, slots: p.slots.map((s, si) => si === i ? { ...s, dayOfWeek: e.target.value as any } : s) }))}
+                        className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:ring-2 focus:ring-emerald-400"
+                      >
+                        <option value="">Dia</option>
+                        {[{v:1,l:'Segunda'},{v:2,l:'Terça'},{v:3,l:'Quarta'},{v:4,l:'Quinta'},{v:5,l:'Sexta'}].map(d => (
+                          <option key={d.v} value={d.v}>{d.l}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="time" value={slot.time}
+                        onChange={(e) => setEditTherapyModal(p => ({ ...p, slots: p.slots.map((s, si) => si === i ? { ...s, time: e.target.value } : s) }))}
+                        className="w-28 px-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:ring-2 focus:ring-emerald-400"
+                      />
+                      {editTherapyModal.slots.length > 1 && (
+                        <button type="button" onClick={() => setEditTherapyModal(p => ({ ...p, slots: p.slots.filter((_, si) => si !== i) }))} className="text-rose-400 hover:text-rose-600 p-1">
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditTherapyModal(p => ({ ...p, slots: [...p.slots, { dayOfWeek: '', time: '' }] }))}
+                  className="mt-2 text-xs text-emerald-600 font-semibold flex items-center gap-1 hover:text-emerald-800"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Adicionar horário
+                </button>
+              </div>
+
+              <p className="text-xs text-slate-400">Sessões já confirmadas/completadas não serão alteradas.</p>
+            </div>
+
+            <div className="flex gap-3 px-6 py-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setEditTherapyModal(p => ({ ...p, open: false }))}
+                className="flex-1 py-2.5 text-sm border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-50 font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveTherapy}
+                disabled={savingTherapy}
+                className="flex-1 py-2.5 text-sm text-white rounded-xl font-medium disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #059669 0%, #0D9488 100%)' }}
+              >
+                {savingTherapy ? 'Salvando...' : 'Salvar alterações'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Modal: Criar Plano ── */}
       {showCreatePlan && (
         <CreatePlanModal
@@ -436,16 +680,24 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
               ) : (
                 <div className="space-y-2">
                   {specialtyModal.sessions.map((s: any) => (
-                    <div key={s._id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <div
+                      key={s._id}
+                      onClick={() => { setSpecialtyModal((p) => ({ ...p, open: false })); setEditingAppointment(sessionToEvent(s)); }}
+                      className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100 hover:border-slate-200 transition-colors"
+                    >
                       <div className="flex items-center gap-3">
-                        <div className={`w-2.5 h-2.5 rounded-full ${s.operationalStatus === 'completed' ? 'bg-emerald-500' : s.operationalStatus === 'confirmed' ? 'bg-blue-500' : 'bg-amber-500'}`} />
+                        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${s.operationalStatus === 'completed' ? 'bg-emerald-500' : s.operationalStatus === 'confirmed' ? 'bg-blue-500' : 'bg-amber-500'}`} />
                         <div>
                           <p className="text-sm font-medium text-slate-800">
                             {new Date(s.date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })} às {s.time}
                           </p>
-                          <p className="text-xs text-slate-500">R$ {fmt(s.sessionValue)}</p>
+                          <p className="text-xs text-slate-500">
+                            R$ {fmt(s.sessionValue)}
+                            {s.doctor?.fullName && <span className="ml-2 text-slate-400">· {s.doctor.fullName}</span>}
+                          </p>
                         </div>
                       </div>
+                      <Pencil className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                     </div>
                   ))}
                 </div>

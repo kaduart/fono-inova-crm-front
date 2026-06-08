@@ -16,6 +16,7 @@ import API from '../../services/api';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import AddCircleIcon from '@mui/icons-material/AddCircle';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import WarningIcon from '@mui/icons-material/Warning';
@@ -124,6 +125,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
 
     // PatientsSummaryCard data
     const { data: analyticsData, loading: analyticsLoading, fetch: fetchAnalytics } = useAppointmentsByType();
+    const { data: analyticsCreatedData, fetch: fetchAnalyticsCreated } = useAppointmentsByType();
 
     // 🏥 Dados operacionais: retenção + pacientes sem próxima sessão
     const { data: retentionData } = useRetentionSlots('', 30);
@@ -137,12 +139,12 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
     const [newSpecialtyModalOpen, setNewSpecialtyModalOpen] = useState(false);
 
     const fetchAnalyticsForPeriod = useCallback(async () => {
-        if (dateRange) {
-            await fetchAnalytics({ startDate: dateRange.startDate, endDate: dateRange.endDate, mode: 'date' });
-        } else {
-            await fetchAnalytics({ startDate: selectedDate, endDate: selectedDate, mode: 'date' });
-        }
-    }, [fetchAnalytics, selectedDate, dateRange]);
+        const period = dateRange || { startDate: selectedDate, endDate: selectedDate };
+        await Promise.all([
+            fetchAnalytics({ startDate: period.startDate, endDate: period.endDate, mode: 'date' }),
+            fetchAnalyticsCreated({ startDate: period.startDate, endDate: period.endDate, mode: 'createdAt' })
+        ]);
+    }, [fetchAnalytics, fetchAnalyticsCreated, selectedDate, dateRange]);
 
     // Reset manual override e sincroniza viewMode quando o filtro externo muda
     useEffect(() => {
@@ -563,14 +565,12 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                             })()}
                         </div>
 
-                        {/* ── Agenda Hoje ── */}
+                        {/* ── Agenda Hoje (Operacional) ── */}
                         {!isMultiDayRange && (() => {
                             const all = analyticsData?.all || [];
                             const agendados = all.filter((a: any) => !['converted', 'pre_agendado'].includes(a.operationalStatus));
                             const atendidos = all.filter((a: any) => a.operationalStatus === 'completed');
                             const aguardando = all.filter((a: any) => a.operationalStatus === 'scheduled');
-                            const preAgendadosNovos = (analyticsData?.leads || []).length;
-                            const novaEspecialidade = (analyticsData?.novosEspecialidade || []).length;
                             return (
                                 <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#0EA5E9', backgroundColor: '#F0F9FF' }}>
                                     <div className="flex items-center gap-3 mb-3">
@@ -579,7 +579,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                         </div>
                                         <div>
                                             <div className="text-xs font-black text-sky-700 uppercase tracking-widest">Agenda Hoje</div>
-                                            <div className="text-[11px] text-gray-400 leading-tight">Estado da Operação</div>
+                                            <div className="text-[11px] text-gray-400 leading-tight">Consultas do dia</div>
                                         </div>
                                     </div>
                                     <div className="flex items-baseline gap-2 mb-1">
@@ -595,14 +595,44 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                             <span className="text-[10px] text-gray-500 uppercase tracking-wide">Aguardando</span>
                                             <span className="text-sm font-bold text-amber-600">{aguardando.length}</span>
                                         </div>
-                                        <button onClick={() => preAgendadosNovos > 0 && setNewPatientsModalOpen(true)} className={`flex items-center justify-between w-full text-left rounded px-1 -mx-1 transition-colors ${preAgendadosNovos > 0 ? 'hover:bg-pink-50 cursor-pointer' : 'cursor-default'}`}>
-                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Pré-agendados novos</span>
-                                            <span className="text-sm font-bold text-pink-600">{preAgendadosNovos}</span>
-                                        </button>
-                                        <button onClick={() => novaEspecialidade > 0 && setNewSpecialtyModalOpen(true)} className={`flex items-center justify-between w-full text-left rounded px-1 -mx-1 transition-colors ${novaEspecialidade > 0 ? 'hover:bg-amber-50 cursor-pointer' : 'cursor-default'}`}>
-                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Nova especialidade</span>
-                                            <span className="text-sm font-bold text-amber-600">{novaEspecialidade}</span>
-                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
+                        {/* ── Novos Agendamentos (Comercial) ── */}
+                        {!isMultiDayRange && (() => {
+                            const criadosHoje = analyticsCreatedData?.all || [];
+                            const totalCriados = criadosHoje.length;
+                            const preAgendados = (analyticsCreatedData?.leads || []).length;
+                            const novosPacientes = (analyticsCreatedData?.novos || []).length;
+                            return (
+                                <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#EC4899', backgroundColor: '#FDF2F8' }}>
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="w-9 h-9 rounded-xl bg-pink-100 flex items-center justify-center flex-shrink-0">
+                                            <AddCircleIcon style={{ fontSize: 20 }} className="text-pink-600" />
+                                        </div>
+                                        <div>
+                                            <div className="text-xs font-black text-pink-700 uppercase tracking-widest">Novos Agendamentos</div>
+                                            <div className="text-[11px] text-gray-400 leading-tight">Criados hoje</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-baseline gap-2 mb-1">
+                                        <span className="text-[26px] font-extrabold text-pink-700 leading-none tracking-tight">{totalCriados}</span>
+                                    </div>
+                                    <div className="pt-3 border-t border-pink-100 flex flex-col gap-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Pré-agendados</span>
+                                            <span className="text-sm font-bold text-pink-600">{preAgendados}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Novos pacientes</span>
+                                            <span className="text-sm font-bold text-pink-600">{novosPacientes}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between border-t border-pink-100 pt-1">
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Total criado hoje</span>
+                                            <span className="text-sm font-bold text-gray-700">{totalCriados}</span>
+                                        </div>
                                     </div>
                                 </div>
                             );

@@ -45,6 +45,17 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
         }
     }, [realPatientId]);
 
+    // Recarrega pacotes quando um appointment é completado ou cancelado em qualquer parte do app
+    useEffect(() => {
+        const handler = () => { if (realPatientId) fetchBasicPackages(); };
+        window.addEventListener('session:completed', handler);
+        window.addEventListener('appointment:cancelled', handler);
+        return () => {
+            window.removeEventListener('session:completed', handler);
+            window.removeEventListener('appointment:cancelled', handler);
+        };
+    }, [realPatientId]);
+
     const fetchBasicPackages = async () => {
         setLoading(true);
         try {

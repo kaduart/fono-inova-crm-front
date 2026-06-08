@@ -20,6 +20,7 @@ export interface TherapySlot {
 }
 
 export interface TherapyConfig {
+  doctor?: string;
   slots: TherapySlot[];
   sessionValue: number;
   sessionDurationMinutes: number;
@@ -120,6 +121,24 @@ const liminarContractService = {
 
   async getCommittedBalance(contractId: string): Promise<CommittedBalance> {
     const res = await API.get(`/v2/liminar-contracts/${contractId}/committed-balance`);
+    return res.data;
+  },
+
+  async updateTherapy(
+    contractId: string,
+    planId: string,
+    specialty: string,
+    data: {
+      doctorId?: string;
+      sessionValue?: number;
+      sessionDurationMinutes?: number;
+      slots?: Array<{ dayOfWeek: number; time: string }>;
+    }
+  ): Promise<{ plan: TherapeuticPlan; appointmentsUpdated: number }> {
+    const res = await API.patch(
+      `/v2/liminar-contracts/${contractId}/plans/${planId}/therapies/${specialty}`,
+      data
+    );
     return res.data;
   },
 

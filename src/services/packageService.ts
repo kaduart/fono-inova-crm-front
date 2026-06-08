@@ -503,6 +503,17 @@ export const packageService = {
     );
     return response.data;
   },
+
+  bulkUpdateAppointments: async (
+    packageId: string,
+    patch: { doctorId?: string; time?: string; dayOfWeek?: number }
+  ): Promise<{ updated: number }> => {
+    const response = await API.patch<{ success: boolean; data: { updated: number } }>(
+      `/v2/packages/${packageId}/appointments/bulk`,
+      patch
+    );
+    return response.data?.data ?? { updated: 0 };
+  },
 }
 
 export const validatePayment = (amount: number, balance: number) => {

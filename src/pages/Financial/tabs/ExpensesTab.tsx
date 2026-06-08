@@ -542,10 +542,21 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
           setEditingExpense(null);
         }}
         expense={editingExpense}
-        onSaved={() => {
-          fetchExpenses(filters);
+        onSaved={(savedExpense) => {
           setModalOpen(false);
           setEditingExpense(null);
+          if (savedExpense?.date) {
+            const d = parseISO(savedExpense.date);
+            if (isValid(d)) {
+              const expenseMonth = d.getMonth() + 1;
+              const expenseYear = d.getFullYear();
+              if (expenseMonth !== filters.month || expenseYear !== filters.year) {
+                setFilters(prev => ({ ...prev, month: expenseMonth, year: expenseYear }));
+                return; // useEffect on filters vai disparar fetchExpenses automaticamente
+              }
+            }
+          }
+          fetchExpenses(filters);
         }}
       />
     </div>

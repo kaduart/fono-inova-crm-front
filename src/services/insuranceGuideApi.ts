@@ -187,6 +187,25 @@ export const getGuideAppointments = async (guideId: string): Promise<GuideAppoin
 };
 
 /**
+ * Bulk-atualiza terapeuta e/ou horário de todos os appointments pre_agendado/scheduled da guia
+ */
+export const updateGuideAppointmentsBulk = async (
+  guideId: string,
+  patch: { doctorId?: string; time?: string; dayOfWeek?: number }
+): Promise<{ updated: number }> => {
+  try {
+    const response = await API.patch(`/v2/insurance-guides/${guideId}/appointments/doctor`, patch);
+    return response.data?.data ?? { updated: 0 };
+  } catch (error: any) {
+    throw new Error(extractErrorMessage(error, 'Erro ao atualizar sessões pendentes'));
+  }
+};
+
+/** @deprecated use updateGuideAppointmentsBulk */
+export const updateGuideDoctor = (guideId: string, doctorId: string) =>
+  updateGuideAppointmentsBulk(guideId, { doctorId });
+
+/**
  * Busca saldo agregado de guias do paciente
  */
 export const getBalance = async (

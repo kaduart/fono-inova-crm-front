@@ -45,7 +45,8 @@ import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { useInsuranceGuides } from '../../../hooks/useInsuranceGuides';
-import { getGuideAppointments } from '../../../services/insuranceGuideApi';
+import { getGuideAppointments, updateGuideAppointmentsBulk } from '../../../services/insuranceGuideApi';
+import doctorService from '../../../services/doctorService';
 import { appointmentService } from '../../../services/appointmentService';
 import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';
 import InsuranceGuideForm from './InsuranceGuideForm';
@@ -95,7 +96,12 @@ const PatientInsuranceTab = ({ patientId }) => {
     return unique.sort();
   }, [allAvailableGuides]);
 
-  const isGuideActive = (g) => (g.status === 'active' || g.status === 'linked') && g.remaining > 0;
+  const isExpiredByDate = (g) => g.expiresAt && new Date(g.expiresAt) < new Date();
+
+  const isGuideActive = (g) =>
+    (g.status === 'active' || g.status === 'linked') &&
+    g.remaining > 0 &&
+    !isExpiredByDate(g);
 
   const availableGuides = useMemo(() => {
     return allAvailableGuides
@@ -110,9 +116,15 @@ const PatientInsuranceTab = ({ patientId }) => {
   const inactiveCount = useMemo(() => allAvailableGuides.filter(g => !isGuideActive(g)).length, [allAvailableGuides]);
 
   const groupedGuides = useMemo(() => {
-    const active = availableGuides.filter(g => (g.status === 'active' || g.status === 'linked') && g.remaining > 0);
-    const exhausted = availableGuides.filter(g => g.status === 'exhausted' || (g.status === 'active' && g.remaining === 0));
-    const expired = availableGuides.filter(g => g.status === 'expired');
+    const active = availableGuides.filter(g =>
+      (g.status === 'active' || g.status === 'linked') && g.remaining > 0 && !isExpiredByDate(g)
+    );
+    const exhausted = availableGuides.filter(g =>
+      g.status === 'exhausted' || ((g.status === 'active' || g.status === 'linked') && g.remaining === 0 && !isExpiredByDate(g))
+    );
+    const expired = availableGuides.filter(g =>
+      g.status === 'expired' || ((g.status === 'active' || g.status === 'linked') && isExpiredByDate(g))
+    );
     const cancelled = availableGuides.filter(g => g.status === 'cancelled');
     return { active, exhausted, expired, cancelled };
   }, [availableGuides]);
@@ -869,7 +881,15 @@ const EDITABLE_STATUSES = [
   { value: 'scheduled',    label: 'Agendado' },
   { value: 'confirmed',    label: 'Confirmado' },
   { value: 'canceled',     label: 'Cancelado' },
+  { value: 'missed',       label: 'Faltou' },
 ];
+
+const normalizeEditStatus = (raw) => {
+  if (!raw) return 'scheduled';
+  if (raw === 'cancelled') return 'canceled'; // normaliza grafia britânica
+  const known = ['pre_agendado', 'scheduled', 'confirmed', 'canceled', 'missed'];
+  return known.includes(raw) ? raw : 'scheduled';
+};
 
 const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
   const [appointments, setAppointments] = useState([]);
@@ -879,7 +899,25 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
   const [editDate, setEditDate]       = useState('');
   const [editTime, setEditTime]       = useState('');
   const [editStatus, setEditStatus]   = useState('');
+  const [editDoctorId, setEditDoctorId] = useState('');
   const [editSaving, setEditSaving]   = useState(false);
+
+  const [doctors, setDoctors] = useState([]);
+  const [doctorsLoaded, setDoctorsLoaded] = useState(false);
+
+  const [bulkDoctorOpen, setBulkDoctorOpen] = useState(false);
+  const [bulkDoctorId, setBulkDoctorId]     = useState('');
+  const [bulkTime, setBulkTime]             = useState('');
+  const [bulkDayOfWeek, setBulkDayOfWeek]   = useState('');
+  const [bulkSaving, setBulkSaving]         = useState(false);
+
+  useEffect(() => {
+    if (!doctorsLoaded) {
+      doctorService.getActiveDoctors()
+        .then(res => { setDoctors(res?.data ?? []); setDoctorsLoaded(true); })
+        .catch(() => {});
+    }
+  }, [doctorsLoaded]);
 
   const loadAppointments = (guideId) => {
     setLoading(true);
@@ -898,7 +936,8 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
     setEditingAppt(appt);
     setEditDate(appt.date ? appt.date.substring(0, 10) : '');
     setEditTime(appt.time || '');
-    setEditStatus(appt.operationalStatus || appt.status || 'scheduled');
+    setEditStatus(normalizeEditStatus(appt.operationalStatus || appt.status));
+    setEditDoctorId(appt.doctor?._id || '');
   };
 
   const saveEdit = async () => {
@@ -908,7 +947,9 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
       if (editStatus === 'canceled') {
         await appointmentService.cancel(editingAppt._id, { reason: 'Cancelado manualmente' });
       } else {
-        await appointmentService.reschedule(editingAppt._id, { date: editDate, time: editTime });
+        const patch = { date: editDate, time: editTime };
+        if (editDoctorId) patch.doctor = editDoctorId;
+        await appointmentService.update(editingAppt._id, patch);
       }
       toast.success('Agendamento atualizado');
       setEditingAppt(null);
@@ -918,6 +959,33 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
       toast.error('Erro ao atualizar agendamento');
     } finally {
       setEditSaving(false);
+    }
+  };
+
+  const saveBulkDoctor = async () => {
+    if (!bulkDoctorId && !bulkTime && !bulkDayOfWeek) return;
+    setBulkSaving(true);
+    try {
+      const patch = {};
+      if (bulkDoctorId) patch.doctorId = bulkDoctorId;
+      if (bulkTime) patch.time = bulkTime;
+      if (bulkDayOfWeek !== '') patch.dayOfWeek = parseInt(bulkDayOfWeek);
+      const result = await updateGuideAppointmentsBulk(guide._id, patch);
+      const parts = [];
+      if (bulkDoctorId) parts.push('terapeuta');
+      if (bulkDayOfWeek !== '') parts.push('dia da semana');
+      if (bulkTime) parts.push('horário');
+      toast.success(`${parts.join(', ')} atualizado(s) em ${result.updated} sessão(ões) pendente(s)`);
+      setBulkDoctorOpen(false);
+      setBulkDoctorId('');
+      setBulkTime('');
+      setBulkDayOfWeek('');
+      await loadAppointments(guide._id);
+      onUpdate?.();
+    } catch {
+      toast.error('Erro ao atualizar sessões pendentes');
+    } finally {
+      setBulkSaving(false);
     }
   };
 
@@ -957,7 +1025,7 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
     >
       {/* Header */}
       <Box sx={{
-        background: 'linear-gradient(135deg, #1B4D6E 0%, #2E7A5E 100%)',
+        background: 'linear-gradient(135deg, #1565C0 0%, #1E3A8A 100%)',
         px: 3,
         py: 2.5,
         display: 'flex',
@@ -1084,21 +1152,122 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
         )}
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 2.5 }}>
+      <DialogActions sx={{ px: 3, pb: 2.5, justifyContent: 'space-between' }}>
+        <Button
+          onClick={() => {
+            const firstPending = appointments.find(a =>
+              ['pre_agendado', 'scheduled'].includes(a.operationalStatus || a.status)
+            );
+            if (firstPending) {
+              setBulkDoctorId(firstPending.doctor?._id || '');
+              setBulkTime(firstPending.time || '');
+            }
+            setBulkDoctorOpen(true);
+          }}
+          variant="outlined"
+          size="small"
+          sx={{
+            borderRadius: '40px', textTransform: 'none', fontWeight: 600, fontSize: '0.75rem',
+            borderColor: '#C6E6DA', color: '#2E7A5E',
+            '&:hover': { bgcolor: '#EFF9F6', borderColor: '#2E7A5E' }
+          }}
+        >
+          Alterar terapeuta/horário (todas pendentes)
+        </Button>
         <Button
           onClick={onClose}
           variant="outlined"
           sx={{
-            borderRadius: '40px',
-            textTransform: 'none',
-            fontWeight: 600,
-            fontSize: '0.8125rem',
-            borderColor: '#DDE4EE',
-            color: '#5B6E8C',
+            borderRadius: '40px', textTransform: 'none', fontWeight: 600, fontSize: '0.8125rem',
+            borderColor: '#DDE4EE', color: '#5B6E8C',
             '&:hover': { bgcolor: '#F1F5F9', borderColor: '#C8D4E0' }
           }}
         >
           Fechar
+        </Button>
+      </DialogActions>
+    </Dialog>
+
+    {/* ── Dialog: Trocar terapeuta (todas pendentes) ── */}
+    <Dialog
+      open={bulkDoctorOpen}
+      onClose={() => !bulkSaving && setBulkDoctorOpen(false)}
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: '20px' } }}
+    >
+      <Box sx={{ background: 'linear-gradient(135deg, #1565C0 0%, #1E3A8A 100%)', px: 3, py: 2,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box>
+          <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>
+            Alterar sessões pendentes
+          </Typography>
+          <Typography sx={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.7rem', mt: 0.2 }}>
+            Aplica para todos os pré-agendados e agendados desta guia
+          </Typography>
+        </Box>
+        <IconButton onClick={() => setBulkDoctorOpen(false)} size="small" disabled={bulkSaving}
+          sx={{ color: 'rgba(255,255,255,0.8)' }}>
+          <X size={16} />
+        </IconButton>
+      </Box>
+      <DialogContent sx={{ pt: 3, pb: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <FormControl fullWidth size="small">
+          <InputLabel>Profissional (opcional)</InputLabel>
+          <Select
+            value={bulkDoctorId}
+            label="Profissional (opcional)"
+            onChange={e => setBulkDoctorId(e.target.value)}
+            sx={{ borderRadius: '12px' }}
+          >
+            <MenuItem value=""><em>Manter atual</em></MenuItem>
+            {doctors
+              .filter(d => !guide?.specialty || (d.specialty || '').toLowerCase() === (guide.specialty || '').toLowerCase())
+              .map(d => <MenuItem key={d._id} value={d._id}>{d.fullName}</MenuItem>)}
+          </Select>
+        </FormControl>
+        <FormControl fullWidth size="small">
+          <InputLabel>Dia da semana (opcional)</InputLabel>
+          <Select
+            value={bulkDayOfWeek}
+            label="Dia da semana (opcional)"
+            onChange={e => setBulkDayOfWeek(e.target.value)}
+            sx={{ borderRadius: '12px' }}
+          >
+            <MenuItem value=""><em>Manter dia atual</em></MenuItem>
+            <MenuItem value="1">Segunda-feira</MenuItem>
+            <MenuItem value="2">Terça-feira</MenuItem>
+            <MenuItem value="3">Quarta-feira</MenuItem>
+            <MenuItem value="4">Quinta-feira</MenuItem>
+            <MenuItem value="5">Sexta-feira</MenuItem>
+            <MenuItem value="6">Sábado</MenuItem>
+            <MenuItem value="0">Domingo</MenuItem>
+          </Select>
+        </FormControl>
+        <TextField
+          label="Horário (opcional)"
+          type="time"
+          value={bulkTime}
+          onChange={e => setBulkTime(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          fullWidth
+          size="small"
+          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+        />
+        <Typography sx={{ fontSize: '0.7rem', color: '#8A99B0' }}>
+          Sessões confirmadas/realizadas não serão alteradas. Preencha pelo menos um campo.
+        </Typography>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+        <Button onClick={() => { setBulkDoctorOpen(false); setBulkDoctorId(''); setBulkTime(''); setBulkDayOfWeek(''); }} disabled={bulkSaving}
+          variant="outlined" sx={{ borderRadius: '40px', textTransform: 'none', fontWeight: 600,
+            fontSize: '0.8rem', borderColor: '#DDE4EE', color: '#5B6E8C' }}>
+          Cancelar
+        </Button>
+        <Button onClick={saveBulkDoctor} disabled={(!bulkDoctorId && !bulkTime && !bulkDayOfWeek) || bulkSaving}
+          variant="contained" sx={{ borderRadius: '40px', textTransform: 'none', fontWeight: 600,
+            fontSize: '0.8rem', bgcolor: '#2E7A5E', '&:hover': { bgcolor: '#246653' } }}>
+          {bulkSaving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Aplicar a todas'}
         </Button>
       </DialogActions>
     </Dialog>
@@ -1112,7 +1281,7 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
       PaperProps={{ sx: { borderRadius: '20px' } }}
     >
       <Box sx={{
-        background: 'linear-gradient(135deg, #1B4D6E 0%, #2E7A5E 100%)',
+        background: 'linear-gradient(135deg, #1565C0 0%, #1E3A8A 100%)',
         px: 3, py: 2,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between'
       }}>
@@ -1157,6 +1326,20 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
             {EDITABLE_STATUSES.map(s => (
               <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
             ))}
+          </Select>
+        </FormControl>
+        <FormControl fullWidth size="small">
+          <InputLabel>Profissional</InputLabel>
+          <Select
+            value={editDoctorId}
+            label="Profissional"
+            onChange={e => setEditDoctorId(e.target.value)}
+            sx={{ borderRadius: '12px' }}
+          >
+            <MenuItem value=""><em>Sem alteração</em></MenuItem>
+            {doctors
+              .filter(d => !guide?.specialty || (d.specialty || '').toLowerCase() === (guide.specialty || '').toLowerCase())
+              .map(d => <MenuItem key={d._id} value={d._id}>{d.fullName}</MenuItem>)}
           </Select>
         </FormControl>
       </DialogContent>

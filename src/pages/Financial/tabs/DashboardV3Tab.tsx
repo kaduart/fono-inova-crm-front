@@ -38,6 +38,7 @@ import {
   InsuranceReceivableGroup
 } from '../../../services/paymentService';
 import { toast } from 'react-toastify';
+import { IAppointment } from '../../../utils/types/types';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -77,6 +78,8 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   const { fetch: fetchAppointmentsByType } = useAppointmentsByType();
   const [agendamentosMes, setAgendamentosMes] = useState<{ total: number; leads: number; novos: number; retornos: number } | null>(null);
   const [agendamentosMesAnterior, setAgendamentosMesAnterior] = useState<{ total: number; leads: number; novos: number; retornos: number } | null>(null);
+  const [novosPacientesLista, setNovosPacientesLista] = useState<IAppointment[]>([]);
+  const [novosPacientesModalOpen, setNovosPacientesModalOpen] = useState(false);
 
   const fetchPendingInsurance = useCallback(async () => {
     setLoadingInsurance(true);
@@ -211,12 +214,27 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
 
     fetchAppointmentsByType({ startDate: startCurrent, endDate: endCurrent, mode: 'createdAt' }).then(res => {
       const details = res?.details;
+      const listaNovosRaw = [...(details?.leads || []), ...(details?.novos || [])];
+      // 🎯 Deduplicar por paciente: um paciente novo com 5 agendamentos conta como 1
+      const byPatient = new Map<string, IAppointment>();
+      listaNovosRaw.forEach((apt: IAppointment) => {
+        const pid = (apt as any).patient?._id || (apt as any).patient || apt.patientId;
+        if (!pid) return;
+        const key = pid.toString?.() || String(pid);
+        if (!byPatient.has(key)) {
+          byPatient.set(key, apt);
+        } else if (new Date(apt.createdAt) < new Date(byPatient.get(key)!.createdAt)) {
+          byPatient.set(key, apt);
+        }
+      });
+      const listaNovosUnicos = Array.from(byPatient.values());
       setAgendamentosMes({
         total: details?.all?.length || 0,
-        leads: details?.leads?.length || 0,
-        novos: details?.novos?.length || 0,
+        leads: listaNovosUnicos.filter((a: any) => a.isLead).length,
+        novos: listaNovosUnicos.filter((a: any) => !a.isLead).length,
         retornos: details?.retornos45?.length || 0,
       });
+      setNovosPacientesLista(listaNovosUnicos);
     }).catch(() => setAgendamentosMes(null));
 
     fetchAppointmentsByType({ startDate: startPrev, endDate: endPrev, mode: 'createdAt' }).then(res => {
@@ -493,32 +511,44 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           <div className="flex items-center gap-2 mb-1">
             <Calendar size={16} className="text-pink-600" />
             <span className="text-xs font-black uppercase tracking-widest text-pink-600">Agendamentos Novos</span>
-            <Info size={12} className="text-pink-400 cursor-help" title="Total de agendamentos CRIADOS neste mês (independente da data da sessão)." />
+            <Info size={12} className="text-pink-400 cursor-help" title="Pacientes que nunca tinham agendado antes e fizeram seu primeiro agendamento neste mês." />
           </div>
-          <div className="text-4xl font-black text-gray-900 my-2">{agendamentosMes?.total ?? 0}</div>
+          <div className="text-4xl font-black text-gray-900 my-2">{Math.max(0, (agendamentosMes?.leads ?? 0) + (agendamentosMes?.novos ?? 0))}</div>
           <div className="flex items-center gap-2 text-xs">
             {agendamentosMesAnterior && (
               <>
-                <span className={agendamentosMes.total >= agendamentosMesAnterior.total ? 'text-emerald-600' : 'text-rose-600'}>
-                  {agendamentosMes.total >= agendamentosMesAnterior.total ? '↑' : '↓'} {Math.abs(agendamentosMes.total - agendamentosMesAnterior.total)}
+                <span className={((agendamentosMes?.leads ?? 0) + (agendamentosMes?.novos ?? 0)) >= ((agendamentosMesAnterior?.leads ?? 0) + (agendamentosMesAnterior?.novos ?? 0)) ? 'text-emerald-600' : 'text-rose-600'}>
+                  {((agendamentosMes?.leads ?? 0) + (agendamentosMes?.novos ?? 0)) >= ((agendamentosMesAnterior?.leads ?? 0) + (agendamentosMesAnterior?.novos ?? 0)) ? '↑' : '↓'} {Math.abs(((agendamentosMes?.leads ?? 0) + (agendamentosMes?.novos ?? 0)) - ((agendamentosMesAnterior?.leads ?? 0) + (agendamentosMesAnterior?.novos ?? 0)))}
                 </span>
-                <span className="text-gray-400">vs mês anterior ({agendamentosMesAnterior.total})</span>
+                <span className="text-gray-400">vs mês anterior ({(agendamentosMesAnterior?.leads ?? 0) + (agendamentosMesAnterior?.novos ?? 0)})</span>
               </>
             )}
           </div>
           <div className="mt-3 pt-2 border-t border-pink-100 space-y-1 text-[11px]">
             <div className="flex justify-between">
-              <span className="text-gray-500">Pré-agendados (leads)</span>
-              <strong className="text-pink-700">{agendamentosMes?.leads ?? 0}</strong>
-            </div>
-            <div className="flex justify-between">
               <span className="text-gray-500">Novos pacientes</span>
-              <strong className="text-pink-700">{agendamentosMes?.novos ?? 0}</strong>
+              <strong className="text-pink-700">{Math.max(0, (agendamentosMes?.leads ?? 0) + (agendamentosMes?.novos ?? 0))}</strong>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500">Retornos 45+ dias</span>
               <strong className="text-pink-700">{agendamentosMes?.retornos ?? 0}</strong>
             </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Recorrentes</span>
+              <strong className="text-pink-700">{Math.max(0, (agendamentosMes?.total ?? 0) - (agendamentosMes?.leads ?? 0) - (agendamentosMes?.novos ?? 0) - (agendamentosMes?.retornos ?? 0))}</strong>
+            </div>
+            <div className="flex justify-between border-t border-pink-100 pt-1 mt-1">
+              <span className="text-gray-400">Total geral do mês</span>
+              <strong className="text-gray-500">{agendamentosMes?.total ?? 0}</strong>
+            </div>
+            {novosPacientesLista.length > 0 && (
+              <button
+                onClick={() => setNovosPacientesModalOpen(true)}
+                className="mt-2 w-full py-1.5 text-[11px] font-semibold text-pink-700 bg-pink-50 hover:bg-pink-100 rounded-lg transition-colors"
+              >
+                Ver {novosPacientesLista.length} pacientes novos →
+              </button>
+            )}
           </div>
         </div>
 
@@ -528,10 +558,10 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
             <TrendingUp size={14} className="text-gray-500" />
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Comparativo Mês Anterior</span>
           </div>
-          <div className="text-2xl font-black text-gray-900">{agendamentosMesAnterior?.total ?? 0}</div>
+          <div className="text-2xl font-black text-gray-900">{Math.max(0, (agendamentosMesAnterior?.leads ?? 0) + (agendamentosMesAnterior?.novos ?? 0))}</div>
           <p className="text-[11px] text-gray-400 mt-1">
             {agendamentosMes && agendamentosMesAnterior
-              ? `${((agendamentosMes.total / Math.max(1, agendamentosMesAnterior.total) - 1) * 100).toFixed(1)}% ${agendamentosMes.total >= agendamentosMesAnterior.total ? 'a mais' : 'a menos'} que o mês anterior`
+              ? `${((((agendamentosMes?.leads ?? 0) + (agendamentosMes?.novos ?? 0)) / Math.max(1, (agendamentosMesAnterior?.leads ?? 0) + (agendamentosMesAnterior?.novos ?? 0)) - 1) * 100).toFixed(1)}% ${((agendamentosMes?.leads ?? 0) + (agendamentosMes?.novos ?? 0)) >= ((agendamentosMesAnterior?.leads ?? 0) + (agendamentosMesAnterior?.novos ?? 0)) ? 'a mais' : 'a menos'} que o mês anterior`
               : 'Carregando...'}
           </p>
         </div>
@@ -539,7 +569,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
         <MetricCard
           title="Taxa de Novos"
           subtitle="% de agendamentos de novos pacientes"
-          value={`${agendamentosMes && agendamentosMes.total > 0 ? Math.round((agendamentosMes.novos / agendamentosMes.total) * 100) : 0}%`}
+          value={`${agendamentosMes && agendamentosMes.total > 0 ? Math.round((((agendamentosMes?.leads ?? 0) + (agendamentosMes?.novos ?? 0)) / agendamentosMes.total) * 100) : 0}%`}
           icon={<Users size={20} />}
           color="sky"
         />
@@ -563,7 +593,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           </div>
           <div className="text-2xl font-black text-gray-900">{formatCurrency(totalCaixa)}</div>
           <p className="text-[11px] text-gray-400 mt-1">
-            Tudo que entrou em maio · inclui {formatCurrency(totalRetroativos)} de retroativos
+            Tudo que entrou em {new Date(year, month - 1).toLocaleString('pt-BR', { month: 'long' })} · inclui {formatCurrency(totalRetroativos)} de retroativos
           </p>
         </div>
         <MetricCard title="Retroativos" subtitle="Recebimentos de meses anteriores" value={formatCurrency(totalRetroativos)} icon={<TrendingUp size={20} />} color="sky" />
@@ -1840,6 +1870,68 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
         </div>
       );
     })()}
+      {/* ── Modal de Novos Pacientes ── */}
+      {novosPacientesModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setNovosPacientesModalOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b">
+              <div className="flex items-center gap-2">
+                <Users size={20} className="text-pink-600" />
+                <h2 className="text-lg font-bold text-gray-900">Novos Pacientes — {String(month).padStart(2, '0')}/{year}</h2>
+              </div>
+              <button onClick={() => setNovosPacientesModalOpen(false)} className="p-1 rounded-lg hover:bg-gray-100">
+                <X size={20} className="text-gray-500" />
+              </button>
+            </div>
+            <div className="overflow-y-auto p-4">
+              {novosPacientesLista.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-8">Nenhum novo paciente neste período.</p>
+              ) : (
+                <div className="space-y-2">
+                  {novosPacientesLista.map((apt: any, i: number) => (
+                    <div key={apt._id || i} className="flex items-center justify-between p-3 rounded-xl border border-pink-100 bg-pink-50/50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center text-xs font-bold">
+                          {(apt.patient?.fullName || '—').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{apt.patient?.fullName || 'Sem nome'}</p>
+                          <p className="text-[11px] text-gray-500">
+                            {apt.date ? new Date(apt.date).toLocaleDateString('pt-BR') : '—'} · {apt.time || '—'} · {apt.specialty || '—'}
+                          </p>
+                          <p className="text-[10px] text-gray-400">
+                            Prof: {apt.doctor?.fullName || '—'} · Tel: {apt.patient?.phone || '—'} · Criado em: {apt.createdAt ? new Date(apt.createdAt).toLocaleDateString('pt-BR') : '—'} · Valor: {formatCurrency(apt.sessionValue || 0)}
+                          </p>
+                        </div>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                        apt.operationalStatus === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                        apt.operationalStatus === 'scheduled' ? 'bg-blue-100 text-blue-700' :
+                        apt.operationalStatus === 'pre_agendado' ? 'bg-amber-100 text-amber-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {apt.operationalStatus === 'pre_agendado' ? 'Pré-agendado' :
+                         apt.operationalStatus === 'scheduled' ? 'Agendado' :
+                         apt.operationalStatus === 'completed' ? 'Atendido' :
+                         apt.operationalStatus || '—'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t flex justify-between items-center">
+              <span className="text-sm text-gray-500">{novosPacientesLista.length} paciente(s) novo(s)</span>
+              <button
+                onClick={() => setNovosPacientesModalOpen(false)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
