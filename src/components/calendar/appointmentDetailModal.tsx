@@ -594,7 +594,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
             // 🎯 STATUS ESPECIAIS: redireciona para o handler correto (PATCH /complete ou PATCH /cancel)
             // PUT /update não executa completeSessionV2 — só PATCH /complete sincroniza tudo
-            if (operationalStatusEN === 'completed') {
+            // Se o appointment JÁ estava completed, deixa ir para PUT → admin-edit (não re-completa)
+            const originalStatus = event?.operationalStatus;
+            if (operationalStatusEN === 'completed' && originalStatus !== 'completed') {
                 setIsEditing(false);
                 setProcessingState({ isProcessing: false, message: '' });
                 await handleComplete();

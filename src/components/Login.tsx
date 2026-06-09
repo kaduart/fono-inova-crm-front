@@ -1,4 +1,4 @@
-import { Eye, EyeOff, Shield, Stethoscope, User } from 'lucide-react';
+import { ClipboardList, Eye, EyeOff, Shield, Stethoscope, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -30,6 +30,7 @@ const Login = () => {
 
   const roles = [
     { id: 'admin', label: 'Admin', icon: Shield },
+    { id: 'secretary', label: 'Secretária', icon: ClipboardList },
     { id: 'paciente', label: 'Paciente', icon: User },
     { id: 'doctor', label: 'Profissional', icon: Stethoscope },
   ];

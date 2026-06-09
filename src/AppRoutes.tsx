@@ -116,6 +116,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, allowedRoles }) =
         // Redirecionar para dashboard apropriado baseado na role
         switch (user.role) {
             case 'admin':
+            case 'secretary':
                 return <Navigate to="/admin" replace />;
             case 'doctor':
             case 'doctor-private':
@@ -159,10 +160,10 @@ const AppRoutes: React.FC = () => {
                 {/* ==================== ROTAS PÚBLICAS ==================== */}
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={
-                    user && !forceLogin ? <Navigate to={`/${user.role === 'doctor-private' ? 'doctor' : user.role}`} replace /> : <Login />
+                    user && !forceLogin ? <Navigate to={`/${user.role === 'doctor-private' ? 'doctor' : (user.role === 'secretary' ? 'admin' : user.role)}`} replace /> : <Login />
                 } />
                 <Route path="/signup" element={
-                    user && !forceLogin ? <Navigate to={`/${user.role === 'doctor-private' ? 'doctor' : user.role}`} replace /> : <SignUp />
+                    user && !forceLogin ? <Navigate to={`/${user.role === 'doctor-private' ? 'doctor' : (user.role === 'secretary' ? 'admin' : user.role)}`} replace /> : <SignUp />
                 } />
                 <Route path="/reset-password/:token" element={<ResetPassword />} />
 
@@ -175,66 +176,66 @@ const AppRoutes: React.FC = () => {
                     
                     {/* Admin Dashboard (com abas internas) */}
                     <Route path="/admin" element={
-                        <PrivateRoute allowedRoles={['admin']}>
+                        <PrivateRoute allowedRoles={['admin', 'secretary']}>
                             <AdminDashboard />
                         </PrivateRoute>
                     } />
 
                 {/* Sub-rotas do Admin - Lazy Loaded */}
                 <Route path="/admin/analytics" element={
-                    <PrivateRoute allowedRoles={['admin']}>
+                    <PrivateRoute allowedRoles={['admin', 'secretary']}>
                         <SiteAnalyticsDashboard />
                     </PrivateRoute>
                 } />
                 <Route path="/admin/marketing" element={
-                    <PrivateRoute allowedRoles={['admin']}>
+                    <PrivateRoute allowedRoles={['admin', 'secretary']}>
                         <MarketingDashboard />
                     </PrivateRoute>
                 } />
 
                 <Route path="/admin/followup" element={
-                    <PrivateRoute allowedRoles={['admin']}>
+                    <PrivateRoute allowedRoles={['admin', 'secretary']}>
                         <FollowupDashboard />
                     </PrivateRoute>
                 } />
                 <Route path="/admin/leads" element={
-                    <PrivateRoute allowedRoles={['admin']}>
+                    <PrivateRoute allowedRoles={['admin', 'secretary']}>
                         <FollowupPage />
                     </PrivateRoute>
                 } />
                 <Route path="/admin/messages" element={
-                    <PrivateRoute allowedRoles={['admin']}>
+                    <PrivateRoute allowedRoles={['admin', 'secretary']}>
                         <AppChat />
                     </PrivateRoute>
                 } />
                 <Route path="/admin/contacts" element={
-                    <PrivateRoute allowedRoles={['admin']}>
+                    <PrivateRoute allowedRoles={['admin', 'secretary']}>
                         <ContactsPage />
                     </PrivateRoute>
                 } />
                 <Route path="/admin/financial" element={
-                    <PrivateRoute allowedRoles={['admin']}>
+                    <PrivateRoute allowedRoles={['admin', 'secretary']}>
                         <FinancialDashboard />
                     </PrivateRoute>
                 } />
 
                 <Route path="/admin/payments" element={
-                    <PrivateRoute allowedRoles={['admin']}>
+                    <PrivateRoute allowedRoles={['admin', 'secretary']}>
                         <PaymentPage patients={[]} initialPayments={[]} doctors={[]} />
                     </PrivateRoute>
                 } />
                 <Route path="/admin/doctors" element={
-                    <PrivateRoute allowedRoles={['admin']}>
+                    <PrivateRoute allowedRoles={['admin', 'secretary']}>
                         <ManageDoctors />
                     </PrivateRoute>
                 } />
                 <Route path="/admin/doctors/:id/agenda" element={
-                    <PrivateRoute allowedRoles={['admin']}>
+                    <PrivateRoute allowedRoles={['admin', 'secretary']}>
                         <DoctorAgenda />
                     </PrivateRoute>
                 } />
                 <Route path="/admin/calendar" element={
-                    <PrivateRoute allowedRoles={['admin']}>
+                    <PrivateRoute allowedRoles={['admin', 'secretary']}>
                         <EnhancedCalendar />
                     </PrivateRoute>
                 } />
@@ -299,17 +300,17 @@ const AppRoutes: React.FC = () => {
 
                 {/* Financeiro */}
                 <Route path="/vendas" element={
-                    <PrivateRoute allowedRoles={['admin']}>
+                    <PrivateRoute allowedRoles={['admin', 'secretary']}>
                         <SalesList />
                     </PrivateRoute>
                 } />
                 <Route path="/vendas/nova" element={
-                    <PrivateRoute allowedRoles={['admin']}>
+                    <PrivateRoute allowedRoles={['admin', 'secretary']}>
                         <SaleForm />
                     </PrivateRoute>
                 } />
                 <Route path="/provisionamento" element={
-                    <PrivateRoute allowedRoles={['admin']}>
+                    <PrivateRoute allowedRoles={['admin', 'secretary']}>
                         <ProvisionamentoTab />
                     </PrivateRoute>
                 } />

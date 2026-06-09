@@ -643,6 +643,28 @@ export default function AdminDashboard() {
             const errorData = error.response?.data;
             const msg = extractErrorMessage(error, 'Erro ao atualizar agendamento');
 
+            // Admin e secretária podem editar atendimentos finalizados via admin-edit
+            if (errorData?.code === 'CANNOT_EDIT_COMPLETED_APPOINTMENT') {
+                try {
+                    console.log('🔓 [AdminDashboard] Redirecionando para admin-edit (completed):', appointmentId);
+                    await API.patch(`/v2/appointments/${appointmentId}/admin-edit`, {
+                        ...updatedData,
+                        adminReason: 'Correção administrativa em atendimento finalizado'
+                    });
+                    toast.success('✅ Agendamento atualizado (admin)!');
+                    setCloseModalSignal(prev => prev + 1);
+                    await fetchAppointments({ ...calendarDateRange, force: true });
+                    window.dispatchEvent(new CustomEvent('appointments:data-updated', {
+                        detail: { appointmentId, timestamp: Date.now() }
+                    }));
+                    return;
+                } catch (adminErr: any) {
+                    const adminMsg = extractErrorMessage(adminErr, 'Erro no admin-edit');
+                    toast.error(`❌ ${adminMsg}`, { id: `admin-edit-error-${appointmentId}` });
+                    throw adminErr;
+                }
+            }
+
             if (!errorData) {
                 toast.error('Erro de conexão com o servidor');
                 throw error;
