@@ -89,6 +89,7 @@ const AmandaMetricsDashboard = lazyWithRetry(() => import('./admin/AmandaMetrics
 const SystemUnifiedDashboard = lazyWithRetry(() => import('./admin/SystemUnifiedDashboard'));
 const WhatsAppConnectionCard = lazyWithRetry(() => import('./admin/WhatsAppConnectionCard'));
 const ManageDoctors = lazyWithRetry(() => import('./ManageDoctors/ManageDoctors'));
+const ManagePatients = lazyWithRetry(() => import('./ManagePatients/ManagePatients'));
 const DoctorFormModal = lazyWithRetry(() => import('./ManageDoctors/DoctorFormModal'));
 const PatientModal = lazyWithRetry(() => import('./patients/PatientModal').then(m => ({ default: m.PatientModal })));
 
@@ -353,11 +354,6 @@ export default function AdminDashboard() {
         setActiveTab(tab);
         setOpenMenu('');
 
-        if (tab === 'Add Paciente') {
-            setPatientToEdit(undefined);
-            setIsModalOpen(true);
-            setActiveTab('Dashboard');
-        }
     }, []);
 
     const handleAddPatient = useCallback(() => {
@@ -498,7 +494,12 @@ export default function AdminDashboard() {
         }
     }, [cancelAppointment, fetchAppointments, calendarDateRange, refreshDashboard, chat]);
 
-    const handleCompleteAppointment = useCallback(async (appointmentId: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
+    const handleCompleteAppointment = useCallback(async (appointmentId: string, data?: {
+        addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string;
+        billingType?: string; paymentMethod?: string; paymentAmount?: number; sessionValue?: number;
+        insuranceProvider?: string; insuranceValue?: number; authorizationCode?: string;
+        payments?: Array<{ amount: number; date: string; method: string }>;
+    }) => {
         try {
             console.log('[AdminDashboard] Completando agendamento:', appointmentId, data);
             
@@ -1029,6 +1030,12 @@ export default function AdminDashboard() {
                         <ManageDoctors {...manageDoctorsProps} />
                     </Suspense>
                 );
+            case 'Add Paciente':
+                return (
+                    <Suspense fallback={<TabSpinner />}>
+                        <ManagePatients />
+                    </Suspense>
+                );
             case 'Calendário':
                 return (
                     <TabErrorBoundary tabName="Calendário">
@@ -1163,6 +1170,7 @@ export default function AdminDashboard() {
                     <PatientModal
                         open={isModalOpen}
                         patient={patientToEdit || initialPatientState}
+                        isLoading={isLoading}
                         onClose={() => {
                             setIsModalOpen(false);
                             setPatientToEdit(undefined);

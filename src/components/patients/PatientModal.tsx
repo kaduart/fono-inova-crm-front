@@ -48,7 +48,9 @@ export const PatientModal = ({
           <div className="flex items-center gap-2">
             <UserPlus2 className="w-5 h-5 text-white/90" />
             <span className="font-semibold text-lg tracking-wide">
-              {patient?._id ? 'Editar Paciente' : 'Novo Paciente'}
+              {(patientProp?._id || (patientProp as any)?.patientId || (patientProp as any)?.id)
+                ? 'Editar Paciente'
+                : 'Novo Paciente'}
             </span>
           </div>
           <IconButton
@@ -67,7 +69,8 @@ export const PatientModal = ({
       >
         {open && (
           <PatientForm
-            patient={patient}
+            key={(patientProp?._id || (patientProp as any)?.patientId || (patientProp as any)?.id) ?? 'new'}
+            patient={patientProp}
             isLoading={isLoading}
             onSuccess={async (savedPatient) => {
               const success = await onSaveSuccess?.(savedPatient);

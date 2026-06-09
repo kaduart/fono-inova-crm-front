@@ -1069,7 +1069,12 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                             : t.tipo === 'Pacote' ? 'border-green-500'
                                             : t.tipo === 'Convênio' ? 'border-amber-400'
                                             : 'border-blue-400';
-                                        const prazo = t.metodo === 'Pix' || t.metodo === 'Dinheiro' ? 'Imediato'
+                                        const isMultiPayment = (t as any).paymentForms?.length > 1;
+                                        const methodLabel = (m: string) => {
+                                          const map: Record<string, string> = { pix: 'Pix', dinheiro: 'Dinheiro', cartao_credito: 'Cartão', credito: 'Cartão', cartao_debito: 'Débito', debito: 'Débito', transferencia_bancaria: 'Transf.', transferencia: 'Transf.', outro: 'Outro' };
+                                          return map[(m || '').toLowerCase()] || m;
+                                        };
+                                        const prazo = isMultiPayment ? null : t.metodo === 'Pix' || t.metodo === 'Dinheiro' ? 'Imediato'
                                             : t.metodo === 'Cartão' ? 'D+30'
                                             : t.metodo === 'Transferência Bancária' ? 'D+1'
                                             : t.metodo === 'Convênio' ? 'D+60' : null;
@@ -1093,8 +1098,17 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                     <span className="px-2 py-0.5 rounded-full text-xs border border-gray-300 text-gray-600">{t.servico}{subTipo ? ` · ${subTipo === 'Venda de Pacote' ? 'Venda' : 'Sessão'}` : ''}</span>
                                                 </div>
                                                 <div className="w-28 shrink-0 text-center">
-                                                    <div className="text-xs font-medium text-gray-700">{t.metodo}</div>
-                                                    {prazo && <div className="text-[10px] text-gray-400">{prazo}</div>}
+                                                    {isMultiPayment ? (
+                                                        <>
+                                                            <div className="text-xs font-medium text-gray-700 truncate">{[...new Set((t as any).paymentForms.map((f: any) => methodLabel(f.method)))].join(' + ')}</div>
+                                                            <div className="text-[10px] text-gray-400">{(t as any).paymentForms.length} formas</div>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <div className="text-xs font-medium text-gray-700">{t.metodo}</div>
+                                                            {prazo && <div className="text-[10px] text-gray-400">{prazo}</div>}
+                                                        </>
+                                                    )}
                                                 </div>
                                                 <div className="w-20 shrink-0 text-center">
                                                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${tipoCls}`}>{t.tipo}</span>

@@ -36,7 +36,8 @@ const PatientForm = ({ patient, isLoading, onSuccess }: PatientFormProps) => {
   });
 
   const onSubmit = (data: PatientFormData) => {
-    const fullData = { ...(patient?._id ? { _id: patient._id } : {}), ...data };
+    const id = patient?._id || (patient as any)?.patientId || (patient as any)?.id;
+    const fullData = { ...(id ? { _id: id } : {}), ...data };
     onSuccess?.(fullData as PatientFormData);
   };
 

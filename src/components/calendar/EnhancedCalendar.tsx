@@ -33,7 +33,12 @@ interface EnhancedCalendarProps {
     onDateClick: (arg: DateClickArg) => void;
     onNewAppointment: (data: ScheduleAppointment) => Promise<void>;
     onCancelAppointment: (id: string, reason: string) => Promise<void>;
-    onCompleteAppointment: (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => Promise<void>;
+    onCompleteAppointment: (id: string, data?: {
+        addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string;
+        billingType?: string; paymentMethod?: string; paymentAmount?: number; sessionValue?: number;
+        insuranceProvider?: string; insuranceValue?: number; authorizationCode?: string;
+        payments?: Array<{ amount: number; date: string; method: string }>;
+    }) => Promise<void>;
     onEditAppointment: (id: string, data: any) => Promise<void>;
     onFetchAvailableSlots: (params: { doctorId: string; date: string }) => Promise<string[]>;
     onMonthChange?: (startDate: Date, endDate: Date) => void;

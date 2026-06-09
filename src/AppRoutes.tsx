@@ -81,6 +81,7 @@ const FinancialDashboard = lazyWithRetry(() => import('./pages/Financial/Financi
 
 const PaymentPage = lazyWithRetry(() => import('./components/financial/PaymentPage'));
 const ManageDoctors = lazyWithRetry(() => import('./components/ManageDoctors/ManageDoctors'));
+const ManagePatients = lazyWithRetry(() => import('./components/ManagePatients/ManagePatients'));
 const DoctorAgenda = lazyWithRetry(() => import('./components/ManageDoctors/DoctorAgenda'));
 const EnhancedCalendar = lazyWithRetry(() => import('./components/calendar/EnhancedCalendar'));
 const FollowupPage = lazyWithRetry(() => import('./pages/FollowupPage'));
@@ -227,6 +228,11 @@ const AppRoutes: React.FC = () => {
                 <Route path="/admin/doctors" element={
                     <PrivateRoute allowedRoles={['admin', 'secretary']}>
                         <ManageDoctors />
+                    </PrivateRoute>
+                } />
+                <Route path="/admin/patients" element={
+                    <PrivateRoute allowedRoles={['admin', 'secretary']}>
+                        <ManagePatients />
                     </PrivateRoute>
                 } />
                 <Route path="/admin/doctors/:id/agenda" element={

@@ -324,7 +324,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                 </div>
                                 <div className="w-40 shrink-0 hidden lg:block cursor-pointer" onClick={() => sortData('nextAppointment')}>
                                     <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-                                        <Calendar className="w-3 h-3" /> Próxima consulta
+                                        <Calendar className="w-3 h-3" /> Próximssssssssssa consulta
                                         {sortConfig.key === 'nextAppointment' && (
                                             <span className="text-gray-600">{sortConfig.direction === 'ascending' ? '↑' : '↓'}</span>
                                         )}

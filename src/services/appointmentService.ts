@@ -274,7 +274,12 @@ export const appointmentService = {
 
     // ✅ V2 ATIVO: complete chama handler-driven (Particular/Convenio/Liminar)
     // Os handlers atualizam Payment existente (não criam duplicado).
-    complete: async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
+    complete: async (id: string, data?: {
+        addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string;
+        billingType?: string; paymentMethod?: string; paymentAmount?: number; sessionValue?: number;
+        insuranceProvider?: string; insuranceValue?: number; authorizationCode?: string;
+        payments?: Array<{ amount: number; date: string; method: string }>;
+    }) => {
         const endpoint = appointmentService.USE_V2_COMPLETE
             ? `/v2/appointments/${id}/complete`  // ✅ V2 ATIVO: async + handlers
             : `/appointments/${id}/complete`;     // ⚠️ V1 LEGADO: sync direto
