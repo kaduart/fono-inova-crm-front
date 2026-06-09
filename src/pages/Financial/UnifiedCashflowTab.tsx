@@ -621,17 +621,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                         <span className="text-[26px] font-extrabold text-pink-700 leading-none tracking-tight">{totalCriados}</span>
                                     </div>
                                     <div className="pt-3 border-t border-pink-100 flex flex-col gap-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Pré-agendados</span>
-                                            <span className="text-sm font-bold text-pink-600">{preAgendados}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Novos pacientes</span>
-                                            <span className="text-sm font-bold text-pink-600">{novosPacientes}</span>
-                                        </div>
+                                        <button onClick={() => (preAgendados + novosPacientes) > 0 && setNewPatientsModalOpen(true)} className={`flex items-center justify-between w-full text-left rounded px-1 -mx-1 transition-colors ${(preAgendados + novosPacientes) > 0 ? 'hover:bg-pink-50 cursor-pointer' : 'cursor-default'}`}>
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">⭐ Primeiras consultas</span>
+                                            <span className="text-sm font-bold text-pink-600">{preAgendados + novosPacientes}</span>
+                                        </button>
                                         <div className="flex items-center justify-between border-t border-pink-100 pt-1">
-                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Total criado hoje</span>
-                                            <span className="text-sm font-bold text-gray-700">{totalCriados}</span>
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Retornos / regulares</span>
+                                            <span className="text-sm font-bold text-gray-700">{Math.max(0, totalCriados - preAgendados - novosPacientes)}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -779,7 +775,10 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
 
                     {/* Modal: Pré-agendados Novos */}
                     {newPatientsModalOpen && (() => {
-                        const leads = analyticsData?.leads || [];
+                        const leads = [
+                            ...(analyticsCreatedData?.leads || []),
+                            ...(analyticsCreatedData?.novos || [])
+                        ];
                         const svcLabel: Record<string, string> = { evaluation: 'Avaliação', session: 'Sessão', package_session: 'Sessão Pacote', tongue_tie_test: 'Teste Linguinha', neuropsych_evaluation: 'Aval. Neuropsic.', individual_session: 'Sessão Avulsa', package: 'Pacote' };
                         const billingColor: Record<string, string> = { particular: 'bg-blue-100 text-blue-700', convenio: 'bg-purple-100 text-purple-700', liminar: 'bg-orange-100 text-orange-700', package: 'bg-indigo-100 text-indigo-700' };
                         return (
@@ -787,7 +786,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
                                     <div className="flex items-center justify-between p-6 border-b border-gray-100">
                                         <div>
-                                            <h3 className="text-xl font-bold text-gray-900">Pré-agendados Novos</h3>
+                                            <h3 className="text-xl font-bold text-gray-900">⭐ Primeiras Consultas</h3>
                                             <p className="text-sm text-gray-500 mt-1">{isRangeActive && dateRange ? formatDateRange(dateRange) : format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })}</p>
                                         </div>
                                         <button onClick={() => setNewPatientsModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
