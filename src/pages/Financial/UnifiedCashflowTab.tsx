@@ -27,6 +27,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 interface DayData {
     date: string;
@@ -101,6 +102,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
     } | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState(0);
+    const [dashboardOpen, setDashboardOpen] = useState(false);
     const [viewMode, setViewMode] = useState<'day' | 'month'>('day');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [manualDateOverride, setManualDateOverride] = useState(false);
@@ -109,7 +111,9 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
     const [appointmentProfFilter, setAppointmentProfFilter] = useState<string>('all');
     const [txMetodoFilter, setTxMetodoFilter] = useState<string>('all');
     const [txTipoFilter, setTxTipoFilter] = useState<string>('all');
+    const [txMultiFilter, setTxMultiFilter] = useState<boolean>(false);
     const [loadingAppointments, setLoadingAppointments] = useState(false);
+    const [selectedApt, setSelectedApt] = useState<any | null>(null);
 
     const navigate = useNavigate();
     const { setPendingContactPhone, setShouldOpenMessagesTab } = useChatNavigation();
@@ -165,7 +169,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
         fetchAnalyticsForPeriod();
         return () => { guard.active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedDate, dateRange, manualDateOverride, fetchAnalyticsForPeriod]);
+    }, [selectedDate, dateRange, manualDateOverride]);
 
     // Recarrega agendamentos quando o usuário NAVEGA para a aba (não no mount inicial)
     useEffect(() => {
@@ -201,7 +205,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
     }, [viewMode, month, year]);
 
     const loadDayData = async (guard = { active: true }) => {
-        setLoading(true);
+        if (!dailyCashflow) setLoading(true); // skeleton apenas no primeiro carregamento
         try {
             let res;
             if (dateRange && !manualDateOverride) {
@@ -375,6 +379,29 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                 // ===== VISUALIZAÇÃO DIÁRIA =====
                 <div>
                 <div>
+                    {/* Accordion: Resumo do Dia */}
+                    <button
+                        onClick={() => setDashboardOpen(open => !open)}
+                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl mb-3 transition-all shadow-sm border border-emerald-200 hover:brightness-95"
+                        style={{ background: 'linear-gradient(90deg, #ecfdf5 0%, #eff6ff 100%)' }}
+                    >
+                        <div className="flex items-center gap-3">
+                            <span className="text-sm font-black text-emerald-700 uppercase tracking-widest">Resumo do Dia</span>
+                            {!dashboardOpen && data && (
+                                <span className="text-xs text-gray-500 ml-1">
+                                    <span className="font-semibold text-emerald-600">{formatCurrency(data.caixa.total)}</span>
+                                    <span className="text-gray-400"> recebido · </span>
+                                    <span className="font-semibold text-blue-600">{formatCurrency(data.producao.total)}</span>
+                                    <span className="text-gray-400"> produção</span>
+                                </span>
+                            )}
+                        </div>
+                        <ExpandMoreIcon
+                            className={`text-emerald-600 transition-transform duration-200 ${dashboardOpen ? 'rotate-180' : ''}`}
+                            style={{ fontSize: 20 }}
+                        />
+                    </button>
+                    {dashboardOpen && <>
                     {/* ========== RECEITA PREVISTA vs REALIZADA ========== */}
                     {(() => {
                         const sessaoApts = dayAppointments.filter((a: any) => !['canceled', 'pre_agendado', 'converted'].includes(a.operationalStatus));
@@ -422,7 +449,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                     })()}
 
                     {/* ========== LINHA 1: Saúde Operacional do Dia ========== */}
-                    <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 ${isMultiDayRange ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
+                    <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 ${isMultiDayRange ? 'lg:grid-cols-3' : 'lg:grid-cols-5'}`}>
 
                         {/* ── Caixa Hoje ── */}
                         <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#10B981', backgroundColor: '#F0FDF4' }}>
@@ -602,10 +629,14 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
 
                         {/* ── Novos Agendamentos (Comercial) ── */}
                         {!isMultiDayRange && (() => {
-                            const criadosHoje = analyticsCreatedData?.all || [];
-                            const totalCriados = criadosHoje.length;
-                            const preAgendados = (analyticsCreatedData?.leads || []).length;
-                            const novosPacientes = (analyticsCreatedData?.novos || []).length;
+                            const todosNoDia = analyticsData?.all || [];
+                            const totalNoDia = todosNoDia.length;
+                            const preAgendados = (analyticsData?.leads || []).length;
+                            const novosPacientes = (analyticsData?.novos || []).length;
+                            const novosEspCount = (analyticsData?.novosEspecialidade || []).length;
+                            const liminarCount = (analyticsData?.continuousTreatment || []).length;
+                            const acquisitionPool = totalNoDia - liminarCount;
+                            const retornos = Math.max(0, acquisitionPool - preAgendados - novosPacientes - novosEspCount);
                             return (
                                 <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#EC4899', backgroundColor: '#FDF2F8' }}>
                                     <div className="flex items-center gap-3 mb-3">
@@ -613,22 +644,32 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                             <AddCircleIcon style={{ fontSize: 20 }} className="text-pink-600" />
                                         </div>
                                         <div>
-                                            <div className="text-xs font-black text-pink-700 uppercase tracking-widest">Novos Agendamentos</div>
-                                            <div className="text-[11px] text-gray-400 leading-tight">Criados hoje</div>
+                                            <div className="text-xs font-black text-pink-700 uppercase tracking-widest">Perfil do Dia</div>
+                                            <div className="text-[11px] text-gray-400 leading-tight">Agendados para o dia</div>
                                         </div>
                                     </div>
                                     <div className="flex items-baseline gap-2 mb-1">
-                                        <span className="text-[26px] font-extrabold text-pink-700 leading-none tracking-tight">{totalCriados}</span>
+                                        <span className="text-[26px] font-extrabold text-pink-700 leading-none tracking-tight">{totalNoDia}</span>
                                     </div>
                                     <div className="pt-3 border-t border-pink-100 flex flex-col gap-y-2">
                                         <button onClick={() => (preAgendados + novosPacientes) > 0 && setNewPatientsModalOpen(true)} className={`flex items-center justify-between w-full text-left rounded px-1 -mx-1 transition-colors ${(preAgendados + novosPacientes) > 0 ? 'hover:bg-pink-50 cursor-pointer' : 'cursor-default'}`}>
-                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">⭐ Primeiras consultas</span>
-                                            <span className="text-sm font-bold text-pink-600">{preAgendados + novosPacientes}</span>
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">🟢 Novo Paciente</span>
+                                            <span className="text-sm font-bold text-emerald-600">{preAgendados + novosPacientes}</span>
+                                        </button>
+                                        <button onClick={() => novosEspCount > 0 && setNewSpecialtyModalOpen(true)} className={`flex items-center justify-between w-full text-left rounded px-1 -mx-1 transition-colors ${novosEspCount > 0 ? 'hover:bg-pink-50 cursor-pointer' : 'cursor-default'}`}>
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">🟣 Nova Especialidade</span>
+                                            <span className="text-sm font-bold text-violet-600">{novosEspCount}</span>
                                         </button>
                                         <div className="flex items-center justify-between border-t border-pink-100 pt-1">
-                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Retornos / regulares</span>
-                                            <span className="text-sm font-bold text-gray-700">{Math.max(0, totalCriados - preAgendados - novosPacientes)}</span>
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">↩ Retornos / regulares</span>
+                                            <span className="text-sm font-bold text-gray-700">{retornos}</span>
                                         </div>
+                                        {liminarCount > 0 && (
+                                            <div className="flex items-center justify-between border-t border-pink-100 pt-1">
+                                                <span className="text-[10px] text-orange-500 uppercase tracking-wide">⚖️ Trat. Liminares</span>
+                                                <span className="text-sm font-bold text-orange-600">{liminarCount}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             );
@@ -776,8 +817,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                     {/* Modal: Pré-agendados Novos */}
                     {newPatientsModalOpen && (() => {
                         const leads = [
-                            ...(analyticsCreatedData?.leads || []),
-                            ...(analyticsCreatedData?.novos || [])
+                            ...(analyticsData?.leads || []),
+                            ...(analyticsData?.novos || [])
                         ];
                         const svcLabel: Record<string, string> = { evaluation: 'Avaliação', session: 'Sessão', package_session: 'Sessão Pacote', tongue_tie_test: 'Teste Linguinha', neuropsych_evaluation: 'Aval. Neuropsic.', individual_session: 'Sessão Avulsa', package: 'Pacote' };
                         const billingColor: Record<string, string> = { particular: 'bg-blue-100 text-blue-700', convenio: 'bg-purple-100 text-purple-700', liminar: 'bg-orange-100 text-orange-700', package: 'bg-indigo-100 text-indigo-700' };
@@ -834,7 +875,9 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
 
                     {/* Modal: Novos na Especialidade */}
                     {newSpecialtyModalOpen && (() => {
-                        const novosEsp = analyticsData?.novosEspecialidade || [];
+                        const novosEsp = (analyticsCreatedData?.novosEspecialidade || []).length > 0
+                            ? (analyticsCreatedData?.novosEspecialidade || [])
+                            : (analyticsData?.novosEspecialidade || []);
                         const svcLabel: Record<string, string> = { evaluation: 'Avaliação', session: 'Sessão', package_session: 'Sessão Pacote', tongue_tie_test: 'Teste Linguinha', neuropsych_evaluation: 'Aval. Neuropsic.', individual_session: 'Sessão Avulsa', package: 'Pacote' };
                         const billingColor: Record<string, string> = { particular: 'bg-blue-100 text-blue-700', convenio: 'bg-purple-100 text-purple-700', liminar: 'bg-orange-100 text-orange-700', package: 'bg-indigo-100 text-indigo-700' };
                         return (
@@ -976,6 +1019,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                             </div>
                         );
                     })()}
+                    </>}
 
                     {/* Tabs de Detalhes */}
                     <div className="mb-3">
@@ -1012,11 +1056,178 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                         const allTx = data.transacoes || [];
                         const metodos = [...new Set(allTx.map((t: any) => t.metodo))].filter(Boolean) as string[];
                         const tipos = [...new Set(allTx.map((t: any) => t.tipo))].filter(Boolean) as string[];
-                        const txFiltradas = allTx.filter((t: any) =>
-                            (txMetodoFilter === 'all' || t.metodo === txMetodoFilter) &&
-                            (txTipoFilter === 'all' || t.tipo === txTipoFilter)
-                        );
-                        const totalFiltrado = txFiltradas.reduce((s: number, t: any) => s + t.valor, 0);
+
+                        // Agrupar por splitGroupId
+                        const groups = new Map<string, any[]>();
+                        const singles: any[] = [];
+                        for (const t of allTx) {
+                          if (t.splitGroupId) {
+                            if (!groups.has(t.splitGroupId)) groups.set(t.splitGroupId, []);
+                            groups.get(t.splitGroupId)!.push(t);
+                          } else {
+                            singles.push(t);
+                          }
+                        }
+                        const groupedItems: any[] = [];
+                        for (const [splitGroupId, items] of groups) {
+                          groupedItems.push({ _isGroup: true, splitGroupId, items, _id: splitGroupId });
+                        }
+                        for (const t of singles) {
+                          groupedItems.push({ _isGroup: false, item: t, _id: t.id });
+                        }
+
+                        const txFiltradas = groupedItems.filter((g: any) => {
+                          if (txMultiFilter) {
+                            if (!g._isGroup) return false;
+                          }
+                          if (txMetodoFilter === 'all' && txTipoFilter === 'all') return true;
+                          if (g._isGroup) {
+                            const passesTipo = txTipoFilter === 'all' || g.items[0].tipo === txTipoFilter;
+                            const passesMetodo = txMetodoFilter === 'all' || g.items.some((t: any) => t.metodo === txMetodoFilter);
+                            return passesTipo && passesMetodo;
+                          }
+                          const t = g.item;
+                          return (txMetodoFilter === 'all' || t.metodo === txMetodoFilter) &&
+                                 (txTipoFilter === 'all' || t.tipo === txTipoFilter);
+                        });
+
+                        const totalFiltrado = txFiltradas.reduce((s: number, g: any) => {
+                          if (g._isGroup) return s + g.items.reduce((sum: number, t: any) => sum + t.valor, 0);
+                          return s + g.item.valor;
+                        }, 0);
+
+                        const methodLabel = (m: string) => {
+                          const map: Record<string, string> = { pix: 'Pix', dinheiro: 'Dinheiro', cartao_credito: 'Cartão', credito: 'Cartão', cartao_debito: 'Débito', debito: 'Débito', transferencia_bancaria: 'Transf.', transferencia: 'Transf.', outro: 'Outro' };
+                          return map[(m || '').toLowerCase()] || m;
+                        };
+
+                        const renderSingle = (t: any) => {
+                          const subTipo = (t as any).isPackageSale ? 'Venda de Pacote' : (t.tipo === 'Pacote' ? 'Sessão de Pacote' : null);
+                          const situacao = t.tipo === 'Convênio' ? 'A Faturar'
+                              : t.tipo === 'Liminar' ? 'Judicial'
+                              : (t as any).isPackageSale ? 'Pré-antecipado'
+                              : t.tipo === 'Pacote' && (t as any).paymentModel === 'prepaid' ? 'Pré-pago'
+                              : (t as any).isPrepago ? 'Pré-pago'
+                              : 'Pago na Sessão';
+                          const situacaoCls = situacao === 'Pré-pago' || situacao === 'Pré-antecipado' ? 'bg-indigo-100 text-indigo-700'
+                              : situacao === 'Pago na Sessão' ? 'bg-emerald-100 text-emerald-700'
+                              : situacao === 'A Faturar' ? 'bg-purple-100 text-purple-700'
+                              : situacao === 'Judicial' ? 'bg-orange-100 text-orange-700'
+                              : 'bg-gray-100 text-gray-600';
+                          const borderCls = t.tipo === 'Liminar' ? 'border-orange-400'
+                              : t.tipo === 'Pacote' ? 'border-green-500'
+                              : t.tipo === 'Convênio' ? 'border-amber-400'
+                              : 'border-blue-400';
+                          const isMultiPayment = (t as any).paymentForms?.length > 1;
+                          const prazo = isMultiPayment ? null : t.metodo === 'Pix' || t.metodo === 'Dinheiro' ? 'Imediato'
+                              : t.metodo === 'Cartão' ? 'D+30'
+                              : t.metodo === 'Transferência Bancária' ? 'D+1'
+                              : t.metodo === 'Convênio' ? 'D+60' : null;
+                          const tipoCls = t.tipo === 'Pacote' ? 'bg-green-100 text-green-800'
+                              : t.tipo === 'Convênio' ? 'bg-amber-100 text-amber-800'
+                              : t.tipo === 'Liminar' ? 'bg-orange-100 text-orange-800'
+                              : 'bg-blue-100 text-blue-800';
+                          return (
+                              <div key={t.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 border-l-[3px] ${borderCls}`}>
+                                  <div className="w-20 shrink-0">
+                                      <div className="text-[11px] text-gray-400">{t.data}</div>
+                                      <div className="text-[15px] font-semibold text-gray-900 font-mono">{t.hora}</div>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                      <div className="text-[15px] font-semibold text-gray-900 truncate">{t.paciente}</div>
+                                      <div className="text-xs text-gray-500 truncate">
+                                          {[t.profissional, t.especialidade].filter(Boolean).join(' / ')}
+                                      </div>
+                                  </div>
+                                  <div className="w-28 shrink-0 text-center">
+                                      <span className="px-2 py-0.5 rounded-full text-xs border border-gray-300 text-gray-600">{t.servico}{subTipo ? ` · ${subTipo === 'Venda de Pacote' ? 'Venda' : 'Sessão'}` : ''}</span>
+                                  </div>
+                                  <div className="w-28 shrink-0 text-center">
+                                      {isMultiPayment ? (
+                                          <>
+                                              <div className="text-xs font-medium text-gray-700 truncate">{[...new Set((t as any).paymentForms.map((f: any) => methodLabel(f.method)))].join(' + ')}</div>
+                                              <div className="text-[10px] text-gray-400">{(t as any).paymentForms.length} formas</div>
+                                          </>
+                                      ) : (
+                                          <>
+                                              <div className="text-xs font-medium text-gray-700">{t.metodo}</div>
+                                              {prazo && <div className="text-[10px] text-gray-400">{prazo}</div>}
+                                          </>
+                                      )}
+                                  </div>
+                                  <div className="w-20 shrink-0 text-center">
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${tipoCls}`}>{t.tipo}</span>
+                                  </div>
+                                  <div className="w-24 shrink-0 text-center">
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${situacaoCls}`}>{situacao}</span>
+                                  </div>
+                                  <div className="w-20 shrink-0 text-right font-bold text-emerald-600 text-sm">{formatCurrency(t.valor)}</div>
+                              </div>
+                          );
+                        };
+
+                        const renderGroup = (g: any) => {
+                          const first = g.items[0];
+                          const subTipo = (first as any).isPackageSale ? 'Venda de Pacote' : (first.tipo === 'Pacote' ? 'Sessão de Pacote' : null);
+                          const situacao = first.tipo === 'Convênio' ? 'A Faturar'
+                              : first.tipo === 'Liminar' ? 'Judicial'
+                              : (first as any).isPackageSale ? 'Pré-antecipado'
+                              : first.tipo === 'Pacote' && (first as any).paymentModel === 'prepaid' ? 'Pré-pago'
+                              : (first as any).isPrepago ? 'Pré-pago'
+                              : 'Pago na Sessão';
+                          const situacaoCls = situacao === 'Pré-pago' || situacao === 'Pré-antecipado' ? 'bg-indigo-100 text-indigo-700'
+                              : situacao === 'Pago na Sessão' ? 'bg-emerald-100 text-emerald-700'
+                              : situacao === 'A Faturar' ? 'bg-purple-100 text-purple-700'
+                              : situacao === 'Judicial' ? 'bg-orange-100 text-orange-700'
+                              : 'bg-gray-100 text-gray-600';
+                          const borderCls = first.tipo === 'Liminar' ? 'border-orange-400'
+                              : first.tipo === 'Pacote' ? 'border-green-500'
+                              : first.tipo === 'Convênio' ? 'border-amber-400'
+                              : 'border-blue-400';
+                          const tipoCls = first.tipo === 'Pacote' ? 'bg-green-100 text-green-800'
+                              : first.tipo === 'Convênio' ? 'bg-amber-100 text-amber-800'
+                              : first.tipo === 'Liminar' ? 'bg-orange-100 text-orange-800'
+                              : 'bg-blue-100 text-blue-800';
+                          const totalGrupo = g.items.reduce((s: number, t: any) => s + t.valor, 0);
+                          const metodosUnicos = [...new Set(g.items.map((t: any) => methodLabel(t.metodo)))].join(' + ');
+                          return (
+                              <div key={g._id} className={`flex items-start gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 border-l-[3px] ${borderCls}`}>
+                                  <div className="w-20 shrink-0 pt-0.5">
+                                      <div className="text-[11px] text-gray-400">{first.data}</div>
+                                      <div className="text-[15px] font-semibold text-gray-900 font-mono">{first.hora}</div>
+                                  </div>
+                                  <div className="flex-1 min-w-0 pt-0.5">
+                                      <div className="text-[15px] font-semibold text-gray-900 truncate">{first.paciente}</div>
+                                      <div className="text-xs text-gray-500 truncate">
+                                          {[first.profissional, first.especialidade].filter(Boolean).join(' / ')}
+                                      </div>
+                                  </div>
+                                  <div className="w-28 shrink-0 text-center pt-1.5">
+                                      <span className="px-2 py-0.5 rounded-full text-xs border border-gray-300 text-gray-600">{first.servico}{subTipo ? ` · ${subTipo === 'Venda de Pacote' ? 'Venda' : 'Sessão'}` : ''}</span>
+                                  </div>
+                                  <div className="w-28 shrink-0 text-center pt-1">
+                                      <div className="text-xs font-medium text-gray-700 truncate">{metodosUnicos}</div>
+                                      <div className="space-y-0.5 mt-1">
+                                          {g.items.map((t: any) => (
+                                              <div key={t.id} className="flex justify-between text-[11px] text-gray-500">
+                                                  <span>{methodLabel(t.metodo)}</span>
+                                                  <span className="font-medium text-gray-700">{formatCurrency(t.valor)}</span>
+                                              </div>
+                                          ))}
+                                      </div>
+                                      <div className="text-[10px] text-gray-400 mt-1">{g.items.length} formas</div>
+                                  </div>
+                                  <div className="w-20 shrink-0 text-center pt-1.5">
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${tipoCls}`}>{first.tipo}</span>
+                                  </div>
+                                  <div className="w-24 shrink-0 text-center pt-1.5">
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${situacaoCls}`}>{situacao}</span>
+                                  </div>
+                                  <div className="w-20 shrink-0 text-right font-bold text-emerald-600 text-sm pt-2">{formatCurrency(totalGrupo)}</div>
+                              </div>
+                          );
+                        };
+
                         return (
                             <div className="bg-white rounded-lg border border-gray-200 p-3">
                                 <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -1035,6 +1246,11 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                 {tp}
                                             </button>
                                         ))}
+                                        {(metodos.length > 0 || tipos.length > 1) && <span className="text-gray-300 text-xs">|</span>}
+                                        <button onClick={() => setTxMultiFilter(v => !v)}
+                                            className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${txMultiFilter ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}>
+                                            🔄 Multi
+                                        </button>
                                     </div>
                                 </div>
                                 {/* Header fixo explicando colunas da direita */}
@@ -1050,76 +1266,11 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                 <div className="space-y-1">
                                     {txFiltradas.length === 0 ? (
                                         <div className="text-center py-6 text-gray-400 text-sm">
-                                            {txMetodoFilter !== 'all' || txTipoFilter !== 'all' ? 'Nenhuma transação com esse filtro' : `Nenhuma transação ${isRangeActive ? 'no período' : 'hoje'}`}
+                                            {txMetodoFilter !== 'all' || txTipoFilter !== 'all' || txMultiFilter ? 'Nenhuma transação com esse filtro' : `Nenhuma transação ${isRangeActive ? 'no período' : 'hoje'}`}
                                         </div>
-                                    ) : txFiltradas.map((t: any) => {
-                                        const subTipo = (t as any).isPackageSale ? 'Venda de Pacote' : (t.tipo === 'Pacote' ? 'Sessão de Pacote' : null);
-                                        const situacao = t.tipo === 'Convênio' ? 'A Faturar'
-                                            : t.tipo === 'Liminar' ? 'Judicial'
-                                            : (t as any).isPackageSale ? 'Pré-antecipado'
-                                            : t.tipo === 'Pacote' && (t as any).paymentModel === 'prepaid' ? 'Pré-pago'
-                                            : (t as any).isPrepago ? 'Pré-pago'
-                                            : 'Pago na Sessão';
-                                        const situacaoCls = situacao === 'Pré-pago' || situacao === 'Pré-antecipado' ? 'bg-indigo-100 text-indigo-700'
-                                            : situacao === 'Pago na Sessão' ? 'bg-emerald-100 text-emerald-700'
-                                            : situacao === 'A Faturar' ? 'bg-purple-100 text-purple-700'
-                                            : situacao === 'Judicial' ? 'bg-orange-100 text-orange-700'
-                                            : 'bg-gray-100 text-gray-600';
-                                        const borderCls = t.tipo === 'Liminar' ? 'border-orange-400'
-                                            : t.tipo === 'Pacote' ? 'border-green-500'
-                                            : t.tipo === 'Convênio' ? 'border-amber-400'
-                                            : 'border-blue-400';
-                                        const isMultiPayment = (t as any).paymentForms?.length > 1;
-                                        const methodLabel = (m: string) => {
-                                          const map: Record<string, string> = { pix: 'Pix', dinheiro: 'Dinheiro', cartao_credito: 'Cartão', credito: 'Cartão', cartao_debito: 'Débito', debito: 'Débito', transferencia_bancaria: 'Transf.', transferencia: 'Transf.', outro: 'Outro' };
-                                          return map[(m || '').toLowerCase()] || m;
-                                        };
-                                        const prazo = isMultiPayment ? null : t.metodo === 'Pix' || t.metodo === 'Dinheiro' ? 'Imediato'
-                                            : t.metodo === 'Cartão' ? 'D+30'
-                                            : t.metodo === 'Transferência Bancária' ? 'D+1'
-                                            : t.metodo === 'Convênio' ? 'D+60' : null;
-                                        const tipoCls = t.tipo === 'Pacote' ? 'bg-green-100 text-green-800'
-                                            : t.tipo === 'Convênio' ? 'bg-amber-100 text-amber-800'
-                                            : t.tipo === 'Liminar' ? 'bg-orange-100 text-orange-800'
-                                            : 'bg-blue-100 text-blue-800';
-                                        return (
-                                            <div key={t.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 border-l-[3px] ${borderCls}`}>
-                                                <div className="w-20 shrink-0">
-                                                    <div className="text-[11px] text-gray-400">{t.data}</div>
-                                                    <div className="text-[15px] font-semibold text-gray-900 font-mono">{t.hora}</div>
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="text-[15px] font-semibold text-gray-900 truncate">{t.paciente}</div>
-                                                    <div className="text-xs text-gray-500 truncate">
-                                                        {[t.profissional, t.especialidade].filter(Boolean).join(' / ')}
-                                                    </div>
-                                                </div>
-                                                <div className="w-28 shrink-0 text-center">
-                                                    <span className="px-2 py-0.5 rounded-full text-xs border border-gray-300 text-gray-600">{t.servico}{subTipo ? ` · ${subTipo === 'Venda de Pacote' ? 'Venda' : 'Sessão'}` : ''}</span>
-                                                </div>
-                                                <div className="w-28 shrink-0 text-center">
-                                                    {isMultiPayment ? (
-                                                        <>
-                                                            <div className="text-xs font-medium text-gray-700 truncate">{[...new Set((t as any).paymentForms.map((f: any) => methodLabel(f.method)))].join(' + ')}</div>
-                                                            <div className="text-[10px] text-gray-400">{(t as any).paymentForms.length} formas</div>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <div className="text-xs font-medium text-gray-700">{t.metodo}</div>
-                                                            {prazo && <div className="text-[10px] text-gray-400">{prazo}</div>}
-                                                        </>
-                                                    )}
-                                                </div>
-                                                <div className="w-20 shrink-0 text-center">
-                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${tipoCls}`}>{t.tipo}</span>
-                                                </div>
-                                                <div className="w-24 shrink-0 text-center">
-                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${situacaoCls}`}>{situacao}</span>
-                                                </div>
-                                                <div className="w-20 shrink-0 text-right font-bold text-emerald-600 text-sm">{formatCurrency(t.valor)}</div>
-                                            </div>
-                                        );
-                                    })}
+                                    ) : txFiltradas.map((g: any) => (
+                                        g._isGroup ? renderGroup(g) : renderSingle(g.item)
+                                    ))}
                                     {txFiltradas.length > 0 && (
                                         <div className="flex justify-between items-center px-3 py-2 mt-2 rounded-lg bg-gray-100 border border-gray-200">
                                             <span className="text-sm font-bold text-gray-700">Total ({txFiltradas.length}{txFiltradas.length !== allTx.length ? ` de ${allTx.length}` : ''})</span>
@@ -1346,7 +1497,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                         const valor = a.sessionValue || a.package?.sessionValue || 0;
                                                                         const phone = a.patientInfo?.phone || a.patient?.phone;
                                                                         return (
-                                                                            <div key={a._id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200 border-l-[3px] ${sc.border} ${a.operationalStatus === 'completed' ? 'bg-green-50' : 'bg-gray-50'} ${a.operationalStatus === 'canceled' ? 'opacity-50' : ''}`}>
+                                                                            <div key={a._id} onClick={() => setSelectedApt(a)} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200 border-l-[3px] cursor-pointer hover:shadow-md transition-shadow ${sc.border} ${a.operationalStatus === 'completed' ? 'bg-green-50' : 'bg-gray-50'} ${a.operationalStatus === 'canceled' ? 'opacity-50' : ''}`}>
                                                                                 <span className="text-xs text-gray-400 w-10 shrink-0 font-mono">{a.time || '--:--'}</span>
                                                                                 <div className="flex-1 min-w-0">
                                                                                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -1591,29 +1742,34 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                         <th className="px-3 py-2 text-right">Caixa</th>
                                         <th className="px-3 py-2 text-right">Prod. Clínica</th>
                                         <th className="px-3 py-2 text-right">Atendimentos</th>
-                                        <th className="px-3 py-2 text-right">Eficiência</th>
+                                        <th className="px-3 py-2 text-right" title="Produção clínica ÷ Atendimentos realizados no dia">Ticket Médio</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {monthData.filter(d => d.caixa > 0 || d.producao > 0).map((day) => (
-                                        <tr key={day.date} className="border-b hover:bg-gray-50">
-                                            <td className="px-3 py-2">{format(parseISO(day.date), 'dd/MM/yyyy')}</td>
-                                            <td className="px-3 py-2 text-right font-bold text-emerald-600">{formatCurrency(day.caixa)}</td>
-                                            <td className="px-3 py-2 text-right text-blue-600">{formatCurrency(day.producao)}</td>
-                                            <td className="px-3 py-2 text-right">{day.atendimentos}</td>
-                                            <td className="px-3 py-2 text-right">
-                                                {day.producao > 0 ? ((day.caixa / day.producao) * 100).toFixed(1) : 0}%
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {monthData
+                                        .filter(d => (d.caixa > 0 || d.producao > 0) && d.date <= new Date().toISOString().slice(0, 10))
+                                        .map((day) => {
+                                            const ticket = day.atendimentos > 0 ? day.producao / day.atendimentos : 0;
+                                            return (
+                                                <tr key={day.date} className="border-b hover:bg-gray-50">
+                                                    <td className="px-3 py-2">{format(parseISO(day.date), 'dd/MM/yyyy')}</td>
+                                                    <td className="px-3 py-2 text-right font-bold text-emerald-600">{formatCurrency(day.caixa)}</td>
+                                                    <td className="px-3 py-2 text-right text-blue-600">{formatCurrency(day.producao)}</td>
+                                                    <td className="px-3 py-2 text-right">{day.atendimentos}</td>
+                                                    <td className="px-3 py-2 text-right text-gray-700">
+                                                        {ticket > 0 ? formatCurrency(ticket) : '—'}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     {monthData.some(d => d.caixa > 0 || d.producao > 0) && (
                                         <tr className="border-t-2 border-gray-300 bg-gray-100 font-bold">
                                             <td className="px-3 py-2">Total</td>
                                             <td className="px-3 py-2 text-right text-emerald-700">{formatCurrency(monthResumo?.caixaBruto ?? monthTotals.totalCaixa)}</td>
                                             <td className="px-3 py-2 text-right text-blue-700">{formatCurrency(monthResumo?.producaoTotal ?? monthTotals.totalProducao)}</td>
                                             <td className="px-3 py-2 text-right text-gray-800">{monthTotals.totalAtendimentos}</td>
-                                            <td className="px-3 py-2 text-right text-gray-800">
-                                                {(monthResumo?.producaoTotal ?? monthTotals.totalProducao) > 0 ? (((monthResumo?.caixaBruto ?? monthTotals.totalCaixa) / (monthResumo?.producaoTotal ?? monthTotals.totalProducao)) * 100).toFixed(1) : 0}%
+                                            <td className="px-3 py-2 text-right text-gray-800" title="% Recebido do mês = Caixa total ÷ Produção total. No acumulado, antecipações e retroativos se compensam.">
+                                                {(monthResumo?.producaoTotal ?? monthTotals.totalProducao) > 0 ? (((monthResumo?.caixaBruto ?? monthTotals.totalCaixa) / (monthResumo?.producaoTotal ?? monthTotals.totalProducao)) * 100).toFixed(1) : 0}% recebido
                                             </td>
                                         </tr>
                                     )}
@@ -1636,6 +1792,185 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                     </button>
                 </div>
             )}
+            {/* ===== MODAL: DETALHE DO AGENDAMENTO ===== */}
+        {selectedApt && (() => {
+            const apt = selectedApt;
+            const scMap: Record<string, { border: string; badge: string; label: string; bg: string }> = {
+                completed:    { border: 'border-emerald-500', badge: 'bg-green-100 text-green-800',  label: 'Atendido',     bg: 'bg-green-50'  },
+                scheduled:    { border: 'border-blue-500',   badge: 'bg-blue-100 text-blue-800',    label: 'Agendado',     bg: 'bg-blue-50'   },
+                confirmed:    { border: 'border-sky-400',    badge: 'bg-sky-100 text-sky-800',      label: 'Confirmado',   bg: 'bg-sky-50'    },
+                canceled:     { border: 'border-red-400',    badge: 'bg-red-100 text-red-800',      label: 'Cancelado',    bg: 'bg-red-50'    },
+                pre_agendado: { border: 'border-amber-400',  badge: 'bg-amber-100 text-amber-800',  label: 'Pré-agendado', bg: 'bg-amber-50'  },
+            };
+            const sc = scMap[apt.operationalStatus] || { border: 'border-gray-400', badge: 'bg-gray-100 text-gray-700', label: apt.operationalStatus, bg: 'bg-gray-50' };
+            const valor = apt.sessionValue || apt.package?.sessionValue || 0;
+            const phone = apt.patientInfo?.phone || apt.patient?.phone;
+            const patientName = apt.patientInfo?.fullName || apt.patient?.fullName || '—';
+            const isNew = (analyticsData?.novos || []).some((n: any) => n._id === apt._id);
+            const isCanceled = apt.operationalStatus === 'canceled';
+
+            const tx = (data?.transacoes || []).find((t: any) =>
+                t.hora === apt.time &&
+                t.paciente === (apt.patientInfo?.fullName || apt.patient?.fullName)
+            );
+
+            const billingLabel: Record<string, string> = { particular: 'Particular', convenio: 'Convênio', liminar: 'Liminar (Judicial)', package: 'Pacote' };
+            const serviceLabel: Record<string, string> = { evaluation: 'Avaliação', session: 'Sessão', package_session: 'Sessão de Pacote', tongue_tie_test: 'Teste Linguinha', neuropsych_evaluation: 'Aval. Neuropsicológica', individual_session: 'Sessão Avulsa', return: 'Retorno' };
+            const methodLabel: Record<string, string> = { pix: 'Pix', dinheiro: 'Dinheiro', cartao_credito: 'Cartão de Crédito', credito: 'Cartão de Crédito', cartao_debito: 'Débito', debito: 'Débito', transferencia_bancaria: 'Transferência Bancária', transferencia: 'Transferência Bancária', outro: 'Outro' };
+            const prazoLabel: Record<string, string> = { pix: 'D+0 (imediato)', dinheiro: 'D+0 (imediato)', cartao_credito: 'D+30', credito: 'D+30', cartao_debito: 'D+1', debito: 'D+1', transferencia_bancaria: 'D+1', transferencia: 'D+1' };
+            const sfFull: Record<string, string> = { 'Pré-pago': '📦 Crédito de pacote consumido', 'Pago na Sessão': '💰 Pago no atendimento', 'Avaliação Paga': '💰 Pago no atendimento', 'Pendente': '⏳ Aguardando pagamento', 'Pacote Pendente': '📦 Sessão de pacote pendente', 'Convênio': '🏥 A faturar ao convênio', 'Liminar': '⚖️ Via processo judicial', 'Cancelado': '❌ Cancelado' };
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedApt(null)}>
+                    <div className={`bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border-t-4 ${sc.border}`} onClick={e => e.stopPropagation()}>
+
+                        {/* Header */}
+                        <div className={`px-5 py-4 ${sc.bg} flex items-start justify-between gap-3`}>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap mb-1">
+                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${sc.badge}`}>{sc.label}</span>
+                                    {isNew && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">1ª vez</span>}
+                                    <span className="text-xs text-gray-500 font-mono">{apt.time || '--:--'}</span>
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-900 truncate">{patientName}</h3>
+                                <p className="text-sm text-gray-500">{[apt.professionalName, apt.specialty].filter(Boolean).join(' · ')}</p>
+                            </div>
+                            <button onClick={() => setSelectedApt(null)} className="text-gray-400 hover:text-gray-700 text-xl leading-none shrink-0 mt-1">✕</button>
+                        </div>
+
+                        <div className="p-5 space-y-4">
+                            {/* Badges de contexto */}
+                            <div className="flex flex-wrap gap-2">
+                                {apt.billingType && (
+                                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${apt.billingType === 'convenio' ? 'bg-purple-100 text-purple-700 border-purple-200' : apt.billingType === 'liminar' ? 'bg-orange-100 text-orange-700 border-orange-200' : apt.billingType === 'package' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-blue-100 text-blue-700 border-blue-200'}`}>
+                                        {billingLabel[apt.billingType] || apt.billingType}
+                                    </span>
+                                )}
+                                {apt.serviceType && (
+                                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold border bg-gray-100 text-gray-600 border-gray-200">
+                                        {serviceLabel[apt.serviceType] || apt.serviceType}
+                                    </span>
+                                )}
+                                {apt.package?.name && (
+                                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold border bg-indigo-100 text-indigo-700 border-indigo-200">📦 {apt.package.name}</span>
+                                )}
+                            </div>
+
+                            {/* Bloco financeiro */}
+                            {!isCanceled && (
+                                <div className="rounded-xl border border-gray-200 overflow-hidden">
+                                    <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                                        <span className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">💰 Financeiro</span>
+                                    </div>
+                                    <div className="px-4 py-3 space-y-2.5">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-gray-600">Valor da sessão</span>
+                                            <span className="text-lg font-extrabold text-emerald-700">{formatCurrency(valor)}</span>
+                                        </div>
+                                        {apt.statusFinanceiro && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-gray-600">Situação</span>
+                                                <span className="text-sm font-semibold text-gray-800">{sfFull[apt.statusFinanceiro] || apt.statusFinanceiro}</span>
+                                            </div>
+                                        )}
+                                        {apt.paymentMethod && apt.paymentMethod !== 'pending' && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-gray-600">Método</span>
+                                                <div className="text-right">
+                                                    <div className="text-sm font-semibold text-gray-800">{methodLabel[apt.paymentMethod] || apt.paymentMethod}</div>
+                                                    {prazoLabel[apt.paymentMethod] && <div className="text-[11px] text-gray-400">{prazoLabel[apt.paymentMethod]}</div>}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {apt.insuranceProvider && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-gray-600">Convênio</span>
+                                                <span className="text-sm font-semibold text-purple-700">{apt.insuranceProvider}</span>
+                                            </div>
+                                        )}
+                                        {apt.authorizationCode && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-gray-600">Cód. Autorização</span>
+                                                <span className="text-sm font-mono text-gray-800">{apt.authorizationCode}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Transação cruzada */}
+                            {tx && (
+                                <div className="rounded-xl border border-emerald-200 overflow-hidden">
+                                    <div className="bg-emerald-50 px-4 py-2 border-b border-emerald-200">
+                                        <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-widest">✅ Transação Registrada no Caixa</span>
+                                    </div>
+                                    <div className="px-4 py-3 space-y-2.5">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-gray-600">Valor recebido</span>
+                                            <span className="text-lg font-extrabold text-emerald-700">{formatCurrency(tx.valor)}</span>
+                                        </div>
+                                        {(tx as any).paymentForms?.length > 1 ? (
+                                            <div className="flex justify-between items-start">
+                                                <span className="text-sm text-gray-600">Formas de pagamento</span>
+                                                <div className="text-right space-y-0.5">
+                                                    {(tx as any).paymentForms.map((f: any, i: number) => (
+                                                        <div key={i} className="text-xs font-semibold text-gray-700">{methodLabel[f.method] || f.method}: {formatCurrency(f.amount)}</div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ) : tx.metodo && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-gray-600">Método</span>
+                                                <span className="text-sm font-semibold text-gray-800">{tx.metodo}</span>
+                                            </div>
+                                        )}
+                                        {tx.tipo && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-gray-600">Tipo</span>
+                                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${tx.tipo === 'Pacote' ? 'bg-green-100 text-green-800' : tx.tipo === 'Convênio' ? 'bg-amber-100 text-amber-800' : tx.tipo === 'Liminar' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}>{tx.tipo}</span>
+                                            </div>
+                                        )}
+                                        {valor > 0 && tx.valor !== valor && (
+                                            <div className="flex justify-between items-center border-t border-gray-100 pt-2.5">
+                                                <span className="text-sm text-gray-500">Diferença previsto × recebido</span>
+                                                <span className={`text-sm font-bold ${tx.valor < valor ? 'text-red-600' : 'text-emerald-600'}`}>
+                                                    {tx.valor < valor ? '−' : '+'}{formatCurrency(Math.abs(tx.valor - valor))}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Atendido mas sem transação no caixa */}
+                            {apt.operationalStatus === 'completed' && !tx && (
+                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                                    <p className="text-sm text-amber-700 font-medium">⚠️ Atendimento concluído sem transação registrada no caixa do dia.</p>
+                                </div>
+                            )}
+
+                            {/* Observações */}
+                            {apt.notes && (
+                                <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                                    <div className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">🗒 Observações</div>
+                                    <p className="text-sm text-gray-700 whitespace-pre-line">{apt.notes}</p>
+                                </div>
+                            )}
+
+                            {/* WhatsApp */}
+                            {phone && (
+                                <button
+                                    onClick={() => { handleOpenWhatsApp(phone); setSelectedApt(null); }}
+                                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold text-sm transition-colors"
+                                >
+                                    💬 Abrir WhatsApp — {phone}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        })()}
         </div>
     );
 };

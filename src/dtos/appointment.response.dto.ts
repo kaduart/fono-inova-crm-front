@@ -54,6 +54,7 @@ export interface AppointmentDTO {
         mode?: string;
     };
     isFirstVisit?: boolean;
+    patientJourneyType?: 'new_patient' | 'new_specialty' | 'returning_patient';
     duration?: number;
     isReturningAfter45Days?: boolean;
     canceledReason?: string;
@@ -156,6 +157,7 @@ export function mapAppointmentResponseDTO(raw: any): AppointmentDTO {
         package: typeof raw.package === 'object' && raw.package !== null ? raw.package : undefined,
         liminarContract: typeof raw.liminarContract === 'object' && raw.liminarContract !== null ? raw.liminarContract : undefined,
         isFirstVisit: raw.isFirstVisit || false,
+        patientJourneyType: raw.patientJourneyType || undefined,
         isReturningAfter45Days: raw.isReturningAfter45Days || false,
         duration: raw.duration || undefined,
         canceledReason: raw.canceledReason || undefined,

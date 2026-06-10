@@ -11,6 +11,7 @@ export interface AppointmentsByTypeData {
   novosEspecialidade: IAppointment[];
   retornos45: IAppointment[];
   recorrentes: IAppointment[];
+  continuousTreatment: IAppointment[];
   all: IAppointment[];
 }
 
@@ -21,6 +22,7 @@ export interface AppointmentsByTypeSummary {
   novosEspecialidade: { count: number; percentage: number };
   retornos45: { count: number; percentage: number };
   recorrentes: { count: number; percentage: number };
+  continuousTreatment: { count: number; percentage: number };
 }
 
 export const useAppointmentsByType = () => {
