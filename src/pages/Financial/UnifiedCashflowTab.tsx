@@ -1453,9 +1453,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                         const now = new Date();
                                         const nowMin = now.getHours() * 60 + now.getMinutes();
                                         const nowStr = format(now, 'HH:mm');
-                                        const firstApptDate = dayAppointments[0]?.date ? format(parseISO(dayAppointments[0].date), 'yyyy-MM-dd') : null;
                                         const todayStr = format(now, 'yyyy-MM-dd');
-                                        const isToday = firstApptDate === todayStr;
+                                        const isToday = selectedDate === todayStr;
                                         const atendidos = filtered.filter((a: any) => a.operationalStatus === 'completed');
                                         const totalVal = atendidos.reduce((s: number, a: any) => s + (a.sessionValue || a.package?.sessionValue || 0), 0);
                                         const NowMarker = () => (
