@@ -8,7 +8,7 @@ export const Header = () => {
 
     const getDashboardRoute = () => {
         if (!user) return '/login';
-        if (user.role === 'admin') return '/admin';
+        if (user.role === 'admin' || user.role === 'secretary') return '/admin';
         if (user.role === 'doctor' || user.role === 'doctor-private') return '/doctor';
         if (user.role === 'patient') return '/patient';
         return `/${user.role}`;
