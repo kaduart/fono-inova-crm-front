@@ -1,5 +1,16 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+
+// Polyfill para iOS Safari que não tem requestIdleCallback
+if (typeof window !== 'undefined' && !window.requestIdleCallback) {
+  (window as any).requestIdleCallback = (cb: IdleRequestCallback) => {
+    const start = Date.now();
+    return setTimeout(() => {
+      cb({ didTimeout: false, timeRemaining: () => Math.max(0, 50 - (Date.now() - start)) } as IdleDeadline);
+    }, 1) as unknown as number;
+  };
+  (window as any).cancelIdleCallback = (id: number) => clearTimeout(id);
+}
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./index.css";

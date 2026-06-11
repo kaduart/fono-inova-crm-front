@@ -263,7 +263,7 @@ export default function AdminDashboard() {
 
     // 🚀 Prefetch lazy chunks das abas secundárias em background
     useEffect(() => {
-        requestIdleCallback?.(() => {
+        window.requestIdleCallback?.(() => {
             import('../pages/FollowupPage');
             import('../pages/Secretaria/PreAgendamentosPage');
             import('./calendar/EnhancedCalendar');

@@ -363,7 +363,7 @@ const FinancialDashboard = ({
 
     // 🚀 Prefetch all tab chunks on mount so tab switching feels instant
     useEffect(() => {
-        requestIdleCallback?.(() => {
+        window.requestIdleCallback?.(() => {
             import('../../components/financial/PaymentPage');
             import('./tabs/ExpensesTab');
             import('./tabs/InsuranceTab');
