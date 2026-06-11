@@ -12,6 +12,38 @@ import { Box, LinearProgress } from '@mui/material';
 import { useAuth } from './contexts/AuthContext';
 import MainLayout from './components/MainLayout';
 
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
+    state = { hasError: false, error: null };
+
+    static getDerivedStateFromError(error: Error) {
+        return { hasError: true, error };
+    }
+
+    componentDidCatch(error: Error, info: React.ErrorInfo) {
+        console.error('[ErrorBoundary]', error, info);
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                    <div className="text-center p-8 max-w-md">
+                        <h2 className="text-xl font-semibold text-gray-800 mb-2">Algo deu errado</h2>
+                        <p className="text-gray-500 text-sm mb-6">Ocorreu um erro ao carregar esta página.</p>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="px-4 py-2 bg-emerald-600 text-white rounded-md text-sm hover:bg-emerald-700"
+                        >
+                            Recarregar
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
 // Importação síncrona de componentes críticos (login, home)
 import Home from './components/Home';
 import Login from './components/Login';
@@ -27,9 +59,12 @@ const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) 
       attempts++;
       return importFn().catch((error: any) => {
         // Se for erro de chunk não encontrado (atualização de build)
-        const isChunkError = error?.name === 'TypeError' || 
-                           error?.message?.includes('Failed to fetch dynamically imported module') ||
-                           error?.message?.includes('load failed');
+        const msg = error?.message?.toLowerCase() ?? '';
+        const isChunkError = error?.name === 'TypeError' ||
+                           msg.includes('failed to fetch dynamically imported module') ||
+                           msg.includes('load failed') ||
+                           msg.includes('loading chunk') ||
+                           msg.includes('dynamically imported module');
         
         if (isChunkError) {
           console.warn(`[AppRoutes] Chunk load failed (attempt ${attempts}/${retries})`);
@@ -156,6 +191,7 @@ const AppRoutes: React.FC = () => {
     const forceLogin = searchParams.get('forceLogin') === 'true';
 
     return (
+        <ErrorBoundary>
         <Suspense fallback={<PageLoader />}>
             <Routes>
                 {/* ==================== ROTAS PÚBLICAS ==================== */}
@@ -342,6 +378,7 @@ const AppRoutes: React.FC = () => {
                 } />
             </Routes>
         </Suspense>
+        </ErrorBoundary>
     );
 };
 

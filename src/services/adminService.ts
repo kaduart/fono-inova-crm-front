@@ -15,7 +15,7 @@ export const adminService = {
     fetchCompletedAppointments: () =>
         API.get<Appointment[]>(USE_V2 ? '/v2/admin/dashboard/appointments/completed' : '/admin/appointment/completed-cancelled'),
 
-    addAdmin: (adminData: { fullName: string; email: string; password: string }) =>
+    addAdmin: (adminData: { fullName: string; email: string; password: string; role?: string }) =>
         API.post(USE_V2 ? '/v2/admin/dashboard/admins' : '/admin/add-admin', adminData),
     
     // 🚀 V2: Novo método para overview do dashboard

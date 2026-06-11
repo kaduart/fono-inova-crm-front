@@ -125,12 +125,12 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         {/* (mesmo conteúdo, mantido) */}
                         <div className="relative" ref={gestaoRef}>
                             <NavButton
-                                active={activeTab === "Add Profissional" || activeTab === "Add Paciente"}
+                                active={activeTab === "Add Profissional" || activeTab === "Add Paciente" || activeTab === "Add Secretária"}
                                 onClick={() => toggleMenu("gestao")}
                                 hasChevron
                                 icon={<Users size={16} className="text-purple-500" />}
                                 className={
-                                    activeTab === "Add Profissional" || activeTab === "Add Paciente"
+                                    activeTab === "Add Profissional" || activeTab === "Add Paciente" || activeTab === "Add Secretária"
                                         ? "bg-blue-100 text-blue-600"
                                         : "!text-white"
                                 }
@@ -157,6 +157,16 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         <div className="flex flex-col">
                                             <span className="text-sm font-medium text-gray-800">Pacientes</span>
                                             <span className="text-xs text-gray-500">Cadastro e histórico</span>
+                                        </div>
+                                    </NavDropdownItem>
+                                    <NavDropdownItem
+                                        active={activeTab === "Add Secretária"}
+                                        onClick={() => handleTabChange("Add Secretária")}
+                                        icon={<User className="h-4 w-4 text-emerald-500" />}
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-gray-800">Secretárias</span>
+                                            <span className="text-xs text-gray-500">Cadastro e acesso</span>
                                         </div>
                                     </NavDropdownItem>
                                 </div>

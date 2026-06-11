@@ -23,7 +23,7 @@ interface UseAdminReturn {
   fetchAdminProfile: () => Promise<void>;
   fetchCompletedAppointments: () => Promise<void>;
   updateAdminProfile: (profileData: { fullName: string; email: string }) => Promise<any>;
-  addNewAdmin: (adminData: { fullName: string; email: string; password: string }) => Promise<void>;
+  addNewAdmin: (adminData: { fullName: string; email: string; password: string; role?: string }) => Promise<void>;
 }
 
 /**
@@ -135,12 +135,13 @@ export const useAdmin = (): UseAdminReturn => {
     }
   }, []);
 
-  const addNewAdmin = useCallback(async (adminData: { fullName: string; email: string; password: string }) => {
+  const addNewAdmin = useCallback(async (adminData: { fullName: string; email: string; password: string; role?: string }) => {
     setLoading(true);
     setError(null);
     try {
       await adminService.addAdmin(adminData);
-      toast.success('Admin adicionado com sucesso');
+      const label = adminData.role === 'secretary' ? 'Secretária' : 'Admin';
+      toast.success(`${label} adicionado com sucesso`);
     } catch (err: any) {
       setError(err.message);
       toast.error(err.response?.data?.message || 'An error occurred. Please try again.');

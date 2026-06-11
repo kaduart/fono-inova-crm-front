@@ -6,10 +6,12 @@ import Input from '../ui/Input';
 import { Label } from '../ui/Label';
 
 interface AddAdminContentProps {
-    addNewAdmin: (adminData: { fullName: string; email: string; password: string }) => Promise<void>;
+    addNewAdmin: (adminData: { fullName: string; email: string; password: string; role?: string }) => Promise<void>;
+    role?: 'admin' | 'secretary';
 }
 
-const AddAdminContent: React.FC<AddAdminContentProps> = ({ addNewAdmin }) => {
+const AddAdminContent: React.FC<AddAdminContentProps> = ({ addNewAdmin, role = 'admin' }) => {
+    const label = role === 'secretary' ? 'Secretária' : 'Admin';
     const [adminData, setAdminData] = useState({
         fullName: '',
         email: '',
@@ -30,7 +32,7 @@ const AddAdminContent: React.FC<AddAdminContentProps> = ({ addNewAdmin }) => {
             return;
         }
         try {
-            await addNewAdmin(adminData);
+            await addNewAdmin({ ...adminData, role });
             setAdminData({
                 fullName: '',
                 email: '',
@@ -45,7 +47,7 @@ const AddAdminContent: React.FC<AddAdminContentProps> = ({ addNewAdmin }) => {
     return (
         <Card className="w-full max-w-2xl mx-auto">
             <CardHeader>
-                <CardTitle>Add New Admin</CardTitle>
+                <CardTitle>Adicionar {label}</CardTitle>
             </CardHeader>
             <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -100,7 +102,7 @@ const AddAdminContent: React.FC<AddAdminContentProps> = ({ addNewAdmin }) => {
                             />
                         </div>
                     </div>
-                    <Button type="submit" className="ml-auto">Add Admin</Button>
+                    <Button type="submit" className="ml-auto">Adicionar {label}</Button>
                 </form>
             </CardContent>
         </Card>

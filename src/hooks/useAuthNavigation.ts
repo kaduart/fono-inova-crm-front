@@ -33,6 +33,7 @@ export const useAuthNavigation = () => {
           navigate('/doctor');
           break;
         case 'admin':
+        case 'secretary':
           navigate('/admin');
           break;
         case 'patient':

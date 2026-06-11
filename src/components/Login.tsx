@@ -31,7 +31,7 @@ const Login = () => {
   const roles = [
     { id: 'admin', label: 'Admin', icon: Shield },
     { id: 'secretary', label: 'Secretária', icon: ClipboardList },
-    { id: 'paciente', label: 'Paciente', icon: User },
+    // { id: 'paciente', label: 'Paciente', icon: User },
     { id: 'doctor', label: 'Profissional', icon: Stethoscope },
   ];
 

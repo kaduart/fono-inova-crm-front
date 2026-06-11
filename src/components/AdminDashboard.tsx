@@ -1023,7 +1023,9 @@ export default function AdminDashboard() {
                     />
                 );
             case 'Add Admin':
-                return <AddAdminContent addNewAdmin={addNewAdmin} />;
+                return <AddAdminContent addNewAdmin={addNewAdmin} role="admin" />;
+            case 'Add Secretária':
+                return <AddAdminContent addNewAdmin={addNewAdmin} role="secretary" />;
             case 'Add Profissional':
                 return (
                     <Suspense fallback={<TabSpinner />}>
