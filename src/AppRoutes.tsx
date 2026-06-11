@@ -29,7 +29,12 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
                 <div className="min-h-screen flex items-center justify-center bg-gray-50">
                     <div className="text-center p-8 max-w-md">
                         <h2 className="text-xl font-semibold text-gray-800 mb-2">Algo deu errado</h2>
-                        <p className="text-gray-500 text-sm mb-6">Ocorreu um erro ao carregar esta página.</p>
+                        <p className="text-gray-500 text-sm mb-4">Ocorreu um erro ao carregar esta página.</p>
+                        {this.state.error && (
+                            <p className="text-xs text-red-500 bg-red-50 rounded p-2 mb-4 text-left break-words">
+                                {this.state.error.message}
+                            </p>
+                        )}
                         <button
                             onClick={() => window.location.reload()}
                             className="px-4 py-2 bg-emerald-600 text-white rounded-md text-sm hover:bg-emerald-700"
