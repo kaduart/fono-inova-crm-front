@@ -273,7 +273,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   const totalProducao = data?.revenue?.total ?? 0;
   const liminarAReceber = data ? Math.max(0, (data.revenue?.byMethod?.liminar || 0) - (data.cash?.breakdown?.liminar || 0)) : 0;
   const totalRecebimentoProducao = data?.recebimentoProducao?.total ?? 0;
-  const totalRetroativos = data?.retroativos ?? 0;
+  const totalAntecipacoes = data?.recebimentosAntecipados ?? 0;
   const totalAReceberProducao = data?.aReceberProducao ?? 0;
 
   // 🎯 RITMO OPERACIONAL — deve ficar ANTES dos early returns (Rules of Hooks)
@@ -422,7 +422,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   if (error) return <div className="p-4 rounded-lg bg-rose-50 text-rose-700 border border-rose-200">{error}</div>;
   if (!data || !resumo) return <div className="p-4 rounded-lg bg-sky-50 text-sky-700 border border-sky-200">Nenhum dado disponível</div>;
 
-  const { cash, revenue, expenses, metas, profissionais, insights, comparativos, riscoOperacional, acoesExecutivas, drillDown, indicadores, convenioAReceber, particularPendente, pacotePendente, recebimentoProducao, retroativos, aReceberProducao } = data;
+  const { cash, revenue, expenses, metas, profissionais, insights, comparativos, riscoOperacional, acoesExecutivas, drillDown, indicadores, convenioAReceber, particularPendente, pacotePendente, recebimentoProducao, recebimentosAntecipados, aReceberProducao } = data;
   // ─── 🎯 APENAS RENDERIZAR — nenhum recálculo semântico aqui ───
   // Todos os valores abaixo vêm PRONTOS da API. Frontend não recalcula.
   // NOTA: totalCaixa/totalProducao já declarados acima (antes do ritmoCardEl) para evitar TDZ.
@@ -442,7 +442,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
             <Info size={12} className="text-blue-400 cursor-help" title="Sessões atendidas (status=completed) + convênios completados. NÃO é caixa recebido." />
           </div>
           <div className="text-4xl font-black text-gray-900 my-2">{formatCurrency(totalProducao)}</div>
-          <p className="text-xs text-gray-500">Tudo que foi atendido neste mês</p>
+          <p className="text-xs text-gray-500">Serviços realizados no mês · <strong className="text-blue-600">base da meta mensal</strong></p>
           <div className="mt-3 pt-2 border-t border-blue-100 grid grid-cols-2 gap-1 text-[11px] text-gray-500">
             <span>Pacote: <strong>{formatCurrency(revenue.byMethod.pacote || 0)}</strong></span>
             <span>Particular: <strong>{formatCurrency(revenue.byMethod.particular || 0)}</strong></span>
@@ -582,21 +582,21 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
         />
       </div>
 
-      {/* ── CAIXA FINANCEIRO — secundário, inclui retroativos ── */}
+      {/* ── CAIXA FINANCEIRO — regime de caixa, inclui vendas de pacotes e antecipações ── */}
       <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Caixa Financeiro (regime de caixa)</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="rounded-2xl border p-4 shadow-sm bg-white col-span-1 sm:col-span-2 lg:col-span-1">
           <div className="flex items-center gap-2 mb-1">
             <DollarSign size={14} className="text-gray-500" />
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Caixa Total</span>
-            <Info size={12} className="text-gray-400 cursor-help" title="Todo dinheiro que entrou neste mês (regime de caixa). Inclui retroativos de meses anteriores." />
+            <Info size={12} className="text-gray-400 cursor-help" title="Todo dinheiro que entrou neste mês (regime de caixa). Inclui vendas de pacotes e recebimentos antecipados — por isso pode ser maior que a produção clínica do mês." />
           </div>
           <div className="text-2xl font-black text-gray-900">{formatCurrency(totalCaixa)}</div>
           <p className="text-[11px] text-gray-400 mt-1">
-            Tudo que entrou em {new Date(year, month - 1).toLocaleString('pt-BR', { month: 'long' })} · inclui {formatCurrency(totalRetroativos)} de retroativos
+            Inclui vendas de pacotes e antecipações · caixa registra quando o dinheiro entra, não quando o serviço é realizado
           </p>
         </div>
-        <MetricCard title="Retroativos" subtitle="Recebimentos de meses anteriores" value={formatCurrency(totalRetroativos)} icon={<TrendingUp size={20} />} color="sky" />
+        <MetricCard title="Antecipações" subtitle="Caixa recebido além da produção do mês · principalmente contratos de pacote" value={formatCurrency(totalAntecipacoes)} icon={<TrendingUp size={20} />} color="sky" />
         <MetricCard title="Despesas" subtitle="Despesas cadastradas + comissões" value={formatCurrency(expenses.total)} icon={<Receipt size={20} />} color="rose" />
         <MetricCard title="Lucro" subtitle="Caixa menos despesas" value={formatCurrency(indicadores?.lucro ?? totalCaixa - expenses.total)} icon={<TrendingUp size={20} />} color={(indicadores?.lucro ?? totalCaixa - expenses.total) >= 0 ? 'emerald' : 'rose'} />
       </div>
@@ -755,7 +755,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
               <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">Recebido da produção</p>
               <p className="text-xs text-emerald-600 mt-0.5">
                 Pago de sessões deste mês · caixa total {formatCurrency(cash.total)}
-                {totalRetroativos > 0 && ` (inclui ${formatCurrency(totalRetroativos)} de meses anteriores)`}
+                {totalAntecipacoes > 0 && ` (inclui ${formatCurrency(totalAntecipacoes)} de contratos de pacote antecipados)`}
               </p>
             </div>
             <span className="text-2xl font-bold text-emerald-700">
@@ -903,7 +903,10 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
               <span className="text-sm font-bold text-rose-600">· faltam {formatCurrency(metaValor - resultadoEcon)}</span>
             )}
           </div>
-          <p className="text-xs text-gray-500 italic mb-4">{textoExecutivo}</p>
+          <p className="text-xs text-gray-500 italic mb-3">{textoExecutivo}</p>
+          <p className="text-[10px] text-gray-400 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100 mb-4">
+            💡 <strong>Meta = produção clínica</strong> (serviços realizados no mês). O caixa recebido pode ser maior por incluir vendas de pacotes e recebimentos antecipados.
+          </p>
 
           {/* Mini KPIs */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 border-t border-gray-200 pt-3">
@@ -921,6 +924,11 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
               </div>
             ))}
           </div>
+          {caixaTotal > resultadoEcon && (
+            <p className="text-[10px] text-gray-400 italic mt-2 text-center">
+              Caixa {formatCurrency(caixaTotal)} · Produção {formatCurrency(resultadoEcon)} · diferença de {formatCurrency(caixaTotal - resultadoEcon)} vem principalmente de vendas de pacotes
+            </p>
+          )}
         </div>
 
         {/* ── 3 CARDS INTELIGENTES ── */}

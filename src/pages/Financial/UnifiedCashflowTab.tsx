@@ -1948,6 +1948,18 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                 </div>
                             )}
 
+                            {/* Motivo do cancelamento */}
+                            {isCanceled && (
+                                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                                    <div className="text-[11px] font-bold text-red-400 uppercase tracking-widest mb-1.5">❌ Cancelamento</div>
+                                    {apt.cancelReason ? (
+                                        <p className="text-sm text-red-800 whitespace-pre-line">{apt.cancelReason}</p>
+                                    ) : (
+                                        <p className="text-sm text-red-400 italic">Nenhum motivo registrado.</p>
+                                    )}
+                                </div>
+                            )}
+
                             {/* Observações */}
                             {apt.notes && (
                                 <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
