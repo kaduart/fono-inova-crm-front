@@ -1,5 +1,7 @@
 import { Eye, EyeOff } from 'lucide-react';
 import React, { useState } from 'react';
+import { toast } from 'react-toastify';
+import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import Input from '../ui/Input';
@@ -12,6 +14,7 @@ interface AddAdminContentProps {
 
 const AddAdminContent: React.FC<AddAdminContentProps> = ({ addNewAdmin, role = 'admin' }) => {
     const label = role === 'secretary' ? 'Secretária' : 'Admin';
+    const { user } = useAuth();
     const [adminData, setAdminData] = useState({
         fullName: '',
         email: '',
@@ -27,8 +30,12 @@ const AddAdminContent: React.FC<AddAdminContentProps> = ({ addNewAdmin, role = '
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (role === 'admin' && user?.role !== 'admin') {
+            toast.error('Apenas administradores podem criar perfis de Admin.');
+            return;
+        }
         if (adminData.password !== adminData.confirmPassword) {
-            alert("As senhas não coincidem");
+            toast.error('As senhas não coincidem');
             return;
         }
         try {

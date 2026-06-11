@@ -13,7 +13,7 @@ const Login = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const [selectedRole, setSelectedRole] = useState('admin');
+  const [selectedRole, setSelectedRole] = useState('secretary');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
@@ -29,10 +29,10 @@ const Login = () => {
   const [resetMode, setResetMode] = useState<'email' | 'local'>('email');
 
   const roles = [
-    { id: 'admin', label: 'Admin', icon: Shield },
     { id: 'secretary', label: 'Secretária', icon: ClipboardList },
-    // { id: 'paciente', label: 'Paciente', icon: User },
     { id: 'doctor', label: 'Profissional', icon: Stethoscope },
+    { id: 'admin', label: 'Admin', icon: Shield },
+    // { id: 'paciente', label: 'Paciente', icon: User },
   ];
 
   const [currentImage, setCurrentImage] = useState(0);
