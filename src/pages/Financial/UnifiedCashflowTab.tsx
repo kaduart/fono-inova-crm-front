@@ -112,6 +112,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
     const [txMetodoFilter, setTxMetodoFilter] = useState<string>('all');
     const [txTipoFilter, setTxTipoFilter] = useState<string>('all');
     const [txMultiFilter, setTxMultiFilter] = useState<boolean>(false);
+    const [txPage, setTxPage] = useState(0);
+    const [txPerPage, setTxPerPage] = useState(10);
     const [loadingAppointments, setLoadingAppointments] = useState(false);
     const [selectedApt, setSelectedApt] = useState<any | null>(null);
 
@@ -203,6 +205,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
             loadMonthData();
         }
     }, [viewMode, month, year]);
+
+    useEffect(() => { setTxPage(0); }, [txMetodoFilter, txTipoFilter, txMultiFilter, txPerPage, selectedDate]);
 
     const loadDayData = async (guard = { active: true }) => {
         if (!dailyCashflow) setLoading(true); // skeleton apenas no primeiro carregamento
@@ -1057,15 +1061,23 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                         const metodos = [...new Set(allTx.map((t: any) => t.metodo))].filter(Boolean) as string[];
                         const tipos = [...new Set(allTx.map((t: any) => t.tipo))].filter(Boolean) as string[];
 
-                        // Agrupar por splitGroupId
+                        // Agrupar por splitGroupId ou por packageId (package_receipt do mesmo pacote)
                         const groups = new Map<string, any[]>();
                         const singles: any[] = [];
                         for (const t of allTx) {
-                          if (t.splitGroupId) {
-                            if (!groups.has(t.splitGroupId)) groups.set(t.splitGroupId, []);
-                            groups.get(t.splitGroupId)!.push(t);
+                          const groupKey = t.splitGroupId || (t.isPackageSale && t.packageId ? `pkg_${t.packageId}` : null);
+                          if (groupKey) {
+                            if (!groups.has(groupKey)) groups.set(groupKey, []);
+                            groups.get(groupKey)!.push(t);
                           } else {
                             singles.push(t);
+                          }
+                        }
+                        // Grupos com apenas 1 item viram single
+                        for (const [key, items] of groups) {
+                          if (items.length === 1) {
+                            singles.push(items[0]);
+                            groups.delete(key);
                           }
                         }
                         const groupedItems: any[] = [];
@@ -1268,15 +1280,48 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                         <div className="text-center py-6 text-gray-400 text-sm">
                                             {txMetodoFilter !== 'all' || txTipoFilter !== 'all' || txMultiFilter ? 'Nenhuma transação com esse filtro' : `Nenhuma transação ${isRangeActive ? 'no período' : 'hoje'}`}
                                         </div>
-                                    ) : txFiltradas.map((g: any) => (
+                                    ) : txFiltradas.slice(txPage * txPerPage, (txPage + 1) * txPerPage).map((g: any) => (
                                         g._isGroup ? renderGroup(g) : renderSingle(g.item)
                                     ))}
-                                    {txFiltradas.length > 0 && (
-                                        <div className="flex justify-between items-center px-3 py-2 mt-2 rounded-lg bg-gray-100 border border-gray-200">
-                                            <span className="text-sm font-bold text-gray-700">Total ({txFiltradas.length}{txFiltradas.length !== allTx.length ? ` de ${allTx.length}` : ''})</span>
-                                            <span className="text-sm font-bold text-emerald-600">{formatCurrency(totalFiltrado)}</span>
-                                        </div>
-                                    )}
+                                    {txFiltradas.length > 0 && (() => {
+                                        const totalPages = Math.ceil(txFiltradas.length / txPerPage);
+                                        const start = txPage * txPerPage + 1;
+                                        const end = Math.min((txPage + 1) * txPerPage, txFiltradas.length);
+                                        return (
+                                            <>
+                                                <div className="flex items-center justify-between px-2 pt-2 pb-1">
+                                                    <span className="text-xs text-gray-400">{totalPages > 1 ? `${start}–${end} de ${txFiltradas.length}` : `${txFiltradas.length} itens`}</span>
+                                                    {totalPages > 1 && (
+                                                        <div className="flex items-center gap-1">
+                                                            <button onClick={() => setTxPage(p => Math.max(0, p - 1))} disabled={txPage === 0}
+                                                                className="px-2 py-0.5 text-xs rounded border border-gray-300 text-gray-600 disabled:opacity-30 hover:bg-gray-100">‹</button>
+                                                            {Array.from({ length: totalPages }, (_, i) => (
+                                                                <button key={i} onClick={() => setTxPage(i)}
+                                                                    className={`px-2 py-0.5 text-xs rounded border transition-all ${i === txPage ? 'bg-emerald-600 text-white border-emerald-600' : 'border-gray-300 text-gray-600 hover:bg-gray-100'}`}>
+                                                                    {i + 1}
+                                                                </button>
+                                                            ))}
+                                                            <button onClick={() => setTxPage(p => Math.min(totalPages - 1, p + 1))} disabled={txPage === totalPages - 1}
+                                                                className="px-2 py-0.5 text-xs rounded border border-gray-300 text-gray-600 disabled:opacity-30 hover:bg-gray-100">›</button>
+                                                        </div>
+                                                    )}
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="text-xs text-gray-400 mr-1">por pág:</span>
+                                                        {[5, 10, 30].map(n => (
+                                                            <button key={n} onClick={() => setTxPerPage(n)}
+                                                                className={`px-2 py-0.5 text-xs rounded border transition-all ${txPerPage === n ? 'bg-gray-700 text-white border-gray-700' : 'border-gray-300 text-gray-500 hover:bg-gray-100'}`}>
+                                                                {n}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div className="flex justify-between items-center px-3 py-2 mt-1 rounded-lg bg-gray-100 border border-gray-200">
+                                                    <span className="text-sm font-bold text-gray-700">Total ({txFiltradas.length}{txFiltradas.length !== allTx.length ? ` de ${allTx.length}` : ''})</span>
+                                                    <span className="text-sm font-bold text-emerald-600">{formatCurrency(totalFiltrado)}</span>
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         );

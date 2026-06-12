@@ -44,6 +44,24 @@ export interface GenerateSessionsResult {
   saldoAposTudo: number;
 }
 
+export interface SpecialtyIntegrity {
+  slotsPerWeek: number;
+  sessionValue: number;
+  expected: number;
+  generated: number;
+  completed: number;
+  pending: number;
+  missing: number;
+}
+
+export interface ContractIntegrity {
+  contractId: string;
+  planVersion: number;
+  window: { from: string; to: string } | null;
+  specialties: Record<string, SpecialtyIntegrity>;
+  summary: { expected: number; generated: number; completed: number; pending: number; missing: number; integrityPercent: number };
+}
+
 export interface CommittedBalance {
   creditBalance: number;
   usedCredit: number;
@@ -110,7 +128,7 @@ const liminarContractService = {
   async generateSessions(
     contractId: string,
     planId: string,
-    data: { mode: 'append' | 'reset'; weeks?: number; startDate?: string; endDate?: string; skipHolidays?: boolean }
+    data: { mode: 'append' | 'reset'; weeks?: number; startDate?: string; endDate?: string; skipHolidays?: boolean; specialties?: string[] }
   ): Promise<GenerateSessionsResult> {
     const res = await API.post(
       `/v2/liminar-contracts/${contractId}/plans/${planId}/generate-sessions`,
@@ -139,6 +157,11 @@ const liminarContractService = {
       `/v2/liminar-contracts/${contractId}/plans/${planId}/therapies/${specialty}`,
       data
     );
+    return res.data;
+  },
+
+  async getIntegrity(contractId: string): Promise<ContractIntegrity> {
+    const res = await API.get(`/v2/liminar-contracts/${contractId}/integrity`);
     return res.data;
   },
 

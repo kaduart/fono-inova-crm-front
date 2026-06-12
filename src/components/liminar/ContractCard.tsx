@@ -3,6 +3,7 @@ import {
   Calendar,
   CheckCircle,
   DollarSign,
+  Info,
   MoreVertical,
   Pencil,
   Plus,
@@ -11,12 +12,12 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { ContractWithPlan } from '../../hooks/useLiminarContracts';
 import { appointmentService } from '../../services/appointmentService';
 import doctorService from '../../services/doctorService';
-import liminarContractService from '../../services/liminarContractService';
+import liminarContractService, { ContractIntegrity } from '../../services/liminarContractService';
 import { IDoctor, SelectedEvent } from '../../utils/types/types';
 import AppointmentDetailModal from '../calendar/appointmentDetailModal';
 import CreatePlanModal from './CreatePlanModal';
@@ -46,17 +47,17 @@ function fmt(n: number) {
   return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function estimateGeneration(plan: any, weeks: number) {
-  let sessions = 0, cost = 0;
-  for (const config of Object.values(plan.therapies ?? {}) as any[]) {
-    const slotsPerWeek = (config.slots ?? []).length;
-    sessions += slotsPerWeek * weeks;
-    cost += slotsPerWeek * weeks * (config.sessionValue ?? 0);
-  }
-  return { sessions, cost };
-}
 
-type ConfirmState = { open: true; weeks: 4 | 8; sessions: number; cost: number } | { open: false };
+type SpecialtyMeta = { key: string; label: string; slotsPerWeek: number; sessionValue: number };
+
+type ConfirmState = {
+  open: true;
+  weeks: 4 | 8;
+  allSpecialties: SpecialtyMeta[];
+  selectedSpecialties: string[];
+  pendingBySpecialty: Record<string, number>;
+  pendingLoading: boolean;
+} | { open: false };
 
 export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props) {
   const { contract, plan, planError, committed } = data;
@@ -78,6 +79,14 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
     open: false, specialty: '', sessions: [], loading: false,
   });
   const [editingAppointment, setEditingAppointment] = useState<SelectedEvent | null>(null);
+
+  const [integrity, setIntegrity] = useState<ContractIntegrity | null>(null);
+
+  useEffect(() => {
+    liminarContractService.getIntegrity(contract._id)
+      .then(setIntegrity)
+      .catch(() => {});
+  }, [contract._id]);
 
   const [editTherapyModal, setEditTherapyModal] = useState<{
     open: boolean;
@@ -105,10 +114,34 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
       ? { text: '#C75146', bg: '#FDECEA', border: '#F5C6C2' }
       : { text: '#8A99B0', bg: '#F1F5F9', border: '#DDE4EE' };
 
-  function openConfirm(weeks: 4 | 8) {
+  async function openConfirm(weeks: 4 | 8) {
     if (!plan) return;
-    const { sessions, cost } = estimateGeneration(plan, weeks);
-    setConfirm({ open: true, weeks, sessions, cost });
+    const allSpecialties: SpecialtyMeta[] = Object.entries(plan.therapies ?? {}).map(([key, cfg]: [string, any]) => ({
+      key,
+      label: key.replace(/_/g, ' '),
+      slotsPerWeek: (cfg.slots ?? []).length,
+      sessionValue: cfg.sessionValue ?? 0,
+    }));
+    setConfirm({
+      open: true, weeks,
+      allSpecialties,
+      selectedSpecialties: allSpecialties.map(s => s.key),
+      pendingBySpecialty: {},
+      pendingLoading: true,
+    });
+    // Carrega pendentes em background
+    try {
+      const sessions = await liminarContractService.getSessions(contract._id);
+      const pending: Record<string, number> = {};
+      for (const s of sessions) {
+        if (!['canceled', 'completed', 'force_cancelled'].includes(s.operationalStatus)) {
+          pending[s.specialty] = (pending[s.specialty] ?? 0) + 1;
+        }
+      }
+      setConfirm(prev => prev.open ? { ...prev, pendingBySpecialty: pending, pendingLoading: false } : prev);
+    } catch {
+      setConfirm(prev => prev.open ? { ...prev, pendingLoading: false } : prev);
+    }
   }
 
   async function handleConfirmGenerate() {
@@ -119,6 +152,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
       const res = await liminarContractService.generateSessions(contract._id, plan._id, {
         mode: 'append',
         weeks: confirm.weeks,
+        specialties: confirm.selectedSpecialties,
       });
 
       if (res.created > 0) {
@@ -140,6 +174,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
       }
 
       onRefresh();
+      liminarContractService.getIntegrity(contract._id).then(setIntegrity).catch(() => {});
     } catch (err: any) {
       toast.error(err?.response?.data?.error ?? 'Erro ao gerar sessões');
     } finally {
@@ -328,11 +363,22 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
         {/* ── Divisor: Plano Terapêutico ── */}
         <div className="border-t mt-5 pt-4" style={{ borderColor: '#EDF2F7' }}>
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Calendar className="w-4 h-4" style={{ color: '#2E7A5E' }} />
               <span className="font-bold text-sm" style={{ color: '#1A2C3E' }}>
                 {plan ? `Plano Terapêutico (v${plan.version})` : 'Plano Terapêutico'}
               </span>
+              {integrity && (() => {
+                const pct = integrity.summary.integrityPercent;
+                const color = pct >= 95 ? { bg: '#D1FAE5', text: '#065F46' }
+                  : pct >= 75 ? { bg: '#FEF3C7', text: '#92400E' }
+                  : { bg: '#FEE2E2', text: '#991B1B' };
+                return (
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: color.bg, color: color.text }}>
+                    {pct >= 95 ? '🟢' : pct >= 75 ? '🟡' : '🔴'} {pct}%
+                  </span>
+                );
+              })()}
             </div>
             <button
               onClick={() => setShowCreatePlan(true)}
@@ -344,29 +390,86 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
             </button>
           </div>
 
+          {/* ── Resumo de sessões ── */}
+          {integrity && (() => {
+            const { completed, pending, missing, expected } = integrity.summary;
+            const pctComp    = expected > 0 ? (completed / expected) * 100 : 0;
+            const pctPend    = expected > 0 ? (pending   / expected) * 100 : 0;
+            const pctMissing = expected > 0 ? (missing   / expected) * 100 : 0;
+            return (
+              <div className="mb-3 rounded-xl p-3" style={{ background: '#F8FAFE', border: '1px solid #EDF2F7' }}>
+                {/* Barra empilhada */}
+                <div className="flex rounded-full overflow-hidden mb-2" style={{ height: 10, background: '#E9EEF2' }}>
+                  <div style={{ width: `${pctComp}%`,    background: '#10B981', transition: 'width 0.5s' }} title={`Realizadas: ${completed}`} />
+                  <div style={{ width: `${pctPend}%`,    background: '#6366F1', transition: 'width 0.5s' }} title={`Agendadas: ${pending}`} />
+                  <div style={{ width: `${pctMissing}%`, background: '#F59E0B', transition: 'width 0.5s' }} title={`Faltando: ${missing}`} />
+                </div>
+                {/* Legenda em linha */}
+                <div className="flex justify-between text-xs">
+                  <span className="flex items-center gap-1">
+                    <span className="inline-block w-2 h-2 rounded-full" style={{ background: '#10B981' }} />
+                    <span style={{ color: '#065F46' }}><b>{completed}</b> realizadas</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="inline-block w-2 h-2 rounded-full" style={{ background: '#6366F1' }} />
+                    <span style={{ color: '#3730A3' }}><b>{pending}</b> agendadas</span>
+                  </span>
+                  {missing > 0 && (
+                    <span className="flex items-center gap-1">
+                      <span className="inline-block w-2 h-2 rounded-full" style={{ background: '#F59E0B' }} />
+                      <span style={{ color: '#92400E' }}><b>{missing}</b> faltando</span>
+                    </span>
+                  )}
+                </div>
+                <div className="text-right text-xs mt-1" style={{ color: '#A0AABF' }}>
+                  de <b>{expected}</b> esperadas
+                </div>
+              </div>
+            );
+          })()}
+
           {plan ? (
             <>
               <div className="cursor-pointer" onClick={() => setPlanExpanded(v => !v)}>
                 <div className="space-y-1.5 mb-2">
-                  {Object.entries(plan.therapies ?? {}).map(([specialty, config]: [string, any]) => (
-                    <div key={specialty} className="flex items-center justify-between text-xs px-3 py-1.5 rounded-xl" style={{ background: '#F8FAFE' }}>
-                      <span className="font-medium capitalize" style={{ color: '#1A2C3E' }}>
-                        {specialty.replace(/_/g, ' ')}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span style={{ color: '#5B6E8C' }}>
-                          {(config.slots ?? []).length}×/sem · R$ {fmt(config.sessionValue ?? 0)}
+                  {Object.entries(plan.therapies ?? {}).map(([specialty, config]: [string, any]) => {
+                    const intSp = integrity?.specialties?.[specialty];
+                    const hasMissing = intSp && intSp.missing > 0;
+                    return (
+                      <div key={specialty} className="flex items-center justify-between text-xs px-3 py-2 rounded-xl" style={{ background: '#F8FAFE' }}>
+                        <span className="font-medium capitalize" style={{ color: '#1A2C3E' }}>
+                          {specialty.replace(/_/g, ' ')}
                         </span>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openEditTherapyModal(specialty, config); }}
-                          className="p-0.5 rounded hover:bg-slate-200 transition-colors"
-                          title="Editar terapia"
-                        >
-                          <Pencil className="w-3 h-3" style={{ color: '#A0AABF' }} />
-                        </button>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span style={{ color: '#5B6E8C' }}>
+                            {(config.slots ?? []).length}×/sem · R$ {fmt(config.sessionValue ?? 0)}
+                          </span>
+                          {intSp && (
+                            <span className="flex items-center gap-1" title={`Esperado: ${intSp.expected} | Gerado: ${intSp.generated} | Completo: ${intSp.completed}`}>
+                              {hasMissing
+                                ? <span className="px-1.5 py-0.5 rounded-full text-xs font-semibold" style={{ background: '#FEF3C7', color: '#92400E' }}>{intSp.missing} falt.</span>
+                                : <span className="px-1.5 py-0.5 rounded-full text-xs font-semibold" style={{ background: '#D1FAE5', color: '#065F46' }}>✓</span>
+                              }
+                            </span>
+                          )}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openSpecialtyModal(specialty); }}
+                            className="p-0.5 rounded hover:bg-slate-200 transition-colors"
+                            title="Ver sessões"
+                          >
+                            <Info className="w-3 h-3" style={{ color: '#6366F1' }} />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openEditTherapyModal(specialty, config); }}
+                            className="p-0.5 rounded hover:bg-slate-200 transition-colors"
+                            title="Editar terapia"
+                          >
+                            <Pencil className="w-3 h-3" style={{ color: '#A0AABF' }} />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="text-xs text-center" style={{ color: '#A0AABF' }}>
                   {planExpanded ? '▲ Ocultar detalhes' : '▼ Ver detalhes'}
@@ -454,54 +557,118 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
       )}
 
       {/* ── Modal: Confirmar Geração ── */}
-      {confirm.open && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-indigo-600" />
+      {confirm.open && (() => {
+        const selected = confirm.selectedSpecialties;
+        const estSessions = confirm.allSpecialties
+          .filter(s => selected.includes(s.key))
+          .reduce((acc, s) => acc + s.slotsPerWeek * confirm.weeks, 0);
+        const estCost = confirm.allSpecialties
+          .filter(s => selected.includes(s.key))
+          .reduce((acc, s) => acc + s.slotsPerWeek * confirm.weeks * s.sessionValue, 0);
+        const totalPending = Object.values(confirm.pendingBySpecialty).reduce((a, b) => a + b, 0);
+
+        return (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800">Gerar sessões — {confirm.weeks} semanas</h3>
+                  <p className="text-xs text-slate-500">A partir de hoje, com o plano atual</p>
+                </div>
+                <button onClick={() => setConfirm({ open: false })} className="ml-auto text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <div>
-                <h3 className="font-bold text-slate-800">Confirmar geração</h3>
-                <p className="text-xs text-slate-500">{confirm.weeks} semanas a partir de hoje</p>
+
+              {/* Aviso sessões pendentes */}
+              {!confirm.pendingLoading && totalPending > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-700">
+                    <b>{totalPending} sessão(ões) sem completar</b> já agendada(s). Slots existentes serão mantidos — apenas datas/horários novos serão criados.
+                  </p>
+                </div>
+              )}
+
+              {/* Checkboxes de especialidades */}
+              <div className="mb-4">
+                <p className="text-xs font-semibold text-slate-600 mb-2">Especialidades a gerar:</p>
+                <div className="space-y-2">
+                  {confirm.allSpecialties.map(sp => {
+                    const pending = confirm.pendingBySpecialty[sp.key] ?? 0;
+                    const isChecked = selected.includes(sp.key);
+                    return (
+                      <label key={sp.key} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${isChecked ? 'bg-indigo-50 border-indigo-200' : 'bg-slate-50 border-slate-200'}`}>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => setConfirm(prev => {
+                            if (!prev.open) return prev;
+                            const next = isChecked
+                              ? prev.selectedSpecialties.filter(k => k !== sp.key)
+                              : [...prev.selectedSpecialties, sp.key];
+                            return { ...prev, selectedSpecialties: next };
+                          })}
+                          className="w-4 h-4 accent-indigo-600"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-800 capitalize">{sp.label}</p>
+                          <p className="text-xs text-slate-500">{sp.slotsPerWeek}×/sem · R$ {fmt(sp.sessionValue)}/sessão</p>
+                        </div>
+                        {!confirm.pendingLoading && pending > 0 && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium flex-shrink-0">{pending} pend.</span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-            <div className="bg-slate-50 rounded-xl p-4 space-y-2 mb-4 border border-slate-100">
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Sessões estimadas:</span>
-                <span className="font-semibold text-slate-800">{confirm.sessions}</span>
+
+              {/* Resumo */}
+              <div className="bg-slate-50 rounded-xl p-4 space-y-2 mb-4 border border-slate-100">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Sessões estimadas:</span>
+                  <span className="font-semibold text-slate-800">{estSessions}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Custo estimado:</span>
+                  <span className="font-semibold text-amber-700">R$ {fmt(estCost)}</span>
+                </div>
+                <div className="flex justify-between text-sm border-t border-slate-200 pt-2">
+                  <span className="text-slate-500">Saldo após (est.):</span>
+                  <span className={`font-bold ${contract.creditBalance - estCost >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                    R$ {fmt(contract.creditBalance - estCost)}
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Custo estimado:</span>
-                <span className="font-semibold text-amber-700">R$ {fmt(confirm.cost)}</span>
+
+              {contract.creditBalance < estCost && (
+                <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 mb-4 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-rose-700">Saldo insuficiente. Sessões serão criadas mas o crédito precisará ser recarregado antes da realização.</p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button onClick={() => setConfirm({ open: false })}
+                  className="flex-1 py-2.5 border border-slate-300 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50">
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleConfirmGenerate}
+                  disabled={selected.length === 0}
+                  className="flex-1 py-2.5 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-40"
+                  style={{ background: 'linear-gradient(135deg, #1B4D6E 0%, #2563EB 100%)' }}>
+                  <CheckCircle className="w-4 h-4" /> Gerar sessões
+                </button>
               </div>
-              <div className="flex justify-between text-sm border-t border-slate-200 pt-2">
-                <span className="text-slate-500">Saldo após (est.):</span>
-                <span className={`font-bold ${contract.creditBalance - confirm.cost >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
-                  R$ {fmt(contract.creditBalance - confirm.cost)}
-                </span>
-              </div>
-            </div>
-            {contract.creditBalance < confirm.cost && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-amber-700">Saldo pode ser insuficiente. Sessões serão criadas e crédito gerenciado conforme realização.</p>
-              </div>
-            )}
-            <div className="flex gap-3">
-              <button onClick={() => setConfirm({ open: false })}
-                className="flex-1 py-2.5 border border-slate-300 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50">
-                Cancelar
-              </button>
-              <button onClick={handleConfirmGenerate}
-                className="flex-1 py-2.5 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2"
-                style={{ background: 'linear-gradient(135deg, #1B4D6E 0%, #2563EB 100%)' }}>
-                <CheckCircle className="w-4 h-4" /> Confirmar
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── Modal: Editar Agendamento (cockpit completo) ── */}
       {editingAppointment && (

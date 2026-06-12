@@ -514,7 +514,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         ? { _id: event?.extendedProps?.packageId || 'legacy' }
                         : null),
                 liminarContract: event?.liminarContract,
-                sessionValue: (addToBalance && debitAmount > 0) ? debitAmount : (event?.sessionValue ?? event?.paymentAmount ?? null),
+                sessionValue: (addToBalance && debitAmount > 0) ? debitAmount : (paymentAmount > 0 ? paymentAmount : (event?.sessionValue ?? event?.paymentAmount ?? null)),
             });
 
             console.log('[Modal] Guard result:', guardResult);
@@ -538,12 +538,15 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 billingType,
                 paymentMethod: billingType === 'particular'
                     ? (paymentsPayload?.[0]?.method || paymentMethod)
+                    : billingType === 'liminar' ? 'liminar_credit'
                     : 'convenio',
                 paymentAmount: billingType === 'particular'
                     ? (paymentsPayload?.reduce((s, p) => s + p.amount, 0) || paymentAmount)
+                    : billingType === 'liminar' ? paymentAmount
                     : insuranceValue,
                 sessionValue: billingType === 'particular'
                     ? (paymentsPayload?.reduce((s, p) => s + p.amount, 0) || paymentAmount)
+                    : billingType === 'liminar' ? paymentAmount
                     : insuranceValue,
                 ...(billingType === 'convenio' && { insuranceProvider, insuranceValue, authorizationCode }),
             };
@@ -1004,7 +1007,42 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     >
                                         🏥 Convênio
                                     </button>
+                                    {(event?.billingType === 'liminar' || !!event?.liminarContract) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setBillingType('liminar')}
+                                            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all text-sm ${
+                                                billingType === 'liminar'
+                                                    ? 'bg-purple-600 text-white'
+                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            ⚖️ Liminar
+                                        </button>
+                                    )}
                                 </div>
+
+                                {billingType === 'liminar' && (
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                ⚖️ Valor da Sessão Judicial *
+                                            </label>
+                                            <InputCurrency
+                                                name="paymentAmount"
+                                                value={paymentAmount}
+                                                onChange={(e) => setPaymentAmount(Number(e.target.value))}
+                                                className="w-full p-2 bg-white border border-gray-300 rounded-lg"
+                                            />
+                                        </div>
+                                        {event?.liminarContract && (
+                                            <div className="bg-purple-50 p-3 rounded-lg text-xs text-purple-800">
+                                                ⚖️ Saldo judicial disponível: R$ {((event.liminarContract as any).creditBalance ?? 0).toFixed(2)}
+                                                {(event.liminarContract as any).processNumber && ` — Processo: ${(event.liminarContract as any).processNumber}`}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
                                 {billingType === 'convenio' && (
                                     <div className="space-y-3">
