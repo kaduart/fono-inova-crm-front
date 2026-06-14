@@ -173,7 +173,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="form-label">
                                     Data da Entrevista
                                 </label>
                                 <input
@@ -185,7 +185,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="form-label">
                                     Entrevistador
                                 </label>
                                 <input
@@ -198,7 +198,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                             </div>
 
                             <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="form-label">
                                     Queixa Principal
                                 </label>
                                 <textarea
@@ -212,7 +212,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="form-label">
                                     Tempo de Duração
                                 </label>
                                 <input
@@ -225,7 +225,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="form-label">
                                     Evolução da Queixa
                                 </label>
                                 <select
@@ -256,7 +256,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="form-label">
                                     Gestação
                                 </label>
                                 <textarea
@@ -269,7 +269,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                             </div>
 
                             <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="form-label">
                                     Nascimento
                                 </label>
                                 <textarea
@@ -282,7 +282,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="form-label">
                                     Desenvolvimento Motor
                                 </label>
                                 <textarea
@@ -295,7 +295,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="form-label">
                                     Desenvolvimento de Linguagem
                                 </label>
                                 <textarea
@@ -308,7 +308,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                             </div>
 
                             <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="form-label">
                                     Histórico Médico
                                 </label>
                                 <textarea
@@ -335,7 +335,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
 
                         <div className="grid grid-cols-1 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="form-label">
                                     Hipóteses Diagnósticas
                                 </label>
                                 <textarea
@@ -348,7 +348,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="form-label">
                                     Recomendações
                                 </label>
                                 <textarea
@@ -362,7 +362,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Encaminhamentos
                                     </label>
                                     <input
@@ -375,7 +375,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Próxima Consulta
                                     </label>
                                     <input

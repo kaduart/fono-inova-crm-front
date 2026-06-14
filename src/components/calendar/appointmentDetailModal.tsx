@@ -1232,7 +1232,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 <div className="space-y-4 animate-fadeIn">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="form-label">
                                                 Valor a Registrar (R$)
                                             </label>
                                             <InputCurrency
@@ -1243,7 +1243,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="form-label">
                                                 Descrição
                                             </label>
                                             <input

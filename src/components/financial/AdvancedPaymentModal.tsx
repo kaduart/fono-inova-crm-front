@@ -177,7 +177,7 @@ export const AdvancedPaymentModal = ({
                         {/* Seleção de Paciente e Profissional */}
                         <div className="flex flex-wrap gap-4">
                             <div className="flex-1 min-w-[250px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="form-label">
                                     Paciente *
                                 </label>
                                 <div className="relative">
@@ -204,7 +204,7 @@ export const AdvancedPaymentModal = ({
                             </div>
 
                             <div className="flex-1 min-w-[250px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="form-label">
                                     Profissional *
                                 </label>
                                 <div className="relative">
@@ -303,7 +303,7 @@ export const AdvancedPaymentModal = ({
                         {/* Valor e Forma de Pagamento */}
                         <div className="flex flex-wrap gap-4 border-t pt-4">
                             <div className="flex-1 min-w-[250px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="form-label">
                                     Valor Total (R$) *
                                 </label>
                                 <div className="relative">
@@ -325,7 +325,7 @@ export const AdvancedPaymentModal = ({
                             </div>
 
                             <div className="flex-1 min-w-[250px]">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="form-label">
                                     Forma de Pagamento *
                                 </label>
                                 <div className="relative">
@@ -352,7 +352,7 @@ export const AdvancedPaymentModal = ({
 
                         {/* Observações */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="form-label">
                                 Observações
                             </label>
                             <textarea

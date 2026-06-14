@@ -44,7 +44,7 @@ export default function EditContactModal({ open, initialName, phone, onClose, on
 
         <div className="p-5 space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Nome</label>
+            <label className="form-label">Nome</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}

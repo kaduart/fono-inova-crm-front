@@ -1035,7 +1035,7 @@ const GmbDashboard = () => {
 
               {/* Preview ao vivo */}
               <div className="border-t pt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Preview</label>
+                <label className="form-label">Preview</label>
                 <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                   <p className="text-sm text-gray-800 whitespace-pre-wrap">{editModal.post.content}</p>
                 </div>

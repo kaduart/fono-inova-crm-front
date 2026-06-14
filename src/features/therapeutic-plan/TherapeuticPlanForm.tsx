@@ -164,7 +164,7 @@ const TherapeuticPlanForm: React.FC<TherapeuticPlanFormProps> = ({
       {/* Protocol Custom Notes */}
       {protocolCode && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="form-label">
             Notas de Adaptação do Protocolo
           </label>
           <textarea
@@ -396,7 +396,7 @@ const TherapeuticPlanForm: React.FC<TherapeuticPlanFormProps> = ({
 
       {/* Review Date */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="form-label">
           Data de Revisão do Plano
         </label>
         <input

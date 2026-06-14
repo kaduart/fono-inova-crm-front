@@ -153,7 +153,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Título do Relatório
                                     </label>
                                     <input
@@ -166,7 +166,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Ano Letivo
                                     </label>
                                     <input
@@ -178,7 +178,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Semestre
                                     </label>
                                     <select
@@ -206,7 +206,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Nome da Escola
                                     </label>
                                     <input
@@ -218,7 +218,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Série/Ano
                                     </label>
                                     <input
@@ -230,7 +230,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
                                 </div>
 
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Professor Responsável
                                     </label>
                                     <input
@@ -259,7 +259,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Desempenho
                                     </label>
                                     <select
@@ -276,7 +276,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
                                 </div>
 
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Observações
                                     </label>
                                     <textarea
@@ -301,7 +301,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Desempenho
                                     </label>
                                     <select
@@ -318,7 +318,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
                                 </div>
 
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Observações
                                     </label>
                                     <textarea
@@ -368,7 +368,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Atenção
                                     </label>
                                     <textarea
@@ -381,7 +381,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Memória
                                     </label>
                                     <textarea
@@ -394,7 +394,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Raciocínio
                                     </label>
                                     <textarea
@@ -407,7 +407,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Concentração
                                     </label>
                                     <textarea
@@ -436,7 +436,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Participação em Sala
                                     </label>
                                     <textarea
@@ -449,7 +449,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Realização de Tarefas
                                     </label>
                                     <textarea
@@ -462,7 +462,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Organização
                                     </label>
                                     <textarea
@@ -475,7 +475,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Pontualidade
                                     </label>
                                     <textarea
@@ -504,7 +504,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Pontos Fortes
                                     </label>
                                     <textarea
@@ -517,7 +517,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
                                 </div>
 
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Dificuldades
                                     </label>
                                     <textarea
@@ -530,7 +530,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Orientações para a Escola
                                     </label>
                                     <textarea
@@ -543,7 +543,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Orientações para a Família
                                     </label>
                                     <textarea

@@ -189,7 +189,7 @@ export default function GmbAssistedPublishModal({ post, isOpen, onClose, onPubli
 
           {/* Texto para copiar */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="form-label">
               📝 Texto do post (clique para copiar)
             </label>
             <div className="relative">

@@ -97,7 +97,7 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Título do Relatório
                                     </label>
                                     <input
@@ -110,7 +110,7 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
                                 </div>
                                 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Tipo de Relatório
                                     </label>
                                     <select
@@ -127,7 +127,7 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
                                 </div>
                                 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Data
                                     </label>
                                     <input
@@ -139,7 +139,7 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
                                 </div>
                                 
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Status
                                     </label>
                                     <select
@@ -172,7 +172,7 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
                             
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Diagnóstico
                                     </label>
                                     <textarea
@@ -185,7 +185,7 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
                                 </div>
                                 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Observações Clínicas
                                     </label>
                                     <textarea
@@ -199,7 +199,7 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        <label className="form-label">
                                             Progresso
                                         </label>
                                         <textarea
@@ -212,7 +212,7 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
                                     </div>
                                     
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        <label className="form-label">
                                             Metas
                                         </label>
                                         <textarea
@@ -242,7 +242,7 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
                             
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Plano de Tratamento
                                     </label>
                                     <textarea
@@ -256,7 +256,7 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        <label className="form-label">
                                             Medicações
                                         </label>
                                         <textarea
@@ -269,7 +269,7 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
                                     </div>
                                     
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        <label className="form-label">
                                             Exames Solicitados/Realizados
                                         </label>
                                         <textarea
@@ -299,7 +299,7 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
                             
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Recomendações
                                     </label>
                                     <textarea
@@ -312,7 +312,7 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
                                 </div>
                                 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="form-label">
                                         Próximos Passos
                                     </label>
                                     <textarea

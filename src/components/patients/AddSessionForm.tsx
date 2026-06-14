@@ -103,7 +103,7 @@ export function AddSessionForm({ onSubmit, onClose, patient, doctors }: AddSessi
             <div className="space-y-4">
                 {/* Data */}
                 <div>
-                    <Label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Label>
                         Data da Sessão *
                     </Label>
                     <input
@@ -117,7 +117,7 @@ export function AddSessionForm({ onSubmit, onClose, patient, doctors }: AddSessi
 
                 {/* Horário */}
                 <div>
-                    <Label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Label>
                         <Clock className="w-4 h-4 inline mr-2" />
                         Horário da Sessão *
                     </Label>
@@ -133,7 +133,7 @@ export function AddSessionForm({ onSubmit, onClose, patient, doctors }: AddSessi
 
                 {/* Profissional */}
                 <div>
-                    <Label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Label>
                         Selecione o profissional *
                     </Label>
                     <Select
@@ -154,7 +154,7 @@ export function AddSessionForm({ onSubmit, onClose, patient, doctors }: AddSessi
 
                 {/* Tipo de Sessão */}
                 <div>
-                    <Label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Label>
                         Tipo de Sessão *
                     </Label>
                     <Select
@@ -174,7 +174,7 @@ export function AddSessionForm({ onSubmit, onClose, patient, doctors }: AddSessi
 
                 {/* Valor */}
                 <div>
-                    <Label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Label>
                         Valor da Sessão *
                     </Label>
                     <InputCurrency
@@ -188,7 +188,7 @@ export function AddSessionForm({ onSubmit, onClose, patient, doctors }: AddSessi
 
                 {/* Método de Pagamento - AGORA OPCIONAL */}
                 <div>
-                    <Label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Label>
                         Método de Pagamento
                         <span className="text-gray-400 text-xs ml-1">(Opcional)</span>
                     </Label>
@@ -210,7 +210,7 @@ export function AddSessionForm({ onSubmit, onClose, patient, doctors }: AddSessi
 
                 {/* Notas */}
                 <div>
-                    <Label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Label>
                         Observações
                     </Label>
                     <textarea

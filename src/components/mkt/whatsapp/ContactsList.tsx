@@ -45,7 +45,7 @@ function ContactForm({ contact = {}, onSave, onCancel }: ContactFormProps) {
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <div>
-                        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="name" className="form-label">
                             Nome completo
                         </label>
                         <input
@@ -61,7 +61,7 @@ function ContactForm({ contact = {}, onSave, onCancel }: ContactFormProps) {
                     </div>
 
                     <div>
-                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="phone" className="form-label">
                             Número do WhatsApp
                         </label>
                         <input
@@ -76,7 +76,7 @@ function ContactForm({ contact = {}, onSave, onCancel }: ContactFormProps) {
                     </div>
 
                     <div>
-                        <label htmlFor="avatar" className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="avatar" className="form-label">
                             URL do Avatar (opcional)
                         </label>
                         <input

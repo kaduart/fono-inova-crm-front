@@ -91,7 +91,7 @@ export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentM
                 <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
                     {/* Valor */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                        <label className="form-label flex items-center gap-2">
                             <DollarSign className="w-4 h-4 text-green-600" />
                             Valor do Pagamento *
                         </label>
@@ -161,7 +161,7 @@ export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentM
 
                     {/* Observações */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                        <label className="form-label flex items-center gap-2">
                             <FileText className="w-4 h-4 text-green-600" />
                             Observações (Opcional)
                         </label>

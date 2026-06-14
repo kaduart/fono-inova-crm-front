@@ -994,7 +994,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        <label className="form-label">
                                             Modo de Cálculo
                                         </label>
                                         <Select
@@ -1011,7 +1011,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 {calculationMode === 'sessions' ? (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="form-label">
                                                 Número de Sessões *
                                             </label>
                                             <input
@@ -1028,7 +1028,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="form-label">
                                                 Sessões por Semana *
                                             </label>
                                             <Select
@@ -1055,7 +1055,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 ) : (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="form-label">
                                                 Duração do Pacote *
                                             </label>
                                             <Select
@@ -1077,7 +1077,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="form-label">
                                                 Sessões por Semana *
                                             </label>
                                             <Select
@@ -1109,7 +1109,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Data *</label>
+                                        <label className="form-label">Data *</label>
                                         <DatePicker
                                             selected={formData.date ? buildLocalDateOnly(formData.date) : null}
                                             onChange={(date: Date | null) => {
@@ -1130,7 +1130,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Hora *</label>
+                                        <label className="form-label">Hora *</label>
                                         <DatePicker
                                             selected={formData.time ? new Date(`1970-01-01T${formData.time}`) : null}
                                             onChange={(date: Date | null) => {
@@ -1251,7 +1251,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             >
                                                 {/* Dia da semana */}
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Dia da Semana *</label>
+                                                    <label className="form-label">Dia da Semana *</label>
                                                     <Select
                                                         value={slot.day}
                                                         onChange={(e) => updateSlot(index, 'day', e.target.value)}
@@ -1268,7 +1268,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
                                                 {/* Hora */}
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Horário *</label>
+                                                    <label className="form-label">Horário *</label>
                                                     <DatePicker
                                                         selected={slot.time ? new Date(`1970-01-01T${slot.time}`) : null}
                                                         onChange={(date: Date | null) => {
@@ -1329,7 +1329,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 <div className="space-y-4">
                                     {/* Primeira linha - Profissional */}
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        <label className="form-label">
                                             Profissional *
                                         </label>
                                         <Select
@@ -1350,7 +1350,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     {/* Segunda linha - 2 colunas */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="form-label">
                                                 Tipo de Sessão *
                                             </label>
                                             <Select
@@ -1369,7 +1369,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="form-label">
                                                 Tipo de Pagamento *
                                             </label>
                                             <Select
@@ -1401,7 +1401,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 </h3>
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Valor por Sessão (R$) *</label>
+                                        <label className="form-label">Valor por Sessão (R$) *</label>
                                         <InputCurrency
                                             name="sessionValue"
                                             value={formData.sessionValue || 0}
