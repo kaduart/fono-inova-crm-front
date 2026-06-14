@@ -130,6 +130,42 @@ export const usePlanning = () => {
         }
     }, [fetchPlannings]);
 
+    const autoGeneratePlanning = useCallback(async (payload: {
+        month: number;
+        year: number;
+        targets: {
+            expectedRevenue: number;
+            totalSessions: number;
+            workHours: number;
+            averageTicket: number;
+            commercialTicket?: number;
+        };
+        bySpecialty?: Array<{ specialty: string; sessions: number; revenue: number }>;
+        notes?: string;
+    }) => {
+        try {
+            const response = await planningService.autoGenerate(payload);
+            toast.success(response.message);
+            await fetchPlannings();
+            return response.data;
+        } catch (error: any) {
+            toast.error('Erro ao gerar planejamentos automaticamente');
+            throw error;
+        }
+    }, [fetchPlannings]);
+
+    const recalculateFutureTargets = useCallback(async (month: number, year: number) => {
+        try {
+            const response = await planningService.recalculateFutureTargets(month, year);
+            toast.success(response.message);
+            await fetchPlannings();
+            return response.data;
+        } catch (error: any) {
+            toast.error('Erro ao recalcular metas futuras');
+            throw error;
+        }
+    }, [fetchPlannings]);
+
     return {
         plannings,
         loading,
@@ -141,6 +177,8 @@ export const usePlanning = () => {
         updateProgress,
         createWeekly,
         createMonthly,
+        autoGeneratePlanning,
+        recalculateFutureTargets,
         refreshAllPlannings
     };
 };

@@ -180,6 +180,36 @@ export interface IDoctors {
     specialties?: string[];
 }
 
+export type CommissionType = 'fixed' | 'percentage';
+export type BillingType = 'particular' | 'convenio' | 'liminar' | 'package';
+export type CommissionServiceType = 'session' | 'evaluation' | 'neuropsychological' | 'aba' | 'psychology' | 'speech';
+
+export interface ICommissionRule {
+    _id?: string;
+    serviceType: CommissionServiceType;
+    billingType: BillingType;
+    insurance: string | null;
+    commissionType: CommissionType;
+    value: number;
+    minValue?: number | null;
+    maxValue?: number | null;
+    priority?: number;
+    startDate?: string | null;
+    endDate?: string | null;
+    effectiveDate?: string | null;
+    active: boolean;
+    notes?: string;
+}
+
+export interface ICommissionRules {
+    standardSession?: number;
+    evaluationSession?: number;
+    neuropsychEvaluation?: number;
+    byInsurance?: Record<string, number>;
+    customRules?: any[];
+    rules?: ICommissionRule[];
+}
+
 export interface IDoctor {
     _id: string;
     fullName: string;
@@ -190,7 +220,8 @@ export interface IDoctor {
     licenseNumber: string;
     password: string;
     active: boolean;
-    weeklyAvailability: any[]
+    weeklyAvailability: any[];
+    commissionRules?: ICommissionRules;
 }
 
 export const EXTRA_SPECIALTIES = [

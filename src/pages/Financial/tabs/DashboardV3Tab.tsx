@@ -39,6 +39,7 @@ import {
 } from '../../../services/paymentService';
 import { toast } from 'react-toastify';
 import { IAppointment } from '../../../utils/types/types';
+import { FEATURE_FLAGS } from '../../../config/featureFlags';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -134,14 +135,46 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   const [loadingDebitosTotal, setLoadingDebitosTotal] = useState(false);
   const debitosTotalLoaded = useRef(false);
 
+  const LEGACY_DEBITOS_URL = '/financial/dashboard/debitos';
+  const V2_DEBITOS_URL = '/v2/financial/dashboard/debitos';
+
+  const normalizeDebitos = (items: any[]): DebitoItem[] =>
+    (items || []).map(item => ({
+      _id: item._id,
+      date: item.date,
+      time: item.time,
+      paciente: item.paciente,
+      paymentStatus: item.paymentStatus,
+      valor: item.valor,
+      tipo: item.tipo
+    }));
+
   const fetchDebitosTotal = useCallback(async () => {
     if (debitosTotalLoaded.current) return;
     setLoadingDebitosTotal(true);
+
+    const useV2 = FEATURE_FLAGS.USE_FINANCIAL_V2;
+    const primaryUrl = useV2 ? V2_DEBITOS_URL : LEGACY_DEBITOS_URL;
+
     try {
-      const res = await api.get('/financial/dashboard/debitos');
-      setDebitosTotalData(res.data?.data || []);
+      const res = await api.get(primaryUrl);
+      setDebitosTotalData(normalizeDebitos(res.data?.data));
       setDebitosTotalValue(res.data?.total || 0);
       debitosTotalLoaded.current = true;
+
+      // Shadow validation: comparar com legado durante período de migração
+      if (useV2) {
+        api.get(LEGACY_DEBITOS_URL).then(legacyRes => {
+          const legacyTotal = legacyRes.data?.total || 0;
+          if (Math.abs(legacyTotal - (res.data?.total || 0)) > 0.01) {
+            console.warn('[DashboardV3Tab] Divergência débitos totais:', {
+              v2: res.data?.total,
+              legacy: legacyTotal,
+              diff: legacyTotal - (res.data?.total || 0)
+            });
+          }
+        }).catch(() => {});
+      }
     } catch (err) {
       console.error('Erro ao buscar débitos totais:', err);
     } finally {
@@ -155,9 +188,29 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
 
   const fetchDebitosMes = useCallback(async () => {
     setLoadingDebitosMes(true);
+
+    const useV2 = FEATURE_FLAGS.USE_FINANCIAL_V2;
+    const primaryUrl = useV2
+      ? `${V2_DEBITOS_URL}?month=${month}&year=${year}`
+      : `${LEGACY_DEBITOS_URL}?month=${month}&year=${year}`;
+
     try {
-      const res = await api.get(`/financial/dashboard/debitos?month=${month}&year=${year}`);
-      setDebitosMesData(res.data?.data || []);
+      const res = await api.get(primaryUrl);
+      setDebitosMesData(normalizeDebitos(res.data?.data));
+
+      // Shadow validation: comparar com legado durante período de migração
+      if (useV2) {
+        api.get(`${LEGACY_DEBITOS_URL}?month=${month}&year=${year}`).then(legacyRes => {
+          const legacyTotal = legacyRes.data?.total || 0;
+          if (Math.abs(legacyTotal - (res.data?.total || 0)) > 0.01) {
+            console.warn('[DashboardV3Tab] Divergência débitos do mês:', {
+              v2: res.data?.total,
+              legacy: legacyTotal,
+              diff: legacyTotal - (res.data?.total || 0)
+            });
+          }
+        }).catch(() => {});
+      }
     } catch (err) {
       console.error('Erro ao buscar débitos do mês:', err);
     } finally {
@@ -281,8 +334,9 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     const metas = data?.metas;
     if (!metas?.ritmo) return null;
     const pctEsperado = metas.ritmo.percentualEsperado ?? 0;
-    // 🎯 META PRINCIPAL = PRODUÇÃO
-    const pctRealizado = metas.camadas?.producao?.percentual ?? metas.ritmo.percentualRealizado ?? 0;
+    // Meta = caixa + a receber (percentualRealizado já usa essa base após o fix do backend)
+    const pctRealizado = metas.ritmo?.percentualRealizado ?? metas.camadas?.receitaProjetada?.percentual ?? 0;
+    const pctProducao  = metas.camadas?.producao?.percentual ?? 0;
     const diff = pctRealizado - pctEsperado;
     const isAtrasado = diff < 0;
     const bgClass = getMetaBg(metas.statusMeta || 'vermelho');
@@ -295,7 +349,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
       <div className={`p-4 md:p-6 rounded-2xl mb-6 border ${bgClass} border-gray-200 shadow-sm`}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
           <div className="md:col-span-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">PRODUÇÃO CLÍNICA — RITMO DO MÊS</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">RESULTADO ECONÔMICO — RITMO DO MÊS</span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-4xl md:text-5xl font-extrabold text-gray-900">{pctRealizado.toFixed(1)}%</span>
               <span className="text-xl text-gray-500">/ {pctEsperado.toFixed(1)}% esperado</span>
@@ -313,7 +367,12 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                 <span>Resultado econômico acumulado</span>
                 <span>Meta mensal</span>
               </div>
-              <p className="text-xs text-gray-400 mt-1.5">Baseado em produção realizada (sessões completadas). Meta = Produção, não Caixa. Retroativos são contabilizados.</p>
+              <div className="mt-1.5 flex flex-wrap gap-x-5 gap-y-1 text-xs">
+                <span className="text-gray-500">💰 Financeiro: <span className="font-black text-emerald-700">{pctRealizado.toFixed(1)}%</span></span>
+                <span className="text-gray-500">🏥 Produção: <span className="font-black text-blue-600">{pctProducao.toFixed(1)}%</span></span>
+                <span className="text-gray-400">📈 Dif.: <span className="font-semibold text-gray-500">+{(pctRealizado - pctProducao).toFixed(1)} p.p.</span></span>
+                <span className="text-gray-500">⏳ A Receber: <span className="font-semibold text-amber-600">{formatCurrency(totalAReceberProducao)}</span></span>
+              </div>
             </div>
           </div>
           <div className="space-y-2">
@@ -331,7 +390,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
         </div>
       </div>
     );
-  }, [data?.metas?.ritmo?.percentualEsperado, data?.metas?.ritmo?.percentualRealizado, data?.metas?.ritmo?.esperadoAteAgora, data?.metas?.ritmo?.realizadoAteAgora, data?.metas?.ritmo?.diferenca, data?.metas?.gap?.porDia, data?.metas?.statusMeta]);
+  }, [data?.metas?.ritmo?.percentualEsperado, data?.metas?.ritmo?.percentualRealizado, data?.metas?.ritmo?.esperadoAteAgora, data?.metas?.ritmo?.realizadoAteAgora, data?.metas?.ritmo?.diferenca, data?.metas?.gap?.porDia, data?.metas?.statusMeta, data?.metas?.camadas?.producao?.percentual, data?.aReceberProducao]);
 
   if (loading) return (
     <div className="p-4">
@@ -820,12 +879,13 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     if (!metas) return <div className="p-4 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">Dados de metas indisponíveis para este período.</div>;
 
     const metaValor        = metas.configuracao?.metaMensal ?? 0;
-    // 🎯 META PRINCIPAL = PRODUÇÃO — usa APENAS o que vem da API
-    const pctRealizado     = metas.camadas?.producao?.percentual ?? 0;
-    const metaRealizado    = metas.camadas?.producao?.atingido ?? totalProducao;
+    // Meta = caixa + a receber da produção do mês (lógica de negócio)
+    const pctRealizado     = metas.ritmo?.percentualRealizado ?? metas.camadas?.receitaProjetada?.percentual ?? 0;
+    const metaRealizado    = metas.realizado?.mes ?? metas.camadas?.receitaProjetada?.atingido ?? totalProducao;
     const resultadoEcon    = metaRealizado;
     const caixaTotal       = cash?.total ?? 0;
     const producaoTotal    = revenue?.total ?? 0;
+    const pctProducao      = metas.camadas?.producao?.percentual ?? (metaValor > 0 ? (producaoTotal / metaValor) * 100 : 0);
     // convenioAReceber usa o do outer scope (data.convenioAReceber = production.convenio - cash.convenio)
     const pendentesTotal   = resumo?.pendentes?.allParticularTotal ?? ((data?.particularPendente || 0) + (data?.pacotePendente || 0));
 
@@ -904,9 +964,24 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
             )}
           </div>
           <p className="text-xs text-gray-500 italic mb-3">{textoExecutivo}</p>
-          <p className="text-[10px] text-gray-400 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100 mb-4">
-            💡 <strong>Meta = produção clínica</strong> (serviços realizados no mês). O caixa recebido pode ser maior por incluir vendas de pacotes e recebimentos antecipados.
-          </p>
+          <div className="bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100 mb-4 space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-gray-500">💰 Financeiro <span className="text-gray-400">(Caixa + A Receber)</span></span>
+              <span className="font-black text-emerald-700">{pctRealizado.toFixed(1)}%</span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-gray-500">🏥 Produção <span className="text-gray-400">(Serviço entregue)</span></span>
+              <span className="font-black text-blue-600">{pctProducao.toFixed(1)}%</span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-gray-400">📈 Diferença</span>
+              <span className="font-semibold text-gray-500">+{(pctRealizado - pctProducao).toFixed(1)} p.p.</span>
+            </div>
+            <div className="flex justify-between items-center text-xs border-t border-gray-200 pt-2">
+              <span className="text-gray-500">⏳ A Receber</span>
+              <span className="font-semibold text-amber-600">{formatCurrency(totalAReceberProducao)}</span>
+            </div>
+          </div>
 
           {/* Mini KPIs */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 border-t border-gray-200 pt-3">
@@ -924,9 +999,9 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
               </div>
             ))}
           </div>
-          {caixaTotal > resultadoEcon && (
+          {totalAReceberProducao > 0 && (
             <p className="text-[10px] text-gray-400 italic mt-2 text-center">
-              Caixa {formatCurrency(caixaTotal)} · Produção {formatCurrency(resultadoEcon)} · diferença de {formatCurrency(caixaTotal - resultadoEcon)} vem principalmente de vendas de pacotes
+              Caixa {formatCurrency(caixaTotal)} + A receber {formatCurrency(totalAReceberProducao)} = {formatCurrency(resultadoEcon)} reconhecido
             </p>
           )}
         </div>
@@ -1650,7 +1725,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     { label: 'Produção', icon: <Briefcase size={18} /> },
     { label: 'Despesas', icon: <Receipt size={18} /> },
     { label: 'Metas', icon: <Target size={18} /> },
-    { label: 'Projeção & Cenários', icon: <TrendingUp size={18} /> },
+    ...(FEATURE_FLAGS.SHOW_PROJECTION_TAB ? [{ label: 'Projeção & Cenários', icon: <TrendingUp size={18} /> }] : []),
     { label: 'Insights', icon: <Lightbulb size={18} /> },
     { label: 'Ranking', icon: <TrendingUp size={18} /> },
   ];
@@ -1676,21 +1751,29 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
         </div>
       </div>
 
-      <div className="mt-4">
-        {activeTab === 0 && renderDecisaoExecutiva()}
-        {activeTab === 1 && renderVisaoGeral()}
-        {activeTab === 2 && renderCaixa()}
-        {activeTab === 3 && renderProducao()}
-        {activeTab === 4 && renderDespesas()}
-        {activeTab === 5 && renderMetas()}
-        {activeTab === 6 && (
-          <React.Suspense fallback={<div className="p-8 text-center text-gray-500">Carregando projeções...</div>}>
-            <ProjecaoCenarios month={month} year={year} data={data} />
-          </React.Suspense>
-        )}
-        {activeTab === 7 && renderInsights()}
-        {activeTab === 8 && renderRankingTab()}
-      </div>
+      {(() => {
+        const tabRenderers: Record<string, React.ReactNode> = {
+          'Decisão Executiva': renderDecisaoExecutiva(),
+          'Visão Geral': renderVisaoGeral(),
+          'Caixa': renderCaixa(),
+          'Produção': renderProducao(),
+          'Despesas': renderDespesas(),
+          'Metas': renderMetas(),
+          'Projeção & Cenários': (
+            <React.Suspense fallback={<div className="p-8 text-center text-gray-500">Carregando projeções...</div>}>
+              <ProjecaoCenarios month={month} year={year} data={data} />
+            </React.Suspense>
+          ),
+          'Insights': renderInsights(),
+          'Ranking': renderRankingTab()
+        };
+        const activeLabel = tabs[activeTab]?.label;
+        return (
+          <div className="mt-4">
+            {activeLabel && tabRenderers[activeLabel]}
+          </div>
+        );
+      })()}
 
       {/* ── Modal de Débitos ── */}
       {debitosModalOpen && (() => {

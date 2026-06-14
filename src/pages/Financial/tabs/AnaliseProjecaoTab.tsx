@@ -21,6 +21,7 @@ import { IAppointment } from '../../../utils/types/types';
 import { DashboardEspecialidades } from '../components/DashboardEspecialidades';
 import { RankingProfissionais } from '../components/RankingProfissionais';
 import { ListaPacientesVIP } from '../components/ListaPacientesVIP';
+import { trackUsage } from '../../../services/usageMetrics';
 
 const PAGE_SIZE = 10;
 
@@ -116,6 +117,9 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
         setPagePendentes(0);
         setProjectionData([]);
         setProjectionMeta(null);
+
+        // 🎯 Observabilidade: registra abertura da aba Projeção & Cenários
+        trackUsage('ProjectionTab', 'opened', { month: mes, year: ano });
 
         // Só busca dashboard se não recebeu via props
         if (!propData) {

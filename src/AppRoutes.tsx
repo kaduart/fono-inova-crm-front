@@ -118,6 +118,8 @@ const FollowupDashboard = lazyWithRetry(() => import('./components/Dashboard/Fol
 const AppChat = lazyWithRetry(() => import('./components/mkt/whatsapp/AppChat'));
 const CarteiraView = lazyWithRetry(() => import('./components/calendar/CarteiraView'));
 const FinancialDashboard = lazyWithRetry(() => import('./pages/Financial/FinancialDashboard'));
+const FinancialMetricsDashboard = lazyWithRetry(() => import('./pages/Admin/FinancialMetricsDashboard'));
+const ProfessionalResultsPage = lazyWithRetry(() => import('./pages/ProfessionalResults/ProfessionalResultsPage'));
 
 const PaymentPage = lazyWithRetry(() => import('./components/financial/PaymentPage'));
 const ManageDoctors = lazyWithRetry(() => import('./components/ManageDoctors/ManageDoctors'));
@@ -258,6 +260,16 @@ const AppRoutes: React.FC = () => {
                 <Route path="/admin/financial" element={
                     <PrivateRoute allowedRoles={['admin', 'secretary']}>
                         <FinancialDashboard />
+                    </PrivateRoute>
+                } />
+                <Route path="/admin/financial-metrics" element={
+                    <PrivateRoute allowedRoles={['admin']}>
+                        <FinancialMetricsDashboard />
+                    </PrivateRoute>
+                } />
+                <Route path="/admin/professionals/results" element={
+                    <PrivateRoute allowedRoles={['admin', 'secretary']}>
+                        <ProfessionalResultsPage />
                     </PrivateRoute>
                 } />
 

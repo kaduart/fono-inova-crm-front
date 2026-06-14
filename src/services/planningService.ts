@@ -129,5 +129,29 @@ export const planningService = {
     generateWeeklyForMonth: async (params: { month: number; year: number; monthlyRevenue: number; totalSessions?: number; workHours?: number; averageTicket?: number }) => {
         const response = await api.post('/planning/generate-weekly-for-month', params);
         return response.data;
+    },
+
+    // Criar mensal e gerar semanais/diários automaticamente
+    autoGenerate: async (payload: {
+        month: number;
+        year: number;
+        targets: {
+            expectedRevenue: number;
+            totalSessions: number;
+            workHours: number;
+            averageTicket: number;
+            commercialTicket?: number;
+        };
+        bySpecialty?: Array<{ specialty: string; sessions: number; revenue: number }>;
+        notes?: string;
+    }) => {
+        const response = await api.post('/planning/auto-generate', payload);
+        return response.data;
+    },
+
+    // Recalcular metas futuras de um mês
+    recalculateFutureTargets: async (month: number, year: number) => {
+        const response = await api.patch(`/planning/${month}/${year}/recalculate`);
+        return response.data;
     }
 };

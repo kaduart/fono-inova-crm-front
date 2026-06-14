@@ -97,7 +97,7 @@ interface PlanningTabProps {
 }
 
 const PlanningTab = ({ month, year }: PlanningTabProps) => {
-  const { plannings, projection, fetchPlannings, createPlanning, updatePlanning, deletePlanning, refreshAllPlannings, loading } = usePlanning();
+  const { plannings, projection, fetchPlannings, createPlanning, updatePlanning, deletePlanning, refreshAllPlannings, autoGeneratePlanning, recalculateFutureTargets, loading } = usePlanning();
   const { data: dashData, fetchDashboard } = useFinancialDashboard();
 
   const [openModal, setOpenModal] = useState(false);
@@ -322,6 +322,20 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
         averageTicket: formData.targets.averageTicket
       });
       toast.success('Semanas do mês geradas com sucesso!');
+    } else if (formData.type === 'monthly') {
+      await autoGeneratePlanning({
+        month: formData.month,
+        year: formData.year,
+        targets: {
+          expectedRevenue: formData.targets.expectedRevenue,
+          totalSessions: formData.targets.totalSessions,
+          workHours: formData.targets.workHours,
+          averageTicket: formData.targets.averageTicket,
+          commercialTicket: formData.targets.commercialTicket
+        },
+        bySpecialty: formData.bySpecialty,
+        notes: formData.notes
+      });
     } else {
       await createPlanning(formData);
     }
@@ -599,9 +613,25 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
             <Typography variant="subtitle1" fontWeight="700" sx={{ color: '#EC4899' }}>
               Painel Comercial Estratégico
             </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-              Agenda operacional vs. Meta
-            </Typography>
+            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                Agenda operacional vs. Meta
+              </Typography>
+              {isCurrentMonth && strategic.gap > 0 && (
+                <Tooltip title="Recalcular metas futuras por dias úteis restantes">
+                  <IconButton
+                    size="small"
+                    onClick={async () => {
+                      const { month, year } = selectedMonthData;
+                      await recalculateFutureTargets(month, year);
+                    }}
+                    sx={{ color: '#EC4899', border: '1px solid', borderColor: '#EC489950' }}
+                  >
+                    <Refresh fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
           </Box>
 
           {/* Barra segmentada: Recorrente + Nova + Gap */}
@@ -1068,6 +1098,15 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                 <Alert severity="info" sx={{ mt: 1 }}>
                   <strong>Geração automática de semanas</strong><br />
                   Informe a <strong>meta mensal total</strong>. O sistema cria <strong>4 semanas</strong> automaticamente.
+                </Alert>
+              </Grid>
+            )}
+
+            {formData.type === 'monthly' && (
+              <Grid size={{ xs: 12 }}>
+                <Alert severity="info" sx={{ mt: 1 }}>
+                  <strong>Automação mensal → semanal → diário</strong><br />
+                  Ao salvar, o sistema criará automaticamente as metas semanais e diárias proporcionais aos dias úteis (seg–sex, exceto feriados).
                 </Alert>
               </Grid>
             )}

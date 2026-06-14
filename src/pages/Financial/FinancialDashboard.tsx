@@ -9,12 +9,14 @@ import {
     Receipt,
     CreditCard,
     LayoutDashboard,
+    User,
 } from 'lucide-react';
 import { useState } from 'react';
 import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
 import { CashflowPageSkeleton } from './components/CashflowPageSkeleton';
 import UnifiedCashflowTab from './UnifiedCashflowTab';
+import ProfessionalResultsPage from '../ProfessionalResults/ProfessionalResultsPage';
 
 // 🔧 Helper para lazy loading com retry em caso de falha de chunk
 const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) => {
@@ -370,6 +372,7 @@ const FinancialDashboard = ({
             import('./tabs/PlanningTab');
             import('./UnifiedCashflowTab');
             import('./tabs/DashboardV3Tab');
+            import('../ProfessionalResults/ProfessionalResultsPage');
         }) ?? setTimeout(() => {
             import('../../components/financial/PaymentPage');
             import('./tabs/ExpensesTab');
@@ -377,6 +380,7 @@ const FinancialDashboard = ({
             import('./tabs/PlanningTab');
             import('./UnifiedCashflowTab');
             import('./tabs/DashboardV3Tab');
+            import('../ProfessionalResults/ProfessionalResultsPage');
         }, 2000);
     }, []);
 
@@ -390,6 +394,7 @@ const FinancialDashboard = ({
         { id: 'convenios', label: 'Convênios', icon: <CreditCard size={18} /> },
         { id: 'despesas', label: 'Despesas', icon: <Receipt size={18} /> },
         { id: 'dashboard-v3', label: 'Dashboard', icon: <BarChart3 size={18} /> },
+        { id: 'profissionais', label: 'Profissionais', icon: <User size={18} /> },
         { id: 'planejamento', label: 'Planejamento Anual', icon: <Calendar size={18} /> },
     ];
 
@@ -496,6 +501,12 @@ const FinancialDashboard = ({
                 return (
                     <Suspense fallback={<DashboardV3Skeleton />}>
                         <DashboardV3Tab month={selectedMonth} year={selectedYear} />
+                    </Suspense>
+                );
+            case 'profissionais':
+                return (
+                    <Suspense fallback={<div className="min-h-[400px] flex items-center justify-center text-gray-400">Carregando...</div>}>
+                        <ProfessionalResultsPage />
                     </Suspense>
                 );
             case 'planejamento':

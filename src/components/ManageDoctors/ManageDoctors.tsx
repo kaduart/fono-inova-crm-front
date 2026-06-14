@@ -28,7 +28,7 @@ interface ManageDoctorsProps {
     patients: IPatient[],
     loading: boolean,
     appointments: IAppointment,
-    onSubmitDoctor: (doctor?: IDoctor) => Promise<void>;
+    onSubmitDoctor?: (doctor?: IDoctor) => Promise<void>;
     modalShouldClose: boolean;
     closeModalSignal: number;
     setOpenModal: () => Promise<void>;
@@ -397,11 +397,23 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
                     loading={isLoadingDoctors || propLoading}
                     onClose={() => setShowModal(false)}
                     onSubmitDoctor={async (doctor) => {
-                        await onSubmitDoctor(doctor);
-                        // Backend é async (status: pending). Refresh em 3s e 7s
-                        // para cobrir backends lentos (ex: Render free tier).
-                        setTimeout(() => refreshDoctors(), 3000);
-                        setTimeout(() => refreshDoctors(), 7000);
+                        try {
+                            if (doctor._id) {
+                                await doctorService.update(doctor._id, doctor);
+                                toast.success('Profissional atualizado com sucesso');
+                            } else {
+                                await doctorService.create(doctor as any);
+                                toast.success('Profissional criado com sucesso');
+                            }
+                            refreshDoctors();
+                            // Backend pode ser async em alguns ambientes. Refresh adicional em 3s e 7s.
+                            setTimeout(() => refreshDoctors(), 3000);
+                            setTimeout(() => refreshDoctors(), 7000);
+                        } catch (err: any) {
+                            console.error('[ManageDoctors] Erro ao salvar profissional:', err);
+                            toast.error(extractErrorMessage(err) || 'Erro ao salvar profissional');
+                            throw err;
+                        }
                     }}
                     modalShouldClose={modalShouldClose}
                     onCancel={() => setOpenModal()}

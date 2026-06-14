@@ -6,6 +6,7 @@ import {
     DollarSign,
     Package,
     Plus,
+    RefreshCw,
     Save,
     Trash2,
     TrendingUp,
@@ -267,16 +268,16 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 limit: 100
             });
             console.log('[TherapyPackageFormModal] Resposta da API V2:', response);
-            
+
             // Extrai dados da resposta V2: { data: { appointments: [...], pagination: {...} } }
-            const appointmentsData = response.data?.data?.appointments || 
-                                     response.data?.appointments || 
-                                     response.data?.data || 
-                                     response.data || 
-                                     [];
+            const appointmentsData = response.data?.data?.appointments ||
+                response.data?.appointments ||
+                response.data?.data ||
+                response.data ||
+                [];
             console.log('[TherapyPackageFormModal] Agendamentos extraídos:', appointmentsData);
             console.log('[TherapyPackageFormModal] Tipo:', typeof appointmentsData, 'É array?', Array.isArray(appointmentsData));
-            
+
             // Garante que é um array
             if (Array.isArray(appointmentsData)) {
                 setAppointments(appointmentsData);
@@ -563,7 +564,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             ).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
             schedule = unique.map((slot) => ({ date: slot.date, time: slot.time }));
             console.log("📅 Slots gerados localmente:", schedule);
-            
+
             const packageData = {
                 patientId: realPatientId,
                 doctorId: formData.doctorId,
@@ -588,7 +589,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 schedule, // ✅ V2: envia schedule em vez de selectedSlots
                 // 🔥 Só envia pagamentos se NÃO for per-session
                 payments: formData.paymentType === 'per-session'
-                    ? [] 
+                    ? []
                     : payments.map((p) => ({
                         amount: Number(p.amount),
                         method: p.method,
@@ -621,8 +622,9 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 totalValue: totalContratual * sv,
                 preConsumedCount: numPreConsumed
             };
-            if (initialData?._id) {
-                await packageService.updatePackage(initialData._id, therapyData);
+            const realPackageId = initialData?.packageId || initialData?._id;
+            if (realPackageId) {
+                await packageService.updatePackage(realPackageId, therapyData);
                 toast.success(`Pacote atualizado com sucesso! 💚`);
                 onSubmit();
             } else {
@@ -771,7 +773,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             ? formData.totalSessions > 0
             : (formData.durationMonths > 0 && formData.sessionsPerWeek > 0))
     );
-        console.log('appointments', appointments);
+    console.log('appointments', appointments);
 
     const { totalSessions, totalValuePackage, remainingBalance } = useMemo(() => {
         const futureSessions =
@@ -821,7 +823,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 {initialData ? 'Editar Pacote' : 'Criar Novo Pacote'}
                             </h2>
                             <p className="text-emerald-100 mt-0.5 sm:mt-1 text-sm sm:text-base truncate">
-                                {initialData ? 'Atualize as informações do pacote' : `Criar pacote para ${patient.fullName}`}
+                                {initialData ? 'Atualize as informações do pacote' : <>Criar pacote para <span className="font-bold uppercase">{patient.fullName}</span></>}
                             </p>
                         </div>
                     </div>
@@ -935,6 +937,14 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
                                     <Calendar className="w-5 h-5 text-blue-600" />
                                     Agendamento Existente (Opcional)
+                                    <button
+                                        type="button"
+                                        onClick={() => { const pid = patient?.patientId || patient?._id; if (pid) fetchAppointmentsByPatient(pid); }}
+                                        className="ml-auto text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                        title="Recarregar agendamentos"
+                                    >
+                                        <RefreshCw className="w-3 h-3" /> Recarregar
+                                    </button>
                                 </h3>
                                 <Select
                                     name="appointmentId"
@@ -943,17 +953,35 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                                 >
                                     <option value="">Selecione um agendamento</option>
-                                    {appointments.map((appt) => (
-                                        <option
-                                            key={appt._id || appt.id}
-                                            value={appt._id || appt.id}
-                                            className="text-sm"
-                                        >
-                                            {formatAppointmentDate(appt.date)} - {appt.time || 'Horário não definido'} •
-                                            Dr. {appt.doctor?.fullName || 'Profissional não especificado'} •
-                                            {appt.specialty || 'Tipo não especificado'}
-                                        </option>
-                                    ))}
+                                    {appointments
+                                        .filter((appt) => {
+                                            const svc = (appt as any).serviceType;
+                                            const ops = (appt as any).operationalStatus;
+                                            return svc !== 'package_session'
+                                                && svc !== 'liminar_session'
+                                                && svc !== 'convenio_session'
+                                                && ops !== 'canceled'
+                                                && ops !== 'missed'
+                                                && ops !== 'completed';
+                                        })
+                                        .map((appt) => {
+                                            const svcType = (appt as any).serviceType;
+                                            const typeLabel =
+                                                svcType === 'evaluation' ? '[Avaliação]' :
+                                                    svcType === 'individual_session' ? '[Avulsa]' :
+                                                        svcType === 'liminar_session' ? '[Liminar]' :
+                                                            svcType === 'convenio_session' ? '[Convênio]' : '';
+                                            return (
+                                                <option
+                                                    key={appt._id || appt.id}
+                                                    value={appt._id || appt.id}
+                                                >
+                                                    {typeLabel} {formatAppointmentDate(appt.date)} - {appt.time || 'Horário não definido'} •
+                                                    Dr. {appt.doctor?.fullName || 'Profissional não especificado'} •
+                                                    {appt.specialty || 'Tipo não especificado'}
+                                                </option>
+                                            );
+                                        })}
                                 </Select>
                             </div>}
 
@@ -1292,19 +1320,18 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
                             </div>
 
-                        </div>
-
-                        {/* Coluna 2 - Informações e Resumo */}
-                        <div className="space-y-6">
-                            {/* Informações do Profissional */}
                             <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-5 rounded-xl border border-amber-100">
-                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                    <User className="w-5 h-5 text-amber-600" />
+
+                                <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                                    <User className="w-5 h-5 text-blue-600" />
                                     Profissional e Sessão
                                 </h3>
                                 <div className="space-y-4">
+                                    {/* Primeira linha - Profissional */}
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Profissional *</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Profissional *
+                                        </label>
                                         <Select
                                             name="doctorId"
                                             value={formData.doctorId}
@@ -1320,40 +1347,51 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                         </Select>
                                     </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Sessão *</label>
-                                        <Select
-                                            name="sessionType"
-                                            value={formData.sessionType}
-                                            onChange={handleChange}
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
-                                        >
-                                            <option value="">Escolha um tipo de terapia</option>
-                                            {THERAPY_TYPES.map((option) => (
-                                                <option key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </option>
-                                            ))}
-                                        </Select>
-                                    </div>
+                                    {/* Segunda linha - 2 colunas */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Tipo de Sessão *
+                                            </label>
+                                            <Select
+                                                name="sessionType"
+                                                value={formData.sessionType}
+                                                onChange={handleChange}
+                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                                            >
+                                                <option value="">Escolha um tipo de terapia</option>
+                                                {THERAPY_TYPES.map((option) => (
+                                                    <option key={option.value} value={option.value}>
+                                                        {option.label}
+                                                    </option>
+                                                ))}
+                                            </Select>
+                                        </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Pagamento *</label>
-                                        <Select
-                                            name="paymentType"
-                                            value={formData.paymentType}
-                                            onChange={handleChange}
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
-                                        >
-                                            {PAYMENT_TYPES.map((option) => (
-                                                <option key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </option>
-                                            ))}
-                                        </Select>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Tipo de Pagamento *
+                                            </label>
+                                            <Select
+                                                name="paymentType"
+                                                value={formData.paymentType}
+                                                onChange={handleChange}
+                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                                            >
+                                                {PAYMENT_TYPES.map((option) => (
+                                                    <option key={option.value} value={option.value}>
+                                                        {option.label}
+                                                    </option>
+                                                ))}
+                                            </Select>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+                        </div>
+
+                        {/* Coluna 2 - Informações e Resumo */}
+                        <div className="space-y-6">
 
                             {/* Informações Financeiras */}
                             <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl border border-green-100">
@@ -1372,17 +1410,17 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             step="0.01"
                                             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-green-500 bg-white focus:ring-green-500"
                                         />
-                                            
-                                            {/* 🔥 AVISO para per-session */}
-                                            {formData.paymentType === 'per-session' && (
-                                                <p className="text-xs text-blue-600 mt-2">
-                                                    💡 Pagamento por sessão: O paciente pagará no dia de cada atendimento. Não é necessário adicionar pagamento antecipado.
-                                                </p>
-                                            )}
-                                        </div>
 
-                                        {/* Múltiplos Pagamentos - NÃO para per-session */}
-                                        {formData.paymentType !== 'per-session' && (
+                                        {/* 🔥 AVISO para per-session */}
+                                        {formData.paymentType === 'per-session' && (
+                                            <p className="text-xs text-blue-600 mt-2">
+                                                💡 Pagamento por sessão: O paciente pagará no dia de cada atendimento. Não é necessário adicionar pagamento antecipado.
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Múltiplos Pagamentos - NÃO para per-session */}
+                                    {formData.paymentType !== 'per-session' && (
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-center">
                                                 <label className="block text-sm font-medium text-gray-700">
@@ -1473,7 +1511,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                     </div>
                                                 </div>
                                             ))}
-                                            
+
                                             {/* Total Pago */}
                                             <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
                                                 <div className="flex justify-between items-center">

@@ -3,12 +3,14 @@ import { Clock, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { FaUserEdit } from "react-icons/fa";
-import { EXTRA_SPECIALTIES, IDoctor, THERAPY_TYPES, TherapyType } from "../../utils/types/types";
+import { EXTRA_SPECIALTIES, IDoctor, THERAPY_TYPES, TherapyType, ICommissionRules } from "../../utils/types/types";
 import doctorService from "../../services/doctorService";
 import { Button } from "../ui/Button";
 import Input from "../ui/Input";
 import { Label } from "../ui/Label";
 import { Select } from "../ui/Select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/Tabs";
+import { DoctorCommissionRulesTab } from "./DoctorCommissionRulesTab";
 
 interface DoctorFormProps {
     selectedDoctor: IDoctor | null;
@@ -49,7 +51,12 @@ const generateTimeSlots = (startHour: number, endHour: number, intervalMinutes: 
 
 const allTimeSlots = generateTimeSlots(8, 18, 40);
 
+const defaultCommissionRules: ICommissionRules = {
+    rules: []
+};
+
 const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: DoctorFormProps) => {
+    const [activeTab, setActiveTab] = useState("dados");
     const [form, setForm] = useState<IDoctor>({
         _id: selectedDoctor?._id || "",
         fullName: selectedDoctor?.fullName || "",
@@ -61,6 +68,7 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
         password: "",
         active: selectedDoctor?.active ?? true,
         weeklyAvailability: selectedDoctor?.weeklyAvailability || [],
+        commissionRules: selectedDoctor?.commissionRules || defaultCommissionRules
     });
 
     const [selectedTimeSlots, setSelectedTimeSlots] = useState<TimeSlot[]>([]);
@@ -74,21 +82,25 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
         specialty: false
     });
 
-    // Busca dados frescos do doutor ao editar para garantir weeklyAvailability atualizado
+    // Busca dados frescos do doutor ao editar para garantir weeklyAvailability e comissões atualizados
     useEffect(() => {
         if (!selectedDoctor?._id) return;
 
         doctorService.getById(selectedDoctor._id)
             .then(fresh => {
                 const availability = (fresh as any)?.weeklyAvailability ?? selectedDoctor.weeklyAvailability;
-                if (!availability?.length) return;
-                const slots: TimeSlot[] = [];
-                availability.forEach((dayAvailability: { day: string; times: string[] }) => {
-                    dayAvailability.times.forEach(time => {
-                        slots.push({ day: dayAvailability.day, time });
+                if (availability?.length) {
+                    const slots: TimeSlot[] = [];
+                    availability.forEach((dayAvailability: { day: string; times: string[] }) => {
+                        dayAvailability.times.forEach(time => {
+                            slots.push({ day: dayAvailability.day, time });
+                        });
                     });
-                });
-                setSelectedTimeSlots(slots);
+                    setSelectedTimeSlots(slots);
+                }
+
+                const commissionRules = (fresh as any)?.commissionRules ?? selectedDoctor.commissionRules ?? defaultCommissionRules;
+                setForm(prev => ({ ...prev, commissionRules }));
             })
             .catch(() => {
                 if (!selectedDoctor.weeklyAvailability?.length) return;
@@ -183,217 +195,244 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                     </div>
                 </div>
 
-                {/* CORPO — mesmo “DNA” do PatientForm (fieldset + legend + grids) */}
+                {/* CORPO — abas para organizar Dados, Horários, Status e Comissões */}
                 <div className="p-6 space-y-6 bg-gradient-to-b from-white to-gray-50 rounded-b-2xl">
-                    {/* Dados do Profissional */}
-                    <fieldset className="border border-gray-200 rounded-xl p-4">
-                        <legend className="px-2 text-sm font-semibold text-gray-700">
-                            Dados do Profissional
-                        </legend>
+                    <Tabs value={activeTab} onValueChange={setActiveTab}>
+                        <TabsList className="bg-gray-100 p-1 rounded-xl w-full justify-start">
+                            <TabsTrigger value="dados" className="data-[state=active]:bg-white data-[state=active]:text-emerald-700">Dados</TabsTrigger>
+                            <TabsTrigger value="horarios" className="data-[state=active]:bg-white data-[state=active]:text-emerald-700">Horários</TabsTrigger>
+                            <TabsTrigger value="status" className="data-[state=active]:bg-white data-[state=active]:text-emerald-700">Status</TabsTrigger>
+                            <TabsTrigger value="comissoes" className="data-[state=active]:bg-white data-[state=active]:text-emerald-700">Comissões</TabsTrigger>
+                        </TabsList>
 
-                        <div className="grid grid-cols-12 gap-4 mt-2">
-                            {/* Nome */}
-                            <div className="col-span-12 md:col-span-6">
-                                <Label htmlFor="fullName">Nome *</Label>
-                                <Input
-                                    id="fullName"
-                                    value={form.fullName}
-                                    onChange={e => setForm({ ...form, fullName: e.target.value })}
-                                    placeholder="Digite o nome completo"
-                                    className="mt-1"
-                                />
-                                {formErrors.fullName && (
-                                    <p className="mt-1 text-xs text-red-500">Nome é obrigatório</p>
-                                )}
-                            </div>
+                        <TabsContent value="dados" className="mt-4">
+                            <fieldset className="border border-gray-200 rounded-xl p-4">
+                                <legend className="px-2 text-sm font-semibold text-gray-700">
+                                    Dados do Profissional
+                                </legend>
 
-                            {/* Email */}
-                            <div className="col-span-12 md:col-span-6">
-                                <Label htmlFor="email">Email *</Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    value={form.email}
-                                    onChange={e => setForm({ ...form, email: e.target.value })}
-                                    placeholder="exemplo@clinica.com"
-                                    className="mt-1"
-                                />
-                                {formErrors.email && (
-                                    <p className="mt-1 text-xs text-red-500">Email é obrigatório</p>
-                                )}
-                            </div>
-
-                            {/* Área principal */}
-                            <div className="col-span-12 md:col-span-4">
-                                <Label htmlFor="specialty">Área principal *</Label>
-                                <Select
-                                    id="specialty"
-                                    value={form.specialty}
-                                    onChange={(e) => {
-                                        const value = e.target.value as TherapyType;
-
-                                        setForm(prev => ({
-                                            ...prev,
-                                            specialty: value,
-                                            // se sair de psicologia, limpa especialidades extras
-                                            specialties: value === "psicologia" ? (prev.specialties || []) : [],
-                                        }));
-                                    }}
-                                    className="mt-1"
-                                >
-                                    <option value="">Selecione</option>
-                                    {THERAPY_TYPES.map((type) => (
-                                        <option key={type.value} value={type.value}>
-                                            {type.label}
-                                        </option>
-                                    ))}
-                                </Select>
-                                {formErrors.specialty && (
-                                    <p className="mt-1 text-xs text-red-500">
-                                        Selecione uma área principal
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* 👇 Só aparece se área principal = Psicologia */}
-                            {form.specialty === "psicologia" && (
-                                <div className="col-span-12 md:col-span-8">
-                                    <Label>Especialidades adicionais (opcional)</Label>
-                                    <div className="flex flex-wrap gap-3 mt-1">
-                                        {EXTRA_SPECIALTIES.map(spec => (
-                                            <label
-                                                key={spec.value}
-                                                className="inline-flex items-center gap-2 text-sm text-gray-700"
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    className="rounded border-gray-300"
-                                                    checked={form.specialties?.includes(spec.value)}
-                                                    onChange={() =>
-                                                        setForm(prev => {
-                                                            const current = prev.specialties || [];
-                                                            const exists = current.includes(spec.value);
-
-                                                            return {
-                                                                ...prev,
-                                                                specialties: exists
-                                                                    ? current.filter(v => v !== spec.value)
-                                                                    : [...current, spec.value],
-                                                            };
-                                                        })
-                                                    }
-                                                />
-                                                <span>{spec.label}</span>
-                                            </label>
-                                        ))}
+                                <div className="grid grid-cols-12 gap-4 mt-2">
+                                    {/* Nome */}
+                                    <div className="col-span-12 md:col-span-6">
+                                        <Label htmlFor="fullName">Nome *</Label>
+                                        <Input
+                                            id="fullName"
+                                            value={form.fullName}
+                                            onChange={e => setForm({ ...form, fullName: e.target.value })}
+                                            placeholder="Digite o nome completo"
+                                            className="mt-1"
+                                        />
+                                        {formErrors.fullName && (
+                                            <p className="mt-1 text-xs text-red-500">Nome é obrigatório</p>
+                                        )}
                                     </div>
-                                    <p className="mt-1 text-[11px] text-gray-500">
-                                        Ex.: psicóloga com especialidade em psicopedagogia e neuropsicologia.
-                                    </p>
-                                </div>
-                            )}
 
-                            {/* Telefone */}
-                            <div className="col-span-12 md:col-span-4">
-                                <Label htmlFor="phoneNumber">Telefone *</Label>
-                                <Input
-                                    id="phoneNumber"
-                                    mask="(99) 99999-9999"
-                                    type="tel"
-                                    placeholder="(62) 9999-9999"
-                                    value={form.phoneNumber}
-                                    onChange={e => setForm({ ...form, phoneNumber: e.target.value })}
-                                    className="mt-1"
-                                />
-                                {formErrors.phoneNumber && (
-                                    <p className="mt-1 text-xs text-red-500">Telefone é obrigatório</p>
-                                )}
-                            </div>
+                                    {/* Email */}
+                                    <div className="col-span-12 md:col-span-6">
+                                        <Label htmlFor="email">Email *</Label>
+                                        <Input
+                                            id="email"
+                                            type="email"
+                                            value={form.email}
+                                            onChange={e => setForm({ ...form, email: e.target.value })}
+                                            placeholder="exemplo@clinica.com"
+                                            className="mt-1"
+                                        />
+                                        {formErrors.email && (
+                                            <p className="mt-1 text-xs text-red-500">Email é obrigatório</p>
+                                        )}
+                                    </div>
 
-                            {/* Número de Registro */}
-                            <div className="col-span-12 md:col-span-4">
-                                <Label htmlFor="licenseNumber">Número de Registro *</Label>
-                                <Input
-                                    id="licenseNumber"
-                                    placeholder="123456"
-                                    value={form.licenseNumber}
-                                    onChange={e => setForm({ ...form, licenseNumber: e.target.value })}
-                                    className="mt-1"
-                                />
-                                {formErrors.licenseNumber && (
-                                    <p className="mt-1 text-xs text-red-500">
-                                        Número de registro é obrigatório
-                                    </p>
-                                )}
-                            </div>
-                        </div>
+                                    {/* Área principal */}
+                                    <div className="col-span-12 md:col-span-4">
+                                        <Label htmlFor="specialty">Área principal *</Label>
+                                        <Select
+                                            id="specialty"
+                                            value={form.specialty}
+                                            onChange={(e) => {
+                                                const value = e.target.value as TherapyType;
 
-                    </fieldset>
+                                                setForm(prev => ({
+                                                    ...prev,
+                                                    specialty: value,
+                                                    // se sair de psicologia, limpa especialidades extras
+                                                    specialties: value === "psicologia" ? (prev.specialties || []) : [],
+                                                }));
+                                            }}
+                                            className="mt-1"
+                                        >
+                                            <option value="">Selecione</option>
+                                            {THERAPY_TYPES.map((type) => (
+                                                <option key={type.value} value={type.value}>
+                                                    {type.label}
+                                                </option>
+                                            ))}
+                                        </Select>
+                                        {formErrors.specialty && (
+                                            <p className="mt-1 text-xs text-red-500">
+                                                Selecione uma área principal
+                                            </p>
+                                        )}
+                                    </div>
 
-                    {/* Horários de Atendimento */}
-                    <fieldset className="border border-gray-200 rounded-xl p-4">
-                        <legend className="px-2 text-sm font-semibold text-gray-700">Horários de Atendimento</legend>
-
-                        <div className="space-y-4 mt-2">
-                            {Object.entries(daysOfWeek).map(([label, day]) => {
-                                const daySlots = selectedTimeSlots.filter(slot => slot.day === day);
-                                const allSelected = allTimeSlots.every(time =>
-                                    daySlots.some(slot => slot.time === time)
-                                );
-
-                                return (
-                                    <div key={day} className="p-4 bg-white rounded-xl shadow-sm border border-gray-200">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <h4 className="font-medium text-gray-800">{label}</h4>
-                                            <button
-                                                type="button"
-                                                onClick={() => toggleAllDay(day)}
-                                                className="text-sm text-emerald-600 hover:text-emerald-800 hover:underline"
-                                            >
-                                                {allSelected ? 'Desmarcar todos' : 'Selecionar todos'}
-                                            </button>
-                                        </div>
-
-                                        <div className="flex flex-wrap gap-2">
-                                            {allTimeSlots.map(time => {
-                                                const isSelected = daySlots.some(slot => slot.time === time);
-                                                return (
-                                                    <button
-                                                        key={`${day}-${time}`}
-                                                        type="button"
-                                                        onClick={() => toggleTimeSlot(day, time)}
-                                                        className={`px-3 py-1.5 text-sm rounded-md border transition-all flex items-center
-                                                            ${isSelected
-                                                                ? 'bg-emerald-50 border-emerald-500 text-emerald-800 hover:bg-emerald-100'
-                                                                : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'}`}
+                                    {/* 👇 Só aparece se área principal = Psicologia */}
+                                    {form.specialty === "psicologia" && (
+                                        <div className="col-span-12 md:col-span-8">
+                                            <Label>Especialidades adicionais (opcional)</Label>
+                                            <div className="flex flex-wrap gap-3 mt-1">
+                                                {EXTRA_SPECIALTIES.map(spec => (
+                                                    <label
+                                                        key={spec.value}
+                                                        className="inline-flex items-center gap-2 text-sm text-gray-700"
                                                     >
-                                                        <Clock className="w-4 h-4 mr-1.5" />
-                                                        {time}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </fieldset>
+                                                        <input
+                                                            type="checkbox"
+                                                            className="rounded border-gray-300"
+                                                            checked={form.specialties?.includes(spec.value)}
+                                                            onChange={() =>
+                                                                setForm(prev => {
+                                                                    const current = prev.specialties || [];
+                                                                    const exists = current.includes(spec.value);
 
-                    {/* Status */}
-                    <fieldset className="border border-gray-200 rounded-xl p-4">
-                        <legend className="px-2 text-sm font-semibold text-gray-700">Status</legend>
-                        <div className="mt-2">
-                            <FormControlLabel
-                                control={
-                                    <Checkbox
-                                        checked={form.active === true}
-                                        onChange={e => setForm({ ...form, active: e.target.checked })}
+                                                                    return {
+                                                                        ...prev,
+                                                                        specialties: exists
+                                                                            ? current.filter(v => v !== spec.value)
+                                                                            : [...current, spec.value],
+                                                                    };
+                                                                })
+                                                            }
+                                                        />
+                                                        <span>{spec.label}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                            <p className="mt-1 text-[11px] text-gray-500">
+                                                Ex.: psicóloga com especialidade em psicopedagogia e neuropsicologia.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Telefone */}
+                                    <div className="col-span-12 md:col-span-4">
+                                        <Label htmlFor="phoneNumber">Telefone *</Label>
+                                        <Input
+                                            id="phoneNumber"
+                                            mask="(99) 99999-9999"
+                                            type="tel"
+                                            placeholder="(62) 9999-9999"
+                                            value={form.phoneNumber}
+                                            onChange={e => setForm({ ...form, phoneNumber: e.target.value })}
+                                            className="mt-1"
+                                        />
+                                        {formErrors.phoneNumber && (
+                                            <p className="mt-1 text-xs text-red-500">Telefone é obrigatório</p>
+                                        )}
+                                    </div>
+
+                                    {/* Número de Registro */}
+                                    <div className="col-span-12 md:col-span-4">
+                                        <Label htmlFor="licenseNumber">Número de Registro *</Label>
+                                        <Input
+                                            id="licenseNumber"
+                                            placeholder="123456"
+                                            value={form.licenseNumber}
+                                            onChange={e => setForm({ ...form, licenseNumber: e.target.value })}
+                                            className="mt-1"
+                                        />
+                                        {formErrors.licenseNumber && (
+                                            <p className="mt-1 text-xs text-red-500">
+                                                Número de registro é obrigatório
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </fieldset>
+                        </TabsContent>
+
+                        <TabsContent value="horarios" className="mt-4">
+                            <fieldset className="border border-gray-200 rounded-xl p-4">
+                                <legend className="px-2 text-sm font-semibold text-gray-700">Horários de Atendimento</legend>
+
+                                <div className="space-y-4 mt-2">
+                                    {Object.entries(daysOfWeek).map(([label, day]) => {
+                                        const daySlots = selectedTimeSlots.filter(slot => slot.day === day);
+                                        const allSelected = allTimeSlots.every(time =>
+                                            daySlots.some(slot => slot.time === time)
+                                        );
+
+                                        return (
+                                            <div key={day} className="p-4 bg-white rounded-xl shadow-sm border border-gray-200">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <h4 className="font-medium text-gray-800">{label}</h4>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggleAllDay(day)}
+                                                        className="text-sm text-emerald-600 hover:text-emerald-800 hover:underline"
+                                                    >
+                                                        {allSelected ? 'Desmarcar todos' : 'Selecionar todos'}
+                                                    </button>
+                                                </div>
+
+                                                <div className="flex flex-wrap gap-2">
+                                                    {allTimeSlots.map(time => {
+                                                        const isSelected = daySlots.some(slot => slot.time === time);
+                                                        return (
+                                                            <button
+                                                                key={`${day}-${time}`}
+                                                                type="button"
+                                                                onClick={() => toggleTimeSlot(day, time)}
+                                                                className={`px-3 py-1.5 text-sm rounded-md border transition-all flex items-center
+                                                                    ${isSelected
+                                                                        ? 'bg-emerald-50 border-emerald-500 text-emerald-800 hover:bg-emerald-100'
+                                                                        : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'}`}
+                                                            >
+                                                                <Clock className="w-4 h-4 mr-1.5" />
+                                                                {time}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </fieldset>
+                        </TabsContent>
+
+                        <TabsContent value="status" className="mt-4">
+                            <fieldset className="border border-gray-200 rounded-xl p-4">
+                                <legend className="px-2 text-sm font-semibold text-gray-700">Status</legend>
+                                <div className="mt-2">
+                                    <FormControlLabel
+                                        control={
+                                            <Checkbox
+                                                checked={form.active === true}
+                                                onChange={e => setForm({ ...form, active: e.target.checked })}
+                                            />
+                                        }
+                                        label="Profissional ativo"
                                     />
+                                </div>
+                            </fieldset>
+                        </TabsContent>
+
+                        <TabsContent value="comissoes" className="mt-4">
+                            <DoctorCommissionRulesTab
+                                doctorId={form._id}
+                                rules={form.commissionRules?.rules || []}
+                                onChange={updatedRules =>
+                                    setForm(prev => ({
+                                        ...prev,
+                                        commissionRules: {
+                                            ...(prev.commissionRules || defaultCommissionRules),
+                                            rules: updatedRules
+                                        }
+                                    }))
                                 }
-                                label="Profissional ativo"
                             />
-                        </div>
-                    </fieldset>
+                        </TabsContent>
+                    </Tabs>
                 </div>
 
                 {/* RODAPÉ — botões padronizados */}
