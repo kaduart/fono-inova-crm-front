@@ -122,9 +122,9 @@ export const DoctorCalendarTab = ({ doctorId }: DoctorCalendarTabProps) => {
     setCloseModalSignal((prev) => prev + 1);
   };
 
-  const handleCancelAppointment = async (id: string, reason: string) => {
+  const handleCancelAppointment = async (id: string, reason: string, paymentState?: { paymentMethod?: string; billingType?: string; sessionValue?: number }) => {
     try {
-      await cancelAppointment(id, { reason });
+      await cancelAppointment(id, { reason, ...paymentState });
       setCloseModalSignal((prev) => prev + 1);
     } catch (error) {
       console.error('[DoctorCalendarTab] Erro ao cancelar:', error);

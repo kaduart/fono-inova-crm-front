@@ -16,7 +16,7 @@ import moment from 'moment-timezone';
 
 interface CalendarTabProps {
     onNewAppointment: (data: any) => Promise<void>;
-    onCancelAppointment: (id: string, reason: string) => Promise<void>;
+    onCancelAppointment: (id: string, reason: string, paymentState?: { paymentMethod?: string; billingType?: string; sessionValue?: number }) => Promise<void>;
     onCompleteAppointment: (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => Promise<void>;
     onEditAppointment: (id: string, data: any) => Promise<void>;
     onFetchAvailableSlots: (payload: any) => Promise<string[]>;
@@ -114,9 +114,9 @@ export const CalendarTab = ({
         // 🎯 Pacientes e Appointments já são atualizados via contexto
     };
 
-    const handleCancelAppointment = async (id: string, reason: string) => {
+    const handleCancelAppointment = async (id: string, reason: string, paymentState?: { paymentMethod?: string; billingType?: string; sessionValue?: number }) => {
         try {
-            await onCancelAppointment(id, reason);
+            await onCancelAppointment(id, reason, paymentState);
             // 🎯 Só fecha o modal se não der erro
             setCloseModalSignal(prev => prev + 1);
         } catch (error) {

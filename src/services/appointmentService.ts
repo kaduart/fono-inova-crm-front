@@ -121,6 +121,9 @@ export type RescheduleParams = {
 export type CancelParams = {
     reason: string;
     notifyPatient?: boolean;
+    paymentMethod?: string;
+    billingType?: string;
+    sessionValue?: number;
 };
 
 export type AvailableSlotsParams = {

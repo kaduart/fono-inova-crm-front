@@ -457,11 +457,12 @@ export default function AdminDashboard() {
     // 🆕 Hook para mensagens de erro no chat (opcional - só funciona se estiver na aba de chat)
     const chat = useChatOptional();
 
-    const handleCancelAppointment = useCallback(async (appointmentId: string, reason: string) => {
+    const handleCancelAppointment = useCallback(async (appointmentId: string, reason: string, paymentState?: { paymentMethod?: string; billingType?: string; sessionValue?: number }) => {
         try {
             const cancelParams: CancelParams = {
                 reason,
-                notifyPatient: true
+                notifyPatient: true,
+                ...paymentState
             };
             const result = await cancelAppointment(appointmentId, cancelParams);
             

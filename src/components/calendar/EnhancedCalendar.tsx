@@ -32,7 +32,7 @@ interface EnhancedCalendarProps {
     patients: IPatient[];
     onDateClick: (arg: DateClickArg) => void;
     onNewAppointment: (data: ScheduleAppointment) => Promise<void>;
-    onCancelAppointment: (id: string, reason: string) => Promise<void>;
+    onCancelAppointment: (id: string, reason: string, paymentState?: { paymentMethod?: string; billingType?: string; sessionValue?: number }) => Promise<void>;
     onCompleteAppointment: (id: string, data?: {
         addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string;
         billingType?: string; paymentMethod?: string; paymentAmount?: number; sessionValue?: number;

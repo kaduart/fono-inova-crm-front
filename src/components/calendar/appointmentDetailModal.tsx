@@ -27,7 +27,7 @@ interface AppointmentDetailModalProps {
     onClose: () => void;
     doctors: IDoctor[];
     event?: SelectedEvent;
-    onCancelAppointment: (id: string, reason: string) => Promise<void>;
+    onCancelAppointment: (id: string, reason: string, paymentState?: { paymentMethod?: string; billingType?: string; sessionValue?: number }) => Promise<void>;
     onCompleteAppointment: (id: string, data?: {
         billingType?: string;
         paymentMethod?: string;
@@ -446,7 +446,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         console.log('❌ [Modal] Cancelando agendamento ID:', event?.id);
         setIsCancelling(true);
         try {
-            await onCancelAppointment(event.id, cancelReason);
+            await onCancelAppointment(event.id, cancelReason, { paymentMethod, billingType, sessionValue: paymentAmount });
             setCancelReason('');
             setActiveTab('details');
         } catch (err: any) {
