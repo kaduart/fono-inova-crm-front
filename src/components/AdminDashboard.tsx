@@ -822,7 +822,8 @@ export default function AdminDashboard() {
                         status: 'paid',
                         appointmentId: payment._id,
                         serviceType: payment.serviceType || 'session',
-                        paymentDate: payment.date || new Date().toISOString(),
+                        paymentDate: new Date().toISOString(),      // caixa = data do recebimento (hoje)
+                        serviceDate: payment.date || null,           // competência = data da sessão
                         notes: payment.notes || payment.description || 'Pagamento registrado via tabela financeira'
                     });
                     

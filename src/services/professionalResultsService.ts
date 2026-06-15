@@ -35,10 +35,13 @@ export interface ProfessionalRankingItem {
     sessionCash: number;
   };
   commission: number;
+  commissionRates?: Array<{ billingType: string; commissionType: string; value: number }>;
   advances: number;
   balance: number;
   receivables: ReceivablesBreakdown;
   rank?: number;
+  clinicPatientsThisPeriod?: number;
+  clinicSessionsThisPeriod?: number;
 }
 
 export interface ProfessionalSummary {

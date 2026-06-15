@@ -1,5 +1,5 @@
 // src/pages/ProfessionalResults/ProfessionalResultsPage.tsx
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Box, Paper, Typography, FormControl, Select, MenuItem, Button } from '@mui/material';
 import {
   Trophy,
@@ -33,7 +33,9 @@ const KPICard: React.FC<{
   color: string;
   subtitle?: string;
   trend?: { current: number; previous: number; label?: string };
-}> = ({ title, value, icon, color, subtitle, trend }) => {
+  onClick?: () => void;
+  active?: boolean;
+}> = ({ title, value, icon, color, subtitle, trend, onClick, active }) => {
   let trendNode: React.ReactNode = null;
   if (trend && trend.previous > 0) {
     const change = ((trend.current - trend.previous) / trend.previous) * 100;
@@ -53,8 +55,14 @@ const KPICard: React.FC<{
 
   return (
     <div
-      className="rounded-2xl border p-5 shadow-sm"
-      style={{ borderColor: `${color}30`, backgroundColor: `${color}08` }}
+      className={`rounded-2xl border p-5 shadow-sm transition-all ${onClick ? 'cursor-pointer hover:shadow-md' : ''}`}
+      style={{
+        borderColor: active ? color : `${color}30`,
+        backgroundColor: `${color}08`,
+        outline: active ? `2px solid ${color}` : 'none',
+        outlineOffset: '2px',
+      }}
+      onClick={onClick}
     >
       <div className="flex items-center gap-3 mb-2">
         <div className="p-2 rounded-xl" style={{ backgroundColor: `${color}20`, color }}>
@@ -96,6 +104,9 @@ export const ProfessionalResultsPage: React.FC = () => {
     () => ranking.find((d) => d.doctorId === selectedDoctorId) || null,
     [ranking, selectedDoctorId]
   );
+
+  const [selectedCard, setSelectedCard] = useState<string | null>(null);
+  const toggleCard = (card: string) => setSelectedCard(prev => prev === card ? null : card);
 
   const handleDoctorClick = (doctorId: string) => {
     setSelectedDoctorId(doctorId);
@@ -291,13 +302,15 @@ export const ProfessionalResultsPage: React.FC = () => {
                     </Typography>
                   </Box>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                     <KPICard
                       title="Pacientes Ativos"
                       value={String(summary.patients.active)}
                       icon={<Users size={20} />}
                       color="#3b82f6"
                       trend={previousSummary ? { current: summary.patients.active, previous: previousSummary.patients.active } : undefined}
+                      onClick={() => toggleCard('patients')}
+                      active={selectedCard === 'patients'}
                     />
                     <KPICard
                       title="Produção"
@@ -305,6 +318,8 @@ export const ProfessionalResultsPage: React.FC = () => {
                       icon={<DollarSign size={20} />}
                       color="#10b981"
                       trend={previousSummary ? { current: summary.production.total, previous: previousSummary.production.total } : undefined}
+                      onClick={() => toggleCard('production')}
+                      active={selectedCard === 'production'}
                     />
                     <KPICard
                       title="Recebido"
@@ -317,6 +332,8 @@ export const ProfessionalResultsPage: React.FC = () => {
                       icon={<DollarSign size={20} />}
                       color="#6366f1"
                       trend={previousSummary ? { current: summary.received.total, previous: previousSummary.received.total } : undefined}
+                      onClick={() => toggleCard('received')}
+                      active={selectedCard === 'received'}
                     />
                     {(() => {
                       const realPending =
@@ -344,6 +361,8 @@ export const ProfessionalResultsPage: React.FC = () => {
                               ? { current: realPending, previous: prevRealPending }
                               : undefined
                           }
+                          onClick={() => toggleCard('receivables')}
+                          active={selectedCard === 'receivables'}
                         />
                       );
                     })()}
@@ -353,6 +372,8 @@ export const ProfessionalResultsPage: React.FC = () => {
                       icon={<DollarSign size={20} />}
                       color="#8b5cf6"
                       trend={previousSummary ? { current: summary.commission, previous: previousSummary.commission } : undefined}
+                      onClick={() => toggleCard('commission')}
+                      active={selectedCard === 'commission'}
                     />
                     <KPICard
                       title="Adiantamentos"
@@ -360,6 +381,8 @@ export const ProfessionalResultsPage: React.FC = () => {
                       icon={<DollarSign size={20} />}
                       color="#ef4444"
                       trend={previousSummary ? { current: summary.advances, previous: previousSummary.advances } : undefined}
+                      onClick={() => toggleCard('advances')}
+                      active={selectedCard === 'advances'}
                     />
                     <KPICard
                       title="Saldo"
@@ -367,6 +390,8 @@ export const ProfessionalResultsPage: React.FC = () => {
                       icon={<DollarSign size={20} />}
                       color={summary.balance >= 0 ? '#10b981' : '#ef4444'}
                       trend={previousSummary ? { current: summary.balance, previous: previousSummary.balance } : undefined}
+                      onClick={() => toggleCard('balance')}
+                      active={selectedCard === 'balance'}
                     />
                     <KPICard
                       title="Sessões Realizadas"
@@ -374,8 +399,205 @@ export const ProfessionalResultsPage: React.FC = () => {
                       icon={<Calendar size={20} />}
                       color="#06b6d4"
                       trend={previousSummary ? { current: summary.sessions.completed, previous: previousSummary.sessions.completed } : undefined}
+                      onClick={() => toggleCard('sessions')}
+                      active={selectedCard === 'sessions'}
                     />
                   </div>
+
+                  {/* Painel de detalhe do card selecionado */}
+                  {selectedCard && (
+                    <div className="mb-6 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
+                        <span className="text-sm font-semibold text-gray-700">
+                          {{ patients: 'Pacientes Ativos', production: 'Produção', received: 'Recebido', receivables: 'A Receber', commission: 'Comissão', advances: 'Adiantamentos', balance: 'Saldo', sessions: 'Sessões Realizadas' }[selectedCard]}
+                        </span>
+                        <button onClick={() => setSelectedCard(null)} className="text-xs text-gray-400 hover:text-gray-600">✕ fechar</button>
+                      </div>
+                      <div className="p-4">
+
+                        {/* PACIENTES ATIVOS */}
+                        {selectedCard === 'patients' && (
+                          patients.length === 0
+                            ? <p className="text-sm text-gray-400">Nenhum dado de paciente disponível.</p>
+                            : <table className="w-full text-sm">
+                                <thead><tr className="text-left text-xs text-gray-400 border-b">
+                                  <th className="pb-2 font-medium">Paciente</th>
+                                  <th className="pb-2 font-medium text-right">Sessões</th>
+                                  <th className="pb-2 font-medium text-right">Produção</th>
+                                  <th className="pb-2 font-medium text-right">Recebido</th>
+                                  <th className="pb-2 font-medium text-right">Comissão</th>
+                                  <th className="pb-2 font-medium text-right">Última sessão</th>
+                                </tr></thead>
+                                <tbody>
+                                  {patients.map(p => (
+                                    <tr key={p.patientId} className="border-b border-gray-50 hover:bg-gray-50">
+                                      <td className="py-2 font-medium text-gray-800">{p.patientName}</td>
+                                      <td className="py-2 text-right text-gray-600">{p.sessionsCompleted}</td>
+                                      <td className="py-2 text-right text-emerald-600">{formatCurrency(p.production)}</td>
+                                      <td className="py-2 text-right text-gray-600">{formatCurrency(p.received)}</td>
+                                      <td className="py-2 text-right text-purple-600">{formatCurrency(p.commission)}</td>
+                                      <td className="py-2 text-right text-gray-400 text-xs">{p.lastSession ? formatDate(p.lastSession) : '—'}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                        )}
+
+                        {/* PRODUÇÃO */}
+                        {selectedCard === 'production' && (
+                          <div className="space-y-2">
+                            {[
+                              { label: 'Particular', value: summary.production.particular, color: '#10b981' },
+                              { label: 'Pacote', value: summary.production.pacote, color: '#3b82f6' },
+                              { label: 'Convênio', value: summary.production.convenio, color: '#6366f1' },
+                              { label: 'Liminar', value: summary.production.liminar, color: '#f59e0b' },
+                            ].map(row => (
+                              <div key={row.label} className="flex items-center justify-between py-2 border-b border-gray-50">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: row.color }} />
+                                  <span className="text-sm text-gray-700">{row.label}</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className="text-sm font-semibold text-gray-800">{formatCurrency(row.value)}</span>
+                                  <span className="text-xs text-gray-400 w-10 text-right">
+                                    {summary.production.total > 0 ? `${Math.round((row.value / summary.production.total) * 100)}%` : '—'}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                            <div className="flex items-center justify-between pt-2">
+                              <span className="text-sm font-bold text-gray-800">Total</span>
+                              <span className="text-sm font-bold text-emerald-600">{formatCurrency(summary.production.total)}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* RECEBIDO */}
+                        {selectedCard === 'received' && (
+                          <div className="space-y-2">
+                            {[
+                              { label: 'Sessões (caixa)', value: summary.received.sessionCash ?? summary.received.particular, color: '#6366f1' },
+                              { label: 'Pacotes vendidos', value: summary.received.packageSales, color: '#3b82f6' },
+                              { label: 'Convênio', value: summary.received.convenio, color: '#10b981' },
+                              { label: 'Liminar', value: summary.received.liminar, color: '#f59e0b' },
+                            ].map(row => (
+                              <div key={row.label} className="flex items-center justify-between py-2 border-b border-gray-50">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: row.color }} />
+                                  <span className="text-sm text-gray-700">{row.label}</span>
+                                </div>
+                                <span className="text-sm font-semibold text-gray-800">{formatCurrency(row.value)}</span>
+                              </div>
+                            ))}
+                            <div className="flex items-center justify-between pt-2">
+                              <span className="text-sm font-bold text-gray-800">Total recebido</span>
+                              <span className="text-sm font-bold text-indigo-600">{formatCurrency(summary.received.total)}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* A RECEBER */}
+                        {selectedCard === 'receivables' && (
+                          <div className="space-y-2">
+                            {[
+                              { label: 'Particular pendente', value: summary.receivables.particular, color: '#ef4444' },
+                              { label: 'Convênio aguardando', value: summary.receivables.insurance, color: '#6366f1' },
+                              { label: 'Liminar', value: summary.receivables.liminar, color: '#f59e0b' },
+                              { label: 'Pacotes pré-pagos (info)', value: summary.receivables.packageConsumed, color: '#9ca3af' },
+                            ].map(row => (
+                              <div key={row.label} className="flex items-center justify-between py-2 border-b border-gray-50">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: row.color }} />
+                                  <span className="text-sm text-gray-700">{row.label}</span>
+                                </div>
+                                <span className="text-sm font-semibold text-gray-800">{formatCurrency(row.value)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* COMISSÃO */}
+                        {selectedCard === 'commission' && (
+                          patients.length === 0
+                            ? <p className="text-sm text-gray-400">Nenhum dado disponível.</p>
+                            : <table className="w-full text-sm">
+                                <thead><tr className="text-left text-xs text-gray-400 border-b">
+                                  <th className="pb-2 font-medium">Paciente</th>
+                                  <th className="pb-2 font-medium text-right">Sessões</th>
+                                  <th className="pb-2 font-medium text-right">Produção</th>
+                                  <th className="pb-2 font-medium text-right">Comissão</th>
+                                </tr></thead>
+                                <tbody>
+                                  {[...patients].sort((a, b) => b.commission - a.commission).map(p => (
+                                    <tr key={p.patientId} className="border-b border-gray-50 hover:bg-gray-50">
+                                      <td className="py-2 font-medium text-gray-800">{p.patientName}</td>
+                                      <td className="py-2 text-right text-gray-600">{p.sessionsCompleted}</td>
+                                      <td className="py-2 text-right text-gray-600">{formatCurrency(p.production)}</td>
+                                      <td className="py-2 text-right font-semibold text-purple-600">{formatCurrency(p.commission)}</td>
+                                    </tr>
+                                  ))}
+                                  <tr className="border-t border-gray-200">
+                                    <td className="py-2 font-bold text-gray-800" colSpan={3}>Total</td>
+                                    <td className="py-2 text-right font-bold text-purple-600">{formatCurrency(summary.commission)}</td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                        )}
+
+                        {/* ADIANTAMENTOS */}
+                        {selectedCard === 'advances' && (
+                          <div className="text-sm text-gray-600">
+                            <p>Total de adiantamentos no período: <span className="font-semibold text-red-500">{formatCurrency(summary.advances)}</span></p>
+                            <p className="text-xs text-gray-400 mt-1">Para ver o histórico detalhado, acesse a aba Fechamentos.</p>
+                          </div>
+                        )}
+
+                        {/* SALDO */}
+                        {selectedCard === 'balance' && (
+                          <div className="space-y-2">
+                            {[
+                              { label: 'Comissão bruta', value: summary.commission, color: '#8b5cf6' },
+                              { label: 'Adiantamentos', value: -summary.advances, color: '#ef4444' },
+                            ].map(row => (
+                              <div key={row.label} className="flex items-center justify-between py-2 border-b border-gray-50">
+                                <span className="text-sm text-gray-700">{row.label}</span>
+                                <span className={`text-sm font-semibold ${row.value >= 0 ? 'text-gray-800' : 'text-red-500'}`}>{formatCurrency(Math.abs(row.value))}{row.value < 0 ? ' (-)' : ''}</span>
+                              </div>
+                            ))}
+                            <div className="flex items-center justify-between pt-2">
+                              <span className="text-sm font-bold text-gray-800">Saldo líquido</span>
+                              <span className={`text-sm font-bold ${summary.balance >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{formatCurrency(summary.balance)}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* SESSÕES REALIZADAS */}
+                        {selectedCard === 'sessions' && (
+                          <div className="space-y-2">
+                            {[
+                              { label: 'Pacote pré-pago', count: summary.sessions.breakdown.packageCount, value: summary.sessions.breakdown.package, color: '#3b82f6' },
+                              { label: 'Convênio', count: summary.sessions.breakdown.insuranceCount, value: summary.sessions.breakdown.insurance, color: '#6366f1' },
+                              { label: 'Liminar', count: summary.sessions.breakdown.liminarCount, value: summary.sessions.breakdown.liminar, color: '#f59e0b' },
+                              { label: 'Particular pendente', count: summary.sessions.breakdown.privatePendingCount, value: summary.sessions.breakdown.privatePending, color: '#ef4444' },
+                            ].map(row => (
+                              <div key={row.label} className="flex items-center justify-between py-2 border-b border-gray-50">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: row.color }} />
+                                  <span className="text-sm text-gray-700">{row.label}</span>
+                                  <span className="text-xs text-gray-400">({row.count} sessão{row.count !== 1 ? 'ões' : ''})</span>
+                                </div>
+                                <span className="text-sm font-semibold text-gray-800">{formatCurrency(row.value)}</span>
+                              </div>
+                            ))}
+                            <div className="flex items-center justify-between pt-2">
+                              <span className="text-sm font-bold text-gray-800">Total — {summary.sessions.completed} sessões</span>
+                            </div>
+                          </div>
+                        )}
+
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                     <ReceivablesCard receivables={summary.receivables} />

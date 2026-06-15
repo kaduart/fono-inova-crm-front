@@ -17,6 +17,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { BsSoundwave } from "react-icons/bs";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { useGmbAlert } from "../../hooks/useGmbAlert";
 import { useOperationalCounts } from "../../hooks/useOperationalCounts";
 import { useRetentionAlert } from "../../hooks/useRetentionAlert";
 import NavButton from "../ui/NavButton";
@@ -49,6 +50,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const opCounts       = useOperationalCounts();
     const retentionAlert = useRetentionAlert();
+    const gmbAlert       = useGmbAlert();
 
     const gestaoRef = useRef<HTMLDivElement>(null);
     const vendasRef = useRef<HTMLDivElement>(null);
@@ -213,6 +215,11 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                             {opCounts.total}
                                         </span>
                                     )}
+                                    {gmbAlert.total > 0 && (
+                                        <span className="bg-orange-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-none" title={`GMB: ${gmbAlert.failed} falhou, ${gmbAlert.stuckPublished} sem confirmação, ${gmbAlert.noImage} sem imagem`}>
+                                            📍
+                                        </span>
+                                    )}
                                 </span>
                             </NavButton>
                             {openMenu === "vendas-marketing" && (
@@ -259,9 +266,16 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         onClick={() => handleTabChange("SocialMedia")}
                                         icon={<Activity className="h-4 w-4 text-pink-500" />}
                                     >
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-gray-800">Social Media</span>
-                                            <span className="text-xs text-gray-500">GMB, Instagram, Facebook, Vídeos</span>
+                                        <div className="flex items-center justify-between w-full gap-3">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-medium text-gray-800">Social Media</span>
+                                                <span className="text-xs text-gray-500">GMB, Instagram, Facebook, Vídeos</span>
+                                            </div>
+                                            {gmbAlert.total > 0 && (
+                                                <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap flex-shrink-0">
+                                                    ⚠️ {gmbAlert.total} GMB
+                                                </span>
+                                            )}
                                         </div>
                                     </NavDropdownItem>
                                     <NavDropdownItem

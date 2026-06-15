@@ -20,6 +20,12 @@ interface RankingProfissionaisProps {
   title?: string;
 }
 
+interface CommissionRate {
+  billingType: string;
+  commissionType: string;
+  value: number;
+}
+
 interface NormalizedRow {
   doctorId: string;
   doctorName: string;
@@ -28,6 +34,7 @@ interface NormalizedRow {
   productionTotal: number;
   receivedTotal: number;
   commission: number;
+  commissionRates: CommissionRate[];
   advances: number;
   balance: number;
   receivablesTotal: number;
@@ -77,6 +84,7 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
       productionTotal: typeof doc.production === 'number' ? doc.production : (doc.production?.total ?? 0),
       receivedTotal: typeof doc.received === 'number' ? doc.received : (doc.received?.total ?? 0),
       commission: doc.commission ?? 0,
+      commissionRates: doc.commissionRates ?? [],
       advances: doc.advances ?? 0,
       balance: doc.balance ?? 0,
       receivablesTotal: doc.receivables?.total ?? 0,
@@ -91,6 +99,21 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
     return Math.max(...rows.map(r => r.productionTotal));
   }, [rows]);
 
+  const totals = useMemo(() => {
+    const source = data ?? [];
+    const clinicPatients = source[0]?.clinicPatientsThisPeriod ?? rows.reduce((s, r) => s + r.patientsTotal, 0);
+    const clinicSessions = source[0]?.clinicSessionsThisPeriod ?? 0;
+    return {
+      patients: clinicPatients,
+      sessions: clinicSessions,
+      production: rows.reduce((s, r) => s + r.productionTotal, 0),
+      received: rows.reduce((s, r) => s + r.receivedTotal, 0),
+      commission: rows.reduce((s, r) => s + r.commission, 0),
+      advances: rows.reduce((s, r) => s + r.advances, 0),
+      receivables: rows.reduce((s, r) => s + r.receivablesTotal, 0),
+    };
+  }, [rows, data]);
+
   if (isLoading) {
     return <LoadingSpinner centered size="medium" color="border-emerald-600" className="min-h-[200px]" />;
   }
@@ -103,173 +126,194 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
   };
 
   const getRankBg = (rank: number) => {
-    if (rank === 1) return '#FFFBE6';
+    if (rank === 1) return '#FFFBEB';
     if (rank === 2) return '#F9FAFB';
     if (rank === 3) return '#FFF7ED';
     return '#FFFFFF';
   };
 
   return (
-    <Box sx={{ mt: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        <Trophy color="#FFD700" size={28} />
-        <Typography variant="h5" fontWeight="bold" color="grey.800">
-          {title}
-        </Typography>
-      </Box>
+    <div className="mt-4">
+      <div className="flex items-center gap-2 mb-4">
+        <Trophy className="w-5 h-5 text-amber-500" />
+        <h2 className="text-base font-semibold text-gray-800">{title}</h2>
+      </div>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* Resumo global da clínica */}
+      {rows.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mb-4 p-3 bg-gray-50 rounded-xl border border-gray-200">
+          {[
+            {
+              label: 'Pacientes no mês',
+              sublabel: 'pacientes únicos atendidos',
+              value: String(totals.patients),
+              color: '#3b82f6',
+            },
+            {
+              label: 'Atendimentos no mês',
+              sublabel: 'sessões concluídas (1 paciente pode ter várias)',
+              value: String(totals.sessions),
+              color: '#06b6d4',
+            },
+            {
+              label: 'Produção total',
+              sublabel: 'soma das produções dos profissionais',
+              value: formatCurrency(totals.production),
+              color: '#10b981',
+            },
+            {
+              label: 'Recebido total',
+              sublabel: 'caixa efetivamente recebido no período',
+              value: formatCurrency(totals.received),
+              color: '#6366f1',
+            },
+            {
+              label: 'Comissão total',
+              sublabel: 'soma das comissões de todos os profissionais',
+              value: formatCurrency(totals.commission),
+              color: '#8b5cf6',
+            },
+            {
+              label: 'Adiantamentos',
+              sublabel: 'valores antecipados aos profissionais',
+              value: formatCurrency(totals.advances),
+              color: '#ef4444',
+            },
+            {
+              label: 'A receber',
+              sublabel: 'produção ainda não paga pelos pacientes',
+              value: formatCurrency(totals.receivables),
+              color: '#f59e0b',
+            },
+          ].map(item => (
+            <div key={item.label} className="text-center group relative">
+              <div className="text-[10px] text-gray-500 leading-tight mb-0.5 font-medium">{item.label}</div>
+              <div className="text-sm font-bold" style={{ color: item.color }}>{item.value}</div>
+              <div className="text-[9px] text-gray-400 leading-tight mt-0.5">{item.sublabel}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="space-y-3">
         {rows.map((doc) => {
           const performance = maxProduction > 0 ? Math.round((doc.productionTotal / maxProduction) * 100) : 0;
           const initials = doc.doctorName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
           return (
-            <Box
+            <div
               key={doc.doctorId}
               onClick={() => onRowClick?.(doc.doctorId)}
-              sx={{
-                p: 2,
-                bgcolor: getRankBg(doc.rank!),
-                border: '1px solid',
-                borderColor: 'divider',
-                borderRadius: 2,
-                cursor: onRowClick ? 'pointer' : 'default',
-                transition: 'all 0.2s ease',
-                '&:hover': onRowClick ? { boxShadow: 2, borderColor: 'primary.main' } : {}
-              }}
+              className="bg-white rounded-lg border border-gray-200 p-3 transition-all hover:border-gray-300"
+              style={{ backgroundColor: getRankBg(doc.rank!) }}
             >
               {/* Linha 1: Rank + Avatar + Nome + Botão */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-                <Box sx={{
-                  width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  bgcolor: getRankColor(doc.rank!),
-                  color: doc.rank! <= 3 ? '#1F2937' : '#FFFFFF',
-                  fontWeight: 'bold', fontSize: '0.78rem'
-                }}>
-                  #{doc.rank}
-                </Box>
-                <Avatar sx={{ width: 38, height: 38, bgcolor: 'primary.light', fontSize: '0.82rem', fontWeight: 600, flexShrink: 0 }}>
+              <div className="flex items-center gap-3 mb-2">
+                <div
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                  style={{ backgroundColor: getRankColor(doc.rank!), color: doc.rank! <= 3 ? '#1F2937' : '#FFFFFF' }}
+                >
+                  {doc.rank}
+                </div>
+                <Avatar className="w-8 h-8 text-xs font-semibold flex-shrink-0" sx={{ bgcolor: '#E0E7FF', color: '#4F46E5' }}>
                   {initials}
                 </Avatar>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography fontWeight="600" color="grey.900" sx={{ fontSize: '0.88rem', lineHeight: 1.2 }}>
-                    {doc.doctorName}
-                  </Typography>
-                  <Typography variant="caption" sx={{ textTransform: 'capitalize', color: 'text.secondary' }}>
-                    {doc.specialty}
-                  </Typography>
-                </Box>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-gray-800">{doc.doctorName}</div>
+                  <div className="text-xs text-gray-500 capitalize">{doc.specialty}</div>
+                </div>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setAdvanceModal({ doctorId: doc.doctorId, doctorName: doc.doctorName });
                   }}
-                  title="Registrar adiantamento"
-                  style={{
-                    flexShrink: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    padding: '5px 10px',
-                    borderRadius: 8,
-                    border: '1px solid #E5E7EB',
-                    background: '#F9FAFB',
-                    cursor: 'pointer',
-                    fontSize: '0.72rem',
-                    fontWeight: 600,
-                    color: '#4B5563',
-                    whiteSpace: 'nowrap',
-                  }}
-                  onMouseOver={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#6366F1'; (e.currentTarget as HTMLButtonElement).style.color = '#6366F1'; }}
-                  onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#E5E7EB'; (e.currentTarget as HTMLButtonElement).style.color = '#4B5563'; }}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-md border border-gray-200 bg-white text-xs font-medium text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
                 >
-                  <WalletCards size={13} />
+                  <WalletCards className="w-3 h-3" />
                   <span>Adiantamento</span>
                 </button>
-              </Box>
+              </div>
 
-              {/* Linha 2: Métricas — 3 colunas no mobile, 6 no desktop */}
-              <Box sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: 'repeat(3, 1fr)', sm: 'repeat(6, 1fr)' },
-                gap: { xs: 1, sm: 1.5 },
-                mb: 1.5,
-                py: 1.5,
-                px: 1,
-                bgcolor: 'rgba(0,0,0,0.02)',
-                borderRadius: 1.5,
-              }}>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.65rem' }}>Produção</Typography>
-                  <Typography fontWeight="bold" color="success.main" sx={{ fontSize: { xs: '0.75rem', sm: '0.82rem' } }}>
-                    {formatCurrency(doc.productionTotal)}
-                  </Typography>
-                </Box>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.65rem' }}>Recebido</Typography>
-                  <Typography fontWeight="500" sx={{ fontSize: { xs: '0.75rem', sm: '0.82rem' } }}>
-                    {formatCurrency(doc.receivedTotal)}
-                  </Typography>
-                </Box>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.65rem' }}>Comissão</Typography>
-                  <Typography fontWeight="500" sx={{ fontSize: { xs: '0.75rem', sm: '0.82rem' } }}>
-                    {formatCurrency(doc.commission)}
-                  </Typography>
-                </Box>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.65rem' }}>Adiantamentos</Typography>
-                  <Typography fontWeight="500" color={doc.advances > 0 ? 'error.main' : 'text.secondary'} sx={{ fontSize: { xs: '0.75rem', sm: '0.82rem' } }}>
+              {/* Linha 2: Métricas - grid responsivo */}
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 py-1.5 px-1 mb-2 bg-gray-50 rounded-md">
+                <div className="text-center">
+                  <div className="text-[9px] text-gray-400 uppercase leading-tight">Produção</div>
+                  <div className="text-xs font-semibold text-emerald-600">{formatCurrency(doc.productionTotal)}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[9px] text-gray-400 uppercase leading-tight">Recebido</div>
+                  <div className="text-xs font-medium text-gray-700">{formatCurrency(doc.receivedTotal)}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[9px] text-gray-400 uppercase leading-tight">Comissão</div>
+                  <div className="text-xs font-medium text-gray-700">{formatCurrency(doc.commission)}</div>
+                  {doc.commissionRates.length > 0 && (
+                    <div className="flex flex-wrap justify-center gap-0.5 mt-0.5">
+                      {doc.commissionRates.map((r, i) => {
+                        const label = r.billingType === 'all' ? 'Geral' : r.billingType === 'particular' ? 'Part.' : r.billingType === 'convenio' ? 'Conv.' : r.billingType === 'liminar' ? 'Lim.' : r.billingType === 'package' ? 'Pac.' : r.billingType;
+                        const rate = r.commissionType === 'percentage' ? `${r.value}%` : formatCurrency(r.value);
+                        return (
+                          <span key={i} className="text-[8px] bg-purple-50 text-purple-600 px-1 rounded font-medium leading-tight">
+                            {label} {rate}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <div className="text-center">
+                  <div className="text-[9px] text-gray-400 uppercase leading-tight">Adiantamento</div>
+                  <div className={`text-xs font-medium ${doc.advances > 0 ? 'text-red-500' : 'text-gray-400'}`}>
                     {doc.advances > 0 ? `- ${formatCurrency(doc.advances)}` : '—'}
-                  </Typography>
-                </Box>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.65rem' }}>Saldo</Typography>
-                  <Typography fontWeight="600" color={doc.balance >= 0 ? 'success.main' : 'error.main'} sx={{ fontSize: { xs: '0.75rem', sm: '0.82rem' } }}>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[9px] text-gray-400 uppercase leading-tight">Saldo</div>
+                  <div className={`text-xs font-semibold ${doc.balance >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
                     {formatCurrency(doc.balance)}
-                  </Typography>
-                </Box>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.65rem' }}>A Receber</Typography>
-                  <Typography fontWeight="500" color="warning.main" sx={{ fontSize: { xs: '0.75rem', sm: '0.82rem' } }}>
-                    {formatCurrency(doc.receivablesTotal)}
-                  </Typography>
-                </Box>
-              </Box>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[9px] text-gray-400 uppercase leading-tight">A Receber</div>
+                  <div className="text-xs font-medium text-amber-600">{formatCurrency(doc.receivablesTotal)}</div>
+                </div>
+              </div>
 
               {/* Linha 3: Desempenho + Pacientes */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Box sx={{ flex: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                    <TrendingUp size={13} color={performance >= 80 ? '#10B981' : performance >= 50 ? '#F59E0B' : '#EF4444'} />
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem' }}>Desempenho</Typography>
-                    <Typography variant="caption" fontWeight="bold" sx={{ ml: 'auto', fontSize: '0.68rem' }}>
-                      {performance}%
-                    </Typography>
-                  </Box>
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <div className="flex items-center gap-1">
+                      <TrendingUp className="w-3 h-3" style={{ color: performance >= 80 ? '#10B981' : performance >= 50 ? '#F59E0B' : '#EF4444' }} />
+                      <span className="text-[9px] text-gray-500">Desempenho</span>
+                    </div>
+                    <span className="text-[9px] font-medium text-gray-600">{performance}%</span>
+                  </div>
                   <LinearProgress
                     variant="determinate"
                     value={performance}
+                    className="h-1 rounded-full"
                     sx={{
-                      height: 5, borderRadius: 3, bgcolor: 'grey.100',
+                      bgcolor: '#E5E7EB',
                       '& .MuiLinearProgress-bar': {
-                        bgcolor: performance >= 80 ? '#10B981' : performance >= 50 ? '#F59E0B' : '#EF4444'
+                        bgcolor: performance >= 80 ? '#10B981' : performance >= 50 ? '#F59E0B' : '#EF4444',
+                        borderRadius: '9999px'
                       }
                     }}
                   />
-                </Box>
+                </div>
                 <Chip
-                  icon={<Users size={12} />}
+                  icon={<Users className="w-3 h-3" />}
                   label={doc.patientsTotal}
                   size="small"
-                  sx={{ minWidth: 64, justifyContent: 'flex-start', flexShrink: 0 }}
+                  className="bg-gray-100 text-gray-600 text-[10px]"
+                  sx={{ height: 22, fontSize: '0.65rem', '& .MuiChip-icon': { marginLeft: '4px' } }}
                 />
-              </Box>
-            </Box>
+              </div>
+            </div>
           );
         })}
-      </Box>
+      </div>
 
       {advanceModal && (
         <ProfessionalAdvanceModal
@@ -280,6 +324,6 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
           onSuccess={refreshDoctors}
         />
       )}
-    </Box>
+    </div>
   );
 };

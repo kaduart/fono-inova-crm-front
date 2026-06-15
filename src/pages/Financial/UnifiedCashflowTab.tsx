@@ -28,6 +28,10 @@ import ShowChartIcon from '@mui/icons-material/ShowChart';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { Pencil, Trash2 } from 'lucide-react';
+import { toast } from 'react-toastify';
+import { useAuth } from '../../contexts/AuthContext';
+import { AdminEditPaymentModal } from '../../components/financial/AdminEditPaymentModal';
 
 interface DayData {
     date: string;
@@ -116,8 +120,10 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
     const [txPerPage, setTxPerPage] = useState(10);
     const [loadingAppointments, setLoadingAppointments] = useState(false);
     const [selectedApt, setSelectedApt] = useState<any | null>(null);
+    const [editPayment, setEditPayment]   = useState<any | null>(null);
 
     const navigate = useNavigate();
+    const { user } = useAuth();
     const { setPendingContactPhone, setShouldOpenMessagesTab } = useChatNavigation();
 
     const handleOpenWhatsApp = (phone: string) => {
@@ -125,6 +131,17 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
         setPendingContactPhone(clean);
         setShouldOpenMessagesTab(true);
         navigate('/admin/messages');
+    };
+
+    const handleDeletePayment = async (paymentId: string, label: string) => {
+        if (!window.confirm(`Remover pagamento de ${label}?\n\nO vínculo com agendamento/sessão será limpo automaticamente.`)) return;
+        try {
+            await API.delete(`/v2/payments/${paymentId}`);
+            toast.success('Pagamento removido');
+            loadDayData();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.error || 'Erro ao remover pagamento');
+        }
     };
 
     const isFirstRender = useRef(true);
@@ -635,8 +652,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                         {!isMultiDayRange && (() => {
                             const todosNoDia = analyticsData?.all || [];
                             const totalNoDia = todosNoDia.length;
-                            const preAgendados = (analyticsData?.leads || []).length;
-                            const novosPacientes = (analyticsData?.novos || []).length;
+                            const preAgendados = (analyticsCreatedData?.leads || []).length;
+                            const novosPacientes = (analyticsCreatedData?.novos || []).length;
                             const novosEspCount = (analyticsData?.novosEspecialidade || []).length;
                             const liminarCount = (analyticsData?.continuousTreatment || []).length;
                             const acquisitionPool = totalNoDia - liminarCount;
@@ -821,8 +838,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                     {/* Modal: Pré-agendados Novos */}
                     {newPatientsModalOpen && (() => {
                         const leads = [
-                            ...(analyticsData?.leads || []),
-                            ...(analyticsData?.novos || [])
+                            ...(analyticsCreatedData?.leads || []),
+                            ...(analyticsCreatedData?.novos || [])
                         ];
                         const svcLabel: Record<string, string> = { evaluation: 'Avaliação', session: 'Sessão', package_session: 'Sessão Pacote', tongue_tie_test: 'Teste Linguinha', neuropsych_evaluation: 'Aval. Neuropsic.', individual_session: 'Sessão Avulsa', package: 'Pacote' };
                         const billingColor: Record<string, string> = { particular: 'bg-blue-100 text-blue-700', convenio: 'bg-purple-100 text-purple-700', liminar: 'bg-orange-100 text-orange-700', package: 'bg-indigo-100 text-indigo-700' };
@@ -1174,6 +1191,24 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${situacaoCls}`}>{situacao}</span>
                                   </div>
                                   <div className="w-20 shrink-0 text-right font-bold text-emerald-600 text-sm">{formatCurrency(t.valor)}</div>
+                                  {user?.role === 'admin' && (
+                                      <div className="flex items-center gap-0.5 shrink-0 ml-1">
+                                          <button
+                                              onClick={(e) => { e.stopPropagation(); setEditPayment(t); }}
+                                              title="Editar pagamento"
+                                              className="p-1 rounded text-gray-300 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+                                          >
+                                              <Pencil size={12} />
+                                          </button>
+                                          <button
+                                              onClick={(e) => { e.stopPropagation(); handleDeletePayment(t.id?.toString(), `${formatCurrency(t.valor)} — ${t.paciente}`); }}
+                                              title="Excluir pagamento"
+                                              className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                          >
+                                              <Trash2 size={12} />
+                                          </button>
+                                      </div>
+                                  )}
                               </div>
                           );
                         };
@@ -2027,6 +2062,15 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                 </div>
             );
         })()}
+
+        {editPayment && (
+            <AdminEditPaymentModal
+                open={!!editPayment}
+                payment={editPayment}
+                onClose={() => setEditPayment(null)}
+                onSuccess={() => { setEditPayment(null); loadDayData(); }}
+            />
+        )}
         </div>
     );
 };
