@@ -20,18 +20,24 @@ interface AdminEditPaymentModalProps {
 const METHOD_OPTIONS = [
   { value: 'pix',           label: 'Pix' },
   { value: 'dinheiro',      label: 'Dinheiro' },
-  { value: 'cartão',        label: 'Cartão' },
+  { value: 'credit_card',   label: 'Cartão Crédito' },
+  { value: 'debit_card',    label: 'Cartão Débito' },
   { value: 'bank_transfer', label: 'Transferência' },
-  { value: 'outro',         label: 'Outro' },
+  { value: 'other',         label: 'Outro' },
 ];
 
 const displayToApi = (display: string): string => {
   const map: Record<string, string> = {
     'Pix': 'pix',
     'Dinheiro': 'dinheiro',
-    'Cartão': 'cartão',
+    'Cartão': 'credit_card',
+    'Cartão Crédito': 'credit_card',
+    'Cartão Débito': 'debit_card',
     'Transferência Bancária': 'bank_transfer',
     'Transf.': 'bank_transfer',
+    'Outro': 'other',
+    'outro': 'other',
+    'cartão': 'credit_card',
   };
   return map[display] ?? display.toLowerCase();
 };

@@ -67,8 +67,15 @@ const PatientInsuranceTab = ({ patientId }) => {
   const [detailsGuide, setDetailsGuide] = useState(null);
   const [showInactivateModal, setShowInactivateModal] = useState(false);
   const [isInactivating, setIsInactivating] = useState(false);
+  const [doctors, setDoctors] = useState([]);
 
   const { fetchAppointments } = useAppointmentsContext();
+
+  useEffect(() => {
+    doctorService.getActiveDoctors()
+      .then(res => setDoctors(res?.data ?? []))
+      .catch(() => {});
+  }, []);
 
   const {
     guides,
@@ -277,6 +284,7 @@ const PatientInsuranceTab = ({ patientId }) => {
           onClose={handleCloseForm}
           onSave={handleSaveGuide}
           guide={editingGuide}
+          doctors={doctors}
         />
       </Box>
     );
@@ -528,6 +536,7 @@ const PatientInsuranceTab = ({ patientId }) => {
         onClose={handleCloseForm}
         onSave={handleSaveGuide}
         guide={editingGuide}
+        doctors={doctors}
       />
 
       <InsurancePlanForm
@@ -789,44 +798,54 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan }) => {
             {guide.createdAt && ` • ${format(parseISO(guide.createdAt), 'dd/MM/yyyy')}`}
           </Typography>
 
-          {/* Dado principal: sessões disponíveis */}
+          {/* Status + barra empilhada + contadores */}
           <Box sx={{ mb: 1.5 }}>
-            <Typography sx={{ fontSize: '0.65rem', color: statusColor, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', mb: 0.3 }}>
+            <Typography sx={{ fontSize: '0.65rem', color: statusColor, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', mb: 0.75 }}>
               {statusLabel}
             </Typography>
-            <Typography sx={{ fontWeight: 800, fontSize: '1.4rem', color: '#1A2C3E', lineHeight: 1.1 }}>
-              {remaining}
-              <Box component="span" sx={{ fontSize: '0.75rem', color: '#8A99B0', fontWeight: 500, ml: 0.5 }}>
-                de {guide.totalSessions} sessões
+
+            {/* Barra empilhada: verde = feitas, índigo = disponíveis */}
+            <Box sx={{ display: 'flex', borderRadius: '6px', overflow: 'hidden', height: 7, bgcolor: '#E9EEF2', mb: 0.75 }}>
+              <Box sx={{
+                width: `${Math.min((usedSessions / guide.totalSessions) * 100, 100)}%`,
+                bgcolor: '#10B981',
+                transition: 'width 0.5s'
+              }} />
+              <Box sx={{
+                width: `${Math.min((remaining / guide.totalSessions) * 100, 100 - (usedSessions / guide.totalSessions) * 100)}%`,
+                bgcolor: '#6366F1',
+                opacity: 0.3
+              }} />
+            </Box>
+
+            {/* Contadores */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: '#10B981', flexShrink: 0 }} />
+                <Typography sx={{ fontSize: '0.7rem', color: '#065F46', fontWeight: 700, lineHeight: 1 }}>
+                  {usedSessions} feitas
+                </Typography>
               </Box>
-            </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: '#6366F1', flexShrink: 0 }} />
+                <Typography sx={{ fontSize: '0.7rem', color: '#3730A3', fontWeight: 700, lineHeight: 1 }}>
+                  {remaining} dispon.
+                </Typography>
+              </Box>
+              <Typography sx={{ fontSize: '0.7rem', color: '#A0AABF', ml: 'auto', lineHeight: 1 }}>
+                /{guide.totalSessions}
+              </Typography>
+            </Box>
           </Box>
 
-          {/* Validade — só o essencial */}
-          <Typography sx={{ fontSize: '0.7rem', color: daysUntilExpiration < 0 ? '#C75146' : daysUntilExpiration <= 7 ? '#ED6C02' : '#8A99B0', mb: 2, fontWeight: 500 }}>
+          {/* Validade */}
+          <Typography sx={{ fontSize: '0.7rem', color: daysUntilExpiration < 0 ? '#C75146' : daysUntilExpiration <= 7 ? '#ED6C02' : '#8A99B0', mb: canUse && onCreatePlan ? 1.5 : 0, fontWeight: 500 }}>
             {daysUntilExpiration < 0
               ? `Venceu em ${format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}`
               : daysUntilExpiration === 0
                 ? 'Vence hoje'
                 : `Expira em ${format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}`}
           </Typography>
-
-          {/* Progresso — apenas a barra, sem texto duplicado */}
-          <Box sx={{ mb: canUse && onCreatePlan ? 1.5 : 0 }}>
-            <LinearProgress
-              variant="determinate"
-              value={percentage}
-              sx={{
-                height: 3,
-                borderRadius: 1.5,
-                backgroundColor: '#EDF2F7',
-                '& .MuiLinearProgress-bar': {
-                  backgroundColor: statusColor,
-                  borderRadius: 1.5
-                }
-              }}
-            />
-          </Box>
 
           {/* Ação — só se faz sentido usar */}
           {canUse && onCreatePlan && (

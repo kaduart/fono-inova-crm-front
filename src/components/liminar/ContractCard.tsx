@@ -1,3 +1,8 @@
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import FullCalendar from '@fullcalendar/react';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import { ptBR } from 'date-fns/locale';
 import {
   AlertTriangle,
   Calendar,
@@ -265,9 +270,10 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
             .map(s => ({ dayOfWeek: Number(s.dayOfWeek), time: s.time })),
         }
       );
-      const msg = result.appointmentsUpdated > 0
-        ? `Terapia atualizada! ${result.appointmentsUpdated} sessão(ões) pendente(s) atualizada(s).`
-        : 'Terapia atualizada no plano.';
+      const parts: string[] = [];
+      if (result.appointmentsUpdated > 0) parts.push(`${result.appointmentsUpdated} sessão(ões) atualizada(s)`);
+      if (result.appointmentsCanceled > 0) parts.push(`${result.appointmentsCanceled} sessão(ões) órfã(s) canceladas (dia removido)`);
+      const msg = parts.length > 0 ? `Terapia atualizada! ${parts.join(' · ')}.` : 'Terapia atualizada no plano.';
       toast.success(msg);
       setEditTherapyModal(p => ({ ...p, open: false }));
       onRefresh();
@@ -431,42 +437,91 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
           {plan ? (
             <>
               <div className="cursor-pointer" onClick={() => setPlanExpanded(v => !v)}>
-                <div className="space-y-1.5 mb-2">
+                <div className="space-y-2 mb-2">
                   {Object.entries(plan.therapies ?? {}).map(([specialty, config]: [string, any]) => {
                     const intSp = integrity?.specialties?.[specialty];
-                    const hasMissing = intSp && intSp.missing > 0;
+                    const completed  = intSp?.completed ?? 0;
+                    const generated  = intSp?.generated ?? 0;
+                    const missing    = intSp?.missing   ?? 0;
+                    const expected   = intSp?.expected  ?? 0;
+                    const scheduled  = generated - completed;
+                    const pctComp    = expected > 0 ? Math.min((completed / expected) * 100, 100) : 0;
+                    const pctPend    = expected > 0 ? Math.min((scheduled / expected) * 100, 100 - pctComp) : 0;
+
                     return (
-                      <div key={specialty} className="flex items-center justify-between text-xs px-3 py-2 rounded-xl" style={{ background: '#F8FAFE' }}>
-                        <span className="font-medium capitalize" style={{ color: '#1A2C3E' }}>
-                          {specialty.replace(/_/g, ' ')}
-                        </span>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span style={{ color: '#5B6E8C' }}>
-                            {(config.slots ?? []).length}×/sem · R$ {fmt(config.sessionValue ?? 0)}
+                      <div
+                        key={specialty}
+                        className="rounded-xl p-3 space-y-2"
+                        style={{ background: '#F8FAFE', border: '1px solid #EDF2F7' }}
+                      >
+                        {/* Linha 1: nome + meta + ações */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-xs capitalize" style={{ color: '#1A2C3E' }}>
+                            {specialty.replace(/_/g, ' ')}
                           </span>
-                          {intSp && (
-                            <span className="flex items-center gap-1" title={`Esperado: ${intSp.expected} | Gerado: ${intSp.generated} | Completo: ${intSp.completed}`}>
-                              {hasMissing
-                                ? <span className="px-1.5 py-0.5 rounded-full text-xs font-semibold" style={{ background: '#FEF3C7', color: '#92400E' }}>{intSp.missing} falt.</span>
-                                : <span className="px-1.5 py-0.5 rounded-full text-xs font-semibold" style={{ background: '#D1FAE5', color: '#065F46' }}>✓</span>
-                              }
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <span className="text-xs" style={{ color: '#8A99B0' }}>
+                              {(config.slots ?? []).length}×/sem · R$ {fmt(config.sessionValue ?? 0)}
                             </span>
-                          )}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); openSpecialtyModal(specialty); }}
-                            className="p-0.5 rounded hover:bg-slate-200 transition-colors"
-                            title="Ver sessões"
-                          >
-                            <Info className="w-3 h-3" style={{ color: '#6366F1' }} />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); openEditTherapyModal(specialty, config); }}
-                            className="p-0.5 rounded hover:bg-slate-200 transition-colors"
-                            title="Editar terapia"
-                          >
-                            <Pencil className="w-3 h-3" style={{ color: '#A0AABF' }} />
-                          </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openSpecialtyModal(specialty); }}
+                              className="p-0.5 rounded hover:bg-slate-200 transition-colors"
+                              title="Ver sessões agendadas"
+                            >
+                              <Info className="w-3 h-3" style={{ color: '#6366F1' }} />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openEditTherapyModal(specialty, config); }}
+                              className="p-0.5 rounded hover:bg-slate-200 transition-colors"
+                              title="Editar terapia"
+                            >
+                              <Pencil className="w-3 h-3" style={{ color: '#A0AABF' }} />
+                            </button>
+                          </div>
                         </div>
+
+                        {/* Linha 2: barra empilhada + contadores */}
+                        {intSp ? (
+                          <>
+                            <div
+                              className="flex rounded-full overflow-hidden"
+                              style={{ height: 6, background: '#E9EEF2' }}
+                              title={`Esperado: ${expected} | Realizado: ${completed} | Agendado: ${scheduled} | Faltando: ${missing}`}
+                            >
+                              <div style={{ width: `${pctComp}%`, background: '#10B981', transition: 'width 0.5s' }} />
+                              <div style={{ width: `${pctPend}%`, background: '#6366F1', transition: 'width 0.5s' }} />
+                              {missing > 0 && (
+                                <div style={{ width: `${Math.min((missing / expected) * 100, 100 - pctComp - pctPend)}%`, background: '#F59E0B', transition: 'width 0.5s' }} />
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-3 text-xs flex-wrap">
+                              <span className="flex items-center gap-1">
+                                <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#10B981' }} />
+                                <span style={{ color: '#065F46' }}><b>{completed}</b> feitas</span>
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#6366F1' }} />
+                                <span style={{ color: '#3730A3' }}><b>{scheduled}</b> agend.</span>
+                              </span>
+                              {missing > 0 ? (
+                                <span className="flex items-center gap-1">
+                                  <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#F59E0B' }} />
+                                  <span style={{ color: '#92400E' }}><b>{missing}</b> falt.</span>
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded-full text-xs font-semibold" style={{ background: '#D1FAE5', color: '#065F46' }}>
+                                  ✓ agenda ok
+                                </span>
+                              )}
+                              <span className="ml-auto text-xs" style={{ color: '#A0AABF' }}>
+                                {completed}/{expected}
+                              </span>
+                            </div>
+                          </>
+                        ) : (
+                          <p className="text-xs italic" style={{ color: '#A0AABF' }}>Carregando integridade...</p>
+                        )}
                       </div>
                     );
                   })}
@@ -827,52 +882,78 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
       )}
 
       {/* ── Modal: Sessões por Especialidade ── */}
-      {specialtyModal.open && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100">
-              <h3 className="font-bold text-slate-800">Sessões — {specialtyModal.specialty}</h3>
-              <button onClick={() => setSpecialtyModal((p) => ({ ...p, open: false }))}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-5">
-              {specialtyModal.loading ? (
-                <div className="flex justify-center py-10">
-                  <div className="w-6 h-6 border-2 border-slate-300 border-t-indigo-500 rounded-full animate-spin" />
+      {specialtyModal.open && (() => {
+        const statusColor = (status: string) =>
+          status === 'completed' ? '#10B981' : status === 'confirmed' ? '#3B82F6' : '#F59E0B';
+        const events = specialtyModal.sessions.map((s: any) => ({
+          id: s._id,
+          start: `${s.date.slice(0, 10)}T${s.time}`,
+          backgroundColor: statusColor(s.operationalStatus),
+          borderColor: statusColor(s.operationalStatus),
+          extendedProps: { session: s },
+        }));
+
+        return (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+              <div className="flex items-center justify-between p-5 border-b border-slate-100">
+                <div className="flex items-center gap-4">
+                  <h3 className="font-bold text-slate-800 capitalize">Sessões — {specialtyModal.specialty.replace(/_/g, ' ')}</h3>
+                  <div className="flex items-center gap-3 text-xs text-slate-500">
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: '#10B981' }} /> Realizada</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: '#3B82F6' }} /> Confirmada</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: '#F59E0B' }} /> Agendada</span>
+                  </div>
                 </div>
-              ) : specialtyModal.sessions.length === 0 ? (
-                <p className="text-sm text-slate-500 text-center py-10">Nenhuma sessão agendada.</p>
-              ) : (
-                <div className="space-y-2">
-                  {specialtyModal.sessions.map((s: any) => (
-                    <div
-                      key={s._id}
-                      onClick={() => { setSpecialtyModal((p) => ({ ...p, open: false })); setEditingAppointment(sessionToEvent(s)); }}
-                      className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100 hover:border-slate-200 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${s.operationalStatus === 'completed' ? 'bg-emerald-500' : s.operationalStatus === 'confirmed' ? 'bg-blue-500' : 'bg-amber-500'}`} />
-                        <div>
-                          <p className="text-sm font-medium text-slate-800">
-                            {new Date(s.date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })} às {s.time}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            R$ {fmt(s.sessionValue)}
-                            {s.doctor?.fullName && <span className="ml-2 text-slate-400">· {s.doctor.fullName}</span>}
-                          </p>
+                <button onClick={() => setSpecialtyModal((p) => ({ ...p, open: false }))}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-5">
+                {specialtyModal.loading ? (
+                  <div className="flex justify-center py-10">
+                    <div className="w-6 h-6 border-2 border-slate-300 border-t-indigo-500 rounded-full animate-spin" />
+                  </div>
+                ) : specialtyModal.sessions.length === 0 ? (
+                  <p className="text-sm text-slate-500 text-center py-10">Nenhuma sessão agendada.</p>
+                ) : (
+                  <FullCalendar
+                    plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                    headerToolbar={{
+                      left: 'prev,next today',
+                      center: 'title',
+                      right: 'dayGridMonth,timeGridWeek',
+                    }}
+                    locale={ptBR}
+                    initialView="dayGridMonth"
+                    events={events}
+                    height="auto"
+                    eventDisplay="block"
+                    eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
+                    eventClassNames="cursor-pointer"
+                    eventClick={(arg) => {
+                      const session = arg.event.extendedProps.session;
+                      setSpecialtyModal((p) => ({ ...p, open: false }));
+                      setEditingAppointment(sessionToEvent(session));
+                    }}
+                    eventContent={(arg) => {
+                      const session = arg.event.extendedProps.session;
+                      return (
+                        <div className="px-1 py-0.5 text-xs leading-tight overflow-hidden">
+                          <div className="font-semibold">{arg.timeText}</div>
+                          {session?.doctor?.fullName && <div className="truncate opacity-90">{session.doctor.fullName}</div>}
+                          <div className="opacity-90">R$ {fmt(session?.sessionValue ?? 0)}</div>
                         </div>
-                      </div>
-                      <Pencil className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                    </div>
-                  ))}
-                </div>
-              )}
+                      );
+                    }}
+                  />
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 // src/components/patient/tabs/InsuranceGuideForm.jsx
 import React, { useEffect } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { Save, X, FileText, Shield, AlertTriangle, Info } from 'lucide-react';
 import { format, addMonths } from 'date-fns';
 
@@ -12,6 +12,7 @@ const VALID_INSURANCES = [
   { value: 'unimed-anapolis', label: 'Unimed Anápolis' },
   { value: 'unimed-goiania',  label: 'Unimed Goiânia' },
   { value: 'unimed-campinas', label: 'Unimed Campinas' },
+  { value: 'unimed',          label: 'Unimed' },
   { value: 'hapvida',         label: 'Hapvida' },
   { value: 'amil',            label: 'Amil' },
   { value: 'bradesco-saude',  label: 'Bradesco Saúde' },
@@ -26,7 +27,7 @@ const inputClass = (hasError) =>
       : 'border-gray-200 focus:ring-teal-200 focus:border-teal-400'
   }`;
 
-const InsuranceGuideForm = ({ open, onClose, onSave, guide = null }) => {
+const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] }) => {
   const isEditing = Boolean(guide);
   const hasUsedSessions = isEditing && guide?.usedSessions > 0;
 
@@ -41,10 +42,18 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null }) => {
       specialty:     '',
       insurance:     '',
       totalSessions: '',
-      expiresAt:     format(addMonths(new Date(), 3), 'yyyy-MM-dd'),
+      sessionValue:  '',
+      doctorId:      '',
+      issuedAt:      '',
       notes:         ''
     }
   });
+
+  const watchedSessions = useWatch({ control, name: 'totalSessions' });
+  const watchedValue    = useWatch({ control, name: 'sessionValue' });
+  const totalValue = (Number(watchedSessions) > 0 && Number(watchedValue) > 0)
+    ? (Number(watchedSessions) * Number(watchedValue)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    : null;
 
   useEffect(() => {
     if (open) {
@@ -54,7 +63,9 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null }) => {
           specialty:     guide.specialty || '',
           insurance:     guide.insurance || '',
           totalSessions: guide.totalSessions || '',
-          expiresAt:     guide.expiresAt ? format(new Date(guide.expiresAt), 'yyyy-MM-dd') : '',
+          sessionValue:  guide.sessionValue != null ? guide.sessionValue : '',
+          doctorId:      guide.doctor?._id || guide.doctorId || '',
+          issuedAt:      guide.issuedAt ? format(new Date(guide.issuedAt), 'yyyy-MM-dd') : '',
           notes:         guide.notes || ''
         });
       } else {
@@ -63,7 +74,9 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null }) => {
           specialty:     '',
           insurance:     '',
           totalSessions: '',
-          expiresAt:     format(addMonths(new Date(), 3), 'yyyy-MM-dd'),
+          sessionValue:  '',
+          doctorId:      '',
+          issuedAt:      '',
           notes:         ''
         });
       }
@@ -77,6 +90,9 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null }) => {
         specialty:     data.specialty.toLowerCase().trim(),
         insurance:     data.insurance.toLowerCase().trim(),
         totalSessions: parseInt(data.totalSessions, 10),
+        sessionValue:  data.sessionValue !== '' ? parseFloat(data.sessionValue) : undefined,
+        doctorId:      data.doctorId || undefined,
+        issuedAt:      data.issuedAt ? new Date(data.issuedAt).toISOString() : undefined,
         expiresAt:     new Date(data.expiresAt).toISOString(),
         notes:         data.notes?.trim() || undefined
       });
@@ -185,74 +201,143 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null }) => {
               </div>
             </div>
 
-            {/* Especialidade */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-                Especialidade <span className="text-red-400">*</span>
-              </label>
-              <Controller
-                name="specialty"
-                control={control}
-                rules={{ required: 'Especialidade é obrigatória' }}
-                render={({ field }) => (
-                  <select {...field} className={inputClass(!!errors.specialty)}>
-                    <option value="">Selecione a especialidade</option>
-                    {VALID_SPECIALTIES.map(s => (
-                      <option key={s.value} value={s.value}>{s.label}</option>
-                    ))}
-                  </select>
-                )}
-              />
-              {errors.specialty && <p className="text-xs text-red-500 mt-1">{errors.specialty.message}</p>}
+            {/* Grid 2 cols: especialidade + convênio */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                  Especialidade <span className="text-red-400">*</span>
+                </label>
+                <Controller
+                  name="specialty"
+                  control={control}
+                  rules={{ required: 'Especialidade é obrigatória' }}
+                  render={({ field }) => (
+                    <select {...field} className={inputClass(!!errors.specialty)}>
+                      <option value="">Selecione</option>
+                      {VALID_SPECIALTIES.map(s => (
+                        <option key={s.value} value={s.value}>{s.label}</option>
+                      ))}
+                    </select>
+                  )}
+                />
+                {errors.specialty && <p className="text-xs text-red-500 mt-1">{errors.specialty.message}</p>}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                  Convênio <span className="text-red-400">*</span>
+                </label>
+                <Controller
+                  name="insurance"
+                  control={control}
+                  rules={{ required: 'Convênio é obrigatório' }}
+                  render={({ field }) => (
+                    <select {...field} className={inputClass(!!errors.insurance)}>
+                      <option value="">Selecione</option>
+                      {VALID_INSURANCES.map(ins => (
+                        <option key={ins.value} value={ins.value}>{ins.label}</option>
+                      ))}
+                    </select>
+                  )}
+                />
+                {errors.insurance && <p className="text-xs text-red-500 mt-1">{errors.insurance.message}</p>}
+              </div>
             </div>
 
-            {/* Convênio */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-                Convênio <span className="text-red-400">*</span>
-              </label>
-              <Controller
-                name="insurance"
-                control={control}
-                rules={{ required: 'Convênio é obrigatório' }}
-                render={({ field }) => (
-                  <select {...field} className={inputClass(!!errors.insurance)}>
-                    <option value="">Selecione o convênio</option>
-                    {VALID_INSURANCES.map(ins => (
-                      <option key={ins.value} value={ins.value}>{ins.label}</option>
-                    ))}
-                  </select>
-                )}
-              />
-              {errors.insurance && <p className="text-xs text-red-500 mt-1">{errors.insurance.message}</p>}
-            </div>
+            {/* Grid 2 cols: data validade + valor sessão */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                  Data de validade <span className="text-red-400">*</span>
+                </label>
+                <Controller
+                  name="expiresAt"
+                  control={control}
+                  rules={{
+                    required: 'Data de validade é obrigatória',
+                    validate: (v) => {
+                      const d = new Date(v);
+                      const today = new Date(); today.setHours(0, 0, 0, 0);
+                      return d >= today || 'Data não pode ser anterior a hoje';
+                    }
+                  }}
+                  render={({ field }) => (
+                    <input
+                      {...field}
+                      type="date"
+                      className={inputClass(!!errors.expiresAt)}
+                    />
+                  )}
+                />
+                {errors.expiresAt && <p className="text-xs text-red-500 mt-1">{errors.expiresAt.message}</p>}
+              </div>
 
-            {/* Data de validade */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-                Data de validade <span className="text-red-400">*</span>
-              </label>
-              <Controller
-                name="expiresAt"
-                control={control}
-                rules={{
-                  required: 'Data de validade é obrigatória',
-                  validate: (v) => {
-                    const d = new Date(v);
-                    const today = new Date(); today.setHours(0, 0, 0, 0);
-                    return d >= today || 'Data não pode ser anterior a hoje';
-                  }
-                }}
-                render={({ field }) => (
-                  <input
-                    {...field}
-                    type="date"
-                    className={inputClass(!!errors.expiresAt)}
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                  Valor da sessão
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">R$</span>
+                  <Controller
+                    name="sessionValue"
+                    control={control}
+                    rules={{
+                      min: { value: 0, message: 'Valor não pode ser negativo' }
+                    }}
+                    render={({ field }) => (
+                      <input
+                        {...field}
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        placeholder="0,00"
+                        className={inputClass(!!errors.sessionValue) + ' pl-8'}
+                      />
+                    )}
                   />
-                )}
-              />
-              {errors.expiresAt && <p className="text-xs text-red-500 mt-1">{errors.expiresAt.message}</p>}
+                </div>
+                {errors.sessionValue && <p className="text-xs text-red-500 mt-1">{errors.sessionValue.message}</p>}
+              </div>
             </div>
+
+            {/* Grid 2 cols: data emissão + profissional */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Data de emissão</label>
+                <Controller
+                  name="issuedAt"
+                  control={control}
+                  render={({ field }) => (
+                    <input {...field} type="date" className={inputClass(false)} />
+                  )}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Profissional</label>
+                <Controller
+                  name="doctorId"
+                  control={control}
+                  render={({ field }) => (
+                    <select {...field} className={inputClass(false)}>
+                      <option value="">Sem vínculo</option>
+                      {doctors.map(d => (
+                        <option key={d._id} value={d._id}>{d.fullName}</option>
+                      ))}
+                    </select>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Valor total calculado */}
+            {totalValue && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-teal-50 border border-teal-100 rounded-lg">
+                <span className="text-xs text-teal-700 font-medium">Valor total da guia:</span>
+                <span className="text-sm font-bold text-teal-800">{totalValue}</span>
+                <span className="text-xs text-teal-500">({watchedSessions} sessões × R$ {Number(watchedValue).toFixed(2).replace('.', ',')})</span>
+              </div>
+            )}
 
             {/* Observações */}
             <div>

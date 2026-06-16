@@ -152,7 +152,7 @@ const liminarContractService = {
       sessionDurationMinutes?: number;
       slots?: Array<{ dayOfWeek: number; time: string }>;
     }
-  ): Promise<{ plan: TherapeuticPlan; appointmentsUpdated: number }> {
+  ): Promise<{ plan: TherapeuticPlan; appointmentsUpdated: number; appointmentsCanceled: number }> {
     const res = await API.patch(
       `/v2/liminar-contracts/${contractId}/plans/${planId}/therapies/${specialty}`,
       data
