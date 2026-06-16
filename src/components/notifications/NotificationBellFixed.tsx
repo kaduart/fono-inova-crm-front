@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, User, Calendar, Clock } from 'lucide-react';
+import { useGmbAlert } from '../../hooks/useGmbAlert';
 
 /**
  * 🔔 NotificationBell - Versão Final Corrigida
@@ -14,6 +15,9 @@ export const NotificationBellFixed: React.FC = () => {
   
   // seenIds inicia como null para saber quando carregou do storage
   const [seenIds, setSeenIds] = useState<Set<string> | null>(null);
+
+  // 📍 Saúde dos posts GMB (falhou / sem confirmação / sem imagem)
+  const gmbAlert = useGmbAlert();
 
   const API_TOKEN = 'agenda_export_token_fono_inova_2025_secure_abc123';
   const STORAGE_KEY = 'notificationBell_seenIds_v3';
@@ -112,7 +116,7 @@ export const NotificationBellFixed: React.FC = () => {
     : 0;
   
   const hasNewItems = newCount > 0;
-  const displayCount = seenIds !== null && !hasNewItems ? 0 : newCount;
+  const displayCount = (seenIds !== null && !hasNewItems ? 0 : newCount) + gmbAlert.total;
 
   // Limpar vistos (para teste)
   const clearSeen = () => {
@@ -259,6 +263,21 @@ export const NotificationBellFixed: React.FC = () => {
           </div>
 
           <div style={{ maxHeight: '350px', overflow: 'auto' }}>
+            {gmbAlert.total > 0 && (
+              <div style={{
+                padding: '12px 16px',
+                borderBottom: '1px solid #f3f4f6',
+                background: '#fff7ed',
+                borderLeft: '3px solid #f97316',
+              }}>
+                <strong style={{ color: '#9a3412', fontSize: '13px' }}>📍 Google Meu Negócio</strong>
+                <div style={{ fontSize: '12px', color: '#9a3412', marginTop: '4px' }}>
+                  {gmbAlert.failed > 0 && <div>❌ {gmbAlert.failed} post(s) falharam</div>}
+                  {gmbAlert.stuckPublished > 0 && <div>⏳ {gmbAlert.stuckPublished} sem confirmação do Make</div>}
+                  {gmbAlert.noImage > 0 && <div>🖼️ {gmbAlert.noImage} sem imagem</div>}
+                </div>
+              </div>
+            )}
             {loading ? (
               <div style={{ padding: '30px', textAlign: 'center' }}>Carregando...</div>
             ) : preAgendamentos.length === 0 ? (
