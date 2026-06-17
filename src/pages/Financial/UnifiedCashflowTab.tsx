@@ -5,7 +5,7 @@ import {
 } from '@mui/material';
 import { format, isSameDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useChatNavigation } from '../../contexts/ChatNavigationContext';
 import { useAppointmentsByType } from '../../hooks/useAppointmentsByType';
