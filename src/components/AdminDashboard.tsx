@@ -223,17 +223,9 @@ export default function AdminDashboard() {
     useEffect(() => {
         if ((activeTab === 'Calendário' || activeTab === 'Pré-Agendamentos') && !hasLoadedAppointments) {
             // Inicializa o range com a data atual
-            const today = new Date();
-            const startOfWeek = new Date(today.setDate(today.getDate() - today.getDay()));
-            const endOfWeek = new Date(today.setDate(today.getDate() - today.getDay() + 6));
-            
-            const formatDate = (d: Date) => d.toISOString().split('T')[0];
-            // 🎯 FIX: Buscar apenas o mês atual em vez de uma janela grande
-            const monthStart = moment().startOf('month').toDate();
-            const monthEnd = moment().endOf('month').toDate();
             setCalendarDateRange({
-                startDate: formatDate(monthStart),
-                endDate: formatDate(monthEnd)
+                startDate: moment().startOf('month').format('YYYY-MM-DD'),
+                endDate: moment().endOf('month').format('YYYY-MM-DD')
             });
             setHasLoadedAppointments(true);
         }
@@ -1140,7 +1132,7 @@ export default function AdminDashboard() {
     };
 
     return (
-        <SystemHealthProvider>
+        <SystemHealthProvider active={activeTab === 'Observability' || activeTab === 'Monitor'}>
         <div className="min-h-screen bg-gray-100 text-gray-800">
             <WhatsAppCriticalBanner />
             <AdminHeader

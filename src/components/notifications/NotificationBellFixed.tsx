@@ -24,6 +24,7 @@ export const NotificationBellFixed: React.FC = () => {
 
   // Carregar do localStorage IMEDIATAMENTE (antes de qualquer render)
   const loadedFromStorage = useRef(false);
+  const hasFetchedOnMount = useRef(false);
   
   useEffect(() => {
     if (loadedFromStorage.current) return;
@@ -77,10 +78,12 @@ export const NotificationBellFixed: React.FC = () => {
     setLoading(false);
   };
 
-  // 🔥 OTIMIZAÇÃO: Aumentar intervalo de 30s para 60s (já tem socket pra atualização em tempo real)
   useEffect(() => {
-    fetchPreAgendamentos();
-    const interval = setInterval(fetchPreAgendamentos, 60000); // 60s em vez de 30s
+    if (!hasFetchedOnMount.current) {
+      hasFetchedOnMount.current = true;
+      fetchPreAgendamentos();
+    }
+    const interval = setInterval(fetchPreAgendamentos, 60000);
     return () => clearInterval(interval);
   }, []);
 

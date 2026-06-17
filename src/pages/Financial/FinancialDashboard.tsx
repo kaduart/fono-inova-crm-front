@@ -1,6 +1,6 @@
 // src/pages/Financial/FinancialDashboard.tsx - VERSÃO OTIMIZADA COM LAZY LOADING
 
-import { Suspense, lazy, useEffect } from 'react';
+import { Suspense, lazy, useEffect, startTransition } from 'react';
 import { Box, Grid, Paper, Skeleton, Tab, Tabs, Typography, useTheme, FormControl, Select, MenuItem } from '@mui/material';
 import {
     Calendar,
@@ -385,7 +385,9 @@ const FinancialDashboard = ({
     }, []);
 
     const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
-        setCurrentTab(newValue);
+        startTransition(() => {
+            setCurrentTab(newValue);
+        });
     };
 
     const allTabs = [
@@ -608,7 +610,7 @@ const FinancialDashboard = ({
                         ))}
                     </div>
                 </div>
-                <div key={currentTabId} className="p-1 sm:p-2 md:p-4">
+                <div className="p-1 sm:p-2 md:p-4 min-h-[400px] transition-opacity duration-200 ease-in-out">
                     {renderActiveTab()}
                 </div>
             </div>

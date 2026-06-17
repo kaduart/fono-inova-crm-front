@@ -166,6 +166,8 @@ export const DoctorsProvider: React.FC<{ children: React.ReactNode }> = ({ child
     isMounted.current = true;
 
     const handleAuthReady = () => {
+      if (!isInitialLoad.current) return; // mount já carregou (token existia), evita fetch duplo
+      isInitialLoad.current = false;
       console.log('🔄 DoctorsContext: Auth ready, loading doctors...');
       loadDoctors(true);
     };

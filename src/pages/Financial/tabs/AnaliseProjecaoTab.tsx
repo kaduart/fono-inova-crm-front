@@ -1,7 +1,7 @@
 // AnaliseProjecaoTab.tsx - Refatorado com Tailwind (mantendo lógica)
 
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ResponsiveContainer, LineChart, Line, XAxis, YAxis,
     CartesianGrid, Tooltip as ChartTooltip, Legend, ReferenceLine
@@ -154,8 +154,15 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
         return () => window.removeEventListener('cash:refresh', handleCashRefresh);
     }, [mes, ano, fetchDashboard, propData]);
 
+    const projectionFetched = useRef('');
+
     useEffect(() => {
         if (!dashData) return;
+
+        const key = `${ano}-${String(mes).padStart(2, '0')}`;
+        if (projectionFetched.current === key) return;
+        projectionFetched.current = key;
+
         const projecaoFinal = dashData?.metas?.projecao?.final || 0;
         api.get('/financial/dashboard/projection-daily', {
             params: {

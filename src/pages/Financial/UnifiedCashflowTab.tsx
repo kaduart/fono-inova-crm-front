@@ -1569,14 +1569,20 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                             <div className="flex gap-2 py-0.5">
                                                                 <div className="w-7 text-[11px] text-gray-500 font-medium pt-2.5 text-right shrink-0 leading-none">{String(hour).padStart(2,'0')}h</div>
                                                                 <div className="flex-1 space-y-1">
-                                                                    {apts.map((a: any) => {
+                                                                    {apts.map((a: any, aptIdx: number) => {
                                                                         const sc = statusMap[a.operationalStatus] || { border: 'border-gray-500', badge: 'bg-gray-800 text-gray-300', label: a.operationalStatus };
                                                                         const sfText = sfShort[a.statusFinanceiro] ?? (a.statusFinanceiro || '');
                                                                         const isNew = (analyticsData?.novos || []).some((n: any) => n._id === a._id);
                                                                         const valor = a.sessionValue || a.package?.sessionValue || 0;
                                                                         const phone = a.patientInfo?.phone || a.patient?.phone;
+                                                                        const aptMin = toMin(a.time || '00:00');
+                                                                        const nextApt = apts[aptIdx + 1];
+                                                                        const nextMin = nextApt ? toMin(nextApt.time || '00:00') : Infinity;
+                                                                        const showNowAfterThis = isToday && !nowRendered && aptMin <= nowMin && nowMin < nextMin;
+                                                                        if (showNowAfterThis) nowRendered = true;
                                                                         return (
-                                                                            <div key={a._id} onClick={() => setSelectedApt(a)} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200 border-l-[3px] cursor-pointer hover:shadow-md transition-shadow ${sc.border} ${a.operationalStatus === 'completed' ? 'bg-green-50' : 'bg-gray-50'} ${a.operationalStatus === 'canceled' ? 'opacity-50' : ''}`}>
+                                                                            <React.Fragment key={a._id}>
+                                                                            <div onClick={() => setSelectedApt(a)} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200 border-l-[3px] cursor-pointer hover:shadow-md transition-shadow ${sc.border} ${a.operationalStatus === 'completed' ? 'bg-green-50' : 'bg-gray-50'} ${a.operationalStatus === 'canceled' ? 'opacity-50' : ''}`}>
                                                                                 <span className="text-xs text-gray-400 w-10 shrink-0 font-mono">{a.time || '--:--'}</span>
                                                                                 <div className="flex-1 min-w-0">
                                                                                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -1599,6 +1605,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                 </span>
                                                                                 <span className={`text-sm font-bold shrink-0 w-16 text-right ${valor > 0 ? 'text-gray-900' : 'text-gray-400'}`}>R${valor.toLocaleString('pt-BR')}</span>
                                                                             </div>
+                                                                            {showNowAfterThis && <NowMarker />}
+                                                                            </React.Fragment>
                                                                         );
                                                                     })}
                                                                 </div>

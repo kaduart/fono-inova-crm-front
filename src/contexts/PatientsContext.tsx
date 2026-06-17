@@ -294,6 +294,8 @@ export const PatientsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     isMounted.current = true;
 
     const handleAuthReady = () => {
+      if (!isInitialLoad.current) return; // mount já carregou (token existia), evita fetch duplo
+      isInitialLoad.current = false;
       console.log('🔄 PatientsContext: Auth ready, loading patients...');
       loadPatients(true);
     };

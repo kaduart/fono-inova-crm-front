@@ -1,5 +1,7 @@
 import API from './api';
 
+const _holidaysCache = new Map<number, Holiday[]>();
+
 export interface Holiday {
   date: string;      // YYYY-MM-DD
   name: string;      // Nome do feriado
@@ -23,14 +25,14 @@ export interface HolidaysResponse {
  * - 'afternoon': Tarde livre, manhã bloqueada
  */
 export const getHolidays = async (year?: number): Promise<Holiday[]> => {
+  const targetYear = year || new Date().getFullYear();
+  if (_holidaysCache.has(targetYear)) return _holidaysCache.get(targetYear)!;
   try {
-    const targetYear = year || new Date().getFullYear();
     const response = await API.get<HolidaysResponse>(`/calendar/holidays?year=${targetYear}`);
-    
     if (response.data?.success) {
+      _holidaysCache.set(targetYear, response.data.holidays);
       return response.data.holidays;
     }
-    
     return [];
   } catch (error) {
     console.error('[calendarService] Erro ao buscar feriados:', error);

@@ -151,31 +151,17 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
 
   const fetchDebitosTotal = useCallback(async () => {
     if (debitosTotalLoaded.current) return;
+    debitosTotalLoaded.current = true; // guard imediato — evita race em StrictMode
     setLoadingDebitosTotal(true);
 
-    const useV2 = FEATURE_FLAGS.USE_FINANCIAL_V2;
-    const primaryUrl = useV2 ? V2_DEBITOS_URL : LEGACY_DEBITOS_URL;
+    const primaryUrl = FEATURE_FLAGS.USE_FINANCIAL_V2 ? V2_DEBITOS_URL : LEGACY_DEBITOS_URL;
 
     try {
       const res = await api.get(primaryUrl);
       setDebitosTotalData(normalizeDebitos(res.data?.data));
       setDebitosTotalValue(res.data?.total || 0);
-      debitosTotalLoaded.current = true;
-
-      // Shadow validation: comparar com legado durante período de migração
-      if (useV2) {
-        api.get(LEGACY_DEBITOS_URL).then(legacyRes => {
-          const legacyTotal = legacyRes.data?.total || 0;
-          if (Math.abs(legacyTotal - (res.data?.total || 0)) > 0.01) {
-            console.warn('[DashboardV3Tab] Divergência débitos totais:', {
-              v2: res.data?.total,
-              legacy: legacyTotal,
-              diff: legacyTotal - (res.data?.total || 0)
-            });
-          }
-        }).catch(() => {});
-      }
     } catch (err) {
+      debitosTotalLoaded.current = false; // permite retry em caso de erro
       console.error('Erro ao buscar débitos totais:', err);
     } finally {
       setLoadingDebitosTotal(false);
@@ -189,28 +175,13 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   const fetchDebitosMes = useCallback(async () => {
     setLoadingDebitosMes(true);
 
-    const useV2 = FEATURE_FLAGS.USE_FINANCIAL_V2;
-    const primaryUrl = useV2
+    const primaryUrl = FEATURE_FLAGS.USE_FINANCIAL_V2
       ? `${V2_DEBITOS_URL}?month=${month}&year=${year}`
       : `${LEGACY_DEBITOS_URL}?month=${month}&year=${year}`;
 
     try {
       const res = await api.get(primaryUrl);
       setDebitosMesData(normalizeDebitos(res.data?.data));
-
-      // Shadow validation: comparar com legado durante período de migração
-      if (useV2) {
-        api.get(`${LEGACY_DEBITOS_URL}?month=${month}&year=${year}`).then(legacyRes => {
-          const legacyTotal = legacyRes.data?.total || 0;
-          if (Math.abs(legacyTotal - (res.data?.total || 0)) > 0.01) {
-            console.warn('[DashboardV3Tab] Divergência débitos do mês:', {
-              v2: res.data?.total,
-              legacy: legacyTotal,
-              diff: legacyTotal - (res.data?.total || 0)
-            });
-          }
-        }).catch(() => {});
-      }
     } catch (err) {
       console.error('Erro ao buscar débitos do mês:', err);
     } finally {
@@ -242,6 +213,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
   };
 
   const insuranceLoaded = useRef<string>('');
+  const byTypeFetched = useRef<string>('');
 
   // Carrega dados principais ao montar ou mudar mês/ano
   // 🎯 Débitos totais: carrega UMA VEZ na montagem (não depende de mês/ano)
@@ -258,6 +230,10 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
 
   // 🆕 Busca novos agendamentos do mês e compara com mês anterior
   useEffect(() => {
+    const key = `${month}-${year}`;
+    if (byTypeFetched.current === key) return;
+    byTypeFetched.current = key;
+
     const startCurrent = `${year}-${String(month).padStart(2, '0')}-01`;
     const endCurrent = new Date(year, month, 0).toISOString().split('T')[0];
     const prevMonth = month === 1 ? 12 : month - 1;

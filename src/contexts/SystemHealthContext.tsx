@@ -120,7 +120,7 @@ const SystemHealthContext = createContext<SystemHealthContextValue | null>(null)
 const HEALTH_INTERVAL  = 60_000;
 const MONITOR_INTERVAL = 30_000;
 
-export function SystemHealthProvider({ children }: { children: ReactNode }) {
+export function SystemHealthProvider({ children, active = false }: { children: ReactNode; active?: boolean }) {
     const [health,         setHealth]         = useState<SystemHealth | null>(null);
     const [monitor,        setMonitor]        = useState<RawMonitorData | null>(null);
     const [rawMetrics,     setRawMetrics]     = useState<RawMetrics | null>(null);
@@ -265,17 +265,20 @@ export function SystemHealthProvider({ children }: { children: ReactNode }) {
         fetchWhatsappHealth();
     }, [fetchHealth, fetchMonitor, fetchWhatsappHealth]);
 
+    // Só carrega observabilidade pesada quando a aba Monitor está aberta
     useEffect(() => {
+        if (!active) return;
         fetchHealth();
         const id = setInterval(fetchHealth, HEALTH_INTERVAL);
         return () => clearInterval(id);
-    }, [fetchHealth]);
+    }, [fetchHealth, active]);
 
     useEffect(() => {
+        if (!active) return;
         fetchMonitor();
         const id = setInterval(fetchMonitor, MONITOR_INTERVAL);
         return () => clearInterval(id);
-    }, [fetchMonitor]);
+    }, [fetchMonitor, active]);
 
     // 🔄 Polling do WhatsApp health — intervalo fixo para evitar re-trigger por status
     // Antes: [fetchWhatsappHealth, whatsappHealth?.status] causava re-run no mount (3 fetches)

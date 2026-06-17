@@ -45,8 +45,14 @@ interface AuthContextType {
 export const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(() => {
+    const stored = localStorage.getItem('user');
+    try { return stored ? JSON.parse(stored) : null; } catch { return null; }
+  });
+  // false imediatamente se já existe token+user no localStorage (auth otimista)
+  const [authLoading, setAuthLoading] = useState(
+    () => !localStorage.getItem('token') || !localStorage.getItem('user')
+  );
   const [operationLoading, setOperationLoading] = useState(false);
   const [lastActivity, setLastActivity] = useState<number>(Date.now());
 
@@ -69,6 +75,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       localStorage.setItem('user', JSON.stringify(userData));
       localStorage.setItem('userRole', JSON.stringify(userData.role));
       localStorage.setItem('lastActivity', Date.now().toString());
+      localStorage.setItem('authValidatedAt', Date.now().toString());
 
       setUser(userData);
       setLastActivity(Date.now());
@@ -93,6 +100,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       localStorage.removeItem('user');
       localStorage.removeItem('userRole');
       localStorage.removeItem('lastActivity');
+      localStorage.removeItem('authValidatedAt');
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
 
@@ -140,57 +148,64 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     let isRunning = false;
 
     const validateAuth = async () => {
-      // Previne execuções concorrentes
       if (isRunning) return;
       isRunning = true;
 
       try {
-        // Rotas públicas não precisam de validação
+        // Rotas públicas: libera imediatamente sem chamar /me
         if (publicPaths.some(path => location.pathname.startsWith(path))) {
           if (isMounted) setAuthLoading(false);
           return;
         }
 
-        if (isMounted) setAuthLoading(true);
-
-        // Etapa 0: Verifica se o token JWT está expirado (8h, 24h)
+        // Etapa 0: token JWT expirado → logout síncrono (sem await desnecessário)
         const token = getAuthToken();
         if (isTokenExpired(token)) {
           console.log('[Auth] Token JWT expirado na inicialização');
           if (isMounted) {
-            await logout({ forceClear: true });
+            logout({ forceClear: true });
             window.dispatchEvent(new CustomEvent('sessionExpired'));
           }
           return;
         }
 
-        // Etapa 1: Verifica expiração da sessão (4h de inatividade)
+        // Etapa 1: sessão inativa expirada → logout síncrono
         const isExpired = checkSessionExpiry();
         if (isExpired) {
           if (isMounted) {
-            await logout({ forceClear: true });
+            logout({ forceClear: true });
             window.dispatchEvent(new CustomEvent('sessionExpired'));
           }
           return;
         }
 
-        // Etapa 2: Valida token com o backend
+        // Restaura usuário cacheado e libera UI imediatamente (auth otimista)
+        // O estado já pode estar setado via useState inicial, mas garantimos aqui
+        const cachedUser = localStorage.getItem('user');
+        if (cachedUser && isMounted) {
+          try { setUser(JSON.parse(cachedUser)); } catch { /* ignore parse error */ }
+          setAuthLoading(false);
+        }
+
+        // Pula /me se acabou de fazer login (validado nos últimos 60s)
+        const lastValidation = Number(localStorage.getItem('authValidatedAt') || 0);
+        if (Date.now() - lastValidation < 60_000) return;
+
+        // Etapa 2: valida com o backend em background — não bloqueia mais a UI
         const userRes = await API.get('/users/me');
-        
         if (isMounted) {
           setUser(userRes.data);
-          updateLastActivity();
+          localStorage.setItem('user', JSON.stringify(userRes.data));
+          localStorage.setItem('authValidatedAt', Date.now().toString());
         }
       } catch (error) {
         if (isMounted) {
           setUser(null);
-          await logout({ forceClear: true });
+          logout({ forceClear: true });
           window.dispatchEvent(new CustomEvent('sessionExpired'));
         }
       } finally {
-        if (isMounted) {
-          setAuthLoading(false);
-        }
+        if (isMounted) setAuthLoading(false);
         isRunning = false;
       }
     };

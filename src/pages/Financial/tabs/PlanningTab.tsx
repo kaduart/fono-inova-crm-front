@@ -50,7 +50,7 @@ import {
 } from '@mui/material';
 import { format, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { usePlanning } from '../../../hooks/usePlanning';
 import { useFinancialDashboard } from '../../../hooks/useFinancialDashboard';
 import { planningService } from '../../../services/planningService';
@@ -99,6 +99,7 @@ interface PlanningTabProps {
 const PlanningTab = ({ month, year }: PlanningTabProps) => {
   const { plannings, projection, fetchPlannings, createPlanning, updatePlanning, deletePlanning, refreshAllPlannings, autoGeneratePlanning, recalculateFutureTargets, loading } = usePlanning();
   const { data: dashData, fetchDashboard } = useFinancialDashboard();
+  const dashFetched = useRef('');
 
   const [openModal, setOpenModal] = useState(false);
   const [openEditModal, setOpenEditModal] = useState(false);
@@ -279,6 +280,9 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
 
   useEffect(() => {
     const { year, month } = selectedMonthData;
+    const key = `${month}-${year}`;
+    if (dashFetched.current === key) return;
+    dashFetched.current = key;
     fetchPlannings({ month, year });
     fetchDashboard(month, year);
   }, [selectedMonthData, fetchPlannings, fetchDashboard]);
