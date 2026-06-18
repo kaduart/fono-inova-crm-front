@@ -138,9 +138,17 @@ export const getInsurancePayments = (filters?: { provider?: string; status?: str
         { params: { ...filters, billingType: 'convenio' } }
     );
 
-// Faturar em lote (V2)
-export const faturarConvenioLote = (data: { paymentIds: string[]; dataFaturamento: string; notaFiscal?: string }) =>
-    API.post<{ success: boolean; data: any }>('/v2/financial/convenio/faturar-lote', data);
+// Faturar em lote (V2) - guide-based ou legacy payment-based
+export const faturarConvenioLote = (data: {
+    paymentIds?: string[];
+    guideIds?: string[];
+    dataFaturamento?: string;
+    notaFiscal?: string;
+}) => API.post<{ success: boolean; data: any }>('/v2/financial/convenio/faturar-lote', data);
+
+// Listar guias pendentes de faturamento (guide-based)
+export const getPendingBillingGuides = (params?: { insurance?: string; patientId?: string; page?: number; limit?: number }) =>
+    API.get<{ success: boolean; data: any[]; pagination: any }>('/v2/insurance/guides/pending-billing', { params });
 
 // Receber em lote (V2)
 export const receberConvenioLote = (data: { paymentIds: string[]; dataRecebimento: string }) =>
