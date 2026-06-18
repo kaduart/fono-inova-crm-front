@@ -960,20 +960,33 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           </div>
 
           {/* Mini KPIs */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 border-t border-gray-200 pt-3">
-            {([
-              { icon: '💵', label: 'Caixa recebido',     value: caixaTotal,       color: '#059669' },
-              { icon: '🧾', label: 'Convênio a receber', value: convenioAReceber, color: '#7C3AED' },
-              { icon: '🏥', label: 'Produção clínica',   value: producaoTotal,    color: '#2563EB' },
-              { icon: '⏳', label: 'A receber',             value: totalAReceberProducao, color: '#D97706' },
-              { icon: '🎯', label: 'Falta para meta',    value: Math.max(0, metaValor - resultadoEcon), color: '#DC2626' },
-            ] as const).map((kpi) => (
-              <div key={kpi.label} className="text-center">
-                <div className="text-lg leading-none mb-0.5">{kpi.icon}</div>
-                <p className="text-sm font-black" style={{ color: kpi.color }}>{formatCurrency(kpi.value)}</p>
-                <p className="text-[11px] text-gray-600 font-medium leading-tight">{kpi.label}</p>
-              </div>
-            ))}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-gray-200 pt-3">
+            <div className="text-center">
+              <div className="text-lg leading-none mb-0.5">💵</div>
+              <p className="text-sm font-black" style={{ color: '#059669' }}>{formatCurrency(caixaTotal)}</p>
+              <p className="text-[11px] text-gray-600 font-medium leading-tight">Caixa recebido</p>
+            </div>
+            <div className="text-center">
+              <div className="text-lg leading-none mb-0.5">🏥</div>
+              <p className="text-sm font-black" style={{ color: '#2563EB' }}>{formatCurrency(producaoTotal)}</p>
+              <p className="text-[11px] text-gray-600 font-medium leading-tight">Produção clínica</p>
+            </div>
+            <div className="text-center">
+              <div className="text-lg leading-none mb-0.5">⏳</div>
+              <p className="text-sm font-black" style={{ color: '#D97706' }}>{formatCurrency(totalAReceberProducao)}</p>
+              <p className="text-[11px] text-gray-600 font-medium leading-tight">A receber</p>
+              {convenioAReceber > 0 && (
+                <p className="text-[10px] text-gray-400 leading-tight mt-0.5">
+                  conv. {formatCurrency(convenioAReceber)}
+                  {totalAReceberProducao - convenioAReceber > 0 && ` · part. ${formatCurrency(totalAReceberProducao - convenioAReceber)}`}
+                </p>
+              )}
+            </div>
+            <div className="text-center">
+              <div className="text-lg leading-none mb-0.5">🎯</div>
+              <p className="text-sm font-black" style={{ color: '#DC2626' }}>{formatCurrency(Math.max(0, metaValor - resultadoEcon))}</p>
+              <p className="text-[11px] text-gray-600 font-medium leading-tight">Falta para meta</p>
+            </div>
           </div>
           {totalAReceberProducao > 0 && (
             <p className="text-[10px] text-gray-400 italic mt-2 text-center">

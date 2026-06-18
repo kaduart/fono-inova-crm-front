@@ -1794,9 +1794,9 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                     )}
                                 </div>
                                 <div className="bg-violet-50 border border-violet-200 rounded-lg p-3">
-                                    <div className="text-[11px] text-gray-500 mb-0.5">Resultado Econômico</div>
+                                    <div className="text-[11px] text-gray-500 mb-0.5">Regime de Competência</div>
                                     <div className="text-xl font-bold text-violet-700">{formatCurrency(monthResumo.producaoTotal)}</div>
-                                    <div className="text-[10px] text-gray-400 mt-1">produção clínica do mês</div>
+                                    <div className="text-[10px] text-gray-400 mt-1">serviços entregues · base da meta</div>
                                 </div>
                                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                                     <div className="text-[11px] text-gray-500 mb-0.5">Produção por tipo</div>
