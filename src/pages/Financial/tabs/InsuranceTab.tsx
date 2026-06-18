@@ -48,7 +48,6 @@ import { toast } from 'react-toastify';
 import InputCurrency from '../../../components/ui/InputCurrency';
 import { getSpecialtyLabel } from '../../../constants/specialties';
 import { PatientAccordionSection } from './PatientAccordionSection';
-import GuidePendingBillingSection from './GuidePendingBillingSection';
 import ConvenioManagerModal from '../components/ConvenioManagerModal';
 import doctorService from '../../../services/doctorService';
 import { usePatients } from '../../../hooks/usePatients';
@@ -59,8 +58,7 @@ import {
     billInsuranceSession,
     receiveInsuranceSession,
     faturarConvenioLote,
-    receberConvenioLote,
-    getPendingBillingGuides
+    receberConvenioLote
 } from '../../../services/paymentService';
 import { extractErrorMessage } from '../../../utils/errorUtils';
 
@@ -112,9 +110,6 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
 
     // Estados para seleção em lote
     const [selectedPayments, setSelectedPayments] = useState<Set<string>>(new Set());
-    const [selectedGuides, setSelectedGuides] = useState<Set<string>>(new Set());
-    const [pendingGuides, setPendingGuides] = useState<any[]>([]);
-    const [loadingGuides, setLoadingGuides] = useState(false);
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
 
     const [doctors, setDoctors] = useState<any[]>([]);
@@ -227,58 +222,54 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
 
     useEffect(() => {
         loadReceivables(selectedMonthYear);
-    }, [selectedMonthYear]);
-
-    // Filtragem por subTab é client-side — sem re-fetch na troca de aba
-    useEffect(() => {
-        applySubTabFilter(allReceivables, subTab);
-    }, [allReceivables, subTab]);
-
-    const applySubTabFilter = (allData: InsuranceReceivableGroup[], tab: number) => {
-        const statusFilter = tab === 0 ? 'pending_billing' : tab === 1 ? 'billed' : 'received';
-        const validData = (allData || []).map((group: any) => ({
-            ...group,
-            patients: (group.patients || []).map((p: any) => ({
-                ...p,
-                payments: (p.payments || []).filter((pay: any) => pay.status === statusFilter)
-            })).filter((p: any) => (p.payments || []).length > 0)
-        })).filter((group: any) => (group.patients || []).length > 0);
-
-        setReceivables(validData);
-
-        const totalPending = validData.reduce((acc: number, g: any) =>
-            acc + (g.patients || []).reduce((pAcc: number, p: any) =>
-                pAcc + (p.payments || []).length, 0
-            ), 0
-        );
-        setSummary(prev => ({
-            ...prev,
-            totalProviders: validData.length,
-            grandTotal: validData.reduce((acc: number, g: any) => acc + (g.totalPending || 0), 0),
-            pendingCount: totalPending,
-        }));
-
-        const expanded: Record<string, boolean> = {};
-        validData.forEach((g: any) => { expanded[g._id] = true; });
-        setExpandedGroups(expanded);
-    };
+    }, [selectedMonthYear, subTab]);
 
     const loadReceivables = async (month?: string) => {
         setLoading(true);
         try {
-            // Uma única chamada com todos os status — filtragem por aba é client-side
-            const allResponse = await getInsuranceReceivables({ month, status: 'pending_billing,billed,received' });
+            // 1. Buscar TODOS os dados (sem filtro de status) para contagens e cards
+            const allResponse = await getInsuranceReceivables({ month });
             const allData = allResponse.data.data || [];
             setAllReceivables(allData);
 
+            // 2. Buscar dados filtrados pela aba ativa para a lista
+            const statusFilter = subTab === 0 ? 'pending_billing'
+                : subTab === 1 ? 'billed'
+                    : 'received';
+            const response = await getInsuranceReceivables({ month, status: statusFilter });
+            const data = response.data.data || [];
+
+            // 🆕 CORREÇÃO: Não filtrar novamente - backend já retorna dados corretos
+            // Apenas garante estrutura válida
+            const validData = (data || []).map((group: any) => ({
+                ...group,
+                patients: (group.patients || []).map((p: any) => ({
+                    ...p,
+                    payments: p.payments || []
+                })).filter((p: any) => (p.payments || []).length > 0)
+            })).filter((group: any) => (group.patients || []).length > 0);
+
+            setReceivables(validData);
+
+            const totalPending = validData.reduce((acc: number, g: any) =>
+                acc + (g.patients || []).reduce((pAcc: number, p: any) =>
+                    pAcc + (p.payments || []).filter((pay: any) => pay.status !== 'received').length, 0
+                ), 0
+            );
+
             const apiSummary = allResponse.data.summary || {};
-            setSummary(prev => ({
-                ...prev,
+            setSummary({
+                totalProviders: validData.length,
+                grandTotal: validData.reduce((acc: number, g: any) => acc + (g.totalPending || 0), 0),
+                pendingCount: totalPending,
                 prevMonthTotal: apiSummary.prevMonthTotal ?? null,
                 change: apiSummary.change ?? null,
                 changePercent: apiSummary.changePercent ?? null
-            }));
-            // applySubTabFilter será chamado pelo useEffect de allReceivables
+            });
+
+            const expanded: Record<string, boolean> = {};
+            validData.forEach((g: any) => { expanded[g._id] = true; });
+            setExpandedGroups(expanded);
         } catch (error) {
             console.error('Erro ao carregar recebíveis:', error);
             toast.error('Erro ao carregar dados de convênios');
@@ -286,44 +277,6 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             setLoading(false);
         }
     };
-
-    // 🆕 Guide-based: carregar guias pendentes de faturamento
-    const loadPendingGuides = async () => {
-        setLoadingGuides(true);
-        try {
-            const response = await getPendingBillingGuides({ limit: 100 });
-            setPendingGuides(response.data.data || []);
-        } catch (error) {
-            console.error('Erro ao carregar guias pendentes:', error);
-            toast.error('Erro ao carregar guias pendentes');
-        } finally {
-            setLoadingGuides(false);
-        }
-    };
-
-    useEffect(() => {
-        if (subTab === 3) {
-            loadPendingGuides();
-        }
-    }, [subTab]);
-
-    const toggleGuideSelection = (guideId: string) => {
-        const newSelected = new Set(selectedGuides);
-        if (newSelected.has(guideId)) {
-            newSelected.delete(guideId);
-        } else {
-            newSelected.add(guideId);
-        }
-        setSelectedGuides(newSelected);
-    };
-
-    const clearGuideSelection = () => setSelectedGuides(new Set());
-
-    const selectAllGuides = () => {
-        setSelectedGuides(new Set(pendingGuides.map(g => g.guideId)));
-    };
-
-    const totalSelectableGuides = pendingGuides.length;
 
     // Hook para pacientes
     const { patients } = usePatients();
@@ -519,10 +472,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     );
 
     const handleOpenFaturarLoteModal = () => {
-        const isGuideMode = subTab === 3;
-        const hasSelection = isGuideMode ? selectedGuides.size > 0 : selectedPayments.size > 0;
-        if (!hasSelection) {
-            toast.warn(isGuideMode ? 'Selecione pelo menos uma guia' : 'Selecione pelo menos um atendimento');
+        if (selectedPayments.size === 0) {
+            toast.warn('Selecione pelo menos um atendimento');
             return;
         }
         setFaturarLoteData({
@@ -535,31 +486,21 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const handleFaturarLote = async () => {
         setFaturarLoteLoading(true);
         try {
-            const isGuideMode = subTab === 3;
             const result = await faturarConvenioLote({
-                ...(isGuideMode
-                    ? { guideIds: Array.from(selectedGuides) }
-                    : { paymentIds: Array.from(selectedPayments) }),
+                paymentIds: Array.from(selectedPayments),
                 dataFaturamento: faturarLoteData.dataFaturamento,
                 notaFiscal: faturarLoteData.notaFiscal || undefined
             });
 
             if (result.data.success) {
-                const data = result.data.data;
-                if (isGuideMode) {
-                    toast.success(`${data.sessionsFaturadas} atendimentos faturados a partir de ${data.guidesFaturadas} guia(s)!`);
-                } else {
-                    const { faturados, ignorados } = data;
-                    toast.success(`${faturados} atendimentos faturados!`);
-                    if (ignorados > 0) {
-                        toast.warn(`${ignorados} atendimento(s) sem sessão vinculada foram ignorados — verifique o cadastro.`);
-                    }
+                const { faturados, ignorados } = result.data.data;
+                toast.success(`${faturados} atendimentos faturados!`);
+                if (ignorados > 0) {
+                    toast.warn(`${ignorados} atendimento(s) sem sessão vinculada foram ignorados — verifique o cadastro.`);
                 }
                 setFaturarLoteModalOpen(false);
                 clearAllSelection();
-                clearGuideSelection();
                 loadReceivables(selectedMonthYear);
-                loadPendingGuides();
             } else {
                 toast.error(result.data.error || 'Erro ao faturar');
             }
@@ -813,7 +754,6 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             { label: `A Faturar (${countByStatus(receivables, 'pending_billing')})`, icon: <Clock size={15} /> },
                             { label: `Faturados (${countByStatus(receivables, 'billed')})`,          icon: <Send size={15} /> },
                             { label: `Recebidos (${countByStatus(receivables, 'received')})`,        icon: <CheckCircle size={15} /> },
-                            { label: `Faturar por Guia (${pendingGuides.length})`,                   icon: <FileText size={15} /> },
                         ].map((tab, i) => (
                             <button key={i} onClick={() => setSubTab(i)}
                                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 ${
@@ -829,52 +769,38 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 </div>
 
                 {/* Barra de Ações em Lote — sempre visível quando há itens na aba */}
-                {(totalSelectable > 0 || (subTab === 3 && totalSelectableGuides > 0)) && (
-                    <Paper elevation={(subTab === 3 ? selectedGuides.size : selectedPayments.size) > 0 ? 2 : 0} sx={{
+                {totalSelectable > 0 && (
+                    <Paper elevation={selectedPayments.size > 0 ? 2 : 0} sx={{
                         p: 1.5, mx: 2, mt: 1.5,
-                        bgcolor: (subTab === 3 ? selectedGuides.size : selectedPayments.size) > 0 ? '#F0F9FF' : '#F9FAFB',
-                        border: `1px solid ${(subTab === 3 ? selectedGuides.size : selectedPayments.size) > 0 ? '#3B82F6' : '#E5E7EB'}`,
+                        bgcolor: selectedPayments.size > 0 ? '#F0F9FF' : '#F9FAFB',
+                        border: `1px solid ${selectedPayments.size > 0 ? '#3B82F6' : '#E5E7EB'}`,
                         borderRadius: 2
                     }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                {subTab === 3 ? (
-                                    <Button
-                                        size="small"
-                                        variant={selectedGuides.size === totalSelectableGuides ? 'contained' : 'outlined'}
-                                        startIcon={<Check size={15} />}
-                                        onClick={selectedGuides.size === totalSelectableGuides ? clearGuideSelection : selectAllGuides}
-                                        sx={{ borderRadius: 2, fontSize: '0.8rem' }}
-                                    >
-                                        {selectedGuides.size === totalSelectableGuides
-                                            ? 'Desmarcar Todos'
-                                            : `Selecionar Todos (${totalSelectableGuides})`}
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        size="small"
-                                        variant={selectedPayments.size === totalSelectable ? 'contained' : 'outlined'}
-                                        startIcon={<Check size={15} />}
-                                        onClick={selectedPayments.size === totalSelectable ? clearAllSelection : selectAll}
-                                        sx={{ borderRadius: 2, fontSize: '0.8rem' }}
-                                    >
-                                        {selectedPayments.size === totalSelectable
-                                            ? 'Desmarcar Todos'
-                                            : `Selecionar Todos (${totalSelectable})`}
-                                    </Button>
-                                )}
-                                {(subTab === 3 ? selectedGuides.size : selectedPayments.size) > 0 && (
+                                <Button
+                                    size="small"
+                                    variant={selectedPayments.size === totalSelectable ? 'contained' : 'outlined'}
+                                    startIcon={<Check size={15} />}
+                                    onClick={selectedPayments.size === totalSelectable ? clearAllSelection : selectAll}
+                                    sx={{ borderRadius: 2, fontSize: '0.8rem' }}
+                                >
+                                    {selectedPayments.size === totalSelectable
+                                        ? 'Desmarcar Todos'
+                                        : `Selecionar Todos (${totalSelectable})`}
+                                </Button>
+                                {selectedPayments.size > 0 && (
                                     <>
                                         <Typography variant="body2" fontWeight={600} color="#3B82F6">
-                                            {subTab === 3 ? selectedGuides.size : selectedPayments.size} selecionado(s)
+                                            {selectedPayments.size} selecionado(s)
                                         </Typography>
-                                        <Button size="small" variant="text" onClick={subTab === 3 ? clearGuideSelection : clearAllSelection} sx={{ fontSize: '0.75rem' }}>
+                                        <Button size="small" variant="text" onClick={clearAllSelection} sx={{ fontSize: '0.75rem' }}>
                                             Limpar
                                         </Button>
                                     </>
                                 )}
                             </Box>
-                            {(subTab === 3 ? selectedGuides.size : selectedPayments.size) > 0 && (
+                            {selectedPayments.size > 0 && (
                                 <Box sx={{ display: 'flex', gap: 1.5 }}>
                                     {subTab === 0 && (
                                         <>
@@ -909,17 +835,6 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                             Receber Selecionados
                                         </Button>
                                     )}
-                                    {subTab === 3 && (
-                                        <Button
-                                            variant="contained"
-                                            size="small"
-                                            startIcon={<Send size={16} />}
-                                            onClick={handleOpenFaturarLoteModal}
-                                            sx={{ bgcolor: '#F59E0B', '&:hover': { bgcolor: '#D97706' }, borderRadius: 2 }}
-                                        >
-                                            Faturar Guias Selecionadas
-                                        </Button>
-                                    )}
                                 </Box>
                             )}
                         </Box>
@@ -927,14 +842,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 )}
 
                 <Box sx={{ p: 3 }}>
-                    {subTab === 3 ? (
-                        <GuidePendingBillingSection
-                            guides={pendingGuides}
-                            selectedGuides={selectedGuides}
-                            loading={loadingGuides}
-                            onToggleGuide={toggleGuideSelection}
-                        />
-                    ) : loading ? (
+                    {loading ? (
                         Array.from({ length: 4 }).map((_, i) => (
                             <Box key={i} sx={{ mb: 2, border: '1px solid #E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, bgcolor: '#F9FAFB' }}>
@@ -1062,9 +970,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 <DialogContent dividers>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
                         <Typography variant="body2" color="text.secondary">
-                            {subTab === 3
-                                ? `${selectedGuides.size} guia(s) serão faturadas`
-                                : `${selectedPayments.size} atendimento(s) serão faturados`}
+                            {selectedPayments.size} atendimento(s) serão faturados
                         </Typography>
 
                         <TextField
