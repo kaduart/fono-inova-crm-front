@@ -1571,11 +1571,9 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-3 px-3 pb-1.5 border-b border-gray-200">
                                                         <span className="text-[11px] text-gray-400 w-10 shrink-0">Hora</span>
-                                                        <div className="flex-1 min-w-0 flex items-center gap-3">
-                                                            <span className="flex-1 min-w-0 text-[11px] text-gray-400">Paciente</span>
-                                                            <span className="text-[11px] text-gray-400 w-20 text-center shrink-0">Terapia</span>
-                                                            <span className="text-[11px] text-gray-400 w-28 text-center shrink-0">Telefone</span>
-                                                        </div>
+                                                        <span className="flex-1 min-w-0 text-[11px] text-gray-400">Paciente</span>
+                                                        <span className="text-[11px] text-gray-400 w-24 text-center shrink-0">Terapia</span>
+                                                        <span className="text-[11px] text-gray-400 w-28 text-center shrink-0">Telefone</span>
                                                         <span className="text-[11px] text-gray-400 w-24 text-center shrink-0">Tipo</span>
                                                         <span className="text-[11px] text-gray-400 w-28 text-center shrink-0">Situação</span>
                                                         <span className="text-[11px] text-gray-400 w-16 text-right shrink-0">Valor</span>
@@ -1610,27 +1608,23 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                             <React.Fragment key={a._id}>
                                                                             <div onClick={() => setSelectedApt(a)} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200 border-l-[3px] cursor-pointer hover:shadow-md transition-shadow ${sc.border} ${a.operationalStatus === 'completed' ? 'bg-green-50' : 'bg-gray-50'} ${a.operationalStatus === 'canceled' ? 'opacity-50' : ''} ${a.operationalStatus === 'completed' && (a.paymentStatus === 'pending' || a.visualFlag === 'pending') ? 'bg-red-50' : ''}`}>
                                                                                 <span className="text-xs text-gray-400 w-10 shrink-0 font-mono self-center">{a.time || '--:--'}</span>
-                                                                                <div className="flex-1 min-w-0 flex items-center gap-3">
-                                                                                    <div className="flex-1 min-w-0 self-center">
-                                                                                        <div className="flex items-center gap-1.5">
-                                                                                            <span className="text-base font-bold text-gray-900 truncate">{a.patientInfo?.fullName || a.patient?.fullName || a.patientName || '-'}</span>
-                                                                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap shrink-0 ${sc.badge}`}>{a.status || sc.label}</span>
-                                                                                            {isNew && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 whitespace-nowrap shrink-0">1ª vez</span>}
-                                                                                        </div>
+                                                                                <div className="flex-1 min-w-0 self-center">
+                                                                                    <div className="flex items-center gap-1.5">
+                                                                                        <span className="text-base font-bold text-gray-900 truncate">{a.patientInfo?.fullName || a.patient?.fullName || a.patientName || '-'}</span>
+                                                                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap shrink-0 ${sc.badge}`}>{a.status || sc.label}</span>
+                                                                                        {isNew && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 whitespace-nowrap shrink-0">1ª vez</span>}
                                                                                     </div>
-                                                                                    <div className="w-20 shrink-0 flex items-center justify-center">
-                                                                                        <span className="text-xs text-gray-500 truncate w-full text-center">{[a.professionalName, a.specialty].filter(Boolean).join(' / ') || '-'}</span>
-                                                                                    </div>
-                                                                                    <div className="w-28 shrink-0 flex items-center justify-center">
-                                                                                        {phone ? (
-                                                                                            <button className="inline-flex items-center gap-0.5 text-xs text-blue-500 hover:text-blue-700"
-                                                                                                onClick={() => handleOpenWhatsApp(phone)}>
-                                                                                                <PhoneIcon style={{ fontSize: 11 }} />{phone}
-                                                                                            </button>
-                                                                                        ) : (
-                                                                                            <span className="text-xs text-gray-400">-</span>
-                                                                                        )}
-                                                                                    </div>
+                                                                                </div>
+                                                                                <span className="w-24 text-center shrink-0 self-center text-xs text-gray-500 truncate">{a.specialty || '-'}</span>
+                                                                                <div className="w-28 text-center shrink-0 self-center">
+                                                                                    {phone ? (
+                                                                                        <button className="inline-flex items-center gap-0.5 text-xs text-blue-500 hover:text-blue-700"
+                                                                                            onClick={() => handleOpenWhatsApp(phone)}>
+                                                                                            <PhoneIcon style={{ fontSize: 11 }} />{phone}
+                                                                                        </button>
+                                                                                    ) : (
+                                                                                        <span className="text-xs text-gray-400">-</span>
+                                                                                    )}
                                                                                 </div>
                                                                                 <span className="w-24 text-center shrink-0 self-center">
                                                                                     {a.billingType === 'convenio' || a.insuranceProvider ? (
