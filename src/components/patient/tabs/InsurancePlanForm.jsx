@@ -35,7 +35,7 @@ const DAYS = [
  * Modal para criar plano de atendimento de convênio
  * Gera appointments + payments pendentes automaticamente
  */
-const InsurancePlanForm = ({ open, onClose, guide, patientId }) => {
+const InsurancePlanForm = ({ open, onClose, guide, patientId, patientName }) => {
   const [doctors, setDoctors] = useState([]);
   const [loadingDoctors, setLoadingDoctors] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -52,10 +52,12 @@ const InsurancePlanForm = ({ open, onClose, guide, patientId }) => {
   });
 
   useEffect(() => {
-    if (open && guide?.specialty) {
+    if (open && guide) {
       setForm(prev => ({
         ...prev,
-        slots: [{ dayOfWeek: 1, time: '14:00' }]
+        slots: [{ dayOfWeek: 1, time: '14:00' }],
+        sessionValue: guide.sessionValue ?? prev.sessionValue,
+        doctorId: guide.doctor?._id || guide.doctorId || prev.doctorId
       }));
     }
   }, [open, guide]);
@@ -226,6 +228,11 @@ const InsurancePlanForm = ({ open, onClose, guide, patientId }) => {
               <Typography variant="h6" sx={{ fontWeight: 700, color: '#1A2C3E', letterSpacing: '-0.01em' }}>
                 Plano de Atendimento
               </Typography>
+              {patientName && (
+                <Typography variant="body2" sx={{ color: '#2E7A5E', fontWeight: 700, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <User size={12} /> {patientName}
+                </Typography>
+              )}
               <Typography variant="caption" sx={{ color: '#5B6E8C', fontWeight: 500, mt: 0.2, display: 'block' }}>
                 Guia #{guide.number} • {guide.specialty.replace('_', ' ')} • {guide.totalSessions} sessões autorizadas
               </Typography>
@@ -295,85 +302,115 @@ const InsurancePlanForm = ({ open, onClose, guide, patientId }) => {
         )}
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-          {/* Profissional */}
-          <TextField
-            select
-            label="Profissional responsável *"
-            value={form.doctorId}
-            onChange={(e) => setForm(prev => ({ ...prev, doctorId: e.target.value }))}
-            fullWidth
-            size="small"
-            disabled={loadingDoctors}
-            InputProps={{
-              startAdornment: <User size={16} style={{ marginRight: 8, color: '#7890A7' }} />,
-              sx: { borderRadius: '14px', bgcolor: '#F9FBFD' }
-            }}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                '& fieldset': { borderColor: '#E2E8F0', transition: '0.2s' },
-                '&:hover fieldset': { borderColor: '#9BB4C8' },
-                '&.Mui-focused fieldset': { borderColor: '#2E7A5E', borderWidth: 1.5 }
-              }
-            }}
-          >
-            {loadingDoctors ? (
-              <MenuItem disabled sx={{ justifyContent: 'center' }}>
-                <CircularProgress size={16} sx={{ mr: 1 }} /> Carregando...
-              </MenuItem>
-            ) : (
-              doctors.map(doc => (
-                <MenuItem key={doc._id} value={doc._id} sx={{ fontSize: '0.85rem' }}>
-                  {doc.fullName} {doc.specialty ? `(${doc.specialty})` : ''}
-                </MenuItem>
-              ))
-            )}
-          </TextField>
+          {/* Row 1: Profissional (70%) + Data início (30%) */}
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
+            <Box sx={{ flex: 7 }}>
+              <TextField
+                select
+                label="Profissional responsável *"
+                value={form.doctorId}
+                onChange={(e) => setForm(prev => ({ ...prev, doctorId: e.target.value }))}
+                fullWidth
+                size="small"
+                disabled={loadingDoctors}
+                InputProps={{
+                  startAdornment: <User size={16} style={{ marginRight: 8, color: '#7890A7' }} />,
+                  sx: { borderRadius: '14px', bgcolor: '#F9FBFD' }
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#E2E8F0', transition: '0.2s' },
+                    '&:hover fieldset': { borderColor: '#9BB4C8' },
+                    '&.Mui-focused fieldset': { borderColor: '#2E7A5E', borderWidth: 1.5 }
+                  }
+                }}
+              >
+                {loadingDoctors ? (
+                  <MenuItem disabled sx={{ justifyContent: 'center' }}>
+                    <CircularProgress size={16} sx={{ mr: 1 }} /> Carregando...
+                  </MenuItem>
+                ) : (
+                  doctors.map(doc => (
+                    <MenuItem key={doc._id} value={doc._id} sx={{ fontSize: '0.85rem' }}>
+                      {doc.fullName} {doc.specialty ? `(${doc.specialty})` : ''}
+                    </MenuItem>
+                  ))
+                )}
+              </TextField>
+            </Box>
+            <Box sx={{ flex: 3 }}>
+              <TextField
+                label="Início *"
+                type="date"
+                value={form.startDate}
+                onChange={(e) => setForm(prev => ({ ...prev, startDate: e.target.value }))}
+                fullWidth
+                size="small"
+                InputLabelProps={{ shrink: true }}
+                InputProps={{
+                  startAdornment: <Calendar size={14} style={{ marginRight: 6, color: '#7890A7' }} />,
+                  sx: { borderRadius: '14px', bgcolor: '#F9FBFD' }
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#E2E8F0' },
+                    '&:hover fieldset': { borderColor: '#9BB4C8' },
+                    '&.Mui-focused fieldset': { borderColor: '#2E7A5E' }
+                  }
+                }}
+              />
+            </Box>
+          </Box>
 
-          {/* Frequência */}
-          <TextField
-            select
-            label="Frequência semanal *"
-            value={form.sessionsPerWeek}
-            onChange={(e) => setForm(prev => ({ ...prev, sessionsPerWeek: e.target.value }))}
-            fullWidth
-            size="small"
-            InputProps={{
-              sx: { borderRadius: '14px', bgcolor: '#F9FBFD' }
-            }}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                '& fieldset': { borderColor: '#E2E8F0' },
-                '&:hover fieldset': { borderColor: '#9BB4C8' },
-                '&.Mui-focused fieldset': { borderColor: '#2E7A5E' }
-              }
-            }}
-          >
-            {[1, 2, 3, 4, 5].map(n => (
-              <MenuItem key={n} value={n}>{n}x por semana</MenuItem>
-            ))}
-          </TextField>
-
-          {/* Data início */}
-          <TextField
-            label="Data de início *"
-            type="date"
-            value={form.startDate}
-            onChange={(e) => setForm(prev => ({ ...prev, startDate: e.target.value }))}
-            fullWidth
-            size="small"
-            InputLabelProps={{ shrink: true }}
-            InputProps={{
-              startAdornment: <Calendar size={16} style={{ marginRight: 8, color: '#7890A7' }} />,
-              sx: { borderRadius: '14px', bgcolor: '#F9FBFD' }
-            }}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                '& fieldset': { borderColor: '#E2E8F0' },
-                '&:hover fieldset': { borderColor: '#9BB4C8' },
-                '&.Mui-focused fieldset': { borderColor: '#2E7A5E' }
-              }
-            }}
-          />
+          {/* Row 2: Frequência semanal (50%) + Valor por sessão (50%) */}
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
+            <Box sx={{ flex: 1 }}>
+              <TextField
+                select
+                label="Frequência semanal *"
+                value={form.sessionsPerWeek}
+                onChange={(e) => setForm(prev => ({ ...prev, sessionsPerWeek: e.target.value }))}
+                fullWidth
+                size="small"
+                InputProps={{
+                  sx: { borderRadius: '14px', bgcolor: '#F9FBFD' }
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#E2E8F0' },
+                    '&:hover fieldset': { borderColor: '#9BB4C8' },
+                    '&.Mui-focused fieldset': { borderColor: '#2E7A5E' }
+                  }
+                }}
+              >
+                {[1, 2, 3, 4, 5].map(n => (
+                  <MenuItem key={n} value={n}>{n}x por semana</MenuItem>
+                ))}
+              </TextField>
+            </Box>
+            <Box sx={{ flex: 1 }}>
+              <TextField
+                label="Valor/sessão"
+                type="number"
+                value={form.sessionValue}
+                onChange={(e) => setForm(prev => ({ ...prev, sessionValue: e.target.value }))}
+                fullWidth
+                size="small"
+                InputProps={{
+                  startAdornment: <DollarSign size={14} style={{ marginRight: 6, color: '#7890A7' }} />,
+                  sx: { borderRadius: '14px', bgcolor: '#F9FBFD' }
+                }}
+                inputProps={{ min: 0, step: 0.01 }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#E2E8F0' },
+                    '&:hover fieldset': { borderColor: '#9BB4C8' },
+                    '&.Mui-focused fieldset': { borderColor: '#2E7A5E' }
+                  }
+                }}
+              />
+            </Box>
+          </Box>
 
           {/* Slots - Dias e horários */}
           <Box>
@@ -450,27 +487,6 @@ const InsurancePlanForm = ({ open, onClose, guide, patientId }) => {
             </Box>
           </Box>
 
-          {/* Valor tabela */}
-          <TextField
-            label="Valor por sessão (tabela convênio)"
-            type="number"
-            value={form.sessionValue}
-            onChange={(e) => setForm(prev => ({ ...prev, sessionValue: e.target.value }))}
-            fullWidth
-            size="small"
-            InputProps={{
-              startAdornment: <DollarSign size={16} style={{ marginRight: 8, color: '#7890A7' }} />,
-              sx: { borderRadius: '14px', bgcolor: '#F9FBFD' }
-            }}
-            inputProps={{ min: 0, step: 0.01 }}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                '& fieldset': { borderColor: '#E2E8F0' },
-                '&:hover fieldset': { borderColor: '#9BB4C8' },
-                '&.Mui-focused fieldset': { borderColor: '#2E7A5E' }
-              }
-            }}
-          />
         </Box>
       </DialogContent>
 

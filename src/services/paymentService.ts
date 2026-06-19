@@ -121,10 +121,19 @@ export const createInsurancePayment = (data: InsurancePaymentData) =>
     API.post<{ success: boolean; data: InsurancePayment }>('/payments/insurance', data);
 
 // Listar contas a receber de convênios (V2)
+export interface InsuranceReceivableSummary {
+    totalProviders: number;
+    grandTotal: number;
+    pendingCount: number;
+    prevMonthTotal: number | null;
+    change: number | null;
+    changePercent: number | null;
+}
+
 export const getInsuranceReceivables = (filters?: { provider?: string; status?: string; month?: string }) => {
     const key = `receivables:${filters?.month || ''}:${filters?.status || ''}:${filters?.provider || ''}`;
     return deduped(key, () =>
-        API.get<{ success: boolean; data: InsuranceReceivableGroup[]; summary: { totalProviders: number; grandTotal: number } }>(
+        API.get<{ success: boolean; data: InsuranceReceivableGroup[]; summary: InsuranceReceivableSummary }>(
             '/v2/payments/insurance/receivables',
             { params: filters }
         )
@@ -138,13 +147,21 @@ export const getInsurancePayments = (filters?: { provider?: string; status?: str
         { params: { ...filters, billingType: 'convenio' } }
     );
 
-// Faturar em lote (V2)
-export const faturarConvenioLote = (data: { paymentIds: string[]; dataFaturamento: string; notaFiscal?: string }) =>
-    API.post<{ success: boolean; data: any }>('/v2/financial/convenio/faturar-lote', data);
+// Faturar em lote (V2) - guide-based ou legacy payment-based
+export const faturarConvenioLote = (data: {
+    paymentIds?: string[];
+    guideIds?: string[];
+    dataFaturamento?: string;
+    notaFiscal?: string;
+}) => API.post<{ success: boolean; data: any; error?: string }>('/v2/financial/convenio/faturar-lote', data);
+
+// Listar guias pendentes de faturamento (guide-based)
+export const getPendingBillingGuides = (params?: { insurance?: string; patientId?: string; month?: string; page?: number; limit?: number }) =>
+    API.get<{ success: boolean; data: any[]; orphanSessions: any[]; pagination: any }>('/v2/insurance/guides/pending-billing', { params });
 
 // Receber em lote (V2)
 export const receberConvenioLote = (data: { paymentIds: string[]; dataRecebimento: string }) =>
-    API.post<{ success: boolean; data: any }>('/v2/financial/convenio/receber-lote', data);
+    API.post<{ success: boolean; data: any; error?: string }>('/v2/financial/convenio/receber-lote', data);
 
 // ✅ V2 ATIVO: Faturar convênio por sessionId (ledger + transaction garantidos)
 export const billInsuranceSession = (sessionId: string, data?: { billedAmount?: number; billedAt?: string; notes?: string }) =>

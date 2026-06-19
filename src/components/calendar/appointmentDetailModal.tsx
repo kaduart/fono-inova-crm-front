@@ -323,7 +323,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             // 🆕 NOVO: Carregar dados de pagamento do evento
             console.log('[Modal] event aberto — paymentMethod:', event.paymentMethod, '| billingType:', event.billingType, '| event completo:', event);
             setServiceType(event.serviceType || 'individual_session');
-            setBillingType(event.billingType || 'particular');
+            setBillingType(
+                event.billingType === 'liminar' ? 'liminar' :
+                (event.billingType === 'convenio' || event.paymentMethod === 'convenio') ? 'convenio' :
+                (event.billingType || 'particular')
+            );
             setPaymentAmount(event.sessionValue || event.paymentAmount || 0);
             setPaymentMethod(event.paymentMethod || '');
             setInsuranceProvider(event.insuranceProvider || '');
@@ -350,8 +354,12 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             if (event.paymentMethod && event.paymentMethod !== paymentMethod) {
                 setPaymentMethod(event.paymentMethod);
             }
-            if (event.billingType && event.billingType !== billingType) {
-                setBillingType(event.billingType);
+            if (event.billingType || event.paymentMethod) {
+                const resolved =
+                    event.billingType === 'liminar' ? 'liminar' :
+                    (event.billingType === 'convenio' || event.paymentMethod === 'convenio') ? 'convenio' :
+                    (event.billingType || 'particular');
+                if (resolved !== billingType) setBillingType(resolved);
             }
             if ((event.sessionValue || event.paymentAmount) && 
                 (event.sessionValue !== paymentAmount && event.paymentAmount !== paymentAmount)) {
@@ -386,7 +394,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         // Atualiza campos de pagamento com os dados mais recentes
                         console.log('[Modal] dados atualizados — paymentMethod:', updatedData.paymentMethod, '| payment.method:', updatedData.payment?.method);
                         setPaymentMethod(updatedData.paymentMethod || updatedData.payment?.method || '');
-                        setBillingType(updatedData.billingType || updatedData.payment?.type || 'particular');
+                        setBillingType(
+                            updatedData.billingType === 'liminar' ? 'liminar' :
+                            (updatedData.billingType === 'convenio' || updatedData.paymentMethod === 'convenio') ? 'convenio' :
+                            (updatedData.billingType || updatedData.payment?.type || 'particular')
+                        );
                         setPaymentAmount(
                             updatedData.sessionValue || 
                             updatedData.payment?.amount || 
@@ -514,7 +526,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         ? { _id: event?.extendedProps?.packageId || 'legacy' }
                         : null),
                 liminarContract: event?.liminarContract,
-                sessionValue: (addToBalance && debitAmount > 0) ? debitAmount : (paymentAmount > 0 ? paymentAmount : (event?.sessionValue ?? event?.paymentAmount ?? null)),
+                sessionValue: (addToBalance && debitAmount > 0) ? debitAmount : (getTotalPaid() > 0 ? getTotalPaid() : (event?.sessionValue ?? event?.paymentAmount ?? null)),
             });
 
             console.log('[Modal] Guard result:', guardResult);
@@ -979,45 +991,45 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         
                         {/* 🏦 TIPO DE COBRANÇA */}
                         {permissions.canSeeFinancial && (
-                            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
-                                <h3 className="text-sm font-medium text-gray-800 mb-3 flex items-center gap-2">
-                                    <DollarSign className="w-4 h-4 text-blue-600" />
-                                    Tipo de Cobrança
-                                </h3>
-                                <div className="flex gap-2 mb-4">
+                            <div className="bg-emerald-50/50 rounded-2xl border border-emerald-100 p-4">
+                                <div className="flex items-center gap-1.5 mb-3">
+                                    <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cobrança</span>
+                                </div>
+                                <div className="bg-white rounded-xl border border-gray-200 p-1 flex gap-1 mb-4">
                                     <button
                                         type="button"
                                         onClick={() => setBillingType('particular')}
-                                        className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all text-sm ${
+                                        className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                                             billingType === 'particular'
-                                                ? 'bg-green-600 text-white'
-                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                ? 'bg-green-600 text-white shadow-sm'
+                                                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
                                         }`}
                                     >
-                                        💵 Particular
+                                        Particular
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setBillingType('convenio')}
-                                        className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all text-sm ${
+                                        className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                                             billingType === 'convenio'
-                                                ? 'bg-blue-600 text-white'
-                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                ? 'bg-blue-600 text-white shadow-sm'
+                                                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
                                         }`}
                                     >
-                                        🏥 Convênio
+                                        Convênio
                                     </button>
                                     {(event?.billingType === 'liminar' || !!event?.liminarContract) && (
                                         <button
                                             type="button"
                                             onClick={() => setBillingType('liminar')}
-                                            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all text-sm ${
+                                            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                                                 billingType === 'liminar'
-                                                    ? 'bg-purple-600 text-white'
-                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                    ? 'bg-purple-600 text-white shadow-sm'
+                                                    : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
                                             }`}
                                         >
-                                            ⚖️ Liminar
+                                            Liminar
                                         </button>
                                     )}
                                 </div>
@@ -1537,32 +1549,44 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         </div>
 
                         {permissions.canSeeFinancial && (
-                            <div className="border-t border-gray-200 pt-4 space-y-3">
-                                <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                    <DollarSign className="w-4 h-4 text-green-600" />
-                                    Cobrança
-                                </p>
-                                <div className="flex gap-2">
+                            <div className="bg-emerald-50/50 rounded-2xl border border-emerald-100 p-4 space-y-3">
+                                {/* Header */}
+                                <div className="flex items-center gap-1.5">
+                                    <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cobrança</span>
+                                </div>
+
+                                {/* Toggle segmentado */}
+                                <div className="bg-white rounded-xl border border-gray-200 p-1 flex gap-1">
                                     <button type="button" onClick={() => setBillingType('particular')}
-                                        className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border transition-all ${billingType === 'particular' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:border-blue-300'}`}>
+                                        className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                            billingType === 'particular'
+                                                ? 'bg-green-600 text-white shadow-sm'
+                                                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                                        }`}>
                                         Particular
                                     </button>
                                     <button type="button" onClick={() => setBillingType('convenio')}
-                                        className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border transition-all ${billingType === 'convenio' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-gray-700 border-gray-300 hover:border-amber-300'}`}>
+                                        className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                            billingType === 'convenio'
+                                                ? 'bg-blue-600 text-white shadow-sm'
+                                                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                                        }`}>
                                         Convênio
                                     </button>
                                 </div>
+
                                 {billingType === 'particular' ? (
                                     <div className="grid grid-cols-2 gap-3">
                                         <div className="space-y-1">
-                                            <label className="text-xs font-medium text-gray-600">Valor (R$)</label>
+                                            <label className="text-xs font-medium text-gray-500">Valor (R$)</label>
                                             <InputCurrency value={paymentAmount} onChange={setPaymentAmount}
-                                                className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+                                                className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-400 bg-white" />
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-xs font-medium text-gray-600">Método</label>
+                                            <label className="text-xs font-medium text-gray-500">Método</label>
                                             <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}
-                                                className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white">
+                                                className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-400 bg-white">
                                                 <option value="">Selecione</option>
                                                 <option value="pix">Pix</option>
                                                 <option value="dinheiro">Dinheiro</option>
@@ -1577,21 +1601,21 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     <div className="space-y-3">
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="space-y-1">
-                                                <label className="text-xs font-medium text-gray-600">Convênio</label>
+                                                <label className="text-xs font-medium text-gray-500">Convênio</label>
                                                 <input type="text" value={insuranceProvider} onChange={(e) => setInsuranceProvider(e.target.value)}
-                                                    className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500"
+                                                    className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 bg-white"
                                                     placeholder="Nome do plano" />
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-xs font-medium text-gray-600">Valor (R$)</label>
-                                                <InputCurrency value={insuranceValue} onChange={setInsuranceValue}
-                                                    className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500" />
+                                                <label className="text-xs font-medium text-gray-500">Valor (R$)</label>
+                                                <InputCurrency name="insuranceValue" value={insuranceValue} onChange={(e) => setInsuranceValue(Number(e.target.value))}
+                                                    className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400" />
                                             </div>
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-xs font-medium text-gray-600">Código de Autorização</label>
+                                            <label className="text-xs font-medium text-gray-500">Código de Autorização</label>
                                             <input type="text" value={authorizationCode} onChange={(e) => setAuthorizationCode(e.target.value)}
-                                                className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500"
+                                                className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 bg-white"
                                                 placeholder="Opcional" />
                                         </div>
                                     </div>

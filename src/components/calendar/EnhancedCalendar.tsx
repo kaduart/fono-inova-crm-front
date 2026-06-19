@@ -486,7 +486,13 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             start: formattedDate,
             reason: data.reason || data.notes || extendedProps.reason || extendedProps.notes || "",
             notes: data.notes || extendedProps.notes || "",
-            billingType: data.billingType || extendedProps.billingType || 'particular',
+            billingType: (() => {
+                const bt = data.billingType || extendedProps.billingType;
+                const pm = data.paymentMethod || extendedProps.paymentMethod;
+                if (bt === 'liminar') return 'liminar';
+                if (bt === 'convenio' || pm === 'convenio') return 'convenio';
+                return bt || 'particular';
+            })(),
             insuranceProvider: data.insuranceProvider || extendedProps.insuranceProvider || '',
             insuranceValue: data.insuranceValue || extendedProps.insuranceValue || 0,
             authorizationCode: data.authorizationCode || extendedProps.authorizationCode || '',
@@ -534,7 +540,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             start: formattedDate,
             reason: appt.reason || appt.notes || "",
             notes: appt.notes || "",
-            billingType: appt.billingType || 'particular',
+            billingType: appt.billingType === 'liminar' ? 'liminar' :
+                (appt.billingType === 'convenio' || appt.paymentMethod === 'convenio') ? 'convenio' :
+                (appt.billingType || 'particular'),
             insuranceProvider: appt.insuranceProvider || '',
             insuranceValue: appt.insuranceValue || 0,
             authorizationCode: appt.authorizationCode || '',

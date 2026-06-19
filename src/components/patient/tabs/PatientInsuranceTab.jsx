@@ -55,7 +55,7 @@ import InsurancePlanForm from './InsurancePlanForm';
 // ----------------------------------------------------------------------
 // Componente principal
 // ----------------------------------------------------------------------
-const PatientInsuranceTab = ({ patientId }) => {
+const PatientInsuranceTab = ({ patientId, patientName }) => {
   const [selectedSpecialty, setSelectedSpecialty] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -544,6 +544,7 @@ const PatientInsuranceTab = ({ patientId }) => {
         onClose={handleClosePlanForm}
         guide={planFormGuide}
         patientId={patientId}
+        patientName={patientName}
       />
 
       <GuideDetailsModal
@@ -676,64 +677,55 @@ const GuideSection = ({ title, count, guides, color, onOpenMenu, onCreatePlan })
 // ----------------------------------------------------------------------
 // Componente de card individual (premium, clean, informativo)
 // ----------------------------------------------------------------------
-const SPECIALTY_BG_COLORS = {
-  fonoaudiologia: '#F0F7FF',
-  psicologia: '#F5F0FF',
-  fisioterapia: '#F0FFF4',
-  psicomotricidade: '#FFF7ED',
-  terapia_ocupacional: '#FFF0F0',
-  musicoterapia: '#FFFBF0',
-  psicopedagogia: '#F0FFFA',
-  neuropsicologia: '#F5F0FF'
-};
 
-const SPECIALTY_BORDER_COLORS = {
-  fonoaudiologia: '#BFDBFE',
-  psicologia: '#DDD6FE',
-  fisioterapia: '#BBF7D0',
-  psicomotricidade: '#FED7AA',
-  terapia_ocupacional: '#FECACA',
-  musicoterapia: '#FDE68A',
-  psicopedagogia: '#A7F3D0',
-  neuropsicologia: '#DDD6FE'
+const SPECIALTY_THEMES = {
+  fonoaudiologia:    { from: '#1E40AF', to: '#2563EB', light: '#EFF6FF', border: '#BFDBFE', text: '#1E40AF' },
+  psicologia:        { from: '#5B21B6', to: '#7C3AED', light: '#F5F3FF', border: '#DDD6FE', text: '#5B21B6' },
+  fisioterapia:      { from: '#065F46', to: '#059669', light: '#ECFDF5', border: '#A7F3D0', text: '#065F46' },
+  psicomotricidade:  { from: '#92400E', to: '#D97706', light: '#FFFBEB', border: '#FDE68A', text: '#92400E' },
+  terapia_ocupacional:{ from: '#991B1B', to: '#DC2626', light: '#FEF2F2', border: '#FECACA', text: '#991B1B' },
+  psicopedagogia:    { from: '#065F46', to: '#10B981', light: '#F0FDF4', border: '#BBF7D0', text: '#065F46' },
+  neuropsicologia:   { from: '#4C1D95', to: '#6D28D9', light: '#F5F3FF', border: '#DDD6FE', text: '#4C1D95' },
+  musicoterapia:     { from: '#78350F', to: '#D97706', light: '#FFFBEB', border: '#FDE68A', text: '#78350F' },
 };
 
 const GuideCard = ({ guide, onOpenMenu, onCreatePlan }) => {
   const remaining = guide.remaining ?? (guide.totalSessions - (guide.usedSessions || 0));
   const usedSessions = guide.usedSessions || 0;
-  const specialtyBg = SPECIALTY_BG_COLORS[guide.specialty] || '#FFFFFF';
-  const specialtyBorder = SPECIALTY_BORDER_COLORS[guide.specialty] || '#E2E8F0';
-  const percentage = (usedSessions / guide.totalSessions) * 100;
-  const daysUntilExpiration = differenceInDays(parseISO(guide.expiresAt), new Date());
-
-  // Status visual decisivo — foco em ação, não em descrição
-  let statusColor = '#2E7A5E';
-  let statusLabel = 'Disponível';
-
-  if (guide.status === 'cancelled') {
-    statusColor = '#A0AABF';
-    statusLabel = 'Cancelada';
-  } else if (guide.status === 'expired' || daysUntilExpiration < 0) {
-    statusColor = '#8A99B0';
-    statusLabel = 'Vencida';
-  } else if (remaining === 0) {
-    statusColor = '#C75146';
-    statusLabel = 'Esgotada';
-  } else if (remaining <= 2) {
-    statusColor = '#ED6C02';
-    statusLabel = 'Poucas sessões';
-  }
-
-  const specialtyFormatted = guide.specialty
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-  const insuranceFormatted = guide.insurance
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+  const daysUntilExpiration = guide.expiresAt
+    ? differenceInDays(parseISO(guide.expiresAt), new Date())
+    : 999;
 
   const canUse = (guide.status === 'active' || guide.status === 'linked') && remaining > 0 && daysUntilExpiration >= 0;
+  const progressPct = guide.totalSessions > 0 ? Math.min((usedSessions / guide.totalSessions) * 100, 100) : 0;
+
+  let statusLabel = 'Disponível';
+  let statusBg = 'rgba(255,255,255,0.25)';
+  if (guide.status === 'cancelled')                           { statusLabel = 'Cancelada'; statusBg = 'rgba(255,255,255,0.15)'; }
+  else if (guide.status === 'expired' || daysUntilExpiration < 0) { statusLabel = 'Vencida';    statusBg = 'rgba(255,255,255,0.15)'; }
+  else if (remaining === 0)                                   { statusLabel = 'Esgotada';  statusBg = 'rgba(239,68,68,0.35)'; }
+  else if (remaining <= 2)                                    { statusLabel = 'Poucas sessões'; statusBg = 'rgba(249,115,22,0.35)'; }
+  else if (daysUntilExpiration <= 14)                         { statusLabel = 'Vence em breve'; statusBg = 'rgba(249,115,22,0.35)'; }
+
+  const theme = SPECIALTY_THEMES[guide.specialty] || { from: '#1B4D6E', to: '#2E7A5E', light: '#F0FFF4', border: '#A7F3D0', text: '#1B4D6E' };
+
+  const specialtyFormatted = guide.specialty
+    .split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  const insuranceFormatted = guide.insurance
+    .split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+    .replace('Anapolis', 'Anápolis').replace('Goiania', 'Goiânia').replace('Saude', 'Saúde');
+
+  const expiryLabel = !guide.expiresAt ? null
+    : daysUntilExpiration < 0   ? `⚠️ Venceu em ${format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}`
+    : daysUntilExpiration === 0 ? '🔴 Vence hoje'
+    : daysUntilExpiration <= 7  ? `🟠 Expira em ${format(parseISO(guide.expiresAt), 'dd/MM/yyyy')} (${daysUntilExpiration}d)`
+    : daysUntilExpiration <= 30 ? `🟡 Expira em ${format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}`
+    :                              `Expira em ${format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}`;
+
+  const expiryColor = daysUntilExpiration < 0 ? '#C75146'
+    : daysUntilExpiration <= 7  ? '#EA580C'
+    : daysUntilExpiration <= 30 ? '#D97706'
+    : '#8A99B0';
 
   return (
     <motion.div
@@ -743,136 +735,110 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan }) => {
       transition={{ duration: 0.2 }}
       style={{ height: '100%' }}
     >
-      <Card
-        elevation={0}
-        sx={{
-          height: '100%',
-          borderRadius: '16px',
-          border: '1px solid',
-          borderColor: canUse ? specialtyBorder : '#EDF2F7',
-          backgroundColor: specialtyBg,
-          transition: 'all 0.2s ease',
-          '&:hover': {
-            transform: 'translateY(-2px)',
-            boxShadow: canUse ? `0 8px 16px -6px ${specialtyBorder}80` : '0 8px 16px -6px rgba(0,0,0,0.06)',
-            borderColor: canUse ? specialtyBorder : '#E2E8F0'
-          },
-          position: 'relative',
-          overflow: 'hidden'
-        }}
+      <div
+        className="bg-white rounded-2xl shadow-md border border-gray-200 hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col h-full"
+        style={{ opacity: canUse ? 1 : 0.75 }}
       >
-        {/* Barra lateral de status — guia visual imediato */}
-        <Box sx={{
-          position: 'absolute',
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: '4px',
-          bgcolor: statusColor,
-          opacity: canUse ? 1 : 0.4
-        }} />
+        {/* ── Gradient Header ── */}
+        <div
+          className="px-4 pt-3 pb-4 relative"
+          style={{ background: `linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)` }}
+        >
+          <IconButton
+            size="small"
+            onClick={(e) => onOpenMenu(e, guide)}
+            sx={{ position: 'absolute', top: 6, right: 6, color: 'rgba(255,255,255,0.65)', p: 0.4, '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.15)', borderRadius: '8px' } }}
+          >
+            <MoreVertical size={15} />
+          </IconButton>
 
-        <CardContent sx={{ pl: 2.8, pr: 2, py: 2, '&:last-child': { pb: 2 } }}>
-          {/* Linha 1: número + menu */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-            <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', color: '#1A2C3E', letterSpacing: '-0.3px' }}>
-              #{guide.number}
-            </Typography>
-            <IconButton
-              size="small"
-              onClick={(e) => onOpenMenu(e, guide)}
-              sx={{ color: '#A0AABF', p: 0.4, '&:hover': { color: '#5B6E8C' } }}
+          <div className="text-white/60 text-xs font-mono mb-0.5">#{guide.number}</div>
+          <div className="text-white font-bold text-[1rem] leading-tight pr-6">{specialtyFormatted}</div>
+          <div className="text-white/70 text-xs mt-0.5">{insuranceFormatted}{guide.createdAt && ` • ${format(parseISO(guide.createdAt), 'dd/MM/yyyy')}`}</div>
+
+          <div className="mt-2.5">
+            <span
+              className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold text-white uppercase tracking-wide"
+              style={{ backgroundColor: statusBg, backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.3)' }}
             >
-              <MoreVertical size={15} />
-            </IconButton>
-          </Box>
-
-          {/* Linha 2: especialidade — destaque principal */}
-          <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', color: '#1A2C3E', mb: 0.25 }}>
-            {specialtyFormatted}
-          </Typography>
-
-          {/* Linha 3: convênio + data */}
-          <Typography sx={{ fontSize: '0.7rem', color: '#8A99B0', mb: 2 }}>
-            {insuranceFormatted}
-            {guide.createdAt && ` • ${format(parseISO(guide.createdAt), 'dd/MM/yyyy')}`}
-          </Typography>
-
-          {/* Status + barra empilhada + contadores */}
-          <Box sx={{ mb: 1.5 }}>
-            <Typography sx={{ fontSize: '0.65rem', color: statusColor, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', mb: 0.75 }}>
               {statusLabel}
-            </Typography>
+            </span>
+          </div>
+        </div>
 
-            {/* Barra empilhada: verde = feitas, índigo = disponíveis */}
-            <Box sx={{ display: 'flex', borderRadius: '6px', overflow: 'hidden', height: 7, bgcolor: '#E9EEF2', mb: 0.75 }}>
-              <Box sx={{
-                width: `${Math.min((usedSessions / guide.totalSessions) * 100, 100)}%`,
-                bgcolor: '#10B981',
-                transition: 'width 0.5s'
-              }} />
-              <Box sx={{
-                width: `${Math.min((remaining / guide.totalSessions) * 100, 100 - (usedSessions / guide.totalSessions) * 100)}%`,
-                bgcolor: '#6366F1',
-                opacity: 0.3
-              }} />
-            </Box>
+        {/* ── Progress section ── */}
+        <div className="px-4 py-3 border-b" style={{ backgroundColor: theme.light, borderColor: theme.border }}>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-semibold text-gray-600">Progresso clínico</span>
+            <span className="text-xs font-bold" style={{ color: theme.text }}>{usedSessions} / {guide.totalSessions}</span>
+          </div>
 
-            {/* Contadores */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: '#10B981', flexShrink: 0 }} />
-                <Typography sx={{ fontSize: '0.7rem', color: '#065F46', fontWeight: 700, lineHeight: 1 }}>
-                  {usedSessions} feitas
-                </Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: '#6366F1', flexShrink: 0 }} />
-                <Typography sx={{ fontSize: '0.7rem', color: '#3730A3', fontWeight: 700, lineHeight: 1 }}>
-                  {remaining} dispon.
-                </Typography>
-              </Box>
-              <Typography sx={{ fontSize: '0.7rem', color: '#A0AABF', ml: 'auto', lineHeight: 1 }}>
-                /{guide.totalSessions}
-              </Typography>
-            </Box>
-          </Box>
+          <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden mb-2">
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{ width: `${progressPct}%`, background: `linear-gradient(90deg, ${theme.from}, ${theme.to})` }}
+            />
+          </div>
 
-          {/* Validade */}
-          <Typography sx={{ fontSize: '0.7rem', color: daysUntilExpiration < 0 ? '#C75146' : daysUntilExpiration <= 7 ? '#ED6C02' : '#8A99B0', mb: canUse && onCreatePlan ? 1.5 : 0, fontWeight: 500 }}>
-            {daysUntilExpiration < 0
-              ? `Venceu em ${format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}`
-              : daysUntilExpiration === 0
-                ? 'Vence hoje'
-                : `Expira em ${format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}`}
-          </Typography>
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: theme.text }}>
+              <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: theme.to }} />
+              {usedSessions} feitas
+            </span>
+            <span className="flex items-center gap-1 text-xs font-semibold text-indigo-600">
+              <span className="w-2 h-2 rounded-full bg-indigo-400 inline-block" />
+              {remaining} dispon.
+            </span>
+            <span className="text-xs text-gray-400 ml-auto">/{guide.totalSessions}</span>
+          </div>
+        </div>
 
-          {/* Ação — só se faz sentido usar */}
-          {canUse && onCreatePlan && (
-            <Button
-              size="small"
-              variant="contained"
-              fullWidth
-              disableElevation
-              onClick={() => onCreatePlan(guide)}
-              startIcon={<Calendar size={13} />}
-              sx={{
-                textTransform: 'none',
-                borderRadius: '10px',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                bgcolor: '#1B4D6E',
-                color: '#fff',
-                mt: 1.5,
-                py: 0.8,
-                '&:hover': { bgcolor: '#123F5A' }
-              }}
-            >
-              Agendar com guia
-            </Button>
+        {/* ── Financial details ── */}
+        <div className="px-4 py-3 flex-1 flex flex-col gap-1.5">
+          {guide.sessionValue > 0 && (
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-gray-500">Valor/sessão</span>
+              <span className="text-xs font-bold text-gray-900">
+                {Number(guide.sessionValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </span>
+            </div>
           )}
-        </CardContent>
-      </Card>
+          {guide.totalValue > 0 && (
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-gray-500">Total autorizado</span>
+              <span className="text-xs font-bold" style={{ color: theme.text }}>
+                {Number(guide.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </span>
+            </div>
+          )}
+          {guide.doctor?.fullName && (
+            <div className="flex justify-between items-center gap-2">
+              <span className="text-xs text-gray-500 shrink-0">Profissional</span>
+              <span className="text-xs font-semibold text-gray-700 text-right truncate">{guide.doctor.fullName}</span>
+            </div>
+          )}
+
+          {expiryLabel && (
+            <div className="mt-auto pt-2" style={{ color: expiryColor }}>
+              <span className="text-xs font-medium">{expiryLabel}</span>
+            </div>
+          )}
+        </div>
+
+        {/* ── Action button ── */}
+        {canUse && onCreatePlan && (
+          <div className="px-4 pb-4">
+            <button
+              onClick={() => onCreatePlan(guide)}
+              className="w-full py-2.5 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
+              style={{ background: `linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)`, boxShadow: `0 4px 12px -2px ${theme.from}60` }}
+            >
+              <Calendar size={14} />
+              Agendar com guia
+            </button>
+          </div>
+        )}
+      </div>
     </motion.div>
   );
 };

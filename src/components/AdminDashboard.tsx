@@ -589,6 +589,34 @@ export default function AdminDashboard() {
 
     const handleEditAppointment = useCallback(async (appointmentId: string, updatedData: UpdateAppointmentParams) => {
         console.log('🔄 [AdminDashboard] Editando agendamento:', appointmentId, updatedData);
+
+        // ✅ Appointment já completed → vai direto para admin-edit, sem PUT → 409
+        if ((updatedData as any).operationalStatus === 'completed') {
+            try {
+                const adminPayload = { ...updatedData, adminReason: 'Correção administrativa em atendimento finalizado' };
+                console.log('🔓 [AdminDashboard] Completed detectado — admin-edit direto:', JSON.stringify(adminPayload));
+                const adminResult = await API.patch(`/v2/appointments/${appointmentId}/admin-edit`, adminPayload);
+                console.log('🔓 [AdminDashboard] admin-edit response:', JSON.stringify(adminResult?.data));
+                if (adminResult?.data?.success !== true) {
+                    const errMsg = adminResult?.data?.error || adminResult?.data?.message || 'Falha ao salvar alterações';
+                    toast.error(`❌ ${errMsg}`, { id: `admin-edit-error-${appointmentId}` });
+                    return;
+                }
+                setCloseModalSignal(prev => prev + 1);
+                toast.success('✅ Agendamento atualizado (admin)!');
+                await fetchAppointments({ ...calendarDateRange, force: true });
+                window.dispatchEvent(new CustomEvent('appointments:refresh', {
+                    detail: { appointmentId, timestamp: Date.now() }
+                }));
+                window.dispatchEvent(new CustomEvent('cash:refresh'));
+                return;
+            } catch (adminErr: any) {
+                const adminMsg = extractErrorMessage(adminErr, 'Erro no admin-edit');
+                toast.error(`❌ ${adminMsg}`, { id: `admin-edit-error-${appointmentId}` });
+                return;
+            }
+        }
+
         try {
             const result = await updateAppointment(appointmentId, updatedData);
             
@@ -640,22 +668,29 @@ export default function AdminDashboard() {
             // Admin e secretária podem editar atendimentos finalizados via admin-edit
             if (errorData?.code === 'CANNOT_EDIT_COMPLETED_APPOINTMENT') {
                 try {
-                    console.log('🔓 [AdminDashboard] Redirecionando para admin-edit (completed):', appointmentId);
-                    await API.patch(`/v2/appointments/${appointmentId}/admin-edit`, {
-                        ...updatedData,
-                        adminReason: 'Correção administrativa em atendimento finalizado'
-                    });
-                    toast.success('✅ Agendamento atualizado (admin)!');
+                    const adminPayload = { ...updatedData, adminReason: 'Correção administrativa em atendimento finalizado' };
+                    console.log('🔓 [AdminDashboard] admin-edit payload:', JSON.stringify(adminPayload));
+                    const adminResult = await API.patch(`/v2/appointments/${appointmentId}/admin-edit`, adminPayload);
+                    console.log('🔓 [AdminDashboard] admin-edit response:', JSON.stringify(adminResult?.data));
+                    if (adminResult?.data?.success !== true) {
+                        const errMsg = adminResult?.data?.error || adminResult?.data?.message || 'Falha ao salvar alterações administrativas';
+                        toast.error(`❌ ${errMsg}`, { id: `admin-edit-error-${appointmentId}` });
+                        return;
+                    }
+                    // Fecha o modal PRIMEIRO — evita que fique aberto ao receber eventos
                     setCloseModalSignal(prev => prev + 1);
+                    toast.success('✅ Agendamento atualizado (admin)!');
+                    // Depois do modal fechado, atualiza o calendário e o financeiro
                     await fetchAppointments({ ...calendarDateRange, force: true });
-                    window.dispatchEvent(new CustomEvent('appointments:data-updated', {
+                    window.dispatchEvent(new CustomEvent('appointments:refresh', {
                         detail: { appointmentId, timestamp: Date.now() }
                     }));
+                    window.dispatchEvent(new CustomEvent('cash:refresh'));
                     return;
                 } catch (adminErr: any) {
                     const adminMsg = extractErrorMessage(adminErr, 'Erro no admin-edit');
                     toast.error(`❌ ${adminMsg}`, { id: `admin-edit-error-${appointmentId}` });
-                    throw adminErr;
+                    return; // não propaga — modal já mostraria toast duplicado
                 }
             }
 
