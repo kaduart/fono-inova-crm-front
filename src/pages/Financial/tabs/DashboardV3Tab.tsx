@@ -965,6 +965,11 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
               <div className="text-lg leading-none mb-0.5">💵</div>
               <p className="text-sm font-black" style={{ color: '#059669' }}>{formatCurrency(caixaTotal)}</p>
               <p className="text-[11px] text-gray-600 font-medium leading-tight">Caixa recebido</p>
+              {totalAntecipacoes > 0 && (
+                <p className="text-[10px] text-gray-400 leading-tight mt-0.5">
+                  inclui {formatCurrency(totalAntecipacoes)} de meses ant.
+                </p>
+              )}
             </div>
             <div className="text-center">
               <div className="text-lg leading-none mb-0.5">🏥</div>
@@ -1159,6 +1164,11 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                       <p className={`text-[11px] font-bold mt-0.5 ${isGood ? 'text-emerald-600' : 'text-rose-500'}`}>
                         {isUp ? '↑' : '↓'} {Math.abs(diff).toFixed(1)}%
                       </p>
+                      {item.name === 'Caixa' && totalAntecipacoes > 0 && (
+                        <p className="text-[10px] text-sky-500 mt-0.5 leading-tight">
+                          ↩ {formatCurrency(totalAntecipacoes)} retroativos
+                        </p>
+                      )}
                     </div>
                   );
                 })}
@@ -1264,6 +1274,11 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                   </span>
                 )}
               </p>
+              {totalAntecipacoes > 0 && (
+                <p className="text-xs text-sky-600 mb-3">
+                  ↩ Inclui {formatCurrency(totalAntecipacoes)} de retroativos de meses anteriores
+                </p>
+              )}
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs text-gray-500">
                   <span>Meta do mês atingida em <strong>produção</strong></span>

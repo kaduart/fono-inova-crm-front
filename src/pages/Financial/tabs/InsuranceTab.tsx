@@ -35,13 +35,15 @@ import {
     ChevronDown,
     ChevronUp,
     TrendingUp,
-    TrendingDown
+    TrendingDown,
+    History
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import InputCurrency from '../../../components/ui/InputCurrency';
 import { PatientAccordionSection } from './PatientAccordionSection';
 import GuidePendingBillingSection, { PendingGuide } from './GuidePendingBillingSection';
+import InsuranceHistorySection from './InsuranceHistorySection';
 import ConvenioManagerModal from '../components/ConvenioManagerModal';
 import doctorService from '../../../services/doctorService';
 import { usePatients } from '../../../hooks/usePatients';
@@ -770,9 +772,10 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 <div className="px-3 pt-3 pb-3 border-b border-gray-100">
                     <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
                         {[
-                            { label: `A Faturar (${pendingGuides.length})`,                          icon: <Clock size={15} /> },
-                            { label: `Faturados (${countByStatus('billed')})`,          icon: <Send size={15} /> },
-                            { label: `Recebidos (${countByStatus('received')})`,        icon: <CheckCircle size={15} /> },
+                            { label: `A Faturar (${pendingGuides.length})`,         icon: <Clock size={15} /> },
+                            { label: `Faturados (${countByStatus('billed')})`,      icon: <Send size={15} /> },
+                            { label: `Recebidos (${countByStatus('received')})`,    icon: <CheckCircle size={15} /> },
+                            { label: 'Histórico',                                   icon: <History size={15} /> },
                         ].map((tab, i) => (
                             <button key={i} onClick={() => setSubTab(i)}
                                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 ${
@@ -864,7 +867,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 )}
 
                 <Box sx={{ p: 3 }}>
-                    {subTab === 0 ? (
+                    {subTab === 3 ? (
+                        <InsuranceHistorySection activeYear={year} />
+                    ) : subTab === 0 ? (
                         <GuidePendingBillingSection
                             guides={pendingGuides}
                             selectedGuides={selectedGuides}

@@ -1,14 +1,7 @@
-/**
- * 🚀 DashboardContent Otimizado
- * 
- * Versão otimizada do DashboardContent com:
- * - Props vindas do useDashboard hook (chamada única de API)
- * - React.memo para prevenir re-renders desnecessários
- * - Skeleton loading states
- * - Lazy loading de componentes pesados
- */
-
-import { Activity, ChevronDown, ChevronUp, Clock, DollarSign, Stethoscope, UserPlus, Users, RefreshCw } from 'lucide-react';
+import {
+    Activity, BarChart3, Cake, ChevronDown, ChevronUp,
+    Clock, DollarSign, Eye, RefreshCw, Stethoscope, UserPlus, Users
+} from 'lucide-react';
 import React, { memo, useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { Skeleton as MuiSkeleton } from '@mui/material';
 import { mapPatientListResponseDTO } from '../../dtos/patient.response.dto';
@@ -18,17 +11,11 @@ import {
     DoctorOverview,
     UpcomingAppointment
 } from '../../services/dashboardService';
-import { Button } from '../ui/Button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../ui/Card';
-import { Skeleton } from '../ui/Skeleton';
-import { LoadingSpinner } from '../ui/LoadingSpinner';
 
-// Importações diretas (lazy removido temporariamente devido a erro)
 import BirthdayCard from '../patients/BirthdayCard';
 import PatientTable from '../patients/PatientTable';
 
 interface DashboardContentOptimizedProps {
-    // Dados do dashboard (vindos do useDashboard)
     stats: DashboardStats | null;
     charts: import('../../services/dashboardService').DashboardCharts | null;
     doctors: DoctorOverview[];
@@ -36,8 +23,6 @@ interface DashboardContentOptimizedProps {
     patients: any[];
     loading: boolean;
     onRefresh: () => Promise<void>;
-
-    // Handlers
     handleAddProfessional: () => void;
     handleAddPatient: () => void;
     setPatientToEdit: (patient: any) => void;
@@ -49,25 +34,18 @@ interface DashboardContentOptimizedProps {
     onDeletePatient?: (patient: any) => void;
 }
 
-// Componente de skeleton para métricas
-const MetricCardSkeleton = memo(() => (
-    <Card className="border border-gray-200 rounded-lg">
-        <CardHeader className="pb-2">
-            <div className="flex items-center space-x-2">
-                <Skeleton className="h-5 w-5 rounded" />
-                <Skeleton className="h-4 w-24" />
-            </div>
-        </CardHeader>
-        <CardContent>
-            <Skeleton className="h-8 w-16 mb-1" />
-            <Skeleton className="h-3 w-32" />
-        </CardContent>
-    </Card>
-));
+// --- Skeletons ---
 
+const MetricCardSkeleton = memo(() => (
+    <div className="rounded-2xl p-5 bg-white border border-gray-100 shadow-sm space-y-3 animate-pulse">
+        <div className="w-11 h-11 rounded-xl bg-gray-100" />
+        <div className="h-8 w-20 bg-gray-100 rounded-lg" />
+        <div className="h-3 w-24 bg-gray-100 rounded" />
+        <div className="h-3 w-16 bg-gray-50 rounded" />
+    </div>
+));
 MetricCardSkeleton.displayName = 'MetricCardSkeleton';
 
-// Skeleton que espelha o layout do BirthdayCard (3 colunas × 2 linhas)
 const BirthdayCardSkeleton = memo(() => (
     <div className="flex flex-wrap gap-4 p-4">
         {Array.from({ length: 6 }).map((_, i) => (
@@ -82,7 +60,7 @@ const BirthdayCardSkeleton = memo(() => (
                         </div>
                     </div>
                 </div>
-                <MuiSkeleton variant="rounded" width="100%" height={44} sx={{ borderRadius: 12, bgcolor: '#EDF2F720' }} />
+                <MuiSkeleton variant="rounded" width="100%" height={44} sx={{ borderRadius: 12 }} />
                 <div className="flex justify-end gap-2">
                     <MuiSkeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 10 }} />
                     <MuiSkeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 10 }} />
@@ -92,102 +70,98 @@ const BirthdayCardSkeleton = memo(() => (
         ))}
     </div>
 ));
-
 BirthdayCardSkeleton.displayName = 'BirthdayCardSkeleton';
 
-// Componente de métrica memoizado
+// --- MetricCard ---
+
 interface MetricCardProps {
     title: string;
     value: number | string;
     subtitle: string;
     icon: React.ReactNode;
     colorClass: string;
-    bgClass: string;
+    iconBgClass: string;
     onAction?: () => void;
     actionIcon?: React.ReactNode;
 }
 
 const MetricCard = memo<MetricCardProps>(({
-    title,
-    value,
-    subtitle,
-    icon,
-    colorClass,
-    bgClass,
-    onAction,
-    actionIcon
+    title, value, subtitle, icon, colorClass, iconBgClass, onAction, actionIcon
 }) => (
-    <Card className={`${bgClass} border border-gray-200 rounded-lg hover:shadow-md transition-shadow`}>
-        <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                    <span className={colorClass}>{icon}</span>
-                    <CardTitle className={`text-sm ${colorClass}`}>
-                        {title}
-                    </CardTitle>
-                </div>
-                {onAction && actionIcon && (
-                    <button
-                        onClick={onAction}
-                        className={`p-1 rounded hover:bg-white/50 transition-colors ${colorClass}`}
-                    >
-                        {actionIcon}
-                    </button>
-                )}
+    <div className="relative rounded-2xl p-5 bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 group">
+        <div className="flex items-start justify-between mb-4">
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${iconBgClass} shrink-0`}>
+                <span className={colorClass}>{icon}</span>
             </div>
-        </CardHeader>
-        <CardContent>
-            <div className={`text-3xl font-bold ${colorClass}`}>{value}</div>
-            <p className={`text-xs mt-1 ${colorClass} opacity-80`}>{subtitle}</p>
-        </CardContent>
-    </Card>
+            {onAction && actionIcon && (
+                <button
+                    onClick={onAction}
+                    className={`p-1.5 rounded-lg hover:bg-gray-100 transition-all ${colorClass} opacity-0 group-hover:opacity-100`}
+                >
+                    {actionIcon}
+                </button>
+            )}
+        </div>
+        <div className={`text-3xl font-extrabold ${colorClass} tracking-tight mb-1`}>{value}</div>
+        <p className="text-sm font-semibold text-gray-700 leading-tight">{title}</p>
+        <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>
+    </div>
 ));
-
 MetricCard.displayName = 'MetricCard';
 
-// Componente de accordion memoizado
+// --- AccordionSection ---
+
 interface AccordionSectionProps {
     title: string;
     isOpen: boolean;
     onToggle: () => void;
     children: React.ReactNode;
-    headerClassName: string;
-    icon?: string;
+    iconNode: React.ReactNode;
+    iconBg: string;
+    iconColor: string;
     badge?: React.ReactNode;
 }
 
 const AccordionSection = memo<AccordionSectionProps>(({
-    title,
-    isOpen,
-    onToggle,
-    children,
-    headerClassName,
-    icon,
-    badge
+    title, isOpen, onToggle, children, iconNode, iconBg, iconColor, badge
 }) => (
-    <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden">
+    <div className="mb-4 rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-white">
         <button
-            className={`flex justify-between items-center w-full p-4 text-left font-semibold transition-colors ${headerClassName}`}
+            className="flex justify-between items-center w-full px-5 py-4 text-left hover:bg-gray-50/70 transition-colors"
             onClick={onToggle}
         >
-            <span className="flex items-center gap-2 flex-wrap">
-                {icon && <span>{icon}</span>}
-                {title}
+            <span className="flex items-center gap-3 flex-wrap">
+                <span className={`w-9 h-9 rounded-xl flex items-center justify-center ${iconBg} shrink-0`}>
+                    <span className={iconColor}>{iconNode}</span>
+                </span>
+                <span className="font-semibold text-gray-800 text-[15px]">{title}</span>
                 {badge}
             </span>
-            {isOpen ? <ChevronUp size={22} /> : <ChevronDown size={22} />}
+            <ChevronDown
+                size={18}
+                className={`text-gray-400 transition-transform duration-300 shrink-0 ml-3 ${isOpen ? 'rotate-180' : ''}`}
+            />
         </button>
         {isOpen && (
-            <div className="bg-white p-4">
+            <div className="border-t border-gray-100 p-5">
                 {children}
             </div>
         )}
     </div>
 ));
-
 AccordionSection.displayName = 'AccordionSection';
 
-// Componente principal
+// --- SectionDivider ---
+
+const SectionLabel = ({ label }: { label: string }) => (
+    <div className="flex items-center gap-3 mb-3">
+        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">{label}</span>
+        <div className="flex-1 h-px bg-gray-100" />
+    </div>
+);
+
+// --- Main Component ---
+
 const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     stats,
     charts,
@@ -204,9 +178,8 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     setSelectedPatient,
     setPaymentContext,
     setPaymentModalOpen,
-    onDeletePatient
+    onDeletePatient,
 }) => {
-    // Aniversariantes hoje (calculado direto da prop patients, sem lazy fetch)
     const todayBirthdayCount = useMemo(() => {
         if (!patients?.length) return 0;
         const now = new Date();
@@ -217,14 +190,12 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
         }).length;
     }, [patients]);
 
-    // Estados dos accordions
     const [birthdaySectionOpen, setBirthdaySectionOpen] = useState(false);
     const [patientsTableOpen, setPatientsTableOpen] = useState(true);
     const [metricsSectionOpen, setMetricsSectionOpen] = useState(true);
     const [overviewSectionOpen, setOverviewSectionOpen] = useState(true);
     const [showAllDoctors, setShowAllDoctors] = useState(false);
 
-    // Aniversariantes — carregados só ao abrir o accordion
     const [aniversariantes, setAniversariantes] = useState<Array<{
         _id: string; fullName: string; dateOfBirth: string; phone?: string; daysUntil: number;
     }>>([]);
@@ -249,105 +220,57 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
         if (birthdaySectionOpen) fetchAniversariantes();
     }, [birthdaySectionOpen, fetchAniversariantes]);
 
-    // Memoizar cálculos
     const formatCurrency = (value: number) =>
         new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
-    // Garantir que arrays existam
     const safeDoctors = doctors || [];
     const safeAppointments = upcomingAppointments || [];
     const safePatients = useMemo(() => mapPatientListResponseDTO(patients || []), [patients]);
 
+    const displayedDoctors = useMemo(
+        () => (showAllDoctors ? safeDoctors : safeDoctors.slice(0, 3)),
+        [safeDoctors, showAllDoctors]
+    );
+    const displayedAppointments = useMemo(() => safeAppointments.slice(0, 5), [safeAppointments]);
 
-    const displayedDoctors = useMemo(() => {
-        return showAllDoctors ? safeDoctors : safeDoctors.slice(0, 3);
-    }, [safeDoctors, showAllDoctors]);
-
-    const displayedAppointments = useMemo(() => {
-        return safeAppointments.slice(0, 5);
-    }, [safeAppointments]);
-
-    // Formatar data de atualização
     const formattedLastUpdated = useMemo(() => {
         if (!stats?.calculatedAt) return '';
-        return new Date(stats.calculatedAt).toLocaleTimeString('pt-BR', {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        return new Date(stats.calculatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     }, [stats?.calculatedAt]);
 
     if (loading) {
         return (
-            <div className="space-y-4 p-4 animate-pulse">
-                {/* Header */}
+            <div className="p-5 space-y-4 animate-pulse">
                 <div className="flex justify-between items-center mb-2">
-                    <div className="h-4 w-48 bg-gray-200 rounded" />
-                    <div className="h-8 w-28 bg-gray-200 rounded-lg" />
+                    <div className="h-4 w-48 bg-gray-100 rounded" />
+                    <div className="h-9 w-28 bg-gray-100 rounded-xl" />
                 </div>
-                {/* Patients section */}
-                <div className="border border-gray-200 rounded-xl overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3 bg-blue-50">
-                        <div className="h-4 w-40 bg-blue-200 rounded" />
-                        <div className="h-4 w-4 bg-blue-200 rounded" />
+                <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+                    <div className="flex items-center gap-3 px-5 py-4 bg-white">
+                        <div className="w-9 h-9 rounded-xl bg-blue-100" />
+                        <div className="h-4 w-40 bg-gray-100 rounded" />
                     </div>
-                    <div className="p-4 space-y-2">
-                        {/* search bar skeleton */}
-                        <div className="h-9 bg-gray-100 rounded-lg mb-3" />
-                        {/* header row */}
-                        <div className="flex gap-3 px-3 py-2 border-b border-gray-100">
-                            <div className="flex-1 h-3 bg-gray-200 rounded" />
-                            <div className="w-28 h-3 bg-gray-200 rounded hidden md:block" />
-                            <div className="w-40 h-3 bg-gray-200 rounded hidden lg:block" />
-                            <div className="w-28 h-3 bg-gray-200 rounded hidden sm:block" />
-                            <div className="w-36 h-3 bg-gray-200 rounded" />
-                        </div>
-                        {/* rows */}
+                    <div className="p-5 space-y-2 border-t border-gray-100">
+                        <div className="h-9 bg-gray-50 rounded-xl mb-3" />
                         {Array.from({ length: 5 }).map((_, i) => (
-                            <div key={i} className="flex items-center gap-3 px-3 py-3 rounded-lg border border-gray-100">
-                                <div className="w-8 h-8 rounded-full bg-gray-200 shrink-0" />
+                            <div key={i} className="flex items-center gap-3 p-3 rounded-xl border border-gray-50">
+                                <div className="w-8 h-8 rounded-full bg-gray-100 shrink-0" />
                                 <div className="flex-1 space-y-1.5">
-                                    <div className="h-3 bg-gray-200 rounded w-2/3" />
-                                    <div className="h-2.5 bg-gray-100 rounded w-1/3" />
+                                    <div className="h-3 bg-gray-100 rounded w-2/3" />
+                                    <div className="h-2.5 bg-gray-50 rounded w-1/3" />
                                 </div>
-                                <div className="w-28 h-6 bg-gray-100 rounded hidden md:block" />
-                                <div className="w-40 h-6 bg-gray-100 rounded hidden lg:block" />
-                                <div className="w-28 h-6 bg-gray-100 rounded hidden sm:block" />
-                                <div className="w-36 h-7 bg-gray-100 rounded" />
                             </div>
                         ))}
                     </div>
                 </div>
-                {/* Metrics section */}
-                <div className="border border-gray-200 rounded-xl overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3 bg-green-50">
-                        <div className="h-4 w-44 bg-green-200 rounded" />
-                        <div className="h-4 w-4 bg-green-200 rounded" />
+                <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+                    <div className="flex items-center gap-3 px-5 py-4 bg-white">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-100" />
+                        <div className="h-4 w-44 bg-gray-100 rounded" />
                     </div>
-                    <div className="p-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="p-5 grid grid-cols-2 lg:grid-cols-4 gap-3 border-t border-gray-100">
                         {Array.from({ length: 8 }).map((_, i) => (
-                            <div key={i} className="border border-gray-100 rounded-lg p-4 space-y-2">
-                                <div className="h-3 bg-gray-200 rounded w-3/4" />
-                                <div className="h-7 bg-gray-200 rounded w-1/2" />
-                                <div className="h-2.5 bg-gray-100 rounded w-2/3" />
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                {/* Doctors section */}
-                <div className="border border-gray-200 rounded-xl overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3 bg-gray-50">
-                        <div className="h-4 w-36 bg-gray-200 rounded" />
-                        <div className="h-4 w-4 bg-gray-200 rounded" />
-                    </div>
-                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {Array.from({ length: 3 }).map((_, i) => (
-                            <div key={i} className="border border-gray-100 rounded-xl p-4 flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-gray-200 shrink-0" />
-                                <div className="flex-1 space-y-1.5">
-                                    <div className="h-3 bg-gray-200 rounded w-3/4" />
-                                    <div className="h-2.5 bg-gray-100 rounded w-1/2" />
-                                </div>
-                            </div>
+                            <MetricCardSkeleton key={i} />
                         ))}
                     </div>
                 </div>
@@ -356,40 +279,33 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     }
 
     return (
-        <>
-            {/* Header com info de atualização e botão refresh */}
-            <div className="flex justify-between items-center mb-6">
-                <div className="text-sm text-gray-500">
-                    {loading ? (
-                        <span className="flex items-center gap-2">
-                            <Skeleton className="h-4 w-4 rounded-full" />
-                            Carregando...
-                        </span>
-                    ) : (
-                        <span>Atualizado às {formattedLastUpdated}</span>
-                    )}
+        <div className="p-5">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-5 px-1">
+                <div>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Última atualização</p>
+                    <p className="text-sm font-semibold text-gray-600">
+                        {formattedLastUpdated ? `às ${formattedLastUpdated}` : '—'}
+                    </p>
                 </div>
-                <Button
-                    variant="ghost"
-                    size="sm"
+                <button
                     onClick={onRefresh}
                     disabled={loading}
-                    className="text-gray-500 hover:text-gray-700"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-medium transition-colors disabled:opacity-50"
                 >
-                    <RefreshCw size={16} className={`mr-1 ${loading ? 'animate-spin' : ''}`} />
+                    <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                     Atualizar
-                </Button>
+                </button>
             </div>
 
-            {/* 🔹 SEÇÃO ANIVERSARIANTES */}
+            {/* Aniversariantes */}
             <AccordionSection
-                title="🎂 Aniversariantes do Mês"
+                title="Aniversariantes do Mês"
                 isOpen={birthdaySectionOpen}
-                onToggle={() => setBirthdaySectionOpen(!birthdaySectionOpen)}
-                headerClassName={birthdaySectionOpen
-                    ? 'bg-pink-50 text-pink-800 border-b border-pink-100'
-                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                }
+                onToggle={() => setBirthdaySectionOpen(v => !v)}
+                iconNode={<Cake size={18} />}
+                iconBg="bg-pink-100"
+                iconColor="text-pink-600"
                 badge={todayBirthdayCount > 0 ? (
                     <span className="flex items-center gap-1.5 ml-1">
                         <span className="relative flex h-2.5 w-2.5 shrink-0">
@@ -402,21 +318,17 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                     </span>
                 ) : undefined}
             >
-                {aniversariantesLoading
-                    ? <BirthdayCardSkeleton />
-                    : <BirthdayCard patients={aniversariantes} />
-                }
+                {aniversariantesLoading ? <BirthdayCardSkeleton /> : <BirthdayCard patients={aniversariantes} />}
             </AccordionSection>
 
-            {/* 🔹 SEÇÃO LISTA DE PACIENTES */}
+            {/* Lista de Pacientes */}
             <AccordionSection
-                title="👥 Lista de Pacientes"
+                title="Lista de Pacientes"
                 isOpen={patientsTableOpen}
-                onToggle={() => setPatientsTableOpen(!patientsTableOpen)}
-                headerClassName={patientsTableOpen
-                    ? 'bg-blue-50 text-blue-800 border-b border-blue-100'
-                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                }
+                onToggle={() => setPatientsTableOpen(v => !v)}
+                iconNode={<Users size={18} />}
+                iconBg="bg-blue-100"
+                iconColor="text-blue-600"
             >
                 <PatientTable
                     patients={safePatients}
@@ -426,123 +338,108 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                         setIsModalOpen(true);
                     }}
                     onPaymentAdvancedSuccess={(patient) => {
-                        setShowAdvancedPayment(true);
-                        setSelectedPatient(patient);
+                        setShowAdvancedPayment?.(true);
+                        setSelectedPatient?.(patient);
                     }}
                     onRegisterPayment={(patient) => {
-                        setPaymentContext({
-                            mode: 'create',
-                            patient
-                        });
-                        setPaymentModalOpen(true);
+                        setPaymentContext?.({ mode: 'create', patient });
+                        setPaymentModalOpen?.(true);
                     }}
                     onDeletePatient={onDeletePatient}
                 />
             </AccordionSection>
 
-            <hr className='m-5' />
-
-            {/* 🔹 SEÇÃO MÉTRICAS */}
+            {/* Métricas */}
             <AccordionSection
-                title="📊 Métricas do Hospital"
+                title="Métricas do Hospital"
                 isOpen={metricsSectionOpen}
-                onToggle={() => setMetricsSectionOpen(!metricsSectionOpen)}
-                headerClassName={metricsSectionOpen
-                    ? 'bg-green-50 text-green-800 border-b border-green-100'
-                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                }
+                onToggle={() => setMetricsSectionOpen(v => !v)}
+                iconNode={<BarChart3 size={18} />}
+                iconBg="bg-emerald-100"
+                iconColor="text-emerald-600"
             >
                 {loading && !stats ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                        <MetricCardSkeleton />
-                        <MetricCardSkeleton />
-                        <MetricCardSkeleton />
-                        <MetricCardSkeleton />
-                        <MetricCardSkeleton />
-                        <MetricCardSkeleton />
-                        <MetricCardSkeleton />
-                        <MetricCardSkeleton />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {Array.from({ length: 8 }).map((_, i) => <MetricCardSkeleton key={i} />)}
                     </div>
                 ) : stats ? (
-                    <div className="space-y-4">
-                        {/* Operação */}
+                    <div className="space-y-5">
                         <div>
-                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Operação</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                            <SectionLabel label="Operação" />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                 <MetricCard
                                     title="Sessões Hoje"
                                     value={stats.todayAppointments}
                                     subtitle="Agendamentos confirmados"
-                                    icon={<Activity className="h-5 w-5" />}
+                                    icon={<Activity size={20} />}
                                     colorClass="text-emerald-600"
-                                    bgClass="bg-emerald-50"
+                                    iconBgClass="bg-emerald-100"
                                 />
                                 <MetricCard
                                     title="Sessões Semana"
                                     value={stats.weekAppointments}
                                     subtitle="Total na semana"
-                                    icon={<Activity className="h-5 w-5" />}
+                                    icon={<Activity size={20} />}
                                     colorClass="text-teal-600"
-                                    bgClass="bg-teal-50"
+                                    iconBgClass="bg-teal-100"
                                 />
                                 <MetricCard
                                     title="Total Profissionais"
                                     value={stats.totalDoctors}
                                     subtitle="Equipe ativa"
-                                    icon={<Stethoscope className="h-5 w-5" />}
+                                    icon={<Stethoscope size={20} />}
                                     colorClass="text-pink-600"
-                                    bgClass="bg-pink-50"
+                                    iconBgClass="bg-pink-100"
                                     onAction={handleAddProfessional}
-                                    actionIcon={<UserPlus size={18} />}
+                                    actionIcon={<UserPlus size={16} />}
                                 />
                                 <MetricCard
                                     title="Total Pacientes"
                                     value={stats.totalPatients}
                                     subtitle="Cadastrados"
-                                    icon={<Users className="h-5 w-5" />}
+                                    icon={<Users size={20} />}
                                     colorClass="text-amber-600"
-                                    bgClass="bg-amber-50"
+                                    iconBgClass="bg-amber-100"
                                     onAction={handleAddPatient}
-                                    actionIcon={<UserPlus size={18} />}
+                                    actionIcon={<UserPlus size={16} />}
                                 />
                             </div>
                         </div>
 
-                        {/* Financeiro */}
                         <div>
-                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Financeiro</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                            <SectionLabel label="Financeiro" />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                 <MetricCard
                                     title="Caixa Hoje"
                                     value={formatCurrency(stats.todayRevenue)}
                                     subtitle="Recebido hoje"
-                                    icon={<DollarSign className="h-5 w-5" />}
+                                    icon={<DollarSign size={20} />}
                                     colorClass="text-emerald-600"
-                                    bgClass="bg-emerald-50"
+                                    iconBgClass="bg-emerald-100"
                                 />
                                 <MetricCard
                                     title="Receita Mês"
                                     value={formatCurrency(stats.monthRevenue)}
                                     subtitle="Pagamentos confirmados"
-                                    icon={<DollarSign className="h-5 w-5" />}
+                                    icon={<DollarSign size={20} />}
                                     colorClass="text-blue-600"
-                                    bgClass="bg-blue-50"
+                                    iconBgClass="bg-blue-100"
                                 />
                                 <MetricCard
                                     title="Pendente"
                                     value={stats.pendingPayments}
                                     subtitle="Pagamentos em aberto"
-                                    icon={<Clock className="h-5 w-5" />}
+                                    icon={<Clock size={20} />}
                                     colorClass="text-orange-600"
-                                    bgClass="bg-orange-50"
+                                    iconBgClass="bg-orange-100"
                                 />
                                 <MetricCard
                                     title="Leads Mês"
                                     value={stats.monthLeads}
                                     subtitle="Novos interessados"
-                                    icon={<UserPlus className="h-5 w-5" />}
+                                    icon={<UserPlus size={20} />}
                                     colorClass="text-violet-600"
-                                    bgClass="bg-violet-50"
+                                    iconBgClass="bg-violet-100"
                                 />
                             </div>
                         </div>
@@ -550,178 +447,166 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                 ) : null}
             </AccordionSection>
 
-            {/* 🔹 SEÇÃO VISÃO GERAL */}
+            {/* Visão Geral */}
             <AccordionSection
-                title="👁️ Visão Geral"
+                title="Visão Geral"
                 isOpen={overviewSectionOpen}
-                onToggle={() => setOverviewSectionOpen(!overviewSectionOpen)}
-                headerClassName={overviewSectionOpen
-                    ? 'bg-purple-50 text-purple-800 border-b border-purple-100'
-                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                }
+                onToggle={() => setOverviewSectionOpen(v => !v)}
+                iconNode={<Eye size={18} />}
+                iconBg="bg-violet-100"
+                iconColor="text-violet-600"
             >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
-                    {/* Visão dos Profissionais */}
-                    <Card className="border border-gray-200 rounded-lg">
-                        <CardHeader>
-                            <CardTitle className="text-lg font-semibold">
-                                Visão Geral dos Profissionais
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Profissionais */}
+                    <div className="rounded-2xl border border-gray-100 overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-100">
+                            <h3 className="font-semibold text-gray-800 text-[15px]">Visão Geral dos Profissionais</h3>
+                        </div>
+                        <div className="p-3">
                             {loading ? (
-                                <div className="space-y-4">
+                                <div className="space-y-2">
                                     {[1, 2, 3].map(i => (
-                                        <div key={i} className="flex items-center justify-between p-3">
-                                            <div className="flex items-center space-x-3">
-                                                <Skeleton className="h-10 w-10 rounded-full" />
-                                                <div>
-                                                    <Skeleton className="h-4 w-32 mb-1" />
-                                                    <Skeleton className="h-3 w-24" />
-                                                </div>
+                                        <div key={i} className="flex items-center gap-3 p-3 animate-pulse">
+                                            <div className="w-10 h-10 rounded-xl bg-gray-100 shrink-0" />
+                                            <div className="flex-1 space-y-1.5">
+                                                <div className="h-3 bg-gray-100 rounded w-2/3" />
+                                                <div className="h-2.5 bg-gray-50 rounded w-1/2" />
                                             </div>
-                                            <Skeleton className="h-4 w-16" />
+                                            <div className="h-6 w-16 bg-gray-100 rounded-full" />
                                         </div>
                                     ))}
                                 </div>
                             ) : displayedDoctors.length > 0 ? (
-                                <div className="space-y-4">
+                                <div className="space-y-1">
                                     {displayedDoctors.map((doctor, index) => (
                                         <div
                                             key={doctor._id || index}
-                                            className="flex items-center justify-between p-3 hover:bg-gray-50 rounded transition-colors"
+                                            className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors"
                                         >
-                                            <div className="flex items-center space-x-3">
-                                                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                                    <Stethoscope className="h-5 w-5 text-blue-600" />
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+                                                    <Stethoscope size={18} className="text-blue-600" />
                                                 </div>
-                                                <div>
-                                                    <p className="font-medium">{doctor.name}</p>
-                                                    <p className="text-sm text-gray-500">{doctor.specialty}</p>
+                                                <div className="min-w-0">
+                                                    <p className="font-semibold text-gray-800 text-sm truncate">{doctor.name}</p>
+                                                    <p className="text-xs text-gray-400 truncate">{doctor.specialty}</p>
                                                 </div>
                                             </div>
-                                            <span className="text-sm font-medium">
-                                                {doctor.patients} pacientes
+                                            <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-full shrink-0 ml-2">
+                                                {doctor.patients} pac.
                                             </span>
                                         </div>
                                     ))}
                                 </div>
                             ) : (
-                                <div className="text-center py-6">
-                                    <Stethoscope className="mx-auto h-8 w-8 text-gray-400" />
-                                    <p className="mt-2 text-sm text-gray-500">
-                                        Nenhum profissional encontrado
-                                    </p>
+                                <div className="text-center py-8">
+                                    <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-2">
+                                        <Stethoscope size={22} className="text-gray-300" />
+                                    </div>
+                                    <p className="text-sm text-gray-400">Nenhum profissional encontrado</p>
                                 </div>
                             )}
-                        </CardContent>
+                        </div>
                         {doctors && doctors.length > 3 && (
-                            <CardFooter className="border-t px-6 py-3">
-                                <Button
-                                    variant="ghost"
-                                    className="text-blue-600 hover:bg-blue-50"
-                                    onClick={() => setShowAllDoctors(!showAllDoctors)}
+                            <div className="px-5 py-3 border-t border-gray-100">
+                                <button
+                                    onClick={() => setShowAllDoctors(v => !v)}
+                                    className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
                                 >
-                                    {showAllDoctors ? 'Mostrar menos' : 'Ver todos'}
-                                </Button>
-                            </CardFooter>
+                                    {showAllDoctors ? 'Mostrar menos' : `Ver todos (${doctors.length})`}
+                                </button>
+                            </div>
                         )}
-                    </Card>
+                    </div>
 
                     {/* Próximas Consultas */}
-                    <Card className="border border-gray-200 rounded-lg">
-                        <CardHeader>
-                            <CardTitle className="text-lg font-semibold">
-                                Próximas Consultas
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="rounded-2xl border border-gray-100 overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-100">
+                            <h3 className="font-semibold text-gray-800 text-[15px]">Próximas Consultas</h3>
+                        </div>
+                        <div className="p-3">
                             {loading ? (
-                                <div className="space-y-3">
+                                <div className="space-y-2">
                                     {[1, 2, 3].map(i => (
-                                        <div key={i} className="p-3">
-                                            <div className="flex justify-between">
-                                                <div>
-                                                    <Skeleton className="h-4 w-32 mb-1" />
-                                                    <Skeleton className="h-3 w-48" />
-                                                </div>
-                                                <div className="text-right">
-                                                    <Skeleton className="h-4 w-20 mb-1" />
-                                                    <Skeleton className="h-3 w-12" />
-                                                </div>
+                                        <div key={i} className="flex justify-between p-3 animate-pulse">
+                                            <div className="space-y-1.5">
+                                                <div className="h-3 bg-gray-100 rounded w-32" />
+                                                <div className="h-2.5 bg-gray-50 rounded w-48" />
+                                            </div>
+                                            <div className="space-y-1.5 text-right">
+                                                <div className="h-3 bg-gray-100 rounded w-20" />
+                                                <div className="h-2.5 bg-gray-50 rounded w-12" />
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             ) : displayedAppointments.length > 0 ? (
-                                <ul className="space-y-3">
+                                <ul className="space-y-1">
                                     {displayedAppointments.map((appointment, index) => (
                                         <li
                                             key={appointment._id || index}
-                                            className="p-3 hover:bg-gray-50 rounded transition-colors"
+                                            className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors"
                                         >
-                                            <div className="flex justify-between">
-                                                <div>
-                                                    <p className="font-medium">{appointment.patientName || appointment.patient}</p>
-                                                    <p className="text-sm text-gray-500">
-                                                        {appointment.professionalName || appointment.doctor}{appointment.specialty ? ` (${appointment.specialty})` : ''} • {appointment.reason}
-                                                    </p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-sm font-medium">
-                                                        {new Date(appointment.date).toLocaleDateString('pt-BR')}
-                                                    </p>
-                                                    <p className="text-sm text-gray-500">{appointment.time}</p>
-                                                </div>
+                                            <div className="min-w-0 flex-1 mr-3">
+                                                <p className="font-semibold text-gray-800 text-sm truncate">
+                                                    {appointment.patientName || appointment.patient}
+                                                </p>
+                                                <p className="text-xs text-gray-400 truncate">
+                                                    {appointment.professionalName || appointment.doctor}
+                                                    {appointment.specialty ? ` · ${appointment.specialty}` : ''}
+                                                </p>
+                                            </div>
+                                            <div className="text-right shrink-0">
+                                                <p className="text-sm font-semibold text-gray-700">
+                                                    {new Date(appointment.date).toLocaleDateString('pt-BR')}
+                                                </p>
+                                                <p className="text-xs text-gray-400">{appointment.time}</p>
                                             </div>
                                         </li>
                                     ))}
                                 </ul>
                             ) : (
-                                <div className="text-center py-6">
-                                    <Clock className="mx-auto h-8 w-8 text-gray-400" />
-                                    <p className="mt-2 text-sm text-gray-500">
-                                        Nenhuma consulta agendada
-                                    </p>
+                                <div className="text-center py-8">
+                                    <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-2">
+                                        <Clock size={22} className="text-gray-300" />
+                                    </div>
+                                    <p className="text-sm text-gray-400">Nenhuma consulta agendada</p>
                                 </div>
                             )}
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
                 </div>
             </AccordionSection>
 
-            {/* 🔹 BOTÕES DE CONTROLE */}
-            <div className="flex gap-3 justify-center mt-6">
-                <Button
-                    variant="outlined"
+            {/* Controles */}
+            <div className="flex gap-3 justify-center pt-2 pb-1">
+                <button
                     onClick={() => {
                         setBirthdaySectionOpen(true);
                         setPatientsTableOpen(true);
                         setMetricsSectionOpen(true);
                         setOverviewSectionOpen(true);
                     }}
-                    className="rounded-lg"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50 transition-colors"
                 >
-                    <ChevronUp size={18} className="mr-1" />
+                    <ChevronUp size={14} />
                     Expandir Todos
-                </Button>
-                <Button
-                    variant="outlined"
+                </button>
+                <button
                     onClick={() => {
                         setBirthdaySectionOpen(false);
                         setPatientsTableOpen(false);
                         setMetricsSectionOpen(false);
                         setOverviewSectionOpen(false);
                     }}
-                    className="rounded-lg"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50 transition-colors"
                 >
-                    <ChevronDown size={18} className="mr-1" />
+                    <ChevronDown size={14} />
                     Recolher Todos
-                </Button>
+                </button>
             </div>
-        </>
+        </div>
     );
 };
 
-// Exportar com React.memo para prevenir re-renders desnecessários
 export default memo(DashboardContentOptimized);

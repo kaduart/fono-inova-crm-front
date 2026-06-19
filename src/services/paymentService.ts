@@ -163,6 +163,43 @@ export const getPendingBillingGuides = (params?: { insurance?: string; patientId
 export const receberConvenioLote = (data: { paymentIds: string[]; dataRecebimento: string }) =>
     API.post<{ success: boolean; data: any; error?: string }>('/v2/financial/convenio/receber-lote', data);
 
+// Histórico mês a mês de convênios
+export const getInsuranceHistory = (params?: { provider?: string; year?: number }) =>
+    API.get<{ success: boolean; data: InsuranceHistoryMonth[]; year: number }>('/v2/insurance/history', { params });
+
+export interface InsuranceHistorySpecialty {
+    specialty: string;
+    sessions: number;
+    value: number;
+    source: 'legado' | 'lote';
+    batchStatus: 'pending_batch' | 'billed' | 'received';
+}
+
+export interface InsuranceHistoryPatient {
+    name: string;
+    phone: string;
+    specialties: InsuranceHistorySpecialty[];
+    totalSessions: number;
+    totalValue: number;
+}
+
+export interface InsuranceHistoryProvider {
+    provider: string;
+    providerLabel: string;
+    patients: InsuranceHistoryPatient[];
+    totalSessions: number;
+    totalValue: number;
+    status: 'pending_batch' | 'billed' | 'received';
+}
+
+export interface InsuranceHistoryMonth {
+    monthKey: string;
+    monthLabel: string;
+    providers: InsuranceHistoryProvider[];
+    totalSessions: number;
+    totalValue: number;
+}
+
 // ✅ V2 ATIVO: Faturar convênio por sessionId (ledger + transaction garantidos)
 export const billInsuranceSession = (sessionId: string, data?: { billedAmount?: number; billedAt?: string; notes?: string }) =>
     API.patch<{ success: boolean; data: any }>(`/v2/insurance/session/${sessionId}/bill`, data);

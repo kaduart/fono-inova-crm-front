@@ -96,6 +96,22 @@ interface UnifiedCashflowTabProps {
     defaultViewMode?: 'day' | 'month';
 }
 
+// 🩹 Recria o status financeiro legado a partir dos dados atuais do agendamento
+// (o campo statusFinanceiro deixou de ser enviado pela API, mas a UI ainda o espera)
+const resolveStatusFinanceiro = (a: any): string => {
+    if (a.operationalStatus === 'canceled') return 'Cancelado';
+    if (a.billingType === 'convenio' || a.insuranceProvider) return 'Convênio';
+    if (a.billingType === 'liminar') return 'Liminar';
+    if (a.package) {
+        if (a.paymentStatus === 'package_paid' || a.visualFlag === 'ok') return 'Pré-pago';
+        if (a.paymentStatus === 'pending' || a.visualFlag === 'pending' || a.visualFlag === 'blocked') return 'Pacote Pendente';
+    }
+    if (a.paymentStatus === 'paid' || a.visualFlag === 'ok') return 'Pago na Sessão';
+    if (a.paymentStatus === 'partial' || a.visualFlag === 'partial') return 'Pago Parcial';
+    if ((a.serviceType === 'evaluation' || a.serviceType === 'neuropsych_evaluation') && a.paymentStatus === 'paid') return 'Avaliação Paga';
+    return 'Pendente';
+};
+
 const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: UnifiedCashflowTabProps) => {
     const [dailyCashflow, setDailyCashflow] = useState<CashflowV2Response | null>(null);
 
@@ -269,7 +285,9 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
             });
             if (!guard.active) return;
             console.log('[UnifiedCashflowTab] Resposta:', res.data);
-            setDayAppointments(res.data?.data?.appointments || []);
+            // Legacy GET /appointments retorna array puro; v2 pode retornar { data: { appointments: [] } }
+            const raw = res.data as any;
+            setDayAppointments(Array.isArray(raw) ? raw : raw?.data?.appointments || raw?.appointments || []);
         } catch (error: any) {
             if (!guard.active) return;
             console.error('[UnifiedCashflowTab] Erro ao carregar agendamentos:', error?.response?.data || error.message);
@@ -1421,20 +1439,21 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                             {data.pacotesAtendidos?.length > 0 ? (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {data.pacotesAtendidos.map((p) => {
-                                        const isPrepaid = p.paymentModel === 'prepaid';
+                                        const isPendente = p.statusPagamento === 'Pendente';
+                                        const isPrepaid = !isPendente && p.paymentModel === 'prepaid';
                                         return (
-                                            <div key={p.id} className={`border-l-4 ${isPrepaid ? 'border-l-blue-500' : 'border-l-emerald-500'} border border-gray-200 rounded-lg p-3`}>
+                                            <div key={p.id} className={`border-l-4 ${isPendente ? 'border-l-red-500' : isPrepaid ? 'border-l-blue-500' : 'border-l-emerald-500'} border border-gray-200 rounded-lg p-3`}>
                                                 <div className="flex justify-between items-start mb-1">
                                                     <span className="font-semibold text-sm">{p.paciente}</span>
-                                                    <span className={`px-2 py-0.5 rounded-full text-xs ${isPrepaid ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                                                        {isPrepaid ? 'Pré-pago' : 'Pago hoje'}
+                                                    <span className={`px-2 py-0.5 rounded-full text-xs ${isPendente ? 'bg-red-100 text-red-800' : isPrepaid ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                                                        {isPendente ? 'Pendente' : isPrepaid ? 'Pré-pago' : 'Pago hoje'}
                                                     </span>
                                                 </div>
                                                 <div className="text-xs text-gray-500">{p.especialidade} • {p.horario}</div>
                                                 <div className="text-xs text-gray-500 mb-1">{p.professional}</div>
                                                 <div className="flex justify-between items-baseline">
-                                                    <span className="text-lg font-bold text-emerald-700">{formatCurrency(p.valor)}</span>
-                                                    <span className="text-xs text-gray-500">{isPrepaid ? 'crédito consumido' : 'recebido hoje'}</span>
+                                                    <span className={`text-lg font-bold ${isPendente ? 'text-red-600' : 'text-emerald-700'}`}>{formatCurrency(p.valor)}</span>
+                                                    <span className="text-xs text-gray-500">{isPendente ? 'a receber' : isPrepaid ? 'crédito consumido' : 'recebido hoje'}</span>
                                                 </div>
                                             </div>
                                         );
@@ -1552,7 +1571,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-3 px-3 pb-1.5 border-b border-gray-200">
                                                         <span className="text-[11px] text-gray-400 w-10 shrink-0">Hora</span>
-                                                        <span className="flex-1 text-[11px] text-gray-400">Paciente / Status</span>
+                                                        <span className="flex-1 min-w-0 text-[11px] text-gray-400">Paciente</span>
+                                                        <span className="text-[11px] text-gray-400 w-28 text-center shrink-0">Tipo</span>
                                                         <span className="text-[11px] text-gray-400 w-32 text-center shrink-0">Situação</span>
                                                         <span className="text-[11px] text-gray-400 w-16 text-right shrink-0">Valor</span>
                                                     </div>
@@ -1571,24 +1591,26 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                 <div className="flex-1 space-y-1">
                                                                     {apts.map((a: any, aptIdx: number) => {
                                                                         const sc = statusMap[a.operationalStatus] || { border: 'border-gray-500', badge: 'bg-gray-800 text-gray-300', label: a.operationalStatus };
-                                                                        const sfText = sfShort[a.statusFinanceiro] ?? (a.statusFinanceiro || '');
+                                                                        const statusFinanceiro = resolveStatusFinanceiro(a);
+                                                                        const sfText = sfShort[statusFinanceiro] ?? (statusFinanceiro || '');
                                                                         const isNew = (analyticsData?.novos || []).some((n: any) => n._id === a._id);
                                                                         const valor = a.sessionValue || a.package?.sessionValue || 0;
                                                                         const phone = a.patientInfo?.phone || a.patient?.phone;
                                                                         const aptMin = toMin(a.time || '00:00');
-                                                                        const nextApt = apts[aptIdx + 1];
+                                                                        const nextApt = apts[aptIdx + 1]
+                                                                            ?? (idx + 1 < sortedHours.length ? hourGroups[sortedHours[idx + 1]][0] : null);
                                                                         const nextMin = nextApt ? toMin(nextApt.time || '00:00') : Infinity;
                                                                         const showNowAfterThis = isToday && !nowRendered && aptMin <= nowMin && nowMin < nextMin;
                                                                         if (showNowAfterThis) nowRendered = true;
                                                                         return (
                                                                             <React.Fragment key={a._id}>
-                                                                            <div onClick={() => setSelectedApt(a)} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200 border-l-[3px] cursor-pointer hover:shadow-md transition-shadow ${sc.border} ${a.operationalStatus === 'completed' ? 'bg-green-50' : 'bg-gray-50'} ${a.operationalStatus === 'canceled' ? 'opacity-50' : ''}`}>
+                                                                            <div onClick={() => setSelectedApt(a)} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200 border-l-[3px] cursor-pointer hover:shadow-md transition-shadow ${sc.border} ${a.operationalStatus === 'completed' ? 'bg-green-50' : 'bg-gray-50'} ${a.operationalStatus === 'canceled' ? 'opacity-50' : ''} ${a.operationalStatus === 'completed' && (a.paymentStatus === 'pending' || a.visualFlag === 'pending') ? 'bg-red-50' : ''}`}>
                                                                                 <span className="text-xs text-gray-400 w-10 shrink-0 font-mono">{a.time || '--:--'}</span>
                                                                                 <div className="flex-1 min-w-0">
-                                                                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                                                                        <span className="text-[15px] font-semibold text-gray-900">{a.patientInfo?.fullName || a.patient?.fullName || '-'}</span>
-                                                                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${sc.badge}`}>{sc.label}</span>
-                                                                                        {isNew && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 shrink-0">1ª vez</span>}
+                                                                                    <div className="flex items-center gap-1.5">
+                                                                                        <span className="text-base font-bold text-gray-900 truncate">{a.patientInfo?.fullName || a.patient?.fullName || a.patientName || '-'}</span>
+                                                                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap shrink-0 ${sc.badge}`}>{a.status || sc.label}</span>
+                                                                                        {isNew && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 whitespace-nowrap shrink-0">1ª vez</span>}
                                                                                     </div>
                                                                                     <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
                                                                                         <span className="text-xs text-gray-500">{[a.professionalName, a.specialty].filter(Boolean).join(' / ')}</span>
@@ -1600,7 +1622,25 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                         )}
                                                                                     </div>
                                                                                 </div>
-                                                                                <span className="text-xs text-gray-500 w-32 text-center shrink-0">
+                                                                                <span className="w-28 text-center shrink-0">
+                                                                                    {a.billingType === 'convenio' || a.insuranceProvider ? (
+                                                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-100 text-indigo-700 whitespace-nowrap">🏥 Convênio</span>
+                                                                                    ) : a.billingType === 'liminar' ? (
+                                                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 whitespace-nowrap">⚖️ Liminar</span>
+                                                                                    ) : a.package ? (
+                                                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700 whitespace-nowrap">📦 Pacote</span>
+                                                                                    ) : (
+                                                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 whitespace-nowrap">💵 Particular</span>
+                                                                                    )}
+                                                                                </span>
+                                                                                <span className={`text-xs w-32 text-center shrink-0 font-medium ${
+                                                                                    statusFinanceiro === 'Pago na Sessão' || statusFinanceiro === 'Pré-pago' ? 'text-emerald-700' :
+                                                                                    statusFinanceiro === 'Pendente' || statusFinanceiro === 'Pacote Pendente' ? 'text-amber-700' :
+                                                                                    statusFinanceiro === 'Cancelado' ? 'text-red-600' :
+                                                                                    statusFinanceiro === 'Convênio' ? 'text-indigo-700' :
+                                                                                    statusFinanceiro === 'Liminar' ? 'text-purple-700' :
+                                                                                    'text-gray-600'
+                                                                                }`}>
                                                                                     {a.operationalStatus !== 'canceled' ? sfText : ''}
                                                                                 </span>
                                                                                 <span className={`text-sm font-bold shrink-0 w-16 text-right ${valor > 0 ? 'text-gray-900' : 'text-gray-400'}`}>R${valor.toLocaleString('pt-BR')}</span>
@@ -1906,6 +1946,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
             const methodLabel: Record<string, string> = { pix: 'Pix', dinheiro: 'Dinheiro', cartao_credito: 'Cartão de Crédito', credito: 'Cartão de Crédito', cartao_debito: 'Débito', debito: 'Débito', transferencia_bancaria: 'Transferência Bancária', transferencia: 'Transferência Bancária', outro: 'Outro' };
             const prazoLabel: Record<string, string> = { pix: 'D+0 (imediato)', dinheiro: 'D+0 (imediato)', cartao_credito: 'D+30', credito: 'D+30', cartao_debito: 'D+1', debito: 'D+1', transferencia_bancaria: 'D+1', transferencia: 'D+1' };
             const sfFull: Record<string, string> = { 'Pré-pago': '📦 Crédito de pacote consumido', 'Pago na Sessão': '💰 Pago no atendimento', 'Avaliação Paga': '💰 Pago no atendimento', 'Pendente': '⏳ Aguardando pagamento', 'Pacote Pendente': '📦 Sessão de pacote pendente', 'Convênio': '🏥 A faturar ao convênio', 'Liminar': '⚖️ Via processo judicial', 'Cancelado': '❌ Cancelado' };
+            const aptStatusFinanceiro = resolveStatusFinanceiro(apt);
 
             return (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedApt(null)}>
@@ -1954,10 +1995,10 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                             <span className="text-sm text-gray-600">Valor da sessão</span>
                                             <span className="text-lg font-extrabold text-emerald-700">{formatCurrency(valor)}</span>
                                         </div>
-                                        {apt.statusFinanceiro && (
+                                        {aptStatusFinanceiro && aptStatusFinanceiro !== 'Cancelado' && (
                                             <div className="flex justify-between items-center">
                                                 <span className="text-sm text-gray-600">Situação</span>
-                                                <span className="text-sm font-semibold text-gray-800">{sfFull[apt.statusFinanceiro] || apt.statusFinanceiro}</span>
+                                                <span className="text-sm font-semibold text-gray-800">{sfFull[aptStatusFinanceiro] || aptStatusFinanceiro}</span>
                                             </div>
                                         )}
                                         {apt.paymentMethod && apt.paymentMethod !== 'pending' && (
