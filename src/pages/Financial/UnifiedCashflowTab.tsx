@@ -1572,10 +1572,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                     <div className="flex gap-3 px-3 pb-1.5 border-b border-gray-200">
                                                         <span className="text-[11px] text-gray-400 w-10 shrink-0 pt-1">Hora</span>
                                                         <div className="flex-1 min-w-0">
-                                                            <div className="text-[11px] text-gray-400">Paciente</div>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="flex-1 min-w-0 text-[11px] text-gray-400">Paciente</span>
+                                                                <span className="text-[11px] text-gray-400 shrink-0">status</span>
+                                                            </div>
                                                             <div className="flex items-center gap-1.5 mt-0.5">
-                                                                <span className="text-[11px] text-gray-400 flex-1 min-w-0 truncate">Terapia</span>
-                                                                <span className="text-[11px] text-gray-400 w-28 text-center shrink-0">Telefone</span>
+                                                                <span className="text-[11px] text-gray-400 flex-1 min-w-0 truncate">terapia</span>
+                                                                <span className="text-[11px] text-gray-400 w-28 text-center shrink-0">telefone</span>
                                                             </div>
                                                         </div>
                                                         <span className="text-[11px] text-gray-400 w-24 text-center shrink-0 pt-1">Tipo</span>
