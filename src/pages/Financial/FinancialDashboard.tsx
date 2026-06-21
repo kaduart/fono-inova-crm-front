@@ -1,6 +1,7 @@
 // src/pages/Financial/FinancialDashboard.tsx - VERSÃO OTIMIZADA COM LAZY LOADING
 
 import { Suspense, lazy, useEffect, startTransition } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Box, Grid, Paper, Skeleton, Tab, Tabs, Typography, useTheme, FormControl, Select, MenuItem } from '@mui/material';
 import {
     Calendar,
@@ -65,7 +66,7 @@ const PaymentPage = lazyWithRetry(() => import('../../components/financial/Payme
 const ExpensesTab = lazyWithRetry(() => import('./tabs/ExpensesTab'));
 const InsuranceTab = lazyWithRetry(() => import('./tabs/InsuranceTab'));
 const PlanningTab = lazyWithRetry(() => import('./tabs/PlanningTab'));
-const DashboardV3Tab = lazyWithRetry(() => import('./tabs/DashboardV3Tab'));
+const FinancialDashboardTab = lazyWithRetry(() => import('./tabs/FinancialDashboardTab'));
 
 // ── Skeletons por aba ─────────────────────────────────────────────────────────
 
@@ -348,6 +349,18 @@ interface FinancialDashboardProps {
     onCancelPayment: (paymentId: string) => void;
 }
 
+const TAB_PARAM_KEY = 'financialTab';
+
+const allTabs = [
+    { id: 'caixa-unificado', label: 'Caixa & Fluxo', icon: <LayoutDashboard size={18} /> },
+    { id: 'pagamentos', label: 'Pagamentos', icon: <DollarSign size={18} /> },
+    { id: 'convenios', label: 'Convênios', icon: <CreditCard size={18} /> },
+    { id: 'despesas', label: 'Despesas', icon: <Receipt size={18} /> },
+    { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 size={18} /> },
+    { id: 'profissionais', label: 'Profissionais', icon: <User size={18} /> },
+    { id: 'planejamento', label: 'Planejamento Anual', icon: <Calendar size={18} /> },
+];
+
 const FinancialDashboard = ({
     patients,
     doctors,
@@ -356,7 +369,16 @@ const FinancialDashboard = ({
     registerAppointmentAndPaymentFuture,
     onCancelPayment
 }: FinancialDashboardProps) => {
-    const [currentTab, setCurrentTab] = useState(0);
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    const resolveTabFromSearchParams = () => {
+        const tabId = searchParams.get(TAB_PARAM_KEY);
+        if (!tabId) return 0;
+        const index = allTabs.findIndex((tab) => tab.id === tabId);
+        return index >= 0 ? index : 0;
+    };
+
+    const [currentTab, setCurrentTab] = useState(resolveTabFromSearchParams());
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [cashflowRange, setCashflowRange] = useState<{ startDate: string; endDate: string; label: string } | undefined>(undefined);
@@ -371,7 +393,7 @@ const FinancialDashboard = ({
             import('./tabs/InsuranceTab');
             import('./tabs/PlanningTab');
             import('./UnifiedCashflowTab');
-            import('./tabs/DashboardV3Tab');
+            import('./tabs/FinancialDashboardTab');
             import('../ProfessionalResults/ProfessionalResultsPage');
         }) ?? setTimeout(() => {
             import('../../components/financial/PaymentPage');
@@ -379,26 +401,36 @@ const FinancialDashboard = ({
             import('./tabs/InsuranceTab');
             import('./tabs/PlanningTab');
             import('./UnifiedCashflowTab');
-            import('./tabs/DashboardV3Tab');
+            import('./tabs/FinancialDashboardTab');
             import('../ProfessionalResults/ProfessionalResultsPage');
         }, 2000);
     }, []);
 
     const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+        const newTabId = allTabs[newValue]?.id;
+        if (!newTabId) return;
+
         startTransition(() => {
             setCurrentTab(newValue);
+            setSearchParams(
+                (prev) => {
+                    const next = new URLSearchParams(prev);
+                    next.set(TAB_PARAM_KEY, newTabId);
+                    return next;
+                },
+                { replace: true }
+            );
         });
     };
 
-    const allTabs = [
-        { id: 'caixa-unificado', label: 'Caixa & Fluxo', icon: <LayoutDashboard size={18} /> },
-        { id: 'pagamentos', label: 'Pagamentos', icon: <DollarSign size={18} /> },
-        { id: 'convenios', label: 'Convênios', icon: <CreditCard size={18} /> },
-        { id: 'despesas', label: 'Despesas', icon: <Receipt size={18} /> },
-        { id: 'dashboard-v3', label: 'Dashboard', icon: <BarChart3 size={18} /> },
-        { id: 'profissionais', label: 'Profissionais', icon: <User size={18} /> },
-        { id: 'planejamento', label: 'Planejamento Anual', icon: <Calendar size={18} /> },
-    ];
+    // Sincroniza estado local caso o query param mude (navegação via URL)
+    useEffect(() => {
+        const nextTab = resolveTabFromSearchParams();
+        if (nextTab !== currentTab) {
+            setCurrentTab(nextTab);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams]);
 
     const currentTabId = allTabs[currentTab]?.id;
 
@@ -499,10 +531,10 @@ const FinancialDashboard = ({
                         <ExpensesTab month={selectedMonth} year={selectedYear} />
                     </Suspense>
                 );
-            case 'dashboard-v3':
+            case 'dashboard':
                 return (
                     <Suspense fallback={<DashboardV3Skeleton />}>
-                        <DashboardV3Tab month={selectedMonth} year={selectedYear} />
+                        <FinancialDashboardTab month={selectedMonth} year={selectedYear} />
                     </Suspense>
                 );
             case 'profissionais':
@@ -520,7 +552,7 @@ const FinancialDashboard = ({
             default:
                 return (
                     <Suspense fallback={<DashboardV3Skeleton />}>
-                        <DashboardV3Tab month={selectedMonth} year={selectedYear} />
+                        <FinancialDashboardTab month={selectedMonth} year={selectedYear} />
                     </Suspense>
                 );
         }
@@ -598,7 +630,7 @@ const FinancialDashboard = ({
                 <div className="px-3 pt-3 pb-0 border-b border-gray-100">
                     <div className="flex gap-1 overflow-x-auto bg-gray-100 rounded-xl p-1">
                         {allTabs.map((tab, index) => (
-                            <button key={tab.id} onClick={() => setCurrentTab(index)}
+                            <button key={tab.id} onClick={() => handleTabChange({} as React.SyntheticEvent, index)}
                                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 ${
                                     currentTab === index
                                         ? 'bg-white text-gray-900 shadow-sm font-semibold'

@@ -132,6 +132,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const [selectedPatient360Id, setSelectedPatient360Id] = useState<string | null>(null);
     const [is360ModalOpen, setIs360ModalOpen] = useState(false);
     const [selectedMonthYear, setSelectedMonthYear] = useState(`${year}-${String(month).padStart(2, '0')}`);
+    const [cardsOpen, setCardsOpen] = useState(false);
 
     useEffect(() => {
         setSelectedMonthYear(`${year}-${String(month).padStart(2, '0')}`);
@@ -669,103 +670,130 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 </Box>
             </div>
 
-            {/* Filtro de Mês */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
-                    <Calendar size={18} />
-                    <Typography variant="body2" fontWeight={500}>Período:</Typography>
+            {/* Filtro de Mês — oculto no Histórico (tem seu próprio seletor de ano) */}
+            {subTab !== 3 && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
+                        <Calendar size={18} />
+                        <Typography variant="body2" fontWeight={500}>Período:</Typography>
+                    </Box>
+                    <TextField
+                        type="month"
+                        label="Mês de referência"
+                        value={selectedMonthYear}
+                        onChange={(e) => setSelectedMonthYear(e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        size="small"
+                        sx={{ width: 200 }}
+                    />
+                    <Typography variant="body2" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
+                        {getMonthLabel()}
+                    </Typography>
                 </Box>
-                <TextField
-                    type="month"
-                    label="Mês de referência"
-                    value={selectedMonthYear}
-                    onChange={(e) => setSelectedMonthYear(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                    size="small"
-                    sx={{ width: 200 }}
-                />
-                <Typography variant="body2" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
-                    {getMonthLabel()}
-                </Typography>
-            </Box>
+            )}
 
-            {/* Cards de Resumo */}
-            <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ width: '100%', mb: { xs: 3, sm: 4 } }}>
-                {(() => {
-                    const ms = getMonthSummary();
-                    return (
-                        <>
-                            {/* Produção Total */}
-                            <Grid size={{ xs: 12, md: 3 }}>
-                                <div className="rounded-2xl border-2 p-5 shadow-sm h-full" style={{ borderColor: '#6366F1', backgroundColor: '#F5F3FF' }}>
-                                    <div className="flex items-center justify-between mb-3">
-                                        <span className="text-xs font-black uppercase tracking-widest text-purple-700">🏥 Produção Total</span>
-                                        {summary.changePercent !== null && (
-                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${(summary.change ?? 0) >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                                                {(summary.change ?? 0) >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                                                {(summary.change ?? 0) >= 0 ? '+' : ''}{summary.changePercent}%
-                                            </span>
+            {/* Cards de Resumo — accordion default fechado */}
+            {(() => {
+                const ms = getMonthSummary();
+                const prodTotal = ms.totalAFaturar + ms.totalFaturado + ms.totalRecebido;
+                return (
+                    <div className="border border-gray-200 rounded-xl overflow-hidden mb-4">
+                        {/* Header clicável */}
+                        <button
+                            onClick={() => setCardsOpen(o => !o)}
+                            className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+                        >
+                            <div className="flex items-center gap-4 flex-wrap">
+                                <span className="text-sm font-semibold text-gray-700">Resumo do mês</span>
+                                <span className="text-sm text-purple-700 font-bold">
+                                    {prodTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} produção
+                                </span>
+                                <span className="text-sm text-amber-600">
+                                    {ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} a faturar
+                                </span>
+                                {ms.totalRecebido > 0 && (
+                                    <span className="text-sm text-emerald-600 font-semibold">
+                                        {ms.totalRecebido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} recebido
+                                    </span>
+                                )}
+                            </div>
+                            <ChevronDown size={16} className={`text-gray-400 transition-transform ${cardsOpen ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        <Collapse in={cardsOpen}>
+                            <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ width: '100%', p: { xs: 2, sm: 2.5, md: 3 } }}>
+                                {/* Produção Total */}
+                                <Grid size={{ xs: 12, md: 3 }}>
+                                    <div className="rounded-2xl border-2 p-5 shadow-sm h-full" style={{ borderColor: '#6366F1', backgroundColor: '#F5F3FF' }}>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <span className="text-xs font-black uppercase tracking-widest text-purple-700">🏥 Produção Total</span>
+                                            {summary.changePercent !== null && (
+                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${(summary.change ?? 0) >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                                    {(summary.change ?? 0) >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                                                    {(summary.change ?? 0) >= 0 ? '+' : ''}{summary.changePercent}%
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="text-3xl font-black text-gray-900 tracking-tight my-2">
+                                            {prodTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                        </div>
+                                        <p className="text-sm text-gray-500">{ms.pendingCount + ms.receivedCount} atendimentos</p>
+                                        {summary.prevMonthTotal !== null && (
+                                            <p className="text-xs text-gray-400 mt-1">
+                                                Mês anterior: <span className="font-semibold text-gray-600">{summary.prevMonthTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                            </p>
                                         )}
                                     </div>
-                                    <div className="text-3xl font-black text-gray-900 tracking-tight my-2">
-                                        {(ms.totalAFaturar + ms.totalFaturado + ms.totalRecebido).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                    </div>
-                                    <p className="text-sm text-gray-500">{ms.pendingCount + ms.receivedCount} atendimentos</p>
-                                    {summary.prevMonthTotal !== null && (
+                                </Grid>
+
+                                {/* A Faturar */}
+                                <Grid size={{ xs: 12, md: 3 }}>
+                                    <div className="rounded-2xl border-2 p-5 shadow-sm h-full" style={{ borderColor: '#F59E0B', backgroundColor: '#FFFBEB' }}>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <span className="text-xs font-black uppercase tracking-widest text-amber-700">⏳ A Faturar</span>
+                                        </div>
+                                        <div className="text-3xl font-black text-gray-900 tracking-tight my-2">
+                                            {ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                        </div>
+                                        <p className="text-sm text-gray-500">{ms.pendingCount} atendimentos</p>
                                         <p className="text-xs text-gray-400 mt-1">
-                                            Mês anterior: <span className="font-semibold text-gray-600">{summary.prevMonthTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                            {pendingGuides.length} guia(s) + {orphanSessions.length} sem guia
                                         </p>
-                                    )}
-                                </div>
-                            </Grid>
+                                    </div>
+                                </Grid>
 
-                            {/* A Faturar */}
-                            <Grid size={{ xs: 12, md: 3 }}>
-                                <div className="rounded-2xl border-2 p-5 shadow-sm h-full" style={{ borderColor: '#F59E0B', backgroundColor: '#FFFBEB' }}>
-                                    <div className="flex items-center justify-between mb-3">
-                                        <span className="text-xs font-black uppercase tracking-widest text-amber-700">⏳ A Faturar</span>
+                                {/* Faturado */}
+                                <Grid size={{ xs: 12, md: 3 }}>
+                                    <div className="rounded-2xl border-2 p-5 shadow-sm h-full" style={{ borderColor: '#3B82F6', backgroundColor: '#EFF6FF' }}>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <span className="text-xs font-black uppercase tracking-widest text-blue-700">📤 Faturado</span>
+                                        </div>
+                                        <div className="text-3xl font-black text-gray-900 tracking-tight my-2">
+                                            {ms.totalFaturado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                        </div>
+                                        <p className="text-sm text-gray-500">{ms.billedCount} atendimentos</p>
+                                        <p className="text-xs text-gray-400 mt-1">Aguardando pagamento do convênio</p>
                                     </div>
-                                    <div className="text-3xl font-black text-gray-900 tracking-tight my-2">
-                                        {ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                    </div>
-                                    <p className="text-sm text-gray-500">{ms.pendingCount} atendimentos</p>
-                                    <p className="text-xs text-gray-400 mt-1">
-                                        {pendingGuides.length} guia(s) + {orphanSessions.length} sem guia
-                                    </p>
-                                </div>
-                            </Grid>
+                                </Grid>
 
-                            {/* Faturado */}
-                            <Grid size={{ xs: 12, md: 3 }}>
-                                <div className="rounded-2xl border-2 p-5 shadow-sm h-full" style={{ borderColor: '#3B82F6', backgroundColor: '#EFF6FF' }}>
-                                    <div className="flex items-center justify-between mb-3">
-                                        <span className="text-xs font-black uppercase tracking-widest text-blue-700">📤 Faturado</span>
+                                {/* Recebido */}
+                                <Grid size={{ xs: 12, md: 3 }}>
+                                    <div className="rounded-2xl border-2 p-5 shadow-sm h-full" style={{ borderColor: '#10B981', backgroundColor: '#F0FDF4' }}>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <span className="text-xs font-black uppercase tracking-widest text-emerald-700">✅ Recebido</span>
+                                        </div>
+                                        <div className="text-3xl font-black text-gray-900 tracking-tight my-2">
+                                            {ms.totalRecebido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                        </div>
+                                        <p className="text-sm text-gray-500">{ms.receivedCount} atendimentos</p>
+                                        <p className="text-xs text-gray-400 mt-1">Repasse recebido do convênio</p>
                                     </div>
-                                    <div className="text-3xl font-black text-gray-900 tracking-tight my-2">
-                                        {ms.totalFaturado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                    </div>
-                                    <p className="text-sm text-gray-500">{ms.billedCount} atendimentos</p>
-                                    <p className="text-xs text-gray-400 mt-1">Aguardando pagamento do convênio</p>
-                                </div>
+                                </Grid>
                             </Grid>
-
-                            {/* Recebido */}
-                            <Grid size={{ xs: 12, md: 3 }}>
-                                <div className="rounded-2xl border-2 p-5 shadow-sm h-full" style={{ borderColor: '#10B981', backgroundColor: '#F0FDF4' }}>
-                                    <div className="flex items-center justify-between mb-3">
-                                        <span className="text-xs font-black uppercase tracking-widest text-emerald-700">✅ Recebido</span>
-                                    </div>
-                                    <div className="text-3xl font-black text-gray-900 tracking-tight my-2">
-                                        {ms.totalRecebido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                    </div>
-                                    <p className="text-sm text-gray-500">{ms.receivedCount} atendimentos</p>
-                                    <p className="text-xs text-gray-400 mt-1">Repasse recebido do convênio</p>
-                                </div>
-                            </Grid>
-                        </>
-                    );
-                })()}
-            </Grid>
+                        </Collapse>
+                    </div>
+                );
+            })()}
 
             {/* Sub-tabs */}
             <div className="border border-gray-200 rounded-xl overflow-hidden">
@@ -868,7 +896,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
 
                 <Box sx={{ p: 3 }}>
                     {subTab === 3 ? (
-                        <InsuranceHistorySection activeYear={year} />
+                        <InsuranceHistorySection activeYear={year} activeMonth={month} />
                     ) : subTab === 0 ? (
                         <GuidePendingBillingSection
                             guides={pendingGuides}
@@ -963,6 +991,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                                     <PatientAccordionSection
                                                         key={patient.patientId}
                                                         patient={patient}
+                                                        provider={group._id}
                                                         onOpen360={handleOpen360}
                                                         onMarkAsBilled={handleMarkAsBilled}
                                                         onReceive={(payment) => {

@@ -20,17 +20,25 @@ import {
     Button,
     Collapse,
     Chip,
+    IconButton,
 } from '@mui/material';
-import { TrendingUp, Download, ChevronRight, ChevronDown, SlidersHorizontal, X, ArrowLeft } from 'lucide-react';
+import { TrendingUp, Download, ChevronRight, ChevronDown, ChevronUp, SlidersHorizontal, X, ArrowLeft } from 'lucide-react';
+import InsurancePatientDrawer from '../components/InsurancePatientDrawer';
 import { useEffect, useState, useMemo } from 'react';
 import { toast } from 'react-toastify';
-import { getInsuranceHistory, InsuranceHistoryMonth } from '../../../services/paymentService';
+import { getInsuranceHistory, InsuranceHistoryMonth, getPatientInsuranceSessions, InsurancePatientSession } from '../../../services/paymentService';
 import { getSpecialtyLabel } from '../../../constants/specialties';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function fmtBRL(v: number) {
     return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function fmtMonthShort(monthKey: string) {
+    if (!monthKey || monthKey === 'all') return '-';
+    const [y, m] = monthKey.split('-');
+    return new Date(Number(y), Number(m) - 1, 1).toLocaleString('pt-BR', { month: 'short', year: 'numeric' });
 }
 
 const STATUS_STYLE: Record<string, { label: string; color: string; bg: string; dot: string }> = {
@@ -70,6 +78,8 @@ interface FlatRow {
     monthKey: string;
     month: string;
     provider: string;
+    providerSlug?: string;
+    patientId?: string;
     patientName: string;
     patientPhone?: string;
     specialty: string;
@@ -95,13 +105,171 @@ interface PatientSummary {
     status: string;
 }
 
+// ── Linha expansível com sessões individuais ───────────────────────────────
+
+interface PatientSessionDetailsProps {
+    rows: FlatRow[];
+    patientId?: string;
+    provider?: string;
+}
+
+function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDetailsProps) {
+    const [expanded, setExpanded] = useState<Set<string>>(new Set());
+    const [sessionsByKey, setSessionsByKey] = useState<Record<string, InsurancePatientSession[]>>({});
+    const [loadingByKey, setLoadingByKey] = useState<Record<string, boolean>>({});
+    const [errorByKey, setErrorByKey] = useState<Record<string, string>>({});
+
+    const toggle = async (row: FlatRow) => {
+        const key = `${row.monthKey}__${row.specialty}`;
+        if (expanded.has(key)) {
+            setExpanded(prev => { const next = new Set(prev); next.delete(key); return next; });
+            return;
+        }
+        setExpanded(prev => { const next = new Set(prev); next.add(key); return next; });
+
+        if (sessionsByKey[key] || loadingByKey[key] || !patientId) return;
+
+        setLoadingByKey(prev => ({ ...prev, [key]: true }));
+        setErrorByKey(prev => ({ ...prev, [key]: '' }));
+        try {
+            const res = await getPatientInsuranceSessions({
+                patientId,
+                month: row.monthKey,
+                specialty: row.specialty,
+                provider,
+                status: row.status
+            });
+            setSessionsByKey(prev => ({ ...prev, [key]: res.data.data || [] }));
+        } catch (err: any) {
+            console.error('[PatientSessionDetails] Erro ao carregar sessões:', err);
+            setErrorByKey(prev => ({ ...prev, [key]: err?.response?.data?.error || 'Erro ao carregar sessões' }));
+        } finally {
+            setLoadingByKey(prev => ({ ...prev, [key]: false }));
+        }
+    };
+
+    function fmtDateShort(iso: string) {
+        if (!iso) return '-';
+        const d = new Date(iso);
+        return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    }
+
+    return (
+        <TableContainer component={Paper} variant="outlined" className="rounded-xl overflow-hidden m-3" sx={{ width: 'calc(100% - 24px)' }}>
+            <Table size="small" sx={{ tableLayout: 'fixed' }}>
+                <TableHead className="bg-gray-50">
+                    <TableRow>
+                        <TableCell sx={{ fontWeight: 600, width: 50 }} />
+                        <TableCell sx={{ fontWeight: 600, width: 110 }}>Mês</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Especialidade</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 600, width: 90 }}>Sessões</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600, width: 130 }}>Valor</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 600, width: 140 }}>Status</TableCell>
+                    </TableRow>
+                </TableHead>
+                <TableBody>
+                    {rows.length === 0 ? (
+                        <TableRow>
+                            <TableCell colSpan={6} align="center" className="py-8 text-gray-400 text-sm">
+                                Nenhum registro encontrado.
+                            </TableCell>
+                        </TableRow>
+                    ) : rows.map((r, idx) => {
+                        const key = `${r.monthKey}__${r.specialty}`;
+                        const isOpen = expanded.has(key);
+                        const sessions = sessionsByKey[key] || [];
+                        const isLoading = loadingByKey[key];
+                        const error = errorByKey[key];
+                        const canExpand = !!patientId;
+
+                        return (
+                            <>
+                                <TableRow key={idx} className="border-t border-gray-50" hover={canExpand}>
+                                    <TableCell sx={{ width: 50, p: 0 }}>
+                                        {canExpand && (
+                                            <IconButton size="small" onClick={() => toggle(r)} sx={{ p: 0.5 }}>
+                                                {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                            </IconButton>
+                                        )}
+                                    </TableCell>
+                                    <TableCell className="text-gray-600 capitalize whitespace-nowrap">{fmtMonthShort(r.monthKey)}</TableCell>
+                                    <TableCell className="text-gray-700">{getSpecialtyLabel(r.specialty)}</TableCell>
+                                    <TableCell align="center" className="text-gray-600">{r.sessions}</TableCell>
+                                    <TableCell align="right" className="font-semibold text-gray-800">{fmtBRL(r.value)}</TableCell>
+                                    <TableCell align="center"><StatusBadge status={r.status} /></TableCell>
+                                </TableRow>
+                                {canExpand && (
+                                    <TableRow>
+                                        <TableCell colSpan={6} sx={{ p: 0, border: 0 }}>
+                                            <Collapse in={isOpen} timeout="auto" unmountOnExit>
+                                                <Box sx={{ bgcolor: '#F8FAFC', px: 2, py: 1 }}>
+                                                    {isLoading && (
+                                                        <Box className="flex items-center gap-2 py-2 text-gray-500 text-xs">
+                                                            <CircularProgress size={14} />
+                                                            Carregando sessões...
+                                                        </Box>
+                                                    )}
+                                                    {error && (
+                                                        <Box className="text-red-600 text-xs py-2">{error}</Box>
+                                                    )}
+                                                    {!isLoading && !error && sessions.length === 0 && (
+                                                        <Box className="text-gray-400 text-xs py-2">Nenhuma sessão encontrada.</Box>
+                                                    )}
+                                                    {!isLoading && !error && sessions.length > 0 && (
+                                                        <Table size="small" sx={{ tableLayout: 'fixed' }}>
+                                                            <TableHead>
+                                                                <TableRow>
+                                                                    <TableCell sx={{ fontWeight: 600, width: 90 }}>Data</TableCell>
+                                                                    <TableCell sx={{ fontWeight: 600 }}>Profissional</TableCell>
+                                                                    <TableCell sx={{ fontWeight: 600, width: 110 }}>Guia</TableCell>
+                                                                    <TableCell align="right" sx={{ fontWeight: 600, width: 110 }}>Valor</TableCell>
+                                                                    <TableCell align="center" sx={{ fontWeight: 600, width: 120 }}>Status</TableCell>
+                                                                </TableRow>
+                                                            </TableHead>
+                                                            <TableBody>
+                                                                {sessions.map((s) => (
+                                                                    <TableRow key={s.sessionId || s.paymentId} className="border-t border-gray-100">
+                                                                        <TableCell className="text-gray-600 text-xs whitespace-nowrap">{fmtDateShort(s.date)}</TableCell>
+                                                                        <TableCell className="text-gray-700 text-xs">{s.doctor?.fullName || '-'}</TableCell>
+                                                                        <TableCell className="text-gray-500 text-xs">{s.guideNumber || '-'}</TableCell>
+                                                                        <TableCell align="right" className="font-medium text-gray-800 text-xs">{fmtBRL(s.value)}</TableCell>
+                                                                        <TableCell align="center"><StatusBadge status={s.billingStatus} /></TableCell>
+                                                                    </TableRow>
+                                                                ))}
+                                                            </TableBody>
+                                                        </Table>
+                                                    )}
+                                                </Box>
+                                            </Collapse>
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </>
+                        );
+                    })}
+                    {rows.length > 0 && (
+                        <TableRow className="bg-gray-50">
+                            <TableCell />
+                            <TableCell colSpan={2} className="font-semibold text-gray-700">Total</TableCell>
+                            <TableCell align="center" className="font-semibold">{rows.reduce((s, r) => s + r.sessions, 0)}</TableCell>
+                            <TableCell align="right" className="font-bold text-gray-900">{fmtBRL(rows.reduce((s, r) => s + r.value, 0))}</TableCell>
+                            <TableCell />
+                        </TableRow>
+                    )}
+                </TableBody>
+            </Table>
+        </TableContainer>
+    );
+}
+
 // ── Componente principal ───────────────────────────────────────────────────
 
 interface InsuranceHistorySectionProps {
     activeYear?: number;
+    activeMonth?: number;
 }
 
-export default function InsuranceHistorySection({ activeYear }: InsuranceHistorySectionProps) {
+export default function InsuranceHistorySection({ activeYear, activeMonth }: InsuranceHistorySectionProps) {
     const currentYear = new Date().getFullYear();
     const [year, setYear] = useState(activeYear ?? currentYear);
     const [data, setData] = useState<InsuranceHistoryMonth[]>([]);
@@ -111,23 +279,27 @@ export default function InsuranceHistorySection({ activeYear }: InsuranceHistory
     const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
     const [selectedPatient, setSelectedPatient] = useState<string | null>(null);
 
+    // Drawer de especialidades do paciente
+    const [drawerPatient, setDrawerPatient] = useState<{ name: string; patientId?: string; provider: string; providerSlug?: string; rows: FlatRow[] } | null>(null);
+
     // Filtros primários
     const [searchText, setSearchText] = useState('');
 
-    // Filtros avançados
+    const _defaultMonth = (y: number, m?: number) =>
+        m ? `${y}-${String(m).padStart(2, '0')}` : 'all';
+
+    // Filtros avançados — mês inicia no mês ativo da aba pai
     const [showAdvanced, setShowAdvanced] = useState(false);
-    const [filterMonth, setFilterMonth] = useState('all');
+    const [filterMonth, setFilterMonth] = useState(() => _defaultMonth(activeYear ?? currentYear, activeMonth));
     const [filterStatus, setFilterStatus] = useState('all');
     const [filterSpecialty, setFilterSpecialty] = useState('all');
 
     const level = selectedPatient ? 3 : selectedProvider ? 2 : 1;
 
-    useEffect(() => { load(); }, [year]);
-
-    // Reset drill ao mudar ano
     useEffect(() => {
         setSelectedProvider(null);
         setSelectedPatient(null);
+        load();
     }, [year]);
 
     async function load() {
@@ -153,6 +325,8 @@ export default function InsuranceHistorySection({ activeYear }: InsuranceHistory
                             monthKey: month.monthKey,
                             month: month.monthLabel,
                             provider: prov.providerLabel,
+                            providerSlug: prov.provider,
+                            patientId: pat.patientId,
                             patientName: pat.name,
                             patientPhone: pat.phone,
                             specialty: sp.specialty,
@@ -252,6 +426,9 @@ export default function InsuranceHistorySection({ activeYear }: InsuranceHistory
 
     function drillToProvider(p: string) { setSelectedProvider(p); setSelectedPatient(null); setSearchText(''); }
     function drillToPatient(name: string) { setSelectedPatient(name); setSearchText(''); }
+    function openPatientDrawer(name: string, patientId: string | undefined, provider: string, providerSlug: string | undefined, rows: FlatRow[]) {
+        setDrawerPatient({ name, patientId, provider, providerSlug, rows });
+    }
 
     // ── Render ─────────────────────────────────────────────────────────────
     return (
@@ -331,18 +508,21 @@ export default function InsuranceHistorySection({ activeYear }: InsuranceHistory
 
                     {/* FILTROS */}
                     <div className="flex flex-wrap items-center gap-2 mb-4">
-                        <TextField
-                            size="small"
-                            placeholder={level === 1 ? 'Buscar convênio...' : 'Buscar paciente...'}
-                            value={searchText}
-                            onChange={e => setSearchText(e.target.value)}
-                            sx={{ minWidth: 200 }}
-                            InputProps={{
-                                endAdornment: searchText ? (
-                                    <button onClick={() => setSearchText('')}><X size={14} className="text-gray-400" /></button>
-                                ) : undefined,
-                            }}
-                        />
+                        {/* Busca só no nível 2 (pacientes) — no nível 1 você navega clicando */}
+                        {level >= 2 && (
+                            <TextField
+                                size="small"
+                                placeholder="Buscar paciente..."
+                                value={searchText}
+                                onChange={e => setSearchText(e.target.value)}
+                                sx={{ minWidth: 200 }}
+                                InputProps={{
+                                    endAdornment: searchText ? (
+                                        <button onClick={() => setSearchText('')}><X size={14} className="text-gray-400" /></button>
+                                    ) : undefined,
+                                }}
+                            />
+                        )}
 
                         <Button
                             size="small"
@@ -456,7 +636,11 @@ export default function InsuranceHistorySection({ activeYear }: InsuranceHistory
                                         </TableRow>
                                     ) : patientSummary.map(p => (
                                         <TableRow key={p.name} hover
-                                            onClick={() => drillToPatient(p.name)}
+                                            onClick={() => {
+                                                const rows = advFiltered.filter(r => r.provider === selectedProvider && r.patientName === p.name);
+                                                const first = rows[0];
+                                                openPatientDrawer(p.name, p.patientId, selectedProvider!, first?.providerSlug, rows);
+                                            }}
                                             className="cursor-pointer border-t border-gray-50 hover:bg-indigo-50/40 transition-colors">
                                             <TableCell>
                                                 <div className="font-medium text-gray-800">{p.name}</div>
@@ -475,46 +659,26 @@ export default function InsuranceHistorySection({ activeYear }: InsuranceHistory
                         </TableContainer>
                     )}
 
-                    {/* ── NÍVEL 3: Especialidades do paciente ──────────────────────── */}
-                    {level === 3 && (
-                        <TableContainer component={Paper} variant="outlined" className="rounded-xl overflow-hidden">
-                            <Table size="small">
-                                <TableHead className="bg-gray-50">
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: 600 }}>Mês</TableCell>
-                                        <TableCell sx={{ fontWeight: 600 }}>Especialidade</TableCell>
-                                        <TableCell align="center" sx={{ fontWeight: 600 }}>Sessões</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 600 }}>Valor</TableCell>
-                                        <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {specialtyRows.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={5} align="center" className="py-8 text-gray-400 text-sm">
-                                                Nenhum registro encontrado.
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : specialtyRows.map((r, idx) => (
-                                        <TableRow key={idx} className="border-t border-gray-50">
-                                            <TableCell className="text-gray-600 capitalize">{r.month}</TableCell>
-                                            <TableCell className="text-gray-700">{getSpecialtyLabel(r.specialty)}</TableCell>
-                                            <TableCell align="center" className="text-gray-600">{r.sessions}</TableCell>
-                                            <TableCell align="right" className="font-semibold text-gray-800">{fmtBRL(r.value)}</TableCell>
-                                            <TableCell><StatusBadge status={r.status} /></TableCell>
-                                        </TableRow>
-                                    ))}
-                                    {specialtyRows.length > 0 && (
-                                        <TableRow className="bg-gray-50">
-                                            <TableCell colSpan={2} className="font-semibold text-gray-700">Total</TableCell>
-                                            <TableCell align="center" className="font-semibold">{specialtyRows.reduce((s, r) => s + r.sessions, 0)}</TableCell>
-                                            <TableCell align="right" className="font-bold text-gray-900">{fmtBRL(specialtyRows.reduce((s, r) => s + r.value, 0))}</TableCell>
-                                            <TableCell />
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
+                    {/* Drawer de especialidades do paciente */}
+                    {drawerPatient && (
+                        <InsurancePatientDrawer
+                            open={!!drawerPatient}
+                            onClose={() => setDrawerPatient(null)}
+                            patientName={drawerPatient.name}
+                            provider={drawerPatient.provider}
+                            headerColor="#EFF6FF"
+                            subtitle={
+                                <span className="text-xs text-gray-500">
+                                    {drawerPatient.rows.length} registro(s) · {fmtBRL(drawerPatient.rows.reduce((s, r) => s + r.value, 0))}
+                                </span>
+                            }
+                        >
+                            <PatientSessionDetails
+                                rows={drawerPatient.rows}
+                                patientId={drawerPatient.patientId}
+                                provider={drawerPatient.providerSlug || drawerPatient.provider}
+                            />
+                        </InsurancePatientDrawer>
                     )}
                 </>
             )}

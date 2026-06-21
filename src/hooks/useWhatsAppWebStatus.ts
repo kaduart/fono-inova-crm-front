@@ -67,11 +67,18 @@ export function useWhatsAppWebStatus() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchStatus();
-    const id = setInterval(fetchStatus, POLL_INTERVAL);
-    return () => clearInterval(id);
-  }, [fetchStatus]);
+  // ---------------------------------------------------------------------------
+  // 🔕 WhatsApp Web status polling — DESABILITADO (API wpp fora de uso no momento)
+  //
+  // Para reativar: descomentar o bloco abaixo.
+  // Endpoint: GET /whatsapp-web/status  |  Intervalo: 3s (POLL_INTERVAL)
+  // Usado em: WhatsAppDiagnostic, WhatsAppConnectionCard
+  // ---------------------------------------------------------------------------
+  // useEffect(() => {
+  //   fetchStatus();
+  //   const id = setInterval(fetchStatus, POLL_INTERVAL);
+  //   return () => clearInterval(id);
+  // }, [fetchStatus]);
 
   const reconnect = useCallback(async () => {
     try {

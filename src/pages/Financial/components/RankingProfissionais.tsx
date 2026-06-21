@@ -1,9 +1,9 @@
 // frontend/src/pages/Financial/components/RankingProfissionais.tsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Box, Typography, Avatar, LinearProgress, Chip
 } from '@mui/material';
-import { useFinancialAnalytics } from '../../../hooks/useFinancialAnalytics';
+import { useDoctorsAnalytics } from '../../../hooks/useSpecialtiesAnalytics';
 import { Trophy, Users, TrendingUp, WalletCards } from 'lucide-react';
 import { ProfessionalRankingItem } from '../../../services/professionalResultsService';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
@@ -47,23 +47,16 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
   onRowClick,
   title = 'Ranking de Profissionais'
 }) => {
-  const { doctors, loadingDoctors, fetchDoctors } = useFinancialAnalytics();
+  const now = new Date();
+  const dateRange = {
+    from: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`,
+    to: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
+  };
+  const { data: doctors = [], isLoading: loadingDoctors } = useDoctorsAnalytics(dateRange, undefined, !data);
   const [advanceModal, setAdvanceModal] = useState<{ doctorId: string; doctorName: string } | null>(null);
 
-  const refreshDoctors = () => {
-    const now = new Date();
-    const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-    const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
-    fetchDoctors({ from, to });
-  };
-
-  useEffect(() => {
-    if (data) return;
-    refreshDoctors();
-  }, [fetchDoctors, data]);
-
   const rows: NormalizedRow[] = useMemo(() => {
-    const source = data ?? doctors.map((doc) => ({
+    const source = data ?? (doctors || []).map((doc) => ({
       doctorId: doc.doctorId,
       doctorName: doc.doctorName,
       specialty: doc.specialty,
@@ -92,7 +85,7 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
     }));
   }, [data, doctors]);
 
-  const isLoading = loading ?? (loadingDoctors && doctors.length === 0);
+  const isLoading = loading ?? (!data && loadingDoctors);
 
   const maxProduction = useMemo(() => {
     if (rows.length === 0) return 0;

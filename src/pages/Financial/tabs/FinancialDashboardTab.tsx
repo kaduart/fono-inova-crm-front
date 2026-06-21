@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Skeleton } from '@mui/material';
 import {
   LayoutDashboard,
@@ -62,13 +63,37 @@ const getMetaBg = (status: string) => {
   }
 };
 
-interface DashboardV3TabProps {
+interface FinancialDashboardTabProps {
   month: number;
   year: number;
 }
 
-const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
-  const [activeTab, setActiveTab] = useState(0);
+const DASHBOARD_TAB_PARAM = 'dashboardTab';
+
+const getDashboardTabs = () => [
+  { id: 'decisao', label: 'Decisão Executiva', icon: <Zap size={18} /> },
+  { id: 'visao-geral', label: 'Visão Geral', icon: <LayoutDashboard size={18} /> },
+  { id: 'caixa', label: 'Caixa', icon: <DollarSign size={18} /> },
+  { id: 'producao', label: 'Produção', icon: <Briefcase size={18} /> },
+  { id: 'despesas', label: 'Despesas', icon: <Receipt size={18} /> },
+  { id: 'metas', label: 'Metas', icon: <Target size={18} /> },
+  ...(FEATURE_FLAGS.SHOW_PROJECTION_TAB ? [{ id: 'projecao', label: 'Projeção & Cenários', icon: <TrendingUp size={18} /> }] : []),
+  { id: 'insights', label: 'Insights', icon: <Lightbulb size={18} /> },
+  { id: 'ranking', label: 'Ranking', icon: <TrendingUp size={18} /> },
+];
+
+const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const resolveActiveTab = () => {
+    const tabId = searchParams.get(DASHBOARD_TAB_PARAM);
+    if (!tabId) return 0;
+    const tabs = getDashboardTabs();
+    const index = tabs.findIndex((t) => t.id === tabId);
+    return index >= 0 ? index : 0;
+  };
+
+  const [activeTab, setActiveTab] = useState(resolveActiveTab());
   const [rankingSubTab, setRankingSubTab] = useState(0);
   const { data, resumo, loading, error, fetchDashboard } = useFinancialDashboardV3();
   // 🆕 B: Pendências de convênio
@@ -287,10 +312,19 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     }
   }, [activeTab, month, year, fetchPendingInsurance]);
 
+  // Sincroniza aba ativa caso o query param mude (reload / navegação)
+  useEffect(() => {
+    const nextTab = resolveActiveTab();
+    if (nextTab !== activeTab) {
+      setActiveTab(nextTab);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   // 🔄 Escuta evento global de refresh de caixa (disparado após completeSession)
   useEffect(() => {
     const handleCashRefresh = () => {
-      console.log('[DashboardV3Tab] cash:refresh recebido — refetching dashboard');
+      console.log('[FinancialDashboardTab] cash:refresh recebido — refetching dashboard');
       fetchDashboard(month, year);
     };
     window.addEventListener('cash:refresh', handleCashRefresh);
@@ -1695,7 +1729,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
                   <span>Comissão</span>
                   <span>Status</span>
                 </div>
-                {(drillDown?.profissionais || []).map((prof) => (
+                {[...(drillDown?.profissionais || [])].sort((a, b) => b.resumo.receita - a.resumo.receita).map((prof) => (
                   <div key={prof.id} className="min-w-[800px] grid grid-cols-7 gap-3 p-4 border-b last:border-b-0 items-center">
                     <div>
                       <p className="font-semibold text-gray-800">{prof.nome}</p>
@@ -1722,17 +1756,7 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
     );
   };
 
-  const tabs = [
-    { label: 'Decisão Executiva', icon: <Zap size={18} /> },
-    { label: 'Visão Geral', icon: <LayoutDashboard size={18} /> },
-    { label: 'Caixa', icon: <DollarSign size={18} /> },
-    { label: 'Produção', icon: <Briefcase size={18} /> },
-    { label: 'Despesas', icon: <Receipt size={18} /> },
-    { label: 'Metas', icon: <Target size={18} /> },
-    ...(FEATURE_FLAGS.SHOW_PROJECTION_TAB ? [{ label: 'Projeção & Cenários', icon: <TrendingUp size={18} /> }] : []),
-    { label: 'Insights', icon: <Lightbulb size={18} /> },
-    { label: 'Ranking', icon: <TrendingUp size={18} /> },
-  ];
+  const tabs = getDashboardTabs();
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 py-6">
@@ -1741,7 +1765,20 @@ const DashboardV3Tab = ({ month, year }: DashboardV3TabProps) => {
           {tabs.map((t, i) => (
             <button
               key={i}
-              onClick={() => setActiveTab(i)}
+              onClick={() => {
+                const newTabId = tabs[i]?.id;
+                if (newTabId) {
+                  setSearchParams(
+                    (prev) => {
+                      const next = new URLSearchParams(prev);
+                      next.set(DASHBOARD_TAB_PARAM, newTabId);
+                      return next;
+                    },
+                    { replace: true }
+                  );
+                }
+                setActiveTab(i);
+              }}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-all ${
                 activeTab === i
                   ? 'bg-[#00B57A] text-white shadow-md'
@@ -2140,4 +2177,4 @@ const BreakdownList = ({ items, total }: { items: Array<{ label: string; value: 
   );
 };
 
-export default DashboardV3Tab;
+export default FinancialDashboardTab;

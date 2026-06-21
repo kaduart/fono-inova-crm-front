@@ -1,9 +1,13 @@
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 // frontend/src/pages/Financial/components/DashboardEspecialidades.tsx
-import React, { useEffect, useState } from 'react';
-import { Card, CardContent, Typography, Box, Chip, Grid } from '@mui/material';
-import { FinancialLoadingCompact } from './FinancialLoading';
-import { useFinancialAnalytics } from '../../../hooks/useFinancialAnalytics';
+import React, { useState, useMemo } from 'react';
+import {
+    Card, CardContent, Typography, Box, Chip, Grid,
+    Dialog, DialogTitle, DialogContent, IconButton,
+    Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Tabs, Tab
+} from '@mui/material';
+import { X } from 'lucide-react';
+import { useSpecialtiesAnalytics, useSpecialtyDetails } from '../../../hooks/useSpecialtiesAnalytics';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -26,9 +30,13 @@ const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
-export const DashboardEspecialidades: React.FC = () => {
-    const { specialties, loadingSpecialties, fetchSpecialties } = useFinancialAnalytics();
+const formatDateShort = (iso: string) => {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+};
 
+export const DashboardEspecialidades: React.FC = () => {
     const [dateRange] = useState(() => {
         const now = new Date();
         return {
@@ -37,9 +45,8 @@ export const DashboardEspecialidades: React.FC = () => {
         };
     });
 
-    useEffect(() => {
-        fetchSpecialties(dateRange);
-    }, [fetchSpecialties, dateRange]);
+    const { data: specialties = [], isLoading: loadingSpecialties } = useSpecialtiesAnalytics(dateRange);
+    const [detailSpecialty, setDetailSpecialty] = useState<string | null>(null);
 
     const totalGeral = specialties.reduce((acc, s) => acc + s.totalRevenue, 0);
 
@@ -106,11 +113,172 @@ export const DashboardEspecialidades: React.FC = () => {
                                         {totalGeral > 0 ? ((spec.totalRevenue / totalGeral) * 100).toFixed(1) : 0}%
                                     </Typography>
                                 </Box>
+
+                                {spec.specialty.toUpperCase() === 'OUTROS' && spec.totalSessions > 0 && (
+                                    <Box sx={{ mt: 2 }}>
+                                        <button
+                                            onClick={() => setDetailSpecialty(spec.specialty)}
+                                            className="text-xs text-blue-600 hover:text-blue-800 font-medium underline"
+                                        >
+                                            Ver o que compõe "Outros"
+                                        </button>
+                                    </Box>
+                                )}
                             </CardContent>
                         </Card>
                     </Grid>
                 ))}
             </Grid>
+
+            {detailSpecialty && (
+                <SpecialtyDetailModal
+                    open={!!detailSpecialty}
+                    onClose={() => setDetailSpecialty(null)}
+                    specialty={detailSpecialty}
+                    dateRange={dateRange}
+                />
+            )}
         </Box>
     );
 };
+
+// ── Modal de detalhamento da especialidade ─────────────────────────────────
+
+interface SpecialtyDetailModalProps {
+    open: boolean;
+    onClose: () => void;
+    specialty: string;
+    dateRange: { from: string; to: string };
+}
+
+function SpecialtyDetailModal({ open, onClose, specialty, dateRange }: SpecialtyDetailModalProps) {
+    const { data: details, isLoading } = useSpecialtyDetails(dateRange, specialty);
+    const [activeTab, setActiveTab] = useState(0);
+
+    const hasData = details && details.items && details.items.length > 0;
+
+    return (
+        <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth scroll="paper">
+            <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pr: 6 }}>
+                <span>Detalhamento: {specialty.replace('_', ' ')}</span>
+                <IconButton size="small" onClick={onClose} sx={{ position: 'absolute', right: 12, top: 12 }}>
+                    <X size={18} />
+                </IconButton>
+            </DialogTitle>
+            <DialogContent dividers>
+                {isLoading ? (
+                    <Box className="flex justify-center py-8">
+                        <LoadingSpinner centered size="small" color="border-blue-600" />
+                    </Box>
+                ) : !hasData ? (
+                    <Typography color="textSecondary" align="center" py={4}>
+                        Nenhum detalhe encontrado para este grupo.
+                    </Typography>
+                ) : (
+                    <Box>
+                        <Box sx={{ mb: 2, display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                            <Typography variant="subtitle2" color="textSecondary">
+                                Receita: <strong>{formatCurrency(details.totalRevenue)}</strong>
+                            </Typography>
+                            <Typography variant="subtitle2" color="textSecondary">
+                                Sessões: <strong>{details.totalSessions}</strong>
+                            </Typography>
+                            <Typography variant="subtitle2" color="textSecondary">
+                                Itens: <strong>{details.items.length}</strong>
+                            </Typography>
+                        </Box>
+
+                        <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 2 }}>
+                            <Tab label="Itens" />
+                            <Tab label="Por Método" />
+                            <Tab label="Por Profissional" />
+                            <Tab label="Por Tipo" />
+                        </Tabs>
+
+                        {activeTab === 0 && (
+                            <TableContainer component={Paper} variant="outlined">
+                                <Table size="small">
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>Data</TableCell>
+                                            <TableCell>Paciente</TableCell>
+                                            <TableCell>Profissional</TableCell>
+                                            <TableCell>Especialidade bruta</TableCell>
+                                            <TableCell>Origem</TableCell>
+                                            <TableCell align="right">Valor</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {details.items.map((item) => (
+                                            <TableRow key={item._id}>
+                                                <TableCell>{formatDateShort(item.date)}</TableCell>
+                                                <TableCell>{item.patient?.fullName || '-'}</TableCell>
+                                                <TableCell>{item.doctor?.fullName || '-'}</TableCell>
+                                                <TableCell>{item.rawSpecialty || item.specialty || '-'}</TableCell>
+                                                <TableCell>{item.source === 'payment' ? 'Particular' : 'Convênio/Pacote'}</TableCell>
+                                                <TableCell align="right">{formatCurrency(item.amount)}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        )}
+
+                        {activeTab === 1 && <BreakdownTable data={details.byPaymentMethod} />}
+                        {activeTab === 2 && <DoctorBreakdownTable data={details.byDoctor} />}
+                        {activeTab === 3 && <BreakdownTable data={details.bySessionType} />}
+                    </Box>
+                )}
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function BreakdownTable({ data }: { data: Record<string, number> }) {
+    const rows = useMemo(() => Object.entries(data || {}).sort((a, b) => b[1] - a[1]), [data]);
+    return (
+        <TableContainer component={Paper} variant="outlined">
+            <Table size="small">
+                <TableHead>
+                    <TableRow>
+                        <TableCell>Categoria</TableCell>
+                        <TableCell align="right">Valor</TableCell>
+                    </TableRow>
+                </TableHead>
+                <TableBody>
+                    {rows.map(([key, value]) => (
+                        <TableRow key={key}>
+                            <TableCell>{key || 'Não informado'}</TableCell>
+                            <TableCell align="right">{formatCurrency(value)}</TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </TableContainer>
+    );
+}
+
+function DoctorBreakdownTable({ data }: { data: Array<{ doctorId: string; doctorName: string; value: number; sessions: number }> }) {
+    return (
+        <TableContainer component={Paper} variant="outlined">
+            <Table size="small">
+                <TableHead>
+                    <TableRow>
+                        <TableCell>Profissional</TableCell>
+                        <TableCell align="right">Sessões</TableCell>
+                        <TableCell align="right">Valor</TableCell>
+                    </TableRow>
+                </TableHead>
+                <TableBody>
+                    {(data || []).map((doc) => (
+                        <TableRow key={doc.doctorId}>
+                            <TableCell>{doc.doctorName}</TableCell>
+                            <TableCell align="right">{doc.sessions}</TableCell>
+                            <TableCell align="right">{formatCurrency(doc.value)}</TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </TableContainer>
+    );
+}

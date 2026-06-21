@@ -167,16 +167,37 @@ export const receberConvenioLote = (data: { paymentIds: string[]; dataRecebiment
 export const getInsuranceHistory = (params?: { provider?: string; year?: number }) =>
     API.get<{ success: boolean; data: InsuranceHistoryMonth[]; year: number }>('/v2/insurance/history', { params });
 
+// Sessões individuais de um paciente em um mês/especialidade (lazy expand no drawer)
+export interface InsurancePatientSession {
+    sessionId: string | null;
+    date: string;
+    patient: { _id: string; fullName?: string; phone?: string };
+    doctor: { _id: string; fullName?: string; specialty?: string };
+    specialty: string;
+    provider: string;
+    guideNumber?: string | null;
+    value: number;
+    billingStatus: 'pending_batch' | 'billed' | 'received';
+    batchId?: string | null;
+    paymentId?: string | null;
+    appointmentId?: string | null;
+    source: 'lote' | 'avulso';
+}
+
+export const getPatientInsuranceSessions = (params: { patientId: string; month: string; specialty?: string; provider?: string; status?: string }) =>
+    API.get<{ success: boolean; data: InsurancePatientSession[]; count: number }>('/v2/insurance/patient-sessions', { params });
+
 export interface InsuranceHistorySpecialty {
     specialty: string;
     sessions: number;
     value: number;
-    source: 'legado' | 'lote';
+    source: 'package' | 'lote' | 'avulso';
     batchStatus: 'pending_batch' | 'billed' | 'received';
 }
 
 export interface InsuranceHistoryPatient {
     name: string;
+    patientId?: string;
     phone: string;
     specialties: InsuranceHistorySpecialty[];
     totalSessions: number;

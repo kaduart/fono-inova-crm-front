@@ -280,13 +280,18 @@ export function SystemHealthProvider({ children, active = false }: { children: R
         return () => clearInterval(id);
     }, [fetchMonitor, active]);
 
-    // 🔄 Polling do WhatsApp health — intervalo fixo para evitar re-trigger por status
-    // Antes: [fetchWhatsappHealth, whatsappHealth?.status] causava re-run no mount (3 fetches)
-    useEffect(() => {
-        fetchWhatsappHealth();
-        const id = setInterval(fetchWhatsappHealth, 15_000);
-        return () => clearInterval(id);
-    }, [fetchWhatsappHealth]);
+    // ---------------------------------------------------------------------------
+    // 🔕 WhatsApp health polling — DESABILITADO (API wpp fora de uso no momento)
+    //
+    // Para reativar: descomentar o bloco abaixo.
+    // Endpoint: GET /observability/whatsapp-health
+    // Intervalo: 15s | resultado: whatsappHealth state → WhatsAppCriticalBanner
+    // ---------------------------------------------------------------------------
+    // useEffect(() => {
+    //     fetchWhatsappHealth();
+    //     const id = setInterval(fetchWhatsappHealth, 15_000);
+    //     return () => clearInterval(id);
+    // }, [fetchWhatsappHealth]);
 
     return (
         <SystemHealthContext.Provider value={{
