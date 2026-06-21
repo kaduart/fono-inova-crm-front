@@ -229,6 +229,22 @@ export const billInsuranceSession = (sessionId: string, data?: { billedAmount?: 
 export const receiveInsuranceSession = (sessionId: string, data: { receivedAmount: number; receivedDate?: string }) =>
     API.patch<{ success: boolean; data: any }>(`/v2/insurance/session/${sessionId}/receive`, data);
 
+// Vincular sessões órfãs a guias ativas automaticamente
+export const autoLinkOrphanSessions = (data: { month?: string }) =>
+    API.post<{ success: boolean; linked: any[]; skipped: any[]; linkedCount: number; skippedCount: number }>('/v2/insurance/guides/auto-link-orphans', data);
+
+// Pré-visualizar vínculos automáticos de sessões órfãs
+export const previewAutoLinkOrphanSessions = (data: { month?: string }) =>
+    API.post<{ success: boolean; linked: any[]; skipped: any[]; linkedCount: number; skippedCount: number }>('/v2/insurance/guides/auto-link-orphans/preview', data);
+
+// Criar guia a partir de sessão órfã
+export const createGuideFromOrphan = (data: { sessionId: string; number: string; totalSessions: number; expiresAt: string; sessionValue?: number }) =>
+    API.post<{ success: boolean; data: { guideId: string; number: string; sessionId: string } }>('/v2/insurance/guides/create-from-orphan', data);
+
+// Vincular sessões órfãs a guia existente
+export const linkOrphanSessionsToGuide = (data: { guideId?: string; guideNumber?: string; sessionIds: string[] }) =>
+    API.post<{ success: boolean; linked: string[]; guideId: string }>('/v2/insurance/guides/link-orphan-sessions', data);
+
 // CRUD básicos
 export const getPayments = (filters: Record<string, any> = {}) =>
     API.get<FinancialRecord[]>('/payments', { params: filters });

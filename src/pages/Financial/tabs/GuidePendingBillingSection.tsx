@@ -18,10 +18,22 @@ import {
     TableContainer,
     TableHead,
     TableRow,
+    Button,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    TextField,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
 } from '@mui/material';
-import { Calendar, ChevronDown, ChevronUp, Send, X } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronUp, Send, X, Link2, Plus, Wand2 } from 'lucide-react';
 import { Fragment, useState } from 'react';
 import { getSpecialtyLabel } from '../../../constants/specialties';
+import { autoLinkOrphanSessions, createGuideFromOrphan, linkOrphanSessionsToGuide, previewAutoLinkOrphanSessions } from '../../../services/paymentService';
+import { toast } from 'react-toastify';
 
 export interface PendingGuideSession {
     sessionId: string;
@@ -61,6 +73,8 @@ interface GuidePendingBillingSectionProps {
     orphanSessions: OrphanSession[];
     loading: boolean;
     onToggleGuide: (guideId: string) => void;
+    onRefresh?: () => void;
+    month?: string;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -126,7 +140,7 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, on
     const allSelected  = guides.every(g => selectedGuides.has(g.guideId));
     const someSelected = guides.some(g => selectedGuides.has(g.guideId)) && !allSelected;
 
-    const [expandedGuides, setExpandedGuides] = useState<Set<string>>(() => new Set(guides.map(g => g.guideId)));
+    const [expandedGuides, setExpandedGuides] = useState<Set<string>>(new Set());
 
     const toggleGuideExpand = (guideId: string, e?: React.MouseEvent) => {
         e?.stopPropagation();
@@ -271,16 +285,101 @@ const GuidePendingBillingSection = ({
     orphanSessions,
     loading,
     onToggleGuide,
+    onRefresh,
+    month,
 }: GuidePendingBillingSectionProps) => {
     const [expandedProviders, setExpandedProviders]             = useState<Record<string, boolean>>({});
     const [expandedOrphanProviders, setExpandedOrphanProviders] = useState<Record<string, boolean>>({});
     const [drawerPatient, setDrawerPatient]                     = useState<{ name: string; provider: string; guides: PendingGuide[] } | null>(null);
+    const [linking, setLinking]                                 = useState(false);
+    const [createModal, setCreateModal]                         = useState<OrphanSession | null>(null);
+    const [linkModal, setLinkModal]                             = useState<OrphanSession | null>(null);
+    const [guideNumber, setGuideNumber]                         = useState('');
+    const [previewModal, setPreviewModal]                       = useState<{ open: boolean; linked: any[]; skipped: any[] } | null>(null);
 
     const toggleProvider      = (p: string) => setExpandedProviders(prev => ({ ...prev, [p]: !prev[p] }));
     const toggleOrphanProvider = (p: string) => setExpandedOrphanProviders(prev => ({ ...prev, [p]: !prev[p] }));
 
     const openDrawer = (name: string, provider: string, patientGuides: PendingGuide[]) =>
         setDrawerPatient({ name, provider, guides: patientGuides });
+
+    const handleAutoLinkPreview = async () => {
+        if (linking) return;
+        setLinking(true);
+        try {
+            const res = await previewAutoLinkOrphanSessions({ month });
+            if (res.data.linkedCount === 0 && res.data.skippedCount === 0) {
+                toast.info('Nenhuma sessão órfã encontrada.');
+                return;
+            }
+            setPreviewModal({ open: true, linked: res.data.linked, skipped: res.data.skipped });
+        } catch (err: any) {
+            toast.error(err?.response?.data?.error || 'Erro ao analisar vínculos automáticos');
+        } finally {
+            setLinking(false);
+        }
+    };
+
+    const confirmAutoLink = async () => {
+        if (linking) return;
+        setLinking(true);
+        try {
+            const res = await autoLinkOrphanSessions({ month });
+            setPreviewModal(null);
+            if (res.data.linkedCount > 0) {
+                toast.success(`${res.data.linkedCount} sessão(ões) vinculada(s) automaticamente a guias existentes.`);
+                onRefresh?.();
+            }
+            if (res.data.skippedCount > 0) {
+                toast.warn(`${res.data.skippedCount} sessão(ões) não puderam ser vinculadas automaticamente — crie guias manualmente.`);
+            }
+            if (res.data.linkedCount === 0 && res.data.skippedCount === 0) {
+                toast.info('Nenhuma sessão órfã encontrada.');
+            }
+        } catch (err: any) {
+            toast.error(err?.response?.data?.error || 'Erro ao vincular sessões');
+        } finally {
+            setLinking(false);
+        }
+    };
+
+    const handleCreateGuide = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        if (!createModal) return;
+        const form = e.currentTarget;
+        const formData = new FormData(form);
+        try {
+            await createGuideFromOrphan({
+                sessionId: createModal.sessionId || '',
+                number: String(formData.get('number') || ''),
+                totalSessions: Number(formData.get('totalSessions')),
+                expiresAt: String(formData.get('expiresAt')),
+                sessionValue: createModal.sessionValue
+            });
+            toast.success('Guia criada e sessão vinculada com sucesso!');
+            setCreateModal(null);
+            onRefresh?.();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.error || 'Erro ao criar guia');
+        }
+    };
+
+    const handleLinkToGuide = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        if (!linkModal || !guideNumber.trim()) return;
+        try {
+            await linkOrphanSessionsToGuide({
+                guideNumber: guideNumber.trim(),
+                sessionIds: [linkModal.sessionId || '']
+            });
+            toast.success('Sessão vinculada à guia existente!');
+            setLinkModal(null);
+            setGuideNumber('');
+            onRefresh?.();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.error || 'Erro ao vincular à guia');
+        }
+    };
 
     if (loading) {
         return (
@@ -556,11 +655,23 @@ const GuidePendingBillingSection = ({
                                     {orphanSessions.length} sessão{orphanSessions.length !== 1 ? 's' : ''} · sem seleção em lote disponível
                                 </Typography>
                             </Box>
-                            <Chip
-                                size="small"
-                                label={formatCurrency(orphanSessions.reduce((s, o) => s + (o.sessionValue || 0), 0))}
-                                sx={{ bgcolor: '#D97706', color: 'white', fontWeight: 'bold', fontSize: '0.8rem' }}
-                            />
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    startIcon={<Wand2 size={14} />}
+                                    onClick={handleAutoLinkPreview}
+                                    disabled={linking}
+                                    sx={{ borderColor: '#D97706', color: '#D97706', fontSize: '0.75rem' }}
+                                >
+                                    {linking ? 'Analisando...' : 'Vincular automaticamente'}
+                                </Button>
+                                <Chip
+                                    size="small"
+                                    label={formatCurrency(orphanSessions.reduce((s, o) => s + (o.sessionValue || 0), 0))}
+                                    sx={{ bgcolor: '#D97706', color: 'white', fontWeight: 'bold', fontSize: '0.8rem' }}
+                                />
+                            </Box>
                         </Box>
 
                         {Object.entries(groupedOrphans).map(([provider, sessions]) => {
@@ -599,6 +710,7 @@ const GuidePendingBillingSection = ({
                                                         <TableCell sx={TH}>Especialidade</TableCell>
                                                         <TableCell sx={TH}>Data</TableCell>
                                                         <TableCell align="right" sx={TH}>Valor</TableCell>
+                                                        <TableCell align="right" sx={TH}>Ações</TableCell>
                                                     </TableRow>
                                                 </TableHead>
                                                 <TableBody>
@@ -623,6 +735,28 @@ const GuidePendingBillingSection = ({
                                                                 <Typography fontWeight="700" fontSize="0.83rem" color="#D97706">
                                                                     {formatCurrency(s.sessionValue)}
                                                                 </Typography>
+                                                            </TableCell>
+                                                            <TableCell align="right">
+                                                                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                                                                    <Button
+                                                                        size="small"
+                                                                        variant="text"
+                                                                        startIcon={<Plus size={14} />}
+                                                                        onClick={() => setCreateModal(s)}
+                                                                        sx={{ fontSize: '0.7rem', color: '#D97706', minWidth: 'auto', px: 1 }}
+                                                                    >
+                                                                        Criar guia
+                                                                    </Button>
+                                                                    <Button
+                                                                        size="small"
+                                                                        variant="text"
+                                                                        startIcon={<Link2 size={14} />}
+                                                                        onClick={() => setLinkModal(s)}
+                                                                        sx={{ fontSize: '0.7rem', color: '#2563EB', minWidth: 'auto', px: 1 }}
+                                                                    >
+                                                                        Vincular
+                                                                    </Button>
+                                                                </Box>
                                                             </TableCell>
                                                         </TableRow>
                                                     ))}
@@ -649,6 +783,181 @@ const GuidePendingBillingSection = ({
                     onClose={() => setDrawerPatient(null)}
                 />
             )}
+
+            {/* Modal: Criar guia a partir de sessão órfã */}
+            <Dialog open={!!createModal} onClose={() => setCreateModal(null)} maxWidth="sm" fullWidth>
+                <form onSubmit={handleCreateGuide}>
+                    <DialogTitle>Criar guia para sessão órfã</DialogTitle>
+                    <DialogContent dividers>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+                            <Typography variant="body2" color="text.secondary">
+                                Paciente: <strong>{createModal?.patient?.fullName || '—'}</strong><br />
+                                Especialidade: <strong>{getSpecialtyLabel(createModal?.specialty || '')}</strong><br />
+                                Valor: <strong>{formatCurrency(createModal?.sessionValue)}</strong>
+                            </Typography>
+                            <TextField name="number" label="Número da guia" required fullWidth />
+                            <TextField name="totalSessions" label="Total de sessões" type="number" required fullWidth inputProps={{ min: 1 }} />
+                            <TextField name="expiresAt" label="Validade" type="date" required fullWidth InputLabelProps={{ shrink: true }} />
+                        </Box>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setCreateModal(null)}>Cancelar</Button>
+                        <Button type="submit" variant="contained" sx={{ bgcolor: '#D97706' }}>Criar e vincular</Button>
+                    </DialogActions>
+                </form>
+            </Dialog>
+
+            {/* Modal: Vincular a guia existente */}
+            <Dialog open={!!linkModal} onClose={() => { setLinkModal(null); setGuideNumber(''); }} maxWidth="sm" fullWidth>
+                <form onSubmit={handleLinkToGuide}>
+                    <DialogTitle>Vincular a guia existente</DialogTitle>
+                    <DialogContent dividers>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+                            <Typography variant="body2" color="text.secondary">
+                                Paciente: <strong>{linkModal?.patient?.fullName || '—'}</strong><br />
+                                Informe o ID ou número da guia existente.
+                            </Typography>
+                            <TextField
+                                value={guideNumber}
+                                onChange={(e) => setGuideNumber(e.target.value)}
+                                label="Número ou ID da guia"
+                                required
+                                fullWidth
+                            />
+                        </Box>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => { setLinkModal(null); setGuideNumber(''); }}>Cancelar</Button>
+                        <Button type="submit" variant="contained" sx={{ bgcolor: '#2563EB' }}>Vincular</Button>
+                    </DialogActions>
+                </form>
+            </Dialog>
+
+            {/* Modal: Pré-visualizar vínculos automáticos */}
+            <Dialog open={previewModal?.open || false} onClose={() => setPreviewModal(null)} maxWidth="md" fullWidth>
+                <DialogTitle>Confirmar vínculo automático</DialogTitle>
+                <DialogContent dividers>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+                        {previewModal && previewModal.linked.length > 0 && (
+                            <Box>
+                                <Typography variant="subtitle2" sx={{ mb: 1, color: '#92400E' }}>
+                                    {previewModal.linked.length} sessão(ões) serão vinculadas
+                                </Typography>
+                                <TableContainer component={Paper} variant="outlined">
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow sx={{ bgcolor: '#FAFAFA' }}>
+                                                <TableCell sx={TH}>Paciente</TableCell>
+                                                <TableCell sx={TH}>Especialidade</TableCell>
+                                                <TableCell sx={TH}>Data</TableCell>
+                                                <TableCell sx={TH}>Guia encontrada</TableCell>
+                                                <TableCell align="center" sx={TH}>Sessões</TableCell>
+                                                <TableCell align="right" sx={TH}>Validade</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {previewModal.linked.map((item: any) => (
+                                                <TableRow key={item.sessionId}>
+                                                    <TableCell>
+                                                        <Typography fontSize="0.83rem" fontWeight={500} color="#374151">
+                                                            {item.patientName || '—'}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography fontSize="0.8rem" color="#6B7280">
+                                                            {getSpecialtyLabel(item.specialty || '')}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography fontSize="0.8rem" color="#6B7280">
+                                                            {formatDate(item.date)}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography fontSize="0.8rem" fontWeight={600} color="#1D4ED8">
+                                                            {item.guideNumber || '—'}
+                                                        </Typography>
+                                                        <Typography fontSize="0.75rem" color="#6B7280">
+                                                            {formatProviderName(item.guideInsurance || '')}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell align="center">
+                                                        <Typography fontSize="0.8rem" color="#6B7280">
+                                                            {item.guideUsedSessions || 0} / {item.guideTotalSessions || 0}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        <Typography fontSize="0.8rem" color="#6B7280">
+                                                            {formatDate(item.guideExpiresAt)}
+                                                        </Typography>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </Box>
+                        )}
+
+                        {previewModal && previewModal.skipped.length > 0 && (
+                            <Box>
+                                <Typography variant="subtitle2" sx={{ mb: 1, color: '#B91C1C' }}>
+                                    {previewModal.skipped.length} sessão(ões) não puderam ser vinculadas automaticamente
+                                </Typography>
+                                <TableContainer component={Paper} variant="outlined">
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow sx={{ bgcolor: '#FAFAFA' }}>
+                                                <TableCell sx={TH}>Paciente</TableCell>
+                                                <TableCell sx={TH}>Especialidade</TableCell>
+                                                <TableCell sx={TH}>Data</TableCell>
+                                                <TableCell sx={TH}>Motivo</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {previewModal.skipped.map((item: any) => (
+                                                <TableRow key={item.sessionId}>
+                                                    <TableCell>
+                                                        <Typography fontSize="0.83rem" fontWeight={500} color="#374151">
+                                                            {item.patientName || '—'}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography fontSize="0.8rem" color="#6B7280">
+                                                            {getSpecialtyLabel(item.specialty || '')}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography fontSize="0.8rem" color="#6B7280">
+                                                            {formatDate(item.date)}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography fontSize="0.8rem" color="#B91C1C">
+                                                            {item.reason || '—'}
+                                                        </Typography>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </Box>
+                        )}
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setPreviewModal(null)}>Cancelar</Button>
+                    <Button
+                        onClick={confirmAutoLink}
+                        variant="contained"
+                        disabled={linking || (previewModal?.linked.length || 0) === 0}
+                        sx={{ bgcolor: '#D97706' }}
+                    >
+                        {linking ? 'Vinculando...' : `Confirmar vínculo (${previewModal?.linked.length || 0})`}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </>
     );
 };

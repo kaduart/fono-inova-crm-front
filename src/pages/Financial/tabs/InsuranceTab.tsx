@@ -904,6 +904,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             orphanSessions={orphanSessions}
                             loading={loadingGuides}
                             onToggleGuide={toggleGuideSelection}
+                            onRefresh={() => loadReceivables(selectedMonthYear)}
+                            month={selectedMonthYear}
                         />
                     ) : loading ? (
                         Array.from({ length: 4 }).map((_, i) => (

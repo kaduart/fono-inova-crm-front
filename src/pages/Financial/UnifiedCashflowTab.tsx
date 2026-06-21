@@ -1531,9 +1531,9 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                     {/* Timeline de agendamentos */}
                                     {(() => {
                                         const sfShort: Record<string, string> = {
-                                            'Pré-pago': '📦 Pré-pago', 'Pago na Sessão': '💰 Pago', 'Avaliação Paga': '💰 Pago',
-                                            'Pago Parcial': '⚠️ Parcial', 'Pendente': '⏳ Pendente', 'Pacote Pendente': '📦 Sessao Pendente',
-                                            'Convênio': '🏥 Convênio', 'Liminar': '⚖️ Liminar', 'Cancelado': '',
+                                            'Pré-pago': 'Pré-pago', 'Pago na Sessão': 'Pago', 'Avaliação Paga': 'Pago',
+                                            'Pago Parcial': 'Parcial', 'Pendente': 'Pendente', 'Pacote Pendente': 'Sessão Pendente',
+                                            'Convênio': 'Convênio', 'Liminar': 'Liminar', 'Cancelado': '',
                                         };
                                         const statusMap: Record<string, { border: string; badge: string; label: string }> = {
                                             completed:    { border: 'border-l-green-500',  badge: 'bg-green-100 text-green-800',  label: 'Atendido' },
@@ -1565,25 +1565,18 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                         let nowRendered = false;
                                         return (
                                             <div className="space-y-0 mt-1">
-                                            {/* Header — mesma estrutura dos grupos de hora */}
+                                            {/* Header */}
                                             <div className="flex gap-2 py-0.5 mb-1">
                                                 <div className="w-7 shrink-0" />
                                                 <div className="flex-1">
-                                                    <div className="flex gap-3 px-3 pb-1.5 border-b border-gray-200">
-                                                        <span className="text-[11px] text-gray-400 w-10 shrink-0 pt-1">Hora</span>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center gap-1.5">
-                                                                <span className="flex-1 min-w-0 text-[11px] text-gray-400">Paciente</span>
-                                                                <span className="text-[11px] text-gray-400 shrink-0">status</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-1.5 mt-0.5">
-                                                                <span className="text-[11px] text-gray-400 flex-1 min-w-0 truncate">terapia</span>
-                                                                <span className="text-[11px] text-gray-400 w-28 text-center shrink-0">telefone</span>
-                                                            </div>
-                                                        </div>
-                                                        <span className="text-[11px] text-gray-400 w-24 text-center shrink-0 pt-1">Tipo</span>
-                                                        <span className="text-[11px] text-gray-400 w-28 text-center shrink-0 pt-1">Situação</span>
-                                                        <span className="text-[11px] text-gray-400 w-16 text-right shrink-0 pt-1">Valor</span>
+                                                    <div className="flex gap-3 px-3 pb-1.5 border-b border-gray-200 items-center">
+                                                        <span className="text-[11px] text-gray-400 w-10 shrink-0">Hora</span>
+                                                        <span className="text-[11px] text-gray-400 flex-1 min-w-0" style={{ textAlign: 'left' }}>Paciente</span>
+                                                        <span className="text-[11px] text-gray-400 w-24 text-center shrink-0">Status</span>
+                                                        <span className="text-[11px] text-gray-400 w-32 shrink-0" style={{ textAlign: 'left' }}>Especialidade</span>
+                                                        <span className="text-[11px] text-gray-400 w-20 text-center shrink-0">Tipo</span>
+                                                        <span className="text-[11px] text-gray-400 w-28 text-center shrink-0">Situação</span>
+                                                        <span className="text-[11px] text-gray-400 w-16 text-right shrink-0">Valor</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1615,48 +1608,45 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                             <React.Fragment key={a._id}>
                                                                             <div onClick={() => setSelectedApt(a)} className={`flex gap-3 px-3 py-2.5 rounded-lg border border-gray-200 border-l-[3px] cursor-pointer hover:shadow-md transition-shadow ${sc.border} ${a.operationalStatus === 'completed' ? 'bg-green-50' : 'bg-gray-50'} ${a.operationalStatus === 'canceled' ? 'opacity-50' : ''} ${a.operationalStatus === 'completed' && (a.paymentStatus === 'pending' || a.visualFlag === 'pending') ? 'bg-red-50' : ''}`}>
                                                                                 <span className="text-xs text-gray-400 w-10 shrink-0 font-mono self-center">{a.time || '--:--'}</span>
-                                                                                <div className="flex-1 min-w-0">
-                                                                                    <div className="flex items-center gap-1.5">
-                                                                                        <span className="text-base font-bold text-gray-900 truncate">{a.patientInfo?.fullName || a.patient?.fullName || a.patientName || '-'}</span>
-                                                                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap shrink-0 ${sc.badge}`}>{a.status || sc.label}</span>
-                                                                                        {isNew && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 whitespace-nowrap shrink-0">1ª vez</span>}
-                                                                                    </div>
-                                                                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                                                                        <span className="flex-1 min-w-0 text-xs text-gray-500 truncate">{[a.professionalName, a.specialty].filter(Boolean).join(' / ') || '-'}</span>
-                                                                                        <div className="w-28 text-center">
-                                                                                            {phone ? (
-                                                                                                <button className="inline-flex items-center gap-0.5 text-xs text-blue-500 hover:text-blue-700"
-                                                                                                    onClick={() => handleOpenWhatsApp(phone)}>
-                                                                                                    <PhoneIcon style={{ fontSize: 11 }} />{phone}
-                                                                                                </button>
-                                                                                            ) : (
-                                                                                                <span className="text-xs text-gray-400">-</span>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    </div>
+                                                                                <div className="flex-1 min-w-0 flex items-center gap-1.5 self-center overflow-hidden">
+                                                                                    <span className="text-sm font-bold text-gray-900 truncate shrink min-w-0">{a.patientInfo?.fullName || a.patient?.fullName || a.patientName || '-'}</span>
+                                                                                    {isNew && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 whitespace-nowrap shrink-0">1ª vez</span>}
+                                                                                    {phone && (
+                                                                                        <button className="inline-flex items-center gap-0.5 text-xs text-blue-500 hover:text-blue-700 whitespace-nowrap shrink-0"
+                                                                                            onClick={(e) => { e.stopPropagation(); handleOpenWhatsApp(phone); }}>
+                                                                                            <PhoneIcon style={{ fontSize: 11 }} />{phone}
+                                                                                        </button>
+                                                                                    )}
                                                                                 </div>
-                                                                                <span className="w-24 text-center shrink-0 self-center">
+                                                                                <span className="w-24 shrink-0 self-center flex items-center justify-center">
+                                                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${sc.badge}`}>{a.status || sc.label}</span>
+                                                                                </span>
+                                                                                <span className="w-32 shrink-0 self-center text-xs text-gray-400 truncate">{[a.professionalName, a.specialty].filter(Boolean).join(' / ') || '-'}</span>
+                                                                                <span className="w-20 text-center shrink-0 self-center">
                                                                                     {a.billingType === 'convenio' || a.insuranceProvider ? (
-                                                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-100 text-indigo-700 whitespace-nowrap">🏥 Convênio</span>
+                                                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-100 text-indigo-700 whitespace-nowrap">Convênio</span>
                                                                                     ) : a.billingType === 'liminar' ? (
-                                                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 whitespace-nowrap">⚖️ Liminar</span>
+                                                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 whitespace-nowrap">Liminar</span>
                                                                                     ) : a.package ? (
-                                                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700 whitespace-nowrap">📦 Pacote</span>
+                                                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700 whitespace-nowrap">Pacote</span>
                                                                                     ) : (
-                                                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 whitespace-nowrap">💵 Particular</span>
+                                                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 whitespace-nowrap">Particular</span>
                                                                                     )}
                                                                                 </span>
-                                                                                <span className={`text-xs w-32 text-center shrink-0 font-medium ${
-                                                                                    statusFinanceiro === 'Pago na Sessão' || statusFinanceiro === 'Pré-pago' ? 'text-emerald-700' :
-                                                                                    statusFinanceiro === 'Pendente' || statusFinanceiro === 'Pacote Pendente' ? 'text-amber-700' :
-                                                                                    statusFinanceiro === 'Cancelado' ? 'text-red-600' :
-                                                                                    statusFinanceiro === 'Convênio' ? 'text-indigo-700' :
-                                                                                    statusFinanceiro === 'Liminar' ? 'text-purple-700' :
-                                                                                    'text-gray-600'
-                                                                                }`}>
-                                                                                    {a.operationalStatus !== 'canceled' ? sfText : ''}
+                                                                                <span className="w-28 shrink-0 self-center flex items-center justify-center">
+                                                                                    {a.operationalStatus !== 'canceled' && sfText ? (
+                                                                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${
+                                                                                            statusFinanceiro === 'Pago na Sessão' || statusFinanceiro === 'Avaliação Paga' ? 'bg-emerald-100 text-emerald-700' :
+                                                                                            statusFinanceiro === 'Pré-pago' ? 'bg-indigo-100 text-indigo-700' :
+                                                                                            statusFinanceiro === 'Pendente' || statusFinanceiro === 'Pacote Pendente' ? 'bg-amber-100 text-amber-700' :
+                                                                                            statusFinanceiro === 'Pago Parcial' ? 'bg-orange-100 text-orange-700' :
+                                                                                            statusFinanceiro === 'Convênio' ? 'bg-blue-100 text-blue-700' :
+                                                                                            statusFinanceiro === 'Liminar' ? 'bg-purple-100 text-purple-700' :
+                                                                                            'bg-gray-100 text-gray-600'
+                                                                                        }`}>{sfText}</span>
+                                                                                    ) : null}
                                                                                 </span>
-                                                                                <span className={`text-sm font-bold shrink-0 w-16 text-right ${valor > 0 ? 'text-gray-900' : 'text-gray-400'}`}>R${valor.toLocaleString('pt-BR')}</span>
+                                                                                <span className={`text-sm font-bold shrink-0 w-16 text-right self-center ${valor > 0 ? 'text-gray-900' : 'text-gray-400'}`}>R${valor.toLocaleString('pt-BR')}</span>
                                                                             </div>
                                                                             {showNowAfterThis && <NowMarker />}
                                                                             </React.Fragment>
