@@ -117,7 +117,7 @@ export default function TherapyPackageDetails({ pack, onClose, onEdit, onAddSess
     return (
       <>
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden transform transition-all">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto transform transition-all">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-emerald-500 to-green-600 px-8 py-6 text-white">
                     <div className="flex items-center justify-between">
@@ -222,38 +222,35 @@ export default function TherapyPackageDetails({ pack, onClose, onEdit, onAddSess
                 </div>
 
                 {/* Footer */}
-                <div className="bg-gray-50 px-8 py-5 border-t border-gray-200">
-                    <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch">
+                <div className="bg-gray-50 px-8 py-6 border-t border-gray-200">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                         <button
                             onClick={openBulk}
-                            className="px-5 py-3 text-emerald-700 bg-white border border-emerald-300 rounded-xl hover:bg-emerald-50 transition-colors font-medium text-base flex items-center justify-center gap-2"
+                            className="px-4 py-3 text-emerald-700 bg-white border border-emerald-300 rounded-xl hover:bg-emerald-50 transition-colors font-medium text-base flex items-center justify-center gap-2 whitespace-nowrap"
                         >
-                            <Users className="w-5 h-5" />
+                            <Users className="w-5 h-5 shrink-0" />
                             Alterar sessões pendentes
                         </button>
-
-                        <div className="flex gap-3 flex-wrap sm:flex-nowrap">
-                            <button
-                                onClick={onClose}
-                                className="px-5 py-3 text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors font-medium text-base flex-1 sm:flex-none"
-                            >
-                                Fechar
-                            </button>
-                            <button
-                                onClick={() => setShowAddSessionForm(true)}
-                                className="px-5 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors font-medium text-base flex items-center justify-center gap-2 flex-1 sm:flex-none"
-                            >
-                                <Plus className="w-5 h-5" />
-                                Nova Sessão
-                            </button>
-                            <button
-                                onClick={onEdit}
-                                className="px-5 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-colors font-medium text-base flex items-center justify-center gap-2 flex-1 sm:flex-none"
-                            >
-                                <Edit3 className="w-5 h-5" />
-                                Editar
-                            </button>
-                        </div>
+                        <button
+                            onClick={onClose}
+                            className="px-4 py-3 text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors font-medium text-base flex items-center justify-center whitespace-nowrap"
+                        >
+                            Fechar
+                        </button>
+                        <button
+                            onClick={() => setShowAddSessionForm(true)}
+                            className="px-4 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors font-medium text-base flex items-center justify-center gap-2 whitespace-nowrap"
+                        >
+                            <Plus className="w-5 h-5 shrink-0" />
+                            Nova Sessão
+                        </button>
+                        <button
+                            onClick={onEdit}
+                            className="px-4 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-colors font-medium text-base flex items-center justify-center gap-2 whitespace-nowrap"
+                        >
+                            <Edit3 className="w-5 h-5 shrink-0" />
+                            Editar
+                        </button>
                     </div>
                 </div>
             </div>
