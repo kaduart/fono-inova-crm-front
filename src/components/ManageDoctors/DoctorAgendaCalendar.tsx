@@ -1,6 +1,6 @@
 'use client';
 
-import { addDays, format, formatISO, isSameDay, startOfWeek } from 'date-fns';
+import { addDays, format, formatISO, isSameDay, parseISO, startOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import dayjs from 'dayjs';
 import { motion } from 'framer-motion';
@@ -225,7 +225,7 @@ const DoctorAgendaCalendar = ({
           <div className="p-4">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-lg font-semibold text-gray-800">
-                Horários para {format(expandedDate, 'EEEE, d MMMM', { locale: ptBR })}
+                Horários para {format(parseISO(expandedDate), 'EEEE, d MMMM', { locale: ptBR })}
               </h4>
               <button
                 onClick={() => setExpandedDate(null)}
@@ -249,7 +249,7 @@ const DoctorAgendaCalendar = ({
               if (!hasAnySlots) {
                 return (
                   <EmptyAgendaMessage 
-                    selectedDate={expandedDate ? new Date(expandedDate) : undefined} 
+                    selectedDate={expandedDate ? parseISO(expandedDate) : undefined} 
                     hasAvailability={false}
                   />
                 );

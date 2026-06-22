@@ -91,6 +91,7 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             // 🔥 Cache bust quando force=true
             const response = await appointmentService.list({
                 limit: 500,
+                includePreAgendamentos: true,
                 ...(effectiveFilters?.startDate && { startDate: effectiveFilters.startDate }),
                 ...(effectiveFilters?.endDate && { endDate: effectiveFilters.endDate }),
                 ...(effectiveFilters?.patientName && { patientName: effectiveFilters.patientName }),

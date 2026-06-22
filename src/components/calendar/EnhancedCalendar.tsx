@@ -513,10 +513,14 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
     // 🆕 Abre modal de detalhe a partir de um appointment (usado pelo popover do dia)
     const openAppointmentDetail = useCallback((appt: IAppointment) => {
-        const dateObj = typeof appt.date === 'string'
-            ? (appt.date.includes('T') ? new Date(appt.date) : new Date(appt.date + 'T' + (appt.time || '00:00')))
-            : new Date(appt.date);
         const time = appt.time || '00:00';
+        let dateObj: Date;
+        if (typeof appt.date === 'string') {
+            const datePart = appt.date.includes('T') ? appt.date.split('T')[0] : appt.date;
+            dateObj = new Date(`${datePart}T${time}`);
+        } else {
+            dateObj = new Date(appt.date);
+        }
         const formattedDate = new Intl.DateTimeFormat("pt-BR", {
             day: "2-digit", month: "2-digit", year: "numeric",
             hour: "2-digit", minute: "2-digit",
@@ -591,25 +595,20 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             const [hours, minutes] = appt.time!.split(':').map(Number);
             
             // 🆕 CORREÇÃO: Lida com date como string (YYYY-MM-DD ou ISO) ou Date
+            // Usa SEMPRE a parte YYYY-MM-DD + time no fuso local, ignorando o horário UTC que vem no ISO.
             let startDate: Date;
             if (typeof appt.date === 'string') {
-                if (appt.date.includes('T')) {
-                    // Formato ISO: "2026-04-03T12:00:00.000Z" (vindo do backend)
-                    startDate = new Date(appt.date);
-                    startDate.setHours(hours, minutes);
-                } else {
-                    // Formato antigo: "YYYY-MM-DD"
-                    const [year, month, day] = appt.date.split('-').map(Number);
-                    startDate = new Date(year, month - 1, day, hours, minutes);
-                }
+                const datePart = appt.date.includes('T') ? appt.date.split('T')[0] : appt.date;
+                const [year, month, day] = datePart.split('-').map(Number);
+                startDate = new Date(year, month - 1, day, hours, minutes);
             } else if (appt.date instanceof Date) {
-                // Formato Date object
-                startDate = new Date(appt.date);
-                startDate.setHours(hours, minutes);
+                // Formato Date object: preserva dia/mês/ano locais e aplica o time
+                startDate = new Date(appt.date.getFullYear(), appt.date.getMonth(), appt.date.getDate(), hours, minutes);
             } else {
                 // Fallback: tenta converter
-                startDate = new Date(appt.date as any);
-                startDate.setHours(hours, minutes);
+                const datePart = String(appt.date).includes('T') ? String(appt.date).split('T')[0] : String(appt.date);
+                const [year, month, day] = datePart.split('-').map(Number);
+                startDate = new Date(year, month - 1, day, hours, minutes);
             }
             const endDate = new Date(startDate.getTime() + (appt.duration || 60) * 60000);
 
