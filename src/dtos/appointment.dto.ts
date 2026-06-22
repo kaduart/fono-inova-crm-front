@@ -299,8 +299,8 @@ export function sanitizeAppointmentPayload(payload: Record<string, any>): Record
         Object.entries(rest).filter(([_, v]) => v !== undefined)
     ) as Record<string, any>;
 
-    // Fallback seguro para billingType
-    if (!sanitized.billingType || typeof sanitized.billingType !== 'string') {
+    // Fallback para billingType — só quando presente mas inválido (ausente = campo não enviado no patch, backend mantém o existente)
+    if (sanitized.billingType !== undefined && (!sanitized.billingType || typeof sanitized.billingType !== 'string')) {
         sanitized.billingType = 'particular';
     }
 
