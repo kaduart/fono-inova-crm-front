@@ -406,6 +406,8 @@ export const packageService = {
     // 🎯 NORMALIZA: 'pending' do frontend → 'scheduled' no backend
     const normalizedStatus = data.status === 'pending' ? 'scheduled' : data.status;
     const response = await API.put(`/v2/appointments/${appointmentId}`, {
+      patientId: data.patientId || data.patient,
+      doctorId: data.doctorId,
       date: data.date,
       time: data.time,
       notes: data.notes,

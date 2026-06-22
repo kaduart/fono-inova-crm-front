@@ -1,5 +1,6 @@
 import { Building2, Calendar, CheckCircle2, ChevronDown, Clock, DollarSign, Gavel, Plus, Sprout, Trash2, TrendingUp } from 'lucide-react';
 import { packageService } from '../../services/packageService';
+import appointmentService from '../../services/appointmentService';
 import { getPatientFinancialSummary, FinancialSummary } from '../../services/financialSummaryService';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -176,6 +177,26 @@ export default function TherapyPackageCard({
       if (rawSession?.appointmentId) {
         normalized.appointmentId = rawSession.appointmentId;
       }
+
+      // 🛡️ Fallback: busca agendamento real para garantir paymentMethod atualizado
+      // (a PackagesView pode estar stale ou sem o campo até rebuild)
+      if (normalized.appointmentId) {
+        try {
+          const apptRes = await appointmentService.getById(normalized.appointmentId);
+          const appt = apptRes?.data?.data || apptRes?.data || apptRes;
+          const apptPaymentMethod = appt?.paymentMethod || appt?.payment?.method;
+          if (apptPaymentMethod && !normalized.paymentMethod) {
+            normalized.paymentMethod = apptPaymentMethod;
+          }
+          // Também garante paymentAmount real se o appointment tiver
+          if (appt?.paymentAmount && (!normalized.paymentAmount || normalized.paymentAmount === 0)) {
+            normalized.paymentAmount = appt.paymentAmount;
+          }
+        } catch (apptErr) {
+          console.warn('[DEBUG] Falha ao buscar appointment fallback:', apptErr);
+        }
+      }
+
       console.log('[DEBUG] openModalWithAction DTO - raw:', rawSession, 'context:', context, 'normalized:', normalized);
       setSelectedSession(normalized);
     } else {
