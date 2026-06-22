@@ -761,10 +761,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         const packageObj = typeof rawPackage === 'object' && rawPackage !== null ? rawPackage : null;
         const packageId = typeof rawPackage === 'string' ? rawPackage : packageObj?._id || packageObj?.id || '';
         // ⚠️ LEGADO — isLiminarLegacy usa packageObj.type (dados antigos)
-        // Fonte de verdade: appointment.liminarContract
+        // Fonte de verdade: billingType === 'liminar' (pós-desacoplamento 2026-05-01)
         const isLiminarLegacy = packageObj?.type === 'liminar';
         const liminarContract = (appointment as any).liminarContract;
-        const isLiminar = isLiminarLegacy || !!liminarContract;
+        const isLiminar = isLiminarLegacy || !!liminarContract || (appointment as any).billingType === 'liminar';
         const totalSessions = packageObj?.totalSessions ?? null;
         const sessionsDone = packageObj?.sessionsDone ?? null;
         const sessionsRemaining = packageObj?.sessionsRemaining ?? null;
@@ -854,7 +854,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         // 🎨 Cor do card por tipo de atendimento
         const getCardBackground = () => {
             if (isPackageSessionPending) return 'linear-gradient(135deg, #fde047 0%, #f97316 100%)';
-            if (hasPackage && isLiminar) return 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)';
+            if (isLiminar) return 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)';
             if (hasPackage) return 'linear-gradient(135deg, #9333ea 0%, #7e22ce 100%)';
             if (isConvenio) return 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
             return 'linear-gradient(135deg, #a2ddbfff 0%, #1aac68ff 100%)';
