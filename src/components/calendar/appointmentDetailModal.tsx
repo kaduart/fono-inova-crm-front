@@ -8,7 +8,7 @@ import DatePicker, { registerLocale } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import ReactInputMask from 'react-input-mask';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
-import { INSURANCE_PROVIDERS, getProviderById } from '../../constants/insuranceProviders';
+import { useConvenios } from '../../hooks/useConvenios';
 import { IDoctor, SelectedEvent } from '../../utils/types/types';
 import { mapToUpdateAppointmentDTO } from '../../dtos/appointment.dto';
 import { InputCurrency } from '../ui/InputCurrency';
@@ -160,6 +160,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     // 🆕 BUSCAR LISTA DE PROFISSIONAIS do backend quando o modal abrir
     const [allDoctors, setAllDoctors] = useState<IDoctor[]>(doctors || []);
     const [loadingDoctors, setLoadingDoctors] = useState(false);
+    const { convenios, isLoading: loadingConvenios } = useConvenios({ includeInactive: false });
 
     // 💰 ALERTA DE DÍVIDA: busca financial summary do paciente para mostrar alerta no complete
     const [patientFinancial, setPatientFinancial] = useState<FinancialSummary | null>(null);
@@ -1066,16 +1067,18 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                                 <Select
                                                     value={insuranceProvider}
                                                     onChange={(e) => {
-                                                        const provider = getProviderById(e.target.value);
-                                                        setInsuranceProvider(e.target.value);
-                                                        setInsuranceValue(provider?.defaultValue || 0);
+                                                        const selectedCode = e.target.value;
+                                                        const provider = convenios.find(c => c.code === selectedCode);
+                                                        setInsuranceProvider(selectedCode);
+                                                        setInsuranceValue(provider?.sessionValue || 0);
                                                     }}
+                                                    disabled={loadingConvenios}
                                                     className="w-full p-2 bg-white border border-gray-300 rounded-lg text-sm"
                                                 >
-                                                    <option value="">Selecione o convênio</option>
-                                                    {INSURANCE_PROVIDERS.map(p => (
-                                                        <option key={p.id} value={p.id}>
-                                                            {p.name} {p.city ? `(${p.city})` : ''}
+                                                    <option value="">{loadingConvenios ? 'Carregando...' : 'Selecione o convênio'}</option>
+                                                    {convenios.map(p => (
+                                                        <option key={p._id} value={p.code}>
+                                                            {p.name}
                                                         </option>
                                                     ))}
                                                 </Select>

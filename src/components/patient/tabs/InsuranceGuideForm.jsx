@@ -5,20 +5,9 @@ import { Save, X, FileText, Shield, AlertTriangle, Info } from 'lucide-react';
 import { format, addMonths } from 'date-fns';
 
 import { SPECIALTY_OPTIONS } from '../../../constants/specialties';
+import { useConvenios } from '../../../hooks/useConvenios';
 
 const VALID_SPECIALTIES = SPECIALTY_OPTIONS;
-
-const VALID_INSURANCES = [
-  { value: 'unimed-anapolis', label: 'Unimed Anápolis' },
-  { value: 'unimed-goiania',  label: 'Unimed Goiânia' },
-  { value: 'unimed-campinas', label: 'Unimed Campinas' },
-  { value: 'unimed',          label: 'Unimed' },
-  { value: 'hapvida',         label: 'Hapvida' },
-  { value: 'amil',            label: 'Amil' },
-  { value: 'bradesco-saude',  label: 'Bradesco Saúde' },
-  { value: 'sulamerica',      label: 'SulAmérica' },
-  { value: 'outro',           label: 'Outro' },
-];
 
 const inputClass = (hasError) =>
   `w-full px-3 py-2.5 border rounded-lg text-sm text-gray-800 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 transition-colors placeholder-gray-400 ${
@@ -30,11 +19,14 @@ const inputClass = (hasError) =>
 const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] }) => {
   const isEditing = Boolean(guide);
   const hasUsedSessions = isEditing && guide?.usedSessions > 0;
+  const { convenios, isLoading: loadingConvenios } = useConvenios({ includeInactive: false });
 
   const {
     control,
     handleSubmit,
     reset,
+    setValue,
+    getValues,
     formState: { errors, isSubmitting }
   } = useForm({
     defaultValues: {
@@ -232,10 +224,26 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
                   control={control}
                   rules={{ required: 'Convênio é obrigatório' }}
                   render={({ field }) => (
-                    <select {...field} className={inputClass(!!errors.insurance)}>
-                      <option value="">Selecione</option>
-                      {VALID_INSURANCES.map(ins => (
-                        <option key={ins.value} value={ins.value}>{ins.label}</option>
+                    <select
+                      {...field}
+                      className={inputClass(!!errors.insurance)}
+                      disabled={loadingConvenios}
+                      onChange={(e) => {
+                        const selectedCode = e.target.value;
+                        field.onChange(selectedCode);
+                        // Sugere o valor da sessão cadastrado no convênio, se o campo estiver vazio
+                        const selected = convenios.find(c => c.code === selectedCode);
+                        if (selected && selected.sessionValue > 0) {
+                          const currentValue = getValues('sessionValue');
+                          if (currentValue === '' || currentValue == null) {
+                            setValue('sessionValue', selected.sessionValue, { shouldValidate: false });
+                          }
+                        }
+                      }}
+                    >
+                      <option value="">{loadingConvenios ? 'Carregando...' : 'Selecione'}</option>
+                      {convenios.map(ins => (
+                        <option key={ins._id} value={ins.code}>{ins.name}</option>
                       ))}
                     </select>
                   )}

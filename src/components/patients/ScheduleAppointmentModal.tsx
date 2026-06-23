@@ -7,7 +7,7 @@ import { Building2 } from 'lucide-react';
 import ReactInputMask from 'react-input-mask';
 import Modal from 'react-modal';
 import { toast } from 'react-toastify';
-import { INSURANCE_PROVIDERS, getProviderById } from '../../constants/insuranceProviders';
+import { useConvenios } from '../../hooks/useConvenios';
 import { toDateString } from '../../utils/dateUtils';
 import { IDoctor, IPatient, ScheduleAppointment } from '../../utils/types/types';
 import patientService from '../../services/patientService';
@@ -92,6 +92,7 @@ const ScheduleAppointmentModal = ({
     // 👇 NOVO: Buscar doutores quando modal abrir (se não vier dos props)
     const [localDoctors, setLocalDoctors] = useState<IDoctor[]>([]);
     const [isLoadingDoctors, setIsLoadingDoctors] = useState(false);
+    const { convenios, isLoading: loadingConvenios } = useConvenios({ includeInactive: false });
 
     useEffect(() => {
         if (isOpen) {
@@ -938,21 +939,23 @@ const ScheduleAppointmentModal = ({
                                         <Select
                                             value={insuranceProvider}
                                             onChange={(e) => {
-                                                const provider = getProviderById(e.target.value);
-                                                setInsuranceProvider(e.target.value);
-                                                setInsuranceValue(provider?.defaultValue || 0);
+                                                const selectedCode = e.target.value;
+                                                const provider = convenios.find(c => c.code === selectedCode);
+                                                setInsuranceProvider(selectedCode);
+                                                setInsuranceValue(provider?.sessionValue || 0);
                                                 setFormData(prev => ({
                                                     ...prev,
-                                                    insuranceProvider: e.target.value,
-                                                    insuranceValue: provider?.defaultValue || 0,
+                                                    insuranceProvider: selectedCode,
+                                                    insuranceValue: provider?.sessionValue || 0,
                                                 }));
                                             }}
+                                            disabled={loadingConvenios}
                                             className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                         >
-                                            <option value="">Selecione o convênio</option>
-                                            {INSURANCE_PROVIDERS.map(p => (
-                                                <option key={p.id} value={p.id}>
-                                                    {p.name} {p.city ? `(${p.city})` : ''}
+                                            <option value="">{loadingConvenios ? 'Carregando...' : 'Selecione o convênio'}</option>
+                                            {convenios.map(p => (
+                                                <option key={p._id} value={p.code}>
+                                                    {p.name}
                                                 </option>
                                             ))}
                                         </Select>

@@ -58,16 +58,7 @@ import {
     getPendingBillingGuides
 } from '../../../services/paymentService';
 import { extractErrorMessage } from '../../../utils/errorUtils';
-
-const INSURANCE_PROVIDERS = [
-    'Unimed',
-    'Bradesco Saúde',
-    'SulAmérica',
-    'Amil',
-    'Notre Dame',
-    'Hapvida',
-    'Outro'
-];
+import { useConvenios } from '../../../hooks/useConvenios';
 
 const STATUS_CONFIG: Record<string, { color: string; bgColor: string; label: string }> = {
     pending_billing: { color: '#F59E0B', bgColor: '#F59E0B10', label: 'Aguardando Faturamento' },
@@ -112,6 +103,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
 
     const [doctors, setDoctors] = useState<any[]>([]);
+    const { convenios, isLoading: loadingConvenios } = useConvenios({ includeInactive: false });
     const [formData, setFormData] = useState({
         patientId: '',
         doctorId: '',
@@ -1169,10 +1161,20 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             <Select
                                 value={formData.insuranceProvider}
                                 label="Convênio *"
-                                onChange={(e) => setFormData({ ...formData, insuranceProvider: e.target.value })}
+                                disabled={loadingConvenios}
+                                onChange={(e) => {
+                                    const selectedCode = e.target.value;
+                                    const provider = convenios.find(c => c.code === selectedCode);
+                                    setFormData({
+                                        ...formData,
+                                        insuranceProvider: selectedCode,
+                                        grossAmount: provider?.sessionValue || formData.grossAmount
+                                    });
+                                }}
                             >
-                                {INSURANCE_PROVIDERS.map((p) => (
-                                    <MenuItem key={p} value={p}>{p}</MenuItem>
+                                <MenuItem value="">{loadingConvenios ? 'Carregando...' : 'Selecione'}</MenuItem>
+                                {convenios.map((p) => (
+                                    <MenuItem key={p._id} value={p.code}>{p.name}</MenuItem>
                                 ))}
                             </Select>
                         </FormControl>

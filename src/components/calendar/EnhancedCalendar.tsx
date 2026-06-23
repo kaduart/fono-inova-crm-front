@@ -8,7 +8,7 @@ import { AlertCircle, Calendar, CheckCircle, Clock, DollarSign, Plus, User, XCir
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getSpecialtyLabel } from '../../constants/specialties';
-import { INSURANCE_PROVIDERS } from '../../constants/insuranceProviders';
+import { useConvenios } from '../../hooks/useConvenios';
 import { OPERATIONAL_STATUS_CONFIG, StatusConfig } from '../../services/appointmentService';
 import { IAppointment, IDoctor, IPatient, ScheduleAppointment, SelectedEvent } from '../../utils/types/types';
 import { AppointmentDTO, mapAppointmentListResponseDTO } from '../../dtos/appointment.response.dto';
@@ -799,7 +799,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         const insuranceProvider = appointment.insuranceProvider;
         const isConvenio = billingType === 'convenio' || (!!insuranceProvider && insuranceProvider !== '');
         const insuranceProviderName = isConvenio
-            ? INSURANCE_PROVIDERS.find(p => p.id === insuranceProvider)?.name || insuranceProvider
+            ? convenios.find(p => p.code === insuranceProvider)?.name || insuranceProvider
             : '';
 
         const appointmentPaymentStatus = getRealPaymentStatus(appointment);
@@ -1135,7 +1135,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         // ✅ Mostra convênio se tiver insuranceProvider ou billingType === 'convenio'
         const isConvenio = billingType === 'convenio' || (!!insuranceProvider && insuranceProvider !== '');
         const insuranceProviderName = isConvenio
-            ? INSURANCE_PROVIDERS.find(p => p.id === insuranceProvider)?.name || insuranceProvider
+            ? convenios.find(p => p.code === insuranceProvider)?.name || insuranceProvider
             : '';
 
         // Status financeiro: prioriza o status do agendamento, depois do pacote

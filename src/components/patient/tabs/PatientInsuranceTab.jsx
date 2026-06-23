@@ -63,7 +63,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedGuide, setSelectedGuide] = useState(null);
   const [planFormOpen, setPlanFormOpen] = useState(false);
-  const [planFormGuide, setPlanFormGuide] = useState(null);
+  const [planFormContext, setPlanFormContext] = useState(null);
   const [planVersion, setPlanVersion] = useState(0);
   const [detailsGuide, setDetailsGuide] = useState(null);
   const [showInactivateModal, setShowInactivateModal] = useState(false);
@@ -209,14 +209,14 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
     setEditingGuide(null);
   };
 
-  const handleOpenPlanForm = (guide) => {
-    setPlanFormGuide(guide);
+  const handleOpenPlanForm = (guide, plan = null) => {
+    setPlanFormContext({ guide, plan });
     setPlanFormOpen(true);
   };
 
   const handleClosePlanForm = (refetchNeeded) => {
     setPlanFormOpen(false);
-    setPlanFormGuide(null);
+    setPlanFormContext(null);
     if (refetchNeeded) {
       refetch();
       setPlanVersion(v => v + 1); // invalida plan cache em todos os GuideCards
@@ -548,7 +548,8 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
       <InsurancePlanForm
         open={planFormOpen}
         onClose={handleClosePlanForm}
-        guide={planFormGuide}
+        guide={planFormContext?.guide}
+        plan={planFormContext?.plan}
         patientId={patientId}
         patientName={patientName}
       />
@@ -761,24 +762,24 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, planVersion = 0 }) => {
       >
         {/* ── Gradient Header ── */}
         <div
-          className="px-4 pt-3 pb-4 relative"
+          className="px-5 pt-4 pb-5 relative"
           style={{ background: `linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)` }}
         >
           <IconButton
             size="small"
             onClick={(e) => onOpenMenu(e, guide)}
-            sx={{ position: 'absolute', top: 6, right: 6, color: 'rgba(255,255,255,0.65)', p: 0.4, '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.15)', borderRadius: '8px' } }}
+            sx={{ position: 'absolute', top: 8, right: 8, color: 'rgba(255,255,255,0.65)', p: 0.4, '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.15)', borderRadius: '8px' } }}
           >
-            <MoreVertical size={15} />
+            <MoreVertical size={16} />
           </IconButton>
 
-          <div className="text-white/60 text-xs font-mono mb-0.5">#{guide.number}</div>
-          <div className="text-white font-bold text-[1rem] leading-tight pr-6">{specialtyFormatted}</div>
-          <div className="text-white/70 text-xs mt-0.5">{insuranceFormatted}{guide.createdAt && ` • ${format(parseISO(guide.createdAt), 'dd/MM/yyyy')}`}</div>
+          <div className="text-white/70 text-xs font-mono mb-1">#{guide.number}</div>
+          <div className="text-white font-bold text-[1.15rem] leading-tight pr-6">{specialtyFormatted}</div>
+          <div className="text-white/80 text-sm mt-1">{insuranceFormatted}{guide.createdAt && ` • ${format(parseISO(guide.createdAt), 'dd/MM/yyyy')}`}</div>
 
-          <div className="mt-2.5">
+          <div className="mt-3">
             <span
-              className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold text-white uppercase tracking-wide"
+              className="inline-block px-3 py-1 rounded-full text-xs font-bold text-white uppercase tracking-wide"
               style={{ backgroundColor: statusBg, backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.3)' }}
             >
               {statusLabel}
@@ -787,13 +788,13 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, planVersion = 0 }) => {
         </div>
 
         {/* ── Progress section ── */}
-        <div className="px-4 py-3 border-b" style={{ backgroundColor: theme.light, borderColor: theme.border }}>
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs font-semibold text-gray-600">Progresso clínico</span>
-            <span className="text-xs font-bold" style={{ color: theme.text }}>{usedSessions} / {guide.totalSessions}</span>
+        <div className="px-5 py-4 border-b" style={{ backgroundColor: theme.light, borderColor: theme.border }}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-semibold text-gray-700">Progresso clínico</span>
+            <span className="text-sm font-bold" style={{ color: theme.text }}>{usedSessions} / {guide.totalSessions}</span>
           </div>
 
-          <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden mb-2">
+          <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden mb-3">
             <div
               className="h-full rounded-full transition-all duration-700"
               style={{ width: `${progressPct}%`, background: `linear-gradient(90deg, ${theme.from}, ${theme.to})` }}
@@ -801,60 +802,68 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, planVersion = 0 }) => {
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: theme.text }}>
-              <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: theme.to }} />
+            <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: theme.text }}>
+              <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: theme.to }} />
               {usedSessions} feitas
             </span>
-            <span className="flex items-center gap-1 text-xs font-semibold text-indigo-600">
-              <span className="w-2 h-2 rounded-full bg-indigo-400 inline-block" />
-              {remaining} dispon.
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600">
+              <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 inline-block" />
+              {remaining} disponíveis
             </span>
             <span className="text-xs text-gray-400 ml-auto">/{guide.totalSessions}</span>
           </div>
         </div>
 
         {/* ── Financial details ── */}
-        <div className="px-4 py-3 flex-1 flex flex-col gap-1.5">
+        <div className="px-5 py-4 flex-1 flex flex-col gap-2">
           {guide.sessionValue > 0 && (
             <div className="flex justify-between items-center">
-              <span className="text-xs text-gray-500">Valor/sessão</span>
-              <span className="text-xs font-bold text-gray-900">
+              <span className="text-sm text-gray-500">Valor/sessão</span>
+              <span className="text-sm font-bold text-gray-900">
                 {Number(guide.sessionValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
               </span>
             </div>
           )}
           {guide.totalValue > 0 && (
             <div className="flex justify-between items-center">
-              <span className="text-xs text-gray-500">Total autorizado</span>
-              <span className="text-xs font-bold" style={{ color: theme.text }}>
+              <span className="text-sm text-gray-500">Total autorizado</span>
+              <span className="text-sm font-bold" style={{ color: theme.text }}>
                 {Number(guide.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
               </span>
             </div>
           )}
           {guide.doctor?.fullName && (
             <div className="flex justify-between items-center gap-2">
-              <span className="text-xs text-gray-500 shrink-0">Profissional</span>
-              <span className="text-xs font-semibold text-gray-700 text-right truncate">{guide.doctor.fullName}</span>
+              <span className="text-sm text-gray-500 shrink-0">Profissional da guia</span>
+              <span className="text-sm font-semibold text-gray-700 text-right truncate">{guide.doctor.fullName}</span>
             </div>
           )}
 
           {expiryLabel && (
             <div className="mt-auto pt-2" style={{ color: expiryColor }}>
-              <span className="text-xs font-medium">{expiryLabel}</span>
+              <span className="text-sm font-medium">{expiryLabel}</span>
             </div>
           )}
         </div>
 
         {/* ── Plan block (lazy-loaded) ── */}
         {plan && (
-          <div className="mx-4 mb-3 px-3 py-2.5 rounded-xl border" style={{ backgroundColor: theme.light, borderColor: theme.border }}>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[0.65rem] font-bold uppercase tracking-wide" style={{ color: theme.text }}>
-                Plano ativo
-              </span>
+          <div className="mx-5 mb-4 px-4 py-3.5 rounded-xl border" style={{ backgroundColor: theme.light, borderColor: theme.border }}>
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-1.5">
+                <Calendar size={12} style={{ color: theme.text }} />
+                <span className="text-xs font-bold uppercase tracking-wide" style={{ color: theme.text }}>
+                  Plano ativo
+                </span>
+                {plan.status && (
+                  <span className="text-[0.65rem] px-1.5 py-0.5 rounded-full bg-white/70 font-medium" style={{ color: theme.text }}>
+                    {plan.status}
+                  </span>
+                )}
+              </div>
               <button
-                onClick={() => onCreatePlan(guide)}
-                className="text-[0.65rem] font-semibold underline underline-offset-2 opacity-70 hover:opacity-100 transition-opacity"
+                onClick={() => onCreatePlan(guide, plan)}
+                className="text-xs font-semibold underline underline-offset-2 opacity-70 hover:opacity-100 transition-opacity"
                 style={{ color: theme.text }}
               >
                 Editar
@@ -862,7 +871,7 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, planVersion = 0 }) => {
             </div>
 
             {(plan.doctor?.fullName || plan.doctor?.name) && (
-              <div className="flex items-center justify-between text-xs mb-1">
+              <div className="flex items-center justify-between text-sm mb-1.5">
                 <span className="text-gray-500">Profissional</span>
                 <span className="font-semibold text-gray-800 truncate max-w-[60%] text-right">
                   {plan.doctor?.fullName || plan.doctor?.name}
@@ -871,14 +880,14 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, planVersion = 0 }) => {
             )}
 
             {plan.sessionsPerWeek > 0 && (
-              <div className="flex items-center justify-between text-xs mb-1">
+              <div className="flex items-center justify-between text-sm mb-1.5">
                 <span className="text-gray-500">Frequência</span>
                 <span className="font-semibold text-gray-800">{plan.sessionsPerWeek}×/semana</span>
               </div>
             )}
 
             {plan.slots?.length > 0 && (
-              <div className="flex items-start justify-between text-xs">
+              <div className="flex items-start justify-between text-sm mb-1.5">
                 <span className="text-gray-500 shrink-0">Horários</span>
                 <span className="font-semibold text-gray-800 text-right leading-relaxed">
                   {plan.slots
@@ -887,19 +896,50 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, planVersion = 0 }) => {
                 </span>
               </div>
             )}
+
+            {plan.sessionValue > 0 && (
+              <div className="flex items-center justify-between text-sm mb-1.5">
+                <span className="text-gray-500">Valor do plano</span>
+                <span className="font-semibold text-gray-800">
+                  {Number(plan.sessionValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </span>
+              </div>
+            )}
+
+            {plan.generatedAppointments?.length > 0 && (
+              <div className="flex items-center justify-between text-sm mb-1.5">
+                <span className="text-gray-500">Sessões geradas</span>
+                <span className="font-semibold text-gray-800">{plan.generatedAppointments.length}</span>
+              </div>
+            )}
+
+            {(() => {
+              const today = new Date().toISOString().split('T')[0];
+              const nextAppt = plan.generatedAppointments
+                ?.filter(a => a.date >= today && ['scheduled', 'pre_agendado'].includes(a.operationalStatus))
+                .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`))[0];
+              return nextAppt ? (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Próxima sessão</span>
+                  <span className="font-semibold text-gray-800">
+                    {format(parseISO(nextAppt.date), 'dd/MM')} · {nextAppt.time}
+                  </span>
+                </div>
+              ) : null;
+            })()}
           </div>
         )}
 
         {/* ── Action button ── */}
         {canUse && onCreatePlan && (
-          <div className="px-4 pb-4">
+          <div className="px-5 pb-5">
             <button
-              onClick={() => onCreatePlan(guide)}
-              className="w-full py-2.5 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
+              onClick={() => onCreatePlan(guide, plan || null)}
+              className="w-full py-3 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
               style={{ background: `linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)`, boxShadow: `0 4px 12px -2px ${theme.from}60` }}
             >
-              <Calendar size={14} />
-              {plan ? 'Ver sessões' : 'Agendar com guia'}
+              <Calendar size={16} />
+              {plan ? 'Ver e editar sessões' : 'Agendar com guia'}
             </button>
           </div>
         )}

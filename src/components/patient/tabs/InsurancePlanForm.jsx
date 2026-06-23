@@ -15,7 +15,7 @@ import {
   Paper
 } from '@mui/material';
 import { Save, X, Calendar, Plus, Trash2, Clock, User, DollarSign, CalendarDays } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import API from '../../../services/api';
 import { toast } from 'react-hot-toast';
 
@@ -35,7 +35,7 @@ const DAYS = [
  * Modal para criar plano de atendimento de convênio
  * Gera appointments + payments pendentes automaticamente
  */
-const InsurancePlanForm = ({ open, onClose, guide, patientId, patientName }) => {
+const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName }) => {
   const [doctors, setDoctors] = useState([]);
   const [loadingDoctors, setLoadingDoctors] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -51,16 +51,30 @@ const InsurancePlanForm = ({ open, onClose, guide, patientId, patientName }) => 
     notes: ''
   });
 
+  // Dados do plano existente podem vir por prop (modo replace via Editar)
+  // ou serem carregados via API (modo replace via "Ver sessões" ou fallback)
+  const activePlan = plan || existingPlan;
+  const mode = activePlan ? 'replace' : 'create';
+
   useEffect(() => {
     if (open && guide) {
+      const base = activePlan || guide;
       setForm(prev => ({
         ...prev,
-        slots: [{ dayOfWeek: 1, time: '14:00' }],
-        sessionValue: guide.sessionValue ?? prev.sessionValue,
-        doctorId: guide.doctor?._id || guide.doctorId || prev.doctorId
+        slots: activePlan?.slots?.length
+          ? activePlan.slots.map(s => ({ dayOfWeek: Number(s.dayOfWeek), time: s.time }))
+          : [{ dayOfWeek: 1, time: '14:00' }],
+        // O plano (InsurancePlan) não armazena sessionValue; a referência é a guia.
+        sessionValue: activePlan?.sessionValue ?? guide.sessionValue ?? prev.sessionValue,
+        doctorId: activePlan?.doctor?._id || base.doctor?._id || base.doctorId || prev.doctorId,
+        sessionsPerWeek: activePlan?.sessionsPerWeek ?? prev.sessionsPerWeek,
+        startDate: activePlan?.startDate
+          ? format(parseISO(activePlan.startDate), 'yyyy-MM-dd')
+          : prev.startDate,
+        notes: activePlan?.notes ?? prev.notes
       }));
     }
-  }, [open, guide]);
+  }, [open, guide, activePlan]);
 
   useEffect(() => {
     if (!open) return;
@@ -80,6 +94,11 @@ const InsurancePlanForm = ({ open, onClose, guide, patientId, patientName }) => 
       setExistingPlan(null);
       return;
     }
+    // Se o plano já veio como prop (modo replace), usa-o diretamente
+    if (plan) {
+      setExistingPlan(plan);
+      return;
+    }
     setLoadingPlan(true);
     API.get(`/api/v2/insurance-plans/guide/${guide._id}`)
       .then(res => {
@@ -91,7 +110,7 @@ const InsurancePlanForm = ({ open, onClose, guide, patientId, patientName }) => 
       })
       .catch(() => setExistingPlan(null))
       .finally(() => setLoadingPlan(false));
-  }, [open, guide?._id]);
+  }, [open, guide?._id, plan]);
 
   const handleSlotChange = (idx, field, value) => {
     setForm(prev => {
@@ -125,45 +144,58 @@ const InsurancePlanForm = ({ open, onClose, guide, patientId, patientName }) => 
       toast.error('Selecione um profissional responsável pelo atendimento.');
       return;
     }
-    if (!form.startDate) {
-      toast.error('Informe a data de início do plano de atendimento.');
-      return;
-    }
     if (form.slots.some(s => !s.dayOfWeek || !s.time)) {
       toast.error('Preencha todos os dias da semana e horários dos atendimentos.');
       return;
     }
 
-    // Se já existe plano, pedir confirmação
-    if (existingPlan) {
+    const isReplace = Boolean(existingPlan);
+
+    if (isReplace) {
       const generatedCount = existingPlan.generatedAppointments?.length || 0;
       const msg = generatedCount > 0
-        ? `Esta guia já possui um plano com ${generatedCount} agendamento(s) gerado(s).\n\nAo continuar, o plano anterior será cancelado e os agendamentos futuros serão removidos. Um novo plano será criado com as configurações atuais.\n\nDeseja prosseguir?`
-        : 'Esta guia já possui um plano de atendimento. Deseja substituí-lo por um novo?'
+        ? `Este plano já possui ${generatedCount} agendamento(s) gerado(s).\n\nAs alterações serão aplicadas apenas às sessões futuras (a partir de hoje). Sessões já realizadas NÃO serão alteradas.\n\nDeseja prosseguir?`
+        : 'Deseja salvar as alterações no plano de atendimento?';
       if (!window.confirm(msg)) return;
     }
 
     setSaving(true);
     try {
-      const payload = {
-        guideId: guide._id,
-        doctorId: form.doctorId,
-        specialty: guide.specialty,
-        sessionsPerWeek: Number(form.sessionsPerWeek),
-        startDate: form.startDate,
-        slots: form.slots.map(s => ({ dayOfWeek: Number(s.dayOfWeek), time: s.time })),
-        sessionValue: Number(form.sessionValue) || 0,
-        notes: form.notes
-      };
+      let response;
 
-      const response = await API.post('/v2/insurance-plans', payload);
-      const createdCount = response?.data?.data?.appointments?.length || guide.totalSessions;
-
-      if (existingPlan) {
-        toast.success(`Plano substituído com sucesso! ${createdCount} novo(s) agendamento(s) gerado(s).`);
+      if (isReplace) {
+        // PATCH parcial: só atualiza campos editáveis do plano e sincroniza futuros
+        const payload = {
+          doctorId: form.doctorId,
+          sessionValue: Number(form.sessionValue) || 0,
+          slots: form.slots.map(s => ({ dayOfWeek: Number(s.dayOfWeek), time: s.time })),
+          notes: form.notes
+        };
+        response = await API.patch(`/v2/insurance-plans/${existingPlan._id}`, payload);
+        const updated = response?.data?.data?.appointmentsUpdated || 0;
+        const canceled = response?.data?.data?.appointmentsCanceled || 0;
+        toast.success(`Plano atualizado! ${updated} sessão(ões) ajustada(s)${canceled > 0 ? `, ${canceled} cancelada(s)` : ''}.`);
       } else {
+        if (!form.startDate) {
+          toast.error('Informe a data de início do plano de atendimento.');
+          setSaving(false);
+          return;
+        }
+        const payload = {
+          guideId: guide._id,
+          doctorId: form.doctorId,
+          specialty: guide.specialty,
+          sessionsPerWeek: Number(form.sessionsPerWeek),
+          startDate: form.startDate,
+          slots: form.slots.map(s => ({ dayOfWeek: Number(s.dayOfWeek), time: s.time })),
+          sessionValue: Number(form.sessionValue) || 0,
+          notes: form.notes
+        };
+        response = await API.post('/v2/insurance-plans', payload);
+        const createdCount = response?.data?.data?.appointments?.length || guide.totalSessions;
         toast.success(`Plano criado com sucesso! ${createdCount} agendamento(s) gerado(s).`);
       }
+
       onClose(true);
     } catch (err) {
       const status = err?.response?.status;
@@ -226,7 +258,7 @@ const InsurancePlanForm = ({ open, onClose, guide, patientId, patientName }) => 
             </Box>
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 700, color: '#1A2C3E', letterSpacing: '-0.01em' }}>
-                Plano de Atendimento
+                {mode === 'replace' ? 'Editar Plano de Atendimento' : 'Novo Plano de Atendimento'}
               </Typography>
               {patientName && (
                 <Typography variant="body2" sx={{ color: '#2E7A5E', fontWeight: 700, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -261,8 +293,17 @@ const InsurancePlanForm = ({ open, onClose, guide, patientId, patientName }) => 
             '& .MuiAlert-icon': { color: '#2E7A5E' }
           }}
         >
-          O sistema vai gerar <strong>{guide.totalSessions} agendamentos</strong> automaticamente
-          e criar os pagamentos como <strong>pendentes</strong> do convênio.
+          {mode === 'replace' ? (
+            <>
+              As alterações serão aplicadas às <strong>sessões futuras</strong> deste plano.
+              Sessões já realizadas ou confirmadas não serão modificadas.
+            </>
+          ) : (
+            <>
+              O sistema vai gerar <strong>{guide.totalSessions} agendamentos</strong> automaticamente
+              e criar os pagamentos como <strong>pendentes</strong> do convênio.
+            </>
+          )}
         </Alert>
 
         {loadingPlan && (
@@ -293,11 +334,14 @@ const InsurancePlanForm = ({ open, onClose, guide, patientId, patientName }) => 
               '& .MuiAlert-message': { fontSize: '0.8125rem', fontWeight: 500 }
             }}
           >
-            <strong>Atenção:</strong> Esta guia já possui um plano de atendimento
-            {existingPlan.generatedAppointments?.length > 0
-              ? ` com ${existingPlan.generatedAppointments.length} agendamento(s) gerado(s). `
-              : '. '}
-            Ao salvar, o plano anterior será <strong>substituído</strong> e os agendamentos futuros serão removidos.
+            <strong>⚠️ Edição de plano ativo.</strong><br />
+            As alterações serão aplicadas apenas às <strong>sessões futuras</strong> (a partir de hoje). Sessões já realizadas não serão alteradas.
+            {existingPlan.generatedAppointments?.length > 0 && (
+              <>
+                <br />
+                Sessões geradas no plano: <strong>{existingPlan.generatedAppointments.length}</strong>
+              </>
+            )}
           </Alert>
         )}
 
@@ -346,6 +390,8 @@ const InsurancePlanForm = ({ open, onClose, guide, patientId, patientName }) => 
                 onChange={(e) => setForm(prev => ({ ...prev, startDate: e.target.value }))}
                 fullWidth
                 size="small"
+                disabled={mode === 'replace'}
+                helperText={mode === 'replace' ? 'Não editável em plano ativo' : ''}
                 InputLabelProps={{ shrink: true }}
                 InputProps={{
                   startAdornment: <Calendar size={14} style={{ marginRight: 6, color: '#7890A7' }} />,
@@ -372,6 +418,8 @@ const InsurancePlanForm = ({ open, onClose, guide, patientId, patientName }) => 
                 onChange={(e) => setForm(prev => ({ ...prev, sessionsPerWeek: e.target.value }))}
                 fullWidth
                 size="small"
+                disabled={mode === 'replace'}
+                helperText={mode === 'replace' ? 'Não editável em plano ativo' : ''}
                 InputProps={{
                   sx: { borderRadius: '14px', bgcolor: '#F9FBFD' }
                 }}
@@ -525,7 +573,9 @@ const InsurancePlanForm = ({ open, onClose, guide, patientId, patientName }) => 
             }
           }}
         >
-          {saving ? (existingPlan ? 'Substituindo plano...' : 'Gerando plano...') : (existingPlan ? 'Substituir plano' : 'Criar plano')}
+          {saving
+            ? (existingPlan ? 'Substituindo plano...' : 'Gerando plano...')
+            : (existingPlan ? 'Salvar alterações' : 'Criar plano')}
         </Button>
       </DialogActions>
     </Dialog>
