@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { useGmb } from '../../hooks/useGmb';
 import API from '../../services/api';
+import { trackGmbPostView, openGmbWhatsApp } from '../../services/gmbAbTracking';
 import GmbAssistedPublishModal from './GmbAssistedPublishModal';
 import GmbIntelligencePanel from './GmbIntelligencePanel';
 import GmbConversionDashboard from './GmbConversionDashboard';
@@ -74,6 +75,8 @@ const GmbDashboard = () => {
     content: string;
     title: string;
     imageUrl?: string;
+    postId?: string;
+    metadata?: any;
   } | null>(null);
   const [editModal, setEditModal] = useState<{
     open: boolean;
@@ -347,8 +350,14 @@ const GmbDashboard = () => {
       open: true,
       content: post.content,
       title: post.title,
-      imageUrl: post.mediaUrl
+      imageUrl: post.mediaUrl,
+      postId: post._id,
+      metadata: post.metadata
     });
+    // 🧪 Registra visualização do post A/B
+    if (post._id) {
+      trackGmbPostView(post._id);
+    }
   };
 
   const StatusBadge = ({ status }: { status: string }) => {
@@ -859,7 +868,18 @@ const GmbDashboard = () => {
             onClick={e => e.stopPropagation()}
           >
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Preview do Post</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-semibold">Preview do Post</h3>
+                {previewModal.metadata?.abVariant && (
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                    previewModal.metadata.abVariant === 'A'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-orange-100 text-orange-700'
+                  }`}>
+                    Variante {previewModal.metadata.abVariant} — {previewModal.metadata.abLabel}
+                  </span>
+                )}
+              </div>
               <button onClick={() => setPreviewModal(null)} className="text-gray-400 hover:text-gray-600">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -875,7 +895,20 @@ const GmbDashboard = () => {
                 <div className="p-4">
                   <p className="text-gray-800 whitespace-pre-wrap">{previewModal.content}</p>
                   <div className="mt-4 pt-4 border-t border-gray-100">
-                    <button className="flex items-center gap-2 text-blue-600 font-medium">
+                    <button
+                      onClick={() => {
+                        if (previewModal.postId) {
+                          openGmbWhatsApp(
+                            { _id: previewModal.postId, metadata: previewModal.metadata },
+                            '5562992013573',
+                            previewModal.metadata?.abVariant === 'B'
+                              ? 'Oi! Vi o post e quero agendar uma avaliação para meu filho.'
+                              : 'Oi! Vi o conteúdo no Google e gostaria de mais informações.'
+                          );
+                        }
+                      }}
+                      className="flex items-center gap-2 text-blue-600 font-medium hover:text-blue-800"
+                    >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                       </svg>

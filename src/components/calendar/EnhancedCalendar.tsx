@@ -991,7 +991,14 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         {/* Convênio */}
                         {isConvenio && (
                             <div className="p-2 bg-blue-100/80 border border-blue-300 rounded-lg">
-                                <div className="text-xs font-bold text-blue-800 mb-0.5">🏥 Convênio</div>
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                    <span className="text-xs font-bold text-blue-800">🏥 Convênio</span>
+                                    {serviceType === 'evaluation' && (
+                                        <span className="text-[10px] font-semibold bg-violet-100 text-violet-700 border border-violet-200 px-1.5 py-0.5 rounded-full">
+                                            Avaliação
+                                        </span>
+                                    )}
+                                </div>
                                 <div className="text-[11px] text-gray-700">
                                     {insuranceProviderName && <div>{insuranceProviderName}</div>}
                                     {appointment.insuranceValue > 0 && (
@@ -1272,8 +1279,13 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         {/* 🆕 INFO DE CONVÊNIO NA TOOLTIP */}
                         {isConvenio && (
                             <div className="mb-3 p-2 bg-blue-700/30 rounded-lg border border-blue-500/30">
-                                <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-1.5 mb-1">
                                     <span className="text-xs font-medium text-blue-300">🏥 Convênio</span>
+                                    {serviceType === 'evaluation' && (
+                                        <span className="text-[10px] font-semibold bg-violet-900/60 text-violet-300 border border-violet-500/40 px-1.5 py-0.5 rounded-full">
+                                            Avaliação
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="text-[10px] text-slate-300">
                                     <div className="font-semibold text-white">{insuranceProviderName}</div>

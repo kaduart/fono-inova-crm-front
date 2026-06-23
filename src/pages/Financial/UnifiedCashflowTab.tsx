@@ -98,11 +98,25 @@ interface UnifiedCashflowTabProps {
 
 // 🩹 Recria o status financeiro legado a partir dos dados atuais do agendamento
 // (o campo statusFinanceiro deixou de ser enviado pela API, mas a UI ainda o espera)
+const isPerSessionPackage = (a: any): boolean => {
+    const pt = a.package?.paymentType || a.package?.model;
+    return pt === 'per-session' || pt === 'per_session';
+};
+
+// 🩹 Recria o status financeiro legado a partir dos dados atuais do agendamento
+// (o campo statusFinanceiro deixou de ser enviado pela API, mas a UI ainda o espera)
 const resolveStatusFinanceiro = (a: any): string => {
     if (a.operationalStatus === 'canceled') return 'Cancelado';
     if (a.billingType === 'convenio' || a.insuranceProvider) return 'Convênio';
     if (a.billingType === 'liminar') return 'Liminar';
     if (a.package) {
+        // Per-session: pagamento real na data da sessão → NÃO é pré-pago
+        if (isPerSessionPackage(a)) {
+            if (a.paymentStatus === 'package_paid' || a.paymentStatus === 'paid' || a.visualFlag === 'ok') return 'Pago na Sessão';
+            if (a.paymentStatus === 'pending' || a.visualFlag === 'pending' || a.visualFlag === 'blocked') return 'Pacote Pendente';
+            return 'Pendente';
+        }
+        // Pré-pago/full: dinheiro entrou na compra do pacote
         if (a.paymentStatus === 'package_paid' || a.visualFlag === 'ok') return 'Pré-pago';
         if (a.paymentStatus === 'pending' || a.visualFlag === 'pending' || a.visualFlag === 'blocked') return 'Pacote Pendente';
     }
@@ -1622,7 +1636,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${sc.badge}`}>{a.status || sc.label}</span>
                                                                                 </span>
                                                                                 <span className="w-32 shrink-0 self-center text-xs text-gray-400 truncate">{[a.professionalName, a.specialty].filter(Boolean).join(' / ') || '-'}</span>
-                                                                                <span className="w-20 text-center shrink-0 self-center">
+                                                                                <span className="w-20 text-center shrink-0 self-center flex flex-col items-center gap-0.5">
                                                                                     {a.billingType === 'convenio' || a.insuranceProvider ? (
                                                                                         <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-100 text-indigo-700 whitespace-nowrap">Convênio</span>
                                                                                     ) : a.billingType === 'liminar' ? (
@@ -1631,6 +1645,9 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                         <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700 whitespace-nowrap">Pacote</span>
                                                                                     ) : (
                                                                                         <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 whitespace-nowrap">Particular</span>
+                                                                                    )}
+                                                                                    {a.serviceType === 'evaluation' && (
+                                                                                        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-violet-100 text-violet-700 whitespace-nowrap">Avaliação</span>
                                                                                     )}
                                                                                 </span>
                                                                                 <span className="w-28 shrink-0 self-center flex items-center justify-center">

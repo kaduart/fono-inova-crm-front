@@ -17,6 +17,18 @@ export interface GmbPost {
     copyText?: string;
     copiedAt?: string;
   };
+  metadata?: {
+    abVariant?: 'A' | 'B';
+    abLabel?: string;
+    abThemeKey?: string;
+    abTestId?: string;
+    calendarioDia?: number;
+    calendarioIntencao?: string;
+    calendarioAngulo?: string;
+    calendarioTipo?: string;
+    calendarRunId?: string;
+    [key: string]: any;
+  };
 }
 
 export interface GmbStats {

@@ -36,7 +36,9 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
       totalSessions:    '',
       sessionValue:     '',
       evaluationAmount: '',
-      evaluationBilled: false,
+      generateEvaluationBilling: true,
+      evaluationDate:   '',
+      evaluationTime:   '',
       doctorId:         '',
       issuedAt:         '',
       notes:            ''
@@ -45,6 +47,8 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
 
   const watchedSessions = useWatch({ control, name: 'totalSessions' });
   const watchedValue    = useWatch({ control, name: 'sessionValue' });
+  const watchedEvaluationAmount = useWatch({ control, name: 'evaluationAmount' });
+  const watchedGenerateEvalBilling = useWatch({ control, name: 'generateEvaluationBilling' });
   const totalValue = (Number(watchedSessions) > 0 && Number(watchedValue) > 0)
     ? (Number(watchedSessions) * Number(watchedValue)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
     : null;
@@ -59,7 +63,9 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
           totalSessions:    guide.totalSessions || '',
           sessionValue:     guide.sessionValue != null ? guide.sessionValue : '',
           evaluationAmount: guide.evaluationAmount != null ? guide.evaluationAmount : '',
-          evaluationBilled: guide.evaluationBilled === true,
+          generateEvaluationBilling: guide.generateEvaluationBilling !== false,
+          evaluationDate:   '',
+          evaluationTime:   '',
           doctorId:         guide.doctor?._id || guide.doctorId || '',
           issuedAt:         guide.issuedAt ? format(new Date(guide.issuedAt), 'yyyy-MM-dd') : '',
           notes:            guide.notes || ''
@@ -72,7 +78,9 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
           totalSessions:    '',
           sessionValue:     '',
           evaluationAmount: '',
-          evaluationBilled: false,
+          generateEvaluationBilling: true,
+          evaluationDate:   '',
+          evaluationTime:   '',
           doctorId:         '',
           issuedAt:         '',
           notes:            ''
@@ -83,6 +91,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
 
   const onSubmit = async (data) => {
     try {
+      const hasEval = Number(data.evaluationAmount) > 0 && data.generateEvaluationBilling !== false;
       await onSave({
         number:        data.number.trim(),
         specialty:     data.specialty.toLowerCase().trim(),
@@ -90,7 +99,9 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
         totalSessions: parseInt(data.totalSessions, 10),
         sessionValue:     data.sessionValue !== '' ? parseFloat(data.sessionValue) : undefined,
         evaluationAmount: data.evaluationAmount !== '' ? parseFloat(data.evaluationAmount) : undefined,
-        evaluationBilled: data.evaluationBilled === true,
+        generateEvaluationBilling: data.generateEvaluationBilling !== false,
+        evaluationDate: hasEval && data.evaluationDate ? data.evaluationDate : undefined,
+        evaluationTime: hasEval && data.evaluationTime ? data.evaluationTime : undefined,
         doctorId:         data.doctorId || undefined,
         issuedAt:      data.issuedAt ? new Date(data.issuedAt).toISOString() : undefined,
         expiresAt:     new Date(data.expiresAt).toISOString(),
@@ -136,7 +147,6 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="px-6 py-4 space-y-4 max-h-[65vh] overflow-y-auto">
 
-            {/* Alert: sessões usadas */}
             {hasUsedSessions && (
               <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
                 <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
@@ -147,7 +157,6 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
               </div>
             )}
 
-            {/* Alert: instrução de preenchimento */}
             {!isEditing && (
               <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-xl">
                 <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
@@ -155,7 +164,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
               </div>
             )}
 
-            {/* Grid 2 cols: número + total sessões */}
+            {/* Número da guia + Total de sessões */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">
@@ -177,7 +186,6 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
                 />
                 {errors.number && <p className="text-xs text-red-500 mt-1">{errors.number.message}</p>}
               </div>
-
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">
                   Total de sessões <span className="text-red-400">*</span>
@@ -201,7 +209,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
               </div>
             </div>
 
-            {/* Grid 2 cols: especialidade + convênio */}
+            {/* Especialidade + Convênio */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">
@@ -222,7 +230,6 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
                 />
                 {errors.specialty && <p className="text-xs text-red-500 mt-1">{errors.specialty.message}</p>}
               </div>
-
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">
                   Convênio <span className="text-red-400">*</span>
@@ -239,7 +246,6 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
                       onChange={(e) => {
                         const selectedCode = e.target.value;
                         field.onChange(selectedCode);
-                        // Sugere o valor da sessão cadastrado no convênio, se o campo estiver vazio
                         const selected = convenios.find(c => c.code === selectedCode);
                         if (selected && selected.sessionValue > 0) {
                           const currentValue = getValues('sessionValue');
@@ -260,7 +266,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
               </div>
             </div>
 
-            {/* Grid 2 cols: data validade + valor sessão */}
+            {/* Data de validade + Data de emissão */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">
@@ -278,28 +284,33 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
                     }
                   }}
                   render={({ field }) => (
-                    <input
-                      {...field}
-                      type="date"
-                      className={inputClass(!!errors.expiresAt)}
-                    />
+                    <input {...field} type="date" className={inputClass(!!errors.expiresAt)} />
                   )}
                 />
                 {errors.expiresAt && <p className="text-xs text-red-500 mt-1">{errors.expiresAt.message}</p>}
               </div>
-
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-                  Valor da sessão
-                </label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Data de emissão</label>
+                <Controller
+                  name="issuedAt"
+                  control={control}
+                  render={({ field }) => (
+                    <input {...field} type="date" className={inputClass(false)} />
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Valor da sessão + Valor da avaliação */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Valor da sessão</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">R$</span>
                   <Controller
                     name="sessionValue"
                     control={control}
-                    rules={{
-                      min: { value: 0, message: 'Valor não pode ser negativo' }
-                    }}
+                    rules={{ min: { value: 0, message: 'Valor não pode ser negativo' } }}
                     render={({ field }) => (
                       <input
                         {...field}
@@ -314,22 +325,17 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
                 </div>
                 {errors.sessionValue && <p className="text-xs text-red-500 mt-1">{errors.sessionValue.message}</p>}
               </div>
-            </div>
-
-            {/* Valor da avaliação separada */}
-            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">
                   Valor da avaliação
+                  <span className="ml-1.5 text-gray-400 font-normal">(opcional)</span>
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">R$</span>
                   <Controller
                     name="evaluationAmount"
                     control={control}
-                    rules={{
-                      min: { value: 0, message: 'Valor não pode ser negativo' }
-                    }}
+                    rules={{ min: { value: 0, message: 'Valor não pode ser negativo' } }}
                     render={({ field }) => (
                       <input
                         {...field}
@@ -342,64 +348,101 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
                     )}
                   />
                 </div>
-                <p className="text-xs text-gray-400 mt-1">Avaliação inicial faturada separadamente do pacote.</p>
                 {errors.evaluationAmount && <p className="text-xs text-red-500 mt-1">{errors.evaluationAmount.message}</p>}
               </div>
+            </div>
 
-              <div className="flex items-end">
+            {/* Profissional */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Profissional</label>
+              <Controller
+                name="doctorId"
+                control={control}
+                render={({ field }) => (
+                  <select {...field} className={inputClass(false)}>
+                    <option value="">Sem vínculo</option>
+                    {doctors.map(d => (
+                      <option key={d._id} value={d._id}>{d.fullName}</option>
+                    ))}
+                  </select>
+                )}
+              />
+            </div>
+
+            {/* Avaliação: opções de agendamento */}
+            {Number(watchedEvaluationAmount) > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="h-px flex-1 bg-gray-200" />
+                  <span className="text-xs font-medium text-gray-400">Agendamento da avaliação</span>
+                  <div className="h-px flex-1 bg-gray-200" />
+                </div>
+
                 <Controller
-                  name="evaluationBilled"
+                  name="generateEvaluationBilling"
                   control={control}
                   render={({ field }) => (
-                    <label className="flex items-start gap-2 cursor-pointer select-none">
-                      <input
-                        {...field}
-                        type="checkbox"
-                        checked={field.value}
-                        onChange={(e) => field.onChange(e.target.checked)}
-                        className="mt-0.5 w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+                    <div className="flex flex-col gap-2">
+                      <label className="flex items-center gap-2.5 cursor-pointer">
+                        <input
+                          type="radio"
+                          checked={field.value === true}
+                          onChange={() => field.onChange(true)}
+                          className="w-4 h-4 text-teal-600 border-gray-300 focus:ring-teal-500"
+                        />
+                        <span className="text-sm text-gray-700">Criar agendamento na agenda</span>
+                      </label>
+                      <label className="flex items-center gap-2.5 cursor-pointer">
+                        <input
+                          type="radio"
+                          checked={field.value === false}
+                          onChange={() => field.onChange(false)}
+                          className="w-4 h-4 text-teal-600 border-gray-300 focus:ring-teal-500"
+                        />
+                        <span className="text-sm text-gray-700">Não criar agendamento</span>
+                      </label>
+                    </div>
+                  )}
+                />
+
+                {watchedGenerateEvalBilling !== false && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                        Data da avaliação <span className="text-red-400">*</span>
+                      </label>
+                      <Controller
+                        name="evaluationDate"
+                        control={control}
+                        rules={{ required: 'Informe a data' }}
+                        render={({ field, fieldState }) => (
+                          <>
+                            <input {...field} type="date" className={inputClass(!!fieldState.error)} />
+                            {fieldState.error && <p className="text-xs text-red-500 mt-1">{fieldState.error.message}</p>}
+                          </>
+                        )}
                       />
-                      <div>
-                        <span className="block text-xs font-semibold text-gray-700">Avaliação já faturada</span>
-                        <span className="block text-[10px] text-gray-400 leading-tight">
-                          Marque se a avaliação já foi faturada fora do sistema.
-                        </span>
-                      </div>
-                    </label>
-                  )}
-                />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                        Horário <span className="text-red-400">*</span>
+                      </label>
+                      <Controller
+                        name="evaluationTime"
+                        control={control}
+                        rules={{ required: 'Informe o horário' }}
+                        render={({ field, fieldState }) => (
+                          <>
+                            <input {...field} type="time" className={inputClass(!!fieldState.error)} />
+                            {fieldState.error && <p className="text-xs text-red-500 mt-1">{fieldState.error.message}</p>}
+                          </>
+                        )}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-
-            {/* Grid 2 cols: data emissão + profissional */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Data de emissão</label>
-                <Controller
-                  name="issuedAt"
-                  control={control}
-                  render={({ field }) => (
-                    <input {...field} type="date" className={inputClass(false)} />
-                  )}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Profissional</label>
-                <Controller
-                  name="doctorId"
-                  control={control}
-                  render={({ field }) => (
-                    <select {...field} className={inputClass(false)}>
-                      <option value="">Sem vínculo</option>
-                      {doctors.map(d => (
-                        <option key={d._id} value={d._id}>{d.fullName}</option>
-                      ))}
-                    </select>
-                  )}
-                />
-              </div>
-            </div>
+            )}
 
             {/* Valor total calculado */}
             {totalValue && (

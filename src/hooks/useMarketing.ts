@@ -34,6 +34,18 @@ export interface Post {
   ctaUrl?: string;
   aiGenerated?: boolean;
   errorMessage?: string;
+  metadata?: {
+    abVariant?: 'A' | 'B';
+    abLabel?: string;
+    abThemeKey?: string;
+    abTestId?: string;
+    calendarioDia?: number;
+    calendarioIntencao?: string;
+    calendarioAngulo?: string;
+    calendarioTipo?: string;
+    calendarRunId?: string;
+    [key: string]: any;
+  };
 }
 
 export type PublishTarget = 'organic' | 'paid' | 'both';
