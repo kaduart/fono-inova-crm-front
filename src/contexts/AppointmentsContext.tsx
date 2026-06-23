@@ -40,6 +40,17 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const currentPeriodRef = useRef(currentPeriod);
     const appointmentsRef = useRef(appointments);
     const isFetchingRef = useRef(false);
+
+    // 🛡️ PROTEÇÃO: evita auto-disparo ao receber socket de atualizações locais
+    const recentLocalUpdateIds = useRef<Set<string>>(new Set());
+
+    const markLocalUpdate = useCallback((id: string) => {
+        if (!id) return;
+        recentLocalUpdateIds.current.add(id);
+        setTimeout(() => {
+            recentLocalUpdateIds.current.delete(id);
+        }, 2000);
+    }, []);
     
     // Atualiza refs sem causar re-render
     currentFiltersRef.current = currentFilters;
@@ -189,6 +200,12 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         
         const handleSocketEvent = (eventName: string) => (data: any) => {
             console.log(`📡 [AppointmentsContext] ${eventName}:`, data);
+            // Ignora eventos de atualizações feitas localmente (evita loop)
+            const id = data?.appointmentId;
+            if (id && recentLocalUpdateIds.current.has(id)) {
+                console.log(`🔕 [AppointmentsContext] ${eventName} ignorado — origem local`);
+                return;
+            }
             debouncedRefresh();
         };
 
@@ -219,6 +236,8 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     // 🚀 V2: Polling inteligente para aguardar processamento async
     const pollAppointmentStatus = useCallback(async (id: string, maxAttempts = 5): Promise<{ success: boolean; wasLockReleased?: boolean }> => {
+        // 🛡️ Marca como atualização local para evitar auto-disparo do socket
+        markLocalUpdate(id);
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 console.log(`[AppointmentsContext] Polling ${attempt}/${maxAttempts}...`);
@@ -283,28 +302,24 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             return { ...result, _isAsyncProcessing: true };
         }
 
-        // Legado: Invalida caches e emite socket
-        invalidateCache('dashboard');
-        invalidateCache('doctorStats');
+        // Legado: emite socket para outras abas e atualiza estado local
         socketManager.emit('appointmentCreated', { appointmentId: result?.data?._id || result?._id });
+        await refreshAppointments(true);
         return result;
     }, [pollAppointmentStatus, refreshAppointments]);
 
     const updateAppointment = useCallback(async (id: string, data: any) => {
         const dto = mapToUpdateAppointmentDTO(data);
         const result = await appointmentService.update(id, dto);
-        
-        // 🚀 Invalida caches relacionados
-        invalidateCache('dashboard');
-        invalidateCache('doctorStats');
-        
-        socketManager.emit('appointmentUpdated', { appointmentId: id });
-        
+
+        // 🛡️ Marca como atualização local para evitar auto-disparo do socket
+        markLocalUpdate(id);
+
         // 🔄 Recarrega appointments para refletir mudanças imediatamente
         await refreshAppointments(true);
-        
+
         return result;
-    }, [refreshAppointments]);
+    }, [refreshAppointments, markLocalUpdate]);
 
     const completeAppointment = useCallback(async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
         const result = await appointmentService.complete(id, data);
@@ -322,8 +337,6 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             
             if (pollResult.success) {
                 console.log('[AppointmentsContext] ✅ Complete finalizado via polling');
-                // 🆕 EMITE SOCKET para atualizar calendário imediatamente
-                socketManager.emit('appointmentUpdated', { appointmentId: id });
                 await refreshAppointments();
             } else {
                 console.warn('[AppointmentsContext] ⚠️ Polling expirou, fazendo refresh manual');
@@ -333,12 +346,11 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             return { ...result, _isAsyncProcessing: true, _completed: pollResult.success };
         }
 
-        // Legado: Invalida caches e emite socket
-        invalidateCache('dashboard');
-        invalidateCache('doctorStats');
-        socketManager.emit('appointmentUpdated', { appointmentId: id });
+        // 🛡️ Marca como atualização local para evitar auto-disparo do socket
+        markLocalUpdate(id);
+        await refreshAppointments(true);
         return result;
-    }, [pollAppointmentStatus, refreshAppointments]);
+    }, [pollAppointmentStatus, refreshAppointments, markLocalUpdate]);
 
     const cancelAppointment = useCallback(async (id: string, params: any) => {
         const result = await appointmentService.cancel(id, params);
@@ -356,7 +368,6 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             
             if (pollResult.success) {
                 console.log('[AppointmentsContext] ✅ Cancelamento finalizado via polling');
-                socketManager.emit('appointmentUpdated', { appointmentId: id });
                 await refreshAppointments();
             } else {
                 console.warn('[AppointmentsContext] ⚠️ Polling expirou, fazendo refresh manual');
@@ -366,12 +377,11 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             return { ...result, _isAsyncProcessing: true, _completed: pollResult.success };
         }
         
-        // Legado: Invalida caches e emite socket
-        invalidateCache('dashboard');
-        invalidateCache('doctorStats');
-        socketManager.emit('appointmentUpdated', { appointmentId: id });
+        // 🛡️ Marca como atualização local para evitar auto-disparo do socket
+        markLocalUpdate(id);
+        await refreshAppointments(true);
         return result;
-    }, [pollAppointmentStatus, refreshAppointments]);
+    }, [pollAppointmentStatus, refreshAppointments, markLocalUpdate]);
 
     const getAvailableSlots = useCallback(async (params: any) => {
         const result = await appointmentService.getAvailableSlots(params);

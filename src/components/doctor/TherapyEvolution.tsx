@@ -16,10 +16,11 @@ import {
     TrendingUp,
     Users
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEvolution } from '../../hooks/useEvolution';
 import API from '../../services/api';
+import patientService from '../../services/patientService';
 import { toast } from 'react-toastify';
 import { confirmToast } from '../../utils/confirmToast';
 import { IPatient } from '../../utils/types/types';
@@ -98,6 +99,50 @@ export default function TherapyEvolution({
     const { user } = useAuth();
     const [selectedPatientId, setSelectedPatientId] = useState<string>('');
 
+    // Busca de paciente — mesmo padrão do ScheduleAppointmentModal
+    const [patientSearch, setPatientSearch] = useState('');
+    const [searchedPatients, setSearchedPatients] = useState<IPatient[]>([]);
+    const [isSearchingPatient, setIsSearchingPatient] = useState(false);
+    const searchDropdownRef = useRef<HTMLDivElement>(null);
+
+    // Debounced search → API
+    useEffect(() => {
+        const term = patientSearch.trim();
+        setSearchedPatients([]);
+        if (term.length < 2) return;
+        if (selectedPatientId && resolvedPatient?.fullName?.toLowerCase() === term.toLowerCase()) return;
+
+        const t = setTimeout(async () => {
+            setIsSearchingPatient(true);
+            try {
+                const results = await patientService.search(term);
+                setSearchedPatients(results);
+            } catch { /* silently */ }
+            finally { setIsSearchingPatient(false); }
+        }, 300);
+        return () => clearTimeout(t);
+    }, [patientSearch]);
+
+    // Resolver: selectedPatient prop → preenche campo de busca com o nome
+    useEffect(() => {
+        if (selectedPatient?.fullName) {
+            setPatientSearch(selectedPatient.fullName);
+        } else if (!selectedPatient) {
+            setPatientSearch('');
+        }
+    }, [selectedPatient?._id]);
+
+    // Fechar dropdown ao clicar fora
+    useEffect(() => {
+        const handleClick = (e: MouseEvent) => {
+            if (searchDropdownRef.current && !searchDropdownRef.current.contains(e.target as Node)) {
+                setSearchedPatients([]);
+            }
+        };
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, []);
+
     // 🧬 Hook de evolução — abstrai toda a lógica de API, cache e estados
     const {
         evaluations,
@@ -113,7 +158,9 @@ export default function TherapyEvolution({
     const [showDetails, setShowDetails] = useState<number | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
 
-    const selectedPatientData = patients.find(p => p._id === selectedPatientId) || ({} as IPatient);
+    // ID é a fonte de verdade — dados derivados do prop ou do item selecionado no search
+    const [resolvedPatient, setResolvedPatient] = useState<IPatient | null>(null);
+    const selectedPatientData = resolvedPatient || ({} as IPatient);
     const [protocols, setProtocols] = useState<any[]>([]);
     const [protocolsLoading, setProtocolsLoading] = useState(false);
     const [protocolsError, setProtocolsError] = useState<string | null>(null);
@@ -128,8 +175,10 @@ export default function TherapyEvolution({
     useEffect(() => {
         if (selectedPatient && selectedPatient._id) {
             setSelectedPatientId(selectedPatient._id);
+            setResolvedPatient(selectedPatient);
         } else {
             setSelectedPatientId('');
+            setResolvedPatient(null);
         }
         setCurrentPage(1);
         setEvolutionSubTab('history');
@@ -430,23 +479,59 @@ export default function TherapyEvolution({
                                                 <Users size={24} className="text-green-600" />
                                                 Selecione o Paciente
                                             </Label>
-                                            <select
-                                                value={selectedPatientId}
-                                                onChange={(e) => {
-                                                    const id = e.target.value;
-                                                    setSelectedPatientId(id);
-                                                    const patient = patients.find(p => p._id === id) || null;
-                                                    onSelectPatient?.(patient);
-                                                }}
-                                                className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-green-100 focus:border-green-500 transition-all shadow-sm hover:shadow-md text-base font-medium"
-                                            >
-                                                <option value="">Escolha um paciente...</option>
-                                                {patients?.map(patient => (
-                                                    <option key={patient._id} value={patient._id}>
-                                                        {patient.fullName}
-                                                    </option>
-                                                ))}
-                                            </select>
+                                            <div className="relative" ref={searchDropdownRef}>
+                                                <div className="relative">
+                                                    <input
+                                                        type="text"
+                                                        value={patientSearch}
+                                                        onChange={(e) => {
+                                                            setPatientSearch(e.target.value);
+                                                            if (!e.target.value) {
+                                                                setSelectedPatientId('');
+                                                                onSelectPatient?.(null);
+                                                            }
+                                                        }}
+                                                        placeholder="Digite o nome do paciente..."
+                                                        className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-green-100 focus:border-green-500 transition-all shadow-sm hover:shadow-md text-base font-medium pr-10"
+                                                    />
+                                                    {isSearchingPatient && (
+                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                            <svg className="animate-spin h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24">
+                                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                                            </svg>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {patientSearch.trim().length >= 2 && (
+                                                    <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+                                                        {isSearchingPatient ? (
+                                                            <div className="px-4 py-3 text-sm text-gray-500">Buscando...</div>
+                                                        ) : searchedPatients.length === 0 ? (
+                                                            <div className="px-4 py-3 text-sm text-gray-400">Nenhum paciente encontrado</div>
+                                                        ) : (
+                                                            <ul className="max-h-48 overflow-auto">
+                                                                {searchedPatients.map(p => (
+                                                                    <li
+                                                                        key={p._id}
+                                                                        onMouseDown={() => {
+                                                                            setSelectedPatientId(p._id);
+                                                                            setResolvedPatient(p);
+                                                                            setPatientSearch(p.fullName);
+                                                                            setSearchedPatients([]);
+                                                                            onSelectPatient?.(p);
+                                                                        }}
+                                                                        className="px-4 py-3 cursor-pointer hover:bg-green-50 text-sm text-gray-700 font-medium border-b border-gray-50 last:border-0"
+                                                                    >
+                                                                        {p.fullName}
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
 
                                         {/* progresso geral */}

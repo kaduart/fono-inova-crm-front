@@ -124,12 +124,6 @@ const ScheduleAppointmentModal = ({
     const [authorizationCode, setAuthorizationCode] = useState('');
     const [insuranceValue, setInsuranceValue] = useState(0);
 
-    // 👇 helper pra ignorar acento no filtro
-    const normalize = (value: string) =>
-        value
-            ?.toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '') || '';
 
     // 🔍 Busca pacientes no backend quando digitar (com debounce)
     useEffect(() => {
@@ -162,22 +156,11 @@ const ScheduleAppointmentModal = ({
         return () => clearTimeout(timeoutId);
     }, [patientSearch, selectedPatient]);
 
-    // 👇 Pacientes a exibir (buscados do backend ou filtrados localmente se tiver poucos)
+    // Resultados da busca — sempre via API (sem fallback no prop local)
     const filteredPatients = useMemo(() => {
-        // Se tem resultados da busca no backend, usa eles
-        if (patientSearch.trim().length >= 2 && searchedPatients.length > 0) {
-            return searchedPatients;
-        }
-        
-        // Fallback: filtra localmente se tiver poucos pacientes
-        if (!patients || patients.length === 0) return [];
-        if (!patientSearch.trim()) return patients;
-
-        const search = normalize(patientSearch);
-        return patients.filter((p) =>
-            normalize(p.fullName).includes(search)
-        );
-    }, [patients, patientSearch, searchedPatients]);
+        if (patientSearch.trim().length < 2) return [];
+        return searchedPatients;
+    }, [patientSearch, searchedPatients]);
 
     registerLocale("pt-BR", ptBR);
 
@@ -220,15 +203,27 @@ const ScheduleAppointmentModal = ({
         }
     }, [initialData, isOpen]);
 
+    // Resolver reativo: patientId → dados completos (local first, API fallback)
     useEffect(() => {
-        if (!initialData || !initialData.patientId || !patients?.length) return;
+        if (!initialData?.patientId) return;
 
-        const found = patients.find((p) => p._id === initialData.patientId);
+        const found = patients?.find((p) => p._id === initialData.patientId);
         if (found) {
             setPatientSearch(found.fullName);
             setSelectedPatient(found);
+            return;
         }
-    }, [initialData?.patientId, patients]);
+
+        // Não estava no array local → busca pelo ID direto na API
+        patientService.getById(initialData.patientId)
+            .then(patient => {
+                if (patient) {
+                    setPatientSearch(patient.fullName);
+                    setSelectedPatient(patient);
+                }
+            })
+            .catch(() => {});
+    }, [initialData?.patientId]);
 
     // 🆕 Fecha o modal quando o sinal é emitido (após sucesso no agendamento)
     // ✅ CORREÇÃO: Só fecha quando o sinal MUDA, não quando é > 0 inicialmente
@@ -271,22 +266,6 @@ const ScheduleAppointmentModal = ({
         }
     }, [formData.packageId]);
 
-
-    const handlePatientChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const id = e.target.value;
-        const found = patients?.find((p) => p._id === id);
-
-        setSelectedPatient(found || null);
-        setPackages((found as any)?.packages || []); // mantém sua lógica atual
-
-        setFormData((prev) => ({
-            ...prev,
-            patientId: id,
-        }));
-
-        // 👇 Atualiza o texto do input com o nome escolhido
-        setPatientSearch(found?.fullName || '');
-    };
 
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {

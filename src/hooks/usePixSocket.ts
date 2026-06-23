@@ -3,7 +3,6 @@ import { useEffect, useRef } from "react";
 import { toast } from "react-toastify";
 import { useNotification } from "../contexts/NotificationContext";
 import { logger } from "../utils/logger";
-import { invalidateCache } from "../utils/cacheManager";
 import { socketManager } from "../utils/socketManager";
 
 interface PixSocketOptions {
@@ -126,7 +125,8 @@ export const usePixSocket = ({
 
         const onAppointmentUpdated = (data: any) => {
             logger.info("✏️ [SOCKET] appointmentUpdated (ignorando refresh automático)", data);
-            invalidateCache('payments');
+            // 🚫 REMOVIDO: invalidateCache('payments') — já é invalidado pelas operações de pagamento
+            // e causava propagação desnecessária para dashboard, gerando recargas em cascata.
             // notifRef.current.onCalendarRefresh?.();
             notifRef.current.onPaymentRefresh?.();
         };

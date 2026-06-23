@@ -387,23 +387,17 @@ const FinancialDashboard = ({
 
     // 🚀 Prefetch all tab chunks on mount so tab switching feels instant
     useEffect(() => {
-        window.requestIdleCallback?.(() => {
+        const prefetchChunks = () => {
             import('../../components/financial/PaymentPage');
             import('./tabs/ExpensesTab');
             import('./tabs/InsuranceTab');
             import('./tabs/PlanningTab');
             import('./UnifiedCashflowTab');
             import('./tabs/FinancialDashboardTab');
+            import('./tabs/AnaliseProjecaoTab');
             import('../ProfessionalResults/ProfessionalResultsPage');
-        }) ?? setTimeout(() => {
-            import('../../components/financial/PaymentPage');
-            import('./tabs/ExpensesTab');
-            import('./tabs/InsuranceTab');
-            import('./tabs/PlanningTab');
-            import('./UnifiedCashflowTab');
-            import('./tabs/FinancialDashboardTab');
-            import('../ProfessionalResults/ProfessionalResultsPage');
-        }, 2000);
+        };
+        window.requestIdleCallback?.(prefetchChunks) ?? setTimeout(prefetchChunks, 2000);
     }, []);
 
     const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {

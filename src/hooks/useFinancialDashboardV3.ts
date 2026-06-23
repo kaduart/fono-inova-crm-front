@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../services/api';
 import moment from 'moment-timezone';
+import { subscribeToCacheInvalidation } from '../utils/cacheManager';
 
 const TIMEZONE = 'America/Sao_Paulo';
 
@@ -356,6 +357,16 @@ export const useFinancialDashboardV3 = () => {
   const [response, setResponse] = useState<DashboardV3Response | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 🔄 Integração com cacheManager: quando 'dashboard' for invalidado externamente,
+  // limpa o cache interno para que o próximo fetchDashboard busque dados frescos.
+  useEffect(() => {
+    const unsubscribe = subscribeToCacheInvalidation('dashboard', () => {
+      console.log('[useFinancialDashboardV3] Cache "dashboard" invalidado — limpando cache interno');
+      _cache.clear();
+    });
+    return unsubscribe;
+  }, []);
 
   const fetchDashboard = useCallback(async (month?: number, year?: number) => {
     const mes = month || moment().tz(TIMEZONE).month() + 1;

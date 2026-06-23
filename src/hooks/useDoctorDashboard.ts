@@ -32,6 +32,11 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
     futureAppointments: [] as Appointment[],
   });
 
+  // Lista completa de pacientes para selects/evolução — nunca sobrescrita por paginação
+  const [allPatients, setAllPatients] = useState<IPatient[]>();
+  // Lista paginada exclusiva da aba Pacientes
+  const [paginatedPatients, setPaginatedPatients] = useState<IPatient[]>([]);
+
   // Paginação de pacientes
   const [patientsPagination, setPatientsPagination] = useState({
     page: 1,
@@ -84,19 +89,21 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
     try {
       const t0 = Date.now();
       const [patientsRes, appointmentsRes, statsRes, futureRes] = await Promise.all([
-        fetchPatients({ limit: 20 }),
+        fetchPatients({ limit: 200 }),
         fetchTodaysAppointments(doctorId),
         fetchStats(doctorId),
         fetchFutureAppointments(doctorId)
       ]);
       console.log(`[Overview] ✅ dados carregados em ${Date.now() - t0}ms — pacientes=${patientsRes?.length ?? (patientsRes as any)?.data?.length ?? 0} consultas=${(appointmentsRes as any[])?.length ?? 0}`);
 
+      const patientList = patientsRes || [];
       setOverviewData({
-        patients: patientsRes || [],
+        patients: patientList,
         appointments: appointmentsRes || [],
         stats: statsRes || {},
         futureAppointments: futureRes || []
       });
+      setAllPatients(patientList);
     } catch (error) {
       console.error('[useDoctorDashboard] Erro ao carregar overview:', error);
       toast.error('Erro ao carregar overview');
@@ -200,7 +207,7 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
       // Backend retorna { data, meta } ou array direto
       const patientList = Array.isArray(patientsRes) ? patientsRes : (patientsRes?.data || []);
       const meta = patientsRes?.meta || {};
-      setOverviewData(prev => ({ ...prev, patients: patientList }));
+      setPaginatedPatients(patientList);
       setPatientsPagination(prev => ({
         ...prev,
         page: meta.page || currentPage,
@@ -332,7 +339,8 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
     isDoctor,
     
     // Dados por aba
-    patients: overviewData.patients,
+    patients: overviewData.patients,  // lista paginada (aba Pacientes)
+    allPatients: allPatients ?? overviewData.patients, // lista completa (selects, evolução)
     appointments: overviewData.appointments,
     stats: overviewData.stats,
     futureAppointments: overviewData.futureAppointments,

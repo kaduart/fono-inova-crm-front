@@ -133,6 +133,7 @@ export default function DoctorDashboard() {
     doctorData,
     doctorId,
     patients,
+    allPatients,
     appointments,
     stats,
     futureAppointments,
@@ -515,7 +516,7 @@ export default function DoctorDashboard() {
         return (
           <div className="p-6">
             <TherapyEvolution
-              patients={patients ?? []}
+              patients={allPatients ?? []}
               selectedPatient={selectedPatient}
               onSelectPatient={setSelectedPatient}
               onOpenPatientDetail={handleViewPatientDetails}

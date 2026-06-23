@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, lazy } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Skeleton } from '@mui/material';
 import {
@@ -28,7 +28,49 @@ import api from '../../../services/api';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useFinancialDashboardV3 } from '../../../hooks/useFinancialDashboardV3';
 import { useAppointmentsByType } from '../../../hooks/useAppointmentsByType';
-const ProjecaoCenarios = React.lazy(() => import('./AnaliseProjecaoTab').then(m => ({ default: m.ProjecaoCenarios })));
+
+// 🔧 Helper para lazy loading com retry em caso de falha de chunk
+const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) => {
+  return lazy(() => {
+    let attempts = 0;
+
+    const tryLoad = (): Promise<any> => {
+      attempts++;
+      return importFn().catch((error: any) => {
+        const isChunkError = error?.name === 'TypeError' ||
+                           error?.message?.includes('Failed to fetch dynamically imported module') ||
+                           error?.message?.includes('load failed');
+
+        if (isChunkError) {
+          console.warn(`[FinancialDashboardTab] Chunk load failed (attempt ${attempts}/${retries})`);
+
+          if (attempts < retries) {
+            return new Promise((resolve) => {
+              setTimeout(() => {
+                resolve(tryLoad());
+              }, delay * attempts);
+            });
+          }
+
+          const reloadKey = 'chunk_reload_attempted_analise';
+          const alreadyReloaded = sessionStorage.getItem(reloadKey);
+          if (!alreadyReloaded) {
+            sessionStorage.setItem(reloadKey, '1');
+            window.location.reload();
+          }
+          console.error('[FinancialDashboardTab] Chunk failed after all retries + reload.', error);
+          throw error;
+        }
+
+        throw error;
+      });
+    };
+
+    return tryLoad();
+  });
+};
+
+const ProjecaoCenarios = lazyWithRetry(() => import('./AnaliseProjecaoTab').then(m => ({ default: m.ProjecaoCenarios })));
 import { DashboardEspecialidades } from '../components/DashboardEspecialidades';
 import { RankingProfissionais } from '../components/RankingProfissionais';
 import { ListaPacientesVIP } from '../components/ListaPacientesVIP';

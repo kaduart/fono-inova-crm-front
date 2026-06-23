@@ -209,6 +209,18 @@ export const updateGuideDoctor = (guideId: string, doctorId: string) =>
   updateGuideAppointmentsBulk(guideId, { doctorId });
 
 /**
+ * Busca o InsurancePlan vinculado a uma guia (retorna null se não existir)
+ */
+export const getInsurancePlanByGuide = async (guideId: string): Promise<any | null> => {
+  try {
+    const response = await API.get(`/v2/insurance-plans/guide/${guideId}`);
+    return response.data?.data || null;
+  } catch {
+    return null;
+  }
+};
+
+/**
  * Busca saldo agregado de guias do paciente
  */
 export const getBalance = async (

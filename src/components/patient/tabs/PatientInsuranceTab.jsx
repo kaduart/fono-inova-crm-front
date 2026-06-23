@@ -45,7 +45,7 @@ import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { useInsuranceGuides } from '../../../hooks/useInsuranceGuides';
-import { getGuideAppointments, updateGuideAppointmentsBulk } from '../../../services/insuranceGuideApi';
+import { getGuideAppointments, updateGuideAppointmentsBulk, getInsurancePlanByGuide } from '../../../services/insuranceGuideApi';
 import doctorService from '../../../services/doctorService';
 import { appointmentService } from '../../../services/appointmentService';
 import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';
@@ -64,6 +64,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
   const [selectedGuide, setSelectedGuide] = useState(null);
   const [planFormOpen, setPlanFormOpen] = useState(false);
   const [planFormGuide, setPlanFormGuide] = useState(null);
+  const [planVersion, setPlanVersion] = useState(0);
   const [detailsGuide, setDetailsGuide] = useState(null);
   const [showInactivateModal, setShowInactivateModal] = useState(false);
   const [isInactivating, setIsInactivating] = useState(false);
@@ -218,6 +219,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
     setPlanFormGuide(null);
     if (refetchNeeded) {
       refetch();
+      setPlanVersion(v => v + 1); // invalida plan cache em todos os GuideCards
     }
   };
 
@@ -465,6 +467,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         color="#2E7A5E"
         onOpenMenu={handleOpenMenu}
         onCreatePlan={handleOpenPlanForm}
+        planVersion={planVersion}
       />
 
       <GuideSection
@@ -474,6 +477,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         color="#C75146"
         onOpenMenu={handleOpenMenu}
         onCreatePlan={handleOpenPlanForm}
+        planVersion={planVersion}
       />
 
       <GuideSection
@@ -483,6 +487,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         color="#8A99B0"
         onOpenMenu={handleOpenMenu}
         onCreatePlan={handleOpenPlanForm}
+        planVersion={planVersion}
       />
 
       <GuideSection
@@ -492,6 +497,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         color="#A0AABF"
         onOpenMenu={handleOpenMenu}
         onCreatePlan={handleOpenPlanForm}
+        planVersion={planVersion}
       />
 
       {/* Menu de ações */}
@@ -550,7 +556,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
       <GuideDetailsModal
         guide={detailsGuide}
         onClose={() => setDetailsGuide(null)}
-        onUpdate={() => { refetch(); fetchAppointments(); }}
+        onUpdate={() => { refetch(); fetchAppointments(); setPlanVersion(v => v + 1); }}
       />
 
       {/* Modal de confirmação de inativação — mesmo padrão do pacote */}
@@ -630,7 +636,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
 // ----------------------------------------------------------------------
 // Componente de seção de guias (título + grid)
 // ----------------------------------------------------------------------
-const GuideSection = ({ title, count, guides, color, onOpenMenu, onCreatePlan }) => {
+const GuideSection = ({ title, count, guides, color, onOpenMenu, onCreatePlan, planVersion }) => {
   if (count === 0) return null;
 
   return (
@@ -666,6 +672,7 @@ const GuideSection = ({ title, count, guides, color, onOpenMenu, onCreatePlan })
               guide={guide}
               onOpenMenu={onOpenMenu}
               onCreatePlan={onCreatePlan}
+              planVersion={planVersion}
             />
           ))}
         </Box>
@@ -678,6 +685,8 @@ const GuideSection = ({ title, count, guides, color, onOpenMenu, onCreatePlan })
 // Componente de card individual (premium, clean, informativo)
 // ----------------------------------------------------------------------
 
+const DAY_NAMES = { 0: 'Dom', 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sáb' };
+
 const SPECIALTY_THEMES = {
   fonoaudiologia:    { from: '#1E40AF', to: '#2563EB', light: '#EFF6FF', border: '#BFDBFE', text: '#1E40AF' },
   psicologia:        { from: '#5B21B6', to: '#7C3AED', light: '#F5F3FF', border: '#DDD6FE', text: '#5B21B6' },
@@ -689,7 +698,7 @@ const SPECIALTY_THEMES = {
   musicoterapia:     { from: '#78350F', to: '#D97706', light: '#FFFBEB', border: '#FDE68A', text: '#78350F' },
 };
 
-const GuideCard = ({ guide, onOpenMenu, onCreatePlan }) => {
+const GuideCard = ({ guide, onOpenMenu, onCreatePlan, planVersion = 0 }) => {
   const remaining = guide.remaining ?? (guide.totalSessions - (guide.usedSessions || 0));
   const usedSessions = guide.usedSessions || 0;
   const daysUntilExpiration = guide.expiresAt
@@ -697,6 +706,17 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan }) => {
     : 999;
 
   const canUse = (guide.status === 'active' || guide.status === 'linked') && remaining > 0 && daysUntilExpiration >= 0;
+
+  // Lazy-load do InsurancePlan — só para guias ativas, isolado no card
+  const [plan, setPlan] = useState(null);
+  useEffect(() => {
+    if (!canUse) return;
+    let mounted = true;
+    getInsurancePlanByGuide(guide._id)
+      .then(data => { if (mounted) setPlan(data); })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, [guide._id, canUse, planVersion]);
   const progressPct = guide.totalSessions > 0 ? Math.min((usedSessions / guide.totalSessions) * 100, 100) : 0;
 
   let statusLabel = 'Disponível';
@@ -825,6 +845,51 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan }) => {
           )}
         </div>
 
+        {/* ── Plan block (lazy-loaded) ── */}
+        {plan && (
+          <div className="mx-4 mb-3 px-3 py-2.5 rounded-xl border" style={{ backgroundColor: theme.light, borderColor: theme.border }}>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[0.65rem] font-bold uppercase tracking-wide" style={{ color: theme.text }}>
+                Plano ativo
+              </span>
+              <button
+                onClick={() => onCreatePlan(guide)}
+                className="text-[0.65rem] font-semibold underline underline-offset-2 opacity-70 hover:opacity-100 transition-opacity"
+                style={{ color: theme.text }}
+              >
+                Editar
+              </button>
+            </div>
+
+            {(plan.doctor?.fullName || plan.doctor?.name) && (
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-gray-500">Profissional</span>
+                <span className="font-semibold text-gray-800 truncate max-w-[60%] text-right">
+                  {plan.doctor?.fullName || plan.doctor?.name}
+                </span>
+              </div>
+            )}
+
+            {plan.sessionsPerWeek > 0 && (
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-gray-500">Frequência</span>
+                <span className="font-semibold text-gray-800">{plan.sessionsPerWeek}×/semana</span>
+              </div>
+            )}
+
+            {plan.slots?.length > 0 && (
+              <div className="flex items-start justify-between text-xs">
+                <span className="text-gray-500 shrink-0">Horários</span>
+                <span className="font-semibold text-gray-800 text-right leading-relaxed">
+                  {plan.slots
+                    .map(s => `${DAY_NAMES[s.dayOfWeek] ?? s.dayOfWeek} ${s.time}`)
+                    .join(' · ')}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── Action button ── */}
         {canUse && onCreatePlan && (
           <div className="px-4 pb-4">
@@ -834,7 +899,7 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan }) => {
               style={{ background: `linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)`, boxShadow: `0 4px 12px -2px ${theme.from}60` }}
             >
               <Calendar size={14} />
-              Agendar com guia
+              {plan ? 'Ver sessões' : 'Agendar com guia'}
             </button>
           </div>
         )}
@@ -896,6 +961,9 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
   const [bulkDayOfWeek, setBulkDayOfWeek]   = useState('');
   const [bulkSaving, setBulkSaving]         = useState(false);
 
+  // Plan do modal — mesma lógica do GuideCard, independente
+  const [modalPlan, setModalPlan] = useState(null);
+
   useEffect(() => {
     if (!doctorsLoaded) {
       doctorService.getActiveDoctors()
@@ -903,6 +971,15 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
         .catch(() => {});
     }
   }, [doctorsLoaded]);
+
+  useEffect(() => {
+    if (!guide?._id) return;
+    let mounted = true;
+    getInsurancePlanByGuide(guide._id)
+      .then(data => { if (mounted) setModalPlan(data); })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, [guide?._id]);
 
   const loadAppointments = (guideId) => {
     setLoading(true);
@@ -1143,9 +1220,11 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
             const firstPending = appointments.find(a =>
               ['pre_agendado', 'scheduled'].includes(a.operationalStatus || a.status)
             );
-            if (firstPending) {
-              setBulkDoctorId(firstPending.doctor?._id || '');
-              setBulkTime(firstPending.time || '');
+            // Plan é fonte primária; firstPending é fallback
+            setBulkDoctorId(modalPlan?.doctor?._id || firstPending?.doctor?._id || '');
+            setBulkTime(modalPlan?.slots?.[0]?.time || firstPending?.time || '');
+            if (modalPlan?.slots?.[0]?.dayOfWeek != null) {
+              setBulkDayOfWeek(String(modalPlan.slots[0].dayOfWeek));
             }
             setBulkDoctorOpen(true);
           }}
