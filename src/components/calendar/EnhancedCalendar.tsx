@@ -234,6 +234,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     const [selectedEvent, setSelectedEvent] = useState<SelectedEvent | null>(null);
     const theme = useTheme();
 
+    // 🆕 Convênios para resolução de nomes no calendário
+    const { convenios } = useConvenios({ includeInactive: false });
+
     // 🆕 DTO: Mapeia appointments para contrato estável
     const appointmentDTOs = useMemo(() => mapAppointmentListResponseDTO(appointments || []), [appointments]);
 

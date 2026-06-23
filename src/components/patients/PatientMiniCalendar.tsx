@@ -17,14 +17,19 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
     //onDateClick: (arg: DateClickArg) => void;
 
     const events = appointments.map(appt => ({
-        title: appt?.doctor?.fullName || '-',
-        date: appt.date,
+        id: appt._id || appt.id,
+        title: `${appt.patient?.fullName || 'Paciente'} - ${appt.doctor?.fullName || '-'}`,
+        start: appt.start || `${appt.date}T${appt.time}`,
+        end: appt.end,
         backgroundColor:
             appt.operationalStatus === 'canceled'
                 ? '#f87171' // vermelho
                 : appt.operationalStatus === 'confirmed'
                     ? '#4ade80' // verde
                     : '#60a5fa', // azul
+        extendedProps: {
+            operationalStatus: appt.operationalStatus
+        }
     }));
     return (
         <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">

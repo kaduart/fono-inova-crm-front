@@ -26,6 +26,9 @@ export interface InsuranceGuide {
   expiresAt: string;
   status: 'active' | 'exhausted' | 'expired' | 'cancelled';
   sessionValue?: number | null;
+  evaluationAmount?: number | null;
+  evaluationBilled?: boolean;
+  evaluationSessionId?: string | null;
   notes?: string | null;
   createdBy?: string;
   createdAt: string;
@@ -57,6 +60,8 @@ export interface CreateGuideData {
   totalSessions: number;
   expiresAt: string;
   sessionValue?: number;
+  evaluationAmount?: number;
+  evaluationBilled?: boolean;
   notes?: string;
 }
 
@@ -66,6 +71,8 @@ export interface UpdateGuideData {
   totalSessions?: number;
   expiresAt?: string;
   sessionValue?: number | null;
+  evaluationAmount?: number | null;
+  evaluationBilled?: boolean;
   notes?: string;
 }
 

@@ -56,8 +56,13 @@ export const useAppointments = () => {
             }
             
             const response = await appointmentService.list(params);
-            // V2 retorna { success, data: { appointments, pagination } }
-            setAppointments(response.data.data?.appointments || response.data.data || []);
+            // V2 retorna { success, data: { appointments, pagination } } ou array direto
+            const appointmentsData = response.data?.data?.appointments ||
+                                     response.data?.appointments ||
+                                     response.data?.data ||
+                                     response.data ||
+                                     [];
+            setAppointments(appointmentsData);
         } catch (error) {
             console.error('❌ Erro ao buscar appointments:', error);
             // Fallback silencioso ou usar notificação global se disponível
@@ -169,7 +174,11 @@ export const useAppointments = () => {
                 params.endDate = new Date(y, m, 0).toISOString().split('T')[0];
             }
             const response = await appointmentService.list(params);
-            return response.data?.data?.appointments || response.data?.data || [];
+            return response.data?.data?.appointments ||
+                   response.data?.appointments ||
+                   response.data?.data ||
+                   response.data ||
+                   [];
         } catch (error) {
             setError('Falha ao buscar agendamento');
             throw error;

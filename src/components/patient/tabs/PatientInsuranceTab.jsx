@@ -824,6 +824,19 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, planVersion = 0 }) => {
               </span>
             </div>
           )}
+          {guide.evaluationAmount > 0 && (
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-500">Valor avaliação</span>
+              <div className="flex items-center gap-2">
+                {guide.evaluationBilled && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">já faturada</span>
+                )}
+                <span className="text-sm font-bold text-gray-900">
+                  {Number(guide.evaluationAmount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </span>
+              </div>
+            </div>
+          )}
           {guide.totalValue > 0 && (
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-500">Total autorizado</span>

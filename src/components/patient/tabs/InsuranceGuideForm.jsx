@@ -30,14 +30,16 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
     formState: { errors, isSubmitting }
   } = useForm({
     defaultValues: {
-      number:        '',
-      specialty:     '',
-      insurance:     '',
-      totalSessions: '',
-      sessionValue:  '',
-      doctorId:      '',
-      issuedAt:      '',
-      notes:         ''
+      number:           '',
+      specialty:        '',
+      insurance:        '',
+      totalSessions:    '',
+      sessionValue:     '',
+      evaluationAmount: '',
+      evaluationBilled: false,
+      doctorId:         '',
+      issuedAt:         '',
+      notes:            ''
     }
   });
 
@@ -51,25 +53,29 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
     if (open) {
       if (guide) {
         reset({
-          number:        guide.number || '',
-          specialty:     guide.specialty || '',
-          insurance:     guide.insurance || '',
-          totalSessions: guide.totalSessions || '',
-          sessionValue:  guide.sessionValue != null ? guide.sessionValue : '',
-          doctorId:      guide.doctor?._id || guide.doctorId || '',
-          issuedAt:      guide.issuedAt ? format(new Date(guide.issuedAt), 'yyyy-MM-dd') : '',
-          notes:         guide.notes || ''
+          number:           guide.number || '',
+          specialty:        guide.specialty || '',
+          insurance:        guide.insurance || '',
+          totalSessions:    guide.totalSessions || '',
+          sessionValue:     guide.sessionValue != null ? guide.sessionValue : '',
+          evaluationAmount: guide.evaluationAmount != null ? guide.evaluationAmount : '',
+          evaluationBilled: guide.evaluationBilled === true,
+          doctorId:         guide.doctor?._id || guide.doctorId || '',
+          issuedAt:         guide.issuedAt ? format(new Date(guide.issuedAt), 'yyyy-MM-dd') : '',
+          notes:            guide.notes || ''
         });
       } else {
         reset({
-          number:        '',
-          specialty:     '',
-          insurance:     '',
-          totalSessions: '',
-          sessionValue:  '',
-          doctorId:      '',
-          issuedAt:      '',
-          notes:         ''
+          number:           '',
+          specialty:        '',
+          insurance:        '',
+          totalSessions:    '',
+          sessionValue:     '',
+          evaluationAmount: '',
+          evaluationBilled: false,
+          doctorId:         '',
+          issuedAt:         '',
+          notes:            ''
         });
       }
     }
@@ -82,8 +88,10 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
         specialty:     data.specialty.toLowerCase().trim(),
         insurance:     data.insurance.toLowerCase().trim(),
         totalSessions: parseInt(data.totalSessions, 10),
-        sessionValue:  data.sessionValue !== '' ? parseFloat(data.sessionValue) : undefined,
-        doctorId:      data.doctorId || undefined,
+        sessionValue:     data.sessionValue !== '' ? parseFloat(data.sessionValue) : undefined,
+        evaluationAmount: data.evaluationAmount !== '' ? parseFloat(data.evaluationAmount) : undefined,
+        evaluationBilled: data.evaluationBilled === true,
+        doctorId:         data.doctorId || undefined,
         issuedAt:      data.issuedAt ? new Date(data.issuedAt).toISOString() : undefined,
         expiresAt:     new Date(data.expiresAt).toISOString(),
         notes:         data.notes?.trim() || undefined
@@ -305,6 +313,61 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
                   />
                 </div>
                 {errors.sessionValue && <p className="text-xs text-red-500 mt-1">{errors.sessionValue.message}</p>}
+              </div>
+            </div>
+
+            {/* Valor da avaliação separada */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                  Valor da avaliação
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">R$</span>
+                  <Controller
+                    name="evaluationAmount"
+                    control={control}
+                    rules={{
+                      min: { value: 0, message: 'Valor não pode ser negativo' }
+                    }}
+                    render={({ field }) => (
+                      <input
+                        {...field}
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        placeholder="0,00"
+                        className={inputClass(!!errors.evaluationAmount) + ' pl-8'}
+                      />
+                    )}
+                  />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">Avaliação inicial faturada separadamente do pacote.</p>
+                {errors.evaluationAmount && <p className="text-xs text-red-500 mt-1">{errors.evaluationAmount.message}</p>}
+              </div>
+
+              <div className="flex items-end">
+                <Controller
+                  name="evaluationBilled"
+                  control={control}
+                  render={({ field }) => (
+                    <label className="flex items-start gap-2 cursor-pointer select-none">
+                      <input
+                        {...field}
+                        type="checkbox"
+                        checked={field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+                      />
+                      <div>
+                        <span className="block text-xs font-semibold text-gray-700">Avaliação já faturada</span>
+                        <span className="block text-[10px] text-gray-400 leading-tight">
+                          Marque se a avaliação já foi faturada fora do sistema.
+                        </span>
+                      </div>
+                    </label>
+                  )}
+                />
               </div>
             </div>
 
