@@ -1165,6 +1165,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                         const renderSingle = (t: any) => {
                           const subTipo = (t as any).isPackageSale ? 'Venda de Pacote' : (t.tipo === 'Pacote' ? 'Sessão de Pacote' : null);
                           const situacao = t.tipo === 'Convênio' ? 'A Faturar'
+                              : t.tipo === 'Liminar' && t.kind === 'liminar_contract_receipt' ? 'Crédito'
                               : t.tipo === 'Liminar' ? 'Judicial'
                               : (t as any).isPackageSale ? 'Pré-antecipado'
                               : t.tipo === 'Pacote' && (t as any).paymentModel === 'prepaid' ? 'Pré-pago'
@@ -1173,6 +1174,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                           const situacaoCls = situacao === 'Pré-pago' || situacao === 'Pré-antecipado' ? 'bg-indigo-100 text-indigo-700'
                               : situacao === 'Pago na Sessão' ? 'bg-emerald-100 text-emerald-700'
                               : situacao === 'A Faturar' ? 'bg-purple-100 text-purple-700'
+                              : situacao === 'Crédito' ? 'bg-amber-100 text-amber-700'
                               : situacao === 'Judicial' ? 'bg-orange-100 text-orange-700'
                               : 'bg-gray-100 text-gray-600';
                           const borderCls = t.tipo === 'Liminar' ? 'border-orange-400'
@@ -1249,6 +1251,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                           const first = g.items[0];
                           const subTipo = (first as any).isPackageSale ? 'Venda de Pacote' : (first.tipo === 'Pacote' ? 'Sessão de Pacote' : null);
                           const situacao = first.tipo === 'Convênio' ? 'A Faturar'
+                              : first.tipo === 'Liminar' && first.kind === 'liminar_contract_receipt' ? 'Crédito'
                               : first.tipo === 'Liminar' ? 'Judicial'
                               : (first as any).isPackageSale ? 'Pré-antecipado'
                               : first.tipo === 'Pacote' && (first as any).paymentModel === 'prepaid' ? 'Pré-pago'
@@ -1257,6 +1260,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                           const situacaoCls = situacao === 'Pré-pago' || situacao === 'Pré-antecipado' ? 'bg-indigo-100 text-indigo-700'
                               : situacao === 'Pago na Sessão' ? 'bg-emerald-100 text-emerald-700'
                               : situacao === 'A Faturar' ? 'bg-purple-100 text-purple-700'
+                              : situacao === 'Crédito' ? 'bg-amber-100 text-amber-700'
                               : situacao === 'Judicial' ? 'bg-orange-100 text-orange-700'
                               : 'bg-gray-100 text-gray-600';
                           const borderCls = first.tipo === 'Liminar' ? 'border-orange-400'
