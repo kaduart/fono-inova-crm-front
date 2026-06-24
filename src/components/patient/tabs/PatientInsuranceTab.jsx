@@ -38,7 +38,8 @@ import {
   CheckCircle,
   XCircle,
   Eye,
-  X
+  X,
+  Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO, differenceInDays } from 'date-fns';
@@ -46,6 +47,7 @@ import { ptBR } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { useInsuranceGuides } from '../../../hooks/useInsuranceGuides';
 import { getGuideAppointments, updateGuideAppointmentsBulk, getInsurancePlanByGuide } from '../../../services/insuranceGuideApi';
+import API from '../../../services/api';
 import doctorService from '../../../services/doctorService';
 import { appointmentService } from '../../../services/appointmentService';
 import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';
@@ -708,6 +710,26 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, planVersion = 0 }) => {
 
   const canUse = (guide.status === 'active' || guide.status === 'linked') && remaining > 0 && daysUntilExpiration >= 0;
 
+  const [generating, setGenerating] = useState(false);
+
+  const handleGenerateSessions = async (planId) => {
+    setGenerating(true);
+    try {
+      const res = await API.post(`/v2/insurance-plans/${planId}/generate-sessions`);
+      const count = res.data?.data?.appointmentsGenerated || 0;
+      if (count > 0) {
+        toast.success(`${count} sessão(ões) gerada(s) com sucesso`);
+      } else {
+        toast('Todos os agendamentos futuros já existem', { icon: 'ℹ️' });
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Erro ao gerar sessões';
+      toast.error(msg);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   // Lazy-load do InsurancePlan — só para guias ativas, isolado no card
   const [plan, setPlan] = useState(null);
   useEffect(() => {
@@ -801,15 +823,23 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, planVersion = 0 }) => {
             />
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: theme.text }}>
               <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: theme.to }} />
-              {usedSessions} feitas
+              {usedSessions} concluída{usedSessions !== 1 ? 's' : ''}
             </span>
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600">
-              <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 inline-block" />
-              {remaining} disponíveis
-            </span>
+            {(guide.canceledCount > 0) && (
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-red-500">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-400 inline-block" />
+                {guide.canceledCount} cancelada{guide.canceledCount !== 1 ? 's' : ''}
+              </span>
+            )}
+            {(guide.scheduledCount > 0) && (
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600">
+                <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 inline-block" />
+                {guide.scheduledCount} agendada{guide.scheduledCount !== 1 ? 's' : ''}
+              </span>
+            )}
             <span className="text-xs text-gray-400 ml-auto">/{guide.totalSessions}</span>
           </div>
         </div>
@@ -943,15 +973,27 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, planVersion = 0 }) => {
           </div>
         )}
 
-        {/* ── Action button ── */}
+        {/* ── Action buttons ── */}
         {canUse && onCreatePlan && (
-          <div className="px-5 pb-5">
+          <div className="px-5 pb-5 flex items-center gap-2">
+            {plan && remaining > 0 && (
+              <button
+                onClick={() => handleGenerateSessions(plan._id)}
+                disabled={generating}
+                title={`${remaining} sessão(ões) restante(s)`}
+                className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-80 active:scale-[0.97] shrink-0"
+                style={{ borderColor: theme.to, color: theme.to, background: 'transparent' }}
+              >
+                <Zap size={13} />
+                {generating ? 'Gerando...' : `Gerar (${remaining})`}
+              </button>
+            )}
             <button
               onClick={() => onCreatePlan(guide, plan || null)}
-              className="w-full py-3 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
-              style={{ background: `linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)`, boxShadow: `0 4px 12px -2px ${theme.from}60` }}
+              className="flex-1 py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
+              style={{ background: `linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)`, boxShadow: `0 4px 10px -2px ${theme.from}50` }}
             >
-              <Calendar size={16} />
+              <Calendar size={14} />
               {plan ? 'Ver e editar sessões' : 'Agendar com guia'}
             </button>
           </div>
