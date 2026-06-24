@@ -317,9 +317,9 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                         <User className="w-3 h-3" /> Paciente
                                     </span>
                                 </div>
-                                <div className="w-28 shrink-0 hidden md:block">
+                                <div className="w-36 shrink-0 hidden md:block">
                                     <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-                                        <Package className="w-3 h-3" /> Atendimento
+                                        <Package className="w-3 h-3" /> Terapia
                                     </span>
                                 </div>
                                 <div className="w-40 shrink-0 hidden lg:block cursor-pointer" onClick={() => sortData('nextAppointment')}>
@@ -335,7 +335,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                         <DollarSign className="w-3 h-3" /> Saldo
                                     </span>
                                 </div>
-                                <div className="w-44 shrink-0 hidden xl:block">
+                                <div className="w-44 shrink-0 hidden lg:block">
                                     <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
                                         <Package className="w-3 h-3" /> Pacotes
                                     </span>
@@ -367,45 +367,89 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                         {patient.fullName?.charAt(0).toUpperCase()}
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <div className="font-semibold text-gray-800 text-sm truncate">{patient.fullName || '-'}</div>
-                                                        <div className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
-                                                            <Phone className="w-3 h-3" />
-                                                            {patient.phone || '-'}
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            <span className="font-semibold text-gray-800 text-sm truncate">{patient.fullName || '-'}</span>
+                                                            {patient.tags?.includes('vip') && (
+                                                                <span className="px-1.5 py-0 rounded text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-200 shrink-0">VIP</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                                            <span className="text-xs text-gray-400 flex items-center gap-1">
+                                                                <Phone className="w-3 h-3" />
+                                                                {patient.phone || '-'}
+                                                            </span>
+                                                            {(() => {
+                                                                const planName = patient.healthPlan?.name;
+                                                                const isConvenio = (planName && planName.toLowerCase() !== 'particular') || patient.tags?.includes('convenio');
+                                                                return isConvenio ? (
+                                                                    <span className="inline-flex items-center gap-0.5 bg-blue-50 text-blue-600 px-1.5 py-0 rounded text-[10px] font-medium">
+                                                                        <span className="w-1 h-1 bg-blue-500 rounded-full"></span>
+                                                                        {planName && planName.toLowerCase() !== 'particular' ? planName : 'Convênio'}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="inline-flex items-center gap-0.5 bg-orange-50 text-orange-600 px-1.5 py-0 rounded text-[10px] font-medium">
+                                                                        <span className="w-1 h-1 bg-orange-500 rounded-full"></span>
+                                                                        Particular
+                                                                    </span>
+                                                                );
+                                                            })()}
                                                         </div>
                                                     </div>
                                                 </div>
 
-                                                {/* Atendimento */}
-                                                <div className="w-28 shrink-0 hidden md:block">
+                                                {/* Terapia — progresso do pacote ativo */}
+                                                <div className="w-36 shrink-0 hidden md:block">
                                                     {(() => {
-                                                        const planName = patient.healthPlan?.name;
-                                                        const isConvenio = (planName && planName.toLowerCase() !== 'particular') || patient.tags?.includes('convenio');
-                                                        return isConvenio ? (
-                                                            <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md text-xs font-medium">
-                                                                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                                                                {planName && planName.toLowerCase() !== 'particular' ? planName : 'Convênio'}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="inline-flex items-center gap-1 bg-orange-50 text-orange-700 px-2 py-0.5 rounded-md text-xs font-medium">
-                                                                <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>
-                                                                Particular
-                                                            </span>
-                                                        );
+                                                        const activePackages = patient.packages?.filter(p => p.status === 'active') || [];
+                                                        const totalCompleted = patient.totalCompleted ?? 0;
+                                                        if (activePackages.length > 0) {
+                                                            const pkg = activePackages[0];
+                                                            const pct = pkg.totalSessions > 0 ? (pkg.sessionsDone / pkg.totalSessions) * 100 : 0;
+                                                            return (
+                                                                <div className="flex flex-col gap-1">
+                                                                    <div className="flex items-center justify-between gap-1">
+                                                                        <span className="text-xs font-medium text-gray-700 truncate">{pkg.sessionType || 'Pacote'}</span>
+                                                                        <span className="text-[10px] text-purple-600 font-semibold shrink-0">{pkg.sessionsDone}/{pkg.totalSessions}</span>
+                                                                    </div>
+                                                                    <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                                        <div className="h-full bg-purple-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                                                                    </div>
+                                                                    <span className="text-[10px] text-gray-400">{pkg.sessionsRemaining} restante{pkg.sessionsRemaining !== 1 ? 's' : ''}{activePackages.length > 1 ? ` · +${activePackages.length - 1}` : ''}</span>
+                                                                </div>
+                                                            );
+                                                        }
+                                                        if (totalCompleted > 0) {
+                                                            return (
+                                                                <span className="text-xs text-gray-500">{totalCompleted} sessão{totalCompleted !== 1 ? 'ões' : ''} total</span>
+                                                            );
+                                                        }
+                                                        return <span className="text-gray-300 text-xs">—</span>;
                                                     })()}
                                                 </div>
 
-                                                {/* Próxima consulta */}
+                                                {/* Próxima consulta + última */}
                                                 <div className="w-40 shrink-0 hidden lg:block">
                                                     {patient.nextAppointment?.date ? (
-                                                        <div>
+                                                        <div className="flex flex-col gap-0.5">
                                                             <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 px-2 py-0.5 rounded-md text-xs font-medium">
                                                                 <Calendar className="w-3 h-3" />
                                                                 {formatDateBrazilian(patient.nextAppointment.date)}
                                                             </span>
-                                                            <div className="text-xs text-gray-500 mt-0.5 truncate">{patient.nextAppointment.doctor?.fullName || '-'}</div>
+                                                            {patient.lastAppointment?.date && (
+                                                                <span className="text-[10px] text-gray-400 pl-0.5">
+                                                                    Última: {formatDateBrazilian(patient.lastAppointment.date)}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     ) : (
-                                                        <span className="text-gray-400 text-xs">Sem agendamento</span>
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <span className="text-gray-400 text-xs">Sem agendamento</span>
+                                                            {patient.lastAppointment?.date && (
+                                                                <span className="text-[10px] text-gray-400">
+                                                                    Última: {formatDateBrazilian(patient.lastAppointment.date)}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </div>
 
@@ -442,7 +486,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                 </div>
 
                                                 {/* Pacotes */}
-                                                <div className="w-44 shrink-0 hidden xl:block">
+                                                <div className="w-44 shrink-0 hidden lg:block">
                                                     {patient.packages?.some(pkg => pkg.status === 'active') ? (
                                                         <PackageAccordion packages={patient.packages} />
                                                     ) : (
@@ -495,26 +539,40 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                 </div>
                                             </div>
 
-                                            {/* Expanded WhatsApp section */}
+                                            {/* Expanded stats + WhatsApp */}
                                             {isExpanded && (
-                                                <div className="mx-1 mb-1 bg-gray-50 rounded-b-lg border border-t-0 border-gray-200 px-4 py-3">
-                                                    <h4 className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1.5">
-                                                        <div className="w-1 h-4 bg-green-500 rounded-full"></div>
-                                                        Enviar mensagem via WhatsApp
-                                                    </h4>
+                                                <div className="mx-1 mb-1 bg-gray-50 rounded-b-lg border border-t-0 border-gray-200 px-4 py-3 space-y-3">
+                                                    {/* Stats grid */}
+                                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                        {[
+                                                            { label: 'Atendidos', value: patient.totalCompleted, color: 'text-green-700', bg: 'bg-green-50' },
+                                                            { label: 'Cancelamentos', value: patient.totalCanceled, color: 'text-red-600', bg: 'bg-red-50' },
+                                                            { label: 'Receita total', value: `R$ ${(patient.totalRevenue ?? 0).toLocaleString('pt-BR')}`, color: 'text-gray-700', bg: 'bg-white' },
+                                                            { label: 'Pendente', value: patient.totalPending > 0 ? `R$ ${patient.totalPending.toLocaleString('pt-BR')}` : '—', color: patient.totalPending > 0 ? 'text-amber-700' : 'text-gray-400', bg: patient.totalPending > 0 ? 'bg-amber-50' : 'bg-white' },
+                                                        ].map(s => (
+                                                            <div key={s.label} className={`${s.bg} border border-gray-100 rounded-lg px-3 py-2`}>
+                                                                <div className="text-[10px] text-gray-400 mb-0.5">{s.label}</div>
+                                                                <div className={`text-sm font-bold ${s.color}`}>{s.value}</div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    {/* WhatsApp */}
                                                     {patient.phone && (
-                                                        <WhatsAppActionButtons
-                                                            phone={patient.phone.startsWith('+') ? patient.phone.slice(1) : patient.phone}
-                                                            nome={patient.name}
-                                                            profissional={patient.nextAppointment?.doctor?.name}
-                                                            data={patient.nextAppointment?.date ? new Date(patient.nextAppointment.date) : undefined}
-                                                            hora={patient.nextAppointment?.date
-                                                                ? new Date(patient.nextAppointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-                                                                : undefined
-                                                            }
-                                                            servico={patient.lastAppointment?.doctor?.specialty}
-                                                            restantes="2"
-                                                        />
+                                                        <div>
+                                                            <h4 className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">Contato rápido</h4>
+                                                            <WhatsAppActionButtons
+                                                                phone={patient.phone.startsWith('+') ? patient.phone.slice(1) : patient.phone}
+                                                                nome={patient.name}
+                                                                profissional={patient.nextAppointment?.doctor?.name}
+                                                                data={patient.nextAppointment?.date ? new Date(patient.nextAppointment.date) : undefined}
+                                                                hora={patient.nextAppointment?.date
+                                                                    ? new Date(patient.nextAppointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                                                                    : undefined
+                                                                }
+                                                                servico={patient.lastAppointment?.doctor?.specialty}
+                                                                restantes="2"
+                                                            />
+                                                        </div>
                                                     )}
                                                 </div>
                                             )}

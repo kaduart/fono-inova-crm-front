@@ -50,6 +50,7 @@ export interface PatientDTO {
     totalCanceled: number;
     totalNoShow: number;
     totalPackages: number;
+    totalRevenue: number;
     firstAppointmentDate?: string;
     lastAppointmentDate?: string;
     nextAppointmentDate?: string;
@@ -115,7 +116,7 @@ function extractFinancials(raw: any): Pick<PatientDTO, 'debt' | 'totalPending' |
     };
 }
 
-function extractStats(raw: any): Pick<PatientDTO, 'totalAppointments' | 'totalCompleted' | 'totalCanceled' | 'totalNoShow' | 'totalPackages' | 'firstAppointmentDate' | 'lastAppointmentDate' | 'nextAppointmentDate'> {
+function extractStats(raw: any): Pick<PatientDTO, 'totalAppointments' | 'totalCompleted' | 'totalCanceled' | 'totalNoShow' | 'totalPackages' | 'totalRevenue' | 'firstAppointmentDate' | 'lastAppointmentDate' | 'nextAppointmentDate'> {
     const stats = raw.stats || {};
     return {
         totalAppointments: stats.totalAppointments || 0,
@@ -123,6 +124,7 @@ function extractStats(raw: any): Pick<PatientDTO, 'totalAppointments' | 'totalCo
         totalCanceled: stats.totalCanceled || 0,
         totalNoShow: stats.totalNoShow || 0,
         totalPackages: stats.totalPackages || 0,
+        totalRevenue: stats.totalRevenue || 0,
         firstAppointmentDate: stats.firstAppointmentDate || raw.firstAppointmentDate || undefined,
         lastAppointmentDate: stats.lastAppointmentDate || raw.lastAppointmentDate || undefined,
         nextAppointmentDate: stats.nextAppointmentDate || raw.nextAppointmentDate || undefined,

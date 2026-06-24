@@ -1557,8 +1557,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                             completed:    { border: 'border-l-green-500',  badge: 'bg-green-100 text-green-800',  label: 'Atendido' },
                                             scheduled:    { border: 'border-l-blue-500',   badge: 'bg-blue-100 text-blue-800',    label: 'Agendado' },
                                             confirmed:    { border: 'border-l-sky-400',    badge: 'bg-sky-100 text-sky-800',      label: 'Confirmado' },
-                                            canceled:     { border: 'border-l-red-400',    badge: 'bg-red-100 text-red-800',      label: 'cancelado' },
-                                            pre_agendado: { border: 'border-l-amber-400',  badge: 'bg-amber-100 text-amber-800',  label: 'pré-agendado' },
+                                            canceled:     { border: 'border-l-red-400',    badge: 'bg-red-100 text-red-800',      label: 'Cancelado' },
+                                            pre_agendado: { border: 'border-l-amber-400',  badge: 'bg-amber-100 text-amber-800',  label: 'Pré-agendado' },
                                         };
                                         const toMin = (t: string) => { const [h, m] = (t || '00:00').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
                                         const filtered = [...dayAppointments]
@@ -1639,19 +1639,20 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                 <span className="w-24 shrink-0 self-center flex items-center justify-center">
                                                                                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${sc.badge}`}>{a.status || sc.label}</span>
                                                                                 </span>
-                                                                                <span className="w-32 shrink-0 self-center text-xs text-gray-400 truncate">{[a.professionalName, a.specialty].filter(Boolean).join(' / ') || '-'}</span>
-                                                                                <span className="w-20 text-center shrink-0 self-center flex flex-col items-center gap-0.5">
+                                                                                <span className="w-32 shrink-0 self-center text-xs text-gray-400 truncate">{a.specialty || '-'}</span>
+                                                                                <span className="w-20 text-center shrink-0 self-center flex items-center justify-center">
                                                                                     {a.billingType === 'convenio' || a.insuranceProvider ? (
                                                                                         <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-100 text-indigo-700 whitespace-nowrap">Convênio</span>
                                                                                     ) : a.billingType === 'liminar' ? (
                                                                                         <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 whitespace-nowrap">Liminar</span>
+                                                                                    ) : a.serviceType === 'evaluation' ? (
+                                                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-violet-100 text-violet-700 whitespace-nowrap">Avaliação</span>
+                                                                                    ) : a.serviceType === 'neuropsych_evaluation' ? (
+                                                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-violet-100 text-violet-700 whitespace-nowrap">Aval. Neuro.</span>
                                                                                     ) : a.package ? (
                                                                                         <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700 whitespace-nowrap">Pacote</span>
                                                                                     ) : (
                                                                                         <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 whitespace-nowrap">Particular</span>
-                                                                                    )}
-                                                                                    {a.serviceType === 'evaluation' && (
-                                                                                        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-violet-100 text-violet-700 whitespace-nowrap">Avaliação</span>
                                                                                     )}
                                                                                 </span>
                                                                                 <span className="w-28 shrink-0 self-center flex items-center justify-center">
@@ -1667,7 +1668,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                         }`}>{sfText}</span>
                                                                                     ) : null}
                                                                                 </span>
-                                                                                <span className={`text-sm font-bold shrink-0 w-16 text-right self-center ${valor > 0 ? 'text-gray-900' : 'text-gray-400'}`}>R${valor.toLocaleString('pt-BR')}</span>
+                                                                                <span className={`text-sm font-bold shrink-0 w-16 text-right self-center ${valor > 0 ? 'text-gray-900' : 'text-gray-300'}`}>{valor > 0 ? `R$${valor.toLocaleString('pt-BR')}` : '—'}</span>
                                                                             </div>
                                                                             {showNowAfterThis && <NowMarker />}
                                                                             </React.Fragment>
