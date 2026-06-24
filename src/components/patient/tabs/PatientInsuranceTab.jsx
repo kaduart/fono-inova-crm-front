@@ -691,14 +691,14 @@ const GuideSection = ({ title, count, guides, color, onOpenMenu, onCreatePlan, p
 const DAY_NAMES = { 0: 'Dom', 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sáb' };
 
 const SPECIALTY_THEMES = {
-  fonoaudiologia:    { from: '#1E40AF', to: '#2563EB', light: '#EFF6FF', border: '#BFDBFE', text: '#1E40AF' },
-  psicologia:        { from: '#5B21B6', to: '#7C3AED', light: '#F5F3FF', border: '#DDD6FE', text: '#5B21B6' },
-  fisioterapia:      { from: '#065F46', to: '#059669', light: '#ECFDF5', border: '#A7F3D0', text: '#065F46' },
-  psicomotricidade:  { from: '#92400E', to: '#D97706', light: '#FFFBEB', border: '#FDE68A', text: '#92400E' },
-  terapia_ocupacional:{ from: '#991B1B', to: '#DC2626', light: '#FEF2F2', border: '#FECACA', text: '#991B1B' },
-  psicopedagogia:    { from: '#065F46', to: '#10B981', light: '#F0FDF4', border: '#BBF7D0', text: '#065F46' },
-  neuropsicologia:   { from: '#4C1D95', to: '#6D28D9', light: '#F5F3FF', border: '#DDD6FE', text: '#4C1D95' },
-  musicoterapia:     { from: '#78350F', to: '#D97706', light: '#FFFBEB', border: '#FDE68A', text: '#78350F' },
+  fonoaudiologia:    { from: '#1D4ED8', to: '#38BDF8', light: '#EFF6FF', border: '#BAE6FD', text: '#1D4ED8' },
+  psicologia:        { from: '#7C3AED', to: '#C084FC', light: '#F5F3FF', border: '#DDD6FE', text: '#6D28D9' },
+  fisioterapia:      { from: '#059669', to: '#34D399', light: '#ECFDF5', border: '#A7F3D0', text: '#047857' },
+  psicomotricidade:  { from: '#D97706', to: '#FCD34D', light: '#FFFBEB', border: '#FDE68A', text: '#B45309' },
+  terapia_ocupacional:{ from: '#EA580C', to: '#FB923C', light: '#FFF7ED', border: '#FED7AA', text: '#C2410C' },
+  psicopedagogia:    { from: '#0D9488', to: '#2DD4BF', light: '#F0FDFA', border: '#99F6E4', text: '#0F766E' },
+  neuropsicologia:   { from: '#4338CA', to: '#818CF8', light: '#EEF2FF', border: '#C7D2FE', text: '#3730A3' },
+  musicoterapia:     { from: '#B45309', to: '#FBBF24', light: '#FFFBEB', border: '#FDE68A', text: '#92400E' },
 };
 
 const GuideCard = ({ guide, onOpenMenu, onCreatePlan, planVersion = 0 }) => {
