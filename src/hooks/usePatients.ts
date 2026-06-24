@@ -59,24 +59,20 @@ export const usePatients = () => {
 
         const loadPromise = (async () => {
             try {
-                // 🔹 Carrega tudo em paralelo com Promise.all
-                const [patientsData, totalData, overviewData] = await Promise.all([
-                    patientService.fetchAll(),
-                    patientService.getTotalPatients(),
-                    patientService.getPatientOverview()
-                ]);
+                // 🔹 1 request — total já vem em pagination.total
+                const result = await patientService.list({ limit: 5, sortBy: 'updatedAt' });
 
                 if (isMounted.current) {
-                    setPatients(patientsData);
-                    setTotalPatients(totalData.totalPatients);
-                    setPatientOverview(overviewData);
+                    setPatients(result.patients);
+                    setTotalPatients(result.pagination.total);
+                    setPatientOverview(null);
                 }
 
                 // Atualiza o cache global
                 setCache('patients', {
-                    patients: patientsData,
-                    totalPatients: totalData.totalPatients,
-                    patientOverview: overviewData
+                    patients: result.patients,
+                    totalPatients: result.pagination.total,
+                    patientOverview: null
                 });
             } catch (err) {
                 console.error('❌ Erro ao buscar dados dos pacientes:', err);

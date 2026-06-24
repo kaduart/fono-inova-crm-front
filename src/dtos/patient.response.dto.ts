@@ -54,10 +54,11 @@ export interface PatientDTO {
     firstAppointmentDate?: string;
     lastAppointmentDate?: string;
     nextAppointmentDate?: string;
+    doctorName?: string;               // profissional principal (do view ou do appointment)
     // Relacionamentos
     packages?: PatientPackageDTO[];
     nextAppointment?: PatientNextAppointmentDTO;
-    lastAppointment?: { doctor?: { specialty?: string } };
+    lastAppointment?: { doctor?: { name?: string; specialty?: string } };
     healthPlan?: PatientHealthPlanDTO;
     tags?: string[];
     // Metadados
@@ -144,13 +145,13 @@ function extractPackages(raw: any): PatientPackageDTO[] | undefined {
 function extractNextAppointment(raw: any): PatientNextAppointmentDTO | undefined {
     const apt = raw.nextAppointment;
     if (!apt) return undefined;
-    const doctorName = apt.doctor?.fullName || apt.doctor?.name || apt.doctor?.nome || undefined;
+    const doctorName = apt.doctorName || apt.doctor?.fullName || apt.doctor?.name || apt.doctor?.nome || undefined;
     return {
         date: apt.date || undefined,
-        doctor: apt.doctor ? {
+        doctor: (apt.doctor || apt.doctorName) ? {
             name: doctorName,
-            fullName: doctorName, // compatibilidade
-            specialty: apt.doctor.specialty || apt.doctor.specialties?.[0] || undefined,
+            fullName: doctorName,
+            specialty: apt.doctor?.specialty || apt.doctor?.specialties?.[0] || undefined,
         } : undefined,
     };
 }
@@ -158,9 +159,11 @@ function extractNextAppointment(raw: any): PatientNextAppointmentDTO | undefined
 function extractLastAppointment(raw: any): PatientDTO['lastAppointment'] {
     const apt = raw.lastAppointment;
     if (!apt) return undefined;
+    const doctorName = apt.doctorName || apt.doctor?.fullName || apt.doctor?.name || undefined;
     return {
-        doctor: apt.doctor ? {
-            specialty: apt.doctor.specialty || apt.doctor.specialties?.[0] || undefined,
+        doctor: (apt.doctor || apt.doctorName) ? {
+            name: doctorName,
+            specialty: apt.doctor?.specialty || apt.doctor?.specialties?.[0] || undefined,
         } : undefined,
     };
 }
@@ -205,6 +208,7 @@ export function mapPatientResponseDTO(raw: any): PatientDTO {
         dateOfBirth: raw.dateOfBirth || raw.birthDate || undefined,
         ...extractFinancials(raw),
         ...extractStats(raw),
+        doctorName: raw.doctorName || extractNextAppointment(raw)?.doctor?.name || extractLastAppointment(raw)?.doctor?.name || undefined,
         packages: extractPackages(raw),
         nextAppointment: extractNextAppointment(raw),
         lastAppointment: extractLastAppointment(raw),

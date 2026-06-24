@@ -107,29 +107,26 @@ export const PatientsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const loadPromise = (async () => {
       try {
-        console.log('🔄 PatientsContext: Buscando pacientes (limite: 20)...');
-        
-        // 🔹 Carrega APENAS os primeiros 20 pacientes + total
-        const [patientsData, totalData] = await Promise.all([
-          patientService.fetchAll(20), // Só 20 iniciais!
-          patientService.getTotalPatients()
-        ]);
+        console.log('🔄 PatientsContext: Buscando pacientes (limite: 5)...');
+
+        // 🔹 1 request só — total já vem em pagination.total
+        const result = await patientService.list({ limit: 5, sortBy: 'updatedAt' });
 
         if (isMounted.current) {
-          setPatients(patientsData);
-          setTotalPatients(totalData.totalPatients);
+          setPatients(result.patients);
+          setTotalPatients(result.pagination.total);
           // Overview vazio inicialmente - carrega sob demanda
           setPatientOverview([]);
           setLastUpdated(new Date());
           
           // Atualiza cache global
           setCache('patients', {
-            patients: patientsData,
-            totalPatients: totalData.totalPatients,
+            patients: result.patients,
+            totalPatients: result.pagination.total,
             patientOverview: []
           });
-          
-          console.log(`✅ PatientsContext: ${patientsData.length} pacientes carregados (total: ${totalData.totalPatients})`);
+
+          console.log(`✅ PatientsContext: ${result.patients.length} pacientes carregados (total: ${result.pagination.total})`);
         }
       } catch (err: any) {
         // Token ausente/expirado é esperado — não loga como erro

@@ -276,6 +276,7 @@ export const NotificationBellFixed: React.FC = () => {
                 <strong style={{ color: '#9a3412', fontSize: '13px' }}>📍 Google Meu Negócio</strong>
                 <div style={{ fontSize: '12px', color: '#9a3412', marginTop: '4px' }}>
                   {gmbAlert.failed > 0 && <div>❌ {gmbAlert.failed} post(s) falharam</div>}
+                  {gmbAlert.retrying > 0 && <div>🔄 {gmbAlert.retrying} falhando no Google (regenerar imagem)</div>}
                   {gmbAlert.stuckPublished > 0 && <div>⏳ {gmbAlert.stuckPublished} sem confirmação do Make</div>}
                   {gmbAlert.noImage > 0 && <div>🖼️ {gmbAlert.noImage} sem imagem</div>}
                 </div>

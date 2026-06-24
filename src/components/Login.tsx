@@ -56,11 +56,7 @@ const Login = () => {
     const sessionExpiredParam = searchParams.get('sessionExpired');
     const forceLogin = searchParams.get('forceLogin');
     
-    if (errorCode === 'TOKEN_EXPIRED') {
-      toast.error('Sua sessão expirou. Por favor, faça login novamente.');
-    }
-
-    if (sessionExpiredParam === 'true') {
+    if (sessionExpiredParam === 'true' || errorCode === 'TOKEN_EXPIRED') {
       setSessionExpired(true);
       toast.info('Sua sessão expirou. Por favor, faça login novamente.');
     }

@@ -86,15 +86,8 @@ export const DoctorsProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const loadPromise = (async () => {
       try {
         console.log('🔄 DoctorsContext: Buscando médicos...');
-        const [activeRes, inactiveRes] = await Promise.all([
-          doctorService.getActiveDoctors(),
-          doctorService.getInactiveDoctors()
-        ]);
-
-        const active = activeRes?.data || [];
-        const inactive = (inactiveRes?.data || []).map((d: Doctor) => ({ ...d, active: false as const }));
-        
-        const allDoctors = [...active, ...inactive];
+        const result = await doctorService.list({ status: 'all' });
+        const allDoctors = result.doctors;
 
         if (isMounted.current) {
           setDoctors(allDoctors);

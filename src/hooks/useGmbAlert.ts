@@ -5,11 +5,12 @@ interface GmbHealth {
   stuckPublished: number;
   failed: number;
   noImage: number;
+  retrying: number;
   total: number;
 }
 
 export const useGmbAlert = () => {
-  const [health, setHealth] = useState<GmbHealth>({ stuckPublished: 0, failed: 0, noImage: 0, total: 0 });
+  const [health, setHealth] = useState<GmbHealth>({ stuckPublished: 0, failed: 0, noImage: 0, retrying: 0, total: 0 });
 
   useEffect(() => {
     const load = async () => {

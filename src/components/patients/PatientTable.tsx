@@ -415,12 +415,24 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                                         <div className="h-full bg-purple-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
                                                                     </div>
                                                                     <span className="text-[10px] text-gray-400">{pkg.sessionsRemaining} restante{pkg.sessionsRemaining !== 1 ? 's' : ''}{activePackages.length > 1 ? ` · +${activePackages.length - 1}` : ''}</span>
+                                                                    {(patient.doctorName || patient.nextAppointment?.doctor?.name || patient.lastAppointment?.doctor?.name) && (
+                                                                        <span className="text-[10px] text-gray-400 truncate">
+                                                                            {patient.doctorName || patient.nextAppointment?.doctor?.name || patient.lastAppointment?.doctor?.name}
+                                                                        </span>
+                                                                    )}
                                                                 </div>
                                                             );
                                                         }
                                                         if (totalCompleted > 0) {
                                                             return (
-                                                                <span className="text-xs text-gray-500">{totalCompleted} sessão{totalCompleted !== 1 ? 'ões' : ''} total</span>
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    <span className="text-xs text-gray-500">{totalCompleted} sessão{totalCompleted !== 1 ? 'ões' : ''} total</span>
+                                                                    {(patient.doctorName || patient.nextAppointment?.doctor?.name || patient.lastAppointment?.doctor?.name) && (
+                                                                        <span className="text-[10px] text-gray-400 truncate">
+                                                                            {patient.doctorName || patient.nextAppointment?.doctor?.name || patient.lastAppointment?.doctor?.name}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                             );
                                                         }
                                                         return <span className="text-gray-300 text-xs">—</span>;

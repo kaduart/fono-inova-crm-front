@@ -104,14 +104,16 @@ export const patientService = {
     skip?: number;
     doctorId?: string;
     status?: string;
+    sortBy?: string;
   } = {}): Promise<ListPatientsResponse['data']> {
-    const { search, limit = 50, skip = 0, doctorId, status } = options;
+    const { search, limit = 50, skip = 0, doctorId, status, sortBy } = options;
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     params.append('limit', limit.toString());
     params.append('skip', skip.toString());
     if (doctorId) params.append('doctorId', doctorId);
     if (status) params.append('status', status);
+    if (sortBy) params.append('sortBy', sortBy);
 
     const response = await API.get<ListPatientsResponse>(`/v2/patients?${params}`);
     return response.data.data;
@@ -211,8 +213,8 @@ export const patientService = {
   },
 
   // Compatibilidade com código legado (AGORA COM LIMITE!)
-  async fetchAll(limit: number = 20): Promise<IPatient[]> {
-    const result = await this.list({ limit });
+  async fetchAll(limit: number = 5): Promise<IPatient[]> {
+    const result = await this.list({ limit, sortBy: 'updatedAt' });
     return result.patients;
   },
 

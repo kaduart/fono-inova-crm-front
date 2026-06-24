@@ -1,5 +1,5 @@
 // components/SessionExpiryHandler.tsx
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { clearAuthTokens } from '../services/authService';
@@ -7,15 +7,19 @@ import { clearAuthTokens } from '../services/authService';
 const SessionExpiryHandler: React.FC = () => {
     const navigate = useNavigate();
     const { logout } = useAuth();
+    const isHandling = useRef(false);
 
     useEffect(() => {
         const handleSessionExpired = async () => {
+            if (isHandling.current) return;
+            isHandling.current = true;
+
             // 🧹 LIMPEZA COMPLETA - Remove TODOS os dados de autenticação
             clearAuthTokens();
-            
+
             // Chama logout do contexto para atualizar estado (forceClear=true)
             await logout({ forceClear: true });
-            
+
             // Redireciona forçando login (forceLogin=true evita auto-redirect)
             navigate('/login?sessionExpired=true&forceLogin=true', { replace: true });
         };
