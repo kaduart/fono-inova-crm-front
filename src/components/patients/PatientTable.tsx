@@ -41,10 +41,6 @@ interface WhatsAppActionButtonsProps {
     restantes?: string;
 }
 
-interface PackageAccordionProps {
-    packages: PatientDTO['packages'];
-}
-
 // ============================================================================
 // Componentes auxiliares (tipados)
 // ============================================================================
@@ -82,28 +78,6 @@ const WhatsAppActionButtons: React.FC<WhatsAppActionButtonsProps> = ({
         </button>
     </div>
 );
-
-const PackageAccordion: React.FC<PackageAccordionProps> = ({ packages }) => {
-    const activePackages = packages?.filter(pkg => pkg.status === 'active') || [];
-    return (
-        <div className="flex flex-col gap-1">
-            {activePackages.slice(0, 2).map((pkg, idx) => (
-                <span
-                    key={idx}
-                    className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full text-xs font-medium"
-                >
-                    <Package className="w-3 h-3" />
-                    {pkg.sessionType} ({pkg.sessionsDone}/{pkg.totalSessions})
-                </span>
-            ))}
-            {activePackages.length > 2 && (
-                <span className="text-xs text-gray-500 mt-0.5">
-                    +{activePackages.length - 2} mais
-                </span>
-            )}
-        </div>
-    );
-};
 
 // ============================================================================
 // Utilitários
@@ -317,7 +291,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                         <User className="w-3 h-3" /> Paciente
                                     </span>
                                 </div>
-                                <div className="w-36 shrink-0 hidden md:block">
+                                <div className="w-44 shrink-0 hidden md:block">
                                     <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
                                         <Package className="w-3 h-3" /> Terapia
                                     </span>
@@ -333,11 +307,6 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                 <div className="w-28 shrink-0 hidden sm:block">
                                     <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
                                         <DollarSign className="w-3 h-3" /> Saldo
-                                    </span>
-                                </div>
-                                <div className="w-44 shrink-0 hidden lg:block">
-                                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-                                        <Package className="w-3 h-3" /> Pacotes
                                     </span>
                                 </div>
                                 <div className="w-36 shrink-0 text-center">
@@ -397,11 +366,13 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                     </div>
                                                 </div>
 
-                                                {/* Terapia — progresso do pacote ativo */}
-                                                <div className="w-36 shrink-0 hidden md:block">
+                                                {/* Terapia — pacote ativo ou resumo de sessões */}
+                                                <div className="w-44 shrink-0 hidden md:block">
                                                     {(() => {
                                                         const activePackages = patient.packages?.filter(p => p.status === 'active') || [];
                                                         const totalCompleted = patient.totalCompleted ?? 0;
+                                                        const nextSpecialty = patient.nextAppointment?.specialty || patient.nextAppointment?.sessionType;
+                                                        const lastSpecialty = patient.lastAppointment?.specialty || patient.lastAppointment?.sessionType;
                                                         if (activePackages.length > 0) {
                                                             const pkg = activePackages[0];
                                                             const pct = pkg.totalSessions > 0 ? (pkg.sessionsDone / pkg.totalSessions) * 100 : 0;
@@ -427,11 +398,27 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                             return (
                                                                 <div className="flex flex-col gap-0.5">
                                                                     <span className="text-xs text-gray-500">{totalCompleted} sessão{totalCompleted !== 1 ? 'ões' : ''} total</span>
-                                                                    {(patient.doctorName || patient.nextAppointment?.doctor?.name || patient.lastAppointment?.doctor?.name) && (
-                                                                        <span className="text-[10px] text-gray-400 truncate">
-                                                                            {patient.doctorName || patient.nextAppointment?.doctor?.name || patient.lastAppointment?.doctor?.name}
-                                                                        </span>
-                                                                    )}
+                                                                    {nextSpecialty ? (
+                                                                        <span className="text-[10px] text-gray-400 truncate">Próxima: {nextSpecialty}</span>
+                                                                    ) : lastSpecialty ? (
+                                                                        <span className="text-[10px] text-gray-400 truncate">Última: {lastSpecialty}</span>
+                                                                    ) : null}
+                                                                </div>
+                                                            );
+                                                        }
+                                                        if (nextSpecialty) {
+                                                            return (
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    <span className="text-xs text-gray-500 truncate">{nextSpecialty}</span>
+                                                                    <span className="text-[10px] text-gray-400">Próxima consulta</span>
+                                                                </div>
+                                                            );
+                                                        }
+                                                        if (lastSpecialty) {
+                                                            return (
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    <span className="text-xs text-gray-500 truncate">{lastSpecialty}</span>
+                                                                    <span className="text-[10px] text-gray-400">Última consulta</span>
                                                                 </div>
                                                             );
                                                         }
@@ -495,15 +482,6 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                             </div>
                                                         );
                                                     })()}
-                                                </div>
-
-                                                {/* Pacotes */}
-                                                <div className="w-44 shrink-0 hidden lg:block">
-                                                    {patient.packages?.some(pkg => pkg.status === 'active') ? (
-                                                        <PackageAccordion packages={patient.packages} />
-                                                    ) : (
-                                                        <span className="text-gray-400 text-xs">Nenhum pacote</span>
-                                                    )}
                                                 </div>
 
                                                 {/* Ações */}

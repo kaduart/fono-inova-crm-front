@@ -22,6 +22,7 @@ import {
     Chip,
     IconButton,
 } from '@mui/material';
+// Note: Table/TableContainer still used in PatientSessionDetails inner component
 import { TrendingUp, Download, ChevronRight, ChevronDown, ChevronUp, SlidersHorizontal, X, ArrowLeft } from 'lucide-react';
 import InsurancePatientDrawer from '../components/InsurancePatientDrawer';
 import { useEffect, useState, useMemo } from 'react';
@@ -58,17 +59,36 @@ function StatusBadge({ status }: { status: string }) {
     );
 }
 
-// Barra de progresso simples estilo funil financeiro
-function FunnelBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
-    const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
+interface MetricStatsProps {
+    production: number; billed: number; received: number; pending: number;
+}
+function MetricStats({ production, billed, received, pending }: MetricStatsProps) {
+    const stats = [
+        { label: 'Produção', value: production, color: '#6366F1', bg: '#F5F3FF' },
+        { label: 'Faturado', value: billed,     color: '#3B82F6', bg: '#EFF6FF' },
+        { label: 'Recebido', value: received,   color: '#10B981', bg: '#F0FDF4' },
+        { label: 'Pendente', value: pending,    color: '#F59E0B', bg: '#FFFBEB' },
+    ];
     return (
-        <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-500 w-20 shrink-0">{label}</span>
-            <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
-                <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
-            </div>
-            <span className="text-xs font-semibold text-gray-700 w-24 text-right">{fmtBRL(value)}</span>
-        </div>
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+            {stats.map(s => (
+                <Box key={s.label} sx={{
+                    flex: '1 1 120px', px: 2, py: 1.5,
+                    bgcolor: s.bg, borderRadius: 2,
+                    borderTop: `3px solid ${s.color}`,
+                }}>
+                    <Typography fontSize="0.67rem" fontWeight={700} color="#94A3B8" sx={{ textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.5 }}>
+                        {s.label}
+                    </Typography>
+                    <Typography fontSize="0.92rem" fontWeight={800} color="#0F172A">{fmtBRL(s.value)}</Typography>
+                    {production > 0 && (
+                        <Typography fontSize="0.65rem" fontWeight={600} color={s.color}>
+                            {((s.value / production) * 100).toFixed(0)}%
+                        </Typography>
+                    )}
+                </Box>
+            ))}
+        </Box>
     );
 }
 
@@ -491,19 +511,16 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
 
             {!loading && data.length > 0 && (
                 <>
-                    {/* FUNIL FINANCEIRO (nível 1 e 2) */}
+                    {/* MÉTRICAS */}
                     {level < 3 && (
-                        <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
-                            <Typography variant="caption" className="text-gray-500 uppercase tracking-wide font-semibold block mb-3">
-                                {level === 1 ? 'Visão Geral' : selectedProvider}
-                            </Typography>
-                            <div className="space-y-2">
-                                <FunnelBar label="Produção" value={level === 1 ? globalTotals.producao : providerTotals.value} max={level === 1 ? globalTotals.producao : providerTotals.value} color="#6366F1" />
-                                <FunnelBar label="Faturado" value={level === 1 ? globalTotals.faturado : patientSummary.filter(p => p.status === 'billed').reduce((s, p) => s + p.value, 0)} max={level === 1 ? globalTotals.producao : providerTotals.value} color="#3B82F6" />
-                                <FunnelBar label="Recebido"  value={level === 1 ? globalTotals.recebido  : patientSummary.filter(p => p.status === 'received').reduce((s, p) => s + p.value, 0)} max={level === 1 ? globalTotals.producao : providerTotals.value} color="#10B981" />
-                                <FunnelBar label="Pendente"  value={level === 1 ? globalTotals.pendente  : patientSummary.filter(p => p.status === 'pending_batch').reduce((s, p) => s + p.value, 0)} max={level === 1 ? globalTotals.producao : providerTotals.value} color="#F59E0B" />
-                            </div>
-                        </div>
+                        <Box sx={{ mb: 3 }}>
+                            <MetricStats
+                                production={level === 1 ? globalTotals.producao : providerTotals.value}
+                                billed={level === 1 ? globalTotals.faturado : patientSummary.filter(p => p.status === 'billed').reduce((s, p) => s + p.value, 0)}
+                                received={level === 1 ? globalTotals.recebido : patientSummary.filter(p => p.status === 'received').reduce((s, p) => s + p.value, 0)}
+                                pending={level === 1 ? globalTotals.pendente : patientSummary.filter(p => p.status === 'pending_batch').reduce((s, p) => s + p.value, 0)}
+                            />
+                        </Box>
                     )}
 
                     {/* FILTROS */}
@@ -570,93 +587,97 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
                         </div>
                     </Collapse>
 
-                    {/* ── NÍVEL 1: Tabela de convênios ─────────────────────────────── */}
+                    {/* ── NÍVEL 1: Convênios ───────────────────────────────────────── */}
                     {level === 1 && (
-                        <TableContainer component={Paper} variant="outlined" className="rounded-xl overflow-hidden">
-                            <Table size="small">
-                                <TableHead className="bg-gray-50">
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: 600 }}>Convênio</TableCell>
-                                        <TableCell align="center" sx={{ fontWeight: 600 }}>Sessões</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 600 }}>Produção</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 600 }}>Faturado</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 600 }}>Recebido</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 600 }}>Pendente</TableCell>
-                                        <TableCell />
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {providerSummary.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={7} align="center" className="py-8 text-gray-400 text-sm">
-                                                Nenhum convênio encontrado.
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : providerSummary.map(p => (
-                                        <TableRow key={p.provider} hover
-                                            onClick={() => drillToProvider(p.provider)}
-                                            className="cursor-pointer border-t border-gray-50 hover:bg-indigo-50/40 transition-colors">
-                                            <TableCell>
-                                                <span className="font-semibold text-gray-800">{p.provider}</span>
-                                            </TableCell>
-                                            <TableCell align="center" className="text-gray-600">{p.sessions}</TableCell>
-                                            <TableCell align="right" className="font-semibold text-gray-800">{fmtBRL(p.producao)}</TableCell>
-                                            <TableCell align="right" className="text-blue-600">{fmtBRL(p.faturado)}</TableCell>
-                                            <TableCell align="right" className="text-emerald-600">{fmtBRL(p.recebido)}</TableCell>
-                                            <TableCell align="right" className="text-amber-600">{fmtBRL(p.pendente)}</TableCell>
-                                            <TableCell align="right">
-                                                <ChevronRight size={16} className="text-gray-400" />
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
+                        <Box sx={{ border: '1.5px solid #E2E8F0', borderRadius: 3, overflow: 'hidden' }}>
+                            {/* cabeçalho */}
+                            <Box sx={{ px: 2.5, py: 1.25, bgcolor: '#F8FAFC', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center' }}>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ flex: 1, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Convênio</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 60, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sess.</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 110, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Produção</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 100, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Faturado</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 100, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Recebido</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 100, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Pendente</Typography>
+                                <Box sx={{ width: 24 }} />
+                            </Box>
+                            {providerSummary.length === 0 ? (
+                                <Box sx={{ py: 6, textAlign: 'center', color: '#94A3B8', fontSize: '0.85rem' }}>Nenhum convênio encontrado.</Box>
+                            ) : providerSummary.map((p, idx) => (
+                                <Box key={p.provider} onClick={() => drillToProvider(p.provider)} sx={{
+                                    px: 2.5, py: 1.5, display: 'flex', alignItems: 'center',
+                                    borderBottom: idx < providerSummary.length - 1 ? '1px solid #F8FAFC' : 'none',
+                                    cursor: 'pointer', bgcolor: 'white',
+                                    borderLeft: '3px solid transparent',
+                                    transition: 'all 0.12s',
+                                    '&:hover': { bgcolor: '#F8FAFC', borderLeft: '3px solid #6366F1' }
+                                }}>
+                                    <Typography fontWeight={700} fontSize="0.87rem" color="#0F172A" sx={{ flex: 1 }}>{p.provider}</Typography>
+                                    <Typography fontSize="0.83rem" color="#64748B" sx={{ width: 60, textAlign: 'center' }}>{p.sessions}</Typography>
+                                    <Typography fontWeight={800} fontSize="0.87rem" color="#0F172A" sx={{ width: 110, textAlign: 'right' }}>{fmtBRL(p.producao)}</Typography>
+                                    <Typography fontSize="0.83rem" color="#2563EB" sx={{ width: 100, textAlign: 'right' }}>{fmtBRL(p.faturado)}</Typography>
+                                    <Typography fontSize="0.83rem" color="#059669" sx={{ width: 100, textAlign: 'right' }}>{fmtBRL(p.recebido)}</Typography>
+                                    <Typography fontSize="0.83rem" color="#D97706" sx={{ width: 100, textAlign: 'right' }}>{fmtBRL(p.pendente)}</Typography>
+                                    <Box sx={{ width: 24, display: 'flex', justifyContent: 'center', color: '#CBD5E1' }}>
+                                        <ChevronRight size={16} />
+                                    </Box>
+                                </Box>
+                            ))}
+                        </Box>
                     )}
 
-                    {/* ── NÍVEL 2: Pacientes do convênio ───────────────────────────── */}
+                    {/* ── NÍVEL 2: Pacientes ───────────────────────────────────────── */}
                     {level === 2 && (
-                        <TableContainer component={Paper} variant="outlined" className="rounded-xl overflow-hidden">
-                            <Table size="small">
-                                <TableHead className="bg-gray-50">
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: 600 }}>Paciente</TableCell>
-                                        <TableCell align="center" sx={{ fontWeight: 600 }}>Sessões</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 600 }}>Valor</TableCell>
-                                        <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                                        <TableCell />
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {patientSummary.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={5} align="center" className="py-8 text-gray-400 text-sm">
-                                                Nenhum paciente encontrado.
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : patientSummary.map(p => (
-                                        <TableRow key={p.name} hover
-                                            onClick={() => {
-                                                const rows = advFiltered.filter(r => r.provider === selectedProvider && r.patientName === p.name);
-                                                const first = rows[0];
-                                                openPatientDrawer(p.name, p.patientId, selectedProvider!, first?.providerSlug, rows);
-                                            }}
-                                            className="cursor-pointer border-t border-gray-50 hover:bg-indigo-50/40 transition-colors">
-                                            <TableCell>
-                                                <div className="font-medium text-gray-800">{p.name}</div>
-                                                {p.phone && <div className="text-xs text-gray-400">{p.phone}</div>}
-                                            </TableCell>
-                                            <TableCell align="center" className="text-gray-600">{p.sessions}</TableCell>
-                                            <TableCell align="right" className="font-semibold text-gray-800">{fmtBRL(p.value)}</TableCell>
-                                            <TableCell><StatusBadge status={p.status} /></TableCell>
-                                            <TableCell align="right">
-                                                <ChevronRight size={16} className="text-gray-400" />
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
+                        <Box sx={{ border: '1.5px solid #E2E8F0', borderRadius: 3, overflow: 'hidden' }}>
+                            {/* cabeçalho */}
+                            <Box sx={{ px: 2.5, py: 1.25, bgcolor: '#F8FAFC', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center' }}>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ flex: 1, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Paciente</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 60, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sess.</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 110, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Valor</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 130, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status</Typography>
+                                <Box sx={{ width: 24 }} />
+                            </Box>
+                            {patientSummary.length === 0 ? (
+                                <Box sx={{ py: 6, textAlign: 'center', color: '#94A3B8', fontSize: '0.85rem' }}>Nenhum paciente encontrado.</Box>
+                            ) : patientSummary.map((p, idx) => {
+                                const initials = p.name.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase();
+                                const sStyle = STATUS_STYLE[p.status] || STATUS_STYLE.pending_batch;
+                                return (
+                                    <Box key={p.name} onClick={() => {
+                                        const rows = advFiltered.filter(r => r.provider === selectedProvider && r.patientName === p.name);
+                                        openPatientDrawer(p.name, p.patientId, selectedProvider!, rows[0]?.providerSlug, rows);
+                                    }} sx={{
+                                        px: 2.5, py: 1.5, display: 'flex', alignItems: 'center',
+                                        borderBottom: idx < patientSummary.length - 1 ? '1px solid #F8FAFC' : 'none',
+                                        cursor: 'pointer', bgcolor: 'white',
+                                        borderLeft: '3px solid transparent',
+                                        transition: 'all 0.12s',
+                                        '&:hover': { bgcolor: '#F8FAFC', borderLeft: `3px solid ${sStyle.dot}` }
+                                    }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flex: 1, minWidth: 0 }}>
+                                            <Box sx={{
+                                                width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                                                bgcolor: '#F1F5F9', border: '1.5px solid #E2E8F0',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                            }}>
+                                                <Typography fontSize="0.65rem" fontWeight={700} color="#64748B">{initials}</Typography>
+                                            </Box>
+                                            <Box sx={{ minWidth: 0 }}>
+                                                <Typography fontWeight={600} fontSize="0.85rem" color="#1E293B" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</Typography>
+                                                {p.phone && <Typography fontSize="0.7rem" color="#94A3B8">{p.phone}</Typography>}
+                                            </Box>
+                                        </Box>
+                                        <Typography fontSize="0.83rem" color="#64748B" sx={{ width: 60, textAlign: 'center' }}>{p.sessions}</Typography>
+                                        <Typography fontWeight={700} fontSize="0.87rem" color="#0F172A" sx={{ width: 110, textAlign: 'right' }}>{fmtBRL(p.value)}</Typography>
+                                        <Box sx={{ width: 130, display: 'flex', justifyContent: 'center' }}>
+                                            <StatusBadge status={p.status} />
+                                        </Box>
+                                        <Box sx={{ width: 24, display: 'flex', justifyContent: 'center', color: '#CBD5E1' }}>
+                                            <ChevronRight size={16} />
+                                        </Box>
+                                    </Box>
+                                );
+                            })}
+                        </Box>
                     )}
 
                     {/* Drawer de especialidades do paciente */}

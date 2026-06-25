@@ -5,12 +5,15 @@
 
 import api from './api';
 
+export type BillingMode = 'per_month' | 'per_guide';
+
 export interface Convenio {
     _id: string;
     code: string;
     name: string;
     sessionValue: number;
     active: boolean;
+    billingMode: BillingMode;
     notes?: string;
     createdAt: string;
     updatedAt: string;
@@ -25,12 +28,14 @@ export interface CreateConvenioData {
     code: string;
     name: string;
     sessionValue: number;
+    billingMode?: BillingMode;
     notes?: string;
 }
 
 export interface UpdateConvenioData {
     name?: string;
     sessionValue?: number;
+    billingMode?: BillingMode;
     notes?: string;
     active?: boolean;
 }

@@ -945,66 +945,103 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
             case 'confirm':
                 return (
-                    <div className="space-y-6">
-                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-400 p-4 rounded-xl">
+                    <div className="space-y-5">
+                        {/* Alerta */}
+                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-400 p-3 rounded-xl">
                             <div className="flex items-start gap-3">
-                                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
                                 <div>
                                     <p className="text-sm text-green-800 font-medium">
                                         Confirme os detalhes deste agendamento antes de confirmar.
                                     </p>
-                                    <p className="text-xs text-green-600 mt-1">
+                                    <p className="text-xs text-green-600 mt-0.5">
                                         Esta ação marcará a consulta como concluída.
                                     </p>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="space-y-4">
-                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <div className="p-2 bg-green-100 rounded-lg">
+                        {/* Informações do agendamento — mesmo padrão da aba Detalhes */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-3 rounded-xl border border-green-100">
+                                <div className="flex items-center gap-2 mb-1.5">
+                                    <div className="p-1.5 bg-green-100 rounded-lg">
                                         <User className="w-4 h-4 text-green-600" />
                                     </div>
-                                    <h3 className="text-sm font-medium text-gray-700">Paciente</h3>
+                                    <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Paciente</h3>
                                 </div>
-                                <p className="text-lg font-semibold text-gray-900">{translatedEvent.patient?.fullName || 'Não informado'}</p>
+                                <p className="text-base font-semibold text-gray-900">{translatedEvent.patient?.fullName || 'Não informado'}</p>
                             </div>
-
-                            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-4 rounded-xl border border-purple-100">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <div className="p-2 bg-purple-100 rounded-lg">
-                                        <Calendar className="w-4 h-4 text-purple-600" />
+                            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-3 rounded-xl border border-blue-100">
+                                <div className="flex items-center gap-2 mb-1.5">
+                                    <div className="p-1.5 bg-blue-100 rounded-lg">
+                                        <Stethoscope className="w-4 h-4 text-blue-600" />
                                     </div>
-                                    <h3 className="text-sm font-medium text-gray-700">Data e Hora</h3>
+                                    <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Profissional</h3>
                                 </div>
-                                <p className="text-lg font-semibold text-gray-900">{translatedEvent.formattedDate}</p>
-                            </div>
-
-                            <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-4 rounded-xl border border-gray-200">
-                                <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                                    <ClipboardCheck className="w-4 h-4 text-gray-600" />
-                                    Motivo da Consulta
-                                </h3>
-                                <p className="text-gray-800">{translatedEvent.reason || 'Não informado'}</p>
+                                <p className="text-base font-semibold text-gray-900">{translatedEvent.doctor?.fullName || 'Não informado'}</p>
                             </div>
                         </div>
-                        
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-3 rounded-xl border border-purple-100">
+                                <div className="flex items-center gap-2 mb-1.5">
+                                    <div className="p-1.5 bg-purple-100 rounded-lg">
+                                        <Calendar className="w-4 h-4 text-purple-600" />
+                                    </div>
+                                    <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Data e Hora</h3>
+                                </div>
+                                <p className="text-base font-semibold text-gray-900">{translatedEvent.formattedDate}</p>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-3 rounded-xl border border-amber-100">
+                                <div className="flex items-center gap-2 mb-1.5">
+                                    <div className="p-1.5 bg-amber-100 rounded-lg">
+                                        <Clock className="w-4 h-4 text-amber-600" />
+                                    </div>
+                                    <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Status Operacional</h3>
+                                </div>
+                                <span {...getStatusVisualConfig(translatedEvent.operationalStatus, 'operational')}>
+                                    {getStatusConfig(translatedEvent.operationalStatus, 'operational').label}
+                                </span>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-teal-50 to-cyan-50 p-3 rounded-xl border border-teal-100">
+                                <div className="flex items-center gap-2 mb-1.5">
+                                    <div className="p-1.5 bg-teal-100 rounded-lg">
+                                        <ClipboardCheck className="w-4 h-4 text-teal-600" />
+                                    </div>
+                                    <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Status Clínico</h3>
+                                </div>
+                                <span {...getStatusVisualConfig(translatedEvent.clinicalStatus, 'clinical')}>
+                                    {getStatusConfig(translatedEvent.clinicalStatus, 'clinical').label}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-3 rounded-xl border border-gray-200">
+                            <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-1.5 flex items-center gap-2">
+                                <ClipboardCheck className="w-4 h-4 text-gray-600" />
+                                Motivo da Consulta
+                            </h3>
+                            <p className="text-sm text-gray-800">{translatedEvent.reason || 'Não informado'}</p>
+                        </div>
+
                         {/* 🏦 TIPO DE COBRANÇA */}
                         {permissions.canSeeFinancial && (
-                            <div className="bg-emerald-50/50 rounded-2xl border border-emerald-100 p-4">
+                            <div className="bg-white rounded-xl border border-gray-200 p-3">
                                 <div className="flex items-center gap-1.5 mb-3">
                                     <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
                                     <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cobrança</span>
                                 </div>
-                                <div className="bg-white rounded-xl border border-gray-200 p-1 flex gap-1 mb-4">
+                                <div className="bg-gray-50 rounded-lg border border-gray-200 p-1 flex gap-1 mb-3">
                                     <button
                                         type="button"
                                         onClick={() => setBillingType('particular')}
-                                        className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                        className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
                                             billingType === 'particular'
-                                                ? 'bg-green-600 text-white shadow-sm'
-                                                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                                                ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
+                                                : 'text-gray-500 hover:text-gray-700'
                                         }`}
                                     >
                                         Particular
@@ -1012,10 +1049,10 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     <button
                                         type="button"
                                         onClick={() => setBillingType('convenio')}
-                                        className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                        className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
                                             billingType === 'convenio'
                                                 ? 'bg-blue-600 text-white shadow-sm'
-                                                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                                                : 'text-gray-500 hover:text-gray-700'
                                         }`}
                                     >
                                         Convênio
@@ -1024,10 +1061,10 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                         <button
                                             type="button"
                                             onClick={() => setBillingType('liminar')}
-                                            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                            className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
                                                 billingType === 'liminar'
                                                     ? 'bg-purple-600 text-white shadow-sm'
-                                                    : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                                                    : 'text-gray-500 hover:text-gray-700'
                                             }`}
                                         >
                                             Liminar
@@ -1039,7 +1076,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     <div className="space-y-3">
                                         <div>
                                             <label className="block text-xs font-medium text-gray-700 mb-1">
-                                                ⚖️ Valor da Sessão Judicial *
+                                                Valor da Sessão Judicial *
                                             </label>
                                             <InputCurrency
                                                 name="paymentAmount"
@@ -1049,7 +1086,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                             />
                                         </div>
                                         {event?.liminarContract && (
-                                            <div className="bg-purple-50 p-3 rounded-lg text-xs text-purple-800">
+                                            <div className="bg-purple-50 p-2.5 rounded-lg text-xs text-purple-800">
                                                 ⚖️ Saldo judicial disponível: R$ {((event.liminarContract as any).creditBalance ?? 0).toFixed(2)}
                                                 {(event.liminarContract as any).processNumber && ` — Processo: ${(event.liminarContract as any).processNumber}`}
                                             </div>
@@ -1062,7 +1099,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                             <div>
                                                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                                                    <Building2 size={13} className="inline mr-1" />Convênio *
+                                                    Convênio *
                                                 </label>
                                                 <Select
                                                     value={insuranceProvider}
@@ -1075,7 +1112,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                                     disabled={loadingConvenios}
                                                     className="w-full p-2 bg-white border border-gray-300 rounded-lg text-sm"
                                                 >
-                                                    <option value="">{loadingConvenios ? 'Carregando...' : 'Selecione o convênio'}</option>
+                                                    <option value="">{loadingConvenios ? 'Carregando...' : 'Selecione'}</option>
                                                     {convenios.map(p => (
                                                         <option key={p._id} value={p.code}>
                                                             {p.name}
@@ -1089,21 +1126,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                                     name="insuranceValue"
                                                     value={insuranceValue}
                                                     onChange={(e) => setInsuranceValue(Number(e.target.value))}
-                                                    className="w-full p-2 bg-white border border-gray-300 rounded-lg"
+                                                    className="w-full p-2 bg-white border border-gray-300 rounded-lg text-sm"
                                                 />
                                             </div>
                                         </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">Código da Guia/Autorização (opcional)</label>
-                                            <input
-                                                type="text"
-                                                value={authorizationCode}
-                                                onChange={(e) => setAuthorizationCode(e.target.value)}
-                                                placeholder="Ex: 123456789"
-                                                className="w-full p-2 bg-white border border-gray-300 rounded-lg text-sm"
-                                            />
-                                        </div>
-                                        <div className="bg-blue-100 p-3 rounded-lg text-xs text-blue-800">
+                                        <div className="bg-blue-50 p-2 rounded-lg text-xs text-blue-700">
                                             💡 Atendimento registrado com R$ 0,00 no caixa. O valor entra após confirmação do convênio.
                                         </div>
                                     </div>
@@ -1120,33 +1147,33 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             !!(event?.insuranceProvider) ||
                             !!(insuranceProvider)
                         ) && (
-                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-sm font-medium text-gray-800 flex items-center gap-2">
-                                        <DollarSign className="w-4 h-4 text-green-600" />
+                            <div className="bg-white rounded-xl border border-gray-200 p-3">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                                        <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
                                         Formas de Pagamento
                                     </h3>
                                     <button
                                         type="button"
                                         onClick={addPayment}
-                                        className="flex items-center gap-1 px-3 py-1 text-sm text-green-600 hover:bg-green-100 rounded-lg border border-green-200 transition-colors"
+                                        className="flex items-center gap-1 px-2.5 py-1 text-xs text-emerald-700 hover:bg-emerald-50 rounded-lg border border-emerald-200 transition-colors"
                                     >
-                                        <Plus className="w-4 h-4" />
-                                        Adicionar Pagamento
+                                        <Plus className="w-3.5 h-3.5" />
+                                        Adicionar
                                     </button>
                                 </div>
 
                                 {payments.map((payment, index) => (
-                                    <div key={payment.id} className="bg-white p-4 rounded-lg border border-gray-200 mb-3">
-                                        <div className="flex justify-between items-center mb-3">
-                                            <span className="text-sm font-medium text-gray-700">Pagamento {index + 1}</span>
+                                    <div key={payment.id} className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-2 last:mb-0">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-xs font-medium text-gray-600">Pagamento {index + 1}</span>
                                             {payments.length > 1 && (
                                                 <button
                                                     type="button"
                                                     onClick={() => removePayment(payment.id)}
                                                     className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
                                                 >
-                                                    <Trash2 className="w-4 h-4" />
+                                                    <Trash2 className="w-3.5 h-3.5" />
                                                 </button>
                                             )}
                                         </div>
@@ -1157,7 +1184,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                                     name={`payment-amount-${payment.id}`}
                                                     value={payment.amount}
                                                     onChange={(e) => updatePayment(payment.id, 'amount', e.target.value)}
-                                                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
+                                                    className="w-full p-2 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
                                                 />
                                             </div>
                                             <div>
@@ -1171,7 +1198,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                                     customInput={
                                                         <ReactInputMask
                                                             mask="99/99/9999"
-                                                            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
+                                                            className="w-full p-2 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
                                                         />
                                                     }
                                                     placeholderText="dd/MM/yyyy"
@@ -1183,7 +1210,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                                 <select
                                                     value={payment.method}
                                                     onChange={(e) => updatePayment(payment.id, 'method', e.target.value)}
-                                                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
+                                                    className="w-full p-2 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
                                                 >
                                                     <option value="">Escolha um método</option>
                                                     <option value="dinheiro">Dinheiro</option>
@@ -1198,9 +1225,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 ))}
 
                                 {payments.length > 1 && (
-                                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                                    <div className="bg-blue-50 p-2.5 rounded-lg border border-blue-200 mt-2">
                                         <div className="flex justify-between items-center">
-                                            <span className="text-sm font-medium text-blue-800">Total:</span>
+                                            <span className="text-xs font-medium text-blue-800">Total:</span>
                                             <span className="text-sm font-bold text-blue-800">
                                                 R$ {getTotalPaid().toFixed(2).replace('.', ',')}
                                             </span>
@@ -1218,66 +1245,68 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             event?.paymentMethod === 'liminar_credit' ||
                             !!(event?.insuranceProvider) ||
                             !!(insuranceProvider)
-                        ) && <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-4 rounded-xl border-2 border-amber-200">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="p-2 bg-amber-100 rounded-lg">
-                                    <DollarSign className="w-5 h-5 text-amber-600" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-medium text-gray-800">Conta Corrente do Paciente</h3>
-                                    <p className="text-xs text-gray-600">Registre se o paciente usará a sessão mas pagará depois</p>
-                                </div>
-                            </div>
-                            
-                            <div className="flex items-center p-3 bg-white rounded-lg border border-amber-200 mb-4">
-                                <input
-                                    id="add-to-balance"
-                                    type="checkbox"
-                                    className="h-5 w-5 text-amber-600 focus:ring-amber-500 border-gray-300 rounded cursor-pointer"
-                                    checked={addToBalance}
-                                    onChange={(e) => setAddToBalance(e.target.checked)}
-                                />
-                                <label htmlFor="add-to-balance" className="ml-3 block text-sm font-medium text-gray-700 cursor-pointer">
-                                    <span className="font-semibold text-amber-700">Adicionar ao Saldo Devedor</span>
-                                    <span className="block text-xs text-gray-500">Paciente usará a sessão agora e pagará posteriormente</span>
-                                </label>
-                            </div>
-                            
-                            {addToBalance && (
-                                <div className="space-y-4 animate-fadeIn">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="form-label">
-                                                Valor a Registrar (R$)
-                                            </label>
-                                            <InputCurrency
-                                                name="debitAmount"
-                                                value={debitAmount}
-                                                onChange={(e) => setDebitAmount(Number(e.target.value))}
-                                                className="w-full p-3 bg-white border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="form-label">
-                                                Descrição
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={debitDescription}
-                                                onChange={(e) => setDebitDescription(e.target.value)}
-                                                className="w-full p-3 bg-white border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500"
-                                                placeholder="Ex: Sessão 19/02/2026"
-                                            />
-                                        </div>
+                        ) && (
+                            <div className="bg-white rounded-xl border border-gray-200 p-3">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="p-1.5 bg-amber-100 rounded-lg">
+                                        <DollarSign className="w-4 h-4 text-amber-600" />
                                     </div>
-                                    
-                                    <div className="p-3 bg-amber-100 rounded-lg text-sm text-amber-800">
-                                        <p className="font-semibold">⚠️ Atenção</p>
-                                        <p>Ao confirmar, o agendamento será marcado como concluído e <strong>R$ {debitAmount.toFixed(2)}</strong> será adicionado ao saldo devedor do paciente.</p>
+                                    <div>
+                                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Conta Corrente do Paciente</h3>
+                                        <p className="text-xs text-gray-500">Registre se o paciente usará a sessão mas pagará depois</p>
                                     </div>
                                 </div>
-                            )}
-                        </div>}
+                                
+                                <div className="flex items-center p-2.5 bg-gray-50 rounded-lg border border-gray-200 mb-3">
+                                    <input
+                                        id="add-to-balance"
+                                        type="checkbox"
+                                        className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded cursor-pointer"
+                                        checked={addToBalance}
+                                        onChange={(e) => setAddToBalance(e.target.checked)}
+                                    />
+                                    <label htmlFor="add-to-balance" className="ml-3 block text-sm font-medium text-gray-700 cursor-pointer">
+                                        <span className="font-semibold text-amber-700">Adicionar ao Saldo Devedor</span>
+                                        <span className="block text-xs text-gray-500">Paciente usará a sessão agora e pagará posteriormente</span>
+                                    </label>
+                                </div>
+                                
+                                {addToBalance && (
+                                    <div className="space-y-3 animate-fadeIn">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                    Valor a Registrar (R$)
+                                                </label>
+                                                <InputCurrency
+                                                    name="debitAmount"
+                                                    value={debitAmount}
+                                                    onChange={(e) => setDebitAmount(Number(e.target.value))}
+                                                    className="w-full p-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                    Descrição
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={debitDescription}
+                                                    onChange={(e) => setDebitDescription(e.target.value)}
+                                                    className="w-full p-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
+                                                    placeholder="Ex: Sessão 19/02/2026"
+                                                />
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="p-2.5 bg-amber-50 rounded-lg text-xs text-amber-800">
+                                            <p className="font-semibold">⚠️ Atenção</p>
+                                            <p>Ao confirmar, o agendamento será marcado como concluído e <strong>R$ {debitAmount.toFixed(2)}</strong> será adicionado ao saldo devedor do paciente.</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 );
 
@@ -1606,20 +1635,14 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                             <div className="space-y-1">
                                                 <label className="text-xs font-medium text-gray-500">Convênio</label>
                                                 <input type="text" value={insuranceProvider} onChange={(e) => setInsuranceProvider(e.target.value)}
-                                                    className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 bg-white"
+                                                    className="w-full p-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 bg-white"
                                                     placeholder="Nome do plano" />
                                             </div>
                                             <div className="space-y-1">
                                                 <label className="text-xs font-medium text-gray-500">Valor (R$)</label>
                                                 <InputCurrency name="insuranceValue" value={insuranceValue} onChange={(e) => setInsuranceValue(Number(e.target.value))}
-                                                    className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400" />
+                                                    className="w-full p-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400" />
                                             </div>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-xs font-medium text-gray-500">Código de Autorização</label>
-                                            <input type="text" value={authorizationCode} onChange={(e) => setAuthorizationCode(e.target.value)}
-                                                className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 bg-white"
-                                                placeholder="Opcional" />
                                         </div>
                                     </div>
                                 )}

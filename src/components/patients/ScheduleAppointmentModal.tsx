@@ -182,9 +182,10 @@ const ScheduleAppointmentModal = ({
                 serviceType: initialData.serviceType || 'individual_session'
             });
             setServiceType(initialData.serviceType || 'individual_session');
-            setBillingType(initialData.billingType || 'particular');
+            const hasInsuranceGuide = !!(initialData.insuranceGuide || initialData.insuranceGuideId);
+            setBillingType(initialData.billingType || (hasInsuranceGuide ? 'convenio' : 'particular'));
             setInsuranceProvider(initialData.insuranceProvider || '');
-            setInsuranceValue(initialData.insuranceValue || 0);
+            setInsuranceValue(initialData.insuranceValue || initialData.sessionValue || 0);
             setAuthorizationCode(initialData.authorizationCode || '');
         } else {
             setFormData(defaultForm);

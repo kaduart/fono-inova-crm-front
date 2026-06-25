@@ -28,6 +28,9 @@ const PAGE_SIZE = 10;
 const formatCurrency = (val: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 
+const formatCurrencyShort = (val: number) =>
+    val >= 1000 ? `R$${(val / 1000).toFixed(0)}k` : `R$${Math.round(val)}`;
+
 const safeFormatDate = (dateStr: string | undefined, fmt: string) => {
     if (!dateStr) return '—';
     const d = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T12:00');
@@ -256,13 +259,25 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
     return (
         <div className="space-y-3">
             {/* Header */}
-            <div className="flex justify-between items-center">
-                <span className="text-sm font-semibold text-gray-700">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-gray-700 capitalize">
                     {format(new Date(ano, mes - 1), 'MMMM yyyy', { locale: ptBR })}
+                    {ehMesAtual && <span className="font-normal text-gray-400"> · {diasDecorridos} dias decorridos</span>}
                 </span>
-                <IconButton size="small" onClick={() => fetchDashboard(mes, ano)}>
-                    <RefreshCcw size={16} />
-                </IconButton>
+                <div className="flex items-center gap-2 flex-wrap">
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        💵 Caixa {formatCurrencyShort(caixa)}
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                        ⏳ A receber {formatCurrencyShort(aReceber)}
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                        🏥 Produção {formatCurrencyShort(producao)}
+                    </span>
+                    <IconButton size="small" onClick={() => fetchDashboard(mes, ano)}>
+                        <RefreshCcw size={16} />
+                    </IconButton>
+                </div>
             </div>
 
             {/* RESUMO EXECUTIVO */}
@@ -304,21 +319,15 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                         )}
                     </div>
 
-                    {/* Barra grossa com % dentro */}
                     {metaValor > 0 && (
-                        <div className="relative h-6 rounded-full bg-gray-200 mb-3 overflow-hidden">
+                        <div className="relative h-[5px] rounded-full bg-gray-200 mb-3 overflow-hidden">
                             <div
-                                className="h-full rounded-full transition-all duration-500 flex items-center justify-end pr-2"
+                                className="h-full rounded-full transition-all duration-500"
                                 style={{
                                     width: `${Math.min(percentualAtual, 100)}%`,
                                     backgroundColor: percentualAtual >= 100 ? '#10B981' : percentualAtual >= 60 ? '#F59E0B' : '#EF4444',
-                                    minWidth: percentualAtual > 0 ? '2.5rem' : 0
                                 }}
-                            >
-                                {percentualAtual >= 15 && (
-                                    <span className="text-[11px] font-black text-white">{percentualAtual.toFixed(0)}%</span>
-                                )}
-                            </div>
+                            />
                         </div>
                     )}
 
@@ -428,20 +437,14 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                         </div>
                     )}
 
-                    {/* Barra grossa */}
-                    <div className="relative h-5 rounded-full bg-gray-200 mb-2 overflow-hidden">
+                    <div className="relative h-[5px] rounded-full bg-gray-200 mb-2 overflow-hidden">
                         <div
-                            className="h-full rounded-full flex items-center justify-end pr-2"
+                            className="h-full rounded-full transition-all"
                             style={{
                                 width: `${Math.min(percentualAtual, 100)}%`,
                                 backgroundColor: percentualAtual >= 100 ? '#10B981' : percentualAtual >= 60 ? '#F59E0B' : '#EF4444',
-                                minWidth: percentualAtual > 0 ? '2.5rem' : 0
                             }}
-                        >
-                            {percentualAtual >= 15 && (
-                                <span className="text-[10px] font-black text-white">{percentualAtual.toFixed(0)}%</span>
-                            )}
-                        </div>
+                        />
                     </div>
                     <p className="text-xs text-gray-400">
                         {(dashData?.metas?.ritmo?.percentualRealizado || 0).toFixed(1)}% atingido · Cenário histórico
@@ -449,30 +452,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                 </div>
             </div>
 
-            {/* INSIGHTS */}
-            <div className="border border-gray-200 rounded-xl p-3">
-                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Atenção</p>
-                {(dashData?.insights?.insights || []).length === 0 ? (
-                    <p className="text-xs text-gray-500">
-                        {metaValor === 0
-                            ? 'Configure uma meta para ver insights estratégicos.'
-                            : ritmoOk
-                            ? '✅ No ritmo da meta. Continue assim!'
-                            : 'Nenhuma ação urgente identificada.'}
-                    </p>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                        {(dashData.insights.insights as string[]).slice(0, 3).map((insight: string, idx: number) => (
-                            <div key={idx} className="p-3 rounded-lg border border-amber-200 bg-amber-50">
-                                <p className="text-[10px] font-black text-amber-700 uppercase tracking-wide mb-1">Sugestão de ação</p>
-                                <p className="text-xs text-gray-700 leading-relaxed">{insight}</p>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            {/* CENÁRIOS DE FECHAMENTO — sempre ordenados crescente */}
+            {/* CENÁRIOS DE FECHAMENTO */}
             <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Cenários de Fechamento</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -481,7 +461,6 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                         const valorConfirmados = confirmados.reduce((sum, a) => sum + getValor(a), 0);
                         const valorPendentes = pendentes.reduce((sum, a) => sum + getValor(a), 0);
 
-                        // Calcula os 3 valores com descrições associadas
                         const rawValues = [
                             { value: resultadoEconomico + (valorConfirmados * 0.7) + (valorPendentes * 0.2), desc: '70% confirmados + 20% pendentes' },
                             { value: cenarioEsperado || resultadoEconomico, desc: 'Taxa histórica de conversão' },
@@ -494,35 +473,103 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                             { label: 'OTIMISTA', color: '#16A34A', IconEl: TrendingUp }
                         ];
 
-                        return configs.map((cfg, i) => ({
-                            ...cfg,
-                            value: rawValues[i].value,
-                            desc: rawValues[i].desc
-                        }));
+                        return configs.map((cfg, i) => ({ ...cfg, value: rawValues[i].value, desc: rawValues[i].desc }));
                     })().map((c) => {
                         const IconEl = c.IconEl;
+                        const isEsperado = c.label === 'ESPERADO';
                         return (
-                        <div key={c.label} className="border-2 rounded-2xl p-4 shadow-sm" style={{ borderColor: `${c.color}40`, backgroundColor: `${c.color}06` }}>
-                            <div className="flex items-center gap-2 mb-3">
-                                <div className="rounded-xl p-2" style={{ backgroundColor: `${c.color}20` }}>
-                                    <IconEl size={16} style={{ color: c.color }} />
+                        <div key={c.label} className="rounded-2xl overflow-hidden shadow-sm"
+                            style={{
+                                border: isEsperado ? `2px solid ${c.color}` : `1px solid ${c.color}30`,
+                                backgroundColor: '#FFFFFF'
+                            }}>
+                            <div style={{ height: 3, backgroundColor: c.color }} />
+                            <div className="p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="rounded-xl p-1.5" style={{ backgroundColor: `${c.color}15` }}>
+                                            <IconEl size={14} style={{ color: c.color }} />
+                                        </div>
+                                        <p className="text-xs font-black uppercase tracking-wide" style={{ color: c.color }}>{c.label}</p>
+                                    </div>
+                                    {isEsperado && (
+                                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full"
+                                            style={{ backgroundColor: `${c.color}15`, color: c.color }}>
+                                            Mais provável
+                                        </span>
+                                    )}
                                 </div>
-                                <p className="text-xs font-black uppercase tracking-wide" style={{ color: c.color }}>{c.label}</p>
+                                <p className="text-2xl font-black mb-1 text-gray-900">{formatCurrency(c.value)}</p>
+                                {metaValor > 0 && (
+                                    <p className="text-xs font-semibold mb-3" style={{ color: c.value >= metaValor ? '#16A34A' : '#DC2626' }}>
+                                        {c.value >= metaValor
+                                            ? `+${formatCurrency(c.value - metaValor)} acima da meta`
+                                            : `${formatCurrency(metaValor - c.value)} abaixo da meta`}
+                                    </p>
+                                )}
+                                <p className="text-xs text-gray-400 pt-2 border-t border-gray-100">{c.desc}</p>
                             </div>
-                            <p className="text-2xl font-black mb-1" style={{ color: c.color }}>{formatCurrency(c.value)}</p>
-                            {metaValor > 0 && (
-                                <p className="text-xs font-semibold mb-2" style={{ color: c.value >= metaValor ? '#16A34A' : '#DC2626' }}>
-                                    {c.value >= metaValor
-                                        ? `+${formatCurrency(c.value - metaValor)} acima da meta`
-                                        : `${formatCurrency(metaValor - c.value)} abaixo da meta`}
-                                </p>
-                            )}
-                            <p className="text-xs text-gray-400 pt-2 border-t border-gray-100">{c.desc}</p>
                         </div>
                         );
                     })}
                 </div>
             </div>
+
+            {/* ATENÇÃO · PROFISSIONAIS ABAIXO DA MÉDIA */}
+            {(dashData?.insights?.insights || []).length > 0 && (
+            <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Atenção · Profissionais abaixo da média</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {(dashData.insights.insights as string[]).slice(0, 3).map((insight: string, idx: number) => {
+                        const match = insight.match(/Profissional (.+?) está (\d+)% abaixo/);
+                        const name = match?.[1] || '';
+                        const pct = match ? parseInt(match[2]) : 0;
+                        const isCritical = pct > 60;
+                        const accentColor = isCritical ? '#EF4444' : '#F59E0B';
+                        const bgColor = isCritical ? '#FFF5F5' : '#FFFBEB';
+                        const borderColor = isCritical ? '#FCA5A5' : '#FCD34D';
+                        return (
+                            <div key={idx} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${borderColor}` }}>
+                                <div style={{ height: 3, backgroundColor: accentColor }} />
+                                <div className="p-3" style={{ backgroundColor: bgColor }}>
+                                    <div className="flex items-start gap-2 mb-2">
+                                        <span className="text-base leading-none mt-0.5">{isCritical ? '🔴' : '⚠️'}</span>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-bold text-gray-900 leading-tight">{name || 'Profissional'}</p>
+                                            <p className="text-xs text-gray-600 mt-0.5">
+                                                {pct > 0 ? `${pct}% abaixo da média de produção` : insight}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="mb-2.5">
+                                        <div className="flex justify-between text-[10px] mb-1" style={{ color: accentColor }}>
+                                            <span>{100 - pct}% do esperado</span>
+                                            <span>{isCritical ? 'crítico' : 'atenção'}</span>
+                                        </div>
+                                        <div className="h-[4px] rounded-full bg-gray-200 overflow-hidden">
+                                            <div className="h-full rounded-full transition-all" style={{
+                                                width: `${Math.max(100 - pct, 4)}%`,
+                                                backgroundColor: accentColor
+                                            }} />
+                                        </div>
+                                    </div>
+                                    <button
+                                        className="w-full text-xs font-semibold py-1.5 rounded-lg transition-colors border"
+                                        style={{ backgroundColor: 'white', color: accentColor, borderColor }}>
+                                        📅 Ver agenda ↗
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+            )}
+            {(dashData?.insights?.insights || []).length === 0 && ritmoOk && (
+                <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200">
+                    <p className="text-xs text-emerald-700 font-semibold">✅ Todos os profissionais no ritmo da meta.</p>
+                </div>
+            )}
 
             {/* Gráfico de evolução diária */}
             {projectionData.length > 0 && (

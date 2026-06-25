@@ -48,7 +48,8 @@ import {
     activateConvenio,
     validateConvenioCode,
     Convenio,
-    CreateConvenioData
+    CreateConvenioData,
+    BillingMode
 } from '../../../services/insuranceService';
 import { extractErrorMessage } from '../../../utils/errorUtils';
 
@@ -69,6 +70,7 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
         code: '',
         name: '',
         sessionValue: 0,
+        billingMode: 'per_month',
         notes: ''
     });
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -143,6 +145,7 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
                 await updateConvenio(editingCode, {
                     name: formData.name,
                     sessionValue: formData.sessionValue,
+                    billingMode: formData.billingMode,
                     notes: formData.notes
                 });
                 toast.success('Convênio atualizado!');
@@ -167,6 +170,7 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
             code: convenio.code,
             name: convenio.name,
             sessionValue: convenio.sessionValue,
+            billingMode: convenio.billingMode || 'per_month',
             notes: convenio.notes || ''
         });
     };
@@ -202,7 +206,7 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
     const resetForm = () => {
         setIsEditing(false);
         setEditingCode(null);
-        setFormData({ code: '', name: '', sessionValue: 0, notes: '' });
+        setFormData({ code: '', name: '', sessionValue: 0, billingMode: 'per_month', notes: '' });
         setFormErrors({});
         setCodeAvailable(null);
     };
@@ -305,6 +309,38 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
                                 rows={1}
                             />
                         </Box>
+
+                        {/* Modo de faturamento */}
+                        <Box sx={{ mt: 2 }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom fontWeight={500}>
+                                Modo de Faturamento
+                            </Typography>
+                            <Box sx={{ display: 'flex', gap: 1.5 }}>
+                                {([
+                                    { value: 'per_month', label: 'Por Sessão / Mês', desc: 'Fatura as sessões realizadas no mês', color: '#3B82F6' },
+                                    { value: 'per_guide', label: 'Por Guia Completa', desc: 'Fatura o valor total da guia quando ela fecha', color: '#10B981' }
+                                ] as { value: BillingMode; label: string; desc: string; color: string }[]).map(opt => {
+                                    const selected = formData.billingMode === opt.value;
+                                    return (
+                                        <Box
+                                            key={opt.value}
+                                            onClick={() => setFormData({ ...formData, billingMode: opt.value })}
+                                            sx={{
+                                                flex: 1, p: 1.5, borderRadius: 2, cursor: 'pointer',
+                                                border: `2px solid ${selected ? opt.color : '#E5E7EB'}`,
+                                                bgcolor: selected ? `${opt.color}10` : '#FAFAFA',
+                                                transition: 'all 0.15s'
+                                            }}
+                                        >
+                                            <Typography fontSize="0.82rem" fontWeight={700} color={selected ? opt.color : '#374151'}>
+                                                {opt.label}
+                                            </Typography>
+                                            <Typography fontSize="0.72rem" color="text.secondary">{opt.desc}</Typography>
+                                        </Box>
+                                    );
+                                })}
+                            </Box>
+                        </Box>
                         
                         <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
                             <Button
@@ -366,6 +402,7 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
                                     <TableCell>Código</TableCell>
                                     <TableCell>Nome</TableCell>
                                     <TableCell align="right">Valor Sessão</TableCell>
+                                    <TableCell align="center">Faturamento</TableCell>
                                     <TableCell align="center">Status</TableCell>
                                     <TableCell align="right">Pendentes</TableCell>
                                     <TableCell align="right">Ações</TableCell>
@@ -414,6 +451,17 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
                                                 <Typography fontWeight="600" color="primary">
                                                     {formatCurrency(convenio.sessionValue)}
                                                 </Typography>
+                                            </TableCell>
+                                            <TableCell align="center">
+                                                <Chip
+                                                    size="small"
+                                                    label={convenio.billingMode === 'per_guide' ? 'Por Guia' : 'Mensal'}
+                                                    sx={{
+                                                        fontWeight: 600, fontSize: '0.7rem',
+                                                        bgcolor: convenio.billingMode === 'per_guide' ? '#D1FAE5' : '#DBEAFE',
+                                                        color:   convenio.billingMode === 'per_guide' ? '#065F46' : '#1E40AF',
+                                                    }}
+                                                />
                                             </TableCell>
                                             <TableCell align="center">
                                                 <Chip

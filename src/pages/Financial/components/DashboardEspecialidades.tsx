@@ -63,72 +63,49 @@ export const DashboardEspecialidades: React.FC = () => {
     }
 
     return (
-        <Box sx={{ p: 2 }}>
-            <Typography variant="h5" gutterBottom sx={{ mb: 3, fontWeight: 'medium' }}>
-                Receita por Especialidade - {format(new Date(), 'MMMM/yyyy', { locale: ptBR })}
-            </Typography>
-
-            <Grid container spacing={3}>
-                {specialties.map((spec) => (
-                    <Grid size={{ xs: 12, sm: 6, md: 4 }} key={spec.specialty}>
-                        <Card sx={{
-                            borderTop: 6,
-                            borderColor: getSpecialtyColor(spec.specialty),
-                            height: '100%',
-                            boxShadow: 2,
-                            '&:hover': { boxShadow: 4, transform: 'translateY(-2px)' },
-                            transition: 'all 0.2s ease-in-out'
-                        }}>
-                            <CardContent>
-                                <Typography color="textSecondary" gutterBottom variant="overline" sx={{ letterSpacing: 1.2 }}>
-                                    {spec.specialty.replace('_', ' ')}
-                                </Typography>
-
-                                <Typography variant="h4" component="div" sx={{ fontWeight: '700', my: 1, color: '#2c3e50' }}>
-                                    {formatCurrency(spec.totalRevenue)}
-                                </Typography>
-
-                                <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                                    <Chip
-                                        label={`${spec.totalSessions} sessões`}
-                                        size="small"
-                                        variant="outlined"
-                                        sx={{ fontWeight: '500' }}
-                                    />
-                                    <Chip
-                                        label={`Ticket: ${formatCurrency(spec.averageTicket)}`}
-                                        size="small"
-                                        color="primary"
-                                        sx={{ fontWeight: '500' }}
-                                    />
-                                </Box>
-
-                                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                                    <Box>
-                                        <Typography variant="caption" display="block" color="textSecondary" sx={{ fontWeight: '500' }}>
-                                            {spec.uniquePatientCount} pacientes únicos
-                                        </Typography>
-                                    </Box>
-                                    <Typography variant="h6" color="textSecondary" sx={{ fontSize: '0.9rem', fontWeight: 'bold' }}>
-                                        {totalGeral > 0 ? ((spec.totalRevenue / totalGeral) * 100).toFixed(1) : 0}%
-                                    </Typography>
-                                </Box>
-
+        <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">
+                Receita por Especialidade · {format(new Date(), 'MMMM yyyy', { locale: ptBR })}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {specialties.map((spec) => {
+                    const color = getSpecialtyColor(spec.specialty);
+                    const pct = totalGeral > 0 ? (spec.totalRevenue / totalGeral) * 100 : 0;
+                    const label = spec.specialty.replace(/_/g, ' ');
+                    return (
+                        <div key={spec.specialty} className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+                            <div style={{ height: 3, backgroundColor: color }} />
+                            <div className="p-4 bg-white">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">{label}</p>
+                                <p className="text-2xl font-black text-gray-900 mb-3">{formatCurrency(spec.totalRevenue)}</p>
+                                <div className="flex items-center gap-2 mb-3 flex-wrap">
+                                    <span className="inline-flex items-center text-[11px] font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+                                        {spec.totalSessions} sessões
+                                    </span>
+                                    <span className="inline-flex items-center text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                                        Ticket {formatCurrency(spec.averageTicket)}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                                    <span>{spec.uniquePatientCount} pacientes únicos</span>
+                                    <span className="font-black text-gray-700">{pct.toFixed(1)}%</span>
+                                </div>
+                                <div className="h-[4px] w-full bg-gray-100 rounded-full overflow-hidden mb-2">
+                                    <div className="h-full rounded-full transition-all duration-700"
+                                        style={{ width: `${Math.min(100, pct)}%`, backgroundColor: color }} />
+                                </div>
                                 {spec.specialty.toUpperCase() === 'OUTROS' && spec.totalSessions > 0 && (
-                                    <Box sx={{ mt: 2 }}>
-                                        <button
-                                            onClick={() => setDetailSpecialty(spec.specialty)}
-                                            className="text-xs text-blue-600 hover:text-blue-800 font-medium underline"
-                                        >
-                                            Ver o que compõe "Outros"
-                                        </button>
-                                    </Box>
+                                    <button
+                                        onClick={() => setDetailSpecialty(spec.specialty)}
+                                        className="mt-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 transition-colors">
+                                        Ver composição ↗
+                                    </button>
                                 )}
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                ))}
-            </Grid>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
 
             {detailSpecialty && (
                 <SpecialtyDetailModal
@@ -138,7 +115,7 @@ export const DashboardEspecialidades: React.FC = () => {
                     dateRange={dateRange}
                 />
             )}
-        </Box>
+        </div>
     );
 };
 

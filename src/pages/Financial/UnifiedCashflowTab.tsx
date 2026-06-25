@@ -32,6 +32,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import { AdminEditPaymentModal } from '../../components/financial/AdminEditPaymentModal';
+import AppointmentPackageProgress from '../../components/appointments/AppointmentPackageProgress';
 
 interface DayData {
     date: string;
@@ -1078,13 +1079,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                     <div className="mb-3">
                         <div className="flex gap-1 overflow-x-auto bg-gray-100 rounded-xl p-1">
                             {[
-                                { label: 'Transações',    count: data.transacoes?.length || 0,                                      icon: <ReceiptIcon style={{ fontSize: 15 }} /> },
-                                { label: 'Pendentes',     count: data.pendentesCobranca?.length || 0,                               icon: <WarningIcon style={{ fontSize: 15 }} /> },
-                                { label: 'Pacotes',       count: data.pacotesAtendidos?.length || 0,                                icon: <InventoryIcon style={{ fontSize: 15 }} /> },
-                                { label: 'Convênios',     count: data.conveniosAtendidos?.length || 0,                              icon: <ShowChartIcon style={{ fontSize: 15 }} /> },
-                                { label: 'Agendamentos',  count: dayAppointments.length || 0,                                       icon: <CalendarTodayIcon style={{ fontSize: 15 }} /> },
-                                { label: 'Especialidades',count: Object.keys(data.producao?.porEspecialidade || {}).length,          icon: <PieChartIcon style={{ fontSize: 15 }} /> },
-                                { label: 'Profissionais', count: 0,                                                                  icon: <PeopleIcon style={{ fontSize: 15 }} /> },
+                                { label: 'Recebimentos',       count: data.transacoes?.length || 0,                                      icon: <ReceiptIcon style={{ fontSize: 15 }} /> },
+                                { label: 'Pendentes',          count: data.pendentesCobranca?.length || 0,                               icon: <WarningIcon style={{ fontSize: 15 }} /> },
+                                { label: 'Pacotes Consumidos', count: data.pacotesAtendidos?.length || 0,                                icon: <InventoryIcon style={{ fontSize: 15 }} /> },
+                                { label: 'Convênios a Faturar',count: data.conveniosAtendidos?.length || 0,                              icon: <ShowChartIcon style={{ fontSize: 15 }} /> },
+                                { label: 'Agenda do Dia',      count: dayAppointments.length || 0,                                       icon: <CalendarTodayIcon style={{ fontSize: 15 }} /> },
+                                { label: 'Especialidades',     count: Object.keys(data.producao?.porEspecialidade || {}).length,          icon: <PieChartIcon style={{ fontSize: 15 }} /> },
+                                { label: 'Profissionais',      count: 0,                                                                  icon: <PeopleIcon style={{ fontSize: 15 }} /> },
                             ].map((tab, i) => (
                                 <button key={i} onClick={() => setActiveTab(i)}
                                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 ${
@@ -1314,7 +1315,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                         return (
                             <div className="bg-white rounded-lg border border-gray-200 p-3">
                                 <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                                    <h3 className="text-base font-semibold">💳 Transações {periodTitle}</h3>
+                                    <h3 className="text-base font-semibold">💳 Recebimentos {periodTitle}</h3>
                                     <div className="flex flex-wrap items-center gap-1.5">
                                         {metodos.map(m => (
                                             <button key={m} onClick={() => setTxMetodoFilter(txMetodoFilter === m ? 'all' : m)}
@@ -1453,7 +1454,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                     {/* Tab 2: Pacotes */}
                     {activeTab === 2 && (
                         <div className="bg-white rounded-lg border border-gray-200 p-3">
-                            <h3 className="text-base font-semibold mb-3">📦 Pacotes Atendidos ({data.pacotesAtendidos?.length || 0})</h3>
+                            <h3 className="text-base font-semibold mb-3">📦 Pacotes Consumidos ({data.pacotesAtendidos?.length || 0})</h3>
                             {data.pacotesAtendidos?.length > 0 ? (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {data.pacotesAtendidos.map((p) => {
@@ -1486,7 +1487,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                     {/* Tab 3: Convênios */}
                     {activeTab === 3 && (
                         <div className="bg-white rounded-lg border border-gray-200 p-3">
-                            <h3 className="text-base font-semibold mb-3">🏥 Convênios Atendidos ({data.conveniosAtendidos?.length || 0})</h3>
+                            <h3 className="text-base font-semibold mb-3">🏥 Convênios a Faturar ({data.conveniosAtendidos?.length || 0})</h3>
                             {data.conveniosAtendidos?.length > 0 ? (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {data.conveniosAtendidos.map((c) => (
@@ -1511,7 +1512,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                     {activeTab === 4 && (
                         <div className="bg-white rounded-lg border border-gray-200 p-3">
                             <div className="mb-3">
-                                <h3 className="text-base font-semibold mb-2">📅 Agendamentos {periodTitle} ({dayAppointments.length})</h3>
+                                <h3 className="text-base font-semibold mb-2">📅 Agenda {periodTitle} ({dayAppointments.length})</h3>
                                 <div className="flex flex-wrap items-center gap-1.5">
                                     {([
                                         { value: 'all',          label: 'Todos' },
@@ -1561,8 +1562,27 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                             pre_agendado: { border: 'border-l-amber-400',  badge: 'bg-amber-100 text-amber-800',  label: 'Pré-agendado' },
                                         };
                                         const toMin = (t: string) => { const [h, m] = (t || '00:00').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+
+                                        // IDs de agendamentos já contabilizados na produção/cashflow (portanto, atendidos)
+                                        const getApptId = (item: any) => String(item?.id || item?._id || '');
+                                        const attendedIds = new Set<string>([
+                                            ...(data.pacotesAtendidos?.map(getApptId) || []),
+                                            ...(data.conveniosAtendidos?.map(getApptId) || []),
+                                            ...(data.transacoesProducao?.map(getApptId) || [])
+                                        ].filter(Boolean));
+
+                                        const getEffectiveStatus = (a: any) => {
+                                            if (a.operationalStatus === 'canceled') return 'canceled';
+                                            // Convênio/liminar com paymentStatus pending_receipt foi atendido mas operationalStatus pode estar stale
+                                            const isConvenioLiminarAtendido =
+                                                (a.billingType === 'convenio' || a.billingType === 'liminar' || a.insuranceProvider) &&
+                                                (a.paymentStatus === 'pending_receipt' || a.paymentStatus === 'not_applicable');
+                                            if (a.operationalStatus === 'completed' || attendedIds.has(getApptId(a)) || isConvenioLiminarAtendido) return 'completed';
+                                            return a.operationalStatus;
+                                        };
+
                                         const filtered = [...dayAppointments]
-                                            .filter((a: any) => (appointmentFilter === 'all' || a.operationalStatus === appointmentFilter) && (appointmentProfFilter === 'all' || a.professionalName === appointmentProfFilter))
+                                            .filter((a: any) => (appointmentFilter === 'all' || getEffectiveStatus(a) === appointmentFilter) && (appointmentProfFilter === 'all' || a.professionalName === appointmentProfFilter))
                                             .sort((a: any, b: any) => toMin(a.time || '00:00') - toMin(b.time || '00:00'));
                                         const hourGroups: Record<number, any[]> = {};
                                         filtered.forEach((a: any) => { const h = parseInt((a.time || '00:00').split(':')[0]) || 0; if (!hourGroups[h]) hourGroups[h] = []; hourGroups[h].push(a); });
@@ -1572,7 +1592,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                         const nowStr = format(now, 'HH:mm');
                                         const todayStr = format(now, 'yyyy-MM-dd');
                                         const isToday = selectedDate === todayStr;
-                                        const atendidos = filtered.filter((a: any) => a.operationalStatus === 'completed');
+                                        const atendidos = filtered.filter((a: any) => getEffectiveStatus(a) === 'completed');
                                         const totalVal = atendidos.reduce((s: number, a: any) => s + (a.sessionValue || a.package?.sessionValue || 0), 0);
                                         const NowMarker = () => (
                                             <div className="flex items-center gap-2 py-1.5 px-1">
@@ -1587,13 +1607,12 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                             <div className="flex gap-2 py-0.5 mb-1">
                                                 <div className="w-7 shrink-0" />
                                                 <div className="flex-1">
-                                                    <div className="flex gap-3 px-3 pb-1.5 border-b border-gray-200 items-center">
+                                                    <div className="flex gap-4 px-3 pb-1.5 border-b border-gray-200 items-center">
                                                         <span className="text-[11px] text-gray-400 w-10 shrink-0">Hora</span>
                                                         <span className="text-[11px] text-gray-400 flex-1 min-w-0" style={{ textAlign: 'left' }}>Paciente</span>
-                                                        <span className="text-[11px] text-gray-400 w-24 text-center shrink-0">Status</span>
-                                                        <span className="text-[11px] text-gray-400 w-32 shrink-0" style={{ textAlign: 'left' }}>Especialidade</span>
-                                                        <span className="text-[11px] text-gray-400 w-20 text-center shrink-0">Tipo</span>
-                                                        <span className="text-[11px] text-gray-400 w-28 text-center shrink-0">Situação</span>
+                                                        <span className="text-[11px] text-gray-400 w-36 text-left shrink-0">Pacote</span>
+                                                        <span className="text-[11px] text-gray-400 w-44 text-left shrink-0">Status</span>
+                                                        <span className="text-[11px] text-gray-400 w-28 shrink-0 text-left">Especialidade</span>
                                                         <span className="text-[11px] text-gray-400 w-16 text-right shrink-0">Valor</span>
                                                     </div>
                                                 </div>
@@ -1610,10 +1629,11 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                 <div className="w-7 text-[11px] text-gray-500 font-medium pt-2.5 text-right shrink-0 leading-none">{String(hour).padStart(2,'0')}h</div>
                                                                 <div className="flex-1 space-y-1">
                                                                     {apts.map((a: any, aptIdx: number) => {
-                                                                        const sc = statusMap[a.operationalStatus] || { border: 'border-gray-500', badge: 'bg-gray-800 text-gray-300', label: a.operationalStatus };
+                                                                        const effectiveStatus = getEffectiveStatus(a);
+                                                                        const sc = statusMap[effectiveStatus] || { border: 'border-gray-500', badge: 'bg-gray-800 text-gray-300', label: a.operationalStatus };
                                                                         const statusFinanceiro = resolveStatusFinanceiro(a);
                                                                         const sfText = sfShort[statusFinanceiro] ?? (statusFinanceiro || '');
-                                                                        const isNew = (analyticsData?.novos || []).some((n: any) => n._id === a._id);
+                                                                        const isNew = (analyticsData?.novos || []).some((n: any) => n._id === a.id);
                                                                         const valor = a.sessionValue || a.package?.sessionValue || 0;
                                                                         const phone = a.patientInfo?.phone || a.patient?.phone;
                                                                         const aptMin = toMin(a.time || '00:00');
@@ -1623,51 +1643,98 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                         const showNowAfterThis = isToday && !nowRendered && aptMin <= nowMin && nowMin < nextMin;
                                                                         if (showNowAfterThis) nowRendered = true;
                                                                         return (
-                                                                            <React.Fragment key={a._id}>
-                                                                            <div onClick={() => setSelectedApt(a)} className={`flex gap-3 px-3 py-2.5 rounded-lg border border-gray-200 border-l-[3px] cursor-pointer hover:shadow-md transition-shadow ${sc.border} ${a.operationalStatus === 'completed' ? 'bg-green-50' : 'bg-gray-50'} ${a.operationalStatus === 'canceled' ? 'opacity-50' : ''} ${a.operationalStatus === 'completed' && (a.paymentStatus === 'pending' || a.visualFlag === 'pending') ? 'bg-red-50' : ''}`}>
+                                                                            <React.Fragment key={a.id}>
+                                                                            <div onClick={() => setSelectedApt(a)} className={`flex gap-4 px-3 py-2.5 rounded-lg border border-gray-200 border-l-[3px] cursor-pointer hover:shadow-md transition-shadow ${sc.border} ${effectiveStatus === 'completed' ? 'bg-green-50' : 'bg-gray-50'} ${effectiveStatus === 'canceled' ? 'opacity-50' : ''} ${effectiveStatus === 'completed' && (a.paymentStatus === 'pending' || a.visualFlag === 'pending') ? 'bg-red-50' : ''}`}>
                                                                                 <span className="text-xs text-gray-400 w-10 shrink-0 font-mono self-center">{a.time || '--:--'}</span>
-                                                                                <div className="flex-1 min-w-0 flex items-center gap-1.5 self-center overflow-hidden">
-                                                                                    <span className="text-sm font-bold text-gray-900 truncate shrink min-w-0">{a.patientInfo?.fullName || a.patient?.fullName || a.patientName || '-'}</span>
-                                                                                    {isNew && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 whitespace-nowrap shrink-0">1ª vez</span>}
-                                                                                    {phone && (
-                                                                                        <button className="inline-flex items-center gap-0.5 text-xs text-blue-500 hover:text-blue-700 whitespace-nowrap shrink-0"
-                                                                                            onClick={(e) => { e.stopPropagation(); handleOpenWhatsApp(phone); }}>
-                                                                                            <PhoneIcon style={{ fontSize: 11 }} />{phone}
-                                                                                        </button>
-                                                                                    )}
+                                                                                <div className="flex-1 min-w-0 flex flex-col justify-center self-center overflow-hidden gap-0.5">
+                                                                                    <div className="flex items-center gap-1.5 overflow-hidden">
+                                                                                        <span className="text-sm font-bold text-gray-900 truncate shrink min-w-0">{a.patientInfo?.fullName || a.patient?.fullName || a.patientName || '-'}</span>
+                                                                                        {isNew && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 whitespace-nowrap shrink-0">1ª vez</span>}
+                                                                                        {phone && (
+                                                                                            <button className="inline-flex items-center gap-0.5 text-xs text-blue-500 hover:text-blue-700 whitespace-nowrap shrink-0"
+                                                                                                onClick={(e) => { e.stopPropagation(); handleOpenWhatsApp(phone); }}>
+                                                                                                <PhoneIcon style={{ fontSize: 11 }} />{phone}
+                                                                                            </button>
+                                                                                        )}
+                                                                                    </div>
                                                                                 </div>
-                                                                                <span className="w-24 shrink-0 self-center flex items-center justify-center">
-                                                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${sc.badge}`}>{a.status || sc.label}</span>
+                                                                                <span className="w-36 shrink-0 self-center flex items-center justify-start">
+                                                                                    {a.package ? <AppointmentPackageProgress appointment={a} className="w-full max-w-[130px]" /> : <span className="text-[10px] text-gray-300">—</span>}
                                                                                 </span>
-                                                                                <span className="w-32 shrink-0 self-center text-xs text-gray-400 truncate">{a.specialty || '-'}</span>
-                                                                                <span className="w-20 text-center shrink-0 self-center flex items-center justify-center">
-                                                                                    {a.billingType === 'convenio' || a.insuranceProvider ? (
-                                                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-100 text-indigo-700 whitespace-nowrap">Convênio</span>
-                                                                                    ) : a.billingType === 'liminar' ? (
-                                                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 whitespace-nowrap">Liminar</span>
-                                                                                    ) : a.serviceType === 'evaluation' ? (
-                                                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-violet-100 text-violet-700 whitespace-nowrap">Avaliação</span>
-                                                                                    ) : a.serviceType === 'neuropsych_evaluation' ? (
-                                                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-violet-100 text-violet-700 whitespace-nowrap">Aval. Neuro.</span>
-                                                                                    ) : a.package ? (
-                                                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700 whitespace-nowrap">Pacote</span>
-                                                                                    ) : (
-                                                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 whitespace-nowrap">Particular</span>
-                                                                                    )}
+                                                                                <span className="w-44 shrink-0 self-center flex items-center justify-start">
+                                                                                    {(() => {
+                                                                                        const isCanceled = effectiveStatus === 'canceled';
+                                                                                        const isCompleted = effectiveStatus === 'completed';
+
+                                                                                        const formatConvenioName = (name: string) => {
+                                                                                            if (!name) return 'Convênio';
+                                                                                            return name
+                                                                                                .replace(/-/g, ' ')
+                                                                                                .split(' ')
+                                                                                                .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+                                                                                                .join(' ');
+                                                                                        };
+
+                                                                                        const isPrepaidPackage = a.package && (
+                                                                                            a.package.paymentType === 'full' ||
+                                                                                            a.package.paymentType === 'prepaid' ||
+                                                                                            a.package.model === 'full' ||
+                                                                                            a.package.model === 'prepaid'
+                                                                                        );
+
+                                                                                        const isPerSessionPackage = a.package && (
+                                                                                            a.package.paymentType === 'per-session' ||
+                                                                                            a.package.paymentType === 'per_session' ||
+                                                                                            a.package.model === 'per-session' ||
+                                                                                            a.package.model === 'per_session'
+                                                                                        );
+
+                                                                                        // 1. Categoria
+                                                                                        const categoria =
+                                                                                            a.billingType === 'convenio' || a.insuranceProvider ? formatConvenioName(a.insuranceProvider || a.billingType) :
+                                                                                            a.billingType === 'liminar' ? 'Liminar' :
+                                                                                            a.serviceType === 'evaluation' ? 'Avaliação' :
+                                                                                            a.serviceType === 'neuropsych_evaluation' ? 'Aval. Neuro.' :
+                                                                                            a.package ? 'Pacote' :
+                                                                                            'Particular';
+
+                                                                                        // 2. Modelo / forma de pagamento (sem redundância com categoria)
+                                                                                        const modeloPagamento = isCanceled ? 'Cancelado' :
+                                                                                            a.billingType === 'convenio' || a.billingType === 'liminar' || a.insuranceProvider ? '' :
+                                                                                            a.package ? (isPrepaidPackage ? 'Pré-pago' : isPerSessionPackage ? 'Por Sessão' : 'Pacote') :
+                                                                                            a.paymentMethod ? (a.paymentMethod === 'pix' ? 'PIX' : a.paymentMethod === 'dinheiro' ? 'Dinheiro' : a.paymentMethod === 'credit_card' || a.paymentMethod === 'credito' ? 'Crédito' : a.paymentMethod === 'debit_card' || a.paymentMethod === 'debito' ? 'Débito' : a.paymentMethod === 'transferencia' ? 'Transf.' : a.paymentMethod) :
+                                                                                            'À Vista';
+
+                                                                                        // 3. Status de atendimento / cobrança
+                                                                                        const statusAtendimento = isCanceled ? 'Cancelado' :
+                                                                                            isCompleted ? 'Atendido' :
+                                                                                            statusFinanceiro === 'Pago na Sessão' || statusFinanceiro === 'Avaliação Paga' ? 'Pago' :
+                                                                                            statusFinanceiro === 'Pré-pago' ? 'Pago' :
+                                                                                            statusFinanceiro === 'Pacote Pendente' ? 'Sessão Pendente' :
+                                                                                            statusFinanceiro === 'Pendente' ? 'Pendente' :
+                                                                                            statusFinanceiro === 'Pago Parcial' ? 'Parcial' :
+                                                                                            a.operationalStatus === 'scheduled' ? 'Agendado' :
+                                                                                            a.operationalStatus === 'confirmed' ? 'Agendado' :
+                                                                                            'Pendente';
+
+                                                                                        const colorClass =
+                                                                                            statusAtendimento === 'Atendido' || statusAtendimento === 'Pago' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                                                            statusAtendimento === 'Pré-pago' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                                                                                            statusAtendimento === 'Por Sessão' || statusAtendimento === 'Sessão Pendente' || statusAtendimento === 'Pendente' || statusAtendimento === 'Agendado' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                                                            statusAtendimento === 'Parcial' || statusAtendimento === 'Pago Parcial' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                                                                                            statusAtendimento === 'Cancelado' ? 'bg-red-50 text-red-700 border-red-200' :
+                                                                                            'bg-sky-50 text-sky-700 border-sky-200';
+
+                                                                                        const badgeParts = [categoria, modeloPagamento, statusAtendimento].filter(Boolean);
+
+                                                                                        return (
+                                                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border whitespace-nowrap ${colorClass}`}>
+                                                                                                {badgeParts.join(' · ')}
+                                                                                            </span>
+                                                                                        );
+                                                                                    })()}
                                                                                 </span>
-                                                                                <span className="w-28 shrink-0 self-center flex items-center justify-center">
-                                                                                    {a.operationalStatus !== 'canceled' && sfText ? (
-                                                                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${
-                                                                                            statusFinanceiro === 'Pago na Sessão' || statusFinanceiro === 'Avaliação Paga' ? 'bg-emerald-100 text-emerald-700' :
-                                                                                            statusFinanceiro === 'Pré-pago' ? 'bg-indigo-100 text-indigo-700' :
-                                                                                            statusFinanceiro === 'Pendente' || statusFinanceiro === 'Pacote Pendente' ? 'bg-amber-100 text-amber-700' :
-                                                                                            statusFinanceiro === 'Pago Parcial' ? 'bg-orange-100 text-orange-700' :
-                                                                                            statusFinanceiro === 'Convênio' ? 'bg-blue-100 text-blue-700' :
-                                                                                            statusFinanceiro === 'Liminar' ? 'bg-purple-100 text-purple-700' :
-                                                                                            'bg-gray-100 text-gray-600'
-                                                                                        }`}>{sfText}</span>
-                                                                                    ) : null}
-                                                                                </span>
+                                                                                <span className="w-28 shrink-0 self-center text-xs text-gray-400 truncate">{a.specialty || '-'}</span>
                                                                                 <span className={`text-sm font-bold shrink-0 w-16 text-right self-center ${valor > 0 ? 'text-gray-900' : 'text-gray-300'}`}>{valor > 0 ? `R$${valor.toLocaleString('pt-BR')}` : '—'}</span>
                                                                             </div>
                                                                             {showNowAfterThis && <NowMarker />}

@@ -59,6 +59,8 @@ interface Payment {
     grossAmount: number;
     status: string;
     paymentDate: string;
+    paidAt?: string | null;
+    billedAt?: string | null;
     authorizationCode?: string;
     specialty?: string;
     guideNumber?: string;
@@ -215,6 +217,18 @@ function MonthlyPaymentTable({ monthlyGroups, selectedPayments, onTogglePayment,
                                                                     >
                                                                         {urgencyLabel(daysSince(payment.paymentDate), payment.status)}
                                                                     </Typography>
+                                                                )}
+                                                                {payment.status === 'received' && payment.paidAt && (
+                                                                    <Box sx={{
+                                                                        display: 'inline-flex', alignItems: 'center', gap: 0.5,
+                                                                        px: 0.75, py: 0.25, mt: 0.25,
+                                                                        bgcolor: '#F0FDF4', border: '1px solid #BBF7D0',
+                                                                        borderRadius: 1
+                                                                    }}>
+                                                                        <Typography fontSize="0.63rem" fontWeight={700} color="#15803D">
+                                                                            ✓ caixa {formatDateBR(payment.paidAt)}
+                                                                        </Typography>
+                                                                    </Box>
                                                                 )}
                                                             </Box>
                                                             {getStatusChip(payment.status)}

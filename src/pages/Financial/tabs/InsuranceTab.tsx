@@ -33,7 +33,6 @@ import {
     Plus,
     Send,
     ChevronDown,
-    ChevronUp,
     TrendingUp,
     TrendingDown,
     History
@@ -718,7 +717,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                 <Grid size={{ xs: 12, md: 3 }}>
                                     <div className="rounded-2xl border-2 p-5 shadow-sm h-full" style={{ borderColor: '#6366F1', backgroundColor: '#F5F3FF' }}>
                                         <div className="flex items-center justify-between mb-3">
-                                            <span className="text-xs font-black uppercase tracking-widest text-purple-700">🏥 Produção Total</span>
+                                            <span className="text-xs font-black uppercase tracking-widest text-purple-700">Produção</span>
                                             {summary.changePercent !== null && (
                                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${(summary.change ?? 0) >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                                                     {(summary.change ?? 0) >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
@@ -729,7 +728,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                         <div className="text-3xl font-black text-gray-900 tracking-tight my-2">
                                             {prodTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         </div>
-                                        <p className="text-sm text-gray-500">{ms.pendingCount + ms.receivedCount} atendimentos</p>
+                                        <p className="text-sm text-gray-500">{ms.pendingCount + ms.receivedCount} sessões realizadas</p>
+                                        <p className="text-xs text-gray-400 mt-1">Valor gerado — não é caixa ainda</p>
                                         {summary.prevMonthTotal !== null && (
                                             <p className="text-xs text-gray-400 mt-1">
                                                 Mês anterior: <span className="font-semibold text-gray-600">{summary.prevMonthTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
@@ -742,15 +742,13 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                 <Grid size={{ xs: 12, md: 3 }}>
                                     <div className="rounded-2xl border-2 p-5 shadow-sm h-full" style={{ borderColor: '#F59E0B', backgroundColor: '#FFFBEB' }}>
                                         <div className="flex items-center justify-between mb-3">
-                                            <span className="text-xs font-black uppercase tracking-widest text-amber-700">⏳ A Faturar</span>
+                                            <span className="text-xs font-black uppercase tracking-widest text-amber-700">A Faturar</span>
                                         </div>
                                         <div className="text-3xl font-black text-gray-900 tracking-tight my-2">
                                             {ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         </div>
-                                        <p className="text-sm text-gray-500">{ms.pendingCount} atendimentos</p>
-                                        <p className="text-xs text-gray-400 mt-1">
-                                            {pendingGuides.length} guia(s) + {orphanSessions.length} sem guia
-                                        </p>
+                                        <p className="text-sm text-gray-500">{ms.pendingCount} sessões · {pendingGuides.length} guia{pendingGuides.length !== 1 ? 's' : ''}</p>
+                                        <p className="text-xs text-gray-400 mt-1">Não enviado ao convênio · fora do caixa</p>
                                     </div>
                                 </Grid>
 
@@ -758,13 +756,13 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                 <Grid size={{ xs: 12, md: 3 }}>
                                     <div className="rounded-2xl border-2 p-5 shadow-sm h-full" style={{ borderColor: '#3B82F6', backgroundColor: '#EFF6FF' }}>
                                         <div className="flex items-center justify-between mb-3">
-                                            <span className="text-xs font-black uppercase tracking-widest text-blue-700">📤 Faturado</span>
+                                            <span className="text-xs font-black uppercase tracking-widest text-blue-700">Faturado</span>
                                         </div>
                                         <div className="text-3xl font-black text-gray-900 tracking-tight my-2">
                                             {ms.totalFaturado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         </div>
-                                        <p className="text-sm text-gray-500">{ms.billedCount} atendimentos</p>
-                                        <p className="text-xs text-gray-400 mt-1">Aguardando pagamento do convênio</p>
+                                        <p className="text-sm text-gray-500">{ms.billedCount} sessões enviadas</p>
+                                        <p className="text-xs text-gray-400 mt-1">Aguardando repasse · ainda fora do caixa</p>
                                     </div>
                                 </Grid>
 
@@ -772,13 +770,13 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                 <Grid size={{ xs: 12, md: 3 }}>
                                     <div className="rounded-2xl border-2 p-5 shadow-sm h-full" style={{ borderColor: '#10B981', backgroundColor: '#F0FDF4' }}>
                                         <div className="flex items-center justify-between mb-3">
-                                            <span className="text-xs font-black uppercase tracking-widest text-emerald-700">✅ Recebido</span>
+                                            <span className="text-xs font-black uppercase tracking-widest text-emerald-700">Recebido</span>
                                         </div>
                                         <div className="text-3xl font-black text-gray-900 tracking-tight my-2">
                                             {ms.totalRecebido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         </div>
-                                        <p className="text-sm text-gray-500">{ms.receivedCount} atendimentos</p>
-                                        <p className="text-xs text-gray-400 mt-1">Repasse recebido do convênio</p>
+                                        <p className="text-sm text-gray-500">{ms.receivedCount} sessões pagas</p>
+                                        <p className="text-xs text-emerald-600 font-semibold mt-1">✓ Entrou no caixa</p>
                                     </div>
                                 </Grid>
                             </Grid>
@@ -938,49 +936,74 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                 const groupTotal = group.totalPending || 0;
                                 const isExpanded = expandedGroups[group._id] !== false;
 
+                                const tabAccent = subTab === 1 ? '#3B82F6' : '#10B981';
+                                // Para aba Recebidos: extrai datas de entrada no caixa
+                                const allPaidDates = subTab === 2
+                                    ? patientsToShow.flatMap((p: any) =>
+                                        (p.payments || []).filter((pay: any) => pay.paidAt).map((pay: any) => pay.paidAt as string)
+                                      ).sort()
+                                    : [];
+                                const formatDateBR = (d: string) => { const dt = new Date(d); return `${String(dt.getUTCDate()).padStart(2,'0')}/${String(dt.getUTCMonth()+1).padStart(2,'0')}/${dt.getUTCFullYear()}`; };
+                                const cashDateLabel = allPaidDates.length > 0
+                                    ? allPaidDates[0] === allPaidDates[allPaidDates.length - 1]
+                                        ? `caixa ${formatDateBR(allPaidDates[0])}`
+                                        : `caixa ${formatDateBR(allPaidDates[0])} – ${formatDateBR(allPaidDates[allPaidDates.length - 1])}`
+                                    : null;
                                 return (
-                                    <Card key={group._id} variant="outlined" sx={{ width: "100%", borderRadius: 2, overflow: 'hidden', border: '1px solid #E5E7EB' }}>
-                                        {/* Header do Convênio */}
+                                    <Card key={group._id} elevation={0} sx={{
+                                        width: '100%', borderRadius: 3,
+                                        border: '1.5px solid #E2E8F0', overflow: 'hidden',
+                                        boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+                                        transition: 'box-shadow 0.15s',
+                                        '&:hover': { boxShadow: '0 2px 10px rgba(0,0,0,0.08)' }
+                                    }}>
+                                        <Box sx={{ height: 3, bgcolor: tabAccent }} />
                                         <Box
-                                            sx={{
-                                                px: 2.5,
-                                                py: 1.75,
-                                                background: 'linear-gradient(90deg, #EFF6FF 0%, #F9FAFB 100%)',
-                                                borderBottom: isExpanded ? '1px solid #E5E7EB' : 'none',
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                cursor: 'pointer',
-                                                '&:hover': { background: 'linear-gradient(90deg, #DBEAFE 0%, #F3F4F6 100%)' }
-                                            }}
                                             onClick={() => toggleGroup(group._id)}
+                                            sx={{
+                                                px: 2.5, py: 2,
+                                                bgcolor: isExpanded ? '#FAFAFA' : 'white',
+                                                borderBottom: isExpanded ? '1px solid #F1F5F9' : 'none',
+                                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                                cursor: 'pointer',
+                                                '&:hover': { bgcolor: '#F8FAFC' },
+                                            }}
                                         >
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                <Avatar sx={{ bgcolor: '#2563EB', width: 36, height: 36 }}>
-                                                    <Building2 className="w-4 h-4 text-white" />
-                                                </Avatar>
-                                                <Box>
-                                                    <Typography fontWeight="700" fontSize="0.95rem" color="#1E40AF">
-                                                        {formatProviderName(group._id)}
+                                            <Box>
+                                                <Typography fontWeight="800" fontSize="0.95rem" color="#0F172A" sx={{ mb: 0.25 }}>
+                                                    {formatProviderName(group._id)}
+                                                </Typography>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                                                    <Typography fontSize="0.76rem" color="#94A3B8">
+                                                        {patientsToShow.reduce((sum, p) => sum + (p.payments?.length || 0), 0)} atendimentos · {patientsToShow.length} paciente{patientsToShow.length !== 1 ? 's' : ''}
                                                     </Typography>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        {patientsToShow.reduce((sum, p) => sum + (p.payments?.length || 0), 0)} atendimentos • {patientsToShow.length} paciente{patientsToShow.length !== 1 ? 's' : ''}
-                                                    </Typography>
+                                                    {cashDateLabel && (
+                                                        <Box sx={{
+                                                            display: 'inline-flex', alignItems: 'center', gap: 0.5,
+                                                            px: 0.75, py: 0.2,
+                                                            bgcolor: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 1
+                                                        }}>
+                                                            <Typography fontSize="0.68rem" fontWeight={700} color="#15803D">
+                                                                ✓ {cashDateLabel}
+                                                            </Typography>
+                                                        </Box>
+                                                    )}
                                                 </Box>
                                             </Box>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                <Chip
-                                                    size="small"
-                                                    label={groupTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                                    sx={{ bgcolor: '#2563EB', color: 'white', fontWeight: 'bold', fontSize: '0.8rem' }}
-                                                />
-                                                {isExpanded ? <ChevronUp size={18} color="#6B7280" /> : <ChevronDown size={18} color="#6B7280" />}
+                                                <Box sx={{ px: 1.75, py: 0.6, bgcolor: tabAccent, borderRadius: 2 }}>
+                                                    <Typography fontWeight="800" fontSize="0.85rem" color="white">
+                                                        {groupTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                    </Typography>
+                                                </Box>
+                                                <Box sx={{ color: '#CBD5E1', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                                                    <ChevronDown size={18} />
+                                                </Box>
                                             </Box>
                                         </Box>
 
-                                        {/* Lista de Pacientes com Accordion e Tabs */}
                                         <Collapse in={isExpanded}>
-                                            <div className="divide-y">
+                                            <div className="divide-y divide-slate-50">
                                                 {patientsToShow.map((patient) => (
                                                     <PatientAccordionSection
                                                         key={patient.patientId}
