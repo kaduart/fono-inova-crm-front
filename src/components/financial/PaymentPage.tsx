@@ -877,54 +877,31 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
             <div className="space-y-4">
                 {/* Cabeçalho com título e exportação */}
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                    <Typography variant="h6" sx={{ fontWeight: 700, color: 'grey.800' }}>
-                        Pagamentos
-                    </Typography>
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-900">Pagamentos</h2>
+                        <p className="text-xs text-gray-400 mt-0.5">{filteredPayments.length} de {allPayments.length} registros</p>
+                    </div>
                     <div className="flex items-center gap-2">
-                        <Button
-                            variant="outlined"
-                            startIcon={
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                                </svg>
-                            }
+                        <button
                             onClick={handleExportCSV}
                             disabled={loading}
-                            size="small"
-                            sx={{
-                                borderRadius: 1.5,
-                                px: 2,
-                                py: 0.5,
-                                fontSize: '0.75rem',
-                                fontWeight: 500,
-                                textTransform: 'none'
-                            }}
+                            className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-50 flex items-center gap-1.5 transition-colors disabled:opacity-50"
                         >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
                             CSV
-                        </Button>
-                        <Button
-                            variant="outlined"
-                            startIcon={
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-500" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                                </svg>
-                            }
+                        </button>
+                        <button
                             onClick={handleExportPDF}
                             disabled={loading}
-                            size="small"
-                            sx={{
-                                borderRadius: 1.5,
-                                px: 2,
-                                py: 0.5,
-                                fontSize: '0.75rem',
-                                fontWeight: 500,
-                                textTransform: 'none',
-                                borderColor: 'grey.300',
-                                color: 'grey.700',
-                            }}
+                            className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 flex items-center gap-1.5 transition-colors disabled:opacity-50"
                         >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
                             PDF
-                        </Button>
+                        </button>
                     </div>
                 </div>
 
@@ -982,7 +959,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {currentPayments.map(payment => (
-                                        <tr key={payment.id} className="hover:bg-gray-50 transition-colors">
+                                        <tr key={payment.id} className={`transition-colors ${payment.status === 'canceled' ? 'bg-rose-50' : payment.status === 'pending' ? 'bg-amber-50/40' : 'hover:bg-gray-50'}`}>
                                             <td className="px-3 py-2">
                                                 <div className="flex items-center gap-1.5 mb-1">
                                                     <User className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
@@ -1005,16 +982,13 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                                                 {(() => {
                                                     const appointmentDate = payment.appointment?.date || payment.date;
                                                     const appointmentTime = payment.appointment?.time;
-                                                    const operationalStatus = payment.appointment?.status || 'scheduled';
-                                                    const statusColors: Record<string, string> = {
-                                                        scheduled: 'bg-blue-100 text-blue-800 border-blue-200',
-                                                        confirmed: 'bg-green-100 text-green-800 border-green-200',
-                                                        completed: 'bg-purple-100 text-purple-800 border-purple-200',
+                                                    const paymentStatusColors: Record<string, string> = {
+                                                        paid: 'bg-green-100 text-green-800 border-green-200',
+                                                        pending: 'bg-amber-100 text-amber-800 border-amber-200',
                                                         canceled: 'bg-red-100 text-red-800 border-red-200',
-                                                        missed: 'bg-orange-100 text-orange-800 border-orange-200',
-                                                        processing_complete: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                                                        partial: 'bg-orange-100 text-orange-800 border-orange-200',
                                                     };
-                                                    const colors = statusColors[operationalStatus] || statusColors.scheduled;
+                                                    const colors = paymentStatusColors[payment.status] || paymentStatusColors.pending;
                                                     if (!appointmentDate) return <span className="text-xs text-gray-400">—</span>;
                                                     return (
                                                         <div className={`inline-flex flex-col px-2 py-1 rounded-md border ${colors}`}>

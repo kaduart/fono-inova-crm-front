@@ -183,9 +183,9 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <Avatar sx={{ bgcolor: '#EF4444', width: 48, height: 48 }}>
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#EF4444' }}>
             <TrendingDown className="w-6 h-6 text-white" />
-          </Avatar>
+          </div>
           <div>
             <h2 className="text-xl font-bold text-gray-900">Despesas</h2>
             <p className="text-sm text-gray-500">Controle de gastos, comissões e contas a pagar</p>
@@ -222,50 +222,38 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
       {/* Cards de Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
         {/* Total Pago */}
-        <div className="border rounded-xl p-4" style={{ borderColor: '#10B98120', backgroundColor: '#10B98108' }}>
-          <div className="flex items-center gap-4">
-            <Avatar sx={{ bgcolor: '#10B981', width: 40, height: 40 }}>
-              <CheckCircle className="w-5 h-5 text-white" />
-            </Avatar>
-            <div className="flex-1">
-              <p className="text-xs text-gray-500">Total Pago</p>
-              <p className="text-xl font-bold text-emerald-700">
-                R$ {totals.totalPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </p>
-              <p className="text-xs text-gray-500">{totals.countPaid} despesas pagas</p>
-            </div>
+        <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+          <div style={{ height: 3, backgroundColor: '#10B981' }} />
+          <div className="p-4 bg-white">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Total Pago</p>
+            <p className="text-2xl font-black text-emerald-700 mb-1">
+              R$ {totals.totalPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </p>
+            <p className="text-xs text-gray-500">{totals.countPaid} despesas pagas</p>
           </div>
         </div>
 
         {/* Total Pendente */}
-        <div className="border rounded-xl p-4" style={{ borderColor: '#F59E0B20', backgroundColor: '#F59E0B08' }}>
-          <div className="flex items-center gap-4">
-            <Avatar sx={{ bgcolor: '#F59E0B', width: 40, height: 40 }}>
-              <Clock className="w-5 h-5 text-white" />
-            </Avatar>
-            <div className="flex-1">
-              <p className="text-xs text-gray-500">Total Pendente</p>
-              <p className="text-xl font-bold text-amber-700">
-                R$ {totals.totalPending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </p>
-              <p className="text-xs text-gray-500">{totals.countPending} despesas pendentes</p>
-            </div>
+        <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+          <div style={{ height: 3, backgroundColor: '#9CA3AF' }} />
+          <div className="p-4 bg-white">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Total Pendente</p>
+            <p className="text-2xl font-black text-gray-700 mb-1">
+              R$ {totals.totalPending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </p>
+            <p className="text-xs text-gray-500">{totals.countPending} despesas pendentes</p>
           </div>
         </div>
 
         {/* Total Geral */}
-        <div className="border rounded-xl p-4" style={{ borderColor: '#6366F120', backgroundColor: '#6366F108' }}>
-          <div className="flex items-center gap-4">
-            <Avatar sx={{ bgcolor: '#6366F1', width: 40, height: 40 }}>
-              <DollarSign className="w-5 h-5 text-white" />
-            </Avatar>
-            <div className="flex-1">
-              <p className="text-xs text-gray-500">Total Geral</p>
-              <p className="text-xl font-bold text-indigo-700">
-                R$ {(totals.totalPaid + totals.totalPending).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </p>
-              <p className="text-xs text-gray-500">{totals.countPaid + totals.countPending} despesas no total</p>
-            </div>
+        <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+          <div style={{ height: 3, backgroundColor: '#8B5CF6' }} />
+          <div className="p-4 bg-white">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Total Geral</p>
+            <p className="text-2xl font-black text-violet-700 mb-1">
+              R$ {(totals.totalPaid + totals.totalPending).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </p>
+            <p className="text-xs text-gray-500">{totals.countPaid + totals.countPending} despesas no total</p>
           </div>
         </div>
       </div>
@@ -376,9 +364,9 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                   
                   return (
                     <>
-                      <tr 
+                      <tr
                         key={expense._id}
-                        className={`hover:bg-gray-50 transition-colors ${isExpanded ? 'bg-gray-50' : ''}`}
+                        className={`transition-colors ${expense.status === 'canceled' ? 'bg-rose-50' : isExpanded ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
                       >
                         <td className="px-2 py-2">
                           <button onClick={() => toggleRow(expense._id)} className="p-1 rounded hover:bg-gray-200">

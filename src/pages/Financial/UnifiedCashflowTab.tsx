@@ -1510,281 +1510,347 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
 
                     {/* Tab 4: Agendamentos {periodTitle} */}
                     {activeTab === 4 && (
-                        <div className="bg-white rounded-lg border border-gray-200 p-3">
-                            <div className="mb-3">
-                                <h3 className="text-base font-semibold mb-2">📅 Agenda {periodTitle} ({dayAppointments.length})</h3>
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                    {([
-                                        { value: 'all',          label: 'Todos' },
-                                        { value: 'completed',    label: 'Atendidos' },
-                                        { value: 'scheduled',    label: 'Agendados' },
-                                        { value: 'confirmed',    label: 'Confirmados' },
-                                        { value: 'canceled',     label: 'Cancelados' },
-                                        { value: 'pre_agendado', label: 'Pré-agendado' },
-                                    ] as const).map(opt => (
-                                        <button key={opt.value} onClick={() => setAppointmentFilter(opt.value)}
-                                            className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${appointmentFilter === opt.value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}>
-                                            {opt.label}
-                                        </button>
-                                    ))}
-                                    {(() => {
-                                        const profs = [...new Set(dayAppointments.map((a: any) => a.professionalName).filter(Boolean))].sort() as string[];
-                                        if (profs.length <= 1) return null;
-                                        return (
-                                            <select value={appointmentProfFilter} onChange={(e) => setAppointmentProfFilter(e.target.value)}
-                                                className="px-2.5 py-1 rounded-full text-xs font-medium border border-gray-300 bg-white text-gray-600 hover:border-gray-400 outline-none cursor-pointer">
-                                                <option value="all">Todos profissionais</option>
-                                                {profs.map(p => <option key={p} value={p}>{p}</option>)}
-                                            </select>
-                                        );
-                                    })()}
+                        <div className="space-y-3">
+                            {/* Título + contadores por status */}
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900">Agenda do Dia <span className="text-gray-400 font-normal text-base">({dayAppointments.length})</span></h3>
+                                    <p className="text-xs text-gray-400 mt-0.5">{new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {[
+                                        { key: 'completed',    label: 'atendidos',     cls: 'bg-emerald-100 text-emerald-800' },
+                                        { key: 'canceled',     label: 'cancelados',    cls: 'bg-rose-100 text-rose-800' },
+                                        { key: 'confirmed',    label: 'confirmados',   cls: 'bg-sky-100 text-sky-800' },
+                                        { key: 'scheduled',    label: 'agendados',     cls: 'bg-blue-100 text-blue-800' },
+                                        { key: 'pre_agendado', label: 'pré-agendados', cls: 'bg-amber-100 text-amber-800' },
+                                    ].map(({ key, label, cls }) => {
+                                        const count = dayAppointments.filter((a: any) => a.operationalStatus === key).length;
+                                        if (count === 0) return null;
+                                        return <span key={key} className={`px-2.5 py-1 rounded-full text-xs font-bold ${cls}`}>{count} {label}</span>;
+                                    })}
                                 </div>
                             </div>
 
-                            {loadingAppointments ? (
-                                <Alert severity="info">Carregando agendamentos...</Alert>
-                            ) : dayAppointments.length === 0 ? (
-                                <Alert severity="info">Nenhum agendamento encontrado para {isRangeActive ? 'este período' : 'este dia'}.</Alert>
-                            ) : (
-                                <>
-                                    {/* Timeline de agendamentos */}
-                                    {(() => {
-                                        const sfShort: Record<string, string> = {
-                                            'Pré-pago': 'Pré-pago', 'Pago na Sessão': 'Pago', 'Avaliação Paga': 'Pago',
-                                            'Pago Parcial': 'Parcial', 'Pendente': 'Pendente', 'Pacote Pendente': 'Sessão Pendente',
-                                            'Convênio': 'Convênio', 'Liminar': 'Liminar', 'Cancelado': '',
-                                        };
-                                        const statusMap: Record<string, { border: string; badge: string; label: string }> = {
-                                            completed:    { border: 'border-l-green-500',  badge: 'bg-green-100 text-green-800',  label: 'Atendido' },
-                                            scheduled:    { border: 'border-l-blue-500',   badge: 'bg-blue-100 text-blue-800',    label: 'Agendado' },
-                                            confirmed:    { border: 'border-l-sky-400',    badge: 'bg-sky-100 text-sky-800',      label: 'Confirmado' },
-                                            canceled:     { border: 'border-l-red-400',    badge: 'bg-red-100 text-red-800',      label: 'Cancelado' },
-                                            pre_agendado: { border: 'border-l-amber-400',  badge: 'bg-amber-100 text-amber-800',  label: 'Pré-agendado' },
-                                        };
-                                        const toMin = (t: string) => { const [h, m] = (t || '00:00').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+                            {/* Legenda de tipos de atendimento */}
+                            <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2.5">
+                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Tipos de Atendimento</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {[
+                                        { icon: '📦', label: 'Pacote pré-pago',    cls: 'bg-violet-100 text-violet-700' },
+                                        { icon: '📦', label: 'Pacote por sessão',   cls: 'bg-purple-100 text-purple-700' },
+                                        { icon: '👤', label: 'Particular',          cls: 'bg-blue-100 text-blue-700' },
+                                        { icon: '🏥', label: 'Convênio',            cls: 'bg-sky-100 text-sky-700' },
+                                        { icon: '📋', label: 'Avaliação',           cls: 'bg-pink-100 text-pink-700' },
+                                        { icon: '👅', label: 'Teste da Linguinha',  cls: 'bg-teal-100 text-teal-700' },
+                                        { icon: '⚖️', label: 'Liminar',            cls: 'bg-orange-100 text-orange-700' },
+                                    ].map(t => (
+                                        <span key={t.label} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${t.cls}`}>
+                                            {t.icon} {t.label}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
 
-                                        // IDs de agendamentos já contabilizados na produção/cashflow (portanto, atendidos)
-                                        const getApptId = (item: any) => String(item?.id || item?._id || '');
-                                        const attendedIds = new Set<string>([
-                                            ...(data.pacotesAtendidos?.map(getApptId) || []),
-                                            ...(data.conveniosAtendidos?.map(getApptId) || []),
-                                            ...(data.transacoesProducao?.map(getApptId) || [])
-                                        ].filter(Boolean));
+                            {/* Filtros */}
+                            <div className="flex flex-wrap items-center gap-1.5">
+                                {([
+                                    { value: 'all',          label: 'Todos' },
+                                    { value: 'completed',    label: 'Atendidos' },
+                                    { value: 'scheduled',    label: 'Agendados' },
+                                    { value: 'confirmed',    label: 'Confirmados' },
+                                    { value: 'canceled',     label: 'Cancelados' },
+                                    { value: 'pre_agendado', label: 'Pré-agendado' },
+                                ] as const).map(opt => (
+                                    <button key={opt.value} onClick={() => setAppointmentFilter(opt.value)}
+                                        className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${appointmentFilter === opt.value ? (opt.value === 'canceled' ? 'bg-rose-600 text-white border-rose-600' : 'bg-gray-900 text-white border-gray-900') : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}>
+                                        {opt.label}
+                                    </button>
+                                ))}
+                                {(() => {
+                                    const profs = [...new Set(dayAppointments.map((a: any) => a.professionalName).filter(Boolean))].sort() as string[];
+                                    if (profs.length <= 1) return null;
+                                    return (
+                                        <select value={appointmentProfFilter} onChange={(e) => setAppointmentProfFilter(e.target.value)}
+                                            className="px-2.5 py-1.5 rounded-full text-sm font-medium border border-gray-300 bg-white text-gray-600 hover:border-gray-400 outline-none cursor-pointer">
+                                            <option value="all">Todos profissionais</option>
+                                            {profs.map(p => <option key={p} value={p}>{p}</option>)}
+                                        </select>
+                                    );
+                                })()}
+                            </div>
 
-                                        const getEffectiveStatus = (a: any) => {
-                                            if (a.operationalStatus === 'canceled') return 'canceled';
-                                            // Convênio/liminar com paymentStatus pending_receipt foi atendido mas operationalStatus pode estar stale
-                                            const isConvenioLiminarAtendido =
-                                                (a.billingType === 'convenio' || a.billingType === 'liminar' || a.insuranceProvider) &&
-                                                (a.paymentStatus === 'pending_receipt' || a.paymentStatus === 'not_applicable');
-                                            if (a.operationalStatus === 'completed' || attendedIds.has(getApptId(a)) || isConvenioLiminarAtendido) return 'completed';
-                                            return a.operationalStatus;
-                                        };
-
-                                        const filtered = [...dayAppointments]
-                                            .filter((a: any) => (appointmentFilter === 'all' || getEffectiveStatus(a) === appointmentFilter) && (appointmentProfFilter === 'all' || a.professionalName === appointmentProfFilter))
-                                            .sort((a: any, b: any) => toMin(a.time || '00:00') - toMin(b.time || '00:00'));
-                                        const hourGroups: Record<number, any[]> = {};
-                                        filtered.forEach((a: any) => { const h = parseInt((a.time || '00:00').split(':')[0]) || 0; if (!hourGroups[h]) hourGroups[h] = []; hourGroups[h].push(a); });
-                                        const sortedHours = Object.keys(hourGroups).map(Number).sort((a, b) => a - b);
-                                        const now = new Date();
-                                        const nowMin = now.getHours() * 60 + now.getMinutes();
-                                        const nowStr = format(now, 'HH:mm');
-                                        const todayStr = format(now, 'yyyy-MM-dd');
-                                        const isToday = selectedDate === todayStr;
-                                        const atendidos = filtered.filter((a: any) => getEffectiveStatus(a) === 'completed');
-                                        const totalVal = atendidos.reduce((s: number, a: any) => s + (a.sessionValue || a.package?.sessionValue || 0), 0);
-                                        const NowMarker = () => (
-                                            <div className="flex items-center gap-2 py-1.5 px-1">
-                                                <span className="text-[11px] text-red-400 font-medium whitespace-nowrap">⏱ agora · {nowStr}</span>
-                                                <div className="flex-1 border-t border-dashed border-red-400 opacity-60" />
-                                            </div>
-                                        );
-                                        let nowRendered = false;
-                                        return (
-                                            <div className="space-y-0 mt-1">
-                                            {/* Header */}
-                                            <div className="flex gap-2 py-0.5 mb-1">
-                                                <div className="w-7 shrink-0" />
-                                                <div className="flex-1">
-                                                    <div className="flex gap-4 px-3 pb-1.5 border-b border-gray-200 items-center">
-                                                        <span className="text-[11px] text-gray-400 w-10 shrink-0">Hora</span>
-                                                        <span className="text-[11px] text-gray-400 flex-1 min-w-0" style={{ textAlign: 'left' }}>Paciente</span>
-                                                        <span className="text-[11px] text-gray-400 w-36 text-left shrink-0">Pacote</span>
-                                                        <span className="text-[11px] text-gray-400 w-44 text-left shrink-0">Status</span>
-                                                        <span className="text-[11px] text-gray-400 w-28 shrink-0 text-left">Especialidade</span>
-                                                        <span className="text-[11px] text-gray-400 w-16 text-right shrink-0">Valor</span>
-                                                    </div>
+                            {/* Timeline card */}
+                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                                {loadingAppointments ? (
+                                    <div className="p-8 text-center text-sm text-gray-400">Carregando agendamentos...</div>
+                                ) : dayAppointments.length === 0 ? (
+                                    <div className="p-8 text-center text-sm text-gray-400">Nenhum agendamento encontrado para {isRangeActive ? 'este período' : 'este dia'}.</div>
+                                ) : (
+                                    <>
+                                        {(() => {
+                                            const toMin = (t: string) => { const [h, m] = (t || '00:00').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+                                            const getApptId = (item: any) => String(item?.id || item?._id || '');
+                                            const attendedIds = new Set<string>([
+                                                ...(data.pacotesAtendidos?.map(getApptId) || []),
+                                                ...(data.conveniosAtendidos?.map(getApptId) || []),
+                                                ...(data.transacoesProducao?.map(getApptId) || [])
+                                            ].filter(Boolean));
+                                            const getEffectiveStatus = (a: any) => {
+                                                if (a.operationalStatus === 'canceled') return 'canceled';
+                                                const isConvenioLiminarAtendido =
+                                                    (a.billingType === 'convenio' || a.billingType === 'liminar' || a.insuranceProvider) &&
+                                                    (a.paymentStatus === 'pending_receipt' || a.paymentStatus === 'not_applicable');
+                                                if (a.operationalStatus === 'completed' || attendedIds.has(getApptId(a)) || isConvenioLiminarAtendido) return 'completed';
+                                                return a.operationalStatus;
+                                            };
+                                            const filtered = [...dayAppointments]
+                                                .filter((a: any) => (appointmentFilter === 'all' || getEffectiveStatus(a) === appointmentFilter) && (appointmentProfFilter === 'all' || a.professionalName === appointmentProfFilter))
+                                                .sort((a: any, b: any) => toMin(a.time || '00:00') - toMin(b.time || '00:00'));
+                                            const hourGroups: Record<number, any[]> = {};
+                                            filtered.forEach((a: any) => { const h = parseInt((a.time || '00:00').split(':')[0]) || 0; if (!hourGroups[h]) hourGroups[h] = []; hourGroups[h].push(a); });
+                                            const sortedHours = Object.keys(hourGroups).map(Number).sort((a, b) => a - b);
+                                            const now = new Date();
+                                            const nowMin = now.getHours() * 60 + now.getMinutes();
+                                            const nowStr = format(now, 'HH:mm');
+                                            const todayStr = format(now, 'yyyy-MM-dd');
+                                            const isToday = selectedDate === todayStr;
+                                            const NowMarker = () => (
+                                                <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border-y border-red-100">
+                                                    <span className="text-[11px] text-red-500 font-bold whitespace-nowrap">⏰ agora · {nowStr}</span>
+                                                    <div className="flex-1 border-t border-dashed border-red-300" />
+                                                    <span className="text-[10px] text-red-400 whitespace-nowrap">próximos ↓</span>
                                                 </div>
-                                            </div>
-                                                {sortedHours.map((hour, idx) => {
-                                                    const apts = hourGroups[hour];
-                                                    const prevHourEnd = idx > 0 ? sortedHours[idx - 1] * 60 + 59 : -1;
-                                                    const showNowBefore = isToday && !nowRendered && prevHourEnd < nowMin && nowMin < hour * 60;
-                                                    if (showNowBefore) nowRendered = true;
-                                                    return (
-                                                        <div key={hour}>
-                                                            {showNowBefore && <NowMarker />}
-                                                            <div className="flex gap-2 py-0.5">
-                                                                <div className="w-7 text-[11px] text-gray-500 font-medium pt-2.5 text-right shrink-0 leading-none">{String(hour).padStart(2,'0')}h</div>
-                                                                <div className="flex-1 space-y-1">
+                                            );
+                                            let nowRendered = false;
+                                            return (
+                                                <div className="divide-y divide-gray-50">
+                                                    {sortedHours.map((hour, idx) => {
+                                                        const apts = hourGroups[hour];
+                                                        const prevHourEnd = idx > 0 ? sortedHours[idx - 1] * 60 + 59 : -1;
+                                                        const showNowBefore = isToday && !nowRendered && prevHourEnd < nowMin && nowMin < hour * 60;
+                                                        if (showNowBefore) nowRendered = true;
+                                                        return (
+                                                            <React.Fragment key={hour}>
+                                                                {showNowBefore && <NowMarker />}
+                                                                <div>
                                                                     {apts.map((a: any, aptIdx: number) => {
                                                                         const effectiveStatus = getEffectiveStatus(a);
-                                                                        const sc = statusMap[effectiveStatus] || { border: 'border-gray-500', badge: 'bg-gray-800 text-gray-300', label: a.operationalStatus };
+                                                                        const isCanceled = effectiveStatus === 'canceled';
+                                                                        const isCompleted = effectiveStatus === 'completed';
+                                                                        const isConvenio = a.billingType === 'convenio' || !!a.insuranceProvider;
+                                                                        const isLiminar = a.billingType === 'liminar';
                                                                         const statusFinanceiro = resolveStatusFinanceiro(a);
-                                                                        const sfText = sfShort[statusFinanceiro] ?? (statusFinanceiro || '');
                                                                         const isNew = (analyticsData?.novos || []).some((n: any) => n._id === a.id);
                                                                         const valor = a.sessionValue || a.package?.sessionValue || 0;
                                                                         const phone = a.patientInfo?.phone || a.patient?.phone;
+                                                                        const patientName = a.patientInfo?.fullName || a.patient?.fullName || a.patientName || '-';
                                                                         const aptMin = toMin(a.time || '00:00');
-                                                                        const nextApt = apts[aptIdx + 1]
-                                                                            ?? (idx + 1 < sortedHours.length ? hourGroups[sortedHours[idx + 1]][0] : null);
+                                                                        const nextApt = apts[aptIdx + 1] ?? (idx + 1 < sortedHours.length ? hourGroups[sortedHours[idx + 1]][0] : null);
                                                                         const nextMin = nextApt ? toMin(nextApt.time || '00:00') : Infinity;
                                                                         const showNowAfterThis = isToday && !nowRendered && aptMin <= nowMin && nowMin < nextMin;
                                                                         if (showNowAfterThis) nowRendered = true;
+
+                                                                        const formatConvenioName = (name: string) => name ? name.replace(/-/g, ' ').split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'Convênio';
+                                                                        const isPrepaid = a.package && (a.package.paymentType === 'full' || a.package.paymentType === 'prepaid' || a.package.model === 'full' || a.package.model === 'prepaid');
+                                                                        const isPerSession = a.package && (a.package.paymentType === 'per-session' || a.package.paymentType === 'per_session' || a.package.model === 'per-session' || a.package.model === 'per_session');
+                                                                        const serviceType = a.serviceType || '';
+
+                                                                        // Tipo de atendimento (badge esquerdo)
+                                                                        const typeLabel =
+                                                                            serviceType === 'tongue_tie_test' ? '👅 Teste da Linguinha' :
+                                                                            serviceType === 'evaluation' || serviceType === 'neuropsych_evaluation' ? '📋 Avaliação' :
+                                                                            isConvenio ? `🏥 ${formatConvenioName(a.insuranceProvider || '')}` :
+                                                                            isLiminar ? '⚖️ Liminar' :
+                                                                            isPrepaid ? '📦 Pré-pago' :
+                                                                            isPerSession ? '📦 Por sessão' :
+                                                                            a.package ? '📦 Pacote' :
+                                                                            '👤 Particular';
+
+                                                                        const typeCls =
+                                                                            serviceType === 'tongue_tie_test' ? 'bg-teal-100 text-teal-700' :
+                                                                            serviceType === 'evaluation' || serviceType === 'neuropsych_evaluation' ? 'bg-pink-100 text-pink-700' :
+                                                                            isConvenio ? 'bg-sky-100 text-sky-700' :
+                                                                            isLiminar ? 'bg-orange-100 text-orange-700' :
+                                                                            isPrepaid ? 'bg-violet-100 text-violet-700' :
+                                                                            isPerSession ? 'bg-purple-100 text-purple-700' :
+                                                                            a.package ? 'bg-purple-100 text-purple-700' :
+                                                                            'bg-blue-100 text-blue-700';
+
+                                                                        // Badge de pagamento (status financeiro)
+                                                                        const paymentBadge =
+                                                                            isCanceled ? '× Cancelado' :
+                                                                            isConvenio && isCompleted ? '✓ Atendido' :
+                                                                            isConvenio ? null :
+                                                                            isLiminar ? null :
+                                                                            statusFinanceiro === 'Pré-pago' ? '✓ Pago' :
+                                                                            statusFinanceiro === 'Pago na Sessão' || statusFinanceiro === 'Avaliação Paga' ? '✓ Pago na sessão' :
+                                                                            statusFinanceiro === 'Pacote Pendente' ? '⌛ Sessão pendente' :
+                                                                            statusFinanceiro === 'Pendente' ? '⌛ Pendente' :
+                                                                            statusFinanceiro === 'Pago Parcial' ? '◑ Parcial' :
+                                                                            null;
+
+                                                                        const paymentCls =
+                                                                            isCanceled ? 'bg-red-100 text-red-600' :
+                                                                            paymentBadge?.startsWith('✓') ? 'bg-emerald-100 text-emerald-700' :
+                                                                            paymentBadge?.startsWith('⌛') ? 'bg-amber-100 text-amber-700' :
+                                                                            paymentBadge?.startsWith('◑') ? 'bg-orange-100 text-orange-700' :
+                                                                            'bg-sky-100 text-sky-700';
+
+                                                                        // Badge de método de pagamento
+                                                                        const pm = a.paymentMethod;
+                                                                        const methodBadge: string | null = (!isCanceled && !isConvenio && !isLiminar && pm && pm !== 'pending')
+                                                                            ? (pm === 'pix' ? 'Pix · Imediato' :
+                                                                               pm === 'dinheiro' ? 'Dinheiro · Imediato' :
+                                                                               pm === 'credit_card' || pm === 'credito' || pm === 'cartao_credito' ? 'Cartão D+30' :
+                                                                               pm === 'debit_card' || pm === 'debito' || pm === 'cartao_debito' ? 'Débito · D+1' :
+                                                                               pm === 'transferencia' || pm === 'transferencia_bancaria' ? 'Transf. · D+1' :
+                                                                               pm)
+                                                                            : null;
+                                                                        const isCartaoD30 = methodBadge === 'Cartão D+30';
+
+                                                                        // Rótulo de status (canto direito)
+                                                                        const statusLabel =
+                                                                            isCanceled ? 'Cancelado' :
+                                                                            isCompleted ? (isConvenio ? 'Aguarda repasse' : 'Atendido') :
+                                                                            effectiveStatus === 'confirmed' ? 'Confirmado' :
+                                                                            effectiveStatus === 'pre_agendado' ? 'Pré-agendado' :
+                                                                            'Agendado';
+
+                                                                        const statusLabelCls =
+                                                                            isCanceled ? 'bg-rose-100 text-rose-700' :
+                                                                            isCompleted && isConvenio ? 'bg-sky-100 text-sky-700' :
+                                                                            isCompleted ? 'bg-emerald-100 text-emerald-800' :
+                                                                            effectiveStatus === 'confirmed' ? 'bg-sky-100 text-sky-700' :
+                                                                            effectiveStatus === 'pre_agendado' ? 'bg-amber-100 text-amber-700' :
+                                                                            'bg-gray-100 text-gray-600';
+
+                                                                        const leftBorder =
+                                                                            isCanceled ? 'border-l-red-400' :
+                                                                            isCompleted ? 'border-l-emerald-500' :
+                                                                            effectiveStatus === 'confirmed' ? 'border-l-sky-400' :
+                                                                            effectiveStatus === 'pre_agendado' ? 'border-l-amber-400' :
+                                                                            'border-l-blue-400';
+
+                                                                        // Progresso do pacote inline
+                                                                        let pkgProgress: React.ReactNode = null;
+                                                                        const pkg = a.package;
+                                                                        if (pkg) {
+                                                                            const used = pkg.usedSessions ?? pkg.sessionsUsed ?? 0;
+                                                                            const total = pkg.totalSessions ?? pkg.sessoes ?? pkg.sessions ?? 0;
+                                                                            const remaining = total > 0 ? total - used : 0;
+                                                                            const pct = total > 0 ? Math.max(0, Math.min(100, (used / total) * 100)) : 0;
+                                                                            const barColor = used < 0 ? '#EF4444' : used >= total && total > 0 ? '#EF4444' : remaining <= 1 ? '#F59E0B' : '#8B5CF6';
+                                                                            const progressText = used < 0 ? `${used}/${total} · sessão negativa ⚠` :
+                                                                                used >= total && total > 0 ? `${used}/${total} · encerrado 🔴` :
+                                                                                remaining === 1 ? `${used}/${total} sessões · 1 restante ⚠` :
+                                                                                `${used}/${total}${remaining > 0 ? ` · ${remaining} restantes` : ''}`;
+                                                                            const textCls = used < 0 || (used >= total && total > 0) ? 'text-red-500' : remaining <= 1 ? 'text-amber-600' : 'text-gray-400';
+                                                                            pkgProgress = (
+                                                                                <div className="flex items-center gap-2 mt-1.5">
+                                                                                    <div className="w-16 h-[3px] bg-gray-100 rounded-full overflow-hidden shrink-0">
+                                                                                        <div className="h-full rounded-full" style={{ width: `${Math.max(0, pct)}%`, backgroundColor: barColor }} />
+                                                                                    </div>
+                                                                                    <span className={`text-[10px] font-medium ${textCls}`}>{progressText}</span>
+                                                                                </div>
+                                                                            );
+                                                                        }
+
                                                                         return (
                                                                             <React.Fragment key={a.id}>
-                                                                            <div onClick={() => setSelectedApt(a)} className={`flex gap-4 px-3 py-2.5 rounded-lg border border-gray-200 border-l-[3px] cursor-pointer hover:shadow-md transition-shadow ${sc.border} ${effectiveStatus === 'completed' ? 'bg-green-50' : 'bg-gray-50'} ${effectiveStatus === 'canceled' ? 'opacity-50' : ''} ${effectiveStatus === 'completed' && (a.paymentStatus === 'pending' || a.visualFlag === 'pending') ? 'bg-red-50' : ''}`}>
-                                                                                <span className="text-xs text-gray-400 w-10 shrink-0 font-mono self-center">{a.time || '--:--'}</span>
-                                                                                <div className="flex-1 min-w-0 flex flex-col justify-center self-center overflow-hidden gap-0.5">
-                                                                                    <div className="flex items-center gap-1.5 overflow-hidden">
-                                                                                        <span className="text-sm font-bold text-gray-900 truncate shrink min-w-0">{a.patientInfo?.fullName || a.patient?.fullName || a.patientName || '-'}</span>
-                                                                                        {isNew && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 whitespace-nowrap shrink-0">1ª vez</span>}
-                                                                                        {phone && (
-                                                                                            <button className="inline-flex items-center gap-0.5 text-xs text-blue-500 hover:text-blue-700 whitespace-nowrap shrink-0"
-                                                                                                onClick={(e) => { e.stopPropagation(); handleOpenWhatsApp(phone); }}>
-                                                                                                <PhoneIcon style={{ fontSize: 11 }} />{phone}
-                                                                                            </button>
+                                                                                <div
+                                                                                    onClick={() => setSelectedApt(a)}
+                                                                                    className={`flex items-start gap-3 px-4 py-2.5 border-l-[3px] border-b border-b-gray-50 cursor-pointer transition-colors hover:bg-gray-50/70 ${leftBorder} ${isCanceled ? 'bg-rose-50/40' : ''}`}
+                                                                                >
+                                                                                    <div className="w-12 shrink-0 pt-0.5 text-right">
+                                                                                        {aptIdx === 0 && <span className="text-[9px] font-bold text-gray-300 tracking-widest block leading-none mb-0.5">{String(hour).padStart(2,'0')}H</span>}
+                                                                                        <span className={`text-sm font-bold font-mono leading-none ${isCanceled ? 'text-gray-300' : 'text-gray-700'}`}>{a.time || '--:--'}</span>
+                                                                                    </div>
+                                                                                    <div className="flex-1 min-w-0">
+                                                                                        <div className="flex items-center gap-2 mb-1.5">
+                                                                                            <span className={`text-sm font-bold truncate ${isCanceled ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{patientName}</span>
+                                                                                            {isNew && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 whitespace-nowrap shrink-0">1ª vez</span>}
+                                                                                            {phone && (
+                                                                                                <button className="inline-flex items-center gap-0.5 text-[10px] text-blue-400 hover:text-blue-600 whitespace-nowrap shrink-0"
+                                                                                                    onClick={(e) => { e.stopPropagation(); handleOpenWhatsApp(phone); }}>
+                                                                                                    <PhoneIcon style={{ fontSize: 10 }} />{phone}
+                                                                                                </button>
+                                                                                            )}
+                                                                                        </div>
+                                                                                        <div className="flex flex-wrap items-center gap-1.5">
+                                                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${typeCls}`}>{typeLabel}</span>
+                                                                                            {methodBadge && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">{methodBadge}</span>}
+                                                                                            {paymentBadge && <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${paymentCls}`}>{paymentBadge}</span>}
+                                                                                            {a.specialty && <span className="text-[10px] text-gray-400">{a.specialty}</span>}
+                                                                                            {a.professionalName && <span className="text-[10px] text-gray-400">· {(a.professionalName as string).split(' ')[0]}</span>}
+                                                                                        </div>
+                                                                                        {isCartaoD30 && !isCanceled && (
+                                                                                            <p className="text-[10px] text-amber-600 mt-1">⚠ Cartão D+30 — entra no caixa em ~30 dias</p>
                                                                                         )}
+                                                                                        {pkgProgress}
+                                                                                    </div>
+                                                                                    <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                                                                                        <span className={`text-sm font-black ${isCanceled ? 'text-gray-300 line-through' : valor > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
+                                                                                            {valor > 0 ? `R$ ${valor.toLocaleString('pt-BR')}` : '—'}
+                                                                                        </span>
+                                                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusLabelCls}`}>{statusLabel}</span>
                                                                                     </div>
                                                                                 </div>
-                                                                                <span className="w-36 shrink-0 self-center flex items-center justify-start">
-                                                                                    {a.package ? <AppointmentPackageProgress appointment={a} className="w-full max-w-[130px]" /> : <span className="text-[10px] text-gray-300">—</span>}
-                                                                                </span>
-                                                                                <span className="w-44 shrink-0 self-center flex items-center justify-start">
-                                                                                    {(() => {
-                                                                                        const isCanceled = effectiveStatus === 'canceled';
-                                                                                        const isCompleted = effectiveStatus === 'completed';
-
-                                                                                        const formatConvenioName = (name: string) => {
-                                                                                            if (!name) return 'Convênio';
-                                                                                            return name
-                                                                                                .replace(/-/g, ' ')
-                                                                                                .split(' ')
-                                                                                                .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-                                                                                                .join(' ');
-                                                                                        };
-
-                                                                                        const isPrepaidPackage = a.package && (
-                                                                                            a.package.paymentType === 'full' ||
-                                                                                            a.package.paymentType === 'prepaid' ||
-                                                                                            a.package.model === 'full' ||
-                                                                                            a.package.model === 'prepaid'
-                                                                                        );
-
-                                                                                        const isPerSessionPackage = a.package && (
-                                                                                            a.package.paymentType === 'per-session' ||
-                                                                                            a.package.paymentType === 'per_session' ||
-                                                                                            a.package.model === 'per-session' ||
-                                                                                            a.package.model === 'per_session'
-                                                                                        );
-
-                                                                                        // 1. Categoria
-                                                                                        const categoria =
-                                                                                            a.billingType === 'convenio' || a.insuranceProvider ? formatConvenioName(a.insuranceProvider || a.billingType) :
-                                                                                            a.billingType === 'liminar' ? 'Liminar' :
-                                                                                            a.serviceType === 'evaluation' ? 'Avaliação' :
-                                                                                            a.serviceType === 'neuropsych_evaluation' ? 'Aval. Neuro.' :
-                                                                                            a.package ? 'Pacote' :
-                                                                                            'Particular';
-
-                                                                                        // 2. Modelo / forma de pagamento (sem redundância com categoria)
-                                                                                        const modeloPagamento = isCanceled ? 'Cancelado' :
-                                                                                            a.billingType === 'convenio' || a.billingType === 'liminar' || a.insuranceProvider ? '' :
-                                                                                            a.package ? (isPrepaidPackage ? 'Pré-pago' : isPerSessionPackage ? 'Por Sessão' : 'Pacote') :
-                                                                                            a.paymentMethod ? (a.paymentMethod === 'pix' ? 'PIX' : a.paymentMethod === 'dinheiro' ? 'Dinheiro' : a.paymentMethod === 'credit_card' || a.paymentMethod === 'credito' ? 'Crédito' : a.paymentMethod === 'debit_card' || a.paymentMethod === 'debito' ? 'Débito' : a.paymentMethod === 'transferencia' ? 'Transf.' : a.paymentMethod) :
-                                                                                            'À Vista';
-
-                                                                                        // 3. Status de atendimento / cobrança
-                                                                                        const statusAtendimento = isCanceled ? 'Cancelado' :
-                                                                                            isCompleted ? 'Atendido' :
-                                                                                            statusFinanceiro === 'Pago na Sessão' || statusFinanceiro === 'Avaliação Paga' ? 'Pago' :
-                                                                                            statusFinanceiro === 'Pré-pago' ? 'Pago' :
-                                                                                            statusFinanceiro === 'Pacote Pendente' ? 'Sessão Pendente' :
-                                                                                            statusFinanceiro === 'Pendente' ? 'Pendente' :
-                                                                                            statusFinanceiro === 'Pago Parcial' ? 'Parcial' :
-                                                                                            a.operationalStatus === 'scheduled' ? 'Agendado' :
-                                                                                            a.operationalStatus === 'confirmed' ? 'Agendado' :
-                                                                                            'Pendente';
-
-                                                                                        const colorClass =
-                                                                                            statusAtendimento === 'Atendido' || statusAtendimento === 'Pago' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                                                                            statusAtendimento === 'Pré-pago' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
-                                                                                            statusAtendimento === 'Por Sessão' || statusAtendimento === 'Sessão Pendente' || statusAtendimento === 'Pendente' || statusAtendimento === 'Agendado' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                                                                            statusAtendimento === 'Parcial' || statusAtendimento === 'Pago Parcial' ? 'bg-orange-50 text-orange-700 border-orange-200' :
-                                                                                            statusAtendimento === 'Cancelado' ? 'bg-red-50 text-red-700 border-red-200' :
-                                                                                            'bg-sky-50 text-sky-700 border-sky-200';
-
-                                                                                        const badgeParts = [categoria, modeloPagamento, statusAtendimento].filter(Boolean);
-
-                                                                                        return (
-                                                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border whitespace-nowrap ${colorClass}`}>
-                                                                                                {badgeParts.join(' · ')}
-                                                                                            </span>
-                                                                                        );
-                                                                                    })()}
-                                                                                </span>
-                                                                                <span className="w-28 shrink-0 self-center text-xs text-gray-400 truncate">{a.specialty || '-'}</span>
-                                                                                <span className={`text-sm font-bold shrink-0 w-16 text-right self-center ${valor > 0 ? 'text-gray-900' : 'text-gray-300'}`}>{valor > 0 ? `R$${valor.toLocaleString('pt-BR')}` : '—'}</span>
-                                                                            </div>
-                                                                            {showNowAfterThis && <NowMarker />}
+                                                                                {showNowAfterThis && <NowMarker />}
                                                                             </React.Fragment>
                                                                         );
                                                                     })}
                                                                 </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                                {isToday && !nowRendered && sortedHours.length > 0 && sortedHours[sortedHours.length - 1] * 60 + 59 < nowMin && <NowMarker />}
-                                                {atendidos.length > 0 && (
-                                                    <div className="flex justify-between items-center px-3 py-2 mt-3 rounded-lg bg-gray-100 border border-gray-200">
-                                                        <span className="text-sm font-bold text-gray-700">Atendidos: {atendidos.length}{filtered.length !== atendidos.length ? ` (de ${filtered.length})` : ''}</span>
-                                                        <span className="text-sm font-bold text-emerald-600">{formatCurrency(totalVal)}</span>
+                                                            </React.Fragment>
+                                                        );
+                                                    })}
+                                                    {isToday && !nowRendered && sortedHours.length > 0 && sortedHours[sortedHours.length - 1] * 60 + 59 < nowMin && <NowMarker />}
+                                                </div>
+                                            );
+                                        })()}
+                                        {/* Rodapé · Caixa Real */}
+                                        {data && (
+                                            <div className="border-t border-gray-100 bg-gray-50/60 px-4 py-3">
+                                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-2">Resumo do Dia · Caixa Real</p>
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                                    <div>
+                                                        <p className="text-[10px] text-gray-400">Caixa hoje</p>
+                                                        <p className="text-base font-black text-gray-900">{formatCurrency(data.caixa?.total || 0)}</p>
+                                                        <p className="text-[10px] text-gray-400">{data.estatisticas?.quantidade ?? 0} transaç{(data.estatisticas?.quantidade ?? 0) !== 1 ? 'ões' : 'ão'}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-gray-400">Produção</p>
+                                                        <p className="text-base font-black text-blue-600">{formatCurrency(data.producao?.total || 0)}</p>
+                                                        <p className="text-[10px] text-gray-400">{data.estatisticas?.quantidadeAtendimentos ?? 0} atendimento{(data.estatisticas?.quantidadeAtendimentos ?? 0) !== 1 ? 's' : ''}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-gray-400">vs ontem</p>
+                                                        <p className={`text-base font-black ${(data.comparativos?.variacaoVsOntem ?? 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                                            {(data.comparativos?.variacaoVsOntem ?? 0) > 0 ? '+' : ''}{((data.comparativos?.variacaoVsOntem) ?? 0).toFixed(1)}%
+                                                        </p>
+                                                        <p className="text-[10px] text-gray-400">ontem {formatCurrency(data.comparativos?.ontem || 0)}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-gray-400">Acumulado mês</p>
+                                                        <p className="text-base font-black text-gray-900">{formatCurrency(data.comparativos?.totalAcumuladoMes || 0)}</p>
+                                                        <p className="text-[10px] text-gray-400">projeção {formatCurrency(data.comparativos?.projecaoMes || 0)}</p>
+                                                    </div>
+                                                </div>
+                                                {(data.transacoes?.length ?? 0) > 0 && (
+                                                    <div className="flex items-center gap-2 flex-wrap text-[10px] pt-2 mt-2 border-t border-gray-200">
+                                                        <span className="text-gray-400 font-medium">Transação registrada:</span>
+                                                        <span className="text-gray-700 font-semibold">{data.transacoes[0].paciente}</span>
+                                                        <span className="bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full">{data.transacoes[0].servico}</span>
+                                                        <span className="text-gray-500">· {(data.transacoes[0].profissional || '').split(' ').slice(0, 2).join(' ')}</span>
+                                                        <span className="text-gray-500">· {data.transacoes[0].metodo}</span>
+                                                        <span className="font-bold text-emerald-700">· {formatCurrency(data.transacoes[0].valor)}</span>
                                                     </div>
                                                 )}
                                             </div>
-                                        );
-                                    })()}
-
-                                    {/* Resumo por status */}
-                                    {dayAppointments.length > 0 && (
-                                        <div className="flex flex-wrap gap-1.5 mt-3">
-                                            {['completed', 'scheduled', 'confirmed', 'canceled', 'pre_agendado'].map((status) => {
-                                                const count = dayAppointments.filter((a: any) => a.operationalStatus === status).length;
-                                                if (count === 0) return null;
-                                                const labels: Record<string, string> = {
-                                                    completed: 'Atendidos',
-                                                    scheduled: 'Agendados',
-                                                    confirmed: 'Confirmados',
-                                                    canceled: 'Cancelados',
-                                                    pre_agendado: 'Pré-agendados'
-                                                };
-                                                return (
-                                                    <span key={status} className={`px-2 py-0.5 rounded-full text-xs border border-gray-300 ${
-                                                        status === 'completed' ? 'bg-green-100 text-green-800' : 
-                                                        status === 'canceled' ? 'bg-red-100 text-red-800' : 
-                                                        status === 'confirmed' ? 'bg-blue-100 text-blue-800' : 
-                                                        'bg-gray-100 text-gray-800'
-                                                    }`}>
-                                                        {labels[status]}: {count}
-                                                    </span>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </>
-                            )}
+                                        )}
+                                    </>
+                                )}
+                            </div>
                         </div>
                     )}
 
@@ -2014,104 +2080,155 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
             {/* ===== MODAL: DETALHE DO AGENDAMENTO ===== */}
         {selectedApt && (() => {
             const apt = selectedApt;
-            const scMap: Record<string, { border: string; badge: string; label: string; bg: string }> = {
-                completed:    { border: 'border-emerald-500', badge: 'bg-green-100 text-green-800',  label: 'Atendido',     bg: 'bg-green-50'  },
-                scheduled:    { border: 'border-blue-500',   badge: 'bg-blue-100 text-blue-800',    label: 'Agendado',     bg: 'bg-blue-50'   },
-                confirmed:    { border: 'border-sky-400',    badge: 'bg-sky-100 text-sky-800',      label: 'Confirmado',   bg: 'bg-sky-50'    },
-                canceled:     { border: 'border-red-400',    badge: 'bg-red-100 text-red-800',      label: 'Cancelado',    bg: 'bg-red-50'    },
-                pre_agendado: { border: 'border-amber-400',  badge: 'bg-amber-100 text-amber-800',  label: 'Pré-agendado', bg: 'bg-amber-50'  },
+            const scMap: Record<string, { bg: string; label: string; checkmark: string }> = {
+                completed:    { bg: 'bg-emerald-500', label: 'Atendido',     checkmark: '✓' },
+                scheduled:    { bg: 'bg-blue-500',    label: 'Agendado',     checkmark: '○' },
+                confirmed:    { bg: 'bg-sky-400',     label: 'Confirmado',   checkmark: '✓' },
+                canceled:     { bg: 'bg-red-400',     label: 'Cancelado',    checkmark: '✗' },
+                pre_agendado: { bg: 'bg-amber-400',   label: 'Pré-agendado', checkmark: '○' },
             };
-            const sc = scMap[apt.operationalStatus] || { border: 'border-gray-400', badge: 'bg-gray-100 text-gray-700', label: apt.operationalStatus, bg: 'bg-gray-50' };
+            const sc = scMap[apt.operationalStatus] || { bg: 'bg-gray-400', label: apt.operationalStatus, checkmark: '○' };
             const valor = apt.sessionValue || apt.package?.sessionValue || 0;
             const phone = apt.patientInfo?.phone || apt.patient?.phone;
             const patientName = apt.patientInfo?.fullName || apt.patient?.fullName || '—';
             const isNew = (analyticsData?.novos || []).some((n: any) => n._id === apt._id);
             const isCanceled = apt.operationalStatus === 'canceled';
+            const isCompleted = apt.operationalStatus === 'completed';
+            const isConvenio = apt.billingType === 'convenio' || !!apt.insuranceProvider;
+            const isLiminar = apt.billingType === 'liminar';
+            const formatConvenioName = (name: string) => name ? name.replace(/-/g, ' ').split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'Convênio';
+            const aptDate = apt.date ? new Date(apt.date + 'T12:00:00').toLocaleDateString('pt-BR') : selectedDate ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR') : '';
 
             const tx = (data?.transacoes || []).find((t: any) =>
                 t.hora === apt.time &&
                 t.paciente === (apt.patientInfo?.fullName || apt.patient?.fullName)
             );
 
-            const billingLabel: Record<string, string> = { particular: 'Particular', convenio: 'Convênio', liminar: 'Liminar (Judicial)', package: 'Pacote' };
             const serviceLabel: Record<string, string> = { evaluation: 'Avaliação', session: 'Sessão', package_session: 'Sessão de Pacote', tongue_tie_test: 'Teste Linguinha', neuropsych_evaluation: 'Aval. Neuropsicológica', individual_session: 'Sessão Avulsa', return: 'Retorno' };
             const methodLabel: Record<string, string> = { pix: 'Pix', dinheiro: 'Dinheiro', cartao_credito: 'Cartão de Crédito', credito: 'Cartão de Crédito', cartao_debito: 'Débito', debito: 'Débito', transferencia_bancaria: 'Transferência Bancária', transferencia: 'Transferência Bancária', outro: 'Outro' };
             const prazoLabel: Record<string, string> = { pix: 'D+0 (imediato)', dinheiro: 'D+0 (imediato)', cartao_credito: 'D+30', credito: 'D+30', cartao_debito: 'D+1', debito: 'D+1', transferencia_bancaria: 'D+1', transferencia: 'D+1' };
-            const sfFull: Record<string, string> = { 'Pré-pago': '📦 Crédito de pacote consumido', 'Pago na Sessão': '💰 Pago no atendimento', 'Avaliação Paga': '💰 Pago no atendimento', 'Pendente': '⏳ Aguardando pagamento', 'Pacote Pendente': '📦 Sessão de pacote pendente', 'Convênio': '🏥 A faturar ao convênio', 'Liminar': '⚖️ Via processo judicial', 'Cancelado': '❌ Cancelado' };
             const aptStatusFinanceiro = resolveStatusFinanceiro(apt);
+
+            const situacaoConfig: Record<string, { label: string; cls: string }> = {
+                'Pré-pago':        { label: '📦 Crédito de pacote consumido', cls: 'bg-violet-100 text-violet-700' },
+                'Pago na Sessão':  { label: '✓ Pago no atendimento',          cls: 'bg-emerald-100 text-emerald-700' },
+                'Avaliação Paga':  { label: '✓ Pago no atendimento',          cls: 'bg-emerald-100 text-emerald-700' },
+                'Pendente':        { label: '⌛ Aguardando pagamento',         cls: 'bg-amber-100 text-amber-700' },
+                'Pacote Pendente': { label: '⌛ Sessão de pacote pendente',    cls: 'bg-amber-100 text-amber-700' },
+                'Convênio':        { label: 'A faturar ao convênio',           cls: 'bg-amber-100 text-amber-700' },
+                'Liminar':         { label: '⚖️ Via processo judicial',        cls: 'bg-orange-100 text-orange-700' },
+                'Pago Parcial':    { label: '◑ Pago parcialmente',            cls: 'bg-orange-100 text-orange-700' },
+            };
+            const situacaoCfg = aptStatusFinanceiro && aptStatusFinanceiro !== 'Cancelado'
+                ? (situacaoConfig[aptStatusFinanceiro] || { label: aptStatusFinanceiro, cls: 'bg-gray-100 text-gray-600' })
+                : null;
+
+            const showConvenioAlert = isCompleted && isConvenio && !tx;
+            const showNoTxAlert = isCompleted && !isConvenio && !isLiminar && !tx;
 
             return (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedApt(null)}>
-                    <div className={`bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border-t-4 ${sc.border}`} onClick={e => e.stopPropagation()}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
 
-                        {/* Header */}
-                        <div className={`px-5 py-4 ${sc.bg} flex items-start justify-between gap-3`}>
+                        {/* Header colorido */}
+                        <div className={`px-5 py-4 ${sc.bg} flex items-start justify-between gap-3 rounded-t-2xl`}>
                             <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap mb-1">
-                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${sc.badge}`}>{sc.label}</span>
-                                    {isNew && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">1ª vez</span>}
-                                    <span className="text-xs text-gray-500 font-mono">{apt.time || '--:--'}</span>
+                                <div className="flex items-center gap-2 mb-1.5">
+                                    <span className="text-white/90 font-bold text-sm">{sc.checkmark} {sc.label}</span>
+                                    {isNew && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white/20 text-white border border-white/30">1ª vez</span>}
+                                    <span className="text-white/70 font-mono text-sm ml-auto">{apt.time || '--:--'}</span>
                                 </div>
-                                <h3 className="text-lg font-bold text-gray-900 truncate">{patientName}</h3>
-                                <p className="text-sm text-gray-500">{[apt.professionalName, apt.specialty].filter(Boolean).join(' · ')}</p>
+                                <h3 className="text-xl font-bold text-white truncate">{patientName}</h3>
+                                <p className="text-sm text-white/70 mt-0.5">{apt.specialty || ''}</p>
                             </div>
-                            <button onClick={() => setSelectedApt(null)} className="text-gray-400 hover:text-gray-700 text-xl leading-none shrink-0 mt-1">✕</button>
+                            <button onClick={() => setSelectedApt(null)} className="text-white/70 hover:text-white text-xl leading-none shrink-0">×</button>
                         </div>
 
-                        <div className="p-5 space-y-4">
-                            {/* Badges de contexto */}
-                            <div className="flex flex-wrap gap-2">
-                                {apt.billingType && (
-                                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${apt.billingType === 'convenio' ? 'bg-purple-100 text-purple-700 border-purple-200' : apt.billingType === 'liminar' ? 'bg-orange-100 text-orange-700 border-orange-200' : apt.billingType === 'package' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-blue-100 text-blue-700 border-blue-200'}`}>
-                                        {billingLabel[apt.billingType] || apt.billingType}
-                                    </span>
-                                )}
-                                {apt.serviceType && (
-                                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold border bg-gray-100 text-gray-600 border-gray-200">
-                                        {serviceLabel[apt.serviceType] || apt.serviceType}
-                                    </span>
-                                )}
-                                {apt.package?.name && (
-                                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold border bg-indigo-100 text-indigo-700 border-indigo-200">📦 {apt.package.name}</span>
-                                )}
-                            </div>
+                        {/* Badges de tipo */}
+                        <div className="px-5 pt-4 flex flex-wrap gap-1.5">
+                            {(isConvenio || apt.billingType) && (
+                                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${isConvenio ? 'bg-purple-100 text-purple-700 border-purple-200' : isLiminar ? 'bg-orange-100 text-orange-700 border-orange-200' : apt.billingType === 'package' ? 'bg-violet-100 text-violet-700 border-violet-200' : 'bg-blue-100 text-blue-700 border-blue-200'}`}>
+                                    {isConvenio ? `🏥 Convênio${apt.insuranceProvider ? ' · ' + formatConvenioName(apt.insuranceProvider) : ''}` : apt.billingType === 'liminar' ? '⚖️ Liminar' : apt.billingType === 'package' ? '📦 Pacote' : 'Particular'}
+                                </span>
+                            )}
+                            {apt.serviceType && (
+                                <span className="px-2.5 py-1 rounded-full text-xs font-semibold border bg-gray-100 text-gray-600 border-gray-200">
+                                    {serviceLabel[apt.serviceType] || apt.serviceType}
+                                </span>
+                            )}
+                            {apt.package?.name && (
+                                <span className="px-2.5 py-1 rounded-full text-xs font-semibold border bg-violet-100 text-violet-700 border-violet-200">📦 {apt.package.name}</span>
+                            )}
+                        </div>
 
-                            {/* Bloco financeiro */}
+                        <div className="px-5 pb-5 pt-3 space-y-3">
+                            {/* Alerta convênio: atendido mas fora do caixa */}
+                            {showConvenioAlert && (
+                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex gap-3">
+                                    <span className="text-amber-500 shrink-0 mt-0.5">⚠️</span>
+                                    <div>
+                                        <p className="text-sm font-bold text-amber-800">Atendimento sem caixa registrado</p>
+                                        <p className="text-xs text-amber-600 mt-0.5">Convênio aguarda faturamento — não entrou no caixa do dia</p>
+                                    </div>
+                                </div>
+                            )}
+                            {showNoTxAlert && (
+                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                                    <p className="text-sm text-amber-700 font-medium">⚠️ Atendimento concluído sem transação registrada no caixa do dia.</p>
+                                </div>
+                            )}
+                            {/* Motivo do cancelamento */}
+                            {isCanceled && (
+                                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                                    <div className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1.5">✗ Cancelamento</div>
+                                    {apt.cancelReason
+                                        ? <p className="text-sm text-red-800 whitespace-pre-line">{apt.cancelReason}</p>
+                                        : <p className="text-sm text-red-400 italic">Nenhum motivo registrado.</p>}
+                                </div>
+                            )}
+
+                            {/* Bloco FINANCEIRO */}
                             {!isCanceled && (
-                                <div className="rounded-xl border border-gray-200 overflow-hidden">
-                                    <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                                        <span className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">💰 Financeiro</span>
+                                <div className="rounded-xl border border-gray-100 overflow-hidden">
+                                    <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">💰 Financeiro</span>
                                     </div>
                                     <div className="px-4 py-3 space-y-2.5">
                                         <div className="flex justify-between items-center">
-                                            <span className="text-sm text-gray-600">Valor da sessão</span>
+                                            <span className="text-sm text-gray-500">Valor da sessão</span>
                                             <span className="text-lg font-extrabold text-emerald-700">{formatCurrency(valor)}</span>
                                         </div>
-                                        {aptStatusFinanceiro && aptStatusFinanceiro !== 'Cancelado' && (
+                                        {situacaoCfg && (
                                             <div className="flex justify-between items-center">
-                                                <span className="text-sm text-gray-600">Situação</span>
-                                                <span className="text-sm font-semibold text-gray-800">{sfFull[aptStatusFinanceiro] || aptStatusFinanceiro}</span>
-                                            </div>
-                                        )}
-                                        {apt.paymentMethod && apt.paymentMethod !== 'pending' && (
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm text-gray-600">Método</span>
-                                                <div className="text-right">
-                                                    <div className="text-sm font-semibold text-gray-800">{methodLabel[apt.paymentMethod] || apt.paymentMethod}</div>
-                                                    {prazoLabel[apt.paymentMethod] && <div className="text-[11px] text-gray-400">{prazoLabel[apt.paymentMethod]}</div>}
-                                                </div>
+                                                <span className="text-sm text-gray-500">Situação</span>
+                                                <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${situacaoCfg.cls}`}>{situacaoCfg.label}</span>
                                             </div>
                                         )}
                                         {apt.insuranceProvider && (
                                             <div className="flex justify-between items-center">
-                                                <span className="text-sm text-gray-600">Convênio</span>
+                                                <span className="text-sm text-gray-500">Convênio</span>
                                                 <span className="text-sm font-semibold text-purple-700">{apt.insuranceProvider}</span>
+                                            </div>
+                                        )}
+                                        {(isConvenio || isLiminar) && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-gray-500">Entra no caixa</span>
+                                                <span className="text-sm text-gray-600">{isLiminar ? 'Via depósito judicial' : 'Após repasse do plano'}</span>
                                             </div>
                                         )}
                                         {apt.authorizationCode && (
                                             <div className="flex justify-between items-center">
-                                                <span className="text-sm text-gray-600">Cód. Autorização</span>
+                                                <span className="text-sm text-gray-500">Cód. Autorização</span>
                                                 <span className="text-sm font-mono text-gray-800">{apt.authorizationCode}</span>
+                                            </div>
+                                        )}
+                                        {apt.paymentMethod && apt.paymentMethod !== 'pending' && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-gray-500">Método</span>
+                                                <div className="text-right">
+                                                    <div className="text-sm font-semibold text-gray-800">{methodLabel[apt.paymentMethod] || apt.paymentMethod}</div>
+                                                    {prazoLabel[apt.paymentMethod] && <div className="text-[11px] text-gray-400">{prazoLabel[apt.paymentMethod]}</div>}
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -2122,16 +2239,16 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                             {tx && (
                                 <div className="rounded-xl border border-emerald-200 overflow-hidden">
                                     <div className="bg-emerald-50 px-4 py-2 border-b border-emerald-200">
-                                        <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-widest">✅ Transação Registrada no Caixa</span>
+                                        <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">✅ Transação Registrada no Caixa</span>
                                     </div>
                                     <div className="px-4 py-3 space-y-2.5">
                                         <div className="flex justify-between items-center">
-                                            <span className="text-sm text-gray-600">Valor recebido</span>
+                                            <span className="text-sm text-gray-500">Valor recebido</span>
                                             <span className="text-lg font-extrabold text-emerald-700">{formatCurrency(tx.valor)}</span>
                                         </div>
                                         {(tx as any).paymentForms?.length > 1 ? (
                                             <div className="flex justify-between items-start">
-                                                <span className="text-sm text-gray-600">Formas de pagamento</span>
+                                                <span className="text-sm text-gray-500">Formas de pagamento</span>
                                                 <div className="text-right space-y-0.5">
                                                     {(tx as any).paymentForms.map((f: any, i: number) => (
                                                         <div key={i} className="text-xs font-semibold text-gray-700">{methodLabel[f.method] || f.method}: {formatCurrency(f.amount)}</div>
@@ -2140,14 +2257,14 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                             </div>
                                         ) : tx.metodo && (
                                             <div className="flex justify-between items-center">
-                                                <span className="text-sm text-gray-600">Método</span>
+                                                <span className="text-sm text-gray-500">Método</span>
                                                 <span className="text-sm font-semibold text-gray-800">{tx.metodo}</span>
                                             </div>
                                         )}
                                         {tx.tipo && (
                                             <div className="flex justify-between items-center">
-                                                <span className="text-sm text-gray-600">Tipo</span>
-                                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${tx.tipo === 'Pacote' ? 'bg-green-100 text-green-800' : tx.tipo === 'Convênio' ? 'bg-amber-100 text-amber-800' : tx.tipo === 'Liminar' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}>{tx.tipo}</span>
+                                                <span className="text-sm text-gray-500">Tipo</span>
+                                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${tx.tipo === 'Pacote' ? 'bg-violet-100 text-violet-800' : tx.tipo === 'Convênio' ? 'bg-sky-100 text-sky-800' : tx.tipo === 'Liminar' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}>{tx.tipo}</span>
                                             </div>
                                         )}
                                         {valor > 0 && tx.valor !== valor && (
@@ -2162,42 +2279,66 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                 </div>
                             )}
 
-                            {/* Atendido mas sem transação no caixa */}
-                            {apt.operationalStatus === 'completed' && !tx && (
-                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-                                    <p className="text-sm text-amber-700 font-medium">⚠️ Atendimento concluído sem transação registrada no caixa do dia.</p>
+                            {/* Bloco SESSÃO */}
+                            <div className="rounded-xl border border-gray-100 overflow-hidden">
+                                <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">📋 Sessão</span>
                                 </div>
-                            )}
-
-                            {/* Motivo do cancelamento */}
-                            {isCanceled && (
-                                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-                                    <div className="text-[11px] font-bold text-red-400 uppercase tracking-widest mb-1.5">❌ Cancelamento</div>
-                                    {apt.cancelReason ? (
-                                        <p className="text-sm text-red-800 whitespace-pre-line">{apt.cancelReason}</p>
-                                    ) : (
-                                        <p className="text-sm text-red-400 italic">Nenhum motivo registrado.</p>
+                                <div className="px-4 py-3 space-y-2.5">
+                                    {apt.specialty && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-gray-500">Especialidade</span>
+                                            <span className="text-sm font-semibold text-gray-800">{apt.specialty}</span>
+                                        </div>
                                     )}
+                                    {apt.serviceType && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-gray-500">Tipo</span>
+                                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${isConvenio ? 'bg-sky-100 text-sky-700 border-sky-200' : isLiminar ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                                                {isConvenio ? '🏥 Convênio' : isLiminar ? '⚖️ Liminar' : serviceLabel[apt.serviceType] || apt.serviceType}
+                                            </span>
+                                        </div>
+                                    )}
+                                    {apt.professionalName && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-gray-500">Profissional</span>
+                                            <span className="text-sm font-semibold text-gray-800">{apt.professionalName}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-gray-500">Horário</span>
+                                        <span className="text-sm font-semibold text-gray-800">{apt.time || '--:--'}{aptDate ? ` · ${aptDate}` : ''}</span>
+                                    </div>
                                 </div>
-                            )}
+                            </div>
 
                             {/* Observações */}
                             {apt.notes && (
-                                <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                                    <div className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">🗒 Observações</div>
+                                <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">🗒 Observações</div>
                                     <p className="text-sm text-gray-700 whitespace-pre-line">{apt.notes}</p>
                                 </div>
                             )}
 
-                            {/* WhatsApp */}
-                            {phone && (
-                                <button
-                                    onClick={() => { handleOpenWhatsApp(phone); setSelectedApt(null); }}
-                                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold text-sm transition-colors"
-                                >
-                                    💬 Abrir WhatsApp — {phone}
-                                </button>
-                            )}
+                            {/* Ações */}
+                            <div className="space-y-2 pt-1">
+                                {phone && (
+                                    <button
+                                        onClick={() => { handleOpenWhatsApp(phone); setSelectedApt(null); }}
+                                        className="w-full flex items-center justify-center gap-2 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold text-sm transition-colors"
+                                    >
+                                        💬 Abrir WhatsApp — {phone}
+                                    </button>
+                                )}
+                                {isConvenio && (
+                                    <button
+                                        onClick={() => setSelectedApt(null)}
+                                        className="w-full flex items-center justify-center gap-2 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50 transition-colors"
+                                    >
+                                        📋 Faturar ao convênio ↗
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

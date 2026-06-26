@@ -232,12 +232,12 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
                     {doc.rank}
                   </div>
 
-                  <Avatar
-                    className="w-10 h-10 text-xs font-semibold flex-shrink-0"
-                    sx={{ bgcolor: avatarColor.bg, color: avatarColor.text, fontWeight: 700 }}
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 border-2 border-white shadow-sm"
+                    style={{ backgroundColor: avatarColor.bg, color: avatarColor.text }}
                   >
                     {initials}
-                  </Avatar>
+                  </div>
 
                   <div className="flex-1 min-w-0">
                     <Typography fontWeight={700} className="text-gray-900 truncate" fontSize="1rem">
@@ -284,25 +284,20 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
                         />
                         <span className="text-[10px] font-semibold text-gray-600">{performance}%</span>
                       </div>
-                      <LinearProgress
-                        variant="determinate"
-                        value={performance}
-                        className="h-1 rounded-full"
-                        sx={{
-                          bgcolor: '#E5E7EB',
-                          '& .MuiLinearProgress-bar': {
-                            bgcolor: performance >= 80 ? '#10B981' : performance >= 50 ? '#F59E0B' : '#EF4444',
-                            borderRadius: '9999px'
-                          }
-                        }}
-                      />
+                      <div className="w-full bg-gray-100 rounded-full h-[4px] overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{
+                            width: `${performance}%`,
+                            backgroundColor: performance >= 80 ? '#10B981' : performance >= 50 ? '#F59E0B' : '#EF4444'
+                          }}
+                        />
+                      </div>
                     </div>
-                    <Chip
-                      icon={<Users className="w-3 h-3" />}
-                      label={doc.patientsTotal}
-                      size="small"
-                      className="bg-gray-100 text-gray-700 text-xs"
-                    />
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 flex-shrink-0">
+                      <Users className="w-3 h-3" />
+                      {doc.patientsTotal}
+                    </span>
                   </div>
                 </div>
 

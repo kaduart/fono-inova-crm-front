@@ -202,30 +202,68 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     }, []);
 
     useEffect(() => {
+        // Ao trocar o mês, carrega os counts de TODAS as abas de uma vez
+        loadAllCounts(selectedMonthYear);
         loadReceivables(selectedMonthYear);
-    }, [selectedMonthYear, subTab]);
+    }, [selectedMonthYear]);
 
     useEffect(() => {
-        const handleRefresh = () => loadReceivables(selectedMonthYear);
+        // Ao trocar de aba, carrega apenas o conteúdo específico
+        loadReceivables(selectedMonthYear);
+    }, [subTab]);
+
+    useEffect(() => {
+        const handleRefresh = () => {
+            loadAllCounts(selectedMonthYear);
+            loadReceivables(selectedMonthYear);
+        };
         window.addEventListener('cash:refresh', handleRefresh);
         return () => window.removeEventListener('cash:refresh', handleRefresh);
     }, [selectedMonthYear, subTab]);
 
+    // Carrega counts de todas as abas (A Faturar, Faturados, Recebidos) antecipadamente
+    const loadAllCounts = async (month?: string) => {
+        try {
+            const [pendingResponse, allResponse] = await Promise.all([
+                getPendingBillingGuides({ month, limit: 100 }),
+                getInsuranceReceivables({ month })
+            ]);
+            setPendingGuides(pendingResponse.data.data || []);
+            setOrphanSessions(pendingResponse.data.orphanSessions || []);
+            setAllReceivables(allResponse.data.data || []);
+        } catch (error) {
+            console.error('Erro ao carregar counts de convênios:', error);
+        }
+    };
+
     const loadReceivables = async (month?: string) => {
         // Aba A Faturar usa guias pendentes (guide-based)
         if (subTab === 0) {
-            await loadPendingGuides(month);
+            setLoadingGuides(true);
+            try {
+                const response = await getPendingBillingGuides({ month, limit: 100 });
+                setPendingGuides(response.data.data || []);
+                setOrphanSessions(response.data.orphanSessions || []);
+            } catch (error) {
+                console.error('Erro ao carregar guias pendentes:', error);
+                toast.error('Erro ao carregar guias pendentes');
+            } finally {
+                setLoadingGuides(false);
+            }
             return;
         }
 
         setLoading(true);
         try {
-            // 1. Buscar TODOS os dados (sem filtro de status) para contagens e cards
-            const allResponse = await getInsuranceReceivables({ month });
-            const allData = allResponse.data.data || [];
-            setAllReceivables(allData);
+            // Garante allReceivables para contagens/cards caso ainda não tenha carregado
+            let allData = allReceivables;
+            if (allData.length === 0) {
+                const allResponse = await getInsuranceReceivables({ month });
+                allData = allResponse.data.data || [];
+                setAllReceivables(allData);
+            }
 
-            // 2. Buscar dados filtrados pela aba ativa para a lista
+            // Buscar dados filtrados pela aba ativa para a lista
             const statusFilter = subTab === 1 ? 'billed' : 'received';
             const response = await getInsuranceReceivables({ month, status: statusFilter });
             const data = response.data.data || [];
@@ -248,7 +286,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 ), 0
             );
 
-            const apiSummary = allResponse.data.summary || {};
+            const apiSummary = response.data.summary || {};
             setSummary({
                 totalProviders: validData.length,
                 grandTotal: validData.reduce((acc: number, g: any) => acc + (g.totalPending || 0), 0),
@@ -608,66 +646,42 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     return (
         <Box>
             {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 mb-6">
-                <div className="flex items-center gap-3 flex-wrap">
-                    <Avatar sx={{ bgcolor: '#3B82F6', width: 48, height: 48 }}>
+            <div className="mb-4 rounded-2xl border border-gray-100 shadow-sm bg-white p-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#3B82F6' }}>
                         <Building2 className="w-6 h-6 text-white" />
-                    </Avatar>
+                    </div>
                     <div>
-                        <Typography variant="h5" fontWeight="bold">
-                            Gestão de Convênios
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            Controle de faturamento e recebimentos
-                        </Typography>
+                        <h2 className="text-xl font-bold text-gray-900">Gestão de Convênios</h2>
+                        <p className="text-sm text-gray-500">Controle de faturamento e recebimentos · {getMonthLabel()}</p>
                     </div>
                 </div>
-
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                    <Button
-                        variant="outlined"
-                        startIcon={<Building2 size={18} />}
+                <div className="flex items-center gap-2">
+                    <button
                         onClick={() => setConvenioManagerOpen(true)}
-                        sx={{
-                            borderRadius: 2,
-                            px: { xs: 2, md: 3 },
-                            whiteSpace: 'nowrap'
-                        }}
+                        className="px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2 whitespace-nowrap"
                     >
+                        <Building2 size={16} />
                         Gerenciar Convênios
-                    </Button>
-                    
-                    <Button
-                        variant="contained"
-                        startIcon={<Plus size={18} />}
+                    </button>
+                    <button
                         onClick={() => setIsNewModalOpen(true)}
-                        sx={{
-                            borderRadius: 2,
-                            background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-                            px: { xs: 2, md: 3 },
-                            py: { xs: 1, md: 1 },
-                            fontSize: { xs: '0.875rem', md: '0.9375rem' },
-                            whiteSpace: 'nowrap',
-                            '&:hover': {
-                                background: 'linear-gradient(135deg, #2563eb, #1e40af)',
-                                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
-                            },
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                            transition: 'all 0.2s ease'
-                        }}
+                        className="px-3 py-2 text-white text-sm font-semibold rounded-xl flex items-center gap-2 whitespace-nowrap transition-all"
+                        style={{ background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)' }}
                     >
+                        <Plus size={16} />
                         Novo Atendimento
-                    </Button>
-                </Box>
+                    </button>
+                </div>
             </div>
 
             {/* Filtro de Mês — oculto no Histórico (tem seu próprio seletor de ano) */}
             {subTab !== 3 && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
-                        <Calendar size={18} />
-                        <Typography variant="body2" fontWeight={500}>Período:</Typography>
-                    </Box>
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
+                    <div className="flex items-center gap-1 text-gray-500">
+                        <Calendar size={16} />
+                        <span className="text-sm font-medium">Período:</span>
+                    </div>
                     <TextField
                         type="month"
                         label="Mês de referência"
@@ -677,10 +691,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                         size="small"
                         sx={{ width: 200 }}
                     />
-                    <Typography variant="body2" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
-                        {getMonthLabel()}
-                    </Typography>
-                </Box>
+                    <span className="text-sm text-gray-500 capitalize">{getMonthLabel()}</span>
+                </div>
             )}
 
             {/* Cards de Resumo — accordion default fechado */}
@@ -712,12 +724,13 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                         </button>
 
                         <Collapse in={cardsOpen}>
-                            <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ width: '100%', p: { xs: 2, sm: 2.5, md: 3 } }}>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 p-3">
                                 {/* Produção Total */}
-                                <Grid size={{ xs: 12, md: 3 }}>
-                                    <div className="rounded-2xl border-2 p-5 shadow-sm h-full" style={{ borderColor: '#6366F1', backgroundColor: '#F5F3FF' }}>
-                                        <div className="flex items-center justify-between mb-3">
-                                            <span className="text-xs font-black uppercase tracking-widest text-purple-700">Produção</span>
+                                <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+                                    <div style={{ height: 3, backgroundColor: '#8B5CF6' }} />
+                                    <div className="p-4 bg-white">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-purple-700">Produção</span>
                                             {summary.changePercent !== null && (
                                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${(summary.change ?? 0) >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                                                     {(summary.change ?? 0) >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
@@ -725,61 +738,64 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="text-3xl font-black text-gray-900 tracking-tight my-2">
+                                        <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
                                             {prodTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.pendingCount + ms.receivedCount} sessões realizadas</p>
-                                        <p className="text-xs text-gray-400 mt-1">Valor gerado — não é caixa ainda</p>
+                                        <p className="text-xs text-gray-400 mt-1">valor gerado · não é caixa ainda</p>
                                         {summary.prevMonthTotal !== null && (
                                             <p className="text-xs text-gray-400 mt-1">
                                                 Mês anterior: <span className="font-semibold text-gray-600">{summary.prevMonthTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                                             </p>
                                         )}
                                     </div>
-                                </Grid>
+                                </div>
 
                                 {/* A Faturar */}
-                                <Grid size={{ xs: 12, md: 3 }}>
-                                    <div className="rounded-2xl border-2 p-5 shadow-sm h-full" style={{ borderColor: '#F59E0B', backgroundColor: '#FFFBEB' }}>
-                                        <div className="flex items-center justify-between mb-3">
-                                            <span className="text-xs font-black uppercase tracking-widest text-amber-700">A Faturar</span>
+                                <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+                                    <div style={{ height: 3, backgroundColor: '#F59E0B' }} />
+                                    <div className="p-4 bg-white">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-amber-700">A Faturar</span>
                                         </div>
-                                        <div className="text-3xl font-black text-gray-900 tracking-tight my-2">
+                                        <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
                                             {ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.pendingCount} sessões · {pendingGuides.length} guia{pendingGuides.length !== 1 ? 's' : ''}</p>
-                                        <p className="text-xs text-gray-400 mt-1">Não enviado ao convênio · fora do caixa</p>
+                                        <p className="text-xs text-gray-400 mt-1">não enviado ao convênio</p>
                                     </div>
-                                </Grid>
+                                </div>
 
                                 {/* Faturado */}
-                                <Grid size={{ xs: 12, md: 3 }}>
-                                    <div className="rounded-2xl border-2 p-5 shadow-sm h-full" style={{ borderColor: '#3B82F6', backgroundColor: '#EFF6FF' }}>
-                                        <div className="flex items-center justify-between mb-3">
-                                            <span className="text-xs font-black uppercase tracking-widest text-blue-700">Faturado</span>
+                                <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+                                    <div style={{ height: 3, backgroundColor: '#3B82F6' }} />
+                                    <div className="p-4 bg-white">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-blue-700">Faturado</span>
                                         </div>
-                                        <div className="text-3xl font-black text-gray-900 tracking-tight my-2">
+                                        <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
                                             {ms.totalFaturado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.billedCount} sessões enviadas</p>
-                                        <p className="text-xs text-gray-400 mt-1">Aguardando repasse · ainda fora do caixa</p>
+                                        <p className="text-xs text-gray-400 mt-1">aguardando repasse</p>
                                     </div>
-                                </Grid>
+                                </div>
 
                                 {/* Recebido */}
-                                <Grid size={{ xs: 12, md: 3 }}>
-                                    <div className="rounded-2xl border-2 p-5 shadow-sm h-full" style={{ borderColor: '#10B981', backgroundColor: '#F0FDF4' }}>
-                                        <div className="flex items-center justify-between mb-3">
-                                            <span className="text-xs font-black uppercase tracking-widest text-emerald-700">Recebido</span>
+                                <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+                                    <div style={{ height: 3, backgroundColor: '#10B981' }} />
+                                    <div className="p-4 bg-white">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Recebido</span>
                                         </div>
-                                        <div className="text-3xl font-black text-gray-900 tracking-tight my-2">
+                                        <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
                                             {ms.totalRecebido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.receivedCount} sessões pagas</p>
                                         <p className="text-xs text-emerald-600 font-semibold mt-1">✓ Entrou no caixa</p>
                                     </div>
-                                </Grid>
-                            </Grid>
+                                </div>
+                            </div>
                         </Collapse>
                     </div>
                 );
@@ -790,19 +806,26 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 <div className="px-3 pt-3 pb-3 border-b border-gray-100">
                     <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
                         {[
-                            { label: `A Faturar (${pendingGuides.length})`,         icon: <Clock size={15} /> },
-                            { label: `Faturados (${countByStatus('billed')})`,      icon: <Send size={15} /> },
-                            { label: `Recebidos (${countByStatus('received')})`,    icon: <CheckCircle size={15} /> },
-                            { label: 'Histórico',                                   icon: <History size={15} /> },
+                            { label: 'A Faturar', count: pendingGuides.length,        icon: <Clock size={15} />, amber: true },
+                            { label: 'Faturados', count: countByStatus('billed'),     icon: <Send size={15} />, amber: false },
+                            { label: 'Recebidos', count: countByStatus('received'),   icon: <CheckCircle size={15} />, amber: false },
+                            { label: 'Histórico', count: 0,                           icon: <History size={15} />, amber: false },
                         ].map((tab, i) => (
                             <button key={i} onClick={() => setSubTab(i)}
-                                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 ${
+                                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 ${
                                     subTab === i
                                         ? 'bg-white text-gray-900 shadow-sm font-semibold'
                                         : 'text-gray-500 hover:text-gray-700'
                                 }`}>
                                 {tab.icon}
                                 <span>{tab.label}</span>
+                                {i < 3 && tab.count > 0 && (
+                                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                        tab.amber
+                                            ? (subTab === i ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-700')
+                                            : (subTab === i ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500')
+                                    }`}>{tab.count}</span>
+                                )}
                             </button>
                         ))}
                     </div>

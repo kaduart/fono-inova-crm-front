@@ -87,6 +87,18 @@ export function PatientAvailablesCard({ doctors, evaluations, onDelete, patientI
               </Tooltip>
             </TooltipProvider>
           </div>
+          {Array.isArray(evaluations) && evaluations.length === 0 && (
+            <div className="py-8 text-center">
+              <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                <FileText className="h-6 w-6 text-gray-400" />
+              </div>
+              <h4 className="text-sm font-medium text-gray-900 mb-1">Nenhuma avaliação</h4>
+              <p className="text-xs text-gray-500 max-w-xs mx-auto">
+                Não há avaliações registradas. Clique no + acima para adicionar.
+              </p>
+            </div>
+          )}
+
           {Array.isArray(evaluations) && evaluations.length > 0 && (
             <div className="mt-6 overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
               <table className="min-w-full divide-y divide-gray-200 text-sm text-gray-700">

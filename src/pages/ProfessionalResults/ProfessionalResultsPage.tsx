@@ -169,74 +169,56 @@ export const ProfessionalResultsPage: React.FC = () => {
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
       {/* Header */}
-      <Paper
-        elevation={2}
-        sx={{
-          p: { xs: 2, md: 4 },
-          borderRadius: 3,
-          background: 'linear-gradient(135deg, #37ab8720, #6366f110)',
-          border: '1px solid',
-          borderColor: 'divider',
-          mb: 2,
-        }}
-      >
-        <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-2xl" style={{ backgroundColor: 'rgba(55, 171, 135, 0.15)' }}>
-              <DollarSign size={28} style={{ color: '#00B57A' }} />
-            </div>
-            <div>
-              <Typography variant="h4" fontWeight="bold" color="grey.800" gutterBottom>
-                Centro de Resultado dos Profissionais
-              </Typography>
-              <Typography variant="body1" color="grey.600" sx={{ opacity: 0.8 }}>
-                Produção, recebimento, comissão e saldo por profissional
-              </Typography>
-            </div>
+      <div className="mb-4 rounded-2xl border border-gray-100 shadow-sm bg-white p-4 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#10B98118' }}>
+            <DollarSign size={28} style={{ color: '#10B981' }} />
           </div>
-
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              <Calendar size={18} color="#666" />
-              <FormControl size="small" sx={{ minWidth: 100 }}>
-                <Select
-                  value={currentMonth.month}
-                  onChange={(e) => handleMonthChange(Number(e.target.value))}
-                  sx={{ bgcolor: 'background.paper', borderRadius: 1 }}
-                >
-                  {months.map((m) => (
-                    <MenuItem key={m} value={m}>
-                      {new Date(2000, m - 1).toLocaleString('pt-BR', { month: 'short' })}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl size="small" sx={{ minWidth: 80 }}>
-                <Select
-                  value={currentMonth.year}
-                  onChange={(e) => handleYearChange(Number(e.target.value))}
-                  sx={{ bgcolor: 'background.paper', borderRadius: 1 }}
-                >
-                  {years.map((y) => (
-                    <MenuItem key={y} value={y}>
-                      {y}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<RefreshCw size={16} />}
-              onClick={refresh}
-              sx={{ borderRadius: 2 }}
-            >
-              Atualizar
-            </Button>
-          </Box>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Centro de Resultado dos Profissionais</h2>
+            <p className="text-sm text-gray-500 mt-0.5">Produção, recebimento, comissão e saldo por profissional</p>
+          </div>
         </div>
-      </Paper>
+
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="flex gap-1 items-center">
+            <Calendar size={16} color="#666" />
+            <FormControl size="small" sx={{ minWidth: 100 }}>
+              <Select
+                value={currentMonth.month}
+                onChange={(e) => handleMonthChange(Number(e.target.value))}
+                sx={{ bgcolor: 'background.paper', borderRadius: 1 }}
+              >
+                {months.map((m) => (
+                  <MenuItem key={m} value={m}>
+                    {new Date(2000, m - 1).toLocaleString('pt-BR', { month: 'short' })}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 80 }}>
+              <Select
+                value={currentMonth.year}
+                onChange={(e) => handleYearChange(Number(e.target.value))}
+                sx={{ bgcolor: 'background.paper', borderRadius: 1 }}
+              >
+                {years.map((y) => (
+                  <MenuItem key={y} value={y}>
+                    {y}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </div>
+          <button
+            onClick={refresh}
+            className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 flex items-center gap-1.5 transition-colors"
+          >
+            <RefreshCw size={14} />
+            Atualizar
+          </button>
+        </div>
+      </div>
 
       {/* Tabs */}
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">

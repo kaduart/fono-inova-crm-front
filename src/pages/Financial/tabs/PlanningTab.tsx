@@ -414,150 +414,87 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
   return (
     <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
       {/* Header */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: 2,
-          mb: 3,
-          border: '1px solid',
-          borderColor: 'grey.200',
-          borderRadius: 2,
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 2,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Avatar sx={{ bgcolor: '#8B5CF6', width: 44, height: 44 }}>
-            <Assessment sx={{ fontSize: 22 }} />
-          </Avatar>
-          <Box>
-            <Typography variant="h6" fontWeight="bold">
-              Planejamento Anual
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Defina metas de receita, sessões e acompanhe o progresso
-            </Typography>
-          </Box>
-        </Box>
-
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Tooltip title="Atualizar dados reais">
-            <IconButton
-              onClick={async () => await refreshAllPlannings()}
-              sx={{ border: '1px solid', borderColor: '#8B5CF650', color: '#8B5CF6' }}
-              size="small"
-            >
-              <Refresh fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={handleOpenModal}
-            sx={{
-              borderRadius: 1.5,
-              background: 'linear-gradient(135deg, #8B5CF6, #7C3AED)',
-              textTransform: 'none',
-              px: 2,
-              py: 0.75,
-              fontSize: '0.875rem',
-            }}
+      <div className="mb-4 rounded-2xl border border-gray-100 shadow-sm bg-white p-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#8B5CF6' }}>
+            <Assessment sx={{ fontSize: 22, color: 'white' }} />
+          </div>
+          <div>
+            <p className="text-sm font-black text-gray-900">Planejamento Anual</p>
+            <p className="text-[11px] text-gray-500">Defina metas de receita, sessões e acompanhe o progresso</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => await refreshAllPlannings()}
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-violet-200 text-violet-600 hover:bg-violet-50 transition-colors"
+            title="Atualizar dados reais"
           >
-            Nova Meta
-          </Button>
-        </Box>
-      </Paper>
+            <Refresh fontSize="small" />
+          </button>
+          <button
+            onClick={handleOpenModal}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
+            style={{ background: 'linear-gradient(135deg, #8B5CF6, #7C3AED)' }}
+          >
+            <Add fontSize="small" /> Nova Meta
+          </button>
+        </div>
+      </div>
 
-      {/* NAVEGAÇÃO: Seletor de Meses (últimos 3 meses) */}
-      <Paper
-        elevation={0}
-        sx={{ p: 1.5, mb: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}
-      >
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          Selecione o período:
-        </Typography>
-        <ToggleButtonGroup
-          value={selectedMonthKey}
-          exclusive
-          onChange={(e, value) => value && setSelectedMonthKey(value)}
-          sx={{
-            width: '100%',
-            '& .MuiToggleButton-root': {
-              flex: 1,
-              py: 1,
-              borderRadius: '8px !important',
-              mx: 0.5,
-              border: '2px solid transparent !important',
-              '&.Mui-selected': {
-                bgcolor: '#8B5CF6',
-                color: 'white',
-                borderColor: '#8B5CF6 !important',
-              },
-              '&:not(.Mui-selected)': {
-                bgcolor: '#F3F4F6',
-                color: '#6B7280',
-              },
-            },
-          }}
-        >
-          {last3Months.map((m) => (
-            <ToggleButton key={`${m.year}-${m.month}`} value={`${m.year}-${m.month}`}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="body2" fontWeight="600">
-                  {m.label}
-                </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                  {m.year}
-                </Typography>
-                {`${m.year}-${m.month}` === getCurrentMonthKey() && (
-                  <Chip
-                    size="small"
-                    label="ATUAL"
-                    sx={{
-                      height: 16,
-                      fontSize: '8px',
-                      fontWeight: 'bold',
-                      ml: 1,
-                      bgcolor: 'rgba(255,255,255,0.3)',
-                      color: 'inherit',
-                    }}
-                  />
+      {/* NAVEGAÇÃO: Seletor de Meses */}
+      <div className="mb-4 rounded-2xl border border-gray-100 shadow-sm bg-white p-3">
+        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Período</p>
+        <div className="flex gap-2">
+          {last3Months.map((m) => {
+            const isSelected = selectedMonthKey === `${m.year}-${m.month}`;
+            const isCurrent = `${m.year}-${m.month}` === getCurrentMonthKey();
+            return (
+              <button
+                key={`${m.year}-${m.month}`}
+                onClick={() => setSelectedMonthKey(`${m.year}-${m.month}`)}
+                className={`flex-1 py-2.5 rounded-xl text-center transition-all ${
+                  isSelected ? 'text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+                style={isSelected ? { backgroundColor: '#8B5CF6' } : {}}
+              >
+                <div className="text-sm font-bold leading-tight">{m.label}</div>
+                <div className="text-[10px] opacity-70">{m.year}</div>
+                {isCurrent && (
+                  <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full ${isSelected ? 'bg-white bg-opacity-20 text-white' : 'bg-violet-100 text-violet-700'}`}>
+                    atual
+                  </span>
                 )}
-              </Box>
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
-      </Paper>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* KPIs do MÊS SELECIONADO */}
       {monthlyOfMonth && (
-        <Box sx={{ mb: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-            <CalendarToday sx={{ color: '#8B5CF6', fontSize: 20 }} />
-            <Typography variant="subtitle1" fontWeight="700" sx={{ color: '#8B5CF6' }}>
-              {selectedMonthLabel}
-            </Typography>
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[10px] font-black uppercase tracking-widest text-violet-600">{selectedMonthLabel}</span>
             {isCurrentMonth && (
-              <Chip size="small" label="Em andamento" sx={{ bgcolor: '#8B5CF620', color: '#8B5CF6', fontSize: '0.7rem' }} />
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">Em andamento</span>
             )}
-          </Box>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {/* Meta do Mês */}
-            <div className="rounded-2xl border-2 p-4 shadow-sm" style={{ borderColor: '#8B5CF6', backgroundColor: '#F5F3FF' }}>
-              <span className="text-xs font-black uppercase tracking-widest" style={{ color: '#7C3AED' }}>Meta do Mês</span>
+            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #8B5CF6' }}>
+              <span className="text-[10px] font-black uppercase tracking-widest text-violet-600">Meta do Mês</span>
               <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
                 {formatCurrency(monthlyOfMonth?.targets?.expectedRevenue || 0)}
               </div>
+              <div className="text-[10px] text-gray-400">objetivo do mês</div>
             </div>
 
             {/* Produção Realizada */}
-            <div className="rounded-2xl border-2 p-4 shadow-sm" style={{ borderColor: '#10B981', backgroundColor: '#F0FDF4' }}>
+            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #10B981' }}>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-black uppercase tracking-widest" style={{ color: '#059669' }}>Produção</span>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Produção</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
                   {(() => {
                     const real = dashData?.resumo?.novaReceitaMes?.total ?? dashData?.novaReceitaMes?.total ?? dashData?.data?.resultadoEconomico ?? dashData?.resumo?.producao ?? monthlyOfMonth?.actual?.actualRevenue ?? 0;
                     const meta = monthlyOfMonth?.targets?.expectedRevenue || 0;
@@ -568,42 +505,42 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
               <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
                 {formatCurrency(dashData?.resumo?.novaReceitaMes?.total ?? dashData?.novaReceitaMes?.total ?? dashData?.data?.resultadoEconomico ?? dashData?.resumo?.producao ?? monthlyOfMonth?.actual?.actualRevenue ?? 0)}
               </div>
-              <div className="text-xs text-gray-500">da meta</div>
+              <div className="text-[10px] text-gray-400">da meta</div>
             </div>
 
             {/* Caixa Recebido */}
-            <div className="rounded-2xl border-2 p-4 shadow-sm" style={{ borderColor: '#059669', backgroundColor: '#ECFDF5' }}>
-              <span className="text-xs font-black uppercase tracking-widest" style={{ color: '#047857' }}>Caixa Recebido</span>
+            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #059669' }}>
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Caixa Recebido</span>
               <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
                 {formatCurrency(dashData?.resumo?.caixa || 0)}
               </div>
-              <div className="text-xs text-gray-500">dinheiro recebido</div>
+              <div className="text-[10px] text-gray-400">dinheiro recebido</div>
             </div>
 
             {/* Sessões */}
-            <div className="rounded-2xl border-2 p-4 shadow-sm" style={{ borderColor: '#F59E0B', backgroundColor: '#FFFBEB' }}>
+            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #F59E0B' }}>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-black uppercase tracking-widest" style={{ color: '#B45309' }}>Sessões</span>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                <span className="text-[10px] font-black uppercase tracking-widest text-amber-600">Sessões</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
                   {(monthlyOfMonth?.progress?.sessionsPercentage || 0).toFixed(0)}%
                 </span>
               </div>
               <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
                 {monthlyOfMonth?.actual?.completedSessions || 0} / {monthlyOfMonth?.targets?.totalSessions || 0}
               </div>
-              <div className="text-xs text-gray-500">realizadas</div>
+              <div className="text-[10px] text-gray-400">realizadas</div>
             </div>
 
             {/* Horas */}
-            <div className="rounded-2xl border-2 p-4 shadow-sm col-span-2 md:col-span-1" style={{ borderColor: '#3B82F6', backgroundColor: '#EFF6FF' }}>
-              <span className="text-xs font-black uppercase tracking-widest" style={{ color: '#1D4ED8' }}>Horas</span>
+            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white col-span-2 md:col-span-1" style={{ borderTop: '3px solid #3B82F6' }}>
+              <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">Horas</span>
               <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
                 {monthlyOfMonth?.actual?.workedHours?.toFixed(0) || 0}h / {monthlyOfMonth?.targets?.workHours || 0}h
               </div>
-              <div className="text-xs text-gray-500">trabalhadas</div>
+              <div className="text-[10px] text-gray-400">trabalhadas</div>
             </div>
           </div>
-        </Box>
+        </div>
       )}
 
       {/* ═══════════════════════════════════════════════════════
@@ -611,232 +548,165 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
           "Quanto já temos na mão? E quanto ainda precisamos vender?"
           ═══════════════════════════════════════════════════════ */}
       {monthlyOfMonth && (
-        <Box sx={{ mb: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-            <TrendingUp sx={{ color: '#EC4899', fontSize: 20 }} />
-            <Typography variant="subtitle1" fontWeight="700" sx={{ color: '#EC4899' }}>
-              Painel Comercial Estratégico
-            </Typography>
-            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="caption" color="text.secondary">
-                Agenda operacional vs. Meta
-              </Typography>
-              {isCurrentMonth && strategic.gap > 0 && (
-                <Tooltip title="Recalcular metas futuras por dias úteis restantes">
-                  <IconButton
-                    size="small"
-                    onClick={async () => {
-                      const { month, year } = selectedMonthData;
-                      await recalculateFutureTargets(month, year);
-                    }}
-                    sx={{ color: '#EC4899', border: '1px solid', borderColor: '#EC489950' }}
-                  >
-                    <Refresh fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </Box>
-          </Box>
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Painel Comercial Estratégico</span>
+            <span className="text-[10px] text-gray-300">· Agenda vs. Meta</span>
+            {isCurrentMonth && strategic.gap > 0 && (
+              <button
+                onClick={async () => { const { month, year } = selectedMonthData; await recalculateFutureTargets(month, year); }}
+                className="ml-auto text-[11px] font-bold text-pink-600 border border-pink-200 bg-pink-50 hover:bg-pink-100 px-2 py-0.5 rounded-lg transition-colors"
+              >
+                ↻ Recalcular
+              </button>
+            )}
+          </div>
 
-          {/* Barra segmentada: Recorrente + Nova + Gap */}
-          <Paper elevation={0} sx={{ p: 2.5, mb: 3, borderRadius: 2, border: '1px solid', borderColor: 'grey.200', bgcolor: '#FAFAFF' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mb: 1 }}>
-              <Typography variant="body2" fontWeight="600" color="text.secondary">
-                Cobertura da Meta
-              </Typography>
-              <Typography variant="h4" fontWeight="900" color={strategic.coveragePct >= 100 ? '#10B981' : '#1F2937'}>
-                {strategic.coveragePct.toFixed(0)}%
-              </Typography>
-            </Box>
-            <Box sx={{ width: '100%', height: 20, bgcolor: '#E5E7EB', borderRadius: 10, overflow: 'hidden', display: 'flex' }}>
-              {/* Base Recorrente */}
-              <Box
-                sx={{
-                  width: `${Math.min(100, strategic.recurringPct)}%`,
-                  height: '100%',
-                  bgcolor: '#8B5CF6',
-                  transition: 'width 0.6s ease',
-                }}
-                title={`Base Recorrente: ${strategic.recurringPct.toFixed(0)}%`}
-              />
-              {/* Nova Captação */}
-              <Box
-                sx={{
-                  width: `${Math.min(100 - strategic.recurringPct, strategic.newPct)}%`,
-                  height: '100%',
-                  bgcolor: '#F59E0B',
-                  transition: 'width 0.6s ease',
-                }}
-                title={`Nova Captação: ${strategic.newPct.toFixed(0)}%`}
-              />
-            </Box>
-            <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#8B5CF6' }} />
-                <Typography variant="caption" color="text.secondary">
-                  Base {strategic.recurringPct.toFixed(0)}%
-                </Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#F59E0B' }} />
-                <Typography variant="caption" color="text.secondary">
-                  Nova {strategic.newPct.toFixed(0)}%
-                </Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#E5E7EB' }} />
-                <Typography variant="caption" color="text.secondary">
-                  Falta {Math.max(0, 100 - strategic.coveragePct).toFixed(0)}%
-                </Typography>
-              </Box>
-              <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-                {formatCurrency(strategic.committedRevenue)} / {formatCurrency(strategic.revenueGoal)}
-              </Typography>
-            </Box>
-          </Paper>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
-            {/* Card 1: Meta do Mês */}
-            <div className="rounded-2xl border-2 p-4 shadow-sm" style={{ borderColor: '#6B7280', backgroundColor: '#F9FAFB' }}>
-              <span className="text-xs font-black uppercase tracking-widest" style={{ color: '#374151' }}>Meta</span>
-              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
-                {formatCurrency(strategic.revenueGoal)}
-              </div>
-              <div className="text-xs text-gray-500">objetivo do mês</div>
-            </div>
-
-            {/* Card 2: Base Recorrente — HERO */}
-            <div className="rounded-2xl border-2 p-4 shadow-sm" style={{ borderColor: '#8B5CF6', backgroundColor: '#F5F3FF' }}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-black uppercase tracking-widest" style={{ color: '#7C3AED' }}>Base Recorrente</span>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
-                  {strategic.recurringPct.toFixed(0)}%
-                </span>
-              </div>
-              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
-                {formatCurrency(strategic.recurringRevenue)}
-              </div>
-              <div className="text-xs text-gray-500">pacotes + recorrentes</div>
-            </div>
-
-            {/* Card 3: Nova Captação */}
-            <div className="rounded-2xl border-2 p-4 shadow-sm" style={{ borderColor: '#F59E0B', backgroundColor: '#FFFBEB' }}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-black uppercase tracking-widest" style={{ color: '#B45309' }}>Nova Captação</span>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                  {strategic.newPct.toFixed(0)}%
-                </span>
-              </div>
-              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
-                {formatCurrency(strategic.newRevenue)}
-              </div>
-              <div className="text-xs text-gray-500">avulsos + convênios</div>
-            </div>
-
-            {/* Card 4: Total em Agenda */}
-            <div className="rounded-2xl border-2 p-4 shadow-sm" style={{ borderColor: '#10B981', backgroundColor: '#F0FDF4' }}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-black uppercase tracking-widest" style={{ color: '#059669' }}>Total Agenda</span>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+          {/* Barra segmentada thin */}
+          <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm mb-4">
+            <div style={{ height: 3, backgroundColor: '#8B5CF6' }} />
+            <div className="p-4 bg-white">
+              <div className="flex items-end justify-between mb-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Cobertura da Meta</p>
+                <span className="text-3xl font-black leading-none" style={{ color: strategic.coveragePct >= 100 ? '#10B981' : '#1F2937' }}>
                   {strategic.coveragePct.toFixed(0)}%
                 </span>
               </div>
-              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
-                {formatCurrency(strategic.committedRevenue)}
+              <div className="w-full bg-gray-100 rounded-full h-[5px] overflow-hidden flex mb-3">
+                <div className="h-full rounded-l-full transition-all duration-700"
+                  style={{ width: `${Math.min(100, strategic.recurringPct)}%`, backgroundColor: '#8B5CF6' }} />
+                <div className="h-full transition-all duration-700"
+                  style={{ width: `${Math.min(100 - strategic.recurringPct, strategic.newPct)}%`, backgroundColor: '#F59E0B' }} />
               </div>
-              <div className="text-xs text-gray-500">base + nova</div>
-            </div>
-
-            {/* Card 5: Gap Comercial */}
-            <div className="rounded-2xl border-2 p-4 shadow-sm" style={{
-              borderColor: strategic.gap <= 0 ? '#10B981' : '#EF4444',
-              backgroundColor: strategic.gap <= 0 ? '#F0FDF4' : '#FEF2F2'
-            }}>
-              <span className="text-xs font-black uppercase tracking-widest" style={{ color: strategic.gap <= 0 ? '#059669' : '#DC2626' }}>
-                {strategic.gap <= 0 ? 'Superávit' : 'Gap'}
-              </span>
-              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
-                {strategic.gap <= 0 ? formatCurrency(Math.abs(strategic.gap)) : formatCurrency(strategic.gap)}
-              </div>
-              <div className="text-xs text-gray-500">
-                {strategic.gap <= 0 ? 'meta coberta 🎉' : 'ainda precisa captar'}
-              </div>
-            </div>
-
-            {/* Card 6: Pacientes Necessários */}
-            <div className="rounded-2xl border-2 p-4 shadow-sm" style={{ borderColor: '#3B82F6', backgroundColor: '#EFF6FF' }}>
-              <span className="text-xs font-black uppercase tracking-widest" style={{ color: '#1D4ED8' }}>Pacientes Nec.</span>
-              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
-                {strategic.patientsNeeded}
-              </div>
-              <div className="text-xs text-gray-500">
-                {strategic.ticketForPatients > 0
-                  ? `considerando ticket comercial de ${formatCurrency(strategic.ticketForPatients)}`
-                  : 'defina ticket comercial'}
+              <div className="flex items-center gap-4 text-[11px] text-gray-500 flex-wrap">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-violet-500" />
+                  Base {strategic.recurringPct.toFixed(0)}%
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-amber-400" />
+                  Nova {strategic.newPct.toFixed(0)}%
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-gray-300" />
+                  Falta {Math.max(0, 100 - strategic.coveragePct).toFixed(0)}%
+                </span>
+                <span className="ml-auto font-semibold text-gray-600 text-[11px]">
+                  {formatCurrency(strategic.committedRevenue)} / {formatCurrency(strategic.revenueGoal)}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Meta Semanal — destaque separado */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-3">
+            {/* Card 1: Meta */}
+            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #6B7280' }}>
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Meta</span>
+              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">{formatCurrency(strategic.revenueGoal)}</div>
+              <div className="text-[10px] text-gray-400">objetivo do mês</div>
+            </div>
+
+            {/* Card 2: Base Recorrente */}
+            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #8B5CF6' }}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-violet-600">Base Recorrente</span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">{strategic.recurringPct.toFixed(0)}%</span>
+              </div>
+              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">{formatCurrency(strategic.recurringRevenue)}</div>
+              <div className="text-[10px] text-gray-400">pacotes + recorrentes</div>
+            </div>
+
+            {/* Card 3: Nova Captação */}
+            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #F59E0B' }}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-amber-600">Nova Captação</span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">{strategic.newPct.toFixed(0)}%</span>
+              </div>
+              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">{formatCurrency(strategic.newRevenue)}</div>
+              <div className="text-[10px] text-gray-400">avulsos + convênios</div>
+            </div>
+
+            {/* Card 4: Total Agenda */}
+            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #10B981' }}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Total Agenda</span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{strategic.coveragePct.toFixed(0)}%</span>
+              </div>
+              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">{formatCurrency(strategic.committedRevenue)}</div>
+              <div className="text-[10px] text-gray-400">base + nova</div>
+            </div>
+
+            {/* Card 5: GAP — danger/success */}
+            <div className={`rounded-2xl shadow-sm p-4 ${strategic.gap <= 0 ? 'bg-emerald-50 border border-emerald-200' : 'bg-rose-50 border border-rose-200'}`}
+              style={{ borderTop: `3px solid ${strategic.gap <= 0 ? '#10B981' : '#EF4444'}` }}>
+              <span className={`text-[10px] font-black uppercase tracking-widest ${strategic.gap <= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {strategic.gap <= 0 ? 'Superávit' : 'Gap'}
+              </span>
+              <div className={`text-2xl font-black tracking-tight my-2 ${strategic.gap <= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                {formatCurrency(Math.abs(strategic.gap))}
+              </div>
+              <div className={`text-[10px] font-semibold ${strategic.gap <= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                {strategic.gap <= 0 ? 'meta coberta 🎉' : 'ainda precisa captar'}
+              </div>
+            </div>
+
+            {/* Card 6: Pacientes Necessários — danger se gap > 0 */}
+            <div className={`rounded-2xl shadow-sm p-4 ${strategic.gap > 0 && strategic.patientsNeeded > 0 ? 'bg-rose-50 border border-rose-200' : 'bg-white border border-gray-100'}`}
+              style={{ borderTop: `3px solid ${strategic.gap > 0 && strategic.patientsNeeded > 0 ? '#EF4444' : '#3B82F6'}` }}>
+              <span className={`text-[10px] font-black uppercase tracking-widest ${strategic.gap > 0 && strategic.patientsNeeded > 0 ? 'text-rose-600' : 'text-blue-600'}`}>
+                Pacientes Nec.
+              </span>
+              <div className={`text-2xl font-black tracking-tight my-2 ${strategic.gap > 0 && strategic.patientsNeeded > 0 ? 'text-rose-700' : 'text-gray-900'}`}>
+                {strategic.patientsNeeded}
+              </div>
+              <div className="text-[10px] text-gray-400">
+                {strategic.ticketForPatients > 0 ? `ticket ${formatCurrency(strategic.ticketForPatients)}` : 'defina ticket comercial'}
+              </div>
+            </div>
+          </div>
+
+          {/* Meta Semanal */}
           {strategic.gap > 0 && strategic.weeksRemaining > 0 && (
-            <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 2, border: '1px dashed', borderColor: '#F59E0B', bgcolor: '#FFFBEB', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
-              <Typography variant="body2" fontWeight="600" color="#B45309">
-                🎯 Meta semanal: fechar <strong>{strategic.weeklyTarget} pacientes/semana</strong> nas próximas {strategic.weeksRemaining} semana(s)
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {strategic.patientsNeeded} pacientes ÷ {strategic.weeksRemaining} semanas
-              </Typography>
-            </Paper>
+            <div className="border border-dashed border-amber-300 bg-amber-50 rounded-xl px-4 py-3 mb-4 flex items-center justify-between flex-wrap gap-2">
+              <span className="text-sm font-bold text-amber-800">
+                🎯 Meta semanal: fechar <strong>{strategic.weeklyTarget} pacientes/semana</strong> nas próximas {strategic.weeksRemaining} sem.
+              </span>
+              <span className="text-[11px] text-gray-500">{strategic.patientsNeeded} pac. ÷ {strategic.weeksRemaining} sem.</span>
+            </div>
           )}
 
-          {/* Tabela de Composição da Receita em Agenda */}
+          {/* Tabela Composição da Receita */}
           {projection?.composition && (
-            <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', borderRadius: 2, overflow: 'hidden' }}>
-              <Box sx={{ px: 2, py: 1.5, bgcolor: '#FAFAFA', borderBottom: '1px solid', borderColor: 'grey.200' }}>
-                <Typography variant="body2" fontWeight="600" color="text.secondary">
-                  Composição da Receita em Agenda ({projection.totalAppointments || 0} agendamentos)
-                </Typography>
-              </Box>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead sx={{ bgcolor: '#F9FAFB' }}>
-                    <TableRow>
-                      <TableCell><strong>Fonte</strong></TableCell>
-                      <TableCell align="right"><strong>Valor</strong></TableCell>
-                      <TableCell align="right"><strong>% da Agenda</strong></TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {[
-                      { label: 'Pacotes', value: projection.composition?.pacotes || 0, color: '#8B5CF6' },
-                      { label: 'Convênios', value: projection.composition?.convenios || 0, color: '#F59E0B' },
-                      { label: 'Sessões Avulsas', value: projection.composition?.perSession || 0, color: '#3B82F6' },
-                      { label: 'Recorrentes', value: projection.composition?.recorrentes || 0, color: '#10B981' },
-                    ].map((row) => {
-                      const pct = strategic.committedRevenue > 0 ? (row.value / strategic.committedRevenue) * 100 : 0;
-                      return (
-                        <TableRow key={row.label} hover>
-                          <TableCell>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: row.color }} />
-                              <Typography variant="body2">{row.label}</Typography>
-                            </Box>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography variant="body2" fontWeight="600">{formatCurrency(row.value)}</Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography variant="body2" color="text.secondary">{pct.toFixed(1)}%</Typography>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Paper>
+            <div className="rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-1">
+              <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                  Composição da Receita em Agenda · {projection.totalAppointments || 0} agendamentos
+                </p>
+              </div>
+              <div className="bg-white divide-y divide-gray-50">
+                {[
+                  { label: 'Pacotes', value: projection.composition?.pacotes || 0, color: '#8B5CF6' },
+                  { label: 'Convênios', value: projection.composition?.convenios || 0, color: '#F59E0B' },
+                  { label: 'Sessões Avulsas', value: projection.composition?.perSession || 0, color: '#3B82F6' },
+                  { label: 'Recorrentes', value: projection.composition?.recorrentes || 0, color: '#10B981' },
+                ].map((row) => {
+                  const pct = strategic.committedRevenue > 0 ? (row.value / strategic.committedRevenue) * 100 : 0;
+                  return (
+                    <div key={row.label} className="flex items-center gap-3 px-4 py-2.5">
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: row.color }} />
+                      <span className="text-sm text-gray-700 w-28 shrink-0">{row.label}</span>
+                      <div className="flex-1 h-[4px] bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, pct)}%`, backgroundColor: row.color }} />
+                      </div>
+                      <span className="text-[11px] text-gray-400 w-10 text-right shrink-0">{pct.toFixed(1)}%</span>
+                      <span className="text-sm font-bold text-gray-900 w-20 text-right shrink-0">{formatCurrency(row.value)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
-        </Box>
+        </div>
       )}
 
       {/* TABS: DIA | SEMANA | MENSAL */}
