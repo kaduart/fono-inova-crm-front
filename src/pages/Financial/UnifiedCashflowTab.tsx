@@ -1713,7 +1713,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                         const statusLabel =
                                                                             isCanceled ? 'Cancelado' :
                                                                             isCompleted ? (isConvenio ? 'Aguarda repasse' : 'Atendido') :
-                                                                            effectiveStatus === 'confirmed' ? 'Confirmado' :
+                                                                            effectiveStatus === 'confirmed' ? 'Atendido' :
                                                                             effectiveStatus === 'pre_agendado' ? 'Pré-agendado' :
                                                                             'Agendado';
 
@@ -1721,7 +1721,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                             isCanceled ? 'bg-rose-100 text-rose-700' :
                                                                             isCompleted && isConvenio ? 'bg-sky-100 text-sky-700' :
                                                                             isCompleted ? 'bg-emerald-100 text-emerald-800' :
-                                                                            effectiveStatus === 'confirmed' ? 'bg-sky-100 text-sky-700' :
+                                                                            effectiveStatus === 'confirmed' ? 'bg-green-100 text-green-700' :
                                                                             effectiveStatus === 'pre_agendado' ? 'bg-amber-100 text-amber-700' :
                                                                             'bg-gray-100 text-gray-600';
 

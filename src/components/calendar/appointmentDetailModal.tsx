@@ -3,6 +3,7 @@ import { Building2, Calendar, CheckCircle, ClipboardCheck, Clock, DollarSign, Pe
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { validateAppointmentComplete } from '../../utils/appointmentCompleteGuard';
+import { extractScheduleConflictMessage } from '../../utils/errorUtils';
 import { getPatientFinancialSummary, FinancialSummary } from '../../services/financialSummaryService';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -693,10 +694,22 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             await onEditAppointment(event.id, appointmentData);
         } catch (err: any) {
             console.error('❌ [Modal] Erro ao editar:', err);
-            // APPOINTMENT_SLOT_CONFLICT: AdminDashboard já exibe toast — evita duplicata
-            const errCode = err?.response?.data?.code;
-            if (errCode !== 'APPOINTMENT_SLOT_CONFLICT') {
-                const errMsg = err?.response?.data?.error || err?.message || 'Erro ao atualizar agendamento';
+
+            // 🎯 Mensagem detalhada para conflitos de agenda (horário já ocupado)
+            const conflictMsg = extractScheduleConflictMessage(err);
+            if (conflictMsg) {
+                toast.error((t) => (
+                    <div className="flex flex-col gap-1">
+                        <div className="font-semibold text-sm">⚠️ Conflito de agenda</div>
+                        <div className="text-sm leading-snug">{conflictMsg}</div>
+                    </div>
+                ), {
+                    id: `edit-conflict-${event.id}`,
+                    autoClose: 8000,
+                    style: { maxWidth: '420px', borderLeft: '4px solid #ef4444' }
+                });
+            } else {
+                const errMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Erro ao atualizar agendamento';
                 toast.error(errMsg, { id: `edit-error-${event.id}` });
             }
             throw err;

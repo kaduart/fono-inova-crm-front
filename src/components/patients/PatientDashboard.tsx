@@ -472,8 +472,56 @@ export default function PatientDashboard() {
     setOpenSchedule(true);
   };
 
-  const renderDashboard = () => (
+  const renderDashboard = () => {
+    const pi = patientInfo as any;
+    const totalApts     = pi.totalAppointments ?? pi.stats?.totalAppointments ?? 0;
+    const totalDone     = pi.totalCompleted     ?? pi.stats?.totalCompleted     ?? 0;
+    const totalPending  = pi.totalPending       ?? pi.stats?.totalPending       ?? 0;
+    const nextApt       = pi.nextAppointment;
+    const nextAptDate   = nextApt?.date ? new Date(nextApt.date) : null;
+    const ptTags: string[] = pi.tags || [];
+
+    return (
     <>
+      {/* ── KPI strip ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Atendimentos</p>
+          <p className="text-2xl font-black text-gray-900">{totalApts}</p>
+          <p className="text-[10px] text-gray-400 mt-0.5">{totalDone} concluídos</p>
+        </div>
+        <div className={`rounded-xl border shadow-sm px-4 py-3 ${totalPending > 0 ? 'bg-amber-50 border-amber-100' : 'bg-white border-gray-100'}`}>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Pendente</p>
+          <p className={`text-2xl font-black ${totalPending > 0 ? 'text-amber-600' : 'text-gray-900'}`}>
+            {totalPending > 0 ? `R$ ${totalPending.toLocaleString('pt-BR')}` : '—'}
+          </p>
+          <p className="text-[10px] text-gray-400 mt-0.5">a receber</p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Próxima Sessão</p>
+          {nextAptDate ? (
+            <>
+              <p className="text-base font-black text-gray-900 leading-tight">
+                {nextAptDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+              </p>
+              <p className="text-[10px] text-gray-500 mt-0.5 truncate">
+                {nextApt.time && `${nextApt.time} · `}{nextApt.serviceType === 'evaluation' ? 'Avaliação' : nextApt.serviceType || 'Sessão'}
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-gray-400 mt-1">Sem agenda</p>
+          )}
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Status</p>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {ptTags.length > 0 ? ptTags.map((t: string) => (
+              <span key={t} className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${t === 'debito' ? 'bg-red-100 text-red-600' : t === 'vip' ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-600'}`}>{t}</span>
+            )) : <span className="text-sm text-gray-400">Regular</span>}
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Card Agendamentos para Hoje */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -537,14 +585,28 @@ export default function PatientDashboard() {
                 </div>
               ))
             ) : (
-              <div className="p-8 text-center">
+              <div className="p-6 text-center">
                 <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
                   <Calendar className="h-6 w-6 text-gray-400" />
                 </div>
                 <h4 className="text-sm font-medium text-gray-900 mb-1">Nenhum agendamento hoje</h4>
-                <p className="text-xs text-gray-500 max-w-xs mx-auto">
-                  Não há consultas agendadas para hoje. Agende uma nova consulta para começar.
-                </p>
+                {nextApt && nextAptDate ? (
+                  <div className="mt-3 mx-auto max-w-xs bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-left">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-1">Próxima sessão</p>
+                    <p className="text-sm font-bold text-blue-800">
+                      {nextAptDate.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                      {nextApt.time && ` às ${nextApt.time}`}
+                    </p>
+                    <p className="text-xs text-blue-600 mt-0.5">
+                      {nextApt.serviceType === 'evaluation' ? 'Avaliação' : nextApt.serviceType || 'Sessão'}
+                      {(nextApt.doctorName || nextApt.doctor?.fullName || nextApt.doctor?.name) && ` · ${nextApt.doctorName || nextApt.doctor?.fullName || nextApt.doctor?.name}`}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 max-w-xs mx-auto">
+                    Nenhuma consulta agendada. Crie um agendamento para este paciente.
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -716,6 +778,7 @@ export default function PatientDashboard() {
       />
     </>
   );
+  };
 
 
   const renderEvolution = () => {

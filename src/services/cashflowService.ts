@@ -82,6 +82,19 @@ export interface CashflowV2Data {
         total: number;
         porCategoria: Record<string, number>;
         quantidade: number;
+        breakdown?: {
+            expenses: number;
+            comissoes: number;
+            detalheComissoes: Array<{
+                doctorId: string;
+                doctorName: string;
+                total: number;
+                sessions: number;
+                productionBase: number;
+                commissionRate: number;
+                lastUpdated: string;
+            }>;
+        };
     };
     saldo: {
         bruto: number;

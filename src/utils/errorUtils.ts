@@ -132,6 +132,66 @@ export function isCriticalError(error: unknown): boolean {
 }
 
 /**
+ * Extrai uma mensagem detalhada e amigável para conflitos de agenda.
+ * O backend pode retornar o conflito em formatos distintos:
+ *   - { error: "Conflito de agenda médica", message: "...", conflict: {...}, suggestion: "..." }
+ *   - { errorCode: "SCHEDULE_CONFLICT", data: { date, time, patientName, ... } }
+ *   - { code: "APPOINTMENT_SLOT_CONFLICT", message: "..." }
+ *
+ * Retorna a string formatada ou null se não for um conflito de agenda reconhecido.
+ */
+export function extractScheduleConflictMessage(error: unknown): string | null {
+  try {
+    if (!error) return null;
+    const err = error as any;
+    const data = err.response?.data;
+    if (!data) return null;
+
+    // Formato 1: erro detalhado do validador de agenda (ex: appointment.service)
+    if (
+      data.error === 'Conflito de agenda médica' ||
+      data.error?.toLowerCase?.().includes('conflito de agenda') ||
+      data.message?.toLowerCase?.().includes('compromisso neste horário')
+    ) {
+      const conflict = data.conflict;
+      const existing = conflict?.existingAppointment;
+      const patientName = conflict?.patientName || existing?.patient?.fullName;
+      const date = existing?.date
+        ? new Date(existing.date).toLocaleDateString('pt-BR')
+        : null;
+      const time = existing?.time;
+
+      let message = data.message || 'Já existe um compromisso neste horário.';
+      if (patientName) {
+        message += ` Paciente: ${patientName}.`;
+      }
+      if (date && time) {
+        message += ` Horário ocupado: ${date} às ${time}.`;
+      }
+      if (data.suggestion) {
+        message += ` ${data.suggestion}`;
+      }
+      return message;
+    }
+
+    // Formato 2: código SCHEDULE_CONFLICT com payload estruturado
+    if (data.errorCode === 'SCHEDULE_CONFLICT' && data.data) {
+      const { date, time, patientName, patientPhone, doctorName } = data.data;
+      return `${date} às ${time} já está ocupado por ${patientName}${patientPhone ? ` (${patientPhone})` : ''}${doctorName ? ` com ${doctorName}` : ''}.`;
+    }
+
+    // Formato 3: código APPOINTMENT_SLOT_CONFLICT
+    if (data.code === 'APPOINTMENT_SLOT_CONFLICT') {
+      return data.message || 'Conflito de horário: já existe um agendamento neste dia/hora. Escolha outro horário.';
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 🆕 Verifica se é erro de rede/conexão
  */
 export function isNetworkError(error: unknown): boolean {

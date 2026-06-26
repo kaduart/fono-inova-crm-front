@@ -920,16 +920,54 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           <MetricCard title="Impacto no Caixa" value={`${((expenses.total / (totalCaixa || 1)) * 100).toFixed(1)}%`} icon={<TrendingDown size={20} />} color="amber" />
         </div>
         {expenses.breakdown && expenses.breakdown.detalheComissoes.length > 0 && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">Comissões por Profissional</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {expenses.breakdown.detalheComissoes.map((c) => (
-                <div key={c.doctorId} className="border border-gray-100 rounded-2xl p-4 bg-gray-50">
-                  <p className="font-semibold text-gray-800">{c.doctorName}</p>
-                  <p className="text-sm text-gray-500">{c.sessions} sessões</p>
-                  <p className="text-xl font-bold text-gray-900 mt-2">{formatCurrency(c.total)}</p>
-                </div>
-              ))}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Comissões por Profissional</p>
+                <p className="text-xs text-gray-500 mt-0.5">{expenses.breakdown.detalheComissoes.length} profissionais · taxa efetiva sobre produção</p>
+              </div>
+              <span className="text-sm font-bold text-gray-900">{formatCurrency(expenses.breakdown.comissoes)}</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-50">
+                    <th className="px-5 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-gray-400">Profissional</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-gray-400">Sessões</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-gray-400">Produção</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-gray-400">%</th>
+                    <th className="px-5 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-gray-400">Comissão</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {expenses.breakdown.detalheComissoes.map((c) => (
+                    <tr key={c.doctorId} className="hover:bg-gray-50/60 transition-colors">
+                      <td className="px-5 py-3 font-semibold text-gray-800">{c.doctorName}</td>
+                      <td className="px-4 py-3 text-right text-gray-500">{c.sessions}</td>
+                      <td className="px-4 py-3 text-right text-gray-700">{c.productionBase > 0 ? formatCurrency(c.productionBase) : '—'}</td>
+                      <td className="px-4 py-3 text-right">
+                        {c.commissionRate > 0 ? (
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-700">{c.commissionRate}%</span>
+                        ) : '—'}
+                      </td>
+                      <td className="px-5 py-3 text-right font-bold text-gray-900">{formatCurrency(c.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-gray-100 bg-gray-50">
+                    <td className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Total</td>
+                    <td className="px-4 py-3 text-right text-gray-500 text-xs font-semibold">
+                      {expenses.breakdown.detalheComissoes.reduce((s, c) => s + c.sessions, 0)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-gray-700 text-xs font-semibold">
+                      {formatCurrency(expenses.breakdown.detalheComissoes.reduce((s, c) => s + (c.productionBase || 0), 0))}
+                    </td>
+                    <td className="px-4 py-3" />
+                    <td className="px-5 py-3 text-right font-black text-gray-900">{formatCurrency(expenses.breakdown.comissoes)}</td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           </div>
         )}
