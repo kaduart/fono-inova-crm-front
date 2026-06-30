@@ -1655,6 +1655,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                         const isPrepaid = a.package && (a.package.paymentType === 'full' || a.package.paymentType === 'prepaid' || a.package.model === 'full' || a.package.model === 'prepaid');
                                                                         const isPerSession = a.package && (a.package.paymentType === 'per-session' || a.package.paymentType === 'per_session' || a.package.model === 'per-session' || a.package.model === 'per_session');
                                                                         const serviceType = a.serviceType || '';
+                                                                        const isEvaluation = serviceType === 'evaluation' || serviceType === 'neuropsych_evaluation';
+                                                                        const isFirstEval = isNew && isEvaluation;
 
                                                                         // Tipo de atendimento (badge esquerdo)
                                                                         const typeLabel =
@@ -1669,7 +1671,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
 
                                                                         const typeCls =
                                                                             serviceType === 'tongue_tie_test' ? 'bg-teal-100 text-teal-700' :
-                                                                            serviceType === 'evaluation' || serviceType === 'neuropsych_evaluation' ? 'bg-pink-100 text-pink-700' :
+                                                                            serviceType === 'evaluation' || serviceType === 'neuropsych_evaluation' ? 'bg-pink-500 text-white' :
                                                                             isConvenio ? 'bg-sky-100 text-sky-700' :
                                                                             isLiminar ? 'bg-orange-100 text-orange-700' :
                                                                             isPrepaid ? 'bg-violet-100 text-violet-700' :
@@ -1727,6 +1729,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
 
                                                                         const leftBorder =
                                                                             isCanceled ? 'border-l-red-400' :
+                                                                            isFirstEval ? 'border-l-pink-500' :
                                                                             isCompleted ? 'border-l-emerald-500' :
                                                                             effectiveStatus === 'confirmed' ? 'border-l-sky-400' :
                                                                             effectiveStatus === 'pre_agendado' ? 'border-l-amber-400' :
@@ -1736,7 +1739,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                         let pkgProgress: React.ReactNode = null;
                                                                         const pkg = a.package;
                                                                         if (pkg) {
-                                                                            const used = pkg.usedSessions ?? pkg.sessionsUsed ?? 0;
+                                                                            const used = pkg.sessionsDone ?? pkg.usedSessions ?? pkg.sessionsUsed ?? 0;
                                                                             const total = pkg.totalSessions ?? pkg.sessoes ?? pkg.sessions ?? 0;
                                                                             const remaining = total > 0 ? total - used : 0;
                                                                             const pct = total > 0 ? Math.max(0, Math.min(100, (used / total) * 100)) : 0;
@@ -1745,13 +1748,19 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                 used >= total && total > 0 ? `${used}/${total} · encerrado 🔴` :
                                                                                 remaining === 1 ? `${used}/${total} sessões · 1 restante ⚠` :
                                                                                 `${used}/${total}${remaining > 0 ? ` · ${remaining} restantes` : ''}`;
-                                                                            const textCls = used < 0 || (used >= total && total > 0) ? 'text-red-500' : remaining <= 1 ? 'text-amber-600' : 'text-gray-400';
+                                                                            const badgeCls = used < 0 || (used >= total && total > 0)
+                                                                                ? 'bg-red-100 text-red-700 border-red-200'
+                                                                                : remaining <= 1
+                                                                                ? 'bg-amber-100 text-amber-700 border-amber-200'
+                                                                                : 'bg-violet-100 text-violet-700 border-violet-200';
                                                                             pkgProgress = (
-                                                                                <div className="flex items-center gap-2 mt-1.5">
-                                                                                    <div className="w-16 h-[3px] bg-gray-100 rounded-full overflow-hidden shrink-0">
-                                                                                        <div className="h-full rounded-full" style={{ width: `${Math.max(0, pct)}%`, backgroundColor: barColor }} />
-                                                                                    </div>
-                                                                                    <span className={`text-[10px] font-medium ${textCls}`}>{progressText}</span>
+                                                                                <div className="flex items-center gap-1.5 mt-1.5">
+                                                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeCls}`}>
+                                                                                        <span>{used}/{total}</span>
+                                                                                        {remaining > 0 && <span className="opacity-60">· {remaining} restante{remaining !== 1 ? 's' : ''}{remaining === 1 ? ' ⚠' : ''}</span>}
+                                                                                        {used >= total && total > 0 && <span>· encerrado 🔴</span>}
+                                                                                        {used < 0 && <span>· negativo ⚠</span>}
+                                                                                    </span>
                                                                                 </div>
                                                                             );
                                                                         }
@@ -1760,7 +1769,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                             <React.Fragment key={a.id}>
                                                                                 <div
                                                                                     onClick={() => setSelectedApt(a)}
-                                                                                    className={`flex items-start gap-3 px-4 py-2.5 border-l-[3px] border-b border-b-gray-50 cursor-pointer transition-colors hover:bg-gray-50/70 ${leftBorder} ${isCanceled ? 'bg-rose-50/40' : ''}`}
+                                                                                    className={`flex items-start gap-3 px-4 py-2.5 border-l-[3px] border-b border-b-gray-50 cursor-pointer transition-colors hover:bg-gray-50/70 ${leftBorder} ${isCanceled ? 'bg-rose-50/40' : isFirstEval ? 'bg-pink-50/60' : ''}`}
                                                                                 >
                                                                                     <div className="w-12 shrink-0 pt-0.5 text-right">
                                                                                         {aptIdx === 0 && <span className="text-[9px] font-bold text-gray-300 tracking-widest block leading-none mb-0.5">{String(hour).padStart(2,'0')}H</span>}
@@ -1769,7 +1778,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                     <div className="flex-1 min-w-0">
                                                                                         <div className="flex items-center gap-2 mb-1.5">
                                                                                             <span className={`text-sm font-bold truncate ${isCanceled ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{patientName}</span>
-                                                                                            {isNew && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 whitespace-nowrap shrink-0">1ª vez</span>}
+                                                                                            {isNew && <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold whitespace-nowrap shrink-0 ${isEvaluation ? 'bg-pink-500 text-white' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}>{isEvaluation ? '★ 1ª vez' : '1ª vez'}</span>}
                                                                                             {phone && (
                                                                                                 <button className="inline-flex items-center gap-0.5 text-[10px] text-blue-400 hover:text-blue-600 whitespace-nowrap shrink-0"
                                                                                                     onClick={(e) => { e.stopPropagation(); handleOpenWhatsApp(phone); }}>

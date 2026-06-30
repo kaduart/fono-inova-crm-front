@@ -85,6 +85,7 @@ export interface CashflowV2Data {
         breakdown?: {
             expenses: number;
             comissoes: number;
+            semRegra: number;
             detalheComissoes: Array<{
                 doctorId: string;
                 doctorName: string;
@@ -93,6 +94,7 @@ export interface CashflowV2Data {
                 productionBase: number;
                 commissionRate: number;
                 lastUpdated: string;
+                noRule: boolean;
             }>;
         };
     };

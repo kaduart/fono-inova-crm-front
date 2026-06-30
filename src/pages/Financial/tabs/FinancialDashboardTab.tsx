@@ -919,12 +919,20 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           <MetricCard title="Comissões Terapeutas" subtitle="Calculadas das sessões" value={formatCurrency(comissoes)} icon={<Users size={20} />} color="amber" />
           <MetricCard title="Impacto no Caixa" value={`${((expenses.total / (totalCaixa || 1)) * 100).toFixed(1)}%`} icon={<TrendingDown size={20} />} color="amber" />
         </div>
-        {expenses.breakdown && expenses.breakdown.detalheComissoes.length > 0 && (
+        {expenses.breakdown && expenses.breakdown.detalheComissoes.length > 0 && (() => {
+          const comRegra = expenses.breakdown.detalheComissoes.filter(c => !c.noRule).length;
+          const semRegra = expenses.breakdown.semRegra ?? expenses.breakdown.detalheComissoes.filter(c => c.noRule).length;
+          return (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Comissões por Profissional</p>
-                <p className="text-xs text-gray-500 mt-0.5">{expenses.breakdown.detalheComissoes.length} profissionais · taxa efetiva sobre produção</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs text-gray-500">{comRegra} com regra</span>
+                  {semRegra > 0 && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">⚠ {semRegra} sem regra</span>
+                  )}
+                </div>
               </div>
               <span className="text-sm font-bold text-gray-900">{formatCurrency(expenses.breakdown.comissoes)}</span>
             </div>
@@ -970,7 +978,8 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
               </table>
             </div>
           </div>
-        )}
+        );
+        })()}
       </div>
     );
   };
