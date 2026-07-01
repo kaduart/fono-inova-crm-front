@@ -13,7 +13,7 @@ import {
     Tab, Tabs, LinearProgress
 } from '@mui/material';
 import { NavigateBefore, NavigateNext } from '@mui/icons-material';
-import { TrendingUp, TrendingDown, Target, Calendar, RefreshCcw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, Calendar, RefreshCcw, Info, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useFinancialDashboardV3, DashboardV3Data } from '../../../hooks/useFinancialDashboardV3';
@@ -108,6 +108,34 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
     const [projectionMeta, setProjectionMeta] = useState<any>(null);
     const [appointments, setAppointments] = useState<IAppointment[]>([]);
     const [appointmentsLoading, setAppointmentsLoading] = useState(false);
+
+    // 🆕 Modal de explicação da projeção
+    interface BaseRecorrenteData {
+        agendaFirme: Record<string, { count: number; valor: number }>;
+        totais: { agendado: { sessoes: number; valor: number }; realizado: { sessoes: number; valor: number }; pendenteAgenda: { sessoes: number; valor: number } };
+        pacotes: { ativos: number; sessoesRestantes: number; agendadasNoMes: number; semAgendamentoNoMes: number };
+        convenios: { guiasAtivas: number; sessoesAutorizadas: number; porPlano: Array<{ plano: string; guias: number; sessoesRestantes: number }> };
+    }
+    const [projecaoModalOpen, setProjecaoModalOpen] = useState(false);
+    const [baseRecorrente, setBaseRecorrente] = useState<BaseRecorrenteData | null>(null);
+    const [loadingBaseRecorrente, setLoadingBaseRecorrente] = useState(false);
+
+    const fetchBaseRecorrente = async () => {
+        setLoadingBaseRecorrente(true);
+        try {
+            const res = await api.get(`/v2/financial/dashboard/base-recorrente?month=${mes}&year=${ano}`);
+            setBaseRecorrente(res.data);
+        } catch (err) {
+            console.error('Erro ao buscar base recorrente:', err);
+        } finally {
+            setLoadingBaseRecorrente(false);
+        }
+    };
+
+    const openProjecaoModal = () => {
+        setProjecaoModalOpen(true);
+        fetchBaseRecorrente();
+    };
 
     const hook = useFinancialDashboardV3();
     const dashData = propData ?? hook.data;
@@ -421,12 +449,25 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                                 {diasRestantes > 0 ? `${diasRestantes} dias` : ehPassado ? 'Mês encerrado' : 'Não iniciado'}
                             </span>
                         </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-500">Realizados</span>
+                            <span className="text-sm font-bold text-blue-700">
+                                ✅ {(dashData?.appointmentCounts?.realizados || 0).toLocaleString('pt-BR')} atendimentos
+                            </span>
+                        </div>
                     </div>
                 </div>
 
                 {/* PROJEÇÃO DE FECHAMENTO */}
-                <div className="border-2 rounded-2xl p-4 shadow-sm" style={{ borderColor: '#8B5CF6', backgroundColor: '#F5F3FF' }}>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-purple-700 mb-2">Projeção de Fechamento</p>
+                <div
+                    className="border-2 rounded-2xl p-4 shadow-sm cursor-pointer hover:shadow-md transition"
+                    style={{ borderColor: '#8B5CF6', backgroundColor: '#F5F3FF' }}
+                    onClick={openProjecaoModal}
+                >
+                    <div className="flex items-center justify-between mb-2">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-purple-700">Projeção de Fechamento</p>
+                        <Info size={14} className="text-purple-400" />
+                    </div>
                     <p className="text-3xl font-black leading-tight mb-2" style={{ color: '#7C3AED' }}>{formatCurrency(cenarioEsperado)}</p>
 
                     {metaValor > 0 && (
@@ -448,6 +489,9 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                     </div>
                     <p className="text-xs text-gray-400">
                         {(dashData?.metas?.ritmo?.percentualRealizado || 0).toFixed(1)}% atingido · Cenário histórico
+                    </p>
+                    <p className="text-xs text-purple-600 mt-1.5 font-semibold">
+                        📅 {(dashData?.appointmentCounts?.ativos || 0).toLocaleString('pt-BR')} agendamentos no mês
                     </p>
                 </div>
             </div>
@@ -646,6 +690,172 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                     </div>
                 ))}
             </div>
+
+            {/* ── Modal: Entendendo sua Projeção ── */}
+            {projecaoModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setProjecaoModalOpen(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col mx-4" onClick={e => e.stopPropagation()}>
+                        {/* Header */}
+                        <div className="flex items-center justify-between p-5 border-b">
+                            <div className="flex items-center gap-2">
+                                <TrendingUp size={20} className="text-purple-600" />
+                                <h2 className="text-lg font-bold text-gray-900">Como calculamos sua Projeção de Fechamento</h2>
+                            </div>
+                            <button onClick={() => setProjecaoModalOpen(false)} className="p-1 rounded-lg hover:bg-gray-100">
+                                <X size={20} className="text-gray-500" />
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="overflow-auto flex-1 p-5 space-y-6">
+                            {loadingBaseRecorrente || !baseRecorrente ? (
+                                <div className="p-8 text-center text-gray-500">Carregando base recorrente...</div>
+                            ) : (
+                                <>
+                                    {/* 1. O que é esse número */}
+                                    <div className="bg-purple-50 rounded-xl p-4 border border-purple-100">
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">
+                                                <TrendingUp size={20} />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-bold text-purple-900">O que é esse número?</h3>
+                                                <p className="text-sm text-purple-700 mt-1 leading-relaxed">
+                                                    É uma estimativa do faturamento total do mês, considerando a produção já realizada,
+                                                    a agenda já marcada e a conversão histórica de pendências.
+                                                </p>
+                                                <p className="text-2xl font-black text-purple-700 mt-3">
+                                                    {formatCurrency(dashData?.metas?.projecao?.final || 0)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 2. Como ele é composto */}
+                                    <div>
+                                        <h3 className="text-sm font-bold text-gray-800 mb-3">Como ele é composto</h3>
+                                        <div className="rounded-xl border border-gray-100 overflow-hidden">
+                                            <table className="w-full text-sm">
+                                                <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                                                    <tr>
+                                                        <th className="px-4 py-2 text-left font-medium">Origem</th>
+                                                        <th className="px-4 py-2 text-right font-medium">Sessões</th>
+                                                        <th className="px-4 py-2 text-right font-medium">Valor</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-100">
+                                                    <tr>
+                                                        <td className="px-4 py-2 text-gray-700">✅ Realizado</td>
+                                                        <td className="px-4 py-2 text-right text-gray-700">{baseRecorrente.totais.realizado.sessoes}</td>
+                                                        <td className="px-4 py-2 text-right font-semibold text-gray-900">{formatCurrency(baseRecorrente.totais.realizado.valor)}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="px-4 py-2 text-gray-700">📅 Agenda firme</td>
+                                                        <td className="px-4 py-2 text-right text-gray-700">{baseRecorrente.totais.pendenteAgenda.sessoes}</td>
+                                                        <td className="px-4 py-2 text-right font-semibold text-gray-900">{formatCurrency(baseRecorrente.totais.pendenteAgenda.valor)}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="px-4 py-2 text-gray-700">🔄 Potencial recorrente</td>
+                                                        <td className="px-4 py-2 text-right text-gray-700">
+                                                            {baseRecorrente.pacotes.semAgendamentoNoMes + baseRecorrente.convenios.sessoesAutorizadas}
+                                                        </td>
+                                                        <td className="px-4 py-2 text-right font-semibold text-gray-500">a estimar</td>
+                                                    </tr>
+                                                    <tr className="bg-gray-50 font-bold">
+                                                        <td className="px-4 py-2 text-gray-900">Total garantido</td>
+                                                        <td className="px-4 py-2 text-right text-gray-900">{baseRecorrente.totais.agendado.sessoes}</td>
+                                                        <td className="px-4 py-2 text-right text-gray-900">{formatCurrency(baseRecorrente.totais.agendado.valor)}</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    {/* 3. Detalhe por tipo */}
+                                    <div>
+                                        <h3 className="text-sm font-bold text-gray-800 mb-3">Agenda firme por tipo</h3>
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                            {[
+                                                { key: 'pacote', label: 'Pacote', icon: '📦', color: 'bg-blue-50 border-blue-100 text-blue-700' },
+                                                { key: 'convenio', label: 'Convênio', icon: '🏥', color: 'bg-amber-50 border-amber-100 text-amber-700' },
+                                                { key: 'particular', label: 'Particular', icon: '💳', color: 'bg-emerald-50 border-emerald-100 text-emerald-700' },
+                                                { key: 'liminar', label: 'Liminar', icon: '⚖️', color: 'bg-purple-50 border-purple-100 text-purple-700' },
+                                            ].map(({ key, label, icon, color }) => {
+                                                const item = baseRecorrente.agendaFirme[key] || { count: 0, valor: 0 };
+                                                return (
+                                                    <div key={key} className={`rounded-xl border p-3 ${color}`}>
+                                                        <p className="text-xs font-semibold opacity-80">{icon} {label}</p>
+                                                        <p className="text-lg font-black mt-1">{formatCurrency(item.valor)}</p>
+                                                        <p className="text-[10px] opacity-70">{item.count} sessões</p>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* 4. O que NÃO entra */}
+                                    <div className="bg-rose-50 rounded-xl p-4 border border-rose-100">
+                                        <h3 className="text-sm font-bold text-rose-900 mb-2">⚠️ O que esse número NÃO é</h3>
+                                        <ul className="text-sm text-rose-800 space-y-1.5 list-disc list-inside">
+                                            <li>Não é dinheiro já no caixa</li>
+                                            <li>Não considera inadimplência ou cancelamentos futuros</li>
+                                            <li>Não inclui novos pacientes que ainda não agendaram</li>
+                                            <li>Não é uma promessa de recebimento — é uma projeção operacional</li>
+                                        </ul>
+                                    </div>
+
+                                    {/* 5. Cenários */}
+                                    <div>
+                                        <h3 className="text-sm font-bold text-gray-800 mb-3">Por que existem cenários?</h3>
+                                        <div className="grid grid-cols-3 gap-3 text-sm">
+                                            <div className="rounded-xl border border-gray-100 p-3 bg-white">
+                                                <p className="text-xs font-semibold text-rose-600 mb-1">Pessimista</p>
+                                                <p className="text-lg font-black text-gray-900">{formatCurrency((dashData?.metas?.projecao?.esperada || 0) * 0.7)}</p>
+                                                <p className="text-[10px] text-gray-400">baixa conversão de agenda</p>
+                                            </div>
+                                            <div className="rounded-xl border border-gray-100 p-3 bg-white">
+                                                <p className="text-xs font-semibold text-blue-600 mb-1">Esperado</p>
+                                                <p className="text-lg font-black text-gray-900">{formatCurrency(dashData?.metas?.projecao?.esperada || 0)}</p>
+                                                <p className="text-[10px] text-gray-400">comportamento histórico médio</p>
+                                            </div>
+                                            <div className="rounded-xl border border-gray-100 p-3 bg-white">
+                                                <p className="text-xs font-semibold text-emerald-600 mb-1">Otimista</p>
+                                                <p className="text-lg font-black text-gray-900">{formatCurrency(dashData?.metas?.projecao?.final || 0)}</p>
+                                                <p className="text-[10px] text-gray-400">conversão máxima observada</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 6. Interpretação prática */}
+                                    <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
+                                        <h3 className="text-sm font-bold text-emerald-900 mb-2">💡 Interpretação prática</h3>
+                                        <p className="text-sm text-emerald-800 leading-relaxed">
+                                            Sua operação já garante <strong>{formatCurrency(baseRecorrente.totais.agendado.valor)}</strong>
+                                            {' '}({(dashData?.metas?.projecao?.final || 0) > 0 ? ((baseRecorrente.totais.agendado.valor / (dashData?.metas?.projecao?.final || 1)) * 100).toFixed(0) : 0}% da projeção)
+                                            {' '}via produção realizada + agenda confirmada.
+                                        </p>
+                                        <p className="text-sm text-emerald-800 leading-relaxed mt-2">
+                                            O crescimento até os <strong>{formatCurrency(dashData?.metas?.projecao?.final || 0)}</strong> depende principalmente de
+                                            converter a base recorrente não agendada: <strong>{baseRecorrente.pacotes.semAgendamentoNoMes} sessões de pacotes</strong>
+                                            {' '}e <strong>{baseRecorrente.convenios.sessoesAutorizadas} sessões de convênio</strong> ainda sem horário marcado.
+                                        </p>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 border-t flex justify-end">
+                            <button
+                                onClick={() => setProjecaoModalOpen(false)}
+                                className="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                            >
+                                Fechar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

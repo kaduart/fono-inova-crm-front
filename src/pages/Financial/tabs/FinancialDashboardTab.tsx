@@ -1107,6 +1107,18 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 <span className="text-gray-500">A receber</span>
                 <span className="font-semibold text-amber-600">{formatCurrency(totalAReceberProducao)}</span>
               </div>
+              <div className="flex justify-between items-center text-xs border-t border-gray-100 pt-1.5">
+                <span className="text-gray-500">Agendamentos</span>
+                <span className="font-semibold text-purple-600">
+                  {(data?.appointmentCounts?.ativos || 0).toLocaleString('pt-BR')}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-400">Realizados</span>
+                <span className="font-semibold text-gray-600">
+                  {(data?.appointmentCounts?.realizados || 0).toLocaleString('pt-BR')}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -2416,6 +2428,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           </div>
         </div>
       )}
+
     </div>
   );
 };
