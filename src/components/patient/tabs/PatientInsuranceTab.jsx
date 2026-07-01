@@ -46,7 +46,8 @@ import {
   UserCheck,
   DollarSign,
   RefreshCw,
-  XOctagon
+  XOctagon,
+  Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO, differenceInDays } from 'date-fns';
@@ -163,6 +164,10 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
   const handleOpenDetails = () => {
     setDetailsGuide(selectedGuide);
     handleCloseMenu();
+  };
+
+  const handleOpenDetailsCard = (guide) => {
+    setDetailsGuide(guide);
   };
 
   const handleEdit = () => {
@@ -476,6 +481,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         color="#2E7A5E"
         onOpenMenu={handleOpenMenu}
         onCreatePlan={handleOpenPlanForm}
+        onOpenDetails={handleOpenDetailsCard}
         planVersion={planVersion}
       />
 
@@ -486,6 +492,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         color="#C75146"
         onOpenMenu={handleOpenMenu}
         onCreatePlan={handleOpenPlanForm}
+        onOpenDetails={handleOpenDetailsCard}
         planVersion={planVersion}
       />
 
@@ -496,6 +503,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         color="#8A99B0"
         onOpenMenu={handleOpenMenu}
         onCreatePlan={handleOpenPlanForm}
+        onOpenDetails={handleOpenDetailsCard}
         planVersion={planVersion}
       />
 
@@ -506,6 +514,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         color="#A0AABF"
         onOpenMenu={handleOpenMenu}
         onCreatePlan={handleOpenPlanForm}
+        onOpenDetails={handleOpenDetailsCard}
         planVersion={planVersion}
       />
 
@@ -529,12 +538,6 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
           sx={{ fontSize: '0.8125rem', py: 1, gap: 1.5, borderRadius: '12px', mx: 0.5 }}
         >
           <Edit2 size={14} /> Editar
-        </MenuItem>
-        <MenuItem
-          onClick={handleOpenDetails}
-          sx={{ fontSize: '0.8125rem', py: 1, gap: 1.5, borderRadius: '12px', mx: 0.5, color: '#1B4D6E' }}
-        >
-          <Eye size={14} /> Detalhes
         </MenuItem>
         <MenuItem
           onClick={handleCancelGuide}
@@ -646,7 +649,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
 // ----------------------------------------------------------------------
 // Componente de seção de guias (título + grid)
 // ----------------------------------------------------------------------
-const GuideSection = ({ title, count, guides, color, onOpenMenu, onCreatePlan, planVersion }) => {
+const GuideSection = ({ title, count, guides, color, onOpenMenu, onCreatePlan, onOpenDetails, planVersion }) => {
   if (count === 0) return null;
 
   return (
@@ -674,7 +677,8 @@ const GuideSection = ({ title, count, guides, color, onOpenMenu, onCreatePlan, p
             sm: 'repeat(2, 1fr)',
             md: 'repeat(3, 1fr)'
           },
-          gap: 2.5
+          gap: 2.5,
+          justifyItems: 'start'
         }}>
           {guides.map(guide => (
             <GuideCard
@@ -682,6 +686,7 @@ const GuideSection = ({ title, count, guides, color, onOpenMenu, onCreatePlan, p
               guide={guide}
               onOpenMenu={onOpenMenu}
               onCreatePlan={onCreatePlan}
+              onOpenDetails={onOpenDetails}
               planVersion={planVersion}
             />
           ))}
@@ -708,7 +713,7 @@ const SPECIALTY_THEMES = {
   musicoterapia:     { from: '#B45309', to: '#FBBF24', light: '#FFFBEB', border: '#FDE68A', text: '#92400E' },
 };
 
-const GuideCard = ({ guide, onOpenMenu, onCreatePlan, planVersion = 0 }) => {
+const GuideCard = ({ guide, onOpenMenu, onCreatePlan, onOpenDetails, planVersion = 0 }) => {
   const remaining = guide.remaining ?? (guide.totalSessions - (guide.usedSessions || 0));
   const usedSessions = guide.usedSessions || 0;
   const daysUntilExpiration = guide.expiresAt
@@ -783,7 +788,7 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, planVersion = 0 }) => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.2 }}
-      style={{ height: '100%' }}
+      style={{ height: '100%', width: '100%', maxWidth: 380 }}
     >
       <div
         className="bg-white rounded-2xl shadow-md border border-gray-200 hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col h-full"
@@ -801,6 +806,16 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, planVersion = 0 }) => {
           >
             <MoreVertical size={16} />
           </IconButton>
+          {onOpenDetails && (
+            <IconButton
+              size="small"
+              onClick={() => onOpenDetails(guide)}
+              title="Detalhes da guia"
+              sx={{ position: 'absolute', top: 8, right: 36, color: 'rgba(255,255,255,0.65)', p: 0.4, '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.15)', borderRadius: '8px' } }}
+            >
+              <Info size={15} />
+            </IconButton>
+          )}
 
           <div className="text-white/70 text-xs font-mono mb-1">#{guide.number}</div>
           <div className="text-white font-bold text-[1.15rem] leading-tight pr-6">{specialtyFormatted}</div>
@@ -913,10 +928,11 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, planVersion = 0 }) => {
               </div>
               <button
                 onClick={() => onCreatePlan(guide, plan)}
-                className="text-xs font-semibold underline underline-offset-2 opacity-70 hover:opacity-100 transition-opacity"
+                title="Editar plano"
+                className="opacity-70 hover:opacity-100 transition-opacity"
                 style={{ color: theme.text }}
               >
-                Editar
+                <Edit2 size={13} />
               </button>
             </div>
 
