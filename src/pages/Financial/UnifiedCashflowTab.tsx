@@ -1700,14 +1700,25 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                             'bg-sky-100 text-sky-700';
 
                                                                         // Badge de método de pagamento
+                                                                        const methodLabel = (m: string) =>
+                                                                            m === 'pix' ? 'Pix' :
+                                                                            m === 'dinheiro' ? 'Dinheiro' :
+                                                                            m === 'credit_card' || m === 'credito' || m === 'cartao_credito' ? 'Cartão' :
+                                                                            m === 'debit_card' || m === 'debito' || m === 'cartao_debito' ? 'Débito' :
+                                                                            m === 'transferencia' || m === 'transferencia_bancaria' ? 'Transf.' : m;
+                                                                        const splits: { method: string; amount: number }[] = (a as any).payment?.splitMethods;
                                                                         const pm = a.paymentMethod;
-                                                                        const methodBadge: string | null = (!isCanceled && !isConvenio && !isLiminar && pm && pm !== 'pending')
-                                                                            ? (pm === 'pix' ? 'Pix · Imediato' :
-                                                                               pm === 'dinheiro' ? 'Dinheiro · Imediato' :
-                                                                               pm === 'credit_card' || pm === 'credito' || pm === 'cartao_credito' ? 'Cartão D+30' :
-                                                                               pm === 'debit_card' || pm === 'debito' || pm === 'cartao_debito' ? 'Débito · D+1' :
-                                                                               pm === 'transferencia' || pm === 'transferencia_bancaria' ? 'Transf. · D+1' :
-                                                                               pm)
+                                                                        const methodBadge: string | null = (!isCanceled && !isConvenio && !isLiminar)
+                                                                            ? (splits?.length >= 2
+                                                                                ? splits.map(s => methodLabel(s.method)).join(' + ')
+                                                                                : pm && pm !== 'pending'
+                                                                                    ? (pm === 'pix' ? 'Pix · Imediato' :
+                                                                                       pm === 'dinheiro' ? 'Dinheiro · Imediato' :
+                                                                                       pm === 'credit_card' || pm === 'credito' || pm === 'cartao_credito' ? 'Cartão D+30' :
+                                                                                       pm === 'debit_card' || pm === 'debito' || pm === 'cartao_debito' ? 'Débito · D+1' :
+                                                                                       pm === 'transferencia' || pm === 'transferencia_bancaria' ? 'Transf. · D+1' :
+                                                                                       pm)
+                                                                                    : null)
                                                                             : null;
                                                                         const isCartaoD30 = methodBadge === 'Cartão D+30';
 
@@ -1754,14 +1765,12 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                 ? 'bg-amber-100 text-amber-700 border-amber-200'
                                                                                 : 'bg-violet-100 text-violet-700 border-violet-200';
                                                                             pkgProgress = (
-                                                                                <div className="flex items-center gap-1.5 mt-1.5">
-                                                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeCls}`}>
-                                                                                        <span>{used}/{total}</span>
-                                                                                        {remaining > 0 && <span className="opacity-60">· {remaining} restante{remaining !== 1 ? 's' : ''}{remaining === 1 ? ' ⚠' : ''}</span>}
-                                                                                        {used >= total && total > 0 && <span>· encerrado 🔴</span>}
-                                                                                        {used < 0 && <span>· negativo ⚠</span>}
-                                                                                    </span>
-                                                                                </div>
+                                                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeCls}`}>
+                                                                                    <span>{used}/{total}</span>
+                                                                                    {remaining > 0 && <span className="opacity-60">· {remaining} restante{remaining !== 1 ? 's' : ''}{remaining === 1 ? ' ⚠' : ''}</span>}
+                                                                                    {used >= total && total > 0 && <span>· encerrado 🔴</span>}
+                                                                                    {used < 0 && <span>· negativo ⚠</span>}
+                                                                                </span>
                                                                             );
                                                                         }
 
@@ -1787,16 +1796,17 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                             )}
                                                                                         </div>
                                                                                         <div className="flex flex-wrap items-center gap-1.5">
+                                                                                            {pkgProgress}
+                                                                                            {pkgProgress && <span className="text-gray-300 text-[10px] select-none">|</span>}
                                                                                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${typeCls}`}>{typeLabel}</span>
-                                                                                            {methodBadge && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">{methodBadge}</span>}
-                                                                                            {paymentBadge && <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${paymentCls}`}>{paymentBadge}</span>}
-                                                                                            {a.specialty && <span className="text-[10px] text-gray-400">{a.specialty}</span>}
-                                                                                            {a.professionalName && <span className="text-[10px] text-gray-400">· {(a.professionalName as string).split(' ')[0]}</span>}
+                                                                                            {methodBadge && <><span className="text-gray-300 text-[10px] select-none">|</span><span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">{methodBadge}</span></>}
+                                                                                            {paymentBadge && <><span className="text-gray-300 text-[10px] select-none">|</span><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${paymentCls}`}>{paymentBadge}</span></>}
+                                                                                            {a.specialty && <><span className="text-gray-300 text-[10px] select-none">|</span><span className="text-[10px] text-gray-400">{a.specialty}</span></>}
+                                                                                            {a.professionalName && <><span className="text-gray-300 text-[10px] select-none">|</span><span className="text-[10px] text-gray-400">{(a.professionalName as string).split(' ')[0]}</span></>}
                                                                                         </div>
                                                                                         {isCartaoD30 && !isCanceled && (
                                                                                             <p className="text-[10px] text-amber-600 mt-1">⚠ Cartão D+30 — entra no caixa em ~30 dias</p>
                                                                                         )}
-                                                                                        {pkgProgress}
                                                                                     </div>
                                                                                     <div className="text-right shrink-0 flex flex-col items-end gap-1">
                                                                                         <span className={`text-sm font-black ${isCanceled ? 'text-gray-300 line-through' : valor > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
@@ -2232,11 +2242,23 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                             </div>
                                         )}
                                         {apt.paymentMethod && apt.paymentMethod !== 'pending' && (
-                                            <div className="flex justify-between items-center">
+                                            <div className="flex justify-between items-start">
                                                 <span className="text-sm text-gray-500">Método</span>
                                                 <div className="text-right">
-                                                    <div className="text-sm font-semibold text-gray-800">{methodLabel[apt.paymentMethod] || apt.paymentMethod}</div>
-                                                    {prazoLabel[apt.paymentMethod] && <div className="text-[11px] text-gray-400">{prazoLabel[apt.paymentMethod]}</div>}
+                                                    {(apt as any).payment?.splitMethods?.length >= 2 ? (
+                                                        <div className="space-y-0.5">
+                                                            {(apt as any).payment.splitMethods.map((s: any, i: number) => (
+                                                                <div key={i} className="text-sm font-semibold text-gray-800">
+                                                                    {methodLabel[s.method] || s.method}: {formatCurrency(s.amount)}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <div className="text-sm font-semibold text-gray-800">{methodLabel[apt.paymentMethod] || apt.paymentMethod}</div>
+                                                            {prazoLabel[apt.paymentMethod] && <div className="text-[11px] text-gray-400">{prazoLabel[apt.paymentMethod]}</div>}
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
                                         )}
