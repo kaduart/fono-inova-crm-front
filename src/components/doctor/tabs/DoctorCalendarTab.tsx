@@ -29,6 +29,7 @@ export const DoctorCalendarTab = ({ doctorId }: DoctorCalendarTabProps) => {
     createAppointment,
     updateAppointment,
     completeAppointment,
+    confirmAppointment,
     cancelAppointment,
     getAvailableSlots,
     isLoading: appointmentsLoading,
@@ -132,6 +133,11 @@ export const DoctorCalendarTab = ({ doctorId }: DoctorCalendarTabProps) => {
     }
   };
 
+  const handleConfirmAppointment = async (id: string, notes?: string) => {
+    await confirmAppointment(id, notes);
+    setCloseModalSignal((prev) => prev + 1);
+  };
+
   const handleCompleteAppointment = async (
     id: string,
     data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }
@@ -169,6 +175,7 @@ export const DoctorCalendarTab = ({ doctorId }: DoctorCalendarTabProps) => {
       onNewAppointment={handleNewAppointment}
       onCancelAppointment={handleCancelAppointment}
       onCompleteAppointment={handleCompleteAppointment}
+      onConfirmAppointment={handleConfirmAppointment}
       onEditAppointment={handleEditAppointment}
       onFetchAvailableSlots={handleFetchAvailableSlots}
       onMonthChange={handleMonthChange}

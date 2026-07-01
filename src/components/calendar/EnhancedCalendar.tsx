@@ -40,6 +40,7 @@ interface EnhancedCalendarProps {
         payments?: Array<{ amount: number; date: string; method: string }>;
     }) => Promise<void>;
     onEditAppointment: (id: string, data: any) => Promise<void>;
+    onConfirmAppointment?: (id: string, notes?: string) => Promise<void>;
     onFetchAvailableSlots: (params: { doctorId: string; date: string }) => Promise<string[]>;
     onMonthChange?: (startDate: Date, endDate: Date) => void;
     statusConfig?: StatusConfig;
@@ -211,6 +212,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     onCancelAppointment,
     onCompleteAppointment,
     onEditAppointment,
+    onConfirmAppointment,
     openModalAppointment,
     closeModalSignal,
     onFetchAvailableSlots,
@@ -568,6 +570,25 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         setIsAppointmentDetailModalOpen(true);
     }, []);
 
+    // 🚀 AÇÕES RÁPIDAS NO CARD DO CALENDÁRIO
+    const handleQuickConfirm = useCallback(async (appointmentId: string) => {
+        if (!onConfirmAppointment) return;
+        try {
+            await onConfirmAppointment(appointmentId);
+        } catch (err) {
+            console.error('[EnhancedCalendar] Erro na confirmação rápida:', err);
+        }
+    }, [onConfirmAppointment]);
+
+    const handleQuickComplete = useCallback(async (appointmentId: string) => {
+        if (!onCompleteAppointment) return;
+        try {
+            await onCompleteAppointment(appointmentId);
+        } catch (err) {
+            console.error('[EnhancedCalendar] Erro na conclusão rápida:', err);
+        }
+    }, [onCompleteAppointment]);
+
     // 🔹 MEMOIZAÇÃO DOS EVENTOS - Só recalcula quando appointments mudar
     const events = useMemo(() => {
         if (!appointments || appointments.length === 0) return [];
@@ -740,11 +761,13 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     }), [handleDatesSet]);
 
     // 🆕 COMPONENTE REUTILIZÁVEL: Card visual de agendamento (calendário + popup)
-    const AppointmentEventCard = React.memo(({ appointment, timeText, onClick, variant = 'compact' }: {
+    const AppointmentEventCard = React.memo(({ appointment, timeText, onClick, variant = 'compact', onConfirm, onComplete }: {
         appointment: AppointmentDTO;
         timeText?: string;
         onClick?: () => void;
         variant?: 'compact' | 'expanded';
+        onConfirm?: (id: string) => void;
+        onComplete?: (id: string) => void;
     }) => {
         const apptId = appointment.id;
 
@@ -1042,6 +1065,33 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         <OperationalIcon size={isExpanded ? 12 : 9} />
                         <span>{operationalBadge.label}</span>
                     </div>
+
+                    {/* 🚀 AÇÕES RÁPIDAS NO CARD (sem abrir modal) */}
+                    {!isExpanded && operationalStatus === 'scheduled' && onConfirm && (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onConfirm(apptId);
+                            }}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded text-[9px] font-bold shadow-sm"
+                        >
+                            Confirmar
+                        </button>
+                    )}
+                    {!isExpanded && operationalStatus === 'confirmed' && onComplete && (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onComplete(apptId);
+                            }}
+                            className="bg-green-600 hover:bg-green-700 text-white px-2 py-0.5 rounded text-[9px] font-bold shadow-sm"
+                        >
+                            Realizar
+                        </button>
+                    )}
+
                     {patientHasDebt && (
                         <div className={`bg-red-600 text-white px-2 py-0.5 rounded ${isExpanded ? 'text-[11px]' : 'text-[9px]'} font-bold animate-pulse`} title={`Paciente deve R$ ${patientBalance.toFixed(2)}`}>
                             ⚠️ R$ {patientBalance.toFixed(0)}
@@ -1346,6 +1396,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     <AppointmentEventCard
                         appointment={liveAppt || arg.event.extendedProps}
                         timeText={arg.timeText}
+                        onConfirm={handleQuickConfirm}
+                        onComplete={handleQuickComplete}
                     />
                 </div>
             </Tooltip>
@@ -1818,6 +1870,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 onCancelAppointment={onCancelAppointment}
                 onCompleteAppointment={onCompleteAppointment}
                 onEditAppointment={onEditAppointment}
+                onConfirmAppointment={onConfirmAppointment}
                 onConvertPreAgendamento={onConvertPreAgendamento}
                 onRefreshAppointments={onRefreshAppointments}
                 event={selectedEvent}
@@ -1850,6 +1903,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             timeText={appt.time}
                             variant="expanded"
                             onClick={() => openAppointmentDetail(appt)}
+                            onConfirm={handleQuickConfirm}
+                            onComplete={handleQuickComplete}
                         />
                     ))}
                 </div>,
@@ -1888,6 +1943,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                         setDayModalOpen(false);
                                         openAppointmentDetail(appt);
                                     }}
+                                    onConfirm={handleQuickConfirm}
+                                    onComplete={handleQuickComplete}
                                 />
                             ))}
                         </div>

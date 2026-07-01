@@ -295,6 +295,7 @@ export default function AdminDashboard() {
         createAppointment,
         updateAppointment,
         completeAppointment,
+        confirmAppointment,
         pollAppointmentStatus, // 🚀 V2: Polling para atualização async
         cancelAppointment,
         getAvailableSlots,
@@ -486,6 +487,19 @@ export default function AdminDashboard() {
             throw error;
         }
     }, [cancelAppointment, fetchAppointments, calendarDateRange, refreshDashboard, chat]);
+
+    const handleConfirmAppointment = useCallback(async (appointmentId: string, notes?: string) => {
+        try {
+            await confirmAppointment(appointmentId, notes);
+            setCloseModalSignal(prev => prev + 1);
+            await fetchAppointments({ ...calendarDateRange, force: true });
+        } catch (error: any) {
+            console.error('[AdminDashboard] Erro ao confirmar presença:', error);
+            const errorResponse = extractErrorMessage(error, 'Erro ao confirmar presença');
+            toast.error(`❌ ${errorResponse}`, { id: `confirm-error-${appointmentId}` });
+            throw error;
+        }
+    }, [confirmAppointment, fetchAppointments, calendarDateRange]);
 
     const handleCompleteAppointment = useCallback(async (appointmentId: string, data?: {
         addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string;
@@ -1016,6 +1030,7 @@ export default function AdminDashboard() {
         onNewAppointment: handleNewAppointment,
         onCancelAppointment: handleCancelAppointment,
         onCompleteAppointment: handleCompleteAppointment,
+        onConfirmAppointment: handleConfirmAppointment,
         onEditAppointment: handleEditAppointment,
         onFetchAvailableSlots: handleFetchAvailableSlots,
         onMonthChange: handleMonthChange,

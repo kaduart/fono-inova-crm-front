@@ -43,6 +43,7 @@ interface AppointmentDetailModalProps {
         payments?: Array<{ amount: number; date: string; method: string }>;
     }) => Promise<void>;
     onEditAppointment: (id: string, data: any) => Promise<void>;
+    onConfirmAppointment?: (id: string, notes?: string) => Promise<void>;
     patients?: any[];
     onCancelAdvancedSession?: (sessionId: string) => void;
     onConvertPreAgendamento?: (id: string) => Promise<void>;
@@ -151,6 +152,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     onCancelAppointment,
     onCompleteAppointment,
     onEditAppointment,
+    onConfirmAppointment,
     patients = [],
     onCancelAdvancedSession,
     onConvertPreAgendamento,
@@ -232,6 +234,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     const [showDebtConfirm, setShowDebtConfirm] = useState(false);
     const [debtConfirmResolve, setDebtConfirmResolve] = useState<((v: boolean | null) => void) | null>(null);
     const [isCompleting, setIsCompleting] = useState(false);
+    const [isConfirming, setIsConfirming] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [isConverting, setIsConverting] = useState(false);
     const [processingState, setProcessingState] = useState<{ isProcessing: boolean; message: string } | null>(null);
@@ -450,6 +453,21 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         };
     };
 
+    const handleConfirm = async () => {
+        if (!onConfirmAppointment) return;
+        setIsConfirming(true);
+        try {
+            await onConfirmAppointment(event?.id);
+            setActiveTab('details');
+        } catch (err: any) {
+            console.error('❌ [Modal] Erro ao confirmar presença:', err);
+            const errMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Erro ao confirmar presença';
+            toast.error(errMsg, { id: `confirm-error-${event?.id}` });
+        } finally {
+            setIsConfirming(false);
+        }
+    };
+
     const handleCancel = async () => {
         if (!cancelReason.trim()) {
             toast.error('Informe o motivo do cancelamento antes de prosseguir.');
@@ -641,23 +659,6 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 key => STATUS_TRANSLATIONS.operational[key] === editedAppointment.operationalStatus
             ) || editedAppointment.operationalStatus;
 
-            // 🎯 STATUS ESPECIAIS: redireciona para o handler correto (PATCH /complete ou PATCH /cancel)
-            // PUT /update não executa completeSessionV2 — só PATCH /complete sincroniza tudo
-            // Se o appointment JÁ estava completed, deixa ir para PUT → admin-edit (não re-completa)
-            const originalStatus = event?.operationalStatus;
-            if (operationalStatusEN === 'completed' && originalStatus !== 'completed') {
-                setIsEditing(false);
-                setProcessingState({ isProcessing: false, message: '' });
-                await handleComplete();
-                return;
-            }
-            if (operationalStatusEN === 'canceled') {
-                setIsEditing(false);
-                setProcessingState({ isProcessing: false, message: '' });
-                setActiveTab('cancel');
-                return;
-            }
-
             const clinicalStatusEN = Object.keys(STATUS_TRANSLATIONS.clinical).find(
                 key => STATUS_TRANSLATIONS.clinical[key] === editedAppointment.clinicalStatus
             ) || editedAppointment.clinicalStatus;
@@ -690,6 +691,31 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                     status: 'pending_billing'
                 } : undefined
             });
+
+            // 🎯 STATUS ESPECIAIS: redireciona para o handler correto (PATCH /complete ou PATCH /cancel)
+            // PUT /update não executa completeSessionV2 — só PATCH /complete sincroniza tudo
+            // Se o appointment JÁ estava completed, deixa ir para PUT → admin-edit (não re-completa)
+            const originalStatus = event?.operationalStatus;
+            if (operationalStatusEN === 'completed' && originalStatus !== 'completed') {
+                setIsEditing(false);
+                setProcessingState({ isProcessing: false, message: '' });
+                await handleComplete();
+                return;
+            }
+
+            // 🚨 CANCELADO: o select de status não pode apenas mudar de aba.
+            // O usuário espera que "Salvar" persista o cancelamento.
+            // Primeiro salva os demais campos editados, depois executa o cancelamento.
+            if (operationalStatusEN === 'canceled') {
+                await onEditAppointment(event.id, appointmentData);
+                await onCancelAppointment(
+                    event.id,
+                    'Cancelado via edição de status',
+                    { paymentMethod, billingType, sessionValue: paymentAmount }
+                );
+                onClose?.();
+                return;
+            }
 
             await onEditAppointment(event.id, appointmentData);
         } catch (err: any) {
@@ -1698,36 +1724,65 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         </button>
                     );
                 }
-                return (
-                    <button
-                        onClick={handleComplete}
-                        disabled={isCompleting || isAddingDebit}
-                        className={`px-6 py-3 rounded-xl transition-all duration-200 flex items-center gap-2 disabled:from-gray-400 disabled:to-gray-500 shadow-lg hover:shadow-xl ${
-                            addToBalance 
-                                ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white' 
-                                : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white'
-                        }`}
-                    >
-                        {isCompleting || isAddingDebit ? (
-                            <>
-                                <LoadingSpinner size="small" color="border-white" fullPage={false} />
-                                <span>
-                                    {isAddingDebit ? 'Registrando débito...' : 'Registrando...'}
-                                </span>
-                            </>
-                        ) : (
-                            <>
-                                <CheckCircle size={18} />
-                                <span>
-                                    {addToBalance
-                                        ? `Concluir e Adicionar R$ ${debitAmount % 1 === 0 ? debitAmount.toFixed(0) : debitAmount.toFixed(2).replace('.', ',')} ao Saldo`
-                                        : 'Concluir Agendamento'
-                                    }
-                                </span>
-                            </>
-                        )}
-                    </button>
-                );
+                // 🎯 FLUXO DE STATUS: a aba 'confirm' adapta a ação ao estado operacional
+                const opStatus = event?.operationalStatus;
+                if (opStatus === 'scheduled') {
+                    return (
+                        <button
+                            onClick={handleConfirm}
+                            disabled={isConfirming}
+                            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 flex items-center gap-2 disabled:from-gray-400 disabled:to-gray-500 shadow-lg hover:shadow-xl"
+                        >
+                            {isConfirming ? (
+                                <>
+                                    <LoadingSpinner size="small" color="border-white" fullPage={false} />
+                                    <span>Confirmando...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle size={18} />
+                                    <span>Confirmar Presença</span>
+                                </>
+                            )}
+                        </button>
+                    );
+                }
+
+                if (opStatus === 'confirmed') {
+                    return (
+                        <button
+                            onClick={handleComplete}
+                            disabled={isCompleting || isAddingDebit}
+                            className={`px-6 py-3 rounded-xl transition-all duration-200 flex items-center gap-2 disabled:from-gray-400 disabled:to-gray-500 shadow-lg hover:shadow-xl ${
+                                addToBalance 
+                                    ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white' 
+                                    : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white'
+                            }`}
+                        >
+                            {isCompleting || isAddingDebit ? (
+                                <>
+                                    <LoadingSpinner size="small" color="border-white" fullPage={false} />
+                                    <span>
+                                        {isAddingDebit ? 'Registrando débito...' : 'Registrando...'}
+                                    </span>
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle size={18} />
+                                    <span>
+                                        {addToBalance
+                                            ? `Concluir e Adicionar R$ ${debitAmount % 1 === 0 ? debitAmount.toFixed(0) : debitAmount.toFixed(2).replace('.', ',')} ao Saldo`
+                                            : 'Realizar Atendimento'
+                                        }
+                                    </span>
+                                </>
+                            )}
+                        </button>
+                    );
+                }
+
+                // Status finalizado/cancelado: sem ação na aba confirm
+                return null;
 
             case 'cancel':
                 return (

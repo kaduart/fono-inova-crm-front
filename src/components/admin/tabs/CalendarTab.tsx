@@ -18,6 +18,7 @@ interface CalendarTabProps {
     onNewAppointment: (data: any) => Promise<void>;
     onCancelAppointment: (id: string, reason: string, paymentState?: { paymentMethod?: string; billingType?: string; sessionValue?: number }) => Promise<void>;
     onCompleteAppointment: (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => Promise<void>;
+    onConfirmAppointment?: (id: string, notes?: string) => Promise<void>;
     onEditAppointment: (id: string, data: any) => Promise<void>;
     onFetchAvailableSlots: (payload: any) => Promise<string[]>;
 }
@@ -26,6 +27,7 @@ export const CalendarTab = ({
     onNewAppointment,
     onCancelAppointment,
     onCompleteAppointment,
+    onConfirmAppointment,
     onEditAppointment,
     onFetchAvailableSlots
 }: CalendarTabProps) => {
@@ -140,6 +142,13 @@ export const CalendarTab = ({
         }, 500); // Pequeno delay para o backend processar
     };
 
+    const handleConfirmAppointment = async (id: string, notes?: string) => {
+        if (!onConfirmAppointment) return;
+        await onConfirmAppointment(id, notes);
+        setCloseModalSignal(prev => prev + 1);
+        // 🎯 Appointments já são atualizados via contexto
+    };
+
     const handleEditAppointment = async (id: string, data: any) => {
         await onEditAppointment(id, data);
         setCloseModalSignal(prev => prev + 1);
@@ -155,6 +164,7 @@ export const CalendarTab = ({
             onNewAppointment={handleNewAppointment}
             onCancelAppointment={handleCancelAppointment}
             onCompleteAppointment={handleCompleteAppointment}
+            onConfirmAppointment={handleConfirmAppointment}
             onEditAppointment={handleEditAppointment}
             onFetchAvailableSlots={onFetchAvailableSlots}
             onMonthChange={handleMonthChange}

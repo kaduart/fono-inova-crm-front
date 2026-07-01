@@ -39,7 +39,14 @@ import {
   XCircle,
   Eye,
   X,
-  Zap
+  Zap,
+  History,
+  ChevronDown,
+  ChevronUp,
+  UserCheck,
+  DollarSign,
+  RefreshCw,
+  XOctagon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO, differenceInDays } from 'date-fns';
@@ -1004,6 +1011,107 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, planVersion = 0 }) => {
 };
 
 // ----------------------------------------------------------------------
+// Componente de entrada do changelog do plano
+// ----------------------------------------------------------------------
+const PLAN_ACTION_CONFIG = {
+  insurance_plan_created:  { label: 'Plano criado',      color: '#2E7A5E', bg: '#EFF9F6', Icon: CheckCircle },
+  insurance_plan_updated:  { label: 'Plano atualizado',  color: '#1B4D6E', bg: '#EEF4FB', Icon: Edit2 },
+  insurance_plan_canceled: { label: 'Plano cancelado',   color: '#C75146', bg: '#FDECEA', Icon: XOctagon },
+  insurance_plan_replaced: { label: 'Plano substituído', color: '#D97706', bg: '#FFFBEB', Icon: RefreshCw },
+};
+
+const DIFF_FIELD_LABELS = {
+  doctor:         'Profissional',
+  sessionValue:   'Valor/sessão',
+  slots:          'Horários',
+  notes:          'Observações',
+  status:         'Status',
+  sessionsPerWeek:'Frequência',
+  totalSessions:  'Total de sessões',
+  startDate:      'Data de início',
+};
+
+const ACTOR_ROLE_LABELS = {
+  admin:      'Admin',
+  secretary:  'Secretária',
+  doctor:     'Profissional',
+  SYSTEM:     'Sistema',
+};
+
+const PlanChangelogEntry = ({ entry }) => {
+  const cfg = PLAN_ACTION_CONFIG[entry.action] || { label: entry.action, color: '#8A99B0', bg: '#F8FAFE', Icon: Clock };
+  const { Icon } = cfg;
+
+  const dateStr = entry.createdAt
+    ? format(parseISO(entry.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+    : '—';
+
+  const actorLabel = entry.actorRole ? (ACTOR_ROLE_LABELS[entry.actorRole] || entry.actorRole) : 'Sistema';
+
+  const diffLines = [];
+  if (entry.diff) {
+    for (const [field, change] of Object.entries(entry.diff)) {
+      const label = DIFF_FIELD_LABELS[field];
+      if (!label) continue;
+      if (field === 'sessionValue') {
+        const fmt = (v) => v != null ? Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—';
+        diffLines.push(`${label}: ${fmt(change.from)} → ${fmt(change.to)}`);
+      } else if (field === 'slots') {
+        diffLines.push(`${label}: alterados`);
+      } else if (field === 'doctor') {
+        diffLines.push(`${label}: alterado`);
+      } else if (field === 'startDate') {
+        const fmt = (v) => v ? format(parseISO(v), 'dd/MM/yyyy') : '—';
+        diffLines.push(`${label}: ${fmt(change.from)} → ${fmt(change.to)}`);
+      } else {
+        diffLines.push(`${label}: ${change.from ?? '—'} → ${change.to ?? '—'}`);
+      }
+    }
+  }
+
+  return (
+    <Box sx={{
+      display: 'flex', gap: 1.5,
+      px: 2, py: 1.5,
+      bgcolor: cfg.bg,
+      borderRadius: '14px',
+      border: `1px solid ${cfg.color}20`,
+    }}>
+      <Box sx={{
+        width: 28, height: 28, borderRadius: '8px',
+        bgcolor: `${cfg.color}15`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0, mt: 0.2
+      }}>
+        <Icon size={13} color={cfg.color} />
+      </Box>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
+          <Typography sx={{ fontWeight: 700, fontSize: '0.8rem', color: cfg.color }}>
+            {cfg.label}
+          </Typography>
+          <Typography sx={{ fontSize: '0.65rem', color: '#8A99B0', flexShrink: 0 }}>
+            {dateStr}
+          </Typography>
+        </Box>
+        <Typography sx={{ fontSize: '0.7rem', color: '#5B6E8C', mt: 0.2 }}>
+          Por: {actorLabel}
+        </Typography>
+        {diffLines.length > 0 && (
+          <Box sx={{ mt: 0.8, display: 'flex', flexDirection: 'column', gap: 0.4 }}>
+            {diffLines.map((line, i) => (
+              <Typography key={i} sx={{ fontSize: '0.7rem', color: '#1A2C3E', fontWeight: 500 }}>
+                • {line}
+              </Typography>
+            ))}
+          </Box>
+        )}
+      </Box>
+    </Box>
+  );
+};
+
+// ----------------------------------------------------------------------
 // Modal de detalhes da guia — lista todos os agendamentos atrelados
 // ----------------------------------------------------------------------
 const APPT_STATUS_CONFIG = {
@@ -1059,6 +1167,11 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
   // Plan do modal — mesma lógica do GuideCard, independente
   const [modalPlan, setModalPlan] = useState(null);
 
+  // Changelog do plano
+  const [changelog, setChangelog] = useState([]);
+  const [changelogLoading, setChangelogLoading] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
+
   useEffect(() => {
     if (!doctorsLoaded) {
       doctorService.getActiveDoctors()
@@ -1075,6 +1188,17 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
       .catch(() => {});
     return () => { mounted = false; };
   }, [guide?._id]);
+
+  useEffect(() => {
+    if (!modalPlan?._id) { setChangelog([]); return; }
+    let mounted = true;
+    setChangelogLoading(true);
+    API.get(`/v2/insurance-plans/${modalPlan._id}/changelog`)
+      .then(res => { if (mounted) setChangelog(res.data?.data || []); })
+      .catch(() => { if (mounted) setChangelog([]); })
+      .finally(() => { if (mounted) setChangelogLoading(false); });
+    return () => { mounted = false; };
+  }, [modalPlan?._id]);
 
   const loadAppointments = (guideId) => {
     setLoading(true);
@@ -1104,7 +1228,7 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
       if (editStatus === 'canceled') {
         await appointmentService.cancel(editingAppt._id, { reason: 'Cancelado manualmente' });
       } else {
-        const patch = { date: editDate, time: editTime };
+        const patch = { date: editDate, time: editTime, operationalStatus: editStatus };
         if (editDoctorId) patch.doctor = editDoctorId;
         await appointmentService.update(editingAppt._id, patch);
       }
@@ -1226,6 +1350,53 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
                 </Box>
               ))}
             </Box>
+
+            <Divider sx={{ mb: 2.5 }} />
+
+            {/* Histórico de alterações do plano */}
+            {modalPlan && (
+              <Box sx={{ mb: 2.5 }}>
+                <Box
+                  component="button"
+                  onClick={() => setShowChangelog(v => !v)}
+                  sx={{
+                    display: 'flex', alignItems: 'center', gap: 1, width: '100%',
+                    bgcolor: showChangelog ? '#EFF9F6' : '#F8FAFE',
+                    border: '1px solid', borderColor: showChangelog ? '#C6E6DA' : '#EDF2F7',
+                    borderRadius: '14px', px: 2, py: 1.5, cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    '&:hover': { bgcolor: '#EFF9F6', borderColor: '#C6E6DA' }
+                  }}
+                >
+                  <History size={14} color="#2E7A5E" />
+                  <Typography sx={{ flex: 1, textAlign: 'left', fontSize: '0.8rem', fontWeight: 600, color: '#2E7A5E' }}>
+                    Histórico do plano
+                    {changelog.length > 0 && (
+                      <Box component="span" sx={{ ml: 1, px: 1, py: 0.2, bgcolor: '#2E7A5E', color: '#fff', borderRadius: '8px', fontSize: '0.65rem' }}>
+                        {changelog.length}
+                      </Box>
+                    )}
+                  </Typography>
+                  {showChangelog ? <ChevronUp size={14} color="#2E7A5E" /> : <ChevronDown size={14} color="#8A99B0" />}
+                </Box>
+
+                {showChangelog && (
+                  <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {changelogLoading ? (
+                      <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                        <CircularProgress size={20} sx={{ color: '#2E7A5E' }} />
+                      </Box>
+                    ) : changelog.length === 0 ? (
+                      <Box sx={{ textAlign: 'center', py: 2 }}>
+                        <Typography sx={{ fontSize: '0.8rem', color: '#8A99B0' }}>Nenhuma alteração registrada</Typography>
+                      </Box>
+                    ) : changelog.map((entry) => (
+                      <PlanChangelogEntry key={entry._id} entry={entry} />
+                    ))}
+                  </Box>
+                )}
+              </Box>
+            )}
 
             <Divider sx={{ mb: 2.5 }} />
 

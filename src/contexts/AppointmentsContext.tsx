@@ -14,6 +14,7 @@ interface AppointmentsContextData {
     createAppointment: (data: any) => Promise<any>;
     updateAppointment: (id: string, data: any) => Promise<any>;
     completeAppointment: (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => Promise<any>;
+    confirmAppointment: (id: string, notes?: string) => Promise<any>;
     pollAppointmentStatus: (id: string, maxAttempts?: number) => Promise<{ success: boolean; wasLockReleased?: boolean }>; // 🚀 V2: Polling para atualização async
     cancelAppointment: (id: string, params: any) => Promise<any>;
     getAvailableSlots: (params: any) => Promise<string[]>;
@@ -321,6 +322,15 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         return result;
     }, [refreshAppointments, markLocalUpdate]);
 
+    const confirmAppointment = useCallback(async (id: string, notes?: string) => {
+        const result = await appointmentService.confirm(id, { notes });
+
+        // 🛡️ Marca como atualização local para evitar auto-disparo do socket
+        markLocalUpdate(id);
+        await refreshAppointments(true);
+        return result;
+    }, [refreshAppointments, markLocalUpdate]);
+
     const completeAppointment = useCallback(async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
         const result = await appointmentService.complete(id, data);
 
@@ -397,6 +407,7 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             createAppointment,
             updateAppointment,
             completeAppointment,
+            confirmAppointment,
             pollAppointmentStatus, // 🚀 V2: Polling para atualização async
             cancelAppointment,
             getAvailableSlots,
