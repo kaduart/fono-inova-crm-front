@@ -16,8 +16,8 @@ const inputClass = (hasError) =>
       : 'border-gray-200 focus:ring-teal-200 focus:border-teal-400'
   }`;
 
-const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] }) => {
-  const isEditing = Boolean(guide);
+const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [], isRenewal = false }) => {
+  const isEditing = Boolean(guide) && !isRenewal;
   const hasUsedSessions = isEditing && guide?.usedSessions > 0;
   const { convenios, isLoading: loadingConvenios } = useConvenios({ includeInactive: false });
 
@@ -41,6 +41,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
       evaluationTime:   '',
       doctorId:         '',
       issuedAt:         '',
+      expiresAt:        '',
       notes:            ''
     }
   });
@@ -57,7 +58,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
     if (open) {
       if (guide) {
         reset({
-          number:           guide.number || '',
+          number:           isRenewal ? '' : (guide.number || ''),
           specialty:        guide.specialty || '',
           insurance:        guide.insurance || '',
           totalSessions:    guide.totalSessions || '',
@@ -68,6 +69,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
           evaluationTime:   '',
           doctorId:         guide.doctor?._id || guide.doctorId || '',
           issuedAt:         guide.issuedAt ? format(new Date(guide.issuedAt), 'yyyy-MM-dd') : '',
+          expiresAt:        guide.expiresAt ? format(new Date(guide.expiresAt), 'yyyy-MM-dd') : '',
           notes:            guide.notes || ''
         });
       } else {
@@ -83,6 +85,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
           evaluationTime:   '',
           doctorId:         '',
           issuedAt:         '',
+          expiresAt:        '',
           notes:            ''
         });
       }
@@ -130,7 +133,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
             </div>
             <div>
               <h3 className="text-base font-semibold text-gray-900">
-                {isEditing ? 'Editar guia de convênio' : 'Nova guia de convênio'}
+                {isRenewal ? 'Renovar guia de convênio' : (isEditing ? 'Editar guia de convênio' : 'Nova guia de convênio')}
               </h3>
               <p className="text-xs text-gray-400 mt-0.5">Autorização do convênio</p>
             </div>
@@ -153,6 +156,16 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
                 <p className="text-xs text-amber-800">
                   Esta guia já possui <strong>{guide.usedSessions}</strong> sessão(ões) utilizada(s).
                   Apenas alguns campos podem ser editados.
+                </p>
+              </div>
+            )}
+
+            {isRenewal && (
+              <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-blue-800">
+                  Renovação da guia <strong>#{guide.number}</strong>. A nova guia será criada e a guia atual será arquivada.
+                  Atendimentos futuros serão migrados automaticamente.
                 </p>
               </div>
             )}
@@ -181,6 +194,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
                       placeholder="Ex: 123456789"
                       disabled={hasUsedSessions}
                       className={inputClass(!!errors.number) + (hasUsedSessions ? ' opacity-50 cursor-not-allowed' : '')}
+                      autoFocus={isRenewal}
                     />
                   )}
                 />
@@ -220,7 +234,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
                   control={control}
                   rules={{ required: 'Especialidade é obrigatória' }}
                   render={({ field }) => (
-                    <select {...field} className={inputClass(!!errors.specialty)}>
+                    <select {...field} className={inputClass(!!errors.specialty) + (isRenewal ? ' opacity-50 cursor-not-allowed' : '')} disabled={isRenewal}>
                       <option value="">Selecione</option>
                       {VALID_SPECIALTIES.map(s => (
                         <option key={s.value} value={s.value}>{s.label}</option>
@@ -241,8 +255,8 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
                   render={({ field }) => (
                     <select
                       {...field}
-                      className={inputClass(!!errors.insurance)}
-                      disabled={loadingConvenios}
+                      className={inputClass(!!errors.insurance) + (isRenewal ? ' opacity-50 cursor-not-allowed' : '')}
+                      disabled={loadingConvenios || isRenewal}
                       onChange={(e) => {
                         const selectedCode = e.target.value;
                         field.onChange(selectedCode);
@@ -497,7 +511,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [] 
                   Salvando...
                 </>
               ) : (
-                <><Save className="w-4 h-4" /> {isEditing ? 'Atualizar' : 'Criar guia'}</>
+                <><Save className="w-4 h-4" /> {isRenewal ? 'Renovar guia' : (isEditing ? 'Atualizar' : 'Criar guia')}</>
               )}
             </button>
           </div>

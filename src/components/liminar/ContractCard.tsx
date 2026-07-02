@@ -24,17 +24,22 @@ import { appointmentService } from '../../services/appointmentService';
 import doctorService from '../../services/doctorService';
 import liminarContractService, { ContractIntegrity } from '../../services/liminarContractService';
 import { IDoctor, SelectedEvent } from '../../utils/types/types';
+import { getSpecialtyTheme } from '../../constants/specialtyThemes';
 import AppointmentDetailModal from '../calendar/appointmentDetailModal';
 import CreatePlanModal from './CreatePlanModal';
 import PlanView from './PlanView';
 
+// Cor de "faltando/pendente de agenda" — neutra de propósito: não deve competir visualmente
+// com laranja/vermelho de risco real (saldo baixo, vencimento), que têm significado diferente.
+const NEUTRAL_MISSING_COLOR = { bar: '#94A3B8', text: '#475569', dot: '#94A3B8' };
+
 const PALETTES = [
-  { bar: 'linear-gradient(90deg,#D97706aa,#D97706)', icon: '#D97706', badge: '#FFF7ED', badgeText: '#92400E', badgeBorder: '#FDE68A' },
-  { bar: 'linear-gradient(90deg,#0891B2aa,#0891B2)', icon: '#0891B2', badge: '#ECFEFF', badgeText: '#164E63', badgeBorder: '#A5F3FC' },
-  { bar: 'linear-gradient(90deg,#7C3AEDaa,#7C3AED)', icon: '#7C3AED', badge: '#F5F3FF', badgeText: '#4C1D95', badgeBorder: '#DDD6FE' },
-  { bar: 'linear-gradient(90deg,#059669aa,#059669)', icon: '#059669', badge: '#ECFDF5', badgeText: '#064E3B', badgeBorder: '#A7F3D0' },
-  { bar: 'linear-gradient(90deg,#DC2626aa,#DC2626)', icon: '#DC2626', badge: '#FEF2F2', badgeText: '#7F1D1D', badgeBorder: '#FECACA' },
-  { bar: 'linear-gradient(90deg,#2563EBaa,#2563EB)', icon: '#2563EB', badge: '#EFF6FF', badgeText: '#1E3A8A', badgeBorder: '#BFDBFE' },
+  { from: '#B45309', to: '#D97706', bar: 'linear-gradient(90deg,#D97706aa,#D97706)', icon: '#D97706', badge: '#FFF7ED', badgeText: '#92400E', badgeBorder: '#FDE68A' },
+  { from: '#0E7490', to: '#0891B2', bar: 'linear-gradient(90deg,#0891B2aa,#0891B2)', icon: '#0891B2', badge: '#ECFEFF', badgeText: '#164E63', badgeBorder: '#A5F3FC' },
+  { from: '#6D28D9', to: '#7C3AED', bar: 'linear-gradient(90deg,#7C3AEDaa,#7C3AED)', icon: '#7C3AED', badge: '#F5F3FF', badgeText: '#4C1D95', badgeBorder: '#DDD6FE' },
+  { from: '#047857', to: '#059669', bar: 'linear-gradient(90deg,#059669aa,#059669)', icon: '#059669', badge: '#ECFDF5', badgeText: '#064E3B', badgeBorder: '#A7F3D0' },
+  { from: '#B91C1C', to: '#DC2626', bar: 'linear-gradient(90deg,#DC2626aa,#DC2626)', icon: '#DC2626', badge: '#FEF2F2', badgeText: '#7F1D1D', badgeBorder: '#FECACA' },
+  { from: '#1D4ED8', to: '#2563EB', bar: 'linear-gradient(90deg,#2563EBaa,#2563EB)', icon: '#2563EB', badge: '#EFF6FF', badgeText: '#1E3A8A', badgeBorder: '#BFDBFE' },
 ];
 
 interface Props {
@@ -289,36 +294,32 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
       className="relative rounded-3xl overflow-hidden transition-all duration-200"
       style={{ background: '#FFFFFF', border: '1px solid #EDF2F7', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
     >
-      {/* Barra topo colorida */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: palette.bar }} />
-
-      <div className="p-5 pt-6">
-
-        {/* ── Seção: Contrato ── */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Scale className="w-4 h-4 flex-shrink-0" style={{ color: palette.icon }} />
-            <span className="font-bold text-sm" style={{ color: '#1A2C3E' }}>Contrato Liminar</span>
+      {/* ══ Camada 1: Header — identidade do contrato ══ */}
+      <div className="px-5 pt-4 pb-4 relative" style={{ background: `linear-gradient(135deg, ${palette.from} 0%, ${palette.to} 100%)` }}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <Scale className="w-4 h-4 flex-shrink-0 text-white/90" />
+            <span className="font-bold text-sm text-white">Contrato Liminar</span>
             {contract.processNumber && (
-              <span className="text-xs px-2 py-0.5 rounded-lg" style={{ background: palette.badge, color: palette.badgeText, border: `1px solid ${palette.badgeBorder}` }}>
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium text-white" style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)' }}>
                 Proc.: {lastDigits(contract.processNumber)}
               </span>
             )}
             {contract.court && (
-              <span className="text-xs px-2 py-0.5 rounded-lg" style={{ background: '#F8FAFE', color: '#5B6E8C', border: '1px solid #EDF2F7' }}>
+              <span className="text-xs px-2 py-0.5 rounded-full text-white/80" style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}>
                 {contract.court}
               </span>
             )}
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-lg border" style={{ color: statusColor.text, background: statusColor.bg, borderColor: statusColor.border }}>
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full text-white" style={{ background: 'rgba(255,255,255,0.22)', border: '1px solid rgba(255,255,255,0.3)' }}>
               {statusLabel}
             </span>
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen(v => !v)}
-                className="p-1 rounded-full transition-colors hover:bg-slate-100"
-                style={{ color: '#A0AABF' }}
+                className="p-1 rounded-full transition-colors hover:bg-white/15"
+                style={{ color: 'rgba(255,255,255,0.75)' }}
               >
                 <MoreVertical className="w-4 h-4" />
               </button>
@@ -343,14 +344,16 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Grid créditos */}
+      {/* ══ Camada 2: Summary — financeiro do contrato ══ */}
+      <div className="px-5 py-4 border-b" style={{ background: palette.badge, borderColor: palette.badgeBorder }}>
         <div className="grid grid-cols-2 gap-2 mb-3">
-          <div className="rounded-2xl p-3" style={{ background: '#F8FAFE' }}>
+          <div className="rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.6)' }}>
             <span className="block text-xs font-medium mb-1" style={{ color: '#5B6E8C' }}>Disponível</span>
             <span className="font-bold text-base" style={{ color: available >= 0 ? '#2E7A5E' : '#C75146' }}>R$ {fmt(available)}</span>
           </div>
-          <div className="rounded-2xl p-3" style={{ background: '#F8FAFE' }}>
+          <div className="rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.6)' }}>
             <span className="block text-xs font-medium mb-1" style={{ color: '#5B6E8C' }}>Total</span>
             <span className="font-bold text-base" style={{ color: '#1A2C3E' }}>R$ {fmt(contract.totalCredit)}</span>
           </div>
@@ -365,9 +368,12 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
           <div style={{ width: `${balancePct}%`, height: '100%', background: barColor, borderRadius: 9999, transition: 'width 0.5s' }} />
         </div>
         <div className="text-right text-xs" style={{ color: '#8A99B0' }}>{balancePct.toFixed(0)}% disponível</div>
+      </div>
 
-        {/* ── Divisor: Plano Terapêutico ── */}
-        <div className="border-t mt-5 pt-4" style={{ borderColor: '#EDF2F7' }}>
+      <div className="p-5 pt-4">
+
+        {/* ══ Camada 3: Breakdown — plano terapêutico por especialidade ══ */}
+        <div>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 flex-wrap">
               <Calendar className="w-4 h-4" style={{ color: '#2E7A5E' }} />
@@ -408,7 +414,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                 <div className="flex rounded-full overflow-hidden mb-2" style={{ height: 10, background: '#E9EEF2' }}>
                   <div style={{ width: `${pctComp}%`,    background: '#10B981', transition: 'width 0.5s' }} title={`Realizadas: ${completed}`} />
                   <div style={{ width: `${pctPend}%`,    background: '#6366F1', transition: 'width 0.5s' }} title={`Agendadas: ${pending}`} />
-                  <div style={{ width: `${pctMissing}%`, background: '#F59E0B', transition: 'width 0.5s' }} title={`Faltando: ${missing}`} />
+                  <div style={{ width: `${pctMissing}%`, background: NEUTRAL_MISSING_COLOR.bar, transition: 'width 0.5s' }} title={`Faltando: ${missing}`} />
                 </div>
                 {/* Legenda em linha */}
                 <div className="flex justify-between text-xs">
@@ -422,8 +428,8 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                   </span>
                   {missing > 0 && (
                     <span className="flex items-center gap-1">
-                      <span className="inline-block w-2 h-2 rounded-full" style={{ background: '#F59E0B' }} />
-                      <span style={{ color: '#92400E' }}><b>{missing}</b> faltando</span>
+                      <span className="inline-block w-2 h-2 rounded-full" style={{ background: NEUTRAL_MISSING_COLOR.dot }} />
+                      <span style={{ color: NEUTRAL_MISSING_COLOR.text }}><b>{missing}</b> faltando</span>
                     </span>
                   )}
                 </div>
@@ -447,16 +453,18 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                     const scheduled  = generated - completed;
                     const pctComp    = expected > 0 ? Math.min((completed / expected) * 100, 100) : 0;
                     const pctPend    = expected > 0 ? Math.min((scheduled / expected) * 100, 100 - pctComp) : 0;
+                    const spTheme    = getSpecialtyTheme(specialty);
 
                     return (
                       <div
                         key={specialty}
                         className="rounded-xl p-3 space-y-2"
-                        style={{ background: '#F8FAFE', border: '1px solid #EDF2F7' }}
+                        style={{ background: spTheme.light, border: `1px solid ${spTheme.border}` }}
                       >
                         {/* Linha 1: nome + meta + ações */}
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold text-xs capitalize" style={{ color: '#1A2C3E' }}>
+                          <span className="font-semibold text-xs capitalize flex items-center gap-1.5" style={{ color: spTheme.text }}>
+                            <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: spTheme.to }} />
                             {specialty.replace(/_/g, ' ')}
                           </span>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -491,7 +499,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                               <div style={{ width: `${pctComp}%`, background: '#10B981', transition: 'width 0.5s' }} />
                               <div style={{ width: `${pctPend}%`, background: '#6366F1', transition: 'width 0.5s' }} />
                               {missing > 0 && (
-                                <div style={{ width: `${Math.min((missing / expected) * 100, 100 - pctComp - pctPend)}%`, background: '#F59E0B', transition: 'width 0.5s' }} />
+                                <div style={{ width: `${Math.min((missing / expected) * 100, 100 - pctComp - pctPend)}%`, background: NEUTRAL_MISSING_COLOR.bar, transition: 'width 0.5s' }} />
                               )}
                             </div>
 
@@ -506,8 +514,8 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                               </span>
                               {missing > 0 ? (
                                 <span className="flex items-center gap-1">
-                                  <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#F59E0B' }} />
-                                  <span style={{ color: '#92400E' }}><b>{missing}</b> falt.</span>
+                                  <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: NEUTRAL_MISSING_COLOR.dot }} />
+                                  <span style={{ color: NEUTRAL_MISSING_COLOR.text }}><b>{missing}</b> falt.</span>
                                 </span>
                               ) : (
                                 <span className="px-1.5 py-0.5 rounded-full text-xs font-semibold" style={{ background: '#D1FAE5', color: '#065F46' }}>
@@ -549,7 +557,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                     className="flex-1 py-2 text-xs font-semibold rounded-xl text-white transition-all disabled:opacity-50"
                     style={{ background: 'linear-gradient(135deg, #1B4D6E 0%, #2563EB 100%)' }}
                   >
-                    {generating ? '...' : <><Zap className="w-3 h-3 inline mr-1" />4 semanas</>}
+                    {generating ? '...' : <><Zap className="w-3 h-3 inline mr-1" />Gerar 4 semanas</>}
                   </button>
                   <button
                     onClick={() => openConfirm(8)}
@@ -557,7 +565,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                     className="flex-1 py-2 text-xs font-semibold rounded-xl text-white transition-all disabled:opacity-50"
                     style={{ background: 'linear-gradient(135deg, #5B21B6 0%, #7C3AED 100%)' }}
                   >
-                    {generating ? '...' : <><Zap className="w-3 h-3 inline mr-1" />8 semanas</>}
+                    {generating ? '...' : <><Zap className="w-3 h-3 inline mr-1" />Gerar 8 semanas</>}
                   </button>
                 </div>
               )}

@@ -1,18 +1,15 @@
 // src/components/patient/InsuranceBalanceBadge.jsx
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Box, Chip, Tooltip, CircularProgress } from '@mui/material';
 import { Shield, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { useInsuranceGuides } from '../../hooks/useInsuranceGuides';
+import { buildGuidesPresentation } from '../../services/guidePresentationService';
 
 /**
- * Badge compacto para exibir saldo de guias de convênio
+ * Badge compacto para exibir saldo de guias de convênio.
  *
- * Exibe resumo visual do saldo de guias por especialidade
- * Cores:
- * - Verde: Saldo suficiente (> 5 sessões)
- * - Amarelo: Saldo baixo (1-5 sessões)
- * - Vermelho: Sem saldo (0 sessões)
- * - Cinza: Sem guias cadastradas
+ * Regra arquitetural: a severidade visual é derivada do ciclo de vida das guias
+ * via GuidePresentationService, não calculada localmente a partir de thresholds.
  */
 const InsuranceBalanceBadge = ({
   patientId,
@@ -22,10 +19,13 @@ const InsuranceBalanceBadge = ({
   variant = 'filled'
 }) => {
   const {
+    guides,
     balance,
     isLoadingBalance,
     error
   } = useInsuranceGuides(patientId, { specialty }, true);
+
+  const presentations = useMemo(() => buildGuidesPresentation(guides), [guides]);
 
   // Estado de loading
   if (isLoadingBalance) {
@@ -69,18 +69,21 @@ const InsuranceBalanceBadge = ({
     );
   }
 
-  // Determinar cor baseada no saldo
+  // Determinar severidade a partir do pior alerta de ciclo de vida
   const getColor = () => {
-    if (balance.remaining === 0) return 'error';
-    if (balance.remaining <= 5) return 'warning';
+    const hasError = presentations.some(p => p.alerts.some(a => a.severity === 'error'));
+    const hasWarning = presentations.some(p => p.alerts.some(a => a.severity === 'warning'));
+    if (hasError) return 'error';
+    if (hasWarning) return 'warning';
     return 'success';
   };
 
   // Determinar ícone
   const getIcon = () => {
     if (!showIcon) return undefined;
-    if (balance.remaining === 0) return <XCircle className="w-4 h-4" />;
-    if (balance.remaining <= 5) return <AlertCircle className="w-4 h-4" />;
+    const color = getColor();
+    if (color === 'error') return <XCircle className="w-4 h-4" />;
+    if (color === 'warning') return <AlertCircle className="w-4 h-4" />;
     return <CheckCircle className="w-4 h-4" />;
   };
 
@@ -93,11 +96,12 @@ const InsuranceBalanceBadge = ({
       `${guideCount} guia(s) ativa(s)`
     ];
 
-    if (balance.guides && balance.guides.length > 0) {
+    if (presentations.length > 0) {
       lines.push('');
-      lines.push('Guias ativas:');
-      balance.guides.forEach(guide => {
-        lines.push(`• #${guide.number}: ${guide.remaining}/${guide.total} (${guide.insurance})`);
+      lines.push('Guias:');
+      presentations.forEach(presentation => {
+        const alertLabels = presentation.alerts.map(a => a.message).join(', ');
+        lines.push(`• #${presentation.number}: ${presentation.remaining}/${presentation.total}${alertLabels ? ` — ${alertLabels}` : ''}`);
       });
     }
 

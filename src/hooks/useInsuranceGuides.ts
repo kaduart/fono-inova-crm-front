@@ -1,5 +1,6 @@
 // src/hooks/useInsuranceGuides.ts
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { buildGuidesPresentation } from '../services/guidePresentationService';
 import {
   getGuides,
   getBalance,
@@ -80,26 +81,28 @@ export const useInsuranceGuides = (
     try {
       const data = await getGuides(patientId, stableFilters);
 
-      // Ordenar por prioridade clínica:
-      // 1. Ativas válidas primeiro (expiresAt ascendente → mais urgente primeiro)
-      // 2. Demais por createdAt descendente
-      const now = new Date().getTime();
-      const isActiveValid = (g: InsuranceGuide) =>
-        g.status === 'active' &&
-        (g.remaining ?? g.totalSessions - (g.usedSessions || 0)) > 0 &&
-        new Date(g.expiresAt).getTime() >= now;
+      // Ordenar por prioridade clínica usando a camada de apresentação:
+      // 1. Guias utilizáveis primeiro (canSchedule)
+      // 2. Entre utilizáveis: alerta EXPIRING_SOON primeiro, depois mais próximas do vencimento
+      // 3. Demais por createdAt descendente
+      const presentations = buildGuidesPresentation(data);
+      const hasExpiringSoon = (p: ReturnType<typeof buildGuidesPresentation>[number]) =>
+        p.rawGuide.lifecycle?.alerts?.some(a => a.code === 'EXPIRING_SOON');
 
-      const sortedGuides = data.sort((a, b) => {
-        const aActive = isActiveValid(a) ? 1 : 0;
-        const bActive = isActiveValid(b) ? 1 : 0;
-        if (aActive !== bActive) return bActive - aActive;
-        if (aActive && bActive) {
-          return new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime();
+      presentations.sort((a, b) => {
+        if (a.isUsable !== b.isUsable) return (b.isUsable ? 1 : 0) - (a.isUsable ? 1 : 0);
+        if (a.isUsable && b.isUsable) {
+          const aUrgent = hasExpiringSoon(a) ? 1 : 0;
+          const bUrgent = hasExpiringSoon(b) ? 1 : 0;
+          if (aUrgent !== bUrgent) return bUrgent - aUrgent;
+          const aDays = a.daysUntilExpiration ?? Infinity;
+          const bDays = b.daysUntilExpiration ?? Infinity;
+          return aDays - bDays;
         }
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        return new Date(b.rawGuide.createdAt).getTime() - new Date(a.rawGuide.createdAt).getTime();
       });
 
-      setGuides(sortedGuides);
+      setGuides(presentations.map(p => p.rawGuide));
     } catch (err: any) {
       setError(err.message);
       console.error('Erro ao buscar guias:', err);

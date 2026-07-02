@@ -30,10 +30,14 @@ import {
     Select,
     MenuItem,
 } from '@mui/material';
-import { Calendar, ChevronDown, ChevronUp, Send, X, Link2, Plus, Wand2 } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronUp, Send, X, Link2, Plus, Wand2, Pencil } from 'lucide-react';
 import { Fragment, useState } from 'react';
 import { getSpecialtyLabel } from '../../../constants/specialties';
 import { autoLinkOrphanSessions, createGuideFromOrphan, linkOrphanSessionsToGuide, previewAutoLinkOrphanSessions } from '../../../services/paymentService';
+import { updateGuide } from '../../../services/insuranceGuideApi';
+import { useConvenios } from '../../../hooks/useConvenios';
+import { buildGuidePresentation } from '../../../services/guidePresentationService';
+import type { InsuranceGuide } from '../../../services/insuranceGuideApi';
 import { toast } from 'react-toastify';
 
 export interface PendingGuideSession {
@@ -53,6 +57,7 @@ export interface PendingGuide {
     billingMode?: 'per_month' | 'per_guide';
     totalSessions?: number;
     usedSessions?: number;
+    sessionValue?: number | null;
     totalAuthorizedValue?: number | null;
     sessionsThisMonth?: number;
     pendingSessions: number;
@@ -107,6 +112,22 @@ const formatProviderName = (slug: string) => {
         .replace('Brasilia', 'Brasília');
 };
 
+function toInsuranceGuide(pending: PendingGuide): InsuranceGuide {
+    return {
+        _id: pending.guideId,
+        number: pending.number,
+        patientId: '',
+        specialty: pending.specialty || '',
+        insurance: pending.insurance,
+        totalSessions: pending.totalSessions || 0,
+        usedSessions: pending.usedSessions || 0,
+        expiresAt: '',
+        status: 'active',
+        createdAt: '',
+        updatedAt: ''
+    };
+}
+
 function daysSince(date: string | Date | null | undefined): number {
     if (!date) return 0;
     const d = new Date(date);
@@ -152,10 +173,11 @@ interface PatientDrawerProps {
     guides: PendingGuide[];
     selectedGuides: Set<string>;
     onToggleGuide: (guideId: string) => void;
+    onEditGuide: (guide: PendingGuide) => void;
     onClose: () => void;
 }
 
-function PatientDrawer({ open, patientName, provider, guides, selectedGuides, onToggleGuide, onClose }: PatientDrawerProps) {
+function PatientDrawer({ open, patientName, provider, guides, selectedGuides, onToggleGuide, onEditGuide, onClose }: PatientDrawerProps) {
     const total    = guides.reduce((s, g) => s + (g.pendingValue || 0), 0);
     const sessions = guides.reduce((s, g) => s + (g.pendingSessions || 0), 0);
     const allSelected  = guides.every(g => selectedGuides.has(g.guideId));
@@ -260,8 +282,9 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, on
                     const isSelected  = selectedGuides.has(guide.guideId);
                     const isExpanded  = expandedGuides.has(guide.guideId);
                     const hasSessions = (guide.sessions || []).length > 0;
-                    const pct = guide.totalSessions ? Math.min(100, Math.round(((guide.usedSessions ?? 0) / guide.totalSessions) * 100)) : 0;
-                    const isComplete  = (guide.usedSessions ?? 0) >= (guide.totalSessions ?? 1);
+                    const presentation = buildGuidePresentation(toInsuranceGuide(guide));
+                    const pct = presentation.progressPct;
+                    const isComplete = presentation.isExhausted;
 
                     return (
                         <Card key={guide.guideId} elevation={0} sx={{
@@ -274,7 +297,7 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, on
                             '&:hover': { boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }
                         }}>
                             {/* Linha de cor lateral */}
-                            <Box sx={{ height: 4, bgcolor: isComplete ? '#059669' : guide.billingMode === 'per_guide' ? '#10B981' : '#F59E0B' }} />
+                            <Box sx={{ height: 4, bgcolor: isComplete ? '#059669' : guide.billingMode === 'per_guide' ? '#10B981' : presentation.theme.to }} />
 
                             <Box sx={{ p: 2 }}>
                                 {/* Row 1: checkbox + número + badge + valor */}
@@ -292,6 +315,14 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, on
                                                     Guia {guide.number}
                                                 </Typography>
                                                 <BillingModeBadge mode={guide.billingMode} />
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={(e) => { e.stopPropagation(); onEditGuide(guide); }}
+                                                    sx={{ p: 0.25, color: '#94A3B8', '&:hover': { color: '#3B82F6', bgcolor: '#EFF6FF' } }}
+                                                    title="Editar guia"
+                                                >
+                                                    <Pencil size={13} />
+                                                </IconButton>
                                             </Box>
                                             <Chip
                                                 size="small"
@@ -422,12 +453,45 @@ const GuidePendingBillingSection = ({
     const [linkModal, setLinkModal]                             = useState<OrphanSession | null>(null);
     const [guideNumber, setGuideNumber]                         = useState('');
     const [previewModal, setPreviewModal]                       = useState<{ open: boolean; linked: any[]; skipped: any[] } | null>(null);
+    const [editGuideModal, setEditGuideModal]                   = useState<PendingGuide | null>(null);
+    const [editForm, setEditForm]                               = useState({ insurance: '', totalSessions: 1, sessionValue: 0 });
+    const [savingGuide, setSavingGuide]                         = useState(false);
+    const { convenios, isLoading: loadingConvenios }            = useConvenios({ includeInactive: false });
 
     const toggleProvider      = (p: string) => setExpandedProviders(prev => ({ ...prev, [p]: !prev[p] }));
     const toggleOrphanProvider = (p: string) => setExpandedOrphanProviders(prev => ({ ...prev, [p]: !prev[p] }));
 
     const openDrawer = (name: string, provider: string, patientGuides: PendingGuide[]) =>
         setDrawerPatient({ name, provider, guides: patientGuides });
+
+    const openEditGuide = (guide: PendingGuide) => {
+        setEditGuideModal(guide);
+        setEditForm({
+            insurance: guide.insurance,
+            totalSessions: guide.totalSessions || 1,
+            sessionValue: guide.sessionValue || 0,
+        });
+    };
+
+    const handleUpdateGuide = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        if (!editGuideModal) return;
+        setSavingGuide(true);
+        try {
+            await updateGuide(editGuideModal.guideId, {
+                insurance: editForm.insurance,
+                totalSessions: editForm.totalSessions,
+                sessionValue: editForm.sessionValue,
+            });
+            toast.success('Guia atualizada com sucesso!');
+            setEditGuideModal(null);
+            onRefresh?.();
+        } catch (err: any) {
+            toast.error(err?.message || 'Erro ao atualizar guia');
+        } finally {
+            setSavingGuide(false);
+        }
+    };
 
     const handleAutoLinkPreview = async () => {
         if (linking) return;
@@ -941,6 +1005,7 @@ const GuidePendingBillingSection = ({
                     guides={drawerPatient.guides}
                     selectedGuides={selectedGuides}
                     onToggleGuide={onToggleGuide}
+                    onEditGuide={openEditGuide}
                     onClose={() => setDrawerPatient(null)}
                 />
             )}
@@ -990,6 +1055,62 @@ const GuidePendingBillingSection = ({
                     <DialogActions>
                         <Button onClick={() => { setLinkModal(null); setGuideNumber(''); }}>Cancelar</Button>
                         <Button type="submit" variant="contained" sx={{ bgcolor: '#2563EB' }}>Vincular</Button>
+                    </DialogActions>
+                </form>
+            </Dialog>
+
+            {/* Modal: Editar guia */}
+            <Dialog open={!!editGuideModal} onClose={() => setEditGuideModal(null)} maxWidth="sm" fullWidth>
+                <form onSubmit={handleUpdateGuide}>
+                    <DialogTitle>Editar guia {editGuideModal?.number}</DialogTitle>
+                    <DialogContent dividers>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+                            <Typography variant="body2" color="text.secondary">
+                                Paciente: <strong>{editGuideModal?.patient?.fullName || '—'}</strong>
+                            </Typography>
+                            <FormControl fullWidth>
+                                <InputLabel>Convênio *</InputLabel>
+                                <Select
+                                    value={editForm.insurance}
+                                    label="Convênio *"
+                                    disabled={loadingConvenios}
+                                    onChange={(e) => setEditForm(prev => ({ ...prev, insurance: e.target.value as string }))}
+                                >
+                                    {convenios.map((c) => (
+                                        <MenuItem key={c._id} value={c.code}>{c.name}</MenuItem>
+                                    ))}
+                                    {/* garante que o valor atual apareça mesmo se não estiver na lista de convênios ativos */}
+                                    {!convenios.some(c => c.code === editForm.insurance) && editForm.insurance && (
+                                        <MenuItem value={editForm.insurance}>{formatProviderName(editForm.insurance)}</MenuItem>
+                                    )}
+                                </Select>
+                            </FormControl>
+                            <TextField
+                                label="Total de sessões autorizadas"
+                                type="number"
+                                required
+                                fullWidth
+                                inputProps={{ min: editGuideModal?.usedSessions || 1 }}
+                                value={editForm.totalSessions}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, totalSessions: Number(e.target.value) }))}
+                                helperText={editGuideModal?.usedSessions ? `${editGuideModal.usedSessions} sessões já utilizadas` : undefined}
+                            />
+                            <TextField
+                                label="Valor da sessão (R$)"
+                                type="number"
+                                required
+                                fullWidth
+                                inputProps={{ min: 0, step: '0.01' }}
+                                value={editForm.sessionValue}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, sessionValue: Number(e.target.value) }))}
+                            />
+                        </Box>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setEditGuideModal(null)}>Cancelar</Button>
+                        <Button type="submit" variant="contained" disabled={savingGuide} sx={{ bgcolor: '#3B82F6' }}>
+                            {savingGuide ? 'Salvando...' : 'Salvar alterações'}
+                        </Button>
                     </DialogActions>
                 </form>
             </Dialog>

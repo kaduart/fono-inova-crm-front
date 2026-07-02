@@ -1,6 +1,27 @@
 // src/services/insuranceGuideApi.ts
 import API from './api';
 import { extractErrorMessage, extractErrorCode } from '../utils/errorUtils';
+import type { GuidePolicy, MigrationStrategy } from './insuranceService';
+
+export interface LifecycleAlert {
+  code: string;
+  severity: 'error' | 'warning' | 'info';
+  metadata?: Record<string, unknown>;
+}
+
+export interface GuideLifecycleResult {
+  state: {
+    status: string;
+  };
+  eligibility: {
+    canSchedule: boolean;
+    canBill: boolean;
+    canRenew: boolean;
+    canEdit: boolean;
+    canBeSuperseded: boolean;
+  };
+  alerts: LifecycleAlert[];
+}
 
 export interface GuideAppointment {
   _id: string;
@@ -24,7 +45,7 @@ export interface InsuranceGuide {
   totalSessions: number;
   usedSessions: number;
   expiresAt: string;
-  status: 'active' | 'exhausted' | 'expired' | 'cancelled';
+  status: 'active' | 'exhausted' | 'expired' | 'cancelled' | 'superseded' | 'linked';
   sessionValue?: number | null;
   evaluationAmount?: number | null;
   generateEvaluationBilling?: boolean;
@@ -34,6 +55,36 @@ export interface InsuranceGuide {
   createdAt: string;
   updatedAt: string;
   remaining?: number;
+  // Cadeia de substituição
+  supersededBy?: string | null;
+  supersedes?: string | null;
+  supersededAt?: string | null;
+  replacementTrigger?: string | null;
+  replacementMethod?: MigrationStrategy | null;
+  replacementNotes?: string | null;
+  // Política do convênio (join no GET)
+  guidePolicy?: GuidePolicy | null;
+  defaultSessions?: number | null;
+  // Ciclo de vida avaliado pelo backend
+  lifecycle?: GuideLifecycleResult;
+}
+
+export interface SupersedeGuideData {
+  newGuide: {
+    number: string;
+    expiresAt: string;
+    totalSessions: number;
+    sessionValue?: number | null;
+    evaluationAmount?: number | null;
+    doctorId?: string | null;
+    notes?: string | null;
+    issuedAt?: string | null;
+    billingMode?: string;
+  };
+  replacementTrigger: 'expiration' | 'new_authorization' | 'administrative_correction' | 'judicial_order' | 'manual';
+  replacementNotes?: string | null;
+  migrationStrategy: MigrationStrategy;
+  appointmentIds?: string[];
 }
 
 export interface InsuranceGuideBalance {
@@ -86,6 +137,18 @@ export interface GetGuidesFilters {
   insurance?: string;
 }
 
+interface GuideResponseEnvelope {
+  guide: InsuranceGuide;
+  lifecycle: GuideLifecycleResult;
+}
+
+function mergeGuideResponse(item: GuideResponseEnvelope | InsuranceGuide): InsuranceGuide {
+  if (item && 'guide' in item && 'lifecycle' in item) {
+    return { ...item.guide, lifecycle: item.lifecycle };
+  }
+  return item as InsuranceGuide;
+}
+
 /**
  * Busca guias de um paciente com filtros opcionais
  */
@@ -102,7 +165,8 @@ export const getGuides = async (
 
     const response = await API.get(`/v2/insurance-guides?${params.toString()}`);
 
-    return response.data.data?.guides || [];
+    const items: (GuideResponseEnvelope | InsuranceGuide)[] = response.data.data?.guides || [];
+    return items.map(mergeGuideResponse);
   } catch (error: any) {
     throw new Error(extractErrorMessage(error, 'Erro ao buscar guias'));
   }
@@ -114,7 +178,7 @@ export const getGuides = async (
 export const getGuide = async (id: string): Promise<InsuranceGuide> => {
   try {
     const response = await API.get(`/v2/insurance-guides/${id}`);
-    return response.data.data;
+    return mergeGuideResponse(response.data.data);
   } catch (error: any) {
     throw new Error(extractErrorMessage(error, 'Erro ao buscar guia'));
   }
@@ -126,7 +190,8 @@ export const getGuide = async (id: string): Promise<InsuranceGuide> => {
 export const createGuide = async (data: CreateGuideData): Promise<InsuranceGuide> => {
   try {
     const response = await API.post('/v2/insurance-guides', data);
-    return response.data.data;
+    const item = response.data.data;
+    return { ...(item.guide || item), lifecycle: item.lifecycle };
   } catch (error: any) {
     const errorCode = extractErrorCode(error);
 
@@ -144,7 +209,8 @@ export const updateGuide = async (
 ): Promise<InsuranceGuide> => {
   try {
     const response = await API.put(`/v2/insurance-guides/${id}`, data);
-    return response.data.data;
+    const item = response.data.data;
+    return { ...(item.guide || item), lifecycle: item.lifecycle };
   } catch (error: any) {
     const errorCode = extractErrorCode(error);
 
@@ -226,8 +292,38 @@ export const getInsurancePlanByGuide = async (guideId: string): Promise<any | nu
   try {
     const response = await API.get(`/v2/insurance-plans/guide/${guideId}`);
     return response.data?.data || null;
-  } catch {
-    return null;
+  } catch (error: any) {
+    // 404 é o caso normal (guia ainda sem plano) — demais erros devem propagar
+    // para o React Query poder retry/expor estado de erro
+    if (error?.response?.status === 404) return null;
+    throw new Error(extractErrorMessage(error, 'Erro ao buscar plano de convênio'));
+  }
+};
+
+/**
+ * Substitui uma guia por outra (supersede), com migração opcional de atendimentos
+ */
+export const supersedeGuide = async (
+  oldGuideId: string,
+  data: SupersedeGuideData
+): Promise<{
+  newGuide: InsuranceGuide;
+  migrated: { appointmentsMigratedCount: number; sessionsMigratedCount: number };
+  planCloned?: boolean;
+  planGeneratedAppointmentsCount?: number;
+  planAppointmentsCanceledCount?: number;
+}> => {
+  try {
+    const response = await API.post(`/v2/insurance-guides/${oldGuideId}/supersede`, data);
+    return response.data;
+  } catch (error: any) {
+    const code = extractErrorCode(error);
+    if (code === 'GUIDE_ALREADY_SUPERSEDED') throw new Error('Esta guia já foi substituída por outra');
+    if (code === 'GUIDE_PATIENT_MISMATCH')   throw new Error('Paciente não corresponde à guia original');
+    if (code === 'GUIDE_INSURANCE_MISMATCH') throw new Error('Convênio não corresponde à guia original');
+    if (code === 'GUIDE_SPECIALTY_MISMATCH') throw new Error('Especialidade não corresponde à guia original');
+    if (code === 'MISSING_TRIGGER')          throw new Error('Motivo da substituição é obrigatório');
+    throw new Error(extractErrorMessage(error, 'Erro ao renovar guia'));
   }
 };
 

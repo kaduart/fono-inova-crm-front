@@ -7,6 +7,19 @@ import api from './api';
 
 export type BillingMode = 'per_month' | 'per_guide';
 
+export type RenewalType = 'end_of_month' | 'until_consumed' | 'fixed_date' | 'authorization_validity';
+export type RenewalDay = 'last_day' | 'fixed_day';
+export type MigrationStrategy = 'eligible' | 'manual' | 'none';
+
+export interface GuidePolicy {
+    renewalType: RenewalType;
+    renewalDay?: RenewalDay;
+    renewalDayOfMonth?: number | null;
+    expirationWarningDays?: number;
+    autoSuggestRenewal?: boolean;
+    defaultMigrationStrategy?: MigrationStrategy;
+}
+
 export interface Convenio {
     _id: string;
     code: string;
@@ -15,6 +28,8 @@ export interface Convenio {
     active: boolean;
     billingMode: BillingMode;
     notes?: string;
+    guidePolicy?: GuidePolicy;
+    defaultSessions?: number | null;
     createdAt: string;
     updatedAt: string;
     stats?: {
@@ -30,6 +45,8 @@ export interface CreateConvenioData {
     sessionValue: number;
     billingMode?: BillingMode;
     notes?: string;
+    guidePolicy?: GuidePolicy;
+    defaultSessions?: number | null;
 }
 
 export interface UpdateConvenioData {
@@ -38,6 +55,8 @@ export interface UpdateConvenioData {
     billingMode?: BillingMode;
     notes?: string;
     active?: boolean;
+    guidePolicy?: GuidePolicy;
+    defaultSessions?: number | null;
 }
 
 export interface InsuranceBatch {

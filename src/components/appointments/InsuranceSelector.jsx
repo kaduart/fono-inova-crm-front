@@ -1,5 +1,5 @@
 // src/components/appointments/InsuranceSelector.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Card,
@@ -18,18 +18,16 @@ import {
   Calendar,
   AlertCircle,
   CheckCircle,
-  FileText,
-  ExternalLink
+  FileText
 } from 'lucide-react';
-import { format, parseISO, differenceInDays } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { getGuides } from '../../services/insuranceGuideApi';
+import { buildGuidesPresentation } from '../../services/guidePresentationService';
 
 /**
- * Componente para seleção de guia de convênio ao criar agendamento
+ * Componente para seleção de guia de convênio ao criar agendamento.
  *
- * Exibe guias válidas do paciente filtradas por especialidade
- * Permite seleção manual ou automática (FIFO)
+ * Regra arquitetural: este componente NÃO calcula elegibilidade, vencimento
+ * ou prioridade. Ele consome apenas `guide.lifecycle` via `GuidePresentationService`.
  */
 const InsuranceSelector = ({
   patientId,
@@ -43,47 +41,48 @@ const InsuranceSelector = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Buscar guias válidas quando componente montar ou especialidade mudar
+  const presentations = useMemo(() => buildGuidesPresentation(guides), [guides]);
+
+  // Apenas guias elegíveis para agendamento, ordenadas por prioridade
+  const selectablePresentations = useMemo(() => {
+    return presentations
+      .filter(p => p.canSchedule)
+      .sort((a, b) => {
+        const aUrgent = a.alerts.some(alert => alert.code === 'EXPIRING_SOON') ? 1 : 0;
+        const bUrgent = b.alerts.some(alert => alert.code === 'EXPIRING_SOON') ? 1 : 0;
+        if (aUrgent !== bUrgent) return bUrgent - aUrgent;
+        const aDays = a.daysUntilExpiration ?? Infinity;
+        const bDays = b.daysUntilExpiration ?? Infinity;
+        return aDays - bDays;
+      });
+  }, [presentations]);
+
+  // Buscar guias quando componente montar ou especialidade mudar
   useEffect(() => {
     if (!patientId || !specialty) {
       setGuides([]);
       return;
     }
 
-    fetchValidGuides();
+    fetchGuides();
   }, [patientId, specialty]);
 
-  const fetchValidGuides = async () => {
+  // Auto-selecionar primeira guia elegível
+  useEffect(() => {
+    if (selectablePresentations.length > 0 && !selectedGuideId) {
+      onGuideSelect(selectablePresentations[0].id);
+    } else if (selectablePresentations.length === 0) {
+      onGuideSelect(null);
+    }
+  }, [selectablePresentations, selectedGuideId, onGuideSelect]);
+
+  const fetchGuides = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const data = await getGuides(patientId, {
-        specialty,
-        status: 'active'
-      });
-
-      // Filtrar apenas guias válidas (ativas, com saldo, não expiradas)
-      const validGuides = data.filter(guide => {
-        const isActive = guide.status === 'active';
-        const hasBalance = guide.remaining > 0;
-        const notExpired = new Date(guide.expiresAt) >= new Date();
-        return isActive && hasBalance && notExpired;
-      });
-
-      // Ordenar por data de expiração (FIFO - mais urgente primeiro)
-      validGuides.sort((a, b) => {
-        return new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime();
-      });
-
-      setGuides(validGuides);
-
-      // Auto-selecionar primeira guia se houver
-      if (validGuides.length > 0 && !selectedGuideId) {
-        onGuideSelect(validGuides[0]._id);
-      } else if (validGuides.length === 0) {
-        onGuideSelect(null);
-      }
+      const data = await getGuides(patientId, { specialty });
+      setGuides(data);
     } catch (err) {
       setError(err.message || 'Erro ao buscar guias');
       setGuides([]);
@@ -95,17 +94,6 @@ const InsuranceSelector = ({
 
   const handleGuideChange = (event) => {
     onGuideSelect(event.target.value);
-  };
-
-  const getDaysUntilExpiration = (expiresAt) => {
-    return differenceInDays(parseISO(expiresAt), new Date());
-  };
-
-  const getProgressColor = (guide) => {
-    const percentage = (guide.remaining / guide.totalSessions) * 100;
-    if (percentage <= 20) return '#f59e0b'; // yellow
-    if (percentage <= 50) return '#3b82f6'; // blue
-    return '#10b981'; // green
   };
 
   // Estado de loading
@@ -125,7 +113,7 @@ const InsuranceSelector = ({
     return (
       <Alert severity="error" className="mb-4">
         {error}
-        <Button size="small" onClick={fetchValidGuides} className="ml-2">
+        <Button size="small" onClick={fetchGuides} className="ml-2">
           Tentar novamente
         </Button>
       </Alert>
@@ -133,14 +121,14 @@ const InsuranceSelector = ({
   }
 
   // Nenhuma guia disponível
-  if (guides.length === 0) {
+  if (selectablePresentations.length === 0) {
     return (
       <Alert severity="warning" icon={<AlertCircle className="w-5 h-5" />}>
         <Typography variant="body2" className="font-medium mb-1">
           Nenhuma guia disponível
         </Typography>
         <Typography variant="caption" className="text-gray-700">
-          Este paciente não possui guias ativas de {specialty} com saldo disponível.
+          Este paciente não possui guias elegíveis de {specialty} para agendamento.
           Cadastre uma nova guia ou utilize outro tipo de cobrança.
         </Typography>
       </Alert>
@@ -155,33 +143,31 @@ const InsuranceSelector = ({
           Selecione a Guia de Convênio
         </Typography>
         <Typography variant="caption" className="text-gray-600">
-          {guides.length} guia(s) disponível(is) para {specialty}.
-          A guia com menor prazo de validade é selecionada automaticamente (FIFO).
+          {selectablePresentations.length} guia(s) elegível(is) para {specialty}.
+          A guia mais urgente é selecionada automaticamente.
         </Typography>
       </Box>
 
       {/* Lista de guias */}
       <RadioGroup value={selectedGuideId || ''} onChange={handleGuideChange}>
         <Box className="space-y-2">
-          {guides.map((guide, index) => {
-            const daysLeft = getDaysUntilExpiration(guide.expiresAt);
-            const isUrgent = daysLeft <= 7;
-            const isRecommended = index === 0; // Primeira = recomendada (FIFO)
-            const percentage = (guide.remaining / guide.totalSessions) * 100;
+          {selectablePresentations.map((presentation, index) => {
+            const guide = presentation.rawGuide;
+            const isRecommended = index === 0;
 
             return (
               <Card
-                key={guide._id}
+                key={presentation.id}
                 className={`
                   border-l-4 transition-all
-                  ${selectedGuideId === guide._id ? 'ring-2 ring-blue-500 shadow-md' : 'hover:shadow-sm'}
+                  ${selectedGuideId === presentation.id ? 'ring-2 ring-blue-500 shadow-md' : 'hover:shadow-sm'}
                   ${isRecommended ? 'border-green-500' : 'border-gray-300'}
                   ${disabled ? 'opacity-60' : ''}
                 `}
               >
                 <CardContent className="py-3">
                   <FormControlLabel
-                    value={guide._id}
+                    value={presentation.id}
                     control={<Radio disabled={disabled} />}
                     label={
                       <Box className="flex-1 ml-2">
@@ -189,7 +175,7 @@ const InsuranceSelector = ({
                         <Box className="flex items-start justify-between mb-2">
                           <Box className="flex items-center gap-2">
                             <Typography variant="body1" className="font-semibold">
-                              Guia #{guide.number}
+                              Guia #{presentation.number}
                             </Typography>
                             {isRecommended && (
                               <Chip
@@ -199,14 +185,15 @@ const InsuranceSelector = ({
                                 icon={<CheckCircle className="w-3 h-3" />}
                               />
                             )}
-                            {isUrgent && (
+                            {presentation.alerts.map(alert => (
                               <Chip
-                                label={`${daysLeft}d restante(s)`}
+                                key={alert.code}
+                                label={alert.message}
                                 size="small"
-                                color="warning"
+                                color={alert.severity === 'error' ? 'error' : alert.severity === 'warning' ? 'warning' : 'info'}
                                 icon={<AlertCircle className="w-3 h-3" />}
                               />
-                            )}
+                            ))}
                           </Box>
                         </Box>
 
@@ -217,9 +204,7 @@ const InsuranceSelector = ({
                               Convênio
                             </Typography>
                             <Typography variant="body2" className="font-medium">
-                              {guide.insurance.split('-').map(word =>
-                                word.charAt(0).toUpperCase() + word.slice(1)
-                              ).join(' ')}
+                              {presentation.insuranceLabel}
                             </Typography>
                           </Box>
                           <Box>
@@ -229,7 +214,7 @@ const InsuranceSelector = ({
                             <Box className="flex items-center gap-1">
                               <Calendar className="w-3 h-3 text-gray-500" />
                               <Typography variant="body2" className="font-medium">
-                                {format(parseISO(guide.expiresAt), 'dd/MM/yyyy', { locale: ptBR })}
+                                {presentation.expiryLabel || 'Sem vencimento por data'}
                               </Typography>
                             </Box>
                           </Box>
@@ -239,20 +224,20 @@ const InsuranceSelector = ({
                         <Box>
                           <Box className="flex items-center justify-between mb-1">
                             <Typography variant="caption" className="text-gray-700">
-                              <strong>{guide.remaining}</strong> de {guide.totalSessions} sessões restantes
+                              <strong>{presentation.remaining}</strong> de {presentation.totalSessions} sessões restantes
                             </Typography>
                             <Typography variant="caption" className="text-gray-600">
-                              {percentage.toFixed(0)}%
+                              {presentation.progressPct.toFixed(0)}%
                             </Typography>
                           </Box>
                           <LinearProgress
                             variant="determinate"
-                            value={percentage}
+                            value={presentation.progressPct}
                             className="h-1.5 rounded"
                             sx={{
                               backgroundColor: 'rgba(0, 0, 0, 0.1)',
                               '& .MuiLinearProgress-bar': {
-                                backgroundColor: getProgressColor(guide)
+                                backgroundColor: presentation.theme.to
                               }
                             }}
                           />
@@ -278,12 +263,12 @@ const InsuranceSelector = ({
         </Box>
       </RadioGroup>
 
-      {/* Informação sobre FIFO */}
-      {guides.length > 1 && (
+      {/* Informação sobre seleção automática */}
+      {selectablePresentations.length > 1 && (
         <Alert severity="info" icon={<AlertCircle className="w-5 h-5" />} className="mt-3">
           <Typography variant="caption">
-            <strong>Seleção Automática (FIFO):</strong> A guia com menor prazo de validade
-            é recomendada para evitar desperdício de sessões por expiração.
+            <strong>Seleção Automática:</strong> A guia mais urgente
+            é recomendada para evitar desperdício de sessões.
           </Typography>
         </Alert>
       )}

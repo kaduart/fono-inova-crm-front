@@ -25,7 +25,11 @@ import {
     Switch,
     Paper,
     Alert,
-    CircularProgress
+    CircularProgress,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem
 } from '@mui/material';
 import {
     Building2,
@@ -49,7 +53,9 @@ import {
     validateConvenioCode,
     Convenio,
     CreateConvenioData,
-    BillingMode
+    BillingMode,
+    RenewalType,
+    MigrationStrategy
 } from '../../../services/insuranceService';
 import { extractErrorMessage } from '../../../utils/errorUtils';
 
@@ -71,7 +77,16 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
         name: '',
         sessionValue: 0,
         billingMode: 'per_month',
-        notes: ''
+        notes: '',
+        defaultSessions: null,
+        guidePolicy: {
+            renewalType: 'end_of_month',
+            renewalDay: 'last_day',
+            renewalDayOfMonth: null,
+            expirationWarningDays: 5,
+            autoSuggestRenewal: true,
+            defaultMigrationStrategy: 'eligible'
+        }
     });
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
     const [validatingCode, setValidatingCode] = useState(false);
@@ -146,7 +161,9 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
                     name: formData.name,
                     sessionValue: formData.sessionValue,
                     billingMode: formData.billingMode,
-                    notes: formData.notes
+                    notes: formData.notes,
+                    defaultSessions: formData.defaultSessions,
+                    guidePolicy: formData.guidePolicy
                 });
                 toast.success('Convênio atualizado!');
             } else {
@@ -171,7 +188,17 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
             name: convenio.name,
             sessionValue: convenio.sessionValue,
             billingMode: convenio.billingMode || 'per_month',
-            notes: convenio.notes || ''
+            notes: convenio.notes || '',
+            defaultSessions: convenio.defaultSessions ?? null,
+            guidePolicy: {
+                renewalType: 'end_of_month',
+                renewalDay: 'last_day',
+                renewalDayOfMonth: null,
+                expirationWarningDays: 5,
+                autoSuggestRenewal: true,
+                defaultMigrationStrategy: 'eligible',
+                ...convenio.guidePolicy
+            }
         });
     };
 
@@ -206,7 +233,22 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
     const resetForm = () => {
         setIsEditing(false);
         setEditingCode(null);
-        setFormData({ code: '', name: '', sessionValue: 0, billingMode: 'per_month', notes: '' });
+        setFormData({
+            code: '',
+            name: '',
+            sessionValue: 0,
+            billingMode: 'per_month',
+            notes: '',
+            defaultSessions: null,
+            guidePolicy: {
+                renewalType: 'end_of_month',
+                renewalDay: 'last_day',
+                renewalDayOfMonth: null,
+                expirationWarningDays: 5,
+                autoSuggestRenewal: true,
+                defaultMigrationStrategy: 'eligible'
+            }
+        });
         setFormErrors({});
         setCodeAvailable(null);
     };
@@ -339,6 +381,120 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
                                         </Box>
                                     );
                                 })}
+                            </Box>
+                        </Box>
+
+                        {/* Política de Guia */}
+                        <Box sx={{ mt: 3 }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom fontWeight={500}>
+                                Política de Guia
+                            </Typography>
+                            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mt: 1 }}>
+                                <FormControl size="small" fullWidth>
+                                    <InputLabel id="renewal-type-label">Tipo de renovação</InputLabel>
+                                    <Select<RenewalType>
+                                        labelId="renewal-type-label"
+                                        value={formData.guidePolicy?.renewalType || 'end_of_month'}
+                                        label="Tipo de renovação"
+                                        onChange={(e) => setFormData({
+                                            ...formData,
+                                            guidePolicy: { ...formData.guidePolicy, renewalType: e.target.value as RenewalType }
+                                        })}
+                                    >
+                                        <MenuItem value="end_of_month">Fim do mês</MenuItem>
+                                        <MenuItem value="until_consumed">Até consumir sessões</MenuItem>
+                                        <MenuItem value="fixed_date">Data fixa</MenuItem>
+                                        <MenuItem value="authorization_validity">Validade da autorização</MenuItem>
+                                    </Select>
+                                </FormControl>
+
+                                {formData.guidePolicy?.renewalType === 'end_of_month' && (
+                                    <FormControl size="small" fullWidth>
+                                        <InputLabel id="renewal-day-label">Dia de renovação</InputLabel>
+                                        <Select
+                                            labelId="renewal-day-label"
+                                            value={formData.guidePolicy?.renewalDay || 'last_day'}
+                                            label="Dia de renovação"
+                                            onChange={(e) => setFormData({
+                                                ...formData,
+                                                guidePolicy: { ...formData.guidePolicy, renewalDay: e.target.value as 'last_day' | 'fixed_day' }
+                                            })}
+                                        >
+                                            <MenuItem value="last_day">Último dia do mês</MenuItem>
+                                            <MenuItem value="fixed_day">Dia fixo</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                )}
+
+                                {formData.guidePolicy?.renewalDay === 'fixed_day' && (
+                                    <TextField
+                                        label="Dia do mês"
+                                        type="number"
+                                        size="small"
+                                        value={formData.guidePolicy?.renewalDayOfMonth || ''}
+                                        onChange={(e) => setFormData({
+                                            ...formData,
+                                            guidePolicy: { ...formData.guidePolicy, renewalDayOfMonth: e.target.value ? Number(e.target.value) : null }
+                                        })}
+                                        inputProps={{ min: 1, max: 31 }}
+                                    />
+                                )}
+
+                                <TextField
+                                    label="Dias de aviso antes do vencimento"
+                                    type="number"
+                                    size="small"
+                                    value={formData.guidePolicy?.expirationWarningDays ?? 5}
+                                    onChange={(e) => setFormData({
+                                        ...formData,
+                                        guidePolicy: { ...formData.guidePolicy, expirationWarningDays: Number(e.target.value) }
+                                    })}
+                                    inputProps={{ min: 0 }}
+                                />
+
+                                <TextField
+                                    label="Sessões padrão"
+                                    type="number"
+                                    size="small"
+                                    value={formData.defaultSessions ?? ''}
+                                    onChange={(e) => setFormData({
+                                        ...formData,
+                                        defaultSessions: e.target.value ? Number(e.target.value) : null
+                                    })}
+                                    inputProps={{ min: 1 }}
+                                    helperText="Sugestão ao criar nova guia"
+                                />
+
+                                <FormControl size="small" fullWidth>
+                                    <InputLabel id="migration-strategy-label">Migração padrão</InputLabel>
+                                    <Select<MigrationStrategy>
+                                        labelId="migration-strategy-label"
+                                        value={formData.guidePolicy?.defaultMigrationStrategy || 'eligible'}
+                                        label="Migração padrão"
+                                        onChange={(e) => setFormData({
+                                            ...formData,
+                                            guidePolicy: { ...formData.guidePolicy, defaultMigrationStrategy: e.target.value as MigrationStrategy }
+                                        })}
+                                    >
+                                        <MenuItem value="eligible">Apenas elegíveis</MenuItem>
+                                        <MenuItem value="manual">Seleção manual</MenuItem>
+                                        <MenuItem value="none">Nenhuma</MenuItem>
+                                    </Select>
+                                </FormControl>
+
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Sugerir renovação automaticamente
+                                    </Typography>
+                                    <Switch
+                                        checked={formData.guidePolicy?.autoSuggestRenewal ?? true}
+                                        onChange={(e) => setFormData({
+                                            ...formData,
+                                            guidePolicy: { ...formData.guidePolicy, autoSuggestRenewal: e.target.checked }
+                                        })}
+                                        size="small"
+                                    />
+                                </Box>
                             </Box>
                         </Box>
                         

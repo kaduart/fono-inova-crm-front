@@ -24,7 +24,8 @@ import {
   Select,
   FormControl,
   InputLabel,
-  TextField
+  TextField,
+  Skeleton
 } from '@mui/material';
 import {
   Plus,
@@ -50,17 +51,21 @@ import {
   Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, parseISO, differenceInDays } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import toast from 'react-hot-toast';
+import { useQueryClient } from '@tanstack/react-query';
 import { useInsuranceGuides } from '../../../hooks/useInsuranceGuides';
-import { getGuideAppointments, updateGuideAppointmentsBulk, getInsurancePlanByGuide } from '../../../services/insuranceGuideApi';
+import { useInsurancePlan, insurancePlanQueryKey } from '../../../hooks/useInsurancePlan';
+import { getGuideAppointments, updateGuideAppointmentsBulk, supersedeGuide } from '../../../services/insuranceGuideApi';
+import { buildGuidesPresentation, buildGuidePresentation } from '../../../services/guidePresentationService';
 import API from '../../../services/api';
 import doctorService from '../../../services/doctorService';
 import { appointmentService } from '../../../services/appointmentService';
 import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';
 import InsuranceGuideForm from './InsuranceGuideForm';
 import InsurancePlanForm from './InsurancePlanForm';
+import { PatientMiniCalendar } from '../../patients/PatientMiniCalendar';
 
 // ----------------------------------------------------------------------
 // Componente principal
@@ -72,20 +77,26 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
   const [editingGuide, setEditingGuide] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedGuide, setSelectedGuide] = useState(null);
+  const selectedPresentation = useMemo(
+    () => selectedGuide ? buildGuidePresentation(selectedGuide) : null,
+    [selectedGuide]
+  );
   const [planFormOpen, setPlanFormOpen] = useState(false);
   const [planFormContext, setPlanFormContext] = useState(null);
-  const [planVersion, setPlanVersion] = useState(0);
   const [detailsGuide, setDetailsGuide] = useState(null);
   const [showInactivateModal, setShowInactivateModal] = useState(false);
   const [isInactivating, setIsInactivating] = useState(false);
+  const [renewingGuide, setRenewingGuide] = useState(null);
   const [doctors, setDoctors] = useState([]);
 
   const { fetchAppointments } = useAppointmentsContext();
+  const queryClient = useQueryClient();
+  const invalidatePlans = () => queryClient.invalidateQueries({ queryKey: ['insurance-plan'] });
 
   useEffect(() => {
     doctorService.getActiveDoctors()
       .then(res => setDoctors(res?.data ?? []))
-      .catch(() => {});
+      .catch(() => toast.error('Não foi possível carregar a lista de profissionais'));
   }, []);
 
   const {
@@ -101,55 +112,44 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
     specialty: selectedSpecialty === 'all' ? undefined : selectedSpecialty
   });
 
-  const allAvailableGuides = useMemo(() => {
-    return guides.map(g => ({
-      ...g,
-      remaining: g.remaining ?? (g.totalSessions - (g.usedSessions || 0)),
-      usedSessions: g.usedSessions || 0
-    }));
+  const presentations = useMemo(() => {
+    return buildGuidesPresentation(guides);
   }, [guides]);
 
   const specialties = useMemo(() => {
-    const unique = [...new Set(allAvailableGuides.map(g => g.specialty))];
+    const unique = [...new Set(presentations.map(p => p.specialty).filter(Boolean))];
     return unique.sort();
-  }, [allAvailableGuides]);
+  }, [presentations]);
 
-  const isExpiredByDate = (g) => g.expiresAt && new Date(g.expiresAt) < new Date();
+  // Guias usáveis vencendo em breve — agregado num único alerta em vez de enterrado card a card.
+  // Usa presentation.isExpiringSoon (mesma fonte que o badge do card) em vez de recalcular threshold aqui.
+  const expiringSoonPresentations = useMemo(() => {
+    return presentations.filter(p => p.isUsable && p.isExpiringSoon);
+  }, [presentations]);
 
-  const isGuideActive = (g) =>
-    (g.status === 'active' || g.status === 'linked') &&
-    g.remaining > 0 &&
-    !isExpiredByDate(g);
-
-  const availableGuides = useMemo(() => {
-    return allAvailableGuides
-      .filter(g => selectedSpecialty === 'all' || g.specialty === selectedSpecialty)
-      .filter(g => {
-        if (selectedStatus === 'inactive') return !isGuideActive(g);
-        return isGuideActive(g);
+  const availablePresentations = useMemo(() => {
+    return presentations
+      .filter(p => selectedSpecialty === 'all' || p.specialty === selectedSpecialty)
+      .filter(p => {
+        if (selectedStatus === 'inactive') return !p.isUsable;
+        return p.isUsable;
       });
-  }, [allAvailableGuides, selectedSpecialty, selectedStatus]);
+  }, [presentations, selectedSpecialty, selectedStatus]);
 
-  const activeCount = useMemo(() => allAvailableGuides.filter(isGuideActive).length, [allAvailableGuides]);
-  const inactiveCount = useMemo(() => allAvailableGuides.filter(g => !isGuideActive(g)).length, [allAvailableGuides]);
+  const activeCount = useMemo(() => presentations.filter(p => p.isUsable).length, [presentations]);
+  const inactiveCount = useMemo(() => presentations.filter(p => !p.isUsable).length, [presentations]);
 
   const groupedGuides = useMemo(() => {
-    const active = availableGuides.filter(g =>
-      (g.status === 'active' || g.status === 'linked') && g.remaining > 0 && !isExpiredByDate(g)
-    );
-    const exhausted = availableGuides.filter(g =>
-      g.status === 'exhausted' || ((g.status === 'active' || g.status === 'linked') && g.remaining === 0 && !isExpiredByDate(g))
-    );
-    const expired = availableGuides.filter(g =>
-      g.status === 'expired' || ((g.status === 'active' || g.status === 'linked') && isExpiredByDate(g))
-    );
-    const cancelled = availableGuides.filter(g => g.status === 'cancelled');
+    const active = availablePresentations.filter(p => p.isUsable);
+    const exhausted = availablePresentations.filter(p => p.isExhausted);
+    const expired = availablePresentations.filter(p => p.isExpired && !p.isCancelled && !p.isExhausted);
+    const cancelled = availablePresentations.filter(p => p.isCancelled);
     return { active, exhausted, expired, cancelled };
-  }, [availableGuides]);
+  }, [availablePresentations]);
 
-  const handleOpenMenu = (event, guide) => {
+  const handleOpenMenu = (event, presentation) => {
     setAnchorEl(event.currentTarget);
-    setSelectedGuide(guide);
+    setSelectedGuide(presentation.rawGuide);
   };
 
   const handleCloseMenu = () => {
@@ -166,8 +166,8 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
     handleCloseMenu();
   };
 
-  const handleOpenDetailsCard = (guide) => {
-    setDetailsGuide(guide);
+  const handleOpenDetailsCard = (presentation) => {
+    setDetailsGuide(presentation.rawGuide);
   };
 
   const handleEdit = () => {
@@ -179,6 +179,12 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
     setEditingGuide(selectedGuide);
     setIsFormOpen(true);
     handleCloseMenu();
+  };
+
+  const handleRenovarGuia = () => {
+    setRenewingGuide(selectedGuide);
+    setIsFormOpen(true);
+    handleDismissMenu();
   };
 
   const handleCancelGuide = () => {
@@ -204,7 +210,30 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
 
   const handleSaveGuide = async (data) => {
     try {
-      if (editingGuide) {
+      if (renewingGuide) {
+        const renewResult = await supersedeGuide(renewingGuide._id, {
+          newGuide: {
+            number: data.number,
+            expiresAt: data.expiresAt,
+            totalSessions: data.totalSessions,
+            sessionValue: data.sessionValue,
+            evaluationAmount: data.evaluationAmount,
+            doctorId: data.doctorId,
+            issuedAt: data.issuedAt,
+            notes: data.notes
+          },
+          replacementTrigger: 'new_authorization',
+          replacementNotes: data.notes,
+          migrationStrategy: 'eligible'
+        });
+        const planMsg = renewResult.planCloned
+          ? ` Plano terapêutico clonado (${renewResult.planGeneratedAppointmentsCount ?? 0} novos agendamentos, ${renewResult.planAppointmentsCanceledCount ?? 0} antigos cancelados).`
+          : '';
+        toast.success(`Guia renovada com sucesso.${planMsg}`);
+        refetch();
+        fetchAppointments();
+        invalidatePlans();
+      } else if (editingGuide) {
         await updateGuide(editingGuide._id, data);
         toast.success('Guia atualizada com sucesso');
       } else {
@@ -213,6 +242,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
       }
       setIsFormOpen(false);
       setEditingGuide(null);
+      setRenewingGuide(null);
     } catch (err) {
       toast.error(err.message || 'Erro ao salvar guia');
     }
@@ -221,10 +251,11 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
   const handleCloseForm = () => {
     setIsFormOpen(false);
     setEditingGuide(null);
+    setRenewingGuide(null);
   };
 
-  const handleOpenPlanForm = (guide, plan = null) => {
-    setPlanFormContext({ guide, plan });
+  const handleOpenPlanForm = (presentation, plan = null) => {
+    setPlanFormContext({ guide: presentation.rawGuide, plan });
     setPlanFormOpen(true);
   };
 
@@ -233,7 +264,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
     setPlanFormContext(null);
     if (refetchNeeded) {
       refetch();
-      setPlanVersion(v => v + 1); // invalida plan cache em todos os GuideCards
+      invalidatePlans();
     }
   };
 
@@ -349,9 +380,9 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
                 '& .MuiTabs-indicator': { display: 'none' }
               }}
             >
-              <Tab label={`Todas (${allAvailableGuides.length})`} value="all" />
+              <Tab label={`Todas (${presentations.length})`} value="all" />
               {specialties.map(specialty => {
-                const count = allAvailableGuides.filter(g => g.specialty === specialty).length;
+                const count = presentations.filter(p => p.specialty === specialty).length;
                 const label = specialty.replace(/_/g, ' ');
                 return (
                   <Tab
@@ -387,6 +418,26 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
           Nova guia
         </Button>
       </Box>
+
+      {/* Alerta agregado — guias vencendo em breve não devem ficar escondidas card a card */}
+      {expiringSoonPresentations.length > 0 && (
+        <Alert
+          severity="warning"
+          sx={{
+            mb: 3,
+            borderRadius: '16px',
+            fontSize: '0.8125rem',
+            alignItems: 'center',
+            '& .MuiAlert-message': { width: '100%' }
+          }}
+        >
+          <strong>{expiringSoonPresentations.length} guia{expiringSoonPresentations.length !== 1 ? 's' : ''} vencendo em breve:</strong>{' '}
+          {expiringSoonPresentations
+            .map(p => `${p.specialtyLabel} (${p.daysUntilExpiration === 0 ? 'hoje' : `${p.daysUntilExpiration}d`})`)
+            .join(', ')}
+          {' — considere renovar antes do vencimento.'}
+        </Alert>
+      )}
 
       {/* Filtro de status: Todas (ativas) / Inativas */}
       <Tabs
@@ -461,7 +512,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         </Card>
       )}
 
-      {availableGuides.length === 0 && (
+      {availablePresentations.length === 0 && (
         <Box sx={{ textAlign: 'center', py: 8, bgcolor: '#F9FBFD', borderRadius: '32px' }}>
           <Typography variant="body1" sx={{ color: '#5B6E8C', mb: 1 }}>
             Nenhuma guia {selectedStatus === 'inactive' ? 'inativa' : 'ativa'} encontrada
@@ -477,45 +528,41 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
       <GuideSection
         title="Guias ativas"
         count={groupedGuides.active.length}
-        guides={groupedGuides.active}
+        presentations={groupedGuides.active}
         color="#2E7A5E"
         onOpenMenu={handleOpenMenu}
         onCreatePlan={handleOpenPlanForm}
         onOpenDetails={handleOpenDetailsCard}
-        planVersion={planVersion}
       />
 
       <GuideSection
         title="Guias esgotadas"
         count={groupedGuides.exhausted.length}
-        guides={groupedGuides.exhausted}
+        presentations={groupedGuides.exhausted}
         color="#C75146"
         onOpenMenu={handleOpenMenu}
         onCreatePlan={handleOpenPlanForm}
         onOpenDetails={handleOpenDetailsCard}
-        planVersion={planVersion}
       />
 
       <GuideSection
         title="Guias expiradas"
         count={groupedGuides.expired.length}
-        guides={groupedGuides.expired}
+        presentations={groupedGuides.expired}
         color="#8A99B0"
         onOpenMenu={handleOpenMenu}
         onCreatePlan={handleOpenPlanForm}
         onOpenDetails={handleOpenDetailsCard}
-        planVersion={planVersion}
       />
 
       <GuideSection
         title="Guias canceladas"
         count={groupedGuides.cancelled.length}
-        guides={groupedGuides.cancelled}
+        presentations={groupedGuides.cancelled}
         color="#A0AABF"
         onOpenMenu={handleOpenMenu}
         onCreatePlan={handleOpenPlanForm}
         onOpenDetails={handleOpenDetailsCard}
-        planVersion={planVersion}
       />
 
       {/* Menu de ações */}
@@ -534,14 +581,21 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
       >
         <MenuItem
           onClick={handleEdit}
-          disabled={selectedGuide?.usedSessions > 0}
+          disabled={!selectedPresentation?.canEdit}
           sx={{ fontSize: '0.8125rem', py: 1, gap: 1.5, borderRadius: '12px', mx: 0.5 }}
         >
           <Edit2 size={14} /> Editar
         </MenuItem>
         <MenuItem
+          onClick={handleRenovarGuia}
+          disabled={!selectedPresentation?.canRenew}
+          sx={{ fontSize: '0.8125rem', py: 1, gap: 1.5, borderRadius: '12px', mx: 0.5, color: '#1B4D6E' }}
+        >
+          <RefreshCw size={14} /> Renovar Guia
+        </MenuItem>
+        <MenuItem
           onClick={handleCancelGuide}
-          disabled={selectedGuide?.status === 'cancelled'}
+          disabled={selectedPresentation?.isCancelled}
           sx={{ fontSize: '0.8125rem', py: 1, gap: 1.5, borderRadius: '12px', mx: 0.5, color: '#C75146' }}
         >
           <Trash2 size={14} /> Cancelar
@@ -553,8 +607,9 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         open={isFormOpen}
         onClose={handleCloseForm}
         onSave={handleSaveGuide}
-        guide={editingGuide}
+        guide={renewingGuide || editingGuide}
         doctors={doctors}
+        isRenewal={Boolean(renewingGuide)}
       />
 
       <InsurancePlanForm
@@ -569,8 +624,10 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
       <GuideDetailsModal
         guide={detailsGuide}
         onClose={() => setDetailsGuide(null)}
-        onUpdate={() => { refetch(); fetchAppointments(); setPlanVersion(v => v + 1); }}
+        onUpdate={() => { refetch(); fetchAppointments(); invalidatePlans(); }}
       />
+
+
 
       {/* Modal de confirmação de inativação — mesmo padrão do pacote */}
       <Dialog
@@ -649,7 +706,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
 // ----------------------------------------------------------------------
 // Componente de seção de guias (título + grid)
 // ----------------------------------------------------------------------
-const GuideSection = ({ title, count, guides, color, onOpenMenu, onCreatePlan, onOpenDetails, planVersion }) => {
+const GuideSection = ({ title, count, presentations, color, onOpenMenu, onCreatePlan, onOpenDetails }) => {
   if (count === 0) return null;
 
   return (
@@ -680,14 +737,13 @@ const GuideSection = ({ title, count, guides, color, onOpenMenu, onCreatePlan, o
           gap: 2.5,
           justifyItems: 'start'
         }}>
-          {guides.map(guide => (
+          {presentations.map(presentation => (
             <GuideCard
-              key={guide._id}
-              guide={guide}
+              key={presentation.id}
+              presentation={presentation}
               onOpenMenu={onOpenMenu}
               onCreatePlan={onCreatePlan}
               onOpenDetails={onOpenDetails}
-              planVersion={planVersion}
             />
           ))}
         </Box>
@@ -702,27 +758,23 @@ const GuideSection = ({ title, count, guides, color, onOpenMenu, onCreatePlan, o
 
 const DAY_NAMES = { 0: 'Dom', 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sáb' };
 
-const SPECIALTY_THEMES = {
-  fonoaudiologia:    { from: '#1D4ED8', to: '#38BDF8', light: '#EFF6FF', border: '#BAE6FD', text: '#1D4ED8' },
-  psicologia:        { from: '#7C3AED', to: '#C084FC', light: '#F5F3FF', border: '#DDD6FE', text: '#6D28D9' },
-  fisioterapia:      { from: '#059669', to: '#34D399', light: '#ECFDF5', border: '#A7F3D0', text: '#047857' },
-  psicomotricidade:  { from: '#D97706', to: '#FCD34D', light: '#FFFBEB', border: '#FDE68A', text: '#B45309' },
-  terapia_ocupacional:{ from: '#EA580C', to: '#FB923C', light: '#FFF7ED', border: '#FED7AA', text: '#C2410C' },
-  psicopedagogia:    { from: '#0D9488', to: '#2DD4BF', light: '#F0FDFA', border: '#99F6E4', text: '#0F766E' },
-  neuropsicologia:   { from: '#4338CA', to: '#818CF8', light: '#EEF2FF', border: '#C7D2FE', text: '#3730A3' },
-  musicoterapia:     { from: '#B45309', to: '#FBBF24', light: '#FFFBEB', border: '#FDE68A', text: '#92400E' },
-};
-
-const GuideCard = ({ guide, onOpenMenu, onCreatePlan, onOpenDetails, planVersion = 0 }) => {
-  const remaining = guide.remaining ?? (guide.totalSessions - (guide.usedSessions || 0));
-  const usedSessions = guide.usedSessions || 0;
-  const daysUntilExpiration = guide.expiresAt
-    ? differenceInDays(parseISO(guide.expiresAt), new Date())
-    : 999;
-
-  const canUse = (guide.status === 'active' || guide.status === 'linked') && remaining > 0 && daysUntilExpiration >= 0;
+const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails }) => {
+  const guide = presentation.rawGuide;
+  const {
+    remaining,
+    usedSessions,
+    totalSessions,
+    progressPct,
+    isUsable,
+    statusLabel,
+    statusBg,
+    expiryLabel,
+    expiryColor,
+    theme
+  } = presentation;
 
   const [generating, setGenerating] = useState(false);
+  const queryClient = useQueryClient();
 
   const handleGenerateSessions = async (planId) => {
     setGenerating(true);
@@ -731,6 +783,7 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, onOpenDetails, planVersion
       const count = res.data?.data?.appointmentsGenerated || 0;
       if (count > 0) {
         toast.success(`${count} sessão(ões) gerada(s) com sucesso`);
+        queryClient.invalidateQueries({ queryKey: insurancePlanQueryKey(guide._id) });
       } else {
         toast('Todos os agendamentos futuros já existem', { icon: 'ℹ️' });
       }
@@ -742,45 +795,8 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, onOpenDetails, planVersion
     }
   };
 
-  // Lazy-load do InsurancePlan — só para guias ativas, isolado no card
-  const [plan, setPlan] = useState(null);
-  useEffect(() => {
-    if (!canUse) return;
-    let mounted = true;
-    getInsurancePlanByGuide(guide._id)
-      .then(data => { if (mounted) setPlan(data); })
-      .catch(() => {});
-    return () => { mounted = false; };
-  }, [guide._id, canUse, planVersion]);
-  const progressPct = guide.totalSessions > 0 ? Math.min((usedSessions / guide.totalSessions) * 100, 100) : 0;
-
-  let statusLabel = 'Disponível';
-  let statusBg = 'rgba(255,255,255,0.25)';
-  if (guide.status === 'cancelled')                           { statusLabel = 'Cancelada'; statusBg = 'rgba(255,255,255,0.15)'; }
-  else if (guide.status === 'expired' || daysUntilExpiration < 0) { statusLabel = 'Vencida';    statusBg = 'rgba(255,255,255,0.15)'; }
-  else if (remaining === 0)                                   { statusLabel = 'Esgotada';  statusBg = 'rgba(239,68,68,0.35)'; }
-  else if (remaining <= 2)                                    { statusLabel = 'Poucas sessões'; statusBg = 'rgba(249,115,22,0.35)'; }
-  else if (daysUntilExpiration <= 14)                         { statusLabel = 'Vence em breve'; statusBg = 'rgba(249,115,22,0.35)'; }
-
-  const theme = SPECIALTY_THEMES[guide.specialty] || { from: '#1B4D6E', to: '#2E7A5E', light: '#F0FFF4', border: '#A7F3D0', text: '#1B4D6E' };
-
-  const specialtyFormatted = guide.specialty
-    .split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  const insuranceFormatted = guide.insurance
-    .split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-    .replace('Anapolis', 'Anápolis').replace('Goiania', 'Goiânia').replace('Saude', 'Saúde');
-
-  const expiryLabel = !guide.expiresAt ? null
-    : daysUntilExpiration < 0   ? `⚠️ Venceu em ${format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}`
-    : daysUntilExpiration === 0 ? '🔴 Vence hoje'
-    : daysUntilExpiration <= 7  ? `🟠 Expira em ${format(parseISO(guide.expiresAt), 'dd/MM/yyyy')} (${daysUntilExpiration}d)`
-    : daysUntilExpiration <= 30 ? `🟡 Expira em ${format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}`
-    :                              `Expira em ${format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}`;
-
-  const expiryColor = daysUntilExpiration < 0 ? '#C75146'
-    : daysUntilExpiration <= 7  ? '#EA580C'
-    : daysUntilExpiration <= 30 ? '#D97706'
-    : '#8A99B0';
+  // Query compartilhada — mesma key usada pelo GuideDetailsModal, sem fetch duplicado
+  const { data: plan = null, isLoading: planLoading, isError: planError, refetch: refetchPlan } = useInsurancePlan(guide._id, isUsable);
 
   return (
     <motion.div
@@ -792,7 +808,7 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, onOpenDetails, planVersion
     >
       <div
         className="bg-white rounded-2xl shadow-md border border-gray-200 hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col h-full"
-        style={{ opacity: canUse ? 1 : 0.75 }}
+        style={{ opacity: isUsable ? 1 : 0.75 }}
       >
         {/* ── Gradient Header ── */}
         <div
@@ -801,7 +817,7 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, onOpenDetails, planVersion
         >
           <IconButton
             size="small"
-            onClick={(e) => onOpenMenu(e, guide)}
+            onClick={(e) => onOpenMenu(e, presentation)}
             sx={{ position: 'absolute', top: 8, right: 8, color: 'rgba(255,255,255,0.65)', p: 0.4, '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.15)', borderRadius: '8px' } }}
           >
             <MoreVertical size={16} />
@@ -809,7 +825,7 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, onOpenDetails, planVersion
           {onOpenDetails && (
             <IconButton
               size="small"
-              onClick={() => onOpenDetails(guide)}
+              onClick={() => onOpenDetails(presentation)}
               title="Detalhes da guia"
               sx={{ position: 'absolute', top: 8, right: 36, color: 'rgba(255,255,255,0.65)', p: 0.4, '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.15)', borderRadius: '8px' } }}
             >
@@ -817,9 +833,9 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, onOpenDetails, planVersion
             </IconButton>
           )}
 
-          <div className="text-white/70 text-xs font-mono mb-1">#{guide.number}</div>
-          <div className="text-white font-bold text-[1.15rem] leading-tight pr-6">{specialtyFormatted}</div>
-          <div className="text-white/80 text-sm mt-1">{insuranceFormatted}{guide.createdAt && ` • ${format(parseISO(guide.createdAt), 'dd/MM/yyyy')}`}</div>
+          <div className="text-white/70 text-xs font-mono mb-1">#{presentation.number}</div>
+          <div className="text-white font-bold text-[1.15rem] leading-tight pr-6">{presentation.specialtyLabel}</div>
+          <div className="text-white/80 text-sm mt-1">{presentation.insuranceLabel}{guide.createdAt && ` • ${format(parseISO(guide.createdAt), 'dd/MM/yyyy')}`}</div>
 
           <div className="mt-3">
             <span
@@ -835,7 +851,7 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, onOpenDetails, planVersion
         <div className="px-5 py-4 border-b" style={{ backgroundColor: theme.light, borderColor: theme.border }}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-semibold text-gray-700">Progresso clínico</span>
-            <span className="text-sm font-bold" style={{ color: theme.text }}>{usedSessions} / {guide.totalSessions}</span>
+            <span className="text-sm font-bold" style={{ color: theme.text }}>{usedSessions} / {totalSessions}</span>
           </div>
 
           <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden mb-3">
@@ -862,7 +878,7 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, onOpenDetails, planVersion
                 {guide.scheduledCount} agendada{guide.scheduledCount !== 1 ? 's' : ''}
               </span>
             )}
-            <span className="text-xs text-gray-400 ml-auto">/{guide.totalSessions}</span>
+            <span className="text-xs text-gray-400 ml-auto">/{totalSessions}</span>
           </div>
         </div>
 
@@ -912,6 +928,27 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, onOpenDetails, planVersion
         </div>
 
         {/* ── Plan block (lazy-loaded) ── */}
+        {isUsable && planLoading && (
+          <Box sx={{ mx: 2.5, mb: 2 }}>
+            <Skeleton variant="rounded" height={110} sx={{ borderRadius: '12px' }} />
+          </Box>
+        )}
+
+        {isUsable && planError && (
+          <Box sx={{
+            mx: 2.5, mb: 2, px: 2, py: 1.5, borderRadius: '12px',
+            bgcolor: '#FDECEA', border: '1px solid #F5C6C0',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1
+          }}>
+            <Typography sx={{ fontSize: '0.75rem', color: '#C75146' }}>
+              Não foi possível carregar o plano
+            </Typography>
+            <IconButton size="small" onClick={() => refetchPlan()} sx={{ color: '#C75146', p: 0.4 }}>
+              <RefreshCw size={13} />
+            </IconButton>
+          </Box>
+        )}
+
         {plan && (
           <div className="mx-5 mb-4 px-4 py-3.5 rounded-xl border" style={{ backgroundColor: theme.light, borderColor: theme.border }}>
             <div className="flex items-center justify-between mb-2.5">
@@ -927,7 +964,7 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, onOpenDetails, planVersion
                 )}
               </div>
               <button
-                onClick={() => onCreatePlan(guide, plan)}
+                onClick={() => onCreatePlan(presentation, plan)}
                 title="Editar plano"
                 className="opacity-70 hover:opacity-100 transition-opacity"
                 style={{ color: theme.text }}
@@ -997,7 +1034,7 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, onOpenDetails, planVersion
         )}
 
         {/* ── Action buttons ── */}
-        {canUse && onCreatePlan && (
+        {isUsable && onCreatePlan && (
           <div className="px-5 pb-5 flex items-center gap-2">
             {plan && remaining > 0 && (
               <button
@@ -1012,7 +1049,7 @@ const GuideCard = ({ guide, onOpenMenu, onCreatePlan, onOpenDetails, planVersion
               </button>
             )}
             <button
-              onClick={() => onCreatePlan(guide, plan || null)}
+              onClick={() => onCreatePlan(presentation, plan || null)}
               className="flex-1 py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
               style={{ background: `linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)`, boxShadow: `0 4px 10px -2px ${theme.from}50` }}
             >
@@ -1163,6 +1200,7 @@ const normalizeEditStatus = (raw) => {
 const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [appointmentsError, setAppointmentsError] = useState(false);
 
   const [editingAppt, setEditingAppt] = useState(null);
   const [editDate, setEditDate]       = useState('');
@@ -1179,31 +1217,24 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
   const [bulkTime, setBulkTime]             = useState('');
   const [bulkDayOfWeek, setBulkDayOfWeek]   = useState('');
   const [bulkSaving, setBulkSaving]         = useState(false);
+  const [bulkPreviewOpen, setBulkPreviewOpen] = useState(false);
 
-  // Plan do modal — mesma lógica do GuideCard, independente
-  const [modalPlan, setModalPlan] = useState(null);
+  // Mesma query key do GuideCard — reaproveita o cache, sem fetch duplicado
+  const { data: modalPlan = null, isLoading: modalPlanLoading, isError: modalPlanError, refetch: refetchModalPlan } = useInsurancePlan(guide?._id);
 
   // Changelog do plano
   const [changelog, setChangelog] = useState([]);
   const [changelogLoading, setChangelogLoading] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
+  const [viewMode, setViewMode] = useState('calendar');
 
   useEffect(() => {
     if (!doctorsLoaded) {
       doctorService.getActiveDoctors()
         .then(res => { setDoctors(res?.data ?? []); setDoctorsLoaded(true); })
-        .catch(() => {});
+        .catch(() => toast.error('Não foi possível carregar a lista de profissionais'));
     }
   }, [doctorsLoaded]);
-
-  useEffect(() => {
-    if (!guide?._id) return;
-    let mounted = true;
-    getInsurancePlanByGuide(guide._id)
-      .then(data => { if (mounted) setModalPlan(data); })
-      .catch(() => {});
-    return () => { mounted = false; };
-  }, [guide?._id]);
 
   useEffect(() => {
     if (!modalPlan?._id) { setChangelog([]); return; }
@@ -1218,9 +1249,10 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
 
   const loadAppointments = (guideId) => {
     setLoading(true);
+    setAppointmentsError(false);
     return getGuideAppointments(guideId)
       .then(data => setAppointments(data))
-      .catch(() => setAppointments([]))
+      .catch(() => { setAppointments([]); setAppointmentsError(true); })
       .finally(() => setLoading(false));
   };
 
@@ -1252,8 +1284,25 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
       setEditingAppt(null);
       await loadAppointments(guide._id);
       onUpdate?.();
-    } catch {
-      toast.error('Erro ao atualizar agendamento');
+    } catch (err) {
+      const data = err?.response?.data;
+      if (data?.conflict) {
+        const conflict = data.conflict;
+        const existing = conflict.existingAppointment;
+        const who = conflict.patientName || existing?.patient?.fullName || 'outro paciente';
+        const time = existing?.time || editTime;
+        const status = existing?.operationalStatus || '';
+        const statusLabel = {
+          confirmed: 'confirmado', scheduled: 'agendado',
+          pre_agendado: 'pré-agendado', completed: 'realizado'
+        }[status] || status;
+        toast.error(
+          `Conflito de horário: ${who} já tem agendamento às ${time}${statusLabel ? ` (${statusLabel})` : ''}. Escolha outro horário ou profissional.`,
+          { duration: 6000 }
+        );
+      } else {
+        toast.error(data?.message || data?.error?.message || err?.message || 'Erro ao atualizar agendamento');
+      }
     } finally {
       setEditSaving(false);
     }
@@ -1274,6 +1323,7 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
       if (bulkTime) parts.push('horário');
       toast.success(`${parts.join(', ')} atualizado(s) em ${result.updated} sessão(ões) pendente(s)`);
       setBulkDoctorOpen(false);
+      setBulkPreviewOpen(false);
       setBulkDoctorId('');
       setBulkTime('');
       setBulkDayOfWeek('');
@@ -1284,6 +1334,25 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
     } finally {
       setBulkSaving(false);
     }
+  };
+
+  const closeBulkDialog = () => {
+    setBulkDoctorOpen(false);
+    setBulkPreviewOpen(false);
+    setBulkDoctorId('');
+    setBulkTime('');
+    setBulkDayOfWeek('');
+  };
+
+  // Mesmo cálculo de data usado no backend (PATCH /appointments/doctor) — preview precisa bater com o resultado real
+  const shiftToWeekday = (dateStr, targetDow) => {
+    const current = new Date(dateStr);
+    const currentDay = current.getDay();
+    let diff = targetDow - currentDay;
+    if (diff <= 0) diff += 7;
+    const newDate = new Date(current);
+    newDate.setDate(newDate.getDate() + diff);
+    return newDate;
   };
 
   if (!guide) return null;
@@ -1301,6 +1370,14 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
   );
   const visibleAppointments = appointments.filter(a => !supersededIds.has(a._id?.toString()));
 
+  // Mesmo filtro do backend (pendingFilter): só pre_agendado/scheduled são afetados pelo bulk-edit
+  const bulkAffectedAppointments = visibleAppointments
+    .filter(a => ['pre_agendado', 'scheduled'].includes(apptStatus(a)))
+    .sort((a, b) => `${a.date}${a.time || ''}`.localeCompare(`${b.date}${b.time || ''}`));
+
+  const bulkSelectedDoctor = doctors.find(d => d._id === bulkDoctorId);
+  const bulkDayOfWeekLabel = { 0: 'Domingo', 1: 'Segunda-feira', 2: 'Terça-feira', 3: 'Quarta-feira', 4: 'Quinta-feira', 5: 'Sexta-feira', 6: 'Sábado' };
+
   const completedCount = visibleAppointments.filter(a => ['completed', 'paid'].includes(apptStatus(a))).length;
   const scheduledCount = visibleAppointments.filter(a => ['scheduled', 'confirmed', 'pre_agendado'].includes(apptStatus(a))).length;
   const canceledCount  = visibleAppointments.filter(a => ['canceled', 'cancelled', 'missed'].includes(apptStatus(a))).length;
@@ -1310,7 +1387,7 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
     <Dialog
       open={Boolean(guide)}
       onClose={onClose}
-      maxWidth="sm"
+      maxWidth={viewMode === 'calendar' ? 'md' : 'sm'}
       fullWidth
       PaperProps={{
         sx: {
@@ -1369,6 +1446,36 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
 
             <Divider sx={{ mb: 2.5 }} />
 
+            {modalPlanLoading && (
+              <Box sx={{ mb: 2.5 }}>
+                <Skeleton variant="rounded" height={56} sx={{ borderRadius: '14px' }} />
+              </Box>
+            )}
+
+            {modalPlanError && (
+              <Box sx={{
+                mb: 2.5, px: 2, py: 1.5, borderRadius: '14px',
+                bgcolor: '#FDECEA', border: '1px solid #F5C6C0',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1
+              }}>
+                <Typography sx={{ fontSize: '0.8rem', color: '#C75146' }}>
+                  Não foi possível carregar o plano desta guia
+                </Typography>
+                <Button size="small" startIcon={<RefreshCw size={13} />} onClick={() => refetchModalPlan()}
+                  sx={{ color: '#C75146', textTransform: 'none', fontSize: '0.75rem' }}>
+                  Tentar novamente
+                </Button>
+              </Box>
+            )}
+
+            {!modalPlanLoading && !modalPlanError && !modalPlan && (
+              <Box sx={{ mb: 2.5, px: 2, py: 1.5, borderRadius: '14px', bgcolor: '#F8FAFE', border: '1px solid #EDF2F7' }}>
+                <Typography sx={{ fontSize: '0.8rem', color: '#8A99B0' }}>
+                  Nenhum plano de atendimento configurado para esta guia
+                </Typography>
+              </Box>
+            )}
+
             {/* Histórico de alterações do plano */}
             {modalPlan && (
               <Box sx={{ mb: 2.5 }}>
@@ -1414,10 +1521,67 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
               </Box>
             )}
 
-            <Divider sx={{ mb: 2.5 }} />
+            <Divider sx={{ mb: 2 }} />
 
-            {/* Lista de agendamentos */}
-            {visibleAppointments.length === 0 ? (
+            {/* Toggle Lista / Calendário */}
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+              <Box sx={{
+                display: 'inline-flex',
+                bgcolor: '#F1F5F9',
+                borderRadius: '10px',
+                p: 0.5,
+                gap: 0.5
+              }}>
+                {[
+                  { key: 'list', label: 'Lista' },
+                  { key: 'calendar', label: 'Calendário' }
+                ].map(({ key, label }) => (
+                  <Box
+                    key={key}
+                    onClick={() => setViewMode(key)}
+                    sx={{
+                      px: 2,
+                      py: 0.75,
+                      borderRadius: '8px',
+                      fontSize: '0.8125rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                      bgcolor: viewMode === key ? '#fff' : 'transparent',
+                      color: viewMode === key ? '#1565C0' : '#64748B',
+                      boxShadow: viewMode === key ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
+                    }}
+                  >
+                    {label}
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+
+            {/* Calendário */}
+            {appointmentsError ? (
+              <Box sx={{ textAlign: 'center', py: 5 }}>
+                <AlertCircle size={32} color="#C75146" style={{ marginBottom: 8 }} />
+                <Typography sx={{ color: '#C75146', fontSize: '0.875rem', mb: 1.5 }}>
+                  Não foi possível carregar os agendamentos desta guia
+                </Typography>
+                <Button size="small" startIcon={<RefreshCw size={13} />} onClick={() => loadAppointments(guide._id)}
+                  sx={{ color: '#C75146', textTransform: 'none' }}>
+                  Tentar novamente
+                </Button>
+              </Box>
+            ) : viewMode === 'calendar' ? (
+              <Box sx={{ minHeight: 420 }}>
+                <PatientMiniCalendar
+                  appointments={visibleAppointments.map(a => ({
+                    ...a,
+                    operationalStatus: a.operationalStatus || a.status,
+                    start: `${(a.date || '').substring(0, 10)}T${a.time || '08:00'}`,
+                  }))}
+                  onEventClick={openEdit}
+                />
+              </Box>
+            ) : visibleAppointments.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 5 }}>
                 <Calendar size={32} color="#A0AABF" style={{ marginBottom: 8 }} />
                 <Typography sx={{ color: '#8A99B0', fontSize: '0.875rem' }}>
@@ -1534,10 +1698,10 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
       </DialogActions>
     </Dialog>
 
-    {/* ── Dialog: Trocar terapeuta (todas pendentes) ── */}
+    {/* ── Dialog: Trocar terapeuta (todas pendentes) — form ou preview de impacto ── */}
     <Dialog
       open={bulkDoctorOpen}
-      onClose={() => !bulkSaving && setBulkDoctorOpen(false)}
+      onClose={() => !bulkSaving && closeBulkDialog()}
       maxWidth="xs"
       fullWidth
       PaperProps={{ sx: { borderRadius: '20px' } }}
@@ -1546,76 +1710,162 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Box>
           <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>
-            Alterar sessões pendentes
+            {bulkPreviewOpen ? 'Revisar alteração em massa' : 'Alterar sessões pendentes'}
           </Typography>
           <Typography sx={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.7rem', mt: 0.2 }}>
-            Aplica para todos os pré-agendados e agendados desta guia
+            {bulkPreviewOpen
+              ? 'Confira o impacto antes de aplicar'
+              : 'Aplica para todos os pré-agendados e agendados desta guia'}
           </Typography>
         </Box>
-        <IconButton onClick={() => setBulkDoctorOpen(false)} size="small" disabled={bulkSaving}
+        <IconButton onClick={closeBulkDialog} size="small" disabled={bulkSaving}
           sx={{ color: 'rgba(255,255,255,0.8)' }}>
           <X size={16} />
         </IconButton>
       </Box>
-      <DialogContent sx={{ pt: 3, pb: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <FormControl fullWidth size="small">
-          <InputLabel>Profissional (opcional)</InputLabel>
-          <Select
-            value={bulkDoctorId}
-            label="Profissional (opcional)"
-            onChange={e => setBulkDoctorId(e.target.value)}
-            sx={{ borderRadius: '12px' }}
-          >
-            <MenuItem value=""><em>Manter atual</em></MenuItem>
-            {doctors
-              .filter(d => !guide?.specialty || (d.specialty || '').toLowerCase() === (guide.specialty || '').toLowerCase())
-              .map(d => <MenuItem key={d._id} value={d._id}>{d.fullName}</MenuItem>)}
-          </Select>
-        </FormControl>
-        <FormControl fullWidth size="small">
-          <InputLabel>Dia da semana (opcional)</InputLabel>
-          <Select
-            value={bulkDayOfWeek}
-            label="Dia da semana (opcional)"
-            onChange={e => setBulkDayOfWeek(e.target.value)}
-            sx={{ borderRadius: '12px' }}
-          >
-            <MenuItem value=""><em>Manter dia atual</em></MenuItem>
-            <MenuItem value="1">Segunda-feira</MenuItem>
-            <MenuItem value="2">Terça-feira</MenuItem>
-            <MenuItem value="3">Quarta-feira</MenuItem>
-            <MenuItem value="4">Quinta-feira</MenuItem>
-            <MenuItem value="5">Sexta-feira</MenuItem>
-            <MenuItem value="6">Sábado</MenuItem>
-            <MenuItem value="0">Domingo</MenuItem>
-          </Select>
-        </FormControl>
-        <TextField
-          label="Horário (opcional)"
-          type="time"
-          value={bulkTime}
-          onChange={e => setBulkTime(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-          fullWidth
-          size="small"
-          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-        />
-        <Typography sx={{ fontSize: '0.7rem', color: '#8A99B0' }}>
-          Sessões confirmadas/realizadas não serão alteradas. Preencha pelo menos um campo.
-        </Typography>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
-        <Button onClick={() => { setBulkDoctorOpen(false); setBulkDoctorId(''); setBulkTime(''); setBulkDayOfWeek(''); }} disabled={bulkSaving}
-          variant="outlined" sx={{ borderRadius: '40px', textTransform: 'none', fontWeight: 600,
-            fontSize: '0.8rem', borderColor: '#DDE4EE', color: '#5B6E8C' }}>
-          Cancelar
-        </Button>
-        <Button onClick={saveBulkDoctor} disabled={(!bulkDoctorId && !bulkTime && !bulkDayOfWeek) || bulkSaving}
-          variant="contained" sx={{ borderRadius: '40px', textTransform: 'none', fontWeight: 600,
-            fontSize: '0.8rem', bgcolor: '#2E7A5E', '&:hover': { bgcolor: '#246653' } }}>
-          {bulkSaving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Aplicar a todas'}
-        </Button>
-      </DialogActions>
+
+      {!bulkPreviewOpen ? (
+        <>
+          <DialogContent sx={{ pt: 3, pb: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Profissional (opcional)</InputLabel>
+              <Select
+                value={bulkDoctorId}
+                label="Profissional (opcional)"
+                onChange={e => setBulkDoctorId(e.target.value)}
+                sx={{ borderRadius: '12px' }}
+              >
+                <MenuItem value=""><em>Manter atual</em></MenuItem>
+                {doctors
+                  .filter(d => !guide?.specialty || (d.specialty || '').toLowerCase() === (guide.specialty || '').toLowerCase())
+                  .map(d => <MenuItem key={d._id} value={d._id}>{d.fullName}</MenuItem>)}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth size="small">
+              <InputLabel>Dia da semana (opcional)</InputLabel>
+              <Select
+                value={bulkDayOfWeek}
+                label="Dia da semana (opcional)"
+                onChange={e => setBulkDayOfWeek(e.target.value)}
+                sx={{ borderRadius: '12px' }}
+              >
+                <MenuItem value=""><em>Manter dia atual</em></MenuItem>
+                <MenuItem value="1">Segunda-feira</MenuItem>
+                <MenuItem value="2">Terça-feira</MenuItem>
+                <MenuItem value="3">Quarta-feira</MenuItem>
+                <MenuItem value="4">Quinta-feira</MenuItem>
+                <MenuItem value="5">Sexta-feira</MenuItem>
+                <MenuItem value="6">Sábado</MenuItem>
+                <MenuItem value="0">Domingo</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              label="Horário (opcional)"
+              type="time"
+              value={bulkTime}
+              onChange={e => setBulkTime(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              fullWidth
+              size="small"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+            />
+            <Typography sx={{ fontSize: '0.7rem', color: '#8A99B0' }}>
+              Sessões confirmadas/realizadas não serão alteradas. Preencha pelo menos um campo.
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+            <Button onClick={closeBulkDialog} disabled={bulkSaving}
+              variant="outlined" sx={{ borderRadius: '40px', textTransform: 'none', fontWeight: 600,
+                fontSize: '0.8rem', borderColor: '#DDE4EE', color: '#5B6E8C' }}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => setBulkPreviewOpen(true)}
+              disabled={(!bulkDoctorId && !bulkTime && !bulkDayOfWeek) || bulkAffectedAppointments.length === 0}
+              variant="contained" sx={{ borderRadius: '40px', textTransform: 'none', fontWeight: 600,
+                fontSize: '0.8rem', bgcolor: '#2E7A5E', '&:hover': { bgcolor: '#246653' } }}>
+              Revisar alterações ({bulkAffectedAppointments.length})
+            </Button>
+          </DialogActions>
+        </>
+      ) : (
+        <>
+          <DialogContent sx={{ pt: 3, pb: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box sx={{ bgcolor: '#FFF3E0', border: '1px solid #FFE0B2', borderRadius: '14px', px: 2, py: 1.5 }}>
+              <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, color: '#B45309' }}>
+                {bulkAffectedAppointments.length} sessão(ões) pendente(s) serão alteradas
+              </Typography>
+              <Typography sx={{ fontSize: '0.75rem', color: '#8A6018', mt: 0.3 }}>
+                Período: {format(parseISO(bulkAffectedAppointments[0].date.substring(0, 10)), 'dd/MM/yyyy')}
+                {' – '}
+                {format(parseISO(bulkAffectedAppointments[bulkAffectedAppointments.length - 1].date.substring(0, 10)), 'dd/MM/yyyy')}
+              </Typography>
+            </Box>
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
+              {bulkDoctorId && (
+                <Typography sx={{ fontSize: '0.8125rem', color: '#1A2C3E' }}>
+                  <strong>Terapeuta:</strong> {bulkSelectedDoctor?.fullName || '—'}
+                </Typography>
+              )}
+              {bulkTime && (
+                <Typography sx={{ fontSize: '0.8125rem', color: '#1A2C3E' }}>
+                  <strong>Horário:</strong> {bulkTime}
+                </Typography>
+              )}
+              {bulkDayOfWeek !== '' && (
+                <Typography sx={{ fontSize: '0.8125rem', color: '#1A2C3E' }}>
+                  <strong>Dia da semana:</strong> {bulkDayOfWeekLabel[parseInt(bulkDayOfWeek)]}
+                  <Box component="span" sx={{ display: 'block', fontSize: '0.7rem', color: '#8A99B0', mt: 0.2 }}>
+                    Cada sessão será movida para a próxima ocorrência desse dia após sua data atual
+                  </Box>
+                </Typography>
+              )}
+            </Box>
+
+            <Box sx={{
+              maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 0.8,
+              bgcolor: '#F8FAFE', borderRadius: '14px', border: '1px solid #EDF2F7', p: 1.2
+            }}>
+              {bulkAffectedAppointments.map((appt, idx) => {
+                const currentDate = appt.date.substring(0, 10);
+                const newDate = bulkDayOfWeek !== ''
+                  ? shiftToWeekday(currentDate, parseInt(bulkDayOfWeek))
+                  : null;
+                return (
+                  <Box key={appt._id || idx} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', px: 0.5 }}>
+                    <span>
+                      {format(parseISO(currentDate), 'dd/MM')} {appt.time || ''}
+                      {newDate && (
+                        <> → <strong>{format(newDate, 'dd/MM')}</strong></>
+                      )}
+                    </span>
+                    <span style={{ color: '#8A99B0' }}>
+                      {appt.doctor?.fullName || appt.professionalName || '—'}
+                    </span>
+                  </Box>
+                );
+              })}
+            </Box>
+
+            <Typography sx={{ fontSize: '0.7rem', color: '#8A99B0' }}>
+              Sessões confirmadas/realizadas não serão alteradas.
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+            <Button onClick={() => setBulkPreviewOpen(false)} disabled={bulkSaving}
+              variant="outlined" sx={{ borderRadius: '40px', textTransform: 'none', fontWeight: 600,
+                fontSize: '0.8rem', borderColor: '#DDE4EE', color: '#5B6E8C' }}>
+              Voltar
+            </Button>
+            <Button onClick={saveBulkDoctor} disabled={bulkSaving}
+              variant="contained" sx={{ borderRadius: '40px', textTransform: 'none', fontWeight: 600,
+                fontSize: '0.8rem', bgcolor: '#2E7A5E', '&:hover': { bgcolor: '#246653' } }}>
+              {bulkSaving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Confirmar alteração'}
+            </Button>
+          </DialogActions>
+        </>
+      )}
     </Dialog>
 
     {/* ── Dialog de edição de agendamento ── */}
