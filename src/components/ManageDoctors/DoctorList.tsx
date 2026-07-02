@@ -53,6 +53,7 @@ const DoctorCard = ({ doctor, onEdit, onViewAgenda, onDeactivate, onReactivate, 
     const occupancy = doctor.occupancy ?? null;
     const maxSlots = doctor.maxSlots ?? 30;
     const monthlySessions = doctor.monthlySessions ?? 0;
+    const weeklySessions = doctor.weeklySessions ?? 0;
     const patients = doctor.patients ?? 0;
 
     return (
@@ -107,18 +108,24 @@ const DoctorCard = ({ doctor, onEdit, onViewAgenda, onDeactivate, onReactivate, 
                     </div>
                     <div className="bg-white/70 rounded-lg px-2 py-2 text-center border border-white/60">
                         <p className="text-lg font-bold text-gray-800">{monthlySessions || '-'}</p>
-                        <p className="text-[9px] text-gray-400 uppercase tracking-wider font-semibold">Sessões/mês</p>
+                        <p className="text-[9px] text-gray-400 uppercase tracking-wider font-semibold">Sessões (mês)</p>
                     </div>
                 </div>
 
-                {/* ─── Ocupação ─── */}
+                {/* ─── Ocupação (calculada sobre a semana atual, não o mês) ─── */}
                 {occupancy !== null && (
                     <div className="px-4 pb-3">
-                        <p className="text-[11px] text-gray-500 font-medium mb-1">Ocupação</p>
-                        <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full ${occupancy >= 90 ? 'bg-emerald-500' : occupancy >= 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${occupancy}%` }} />
+                        <p className="text-[11px] text-gray-500 font-medium mb-1">Ocupação da semana</p>
+                        <div className="relative h-4 bg-gray-200 rounded-full overflow-hidden">
+                            <div
+                                className={`h-full rounded-full transition-[width] duration-500 ${occupancy >= 90 ? 'bg-emerald-500' : occupancy >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
+                                style={{ width: `${Math.min(occupancy, 100)}%` }}
+                            />
+                            <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-bold ${occupancy >= 50 ? 'text-white' : 'text-gray-700'}`}>
+                                {occupancy}%
+                            </span>
                         </div>
-                        <p className="text-[11px] text-gray-400 mt-1">{occupancy}% — {monthlySessions} de {maxSlots} vagas</p>
+                        <p className="text-[11px] text-gray-400 mt-1">{weeklySessions} de {maxSlots} vagas desta semana preenchidas</p>
                     </div>
                 )}
 

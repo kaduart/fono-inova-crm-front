@@ -36,6 +36,17 @@ const COMMISSION_TYPE_LABELS: Record<CommissionType, string> = {
     percentage: "Percentual"
 };
 
+// Regras recém-adicionadas só ganham _id real quando o profissional é salvo no backend.
+// Sem um _id local nesse meio tempo, editar/remover a mesma regra na sessão atual
+// não consegue identificá-la (edit duplica, delete não encontra o que remover).
+// Gera um ObjectId válido no formato do Mongo para que o match funcione desde já
+// e o backend aceite o mesmo _id na hora de persistir.
+const generateObjectId = (): string => {
+    const timestamp = Math.floor(Date.now() / 1000).toString(16).padStart(8, "0");
+    const random = "xxxxxxxxxxxxxxxx".replace(/x/g, () => Math.floor(Math.random() * 16).toString(16));
+    return (timestamp + random).slice(0, 24);
+};
+
 const emptyRule: Omit<ICommissionRule, "_id"> = {
     serviceType: "session",
     billingType: "particular",
@@ -123,7 +134,7 @@ export function DoctorCommissionRulesTab({
         const ruleData: ICommissionRule = {
             ...form,
             insurance: form.billingType === "convenio" ? (form.insurance || null) : null,
-            _id: editingRule?._id
+            _id: editingRule?._id || generateObjectId()
         };
 
         if (editingRule?._id) {
@@ -384,8 +395,8 @@ export function DoctorCommissionRulesTab({
                     Nenhuma regra configurada. O sistema usará os valores padrão (R$ 60/sessão).
                 </div>
             ) : (
-                <div className="overflow-hidden border border-gray-200 rounded-xl">
-                    <table className="min-w-full text-sm">
+                <div className="overflow-x-auto border border-gray-200 rounded-xl">
+                    <table className="min-w-full text-sm whitespace-nowrap">
                         <thead className="bg-gray-50">
                             <tr>
                                 <th className="px-4 py-2 text-left font-medium text-gray-700">Atendimento</th>
