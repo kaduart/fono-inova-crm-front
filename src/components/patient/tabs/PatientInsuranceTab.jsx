@@ -142,9 +142,10 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
   const groupedGuides = useMemo(() => {
     const active = availablePresentations.filter(p => p.isUsable);
     const exhausted = availablePresentations.filter(p => p.isExhausted);
-    const expired = availablePresentations.filter(p => p.isExpired && !p.isCancelled && !p.isExhausted);
+    const expired = availablePresentations.filter(p => p.isExpired && !p.isCancelled && !p.isExhausted && !p.isSuperseded);
+    const superseded = availablePresentations.filter(p => p.isSuperseded && !p.isCancelled && !p.isExpired && !p.isExhausted);
     const cancelled = availablePresentations.filter(p => p.isCancelled);
-    return { active, exhausted, expired, cancelled };
+    return { active, exhausted, expired, superseded, cancelled };
   }, [availablePresentations]);
 
   const handleOpenMenu = (event, presentation) => {
@@ -550,6 +551,16 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         count={groupedGuides.expired.length}
         presentations={groupedGuides.expired}
         color="#8A99B0"
+        onOpenMenu={handleOpenMenu}
+        onCreatePlan={handleOpenPlanForm}
+        onOpenDetails={handleOpenDetailsCard}
+      />
+
+      <GuideSection
+        title="Guias substituídas"
+        count={groupedGuides.superseded.length}
+        presentations={groupedGuides.superseded}
+        color="#6366F1"
         onOpenMenu={handleOpenMenu}
         onCreatePlan={handleOpenPlanForm}
         onOpenDetails={handleOpenDetailsCard}
