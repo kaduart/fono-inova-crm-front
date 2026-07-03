@@ -554,6 +554,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 (appt.billingType || 'particular'),
             insuranceProvider: appt.insuranceProvider || '',
             insuranceValue: appt.insuranceValue || 0,
+            insuranceGuide: appt.insuranceGuide || null,
+            insurancePlan: appt.insurancePlan || null,
             authorizationCode: appt.authorizationCode || '',
             serviceType: appt.serviceType || appt.sessionType || 'individual_session',
             paymentAmount: appt.sessionValue || appt.paymentAmount || 0,
@@ -803,7 +805,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
         const serviceType = appointment.serviceType || appointment.sessionType || 'Sessão';
         const specialty = appointment.specialty || '';
-        const sessionValue = appointment.sessionValue || appointment.paymentAmount || 0;
+        const sessionValue = appointment.amount || appointment.sessionValue || appointment.paymentAmount || 0;
         const reason = appointment.reason || appointment.notes || '';
 
         const SERVICE_TYPE_LABELS: Record<string, string> = {
@@ -866,7 +868,20 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             pre_agendado: { label: 'Pré-Agend.', bg: 'bg-pink-500', text: 'text-white' },
         };
 
-        const paymentBadge = PAYMENT_BADGE[financialStatus] || PAYMENT_BADGE.pending;
+        const basePaymentBadge = PAYMENT_BADGE[financialStatus] || PAYMENT_BADGE.pending;
+        // Para pacote pago com valor, mostra o valor da sessão no badge em vez de "Pendente" / ícone cifrão
+        const effectiveSessionValue = packageSessionValue ?? sessionValue ?? 0;
+        const paymentBadge = (() => {
+            // Convênio: badge mostra o valor tabela (fonte de verdade do convênio)
+            if (isConvenio && appointment.insuranceValue > 0) {
+                return { ...PAYMENT_BADGE.convenio, label: `R$ ${appointment.insuranceValue.toFixed(2)}` };
+            }
+            // Pacote pré-pago: badge mostra o valor da sessão
+            if (hasPackage && effectiveSessionValue > 0) {
+                return { ...basePaymentBadge, label: `R$ ${effectiveSessionValue.toFixed(2)}`, icon: '💰' };
+            }
+            return basePaymentBadge;
+        })();
         const operationalBadge = OPERATIONAL_BADGE[operationalStatus] || OPERATIONAL_BADGE.scheduled;
         const OperationalIcon = operationalConfig?.icon || Clock;
 
@@ -1236,7 +1251,20 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             pre_agendado: { label: 'Pré-Agend.', bg: 'bg-pink-500', text: 'text-white' }, // 🎯 NOVO
         };
 
-        const paymentBadge = PAYMENT_BADGE[financialStatus] || PAYMENT_BADGE.pending;
+        const effectiveSessionValue = packageObj?.sessionValue ?? sessionValue ?? 0;
+        const insuranceValue = arg.event.extendedProps.insuranceValue || 0;
+        const basePaymentBadge = PAYMENT_BADGE[financialStatus] || PAYMENT_BADGE.pending;
+        const paymentBadge = (() => {
+            // Convênio: badge mostra o valor tabela (fonte de verdade do convênio)
+            if (isConvenio && insuranceValue > 0) {
+                return { ...PAYMENT_BADGE.convenio, label: `R$ ${Number(insuranceValue).toFixed(2)}` };
+            }
+            // Pacote pré-pago: badge mostra o valor da sessão
+            if (hasPackage && effectiveSessionValue > 0) {
+                return { ...basePaymentBadge, label: `R$ ${effectiveSessionValue.toFixed(2)}`, icon: '💰' };
+            }
+            return basePaymentBadge;
+        })();
         const operationalBadge = OPERATIONAL_BADGE[arg.event.extendedProps.operationalStatus] || OPERATIONAL_BADGE.scheduled;
 
         const OperationalIcon = operationalConfig?.icon || Clock;

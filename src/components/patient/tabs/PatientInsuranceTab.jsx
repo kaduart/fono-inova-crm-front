@@ -785,6 +785,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails }) =>
   } = presentation;
 
   const [generating, setGenerating] = useState(false);
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
   const queryClient = useQueryClient();
 
   const handleGenerateSessions = async (planId) => {
@@ -893,6 +894,23 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails }) =>
           </div>
         </div>
 
+        {/* ── Gatilho do accordion: dentro do card, na borda entre Progresso e detalhes ── */}
+        <button
+          onClick={() => setDetailsExpanded(v => !v)}
+          className="w-full flex items-center justify-center gap-1.5 py-2 border-b transition-colors hover:bg-gray-50"
+          style={{ borderColor: theme.border, color: theme.text }}
+        >
+          <span className="text-xs font-semibold">
+            {detailsExpanded ? 'Ocultar detalhes' : 'Ver detalhes'}
+          </span>
+          <ChevronDown
+            size={14}
+            style={{ transition: 'transform 0.2s', transform: detailsExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+          />
+        </button>
+
+        {detailsExpanded && (
+        <>
         {/* ── Financial details ── */}
         <div className="px-5 py-4 flex-1 flex flex-col gap-2">
           {guide.sessionValue > 0 && (
@@ -1044,9 +1062,12 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails }) =>
           </div>
         )}
 
+        </>
+        )}
+
         {/* ── Action buttons ── */}
         {isUsable && onCreatePlan && (
-          <div className="px-5 pb-5 flex items-center gap-2">
+          <div className="px-5 pt-4 pb-5 flex items-center gap-2">
             {plan && remaining > 0 && (
               <button
                 onClick={() => handleGenerateSessions(plan._id)}
@@ -1366,13 +1387,6 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
     return newDate;
   };
 
-  if (!guide) return null;
-
-  const specialtyFormatted = guide.specialty
-    ?.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || '';
-  const insuranceFormatted = guide.insurance
-    ?.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || '';
-
   const apptStatus = (a) => a.operationalStatus || a.status || '';
 
   // Oculta appointments cancelados que foram substituídos por um reagendamento
@@ -1380,6 +1394,27 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
     appointments.filter(a => a.rescheduledFrom).map(a => a.rescheduledFrom?.toString())
   );
   const visibleAppointments = appointments.filter(a => !supersededIds.has(a._id?.toString()));
+
+  // Abre o calendário no mês do primeiro agendamento da guia (ou data de emissão/hoje como fallback)
+  const calendarInitialDate = useMemo(() => {
+    if (visibleAppointments.length > 0) {
+      const sorted = [...visibleAppointments].sort((a, b) =>
+        `${a.date}${a.time || ''}`.localeCompare(`${b.date}${b.time || ''}`)
+      );
+      return sorted[0].date.substring(0, 10);
+    }
+    if (guide?.issuedAt) {
+      return new Date(guide.issuedAt).toISOString().substring(0, 10);
+    }
+    return new Date().toISOString().substring(0, 10);
+  }, [visibleAppointments, guide]);
+
+  if (!guide) return null;
+
+  const specialtyFormatted = guide.specialty
+    ?.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || '';
+  const insuranceFormatted = guide.insurance
+    ?.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || '';
 
   // Mesmo filtro do backend (pendingFilter): só pre_agendado/scheduled são afetados pelo bulk-edit
   const bulkAffectedAppointments = visibleAppointments
@@ -1590,6 +1625,7 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
                     start: `${(a.date || '').substring(0, 10)}T${a.time || '08:00'}`,
                   }))}
                   onEventClick={openEdit}
+                  initialDate={calendarInitialDate}
                 />
               </Box>
             ) : visibleAppointments.length === 0 ? (
@@ -1945,7 +1981,11 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
           >
             <MenuItem value=""><em>Sem alteração</em></MenuItem>
             {doctors
-              .filter(d => !guide?.specialty || (d.specialty || '').toLowerCase() === (guide.specialty || '').toLowerCase())
+              .filter(d => {
+                const matchesGuideSpecialty = !guide?.specialty || (d.specialty || '').toLowerCase() === (guide.specialty || '').toLowerCase();
+                const isCurrentDoctor = d._id === editingAppt?.doctor?._id;
+                return matchesGuideSpecialty || isCurrentDoctor;
+              })
               .map(d => <MenuItem key={d._id} value={d._id}>{d.fullName}</MenuItem>)}
           </Select>
         </FormControl>

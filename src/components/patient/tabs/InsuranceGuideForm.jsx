@@ -165,7 +165,8 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
                 <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
                 <p className="text-xs text-blue-800">
                   Renovação da guia <strong>#{guide.number}</strong>. A nova guia será criada e a guia atual será arquivada.
-                  Atendimentos futuros serão migrados automaticamente.
+                  O plano terapêutico será clonado e <strong>os agendamentos futuros serão gerados automaticamente</strong> —
+                  não é necessário clicar em "Gerar" novamente no card.
                 </p>
               </div>
             )}

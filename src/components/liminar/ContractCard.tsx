@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   Calendar,
   CheckCircle,
+  ChevronDown,
   DollarSign,
   Info,
   MoreVertical,
@@ -295,7 +296,10 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
       style={{ background: '#FFFFFF', border: '1px solid #EDF2F7', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
     >
       {/* ══ Camada 1: Header — identidade do contrato ══ */}
-      <div className="px-5 pt-4 pb-4 relative" style={{ background: `linear-gradient(135deg, ${palette.from} 0%, ${palette.to} 100%)` }}>
+      <div
+        className="px-5 pt-4 pb-4 relative"
+        style={{ background: `linear-gradient(135deg, ${palette.from} 0%, ${palette.to} 100%)` }}
+      >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 flex-wrap min-w-0">
             <Scale className="w-4 h-4 flex-shrink-0 text-white/90" />
@@ -324,7 +328,10 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                 <MoreVertical className="w-4 h-4" />
               </button>
               {menuOpen && (
-                <div className="absolute right-0 z-20 rounded-2xl shadow-xl py-1 min-w-max" style={{ top: '110%', background: '#fff', border: '1px solid #EDF2F7', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}>
+                <div
+                  className="absolute right-0 z-20 rounded-2xl shadow-xl py-1 min-w-max"
+                  style={{ top: '110%', background: '#fff', border: '1px solid #EDF2F7', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
+                >
                   <button
                     onClick={() => { setMenuOpen(false); setShowRecharge(true); }}
                     className="flex items-center gap-2 w-full text-left text-xs font-medium px-4 py-2 hover:bg-slate-50 transition-colors"
@@ -347,7 +354,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
       </div>
 
       {/* ══ Camada 2: Summary — financeiro do contrato ══ */}
-      <div className="px-5 py-4 border-b" style={{ background: palette.badge, borderColor: palette.badgeBorder }}>
+      <div className="px-5 py-4" style={{ background: palette.badge }}>
         <div className="grid grid-cols-2 gap-2 mb-3">
           <div className="rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.6)' }}>
             <span className="block text-xs font-medium mb-1" style={{ color: '#5B6E8C' }}>Disponível</span>
@@ -370,10 +377,24 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
         <div className="text-right text-xs" style={{ color: '#8A99B0' }}>{balancePct.toFixed(0)}% disponível</div>
       </div>
 
-      <div className="p-5 pt-4">
+      {/* ── Gatilho do accordion: dentro do card, na borda entre Summary e Breakdown ── */}
+      <button
+        onClick={() => setPlanExpanded(v => !v)}
+        className="w-full flex items-center justify-center gap-1.5 py-2 border-b transition-colors hover:bg-slate-50"
+        style={{ borderColor: '#EDF2F7', color: '#5B6E8C' }}
+      >
+        <span className="text-xs font-semibold">
+          {planExpanded ? 'Ocultar plano terapêutico' : 'Ver plano terapêutico'}
+        </span>
+        <ChevronDown
+          className="w-3.5 h-3.5 transition-transform duration-200"
+          style={{ transform: planExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+        />
+      </button>
 
-        {/* ══ Camada 3: Breakdown — plano terapêutico por especialidade ══ */}
-        <div>
+      {/* ══ Camada 3: Breakdown — plano terapêutico por especialidade (accordion, controlado pelo header) ══ */}
+      {planExpanded && (
+        <div className="p-5 pt-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 flex-wrap">
               <Calendar className="w-4 h-4" style={{ color: '#2E7A5E' }} />
@@ -442,7 +463,6 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
 
           {plan ? (
             <>
-              <div className="cursor-pointer" onClick={() => setPlanExpanded(v => !v)}>
                 <div className="space-y-2 mb-2">
                   {Object.entries(plan.therapies ?? {}).map(([specialty, config]: [string, any]) => {
                     const intSp = integrity?.specialties?.[specialty];
@@ -534,12 +554,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                     );
                   })}
                 </div>
-                <div className="text-xs text-center" style={{ color: '#A0AABF' }}>
-                  {planExpanded ? '▲ Ocultar detalhes' : '▼ Ver detalhes'}
-                </div>
-              </div>
 
-              {planExpanded && (
                 <div className="mt-3 border-t pt-3" style={{ borderColor: '#EDF2F7' }}>
                   <PlanView
                     plan={plan}
@@ -547,7 +562,6 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                     onEditDoctor={(specialty) => openEditTherapyModal(specialty, plan.therapies?.[specialty])}
                   />
                 </div>
-              )}
 
               {contract.status === 'active' && (
                 <div className="mt-4 flex gap-2">
@@ -579,7 +593,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
             </div>
           )}
         </div>
-      </div>
+      )}
 
       {/* ── Modal: Adicionar Crédito ── */}
       {showRecharge && (

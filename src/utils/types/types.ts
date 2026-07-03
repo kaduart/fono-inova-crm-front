@@ -389,10 +389,14 @@ export interface SelectedEvent {
     start: string;
     
     // 🆕 DADOS DE CONVÊNIO/PLANO
-    billingType?: 'particular' | 'convenio';
+    billingType?: 'particular' | 'convenio' | 'liminar' | string;
     insuranceProvider?: string;
     insuranceValue?: number;
+    insuranceGuide?: string | null;
+    insurancePlan?: string | null;
+    insuranceGuideId?: string | null;
     authorizationCode?: string;
+    liminarContract?: any;
     
     // 🆕 DADOS DE SERVIÇO E PAGAMENTO
     serviceType?: string;
@@ -400,12 +404,16 @@ export interface SelectedEvent {
     sessionValue?: number;
     paymentMethod?: string;
     specialty?: string;
+    paymentOrigin?: string;
     
     // 🆕 INDICADOR DE PRÉ-AGENDAMENTO
     __isPreAgendamento?: boolean;
 
     // 🆕 DADOS DO PACOTE
     package?: any;
+    
+    // Permite acesso dinâmico a extendedProps
+    extendedProps?: any;
 }
 
 export interface ShadowPayload {

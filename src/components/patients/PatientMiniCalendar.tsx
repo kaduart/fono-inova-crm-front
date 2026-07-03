@@ -22,9 +22,10 @@ const DEFAULT_STYLE = { bg: '#F3F4F6', text: '#374151', label: '' };
 interface PatientMiniCalendarProps {
     appointments: Appointment[];
     onEventClick?: (appt: any) => void;
+    initialDate?: string | Date;
 }
 
-export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appointments, onEventClick }) => {
+export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appointments, onEventClick, initialDate }) => {
     const calendarRef = useRef<FullCalendar | null>(null);
 
     const events = appointments.map(appt => ({
@@ -49,6 +50,7 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
                 }}
                 locale={ptBrLocale}
                 initialView="dayGridMonth"
+                initialDate={initialDate}
                 weekends
                 events={events}
                 eventClick={onEventClick ? (arg) => onEventClick(arg.event.extendedProps.appt) : undefined}

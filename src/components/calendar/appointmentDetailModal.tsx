@@ -1,6 +1,6 @@
 import { ptBR } from 'date-fns/locale';
-import { Building2, Calendar, CheckCircle, ClipboardCheck, Clock, DollarSign, PencilIcon, Plus, Stethoscope, Trash2, User, X, XCircle } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Building2, Calendar, CheckCircle, ClipboardCheck, Clock, DollarSign, Package, PencilIcon, Plus, Scale, Stethoscope, Tag, Trash2, User, X, XCircle } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { validateAppointmentComplete } from '../../utils/appointmentCompleteGuard';
 import { extractScheduleConflictMessage } from '../../utils/errorUtils';
@@ -149,6 +149,15 @@ const getStatusConfig = (status: string | undefined | null, type: 'operational' 
     };
 };
 
+// 🏷️ Helper: badges informativos de tipo de atendimento/cobrança na aba confirm
+const SERVICE_TYPE_CONFIG: Record<string, { label: string; icon: any; color: string; bg: string }> = {
+    convenio:      { label: 'Convênio',       icon: Stethoscope, color: '#1d4ed8', bg: '#dbeafe' },
+    liminar:       { label: 'Liminar',        icon: Scale,       color: '#7e22ce', bg: '#f3e8ff' },
+    avaliacao:     { label: 'Avaliação',      icon: ClipboardCheck, color: '#b45309', bg: '#fef3c7' },
+    pacote:        { label: 'Pacote Pago',    icon: Package,     color: '#047857', bg: '#d1fae5' },
+    sessao_avulsa: { label: 'Sessão Avulsa',  icon: Calendar,    color: '#4b5563', bg: '#f3f4f6' },
+};
+
 const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     isOpen,
     onClose,
@@ -276,6 +285,13 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         { id: 1, amount: 0, date: '', method: '' }
     ]);
 
+    // 🎯 Helper: identifica sessões de pacote pago
+    const isPackageSession = useCallback(() => {
+        const st = event?.serviceType || event?.sessionType;
+        const origin = (event as any).paymentOrigin || (event as any).extendedProps?.paymentOrigin || '';
+        return st === 'package_session' || origin === 'package_prepaid' || !!event?.package || !!(event as any).extendedProps?.package || !!(event as any).extendedProps?.__isPackageAppointment;
+    }, [event]);
+
     // 💰 NOVO: Modal de conta corrente
     const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
 
@@ -333,9 +349,10 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             // 🆕 NOVO: Carregar dados de pagamento do evento
             console.log('[Modal] event aberto — paymentMethod:', event.paymentMethod, '| billingType:', event.billingType, '| event completo:', event);
             setServiceType(event.serviceType || 'individual_session');
+            const hasInsuranceGuide = !!(event.insuranceGuide || event.insuranceGuideId || event.insurancePlan || (event as any).extendedProps?.insuranceGuide);
             setBillingType(
                 event.billingType === 'liminar' ? 'liminar' :
-                (event.billingType === 'convenio' || event.paymentMethod === 'convenio') ? 'convenio' :
+                (event.billingType === 'convenio' || event.paymentMethod === 'convenio' || hasInsuranceGuide) ? 'convenio' :
                 (event.billingType || 'particular')
             );
             setPaymentAmount(event.sessionValue || event.paymentAmount || 0);
@@ -365,9 +382,10 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 setPaymentMethod(event.paymentMethod);
             }
             if (event.billingType || event.paymentMethod) {
+                const hasInsuranceGuide = !!(event.insuranceGuide || event.insuranceGuideId || event.insurancePlan || (event as any).extendedProps?.insuranceGuide);
                 const resolved =
                     event.billingType === 'liminar' ? 'liminar' :
-                    (event.billingType === 'convenio' || event.paymentMethod === 'convenio') ? 'convenio' :
+                    (event.billingType === 'convenio' || event.paymentMethod === 'convenio' || hasInsuranceGuide) ? 'convenio' :
                     (event.billingType || 'particular');
                 if (resolved !== billingType) setBillingType(resolved);
             }
@@ -507,8 +525,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             return;
         }
 
-        // 🚫 BLOQUEIO: método de pagamento obrigatório para particular
-        if (billingType === 'particular' && !paymentMethod) {
+        // 🚫 BLOQUEIO: método de pagamento obrigatório para particular (exceto pacote pago)
+        if (billingType === 'particular' && !isPackageSession() && !paymentMethod) {
             toast.error('Selecione o método de pagamento antes de concluir o atendimento.');
             return;
         }
@@ -522,7 +540,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             event?.paymentMethod === 'liminar_credit' ||
             !!(event?.insuranceProvider) ||
             !!(event?.extendedProps?.insuranceProvider) ||
-            event?.extendedProps?.billingType === 'convenio'
+            event?.extendedProps?.billingType === 'convenio' ||
+            isPackageSession()
         );
         if (patientFinancial && patientFinancial.sessionDebt > 0 && !isThirdPartyBilling) {
             const confirmed = await new Promise<boolean | null>(resolve => {
@@ -650,7 +669,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             toast.error('Preencha a data e o horário antes de salvar.');
             return;
         }
-        if (billingType === 'particular' && !paymentMethod) {
+        if (billingType === 'particular' && !isPackageSession() && !paymentMethod) {
             toast.error('Selecione o método de pagamento antes de salvar.');
             return;
         }
@@ -777,6 +796,37 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         operationalStatus: translateStatus(event.operationalStatus, 'operational'),
         clinicalStatus: translateStatus(event.clinicalStatus, 'clinical')
     } : null;
+
+    // 🏷️ Badges informativos de tipo de atendimento/cobrança (aba confirm)
+    const getServiceTypeBadges = () => {
+        if (!event) return [];
+        const st = (event.serviceType || event.sessionType || 'individual_session') as string;
+        const bt = event.billingType as string;
+        const pm = event.paymentMethod as string;
+        const origin = (event as any).paymentOrigin || (event as any).extendedProps?.paymentOrigin || '';
+        const hasPackage = !!(event.package || (event as any).extendedProps?.package || (event as any).extendedProps?.packageId);
+        const hasInsuranceGuide = !!(event.insuranceGuide || (event as any).insuranceGuideId || (event as any).extendedProps?.insuranceGuide);
+
+        const badges: Array<{ key: string; label: string; icon: any; color: string; bg: string }> = [];
+
+        if (bt === 'convenio' || pm === 'convenio' || event.insuranceProvider || hasInsuranceGuide) {
+            badges.push({ key: 'convenio', ...SERVICE_TYPE_CONFIG.convenio });
+        }
+        if (bt === 'liminar' || pm === 'liminar_credit' || event.liminarContract) {
+            badges.push({ key: 'liminar', ...SERVICE_TYPE_CONFIG.liminar });
+        }
+        if (['evaluation', 're_evaluation', 'neuropsych_evaluation'].includes(st)) {
+            badges.push({ key: 'avaliacao', ...SERVICE_TYPE_CONFIG.avaliacao });
+        }
+        if (st === 'package_session' || origin === 'package_prepaid' || hasPackage) {
+            badges.push({ key: 'pacote', ...SERVICE_TYPE_CONFIG.pacote });
+        }
+        if (['session', 'individual_session'].includes(st) && !hasPackage && bt !== 'convenio' && bt !== 'liminar') {
+            badges.push({ key: 'sessao_avulsa', ...SERVICE_TYPE_CONFIG.sessao_avulsa });
+        }
+
+        return badges;
+    };
 
     const renderTabContent = () => {
         if (!translatedEvent) return null;
@@ -1071,6 +1121,31 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             <p className="text-sm text-gray-800">{translatedEvent.reason || 'Não informado'}</p>
                         </div>
 
+                        {/* 🏷️ TIPO DE ATENDIMENTO — badges informativos */}
+                        {getServiceTypeBadges().length > 0 && (
+                            <div className="bg-gradient-to-br from-slate-50 to-gray-50 rounded-xl border border-gray-200 p-3">
+                                <div className="flex items-center gap-1.5 mb-2.5">
+                                    <Tag className="w-3.5 h-3.5 text-gray-500" />
+                                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tipo de atendimento</span>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {getServiceTypeBadges().map((badge) => {
+                                        const Icon = badge.icon;
+                                        return (
+                                            <span
+                                                key={badge.key}
+                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold"
+                                                style={{ backgroundColor: badge.bg, color: badge.color }}
+                                            >
+                                                <Icon className="w-3.5 h-3.5" />
+                                                {badge.label}
+                                            </span>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
                         {/* 🏦 TIPO DE COBRANÇA */}
                         {permissions.canSeeFinancial && (
                             <div className="bg-white rounded-xl border border-gray-200 p-3">
@@ -1140,6 +1215,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
                                 {billingType === 'convenio' && (
                                     <div className="space-y-3">
+                                        {!insuranceProvider && (
+                                            <div className="bg-amber-50 border border-amber-200 p-2.5 rounded-lg text-xs text-amber-800">
+                                                ⚠️ <strong>Convênio não identificado.</strong> Selecione o convênio abaixo antes de confirmar.
+                                            </div>
+                                        )}
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                             <div>
                                                 <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -1183,7 +1263,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         )}
 
                         {/* 💳 FORMAS DE PAGAMENTO — oculta para convênio/liminar */}
-                        {permissions.canSeeFinancial && !(
+                        {permissions.canSeeFinancial && !isPackageSession() && !(
                             ['convenio', 'liminar'].includes(event?.billingType ?? '') ||
                             ['convenio', 'liminar'].includes(billingType) ||
                             event?.paymentMethod === 'convenio' ||
@@ -1733,8 +1813,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 // 'pending' é o status inicial usado pelo fluxo HYBRID (particular avulsa / pacote pago —
                 // ver AppointmentHybridService) e é tratado como equivalente a 'scheduled' em todo o
                 // backend (guards de convênio/pacote, completeSessionService); o botão precisa acompanhar.
+                // 'pre_agendado' também recebe o botão de confirmar — ao confirmar vira agendamento real.
                 const opStatus = event?.operationalStatus;
-                if (opStatus === 'scheduled' || opStatus === 'pending') {
+                if (opStatus === 'scheduled' || opStatus === 'pending' || opStatus === 'pre_agendado') {
                     return (
                         <button
                             onClick={handleConfirm}

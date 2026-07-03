@@ -34,6 +34,13 @@ export interface AppointmentDTO {
     reason?: string;
     notes?: string;
     paymentStatus?: string; // fonte de verdade: Payment.status
+    billingType?: string;
+    paymentMethod?: string;
+    insuranceProvider?: string;
+    insuranceValue?: number;
+    insuranceGuide?: string | null;
+    insurancePlan?: string | null;
+    authorizationCode?: string;
     isPackageSession?: boolean;
     package?: {
         _id?: string;
@@ -153,6 +160,13 @@ export function mapAppointmentResponseDTO(raw: any): AppointmentDTO {
         reason: raw.reason || raw.notes || undefined,
         notes: raw.notes || undefined,
         paymentStatus: extractPaymentStatus(raw),
+        billingType: raw.billingType || undefined,
+        paymentMethod: raw.paymentMethod || undefined,
+        insuranceProvider: raw.insuranceProvider || undefined,
+        insuranceValue: typeof raw.insuranceValue === 'number' ? raw.insuranceValue : undefined,
+        insuranceGuide: raw.insuranceGuide || null,
+        insurancePlan: raw.insurancePlan || null,
+        authorizationCode: raw.authorizationCode || undefined,
         isPackageSession: raw.serviceType === 'package_session' || !!raw.package || !!raw.packageId,
         package: typeof raw.package === 'object' && raw.package !== null ? raw.package : undefined,
         liminarContract: typeof raw.liminarContract === 'object' && raw.liminarContract !== null ? raw.liminarContract : undefined,
