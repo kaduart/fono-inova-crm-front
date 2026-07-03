@@ -1837,7 +1837,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                     );
                 }
 
-                if (opStatus === 'confirmed') {
+                // 'missed' tratado igual 'confirmed': permite corrigir uma falta marcada
+                // errada (paciente foi atendido de verdade) sem precisar reabrir/reagendar.
+                if (opStatus === 'confirmed' || opStatus === 'missed') {
                     return (
                         <button
                             onClick={handleComplete}
