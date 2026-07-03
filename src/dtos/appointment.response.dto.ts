@@ -24,6 +24,7 @@ export interface AppointmentDTO {
     date: string;           // ISO string
     time?: string;
     status: string;         // operationalStatus normalizado
+    operationalStatus: string; // 🔄 alias legado para compatibilidade com componentes que ainda usam operationalStatus
     clinicalStatus?: string;
     patient: PatientDTO;
     doctor: DoctorDTO;
@@ -122,6 +123,7 @@ export function mapAppointmentResponseDTO(raw: any): AppointmentDTO {
             id: '',
             date: '',
             status: 'scheduled',
+            operationalStatus: 'scheduled',
             patient: { id: '', name: 'Desconhecido', debt: 0, totalPending: 0, particularPending: 0, convenioPending: 0, totalAppointments: 0, totalCompleted: 0, totalCanceled: 0, totalNoShow: 0, totalPackages: 0, raw: null },
             doctor: { id: '', name: 'Desconhecido' },
             raw: null,
@@ -137,6 +139,7 @@ export function mapAppointmentResponseDTO(raw: any): AppointmentDTO {
         date: raw.date || raw.start || '',
         time: raw.time || raw.startTime || undefined,
         status: extractAppointmentStatus(raw),
+        operationalStatus: extractAppointmentStatus(raw),
         clinicalStatus: raw.clinicalStatus || undefined,
         patient: {
             id: extractPatientId(patientRaw),
