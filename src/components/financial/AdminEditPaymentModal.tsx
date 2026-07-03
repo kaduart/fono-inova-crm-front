@@ -67,7 +67,7 @@ export const AdminEditPaymentModal = ({
   const [isSplit, setIsSplit]             = useState(false);
   const [splitRows, setSplitRows]         = useState<SplitRow[]>([
     { method: 'pix', amount: 0 },
-    { method: 'dinheiro', amount: 0 },
+    { method: '', amount: 0 },
   ]);
 
   useEffect(() => {
@@ -77,22 +77,27 @@ export const AdminEditPaymentModal = ({
       setFinancialDate(toInputDate(payment.data));
       setNotes('');
       setIsSplit(false);
+      // 2ª linha começa vazia de propósito — método pré-selecionado (ex: 'dinheiro')
+      // fazia salvar errado quando o usuário só editava o valor e esquecia de trocar
+      // o método (bug confirmado 2026-07-03: split gravado como dinheiro+dinheiro
+      // quando deveria ser dinheiro+pix).
       setSplitRows([
         { method: displayToApi(payment.metodo), amount: payment.valor },
-        { method: 'dinheiro', amount: 0 },
+        { method: '', amount: 0 },
       ]);
     }
   }, [payment]);
 
   const splitTotal = splitRows.reduce((s, r) => s + (r.amount || 0), 0);
   const splitDiff  = Math.abs(splitTotal - amount);
-  const splitValid = splitDiff < 0.01;
+  const splitMethodsValid = splitRows.every(r => !!r.method);
+  const splitValid = splitDiff < 0.01 && splitMethodsValid;
 
   const updateRow = (i: number, field: keyof SplitRow, val: string | number) => {
     setSplitRows(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
   };
 
-  const addRow = () => setSplitRows(prev => [...prev, { method: 'pix', amount: 0 }]);
+  const addRow = () => setSplitRows(prev => [...prev, { method: '', amount: 0 }]);
 
   const removeRow = (i: number) => {
     if (splitRows.length <= 2) return;
@@ -103,6 +108,10 @@ export const AdminEditPaymentModal = ({
     if (!payment) return;
     if (amount <= 0) { toast.error('Informe um valor maior que zero'); return; }
     if (!financialDate) { toast.error('Informe a data'); return; }
+    if (isSplit && !splitMethodsValid) {
+      toast.error('Escolha o método de pagamento em todas as linhas do split');
+      return;
+    }
     if (isSplit && !splitValid) {
       toast.error(`Total do split ${formatCurrency(splitTotal)} ≠ valor ${formatCurrency(amount)}`);
       return;
@@ -200,6 +209,7 @@ export const AdminEditPaymentModal = ({
                     onChange={(e) => updateRow(i, 'method', e.target.value)}
                     className="flex-1 border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
+                    <option value="">Escolha um método</option>
                     {METHOD_OPTIONS.map(opt => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
