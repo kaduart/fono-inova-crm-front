@@ -281,7 +281,7 @@ export const appointmentService = {
         addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string;
         billingType?: string; paymentMethod?: string; paymentAmount?: number; sessionValue?: number;
         insuranceProvider?: string; insuranceValue?: number; authorizationCode?: string;
-        payments?: Array<{ amount: number; date: string; method: string }>;
+        splitMethods?: Array<{ amount: number; date: string; method: string }>;
     }) => {
         const endpoint = appointmentService.USE_V2_COMPLETE
             ? `/v2/appointments/${id}/complete`  // ✅ V2 ATIVO: async + handlers

@@ -614,12 +614,12 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                     addToBalance: true,
                     balanceAmount: debitAmount,
                     balanceDescription: debitDescription,
-                    ...(paymentsPayload?.length ? { payments: paymentsPayload } : {})
+                    ...(paymentsPayload?.length ? { splitMethods: paymentsPayload } : {})
                 });
             } else {
                 await onCompleteAppointment(event.id, {
                     ...billingMeta,
-                    ...(paymentsPayload?.length ? { payments: paymentsPayload } : {})
+                    ...(paymentsPayload?.length ? { splitMethods: paymentsPayload } : {})
                 });
             }
             console.log('[Modal] onCompleteAppointment RETORNOU — sucesso, aguardando finally');
@@ -1263,7 +1263,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         )}
 
                         {/* 💳 FORMAS DE PAGAMENTO — oculta para convênio/liminar */}
-                        {permissions.canSeeFinancial && !isPackageSession() && !(
+                        {permissions.canSeeFinancial && !(
                             ['convenio', 'liminar'].includes(event?.billingType ?? '') ||
                             ['convenio', 'liminar'].includes(billingType) ||
                             event?.paymentMethod === 'convenio' ||
@@ -1339,9 +1339,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                                     <option value="">Escolha um método</option>
                                                     <option value="dinheiro">Dinheiro</option>
                                                     <option value="pix">PIX</option>
-                                                    <option value="credito">Cartão de Crédito</option>
-                                                    <option value="debito">Cartão de Débito</option>
-                                                    <option value="transferencia">Transferência</option>
+                                                    <option value="credit_card">Cartão de Crédito</option>
+                                                    <option value="debit_card">Cartão de Débito</option>
+                                                    <option value="bank_transfer">Transferência</option>
                                                 </select>
                                             </div>
                                         </div>
