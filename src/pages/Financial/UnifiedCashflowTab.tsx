@@ -1726,7 +1726,10 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                         const statusLabel =
                                                                             isCanceled ? 'Cancelado' :
                                                                             isCompleted ? (isConvenio ? 'Aguarda repasse' : 'Atendido') :
-                                                                            effectiveStatus === 'confirmed' ? 'Atendido' :
+                                                                            // 'confirmed' = presença confirmada, NÃO é atendimento completado/pago.
+                                                                            // Mostrar 'Atendido' aqui já causou confusão real (secretária achava
+                                                                            // que só confirmar presença já lançava o pagamento). Ver isCompleted acima.
+                                                                            effectiveStatus === 'confirmed' ? 'Confirmado' :
                                                                             effectiveStatus === 'pre_agendado' ? 'Pré-agendado' :
                                                                             'Agendado';
 
