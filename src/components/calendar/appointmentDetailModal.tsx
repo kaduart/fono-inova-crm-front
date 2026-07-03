@@ -158,6 +158,40 @@ const SERVICE_TYPE_CONFIG: Record<string, { label: string; icon: any; color: str
     sessao_avulsa: { label: 'Sessão Avulsa',  icon: Calendar,    color: '#4b5563', bg: '#f3f4f6' },
 };
 
+/**
+ * ⚠️ LEIA ANTES DE MEXER — esse componente já quebrou 3x em regressões (jul/2026)
+ * porque a lógica de billingType/status é toda condicional e nada óbvia.
+ *
+ * 1. TIPO DE COBRANÇA (billingType: 'particular' | 'convenio' | 'liminar')
+ *    muda que campos aparecem na aba "Confirmar":
+ *      - particular  -> Formas de Pagamento (split de valor/método)
+ *      - convenio    -> Select de convênio + Valor Tabela (NÃO entra no caixa
+ *                        até faturamento — ver bloco "Atendimento registrado
+ *                        com R$ 0,00 no caixa")
+ *      - liminar     -> Valor da Sessão Judicial + saldo do processo
+ *    Cada bloco é condicional e INDEPENDENTE dos outros — não assuma que
+ *    esconder algo para convenio/liminar é seguro para particular (bug de
+ *    03/07: `!isPackageSession()` escondeu Formas de Pagamento pra TODO
+ *    pacote particular, não só convênio/liminar).
+ *
+ * 2. STATUS OPERACIONAL controla qual botão aparece na aba "Confirmar"
+ *    (ver o switch perto de "FLUXO DE STATUS" mais abaixo):
+ *      scheduled/pending/pre_agendado -> "Confirmar Presença" (handleConfirm)
+ *      confirmed/missed               -> "Realizar Atendimento" (handleComplete)
+ *      completed/canceled             -> nenhum botão (ação já foi feita)
+ *    Se adicionar um status novo, ele PRECISA cair em um desses 3 grupos,
+ *    senão o botão some silenciosamente (bug de 03/07: 'missed' caía no
+ *    `return null` do fim, tratado como estado terminal sem correção).
+ *
+ * 3. O payload enviado no complete usa a chave `splitMethods` (não `payments`)
+ *    — o backend (`routes/appointment.v2.js`) só lê `req.body.splitMethods`.
+ *    Os valores de método também têm que bater com o enum do schema
+ *    (`credit_card`/`debit_card`/`bank_transfer`, não `credito`/`debito`/
+ *    `transferencia`) — ver `models/Payment.js` campo `splitMethods`.
+ *
+ * Antes de esconder/mudar uma condição aqui, teste os 3 billingTypes E os
+ * 3 grupos de status — não só o caso que você está corrigindo.
+ */
 const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     isOpen,
     onClose,
@@ -1262,7 +1296,10 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             </div>
                         )}
 
-                        {/* 💳 FORMAS DE PAGAMENTO — oculta para convênio/liminar */}
+                        {/* 💳 FORMAS DE PAGAMENTO — oculta para convênio/liminar (ver doc no topo do arquivo).
+                            NÃO adicionar exclusão por pacote/serviceType aqui de novo — sessão de pacote
+                            particular também precisa dessa seção (bug corrigido 03/07: !isPackageSession()
+                            escondia isso pra TODO pacote, não só convênio/liminar). */}
                         {permissions.canSeeFinancial && !(
                             ['convenio', 'liminar'].includes(event?.billingType ?? '') ||
                             ['convenio', 'liminar'].includes(billingType) ||
@@ -1810,6 +1847,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                     );
                 }
                 // 🎯 FLUXO DE STATUS: a aba 'confirm' adapta a ação ao estado operacional
+                // (ver doc completa no topo do arquivo — todo status novo precisa entrar
+                // em um dos 3 grupos abaixo, senão o botão some sem aviso nenhum).
                 // 'pending' é o status inicial usado pelo fluxo HYBRID (particular avulsa / pacote pago —
                 // ver AppointmentHybridService) e é tratado como equivalente a 'scheduled' em todo o
                 // backend (guards de convênio/pacote, completeSessionService); o botão precisa acompanhar.
