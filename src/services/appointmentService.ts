@@ -283,6 +283,20 @@ export const appointmentService = {
         insuranceProvider?: string; insuranceValue?: number; authorizationCode?: string;
         splitMethods?: Array<{ amount: number; date: string; method: string }>;
     }) => {
+        const isInsurance =
+            data?.billingType === 'convenio' ||
+            data?.paymentMethod === 'convenio' ||
+            !!data?.insuranceProvider;
+
+        // 🏥 Convênio usa o orquestrador dedicado; particular/liminar continuam no /complete
+        if (isInsurance && appointmentService.USE_V2_COMPLETE) {
+            const endpoint = `/v2/appointments/${id}/complete-insurance`;
+            console.log(`[AppointmentService] complete-insurance: ${endpoint}`);
+            const response = await API.post<{ success: boolean; appointment: IAppointmentResponse; transitions: any[]; correlationId: string }>(endpoint, data);
+            window.dispatchEvent(new CustomEvent('session:completed'));
+            return response.data.appointment;
+        }
+
         const endpoint = appointmentService.USE_V2_COMPLETE
             ? `/v2/appointments/${id}/complete`  // ✅ V2 ATIVO: async + handlers
             : `/appointments/${id}/complete`;     // ⚠️ V1 LEGADO: sync direto

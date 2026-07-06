@@ -179,6 +179,13 @@ const SERVICE_TYPE_CONFIG: Record<string, { label: string; icon: any; color: str
  *      scheduled/pending/pre_agendado -> "Confirmar Presença" (handleConfirm)
  *      confirmed/missed               -> "Realizar Atendimento" (handleComplete)
  *      completed/canceled             -> nenhum botão (ação já foi feita)
+ *    EXCEÇÃO CONVÊNIO (2026-07-06): para convênio, 'Confirmar Presença' e
+ *    'Realizar Atendimento' são a mesma coisa financeiramente (o plano paga
+ *    depois, no faturamento). Por isso, para convênio o botão sempre é
+ *    'Realizar Atendimento' e sempre chama o fluxo de complete (o service
+ *    resolve /complete-insurance quando necessário), independente de estar
+ *    scheduled/confirmed/pre_agendado. Isso evita que sessões fiquem presas
+ *    no status 'confirmed' sem consumir guia/gerar receita.
  *    Se adicionar um status novo, ele PRECISA cair em um desses 3 grupos,
  *    senão o botão some silenciosamente (bug de 03/07: 'missed' caía no
  *    `return null` do fim, tratado como estado terminal sem correção).
@@ -512,6 +519,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
     const handleConfirm = async () => {
         if (!onConfirmAppointment) return;
+        console.log(`[AppointmentDetailModal] handleConfirm disparado — appointmentId=${event?.id}, operationalStatus=${event?.operationalStatus}, billingType=${event?.billingType}, endpoint=/confirm`);
         setIsConfirming(true);
         try {
             await onConfirmAppointment(event?.id);
@@ -549,7 +557,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     };
 
     const handleComplete = async () => {
-        console.log('✅ [Modal] Completando agendamento ID:', event?.id);
+        console.log(`[AppointmentDetailModal] handleComplete disparado — appointmentId=${event?.id}, operationalStatus=${event?.operationalStatus}, billingType=${event?.billingType}, endpoint=service-resolved`);
         
         // 🛡️ PROTEÇÃO: Evita bater no 409 desnecessariamente
         if (event?.extendedProps?.operationalStatus === 'processing_complete') {
@@ -1074,20 +1082,32 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             case 'confirm':
                 return (
                     <div className="space-y-5">
-                        {/* Alerta */}
-                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-400 p-3 rounded-xl">
-                            <div className="flex items-start gap-3">
-                                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
-                                <div>
-                                    <p className="text-sm text-green-800 font-medium">
-                                        Confirme os detalhes deste agendamento antes de confirmar.
-                                    </p>
-                                    <p className="text-xs text-green-600 mt-0.5">
-                                        Esta ação marcará a consulta como concluída.
-                                    </p>
+                        {/* Alerta dinâmico baseado no status e billingType */}
+                        {(() => {
+                            const opStatus = event?.operationalStatus;
+                            const isConvenio = event?.billingType === 'convenio' || event?.paymentMethod === 'convenio' || !!event?.insuranceProvider;
+                            const willComplete = isConvenio || opStatus === 'confirmed' || opStatus === 'missed';
+
+                            return (
+                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-400 p-3 rounded-xl">
+                                    <div className="flex items-start gap-3">
+                                        <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
+                                        <div>
+                                            <p className="text-sm text-green-800 font-medium">
+                                                {willComplete
+                                                    ? 'Confirme os detalhes antes de concluir o atendimento.'
+                                                    : 'Confirme os detalhes antes de confirmar a presença.'}
+                                            </p>
+                                            <p className="text-xs text-green-600 mt-0.5">
+                                                {willComplete
+                                                    ? 'Esta ação marcará a consulta como concluída e executará a cobrança/faturamento.'
+                                                    : 'Esta ação marcará a presença do paciente como confirmada. Para concluir o atendimento, clique em "Realizar Atendimento" depois.'}
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
+                            );
+                        })()}
 
                         {/* Informações do agendamento — mesmo padrão da aba Detalhes */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1854,6 +1874,47 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 // backend (guards de convênio/pacote, completeSessionService); o botão precisa acompanhar.
                 // 'pre_agendado' também recebe o botão de confirmar — ao confirmar vira agendamento real.
                 const opStatus = event?.operationalStatus;
+
+                // 🏥 CONVÊNIO: confirmar presença e realizar atendimento são a mesma ação financeira
+                // (o plano paga posteriormente via faturamento). Por isso, para convênio o botão
+                // sempre executa o fluxo de complete (service resolve /complete-insurance), evitando
+                // sessões presas em 'confirmed'.
+                const isConvenioFlow = event?.billingType === 'convenio' || event?.paymentMethod === 'convenio' || !!event?.insuranceProvider || !!event?.insuranceGuide;
+                const canCompleteConvenio = isConvenioFlow && !['completed', 'canceled'].includes(opStatus || '');
+
+                if (canCompleteConvenio) {
+                    return (
+                        <button
+                            onClick={handleComplete}
+                            disabled={isCompleting || isAddingDebit}
+                            className={`px-6 py-3 rounded-xl transition-all duration-200 flex items-center gap-2 disabled:from-gray-400 disabled:to-gray-500 shadow-lg hover:shadow-xl ${
+                                addToBalance
+                                    ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white'
+                                    : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white'
+                            }`}
+                        >
+                            {isCompleting || isAddingDebit ? (
+                                <>
+                                    <LoadingSpinner size="small" color="border-white" fullPage={false} />
+                                    <span>
+                                        {isAddingDebit ? 'Registrando débito...' : 'Registrando...'}
+                                    </span>
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle size={18} />
+                                    <span>
+                                        {addToBalance
+                                            ? `Concluir e Adicionar R$ ${debitAmount % 1 === 0 ? debitAmount.toFixed(0) : debitAmount.toFixed(2).replace('.', ',')} ao Saldo`
+                                            : 'Realizar Atendimento'
+                                        }
+                                    </span>
+                                </>
+                            )}
+                        </button>
+                    );
+                }
+
                 if (opStatus === 'scheduled' || opStatus === 'pending' || opStatus === 'pre_agendado') {
                     return (
                         <button

@@ -81,5 +81,50 @@ export const expenseService = {
     generateCommissions: async (month?: number, year?: number) => {
         const response = await api.post('/expenses/generate-commissions', { month, year });
         return response.data;
+    },
+
+    // Consultar status da geração assíncrona de comissões
+    getCommissionGenerationStatus: async (eventId: string) => {
+        const response = await api.get(`/expenses/generate-commissions/status/${eventId}`);
+        return response.data;
+    },
+
+    // Polling do status da geração de comissões
+    pollCommissionGenerationStatus: async (
+        eventId: string,
+        maxAttempts: number = 30,
+        intervalMs: number = 2000
+    ) => {
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            const response = await api.get(`/expenses/generate-commissions/status/${eventId}`);
+            const status = response.data?.data;
+
+            if (!status) {
+                throw new Error('Resposta inválida ao consultar status');
+            }
+
+            if (status.status === 'processed' || status.status === 'completed') {
+                return { success: true, status };
+            }
+
+            if (status.status === 'failed' || status.status === 'dead_letter') {
+                return {
+                    success: false,
+                    status,
+                    error: status.error?.message || 'Falha na geração de comissões'
+                };
+            }
+
+            if (attempt < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, intervalMs));
+            }
+        }
+
+        return {
+            success: false,
+            status: null,
+            timeout: true,
+            error: 'A geração ainda está em andamento. Recarregue a página em alguns instantes.'
+        };
     }
 };

@@ -61,7 +61,7 @@ interface ExpensesTabProps {
 }
 
 const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
-  const { expenses, loading, totals, fetchExpenses, cancelExpense, generateCommissions } = useExpenses();
+  const { expenses, loading, generatingCommissions, totals, fetchExpenses, cancelExpense, generateCommissions } = useExpenses();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<any>(null);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
@@ -196,15 +196,16 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
           <button
             onClick={async () => {
               try {
-                await generateCommissions(filters.month, filters.year);
-              } finally {
+                await generateCommissions(filters.month, filters.year, () => fetchExpenses(filters));
+              } catch {
                 fetchExpenses(filters);
               }
             }}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
+            disabled={generatingCommissions}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
           >
-            <RefreshCw size={18} />
-            Gerar Comissões
+            <RefreshCw size={18} className={generatingCommissions ? 'animate-spin' : ''} />
+            {generatingCommissions ? 'Gerando...' : 'Gerar Comissões'}
           </button>
           <button
             onClick={() => {
@@ -217,6 +218,11 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
             Nova Despesa
           </button>
         </div>
+        {generatingCommissions && (
+          <p className="text-xs text-gray-500 mt-2 text-center md:text-right">
+            Processando comissões em segundo plano. Isso pode levar alguns segundos...
+          </p>
+        )}
       </div>
 
       {/* Cards de Resumo */}
