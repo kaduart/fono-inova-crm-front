@@ -9,6 +9,7 @@ import { mapSessionResponseDTO, sessionDTOToISession } from '../../dtos/session.
 import { SessionListItem } from './SessionListItem';
 import { SessionModal } from './SessionModal';
 import { PatientBalanceModal } from './PatientBalanceModal';
+import { extractScheduleConflictMessage } from '../../utils/errorUtils';
 
 /**
  * ⚠️ LEGADO — condições `pack.type === 'liminar'` e `pack.type === 'convenio'`
@@ -219,8 +220,14 @@ export default function TherapyPackageCard({
       setIsModalOpen(false);
     } catch (err: any) {
       console.error("Erro:", err);
-      const apiMessage = err?.response?.data?.error || err?.response?.data?.message || err?.message;
-      toast.error(apiMessage || "Erro ao salvar sessão");
+      // 🎯 Mensagem detalhada para conflitos de agenda (horário já ocupado)
+      const conflictMsg = extractScheduleConflictMessage(err);
+      if (conflictMsg) {
+        toast.error(conflictMsg, { autoClose: 8000, style: { maxWidth: '420px', borderLeft: '4px solid #ef4444' } });
+      } else {
+        const apiMessage = err?.response?.data?.message || err?.response?.data?.error || err?.message;
+        toast.error(apiMessage || "Erro ao salvar sessão");
+      }
     } finally {
       setLoading(false);
     }

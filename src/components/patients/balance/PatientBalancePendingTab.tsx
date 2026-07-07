@@ -1,5 +1,16 @@
+import { useMemo, useState } from 'react';
 import { ArrowDownCircle, CheckCircle, CheckSquare, DollarSign, Square, Wallet } from 'lucide-react';
 import type { PaymentItem } from '../PatientBalanceModal';
+
+const SPECIALTY_LABELS: Record<string, string> = {
+  fonoaudiologia: 'Fonoaudiologia',
+  psicologia: 'Psicologia',
+  terapia_ocupacional: 'Terapia Ocupacional',
+  psicopedagogia: 'Psicopedagogia',
+};
+
+const formatSpecialtyLabel = (key: string) =>
+  SPECIALTY_LABELS[key] ?? key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 interface Props {
   payments: PaymentItem[];
@@ -46,6 +57,23 @@ export const PatientBalancePendingTab: React.FC<Props> = ({
   onOpenQuickPayment,
   onOpenBulkPayment,
 }) => {
+  const [activeSpecialty, setActiveSpecialty] = useState<string | 'todos'>('todos');
+
+  const groupedBySpecialty = useMemo(() => {
+    const groups = new Map<string, PaymentItem[]>();
+    for (const p of payments) {
+      const key = p.specialty || 'outros';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(p);
+    }
+    return groups;
+  }, [payments]);
+
+  const specialtyKeys = useMemo(
+    () => Array.from(groupedBySpecialty.keys()).sort(),
+    [groupedBySpecialty]
+  );
+
   if (payments.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
@@ -58,6 +86,13 @@ export const PatientBalancePendingTab: React.FC<Props> = ({
 
   const allSelected =
     selectablePending.length > 0 && selectedPayments.size === selectablePending.length;
+
+  const visibleGroups =
+    activeSpecialty === 'todos'
+      ? Array.from(groupedBySpecialty.entries())
+      : groupedBySpecialty.has(activeSpecialty)
+        ? [[activeSpecialty, groupedBySpecialty.get(activeSpecialty)!] as [string, PaymentItem[]]]
+        : [];
 
   return (
     <div className="space-y-4">
@@ -87,6 +122,35 @@ export const PatientBalancePendingTab: React.FC<Props> = ({
         )}
       </div>
 
+      {/* Filtro por área/especialidade */}
+      {specialtyKeys.length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setActiveSpecialty('todos')}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+              activeSpecialty === 'todos'
+                ? 'bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-900'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300'
+            }`}
+          >
+            Todas ({payments.length})
+          </button>
+          {specialtyKeys.map((key) => (
+            <button
+              key={key}
+              onClick={() => setActiveSpecialty(key)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold capitalize transition-colors ${
+                activeSpecialty === key
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300'
+              }`}
+            >
+              {formatSpecialtyLabel(key)} ({groupedBySpecialty.get(key)!.length})
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Botão pagamento em lote */}
       {selectedPayments.size > 0 && (
         <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
@@ -111,14 +175,26 @@ export const PatientBalancePendingTab: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Lista */}
-      <div className="space-y-3">
-        {payments.map((payment) => {
-          const isSelected = selectedPayments.has(payment.id);
-          const specialty = payment.specialty;
-          const isPackageSession = !!payment.packageId;
+      {/* Lista agrupada por área/especialidade */}
+      <div className="space-y-5">
+        {visibleGroups.map(([specialtyKey, items]) => (
+          <div key={specialtyKey} className="space-y-3">
+            {specialtyKeys.length > 1 && (
+              <div className="flex items-center justify-between px-1">
+                <h4 className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  {formatSpecialtyLabel(specialtyKey)}
+                </h4>
+                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                  {formatCurrency(items.reduce((sum, p) => sum + p.amount, 0))}
+                </span>
+              </div>
+            )}
+            {items.map((payment) => {
+              const isSelected = selectedPayments.has(payment.id);
+              const specialty = payment.specialty;
+              const isPackageSession = !!payment.packageId;
 
-          return (
+              return (
             <div
               key={payment.id}
               className={`p-4 rounded-xl border transition-all ${
@@ -193,8 +269,10 @@ export const PatientBalancePendingTab: React.FC<Props> = ({
                 </div>
               </div>
             </div>
-          );
-        })}
+              );
+            })}
+          </div>
+        ))}
       </div>
     </div>
   );

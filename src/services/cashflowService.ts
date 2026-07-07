@@ -203,6 +203,15 @@ export interface CashflowV2Data {
         valor: number;
         convenio: string;
     }>;
+    liminaresAtendidos: Array<{
+        id: string;
+        horario: string;
+        paciente: string;
+        servico: string;
+        especialidade: string;
+        professional: string;
+        valor: number;
+    }>;
 }
 
 export interface CashflowV2Response {

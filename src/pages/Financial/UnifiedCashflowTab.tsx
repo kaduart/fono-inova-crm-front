@@ -228,7 +228,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
             isFirstRender.current = false;
             return;
         }
-        if (activeTab === 4 && viewMode === 'day') {
+        if (activeTab === 5 && viewMode === 'day') {
             loadDayAppointments();
         }
     }, [activeTab]);
@@ -1084,6 +1084,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                 { label: 'Pendentes',          count: data.pendentesCobranca?.length || 0,                               icon: <WarningIcon style={{ fontSize: 15 }} /> },
                                 { label: 'Pacotes Consumidos', count: data.pacotesAtendidos?.length || 0,                                icon: <InventoryIcon style={{ fontSize: 15 }} /> },
                                 { label: 'Convênios a Faturar',count: data.conveniosAtendidos?.length || 0,                              icon: <ShowChartIcon style={{ fontSize: 15 }} /> },
+                                { label: 'Liminares',          count: data.liminaresAtendidos?.length || 0,                              icon: <ShowChartIcon style={{ fontSize: 15 }} /> },
                                 { label: 'Agenda do Dia',      count: dayAppointments.length || 0,                                       icon: <CalendarTodayIcon style={{ fontSize: 15 }} /> },
                                 { label: 'Especialidades',     count: Object.keys(data.producao?.porEspecialidade || {}).length,          icon: <PieChartIcon style={{ fontSize: 15 }} /> },
                                 { label: 'Profissionais',      count: 0,                                                                  icon: <PeopleIcon style={{ fontSize: 15 }} /> },
@@ -1509,8 +1510,32 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                         </div>
                     )}
 
-                    {/* Tab 4: Agendamentos {periodTitle} */}
+                    {/* Tab 4: Liminares */}
                     {activeTab === 4 && (
+                        <div className="bg-white rounded-lg border border-gray-200 p-3">
+                            <h3 className="text-base font-semibold mb-3">⚖️ Liminares Atendidas ({data.liminaresAtendidos?.length || 0})</h3>
+                            {data.liminaresAtendidos?.length > 0 ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {data.liminaresAtendidos.map((l) => (
+                                        <div key={l.id} className="border border-gray-200 rounded-lg p-3">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="font-semibold text-sm">{l.paciente}</span>
+                                                <span className="px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-800">Liminar</span>
+                                            </div>
+                                            <div className="text-xs text-gray-500">{l.especialidade} • {l.professional}</div>
+                                            <div className="text-xs text-gray-500">Horário: {l.horario}</div>
+                                            <div className="text-lg font-bold text-orange-700 mt-1">{formatCurrency(l.valor)}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <Alert severity="info">Nenhuma liminar atendida {isRangeActive ? 'no período' : 'hoje'}</Alert>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Tab 5: Agendamentos {periodTitle} */}
+                    {activeTab === 5 && (
                         <div className="space-y-3">
                             {/* Título + contadores por status */}
                             <div className="flex flex-wrap items-start justify-between gap-2">
@@ -1595,6 +1620,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                             const attendedIds = new Set<string>([
                                                 ...(data.pacotesAtendidos?.map(getApptId) || []),
                                                 ...(data.conveniosAtendidos?.map(getApptId) || []),
+                                                ...(data.liminaresAtendidos?.map(getApptId) || []),
                                                 ...(data.transacoesProducao?.map(getApptId) || [])
                                             ].filter(Boolean));
                                             const getEffectiveStatus = (a: any) => {
@@ -1885,8 +1911,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                         </div>
                     )}
 
-                    {/* Tab 5: Por Especialidade */}
-                    {activeTab === 5 && (
+                    {/* Tab 6: Por Especialidade */}
+                    {activeTab === 6 && (
                         <div className="bg-white rounded-lg border border-gray-200 p-3">
                             <h3 className="text-base font-semibold mb-3">🏥 Produção por Especialidade</h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -1912,8 +1938,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                         </div>
                     )}
 
-                    {/* Tab 6: Profissionais */}
-                    {activeTab === 6 && (() => {
+                    {/* Tab 7: Profissionais */}
+                    {activeTab === 7 && (() => {
                         const byProf: Record<string, { receita: number; sessoes: number; cancelados: number; atendimentos: number }> = {};
                         const ensure = (k: string) => {
                             if (!byProf[k]) byProf[k] = { receita: 0, sessoes: 0, cancelados: 0, atendimentos: 0 };
