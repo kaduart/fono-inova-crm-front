@@ -413,7 +413,12 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 method: event.paymentMethod || ''
             }]);
         }
-    }, [event]);
+        // ⛔ Depende só de event?.id (não de `event` inteiro): refetches em segundo plano do
+        // MESMO agendamento recriam o objeto `event` mas não podem resetar addToBalance/debitAmount/
+        // payments enquanto o usuário está preenchendo o registro de saldo devedor no modal aberto.
+        // Bug confirmado 2026-07-06: sessões completadas como "pago" em vez de "saldo devedor"
+        // porque um refetch da lista de agendamentos zerava o checkbox antes do clique em Concluir.
+    }, [event?.id]);
 
     // 🔄 ATUALIZA DADOS DE PAGAMENTO QUANDO O EVENTO MUDA (inclui atualizações do backend)
     useEffect(() => {
@@ -1916,6 +1921,32 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 }
 
                 if (opStatus === 'scheduled' || opStatus === 'pending' || opStatus === 'pre_agendado') {
+                    // 💰 Quando "Adicionar ao Saldo Devedor" está marcado, confirmar presença
+                    // deve COMPLETAR o atendimento e adicionar o débito — não apenas confirmar.
+                    if (addToBalance) {
+                        return (
+                            <button
+                                onClick={handleComplete}
+                                disabled={isCompleting || isAddingDebit}
+                                className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-6 py-3 rounded-xl transition-all duration-200 flex items-center gap-2 disabled:from-gray-400 disabled:to-gray-500 shadow-lg hover:shadow-xl"
+                            >
+                                {isCompleting || isAddingDebit ? (
+                                    <>
+                                        <LoadingSpinner size="small" color="border-white" fullPage={false} />
+                                        <span>Registrando débito...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircle size={18} />
+                                        <span>
+                                            {`Concluir e Adicionar R$ ${debitAmount % 1 === 0 ? debitAmount.toFixed(0) : debitAmount.toFixed(2).replace('.', ',')} ao Saldo`}
+                                        </span>
+                                    </>
+                                )}
+                            </button>
+                        );
+                    }
+
                     return (
                         <button
                             onClick={handleConfirm}

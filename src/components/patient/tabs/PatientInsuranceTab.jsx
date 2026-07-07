@@ -847,7 +847,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails }) =>
 
           <div className="text-white/70 text-xs font-mono mb-1">#{presentation.number}</div>
           <div className="text-white font-bold text-[1.15rem] leading-tight pr-6">{presentation.specialtyLabel}</div>
-          <div className="text-white/80 text-sm mt-1">{presentation.insuranceLabel}{guide.createdAt && ` • ${format(parseISO(guide.createdAt), 'dd/MM/yyyy')}`}</div>
+          <div className="text-white/80 text-sm mt-1">{presentation.insuranceLabel}{guide.expiresAt && ` • Vence ${format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}`}</div>
 
           <div className="mt-3">
             <span

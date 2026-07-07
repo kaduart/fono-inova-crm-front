@@ -21,6 +21,7 @@ import InventoryIcon from '@mui/icons-material/Inventory';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import WarningIcon from '@mui/icons-material/Warning';
 import PhoneIcon from '@mui/icons-material/Phone';
+import PersonIcon from '@mui/icons-material/Person';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import PeopleIcon from '@mui/icons-material/People';
@@ -1781,7 +1782,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                             <React.Fragment key={a.id}>
                                                                                 <div
                                                                                     onClick={() => setSelectedApt(a)}
-                                                                                    className={`flex items-start gap-3 px-4 py-2.5 border-l-[3px] border-b border-b-gray-50 cursor-pointer transition-colors hover:bg-gray-50/70 ${leftBorder} ${isCanceled ? 'bg-rose-50/40' : isFirstEval ? 'bg-pink-50/60' : ''}`}
+                                                                                    className={`flex items-start gap-3 px-4 py-2.5 border-l-[3px] border-b border-b-gray-50 cursor-pointer transition-colors hover:bg-gray-50/70 ${leftBorder} ${isCanceled ? 'bg-rose-50/40' : isCompleted ? 'bg-emerald-100/70' : isFirstEval ? 'bg-pink-50/60' : ''}`}
                                                                                 >
                                                                                     <div className="w-12 shrink-0 pt-0.5 text-right">
                                                                                         {aptIdx === 0 && <span className="text-[9px] font-bold text-gray-300 tracking-widest block leading-none mb-0.5">{String(hour).padStart(2,'0')}H</span>}
@@ -1805,7 +1806,15 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                             {methodBadge && <><span className="text-gray-300 text-[10px] select-none">|</span><span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">{methodBadge}</span></>}
                                                                                             {paymentBadge && <><span className="text-gray-300 text-[10px] select-none">|</span><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${paymentCls}`}>{paymentBadge}</span></>}
                                                                                             {a.specialty && <><span className="text-gray-300 text-[10px] select-none">|</span><span className="text-[10px] text-gray-400">{a.specialty}</span></>}
-                                                                                            {a.professionalName && <><span className="text-gray-300 text-[10px] select-none">|</span><span className="text-[10px] text-gray-400">{(a.professionalName as string).split(' ')[0]}</span></>}
+                                                                                            {a.professionalName && (
+                                                                                                <>
+                                                                                                    <span className="text-gray-300 text-[10px] select-none">|</span>
+                                                                                                    <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${isCompleted ? 'text-emerald-700' : 'text-gray-500'}`}>
+                                                                                                        <PersonIcon style={{ fontSize: 11 }} />
+                                                                                                        {(a.professionalName as string).split(' ').slice(0, 2).join(' ')}
+                                                                                                    </span>
+                                                                                                </>
+                                                                                            )}
                                                                                         </div>
                                                                                         {isCartaoD30 && !isCanceled && (
                                                                                             <p className="text-[10px] text-amber-600 mt-1">⚠ Cartão D+30 — entra no caixa em ~30 dias</p>
