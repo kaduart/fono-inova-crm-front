@@ -236,8 +236,23 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
       borderColor: '#2563EB',
       start: `${s.date.slice(0, 10)}T${s.time}`,
       operationalStatus: s.operationalStatus,
+      clinicalStatus: s.clinicalStatus,
+      reason: s.reason || s.notes || '',
       sessionValue: s.sessionValue,
+      paymentAmount: s.paymentAmount,
       specialty: s.specialty,
+      serviceType: s.serviceType,
+      // 🛡️ Dados financeiros: sempre popular para evitar downgrade acidental
+      billingType: s.billingType,
+      paymentMethod: s.paymentMethod,
+      insuranceProvider: s.insuranceProvider,
+      insuranceValue: s.insuranceValue,
+      authorizationCode: s.authorizationCode,
+      // 🛡️ Referências de guia/plano: preservar ao editar
+      insuranceGuide: s.insuranceGuide ?? null,
+      insuranceGuideId: s.insuranceGuide?.toString?.() ?? s.insuranceGuideId ?? null,
+      insurancePlan: s.insurancePlan ?? null,
+      liminarContract: s.liminarContract ?? null,
       package: s.package ?? null,
       __isPreAgendamento: s.operationalStatus === 'pre_agendado',
     };

@@ -24,6 +24,7 @@ const VALID_PAYMENT_METHODS = [
     'transferencia_bancaria',
     'plano-unimed',
     'convenio',
+    'liminar_credit',
     'outro',
 ] as const;
 
@@ -59,6 +60,7 @@ function normalizePaymentMethod(method?: string | null): ValidPaymentMethod {
         'transferencia_bancaria': 'transferencia_bancaria',
         'plano-unimed': 'plano-unimed',
         'convenio': 'convenio',
+        'liminar_credit': 'liminar_credit',
         'outro': 'outro',
         'other': 'outro',
     };
@@ -173,6 +175,9 @@ export interface UpdateAppointmentDTO {
         authorizationCode?: string | null;
         status?: string;
     } | null;
+    // 🛡️ Preservar referências de guia/plano ao editar (não excluir nada)
+    insuranceGuide?: string | null;
+    insurancePlan?: string | null;
 }
 
 // ============================================================
@@ -198,7 +203,7 @@ export function mapToCreateAppointmentDTO(data: Partial<ScheduleAppointment> & R
         reason: data.reason,
         operationalStatus: data.operationalStatus,
         clinicalStatus: data.clinicalStatus,
-        billingType: data.billingType || 'particular',
+        billingType: data.billingType,
         paymentAmount: data.paymentAmount,
         sessionValue: resolveSessionValue(data.sessionValue, data.paymentAmount),
         paymentMethod: normalizePaymentMethod(data.paymentMethod),
@@ -253,12 +258,16 @@ export function mapToUpdateAppointmentDTO(data: Partial<ScheduleAppointment> & R
         serviceType: data.serviceType,
         operationalStatus: data.operationalStatus,
         clinicalStatus: data.clinicalStatus,
-        billingType: data.billingType || 'particular',
+        // 🛡️ NÃO força fallback para 'particular': preserva billingType atual do backend quando não informado
+        billingType: data.billingType,
         paymentAmount: data.paymentAmount,
         sessionValue: resolveSessionValue(data.sessionValue, data.paymentAmount),
         paymentMethod: data.paymentMethod ? normalizePaymentMethod(data.paymentMethod) : undefined,
         packageId: typeof data.packageId === 'string' && data.packageId.trim() !== '' ? data.packageId : undefined,
-    }) as UpdateAppointmentDTO;
+        // 🛡️ Preservar referências de guia/plano ao editar (não excluir nada)
+        insuranceGuide: data.insuranceGuide ?? undefined,
+        insurancePlan: data.insurancePlan ?? undefined,
+    }, ['paymentAmount', 'sessionValue']) as UpdateAppointmentDTO;
 
     // Convênio: só inclui se billingType === 'convenio'
     if (isConvenio) {
@@ -279,10 +288,8 @@ export function mapToUpdateAppointmentDTO(data: Partial<ScheduleAppointment> & R
                 status: data.insurance?.status || 'pending_billing',
             };
         }
-    } else if (data.billingType && data.billingType !== 'convenio') {
-        // Se está mudando DE convênio PARA outro tipo, explicitamente limpa insurance
-        dto.insurance = null;
     }
+    // 🛡️ NÃO envia insurance: null ao trocar de convênio para outro tipo — preserve dados existentes
 
     return dto;
 }
@@ -314,8 +321,8 @@ export function sanitizeAppointmentPayload(payload: Record<string, any>): Record
         delete sanitized.packageId;
     }
 
-    // Remove campos de convênio quando não é convênio
-    if (sanitized.billingType !== 'convenio') {
+    // Remove campos de convênio apenas quando não é convênio nem liminar
+    if (sanitized.billingType !== 'convenio' && sanitized.billingType !== 'liminar') {
         delete sanitized.insuranceProvider;
         delete sanitized.insuranceValue;
         delete sanitized.authorizationCode;

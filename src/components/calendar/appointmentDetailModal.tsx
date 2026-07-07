@@ -308,12 +308,16 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
     // 🆕 NOVO: Campos de pagamento e serviço
     const [serviceType, setServiceType] = useState('individual_session');
-    const [billingType, setBillingType] = useState<'particular' | 'convenio'>('particular');
+    const [billingType, setBillingType] = useState<'particular' | 'convenio' | 'liminar'>('particular');
     const [paymentAmount, setPaymentAmount] = useState(0);
     const [paymentMethod, setPaymentMethod] = useState('');
     const [insuranceProvider, setInsuranceProvider] = useState('');
     const [insuranceValue, setInsuranceValue] = useState(0);
     const [authorizationCode, setAuthorizationCode] = useState('');
+    // 🛡️ Preservar referências de guia/plano ao editar (não excluir nada)
+    const [insuranceGuide, setInsuranceGuide] = useState<string | null>(null);
+    const [insurancePlan, setInsurancePlan] = useState<string | null>(null);
+    const [packageId, setPackageId] = useState<string | null>(null);
     
     // 💰 NOVO: Controle de saldo devedor ao confirmar
     const [addToBalance, setAddToBalance] = useState(false);
@@ -401,6 +405,10 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             setInsuranceProvider(event.insuranceProvider || '');
             setInsuranceValue(event.insuranceValue || 0);
             setAuthorizationCode(event.authorizationCode || '');
+            // 🛡️ Preservar referências de guia/plano/pacote ao editar (não excluir nada)
+            setInsuranceGuide(event.insuranceGuide ?? event.insuranceGuideId ?? null);
+            setInsurancePlan(event.insurancePlan ?? null);
+            setPackageId(event.package?._id ?? event.package ?? null);
             
             // 💰 NOVO: Inicializar campos de débito
             setAddToBalance(false);
@@ -439,8 +447,15 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 (event.sessionValue !== paymentAmount && event.paymentAmount !== paymentAmount)) {
                 setPaymentAmount(event.sessionValue || event.paymentAmount || 0);
             }
+            // 🛡️ Preservar referências de guia/plano/pacote ao editar (não excluir nada)
+            const nextInsuranceGuide = event.insuranceGuide ?? event.insuranceGuideId ?? null;
+            if (nextInsuranceGuide !== insuranceGuide) setInsuranceGuide(nextInsuranceGuide);
+            const nextInsurancePlan = event.insurancePlan ?? null;
+            if (nextInsurancePlan !== insurancePlan) setInsurancePlan(nextInsurancePlan);
+            const nextPackageId = event.package?._id ?? event.package ?? null;
+            if (nextPackageId !== packageId) setPackageId(nextPackageId);
         }
-    }, [event?.paymentMethod, event?.billingType, event?.sessionValue, event?.paymentAmount]);
+    }, [event?.paymentMethod, event?.billingType, event?.sessionValue, event?.paymentAmount, event?.insuranceGuide, event?.insuranceGuideId, event?.insurancePlan, event?.package]);
 
     // 🔄 RESETA O ESTADO QUANDO O MODAL FECHAR
     useEffect(() => {
@@ -481,6 +496,10 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         setInsuranceProvider(updatedData.insuranceProvider || updatedData.convenio?.provider || '');
                         setInsuranceValue(updatedData.insuranceValue || updatedData.convenio?.value || 0);
                         setAuthorizationCode(updatedData.authorizationCode || updatedData.convenio?.authorizationCode || '');
+                        // 🛡️ Preservar referências de guia/plano/pacote ao editar (não excluir nada)
+                        setInsuranceGuide(updatedData.insuranceGuide ?? updatedData.insuranceGuideId ?? null);
+                        setInsurancePlan(updatedData.insurancePlan ?? null);
+                        setPackageId(updatedData.package?._id ?? updatedData.package ?? null);
                         
                         // Atualiza o evento localmente também (se possível)
                         setEditedAppointment(prev => ({
@@ -737,6 +756,13 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             // ✅ V2 ATIVO: Edit de agendamento NÃO envia paymentAmount/sessionValue.
             // O valor financeiro é decidido pelo backend (handler no complete).
             // Se precisar alterar valor, use o fluxo financeiro (modal de pagamento).
+            // 🛡️ Resolve paymentMethod respeitando a origem real (liminar também precisa ser preservada)
+            const resolvedPaymentMethod = billingType === 'particular'
+                ? paymentMethod
+                : billingType === 'liminar'
+                    ? (paymentMethod || 'liminar_credit')
+                    : (paymentMethod || 'convenio');
+
             const appointmentData = mapToUpdateAppointmentDTO({
                 doctorId: editedAppointment.doctorId,
                 patientId: editedAppointment.patientId,
@@ -751,10 +777,14 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 billingType,
                 paymentAmount,
                 sessionValue: paymentAmount,
-                paymentMethod: billingType === 'particular' ? paymentMethod : 'convenio',
+                paymentMethod: resolvedPaymentMethod,
                 insuranceProvider,
                 insuranceValue,
                 authorizationCode,
+                // 🛡️ Preservar referências de guia/plano/pacote ao editar (não excluir nada)
+                insuranceGuide,
+                insurancePlan,
+                packageId,
                 insurance: billingType === 'convenio' && insuranceProvider ? {
                     provider: insuranceProvider,
                     grossAmount: insuranceValue || 0,
