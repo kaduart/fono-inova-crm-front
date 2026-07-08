@@ -237,9 +237,15 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
       } else if (editingGuide) {
         await updateGuide(editingGuide._id, data);
         toast.success('Guia atualizada com sucesso');
+        refetch();
+        fetchAppointments();
+        invalidatePlans();
       } else {
         await createGuide({ ...data, patientId });
         toast.success('Guia criada com sucesso');
+        refetch();
+        fetchAppointments();
+        invalidatePlans();
       }
       setIsFormOpen(false);
       setEditingGuide(null);

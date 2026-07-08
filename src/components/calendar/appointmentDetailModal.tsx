@@ -832,11 +832,13 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 return;
             }
 
-            // 🚨 CANCELADO: o select de status não pode apenas mudar de aba.
-            // O usuário espera que "Salvar" persista o cancelamento.
-            // Primeiro salva os demais campos editados, depois executa o cancelamento.
+            // 🚨 CANCELADO: redireciona para o handler de cancelamento.
+            // Não enviamos operationalStatus='canceled' no PUT para evitar duplo
+            // processamento event-driven (PUT update + PATCH cancel).
             if (operationalStatusEN === 'canceled') {
-                await onEditAppointment(event.id, appointmentData);
+                const { operationalStatus, ...appointmentDataWithoutStatus } = appointmentData;
+                // Só salva campos não-status antes de cancelar
+                await onEditAppointment(event.id, appointmentDataWithoutStatus);
                 await onCancelAppointment(
                     event.id,
                     'Cancelado via edição de status',

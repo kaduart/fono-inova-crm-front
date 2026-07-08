@@ -1,5 +1,6 @@
 import { Package as PackageIcon, Plus, Filter, Search, Users, Calendar, DollarSign, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { packageService } from '../../services/packageService';
 // 🚫 LEGADO BLOQUEADO: packagesService removido. Use packageService (V2)
 import { IDoctor, IPatient, ITherapyPackage } from '../../utils/types/types';
@@ -17,6 +18,7 @@ type Props = {
 };
 
 export default function TherapyPackageManager({ packages, patient, doctors, totalPages, onRefresh, onPackageCreated, onSave }: Props) {
+    const queryClient = useQueryClient();
     const [selected, setSelected] = useState<ITherapyPackage | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
     const [filters, setFilters] = useState({
@@ -168,6 +170,12 @@ export default function TherapyPackageManager({ packages, patient, doctors, tota
                             onRefresh();
                             onPackageCreated?.();
                             onSave?.(newPackageId); // 🔥 Chama onSave com o ID do novo pacote
+                            // Invalida caches React Query relacionados
+                            queryClient.invalidateQueries({ queryKey: ['packages', patient._id], exact: false });
+                            queryClient.invalidateQueries({ queryKey: ['packages'], exact: false });
+                            queryClient.invalidateQueries({ queryKey: ['appointments'], exact: false });
+                            queryClient.invalidateQueries({ queryKey: ['dashboard'], exact: false });
+                            queryClient.invalidateQueries({ queryKey: ['patient', patient._id], exact: false });
                             setModalOpen(false);
                         }}
                     />

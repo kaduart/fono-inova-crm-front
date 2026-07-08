@@ -1,5 +1,6 @@
 import { AlertTriangle, Plus, Scale } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useLiminarContracts } from '../../hooks/useLiminarContracts';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import ContractCard from './ContractCard';
@@ -9,6 +10,7 @@ interface Doctor { _id: string; fullName: string; }
 interface Props { patientId: string; doctors: Doctor[]; createTrigger?: number; }
 
 export default function LiminarContractPanel({ patientId, doctors, createTrigger }: Props) {
+  const queryClient = useQueryClient();
   const { items, loading, error, fetchData } = useLiminarContracts(patientId);
   const [showCreate, setShowCreate] = useState(false);
 
@@ -91,7 +93,15 @@ export default function LiminarContractPanel({ patientId, doctors, createTrigger
           patientId={patientId}
           doctors={doctors}
           onClose={() => setShowCreate(false)}
-          onCreated={() => { setShowCreate(false); fetchData(); }}
+          onCreated={() => {
+            setShowCreate(false);
+            fetchData();
+            // Invalida caches globais afetados por novo contrato liminar
+            queryClient.invalidateQueries({ queryKey: ['liminar', patientId], exact: false });
+            queryClient.invalidateQueries({ queryKey: ['appointments'], exact: false });
+            queryClient.invalidateQueries({ queryKey: ['dashboard'], exact: false });
+            queryClient.invalidateQueries({ queryKey: ['patient', patientId], exact: false });
+          }}
         />
       )}
     </>
