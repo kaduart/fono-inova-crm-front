@@ -16,6 +16,29 @@ export interface StatusConfig {
         label: string;
     };
 }
+
+export interface CompleteAppointmentProcessing {
+    async: boolean;
+    status: 'completed' | 'processing';
+    correlationId?: string;
+}
+
+export interface CompleteAppointmentBilling {
+    type: 'particular' | 'convenio' | 'liminar';
+}
+
+export interface CompleteAppointmentResult {
+    success: boolean;
+    appointment: IAppointmentResponse;
+    processing: CompleteAppointmentProcessing;
+    billing: CompleteAppointmentBilling;
+}
+
+function normalizeBillingType(value?: string | null): 'particular' | 'convenio' | 'liminar' {
+    if (value === 'convenio') return 'convenio';
+    if (value === 'liminar') return 'liminar';
+    return 'particular';
+}
 export const OPERATIONAL_STATUS_CONFIG: StatusConfig = {
     // 🔹 Inglês (novo padrão do backend)
     scheduled: {
@@ -277,34 +300,38 @@ export const appointmentService = {
 
     // ✅ V2 ATIVO: complete chama handler-driven (Particular/Convenio/Liminar)
     // Os handlers atualizam Payment existente (não criam duplicado).
+    //
+    // ⚠️ NOTA ARQUITETURAL: este service sempre chama PATCH /complete. O backend é
+    // o dono da decisão de roteamento financeiro. O frontend apenas envia dados
+    // disponíveis e exibe o estado retornado.
     complete: async (id: string, data?: {
         addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string;
         billingType?: string; paymentMethod?: string; paymentAmount?: number; sessionValue?: number;
         insuranceProvider?: string; insuranceValue?: number; authorizationCode?: string;
         splitMethods?: Array<{ amount: number; date: string; method: string }>;
-    }) => {
-        const isInsurance =
-            data?.billingType === 'convenio' ||
-            data?.paymentMethod === 'convenio' ||
-            !!data?.insuranceProvider;
-
-        // 🏥 Convênio usa o orquestrador dedicado; particular/liminar continuam no /complete
-        if (isInsurance && appointmentService.USE_V2_COMPLETE) {
-            const endpoint = `/v2/appointments/${id}/complete-insurance`;
-            console.log(`[AppointmentService] complete-insurance: ${endpoint}`);
-            const response = await API.post<{ success: boolean; appointment: IAppointmentResponse; transitions: any[]; correlationId: string }>(endpoint, data);
-            window.dispatchEvent(new CustomEvent('session:completed'));
-            return response.data.appointment;
-        }
-
+    }): Promise<CompleteAppointmentResult> => {
         const endpoint = appointmentService.USE_V2_COMPLETE
-            ? `/v2/appointments/${id}/complete`  // ✅ V2 ATIVO: async + handlers
+            ? `/v2/appointments/${id}/complete`  // ✅ V2 ATIVO: backend decide roteamento
             : `/appointments/${id}/complete`;     // ⚠️ V1 LEGADO: sync direto
 
         console.log(`[AppointmentService] complete: ${endpoint} (V2=${appointmentService.USE_V2_COMPLETE})`);
-        const result = await API.patch<IAppointmentResponse>(endpoint, data);
+        const result = await API.patch<{ success: boolean; appointment: IAppointmentResponse; processing?: CompleteAppointmentProcessing; billing?: CompleteAppointmentBilling }>(endpoint, data);
         window.dispatchEvent(new CustomEvent('session:completed'));
-        return result;
+
+        const payload = result.data;
+
+        return {
+            success: payload.success ?? true,
+            appointment: payload.appointment,
+            processing: payload.processing ?? {
+                async: result.status === 202,
+                status: result.status === 202 ? 'processing' : 'completed',
+                correlationId: undefined
+            },
+            billing: payload.billing ?? {
+                type: normalizeBillingType(payload.appointment?.billingType)
+            }
+        };
     },
 
     // 🚀 MIGRAÇÃO V2 - Flag de controle para cancelamento event-driven

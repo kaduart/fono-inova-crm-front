@@ -159,6 +159,49 @@ const SERVICE_TYPE_CONFIG: Record<string, { label: string; icon: any; color: str
 };
 
 /**
+ * Resolve o billingType exibido pelo modal a partir dos dados brutos do
+ * agendamento. Apenas para apresentação: o backend continua sendo a fonte da
+ * verdade para billingType (completeSessionService.v2.js::determineBillingType).
+ *
+ * Regra (espelhando o backend, com uma heurística extra de UI):
+ *   1. liminarContract presente                -> 'liminar'   (prioridade 0 do backend)
+ *   2. billingType === 'liminar'               -> 'liminar'   (prioridade 3 do backend)
+ *   3. billingType === 'convenio'              -> 'convenio'  (prioridade 1 do backend)
+ *   4. paymentMethod === 'convenio'            -> 'convenio'  (self-heal do backend)
+ *   5. insuranceGuide/plano preenchido         -> 'convenio'  (heurística de UI apenas)
+ *   6. fallback: billingType || payment.type   -> 'particular' se não for reconhecido
+ */
+function resolveBillingType(data: {
+    billingType?: string | null;
+    paymentMethod?: string | null;
+    payment?: { type?: string } | null;
+    liminarContract?: any;
+    insuranceGuide?: string | null;
+    insuranceGuideId?: string | null;
+    insurancePlan?: string | null;
+    extendedProps?: { insuranceGuide?: any } | null;
+}): 'particular' | 'convenio' | 'liminar' {
+    const hasInsuranceGuide = !!(
+        data.insuranceGuide ||
+        data.insuranceGuideId ||
+        data.insurancePlan ||
+        data.extendedProps?.insuranceGuide
+    );
+
+    if (data.liminarContract) return 'liminar';
+    if (data.billingType === 'liminar') return 'liminar';
+    if (data.billingType === 'convenio') return 'convenio';
+    if (data.paymentMethod === 'convenio') return 'convenio';
+    if (hasInsuranceGuide) return 'convenio';
+
+    const value = data.billingType ?? data.payment?.type;
+    if (value === 'liminar') return 'liminar';
+    if (value === 'convenio') return 'convenio';
+
+    return 'particular';
+}
+
+/**
  * ⚠️ LEIA ANTES DE MEXER — esse componente já quebrou 3x em regressões (jul/2026)
  * porque a lógica de billingType/status é toda condicional e nada óbvia.
  *
@@ -182,8 +225,8 @@ const SERVICE_TYPE_CONFIG: Record<string, { label: string; icon: any; color: str
  *    EXCEÇÃO CONVÊNIO (2026-07-06): para convênio, 'Confirmar Presença' e
  *    'Realizar Atendimento' são a mesma coisa financeiramente (o plano paga
  *    depois, no faturamento). Por isso, para convênio o botão sempre é
- *    'Realizar Atendimento' e sempre chama o fluxo de complete (o service
- *    resolve /complete-insurance quando necessário), independente de estar
+ *    'Realizar Atendimento' e sempre chama o fluxo de complete (o backend
+ *    resolve o roteamento financeiro internamente), independente de estar
  *    scheduled/confirmed/pre_agendado. Isso evita que sessões fiquem presas
  *    no status 'confirmed' sem consumir guia/gerar receita.
  *    Se adicionar um status novo, ele PRECISA cair em um desses 3 grupos,
@@ -394,12 +437,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             // 🆕 NOVO: Carregar dados de pagamento do evento
             console.log('[Modal] event aberto — paymentMethod:', event.paymentMethod, '| billingType:', event.billingType, '| event completo:', event);
             setServiceType(event.serviceType || 'individual_session');
-            const hasInsuranceGuide = !!(event.insuranceGuide || event.insuranceGuideId || event.insurancePlan || (event as any).extendedProps?.insuranceGuide);
-            setBillingType(
-                event.billingType === 'liminar' ? 'liminar' :
-                (event.billingType === 'convenio' || event.paymentMethod === 'convenio' || hasInsuranceGuide) ? 'convenio' :
-                (event.billingType || 'particular')
-            );
+            setBillingType(resolveBillingType(event));
             setPaymentAmount(event.sessionValue || event.paymentAmount || 0);
             setPaymentMethod(event.paymentMethod || '');
             setInsuranceProvider(event.insuranceProvider || '');
@@ -435,14 +473,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             if (event.paymentMethod && event.paymentMethod !== paymentMethod) {
                 setPaymentMethod(event.paymentMethod);
             }
-            if (event.billingType || event.paymentMethod) {
-                const hasInsuranceGuide = !!(event.insuranceGuide || event.insuranceGuideId || event.insurancePlan || (event as any).extendedProps?.insuranceGuide);
-                const resolved =
-                    event.billingType === 'liminar' ? 'liminar' :
-                    (event.billingType === 'convenio' || event.paymentMethod === 'convenio' || hasInsuranceGuide) ? 'convenio' :
-                    (event.billingType || 'particular');
-                if (resolved !== billingType) setBillingType(resolved);
-            }
+            const resolved = resolveBillingType(event);
+            if (resolved !== billingType) setBillingType(resolved);
             if ((event.sessionValue || event.paymentAmount) && 
                 (event.sessionValue !== paymentAmount && event.paymentAmount !== paymentAmount)) {
                 setPaymentAmount(event.sessionValue || event.paymentAmount || 0);
@@ -455,7 +487,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             const nextPackageId = event.package?._id ?? event.package ?? null;
             if (nextPackageId !== packageId) setPackageId(nextPackageId);
         }
-    }, [event?.paymentMethod, event?.billingType, event?.sessionValue, event?.paymentAmount, event?.insuranceGuide, event?.insuranceGuideId, event?.insurancePlan, event?.package]);
+    }, [event?.paymentMethod, event?.billingType, event?.sessionValue, event?.paymentAmount, event?.insuranceGuide, event?.insuranceGuideId, event?.insurancePlan, event?.package, event?.liminarContract]);
 
     // 🔄 RESETA O ESTADO QUANDO O MODAL FECHAR
     useEffect(() => {
@@ -483,11 +515,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         // Atualiza campos de pagamento com os dados mais recentes
                         console.log('[Modal] dados atualizados — paymentMethod:', updatedData.paymentMethod, '| payment.method:', updatedData.payment?.method);
                         setPaymentMethod(updatedData.paymentMethod || updatedData.payment?.method || '');
-                        setBillingType(
-                            updatedData.billingType === 'liminar' ? 'liminar' :
-                            (updatedData.billingType === 'convenio' || updatedData.paymentMethod === 'convenio') ? 'convenio' :
-                            (updatedData.billingType || updatedData.payment?.type || 'particular')
-                        );
+                        setBillingType(resolveBillingType(updatedData));
                         setPaymentAmount(
                             updatedData.sessionValue || 
                             updatedData.payment?.amount || 
@@ -1912,7 +1940,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
                 // 🏥 CONVÊNIO: confirmar presença e realizar atendimento são a mesma ação financeira
                 // (o plano paga posteriormente via faturamento). Por isso, para convênio o botão
-                // sempre executa o fluxo de complete (service resolve /complete-insurance), evitando
+                // sempre executa o fluxo de complete (o backend resolve o roteamento financeiro internamente), evitando
                 // sessões presas em 'confirmed'.
                 const isConvenioFlow = event?.billingType === 'convenio' || event?.paymentMethod === 'convenio' || !!event?.insuranceProvider || !!event?.insuranceGuide;
                 const canCompleteConvenio = isConvenioFlow && !['completed', 'canceled'].includes(opStatus || '');

@@ -515,7 +515,7 @@ export default function AdminDashboard() {
 
             // 🔍 DEBUG: Loga o resultado completo
             console.log('[AdminDashboard] Resultado do complete:', {
-                status: result?.data?.status,
+                status: result?.processing?.status,
                 _isAsyncProcessing: result?._isAsyncProcessing,
                 _completed: result?._completed,
                 _lockReleased: result?._lockReleased
@@ -530,7 +530,7 @@ export default function AdminDashboard() {
             // ✅ REGRA: Só está completo se:
             // 1. For async E _completed === true, OU
             // 2. Não for async (legado) E status não for processing
-            const isProcessingStatus = result?.data?.status?.startsWith('processing');
+            const isProcessingStatus = result?.processing?.status === 'processing';
             const completed = isAsync ? asyncCompleted : !isProcessingStatus;
             
             // 🔴 WORKER FALHOU: Lock foi liberado automaticamente - usuário precisa tentar de novo

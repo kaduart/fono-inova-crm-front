@@ -1,16 +1,41 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
 
-interface GmbHealth {
+export interface GmbPostSample {
+  _id: string;
+  title?: string;
+  theme?: string;
+  createdAt?: string;
+  lastErrorAt?: string;
+  error?: string;
+  retryCount?: number;
+  status?: string;
+}
+
+export interface GmbHealth {
   stuckPublished: number;
   failed: number;
   noImage: number;
   retrying: number;
   total: number;
+  details: {
+    noImageSample: GmbPostSample[];
+    retryingSample: GmbPostSample[];
+    failedSample: GmbPostSample[];
+  };
 }
 
+const EMPTY: GmbHealth = {
+  stuckPublished: 0,
+  failed: 0,
+  noImage: 0,
+  retrying: 0,
+  total: 0,
+  details: { noImageSample: [], retryingSample: [], failedSample: [] },
+};
+
 export const useGmbAlert = () => {
-  const [health, setHealth] = useState<GmbHealth>({ stuckPublished: 0, failed: 0, noImage: 0, retrying: 0, total: 0 });
+  const [health, setHealth] = useState<GmbHealth>(EMPTY);
 
   useEffect(() => {
     const load = async () => {

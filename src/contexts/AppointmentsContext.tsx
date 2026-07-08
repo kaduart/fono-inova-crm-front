@@ -335,7 +335,7 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const result = await appointmentService.complete(id, data);
 
         // 🚀 V2: Se for processamento async, aguarda polling completar
-        if (result?.data?.status?.startsWith('processing')) {
+        if (result.processing.async) {
             console.log('[AppointmentsContext] V2: Complete em processamento, aguardando polling...');
             const pollResult = await pollAppointmentStatus(id, 10);
             

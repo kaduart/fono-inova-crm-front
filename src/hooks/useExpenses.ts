@@ -69,10 +69,10 @@ export const useExpenses = () => {
     }
   }, []);
 
-  const generateCommissions = useCallback(async (month?: number, year?: number, onComplete?: () => void) => {
+  const generateCommissions = useCallback(async (month?: number, year?: number, onComplete?: () => void, regenerate?: boolean) => {
     setGeneratingCommissions(true);
     try {
-      const response = await expenseService.generateCommissions(month, year);
+      const response = await expenseService.generateCommissions(month, year, regenerate);
 
       // Resposta assíncrona: inicia polling do eventId
       if (response.status === 'processing' && response.eventId) {

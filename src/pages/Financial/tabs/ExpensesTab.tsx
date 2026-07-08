@@ -11,13 +11,17 @@ import {
   Tooltip,
   Alert,
   Skeleton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  CircularProgress,
 } from '@mui/material';
-import { 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  DollarSign, 
-  Calendar, 
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  DollarSign,
+  Calendar,
   TrendingDown,
   User,
   CreditCard,
@@ -30,12 +34,17 @@ import {
   RefreshCw,
   BarChart3,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Info,
+  X,
+  Package,
+  RotateCcw
 } from 'lucide-react';
 import { useExpenses } from '../../../hooks/useExpenses';
 import ExpenseModal from '../components/ExpenseModal';
 import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import API from '../../../services/api';
 
 // Configuração de categorias com cores e ícones
 const CATEGORY_CONFIG: Record<string, { color: string; bgColor: string; label: string; icon: any }> = {
@@ -65,7 +74,39 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<any>(null);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
-  
+
+  // 🆕 Modal de detalhamento de atendimentos da comissão (ícone "i")
+  const [commissionSessionsOpen, setCommissionSessionsOpen] = useState(false);
+  const [commissionSessionsLoading, setCommissionSessionsLoading] = useState(false);
+  const [commissionSessionsData, setCommissionSessionsData] = useState<{
+    doctorName: string;
+    items: Array<{ sessionId: string; date: string; time: string | null; patientName: string; value: number; commissionValue: number; isPackage: boolean; packageSessionType: string | null }>;
+  } | null>(null);
+
+  const openCommissionSessions = async (expense: any) => {
+    const doctorId = expense.relatedDoctor?._id || expense.relatedDoctor?.id;
+    const start = expense.workPeriod?.start;
+    const end = expense.workPeriod?.end;
+    if (!doctorId || !start || !end) return;
+
+    setCommissionSessionsOpen(true);
+    setCommissionSessionsLoading(true);
+    setCommissionSessionsData(null);
+    try {
+      const res = await API.get(`/v2/professionals/${doctorId}/commission-sessions`, {
+        params: { startDate: start, endDate: end }
+      });
+      setCommissionSessionsData({
+        doctorName: expense.relatedDoctor?.fullName || '',
+        items: res.data?.data?.items || []
+      });
+    } catch (err) {
+      setCommissionSessionsData({ doctorName: expense.relatedDoctor?.fullName || '', items: [] });
+    } finally {
+      setCommissionSessionsLoading(false);
+    }
+  };
+
   const [filters, setFilters] = useState({
     month,
     year,
@@ -178,6 +219,13 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
     );
   }
 
+  // 🎯 Esconde canceladas da visão padrão (ex: comissão cancelada+regenerada) —
+  // continuam no banco pra auditoria, só não poluem a lista. Selecionar
+  // "Cancelado" no filtro de Status ainda mostra o histórico normalmente.
+  const visibleExpenses = filters.status === 'canceled'
+    ? expenses
+    : expenses.filter((e: any) => e.status !== 'canceled');
+
   return (
     <div className="p-4">
       {/* Header */}
@@ -207,6 +255,23 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
             <RefreshCw size={18} className={generatingCommissions ? 'animate-spin' : ''} />
             {generatingCommissions ? 'Gerando...' : 'Gerar Comissões'}
           </button>
+          <Tooltip title="Recalcula as comissões pendentes do período com os dados atuais de sessões (comissões já pagas nunca são alteradas)">
+            <button
+              onClick={async () => {
+                if (!confirm(`Regenerar comissões de ${filters.month}/${filters.year}?\n\nComissões PENDENTES serão canceladas e recriadas com os dados atuais. Comissões já PAGAS não serão alteradas.`)) return;
+                try {
+                  await generateCommissions(filters.month, filters.year, () => fetchExpenses(filters), true);
+                } catch {
+                  fetchExpenses(filters);
+                }
+              }}
+              disabled={generatingCommissions}
+              className="px-4 py-2 border border-amber-300 bg-amber-50 rounded-lg text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
+            >
+              <RotateCcw size={18} className={generatingCommissions ? 'animate-spin' : ''} />
+              Regenerar Comissões
+            </button>
+          </Tooltip>
           <button
             onClick={() => {
               setEditingExpense(null);
@@ -325,7 +390,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
           <div className="flex justify-end">
             <div className="inline-flex items-center gap-1 px-3 py-2 bg-gray-100 rounded-full text-xs text-gray-600">
               <Filter size={14} />
-              <span>{expenses.length} despesas encontradas</span>
+              <span>{visibleExpenses.length} despesas encontradas</span>
             </div>
           </div>
         </div>
@@ -349,7 +414,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {expenses.length === 0 ? (
+              {visibleExpenses.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="text-center py-12">
                     <div className="flex flex-col items-center">
@@ -360,7 +425,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                   </td>
                 </tr>
               ) : (
-                expenses.map((expense: any) => {
+                visibleExpenses.map((expense: any) => {
                   const categoryConfig = getCategoryConfig(expense.category);
                   const CategoryIcon = categoryConfig.icon;
                   const statusConfig = getStatusConfig(expense.status);
@@ -422,6 +487,16 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                         </td>
                         <td className="px-3 py-2 text-center">
                           <div className="flex items-center justify-center gap-1">
+                            {expense.category === 'commission' && expense.relatedDoctor && (
+                              <Tooltip title="Ver atendimentos da comissão">
+                                <button
+                                  onClick={() => openCommissionSessions(expense)}
+                                  className="p-1 rounded hover:bg-gray-100 text-amber-600"
+                                >
+                                  <Info size={16} />
+                                </button>
+                              </Tooltip>
+                            )}
                             <Tooltip title="Editar">
                               <button
                                 onClick={() => {
@@ -553,6 +628,100 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
           fetchExpenses(filters);
         }}
       />
+
+      {/* Modal de detalhamento dos atendimentos da comissão */}
+      <Dialog
+        open={commissionSessionsOpen}
+        onClose={() => setCommissionSessionsOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle className="flex items-center justify-between">
+          <span>
+            Atendimentos da comissão
+            {commissionSessionsData?.doctorName ? ` — ${commissionSessionsData.doctorName}` : ''}
+          </span>
+          <IconButton size="small" onClick={() => setCommissionSessionsOpen(false)}>
+            <X size={18} />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          {commissionSessionsLoading ? (
+            <div className="flex items-center justify-center py-10">
+              <CircularProgress size={28} />
+            </div>
+          ) : !commissionSessionsData || commissionSessionsData.items.length === 0 ? (
+            <Alert severity="info">Nenhum atendimento encontrado para este período.</Alert>
+          ) : (
+            <>
+              {(() => {
+                const items = commissionSessionsData.items;
+                const totalAtendido = items.reduce((s, i) => s + (i.value || 0), 0);
+                const totalComissao = items.reduce((s, i) => s + (i.commissionValue || 0), 0);
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Atendimentos</div>
+                      <div className="text-xl font-bold text-gray-800">{items.length}</div>
+                    </div>
+                    <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
+                      <div className="text-[10px] font-bold text-blue-600 uppercase tracking-wide">Valor total atendido</div>
+                      <div className="text-xl font-bold text-blue-700">
+                        R$ {totalAtendido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                      <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wide">Comissão a repassar</div>
+                      <div className="text-xl font-bold text-amber-700">
+                        R$ {totalComissao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-gray-500 border-b">
+                      <th className="px-2 py-2">Data</th>
+                      <th className="px-2 py-2">Hora</th>
+                      <th className="px-2 py-2">Paciente</th>
+                      <th className="px-2 py-2">Tipo</th>
+                      <th className="px-2 py-2 text-right">Valor atendido</th>
+                      <th className="px-2 py-2 text-right">Comissão</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {commissionSessionsData.items.map((item) => (
+                      <tr key={item.sessionId} className="border-b last:border-0 hover:bg-gray-50">
+                        <td className="px-2 py-2">{safeFormat(item.date, 'dd/MM/yyyy')}</td>
+                        <td className="px-2 py-2">{item.time || '—'}</td>
+                        <td className="px-2 py-2">{item.patientName}</td>
+                        <td className="px-2 py-2">
+                          {item.isPackage ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
+                              <Package size={12} />
+                              Pacote{item.packageSessionType ? ` · ${item.packageSessionType}` : ''}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">Avulsa</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-2 text-right font-medium">
+                          R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-2 py-2 text-right font-semibold text-amber-700">
+                          R$ {(item.commissionValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

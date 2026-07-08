@@ -230,10 +230,10 @@ export const useAppointments = () => {
         try {
             setLoading(true);
             setError(null);
-            const response = await appointmentService.complete(id, data);
+            const result = await appointmentService.complete(id, data);
 
-            // 🚀 V2: Se for 202 Accepted ou status de processamento, inicia polling para atualização
-            if (response.status === 202 || response.data?.data?.status?.startsWith('processing')) {
+            // 🚀 V2: Se for processamento async, inicia polling para atualização
+            if (result.processing.async) {
                 console.log('[useAppointments] V2: Agendamento em processamento, iniciando polling...');
 
                 // Inicia polling usando o service
@@ -263,22 +263,21 @@ export const useAppointments = () => {
                 }
 
                 return {
-                    ...response.data,
-                    _isAsyncProcessing: true,
+                    ...result,
                     _message: 'Agendamento finalizado com sucesso!'
                 };
             }
 
-            // Legado: Atualiza imediatamente
+            // Atualiza imediatamente
             setAppointments(prev =>
                 prev
                     .filter(a => a && a._id)
                     .map(a =>
-                        a._id === id ? { ...a, ...response.data } : a
+                        a._id === id ? { ...a, ...result.appointment } : a
                     )
             );
             options?.onSuccess?.();
-            return response.data;
+            return result;
         } catch (error) {
             setError(extractErrorMessage(error, 'Falha ao completar agendamento'));
             options?.onError?.(error as Error);

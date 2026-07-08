@@ -101,25 +101,36 @@ export const NotificationBellFixed: React.FC = () => {
     }
   }, []);
 
+  const GMB_SEEN_KEY = 'notificationBell_gmbSeenTotal_v1';
+  const [gmbSeenTotal, setGmbSeenTotal] = useState<number>(() => {
+    const v = localStorage.getItem(GMB_SEEN_KEY);
+    return v !== null ? parseInt(v, 10) : -1;
+  });
+
   const handleClick = () => {
     const newIsOpen = !isOpen;
     setIsOpen(newIsOpen);
-    
+
     if (newIsOpen && seenIds !== null) {
       fetchPreAgendamentos();
-      // Marca todos como vistos
+      // Marca pré-agendamentos como vistos
       const allIds = new Set(preAgendamentos.map(p => p._id));
       setSeenIds(prev => new Set([...(prev || new Set()), ...allIds]));
+      // Marca alertas GMB como vistos
+      localStorage.setItem(GMB_SEEN_KEY, String(gmbAlert.total));
+      setGmbSeenTotal(gmbAlert.total);
     }
   };
 
   // Só calcula newCount quando seenIds estiver carregado
-  const newCount = seenIds !== null 
-    ? preAgendamentos.filter(p => !seenIds.has(p._id)).length 
+  const newCount = seenIds !== null
+    ? preAgendamentos.filter(p => !seenIds.has(p._id)).length
     : 0;
-  
+
   const hasNewItems = newCount > 0;
-  const displayCount = (seenIds !== null && !hasNewItems ? 0 : newCount) + gmbAlert.total;
+  // GMB só conta no badge se o total for diferente do que foi visto (novo problema surgiu)
+  const gmbBadgeCount = gmbAlert.total !== gmbSeenTotal ? gmbAlert.total : 0;
+  const displayCount = (seenIds !== null && !hasNewItems ? 0 : newCount) + gmbBadgeCount;
 
   // Limpar vistos (para teste)
   const clearSeen = () => {
@@ -266,22 +277,7 @@ export const NotificationBellFixed: React.FC = () => {
           </div>
 
           <div style={{ maxHeight: '350px', overflow: 'auto' }}>
-            {gmbAlert.total > 0 && (
-              <div style={{
-                padding: '12px 16px',
-                borderBottom: '1px solid #f3f4f6',
-                background: '#fff7ed',
-                borderLeft: '3px solid #f97316',
-              }}>
-                <strong style={{ color: '#9a3412', fontSize: '13px' }}>📍 Google Meu Negócio</strong>
-                <div style={{ fontSize: '12px', color: '#9a3412', marginTop: '4px' }}>
-                  {gmbAlert.failed > 0 && <div>❌ {gmbAlert.failed} post(s) falharam</div>}
-                  {gmbAlert.retrying > 0 && <div>🔄 {gmbAlert.retrying} falhando no Google (regenerar imagem)</div>}
-                  {gmbAlert.stuckPublished > 0 && <div>⏳ {gmbAlert.stuckPublished} sem confirmação do Make</div>}
-                  {gmbAlert.noImage > 0 && <div>🖼️ {gmbAlert.noImage} sem imagem</div>}
-                </div>
-              </div>
-            )}
+            {gmbAlert.total > 0 && <GmbAlertSection alert={gmbAlert} />}
             {loading ? (
               <div style={{ padding: '30px', textAlign: 'center' }}>Carregando...</div>
             ) : preAgendamentos.length === 0 ? (
@@ -334,5 +330,94 @@ export const NotificationBellFixed: React.FC = () => {
     </div>
   );
 };
+
+// ─── Painel de detalhes GMB ──────────────────────────────────────────────────
+import type { GmbHealth, GmbPostSample } from '../../hooks/useGmbAlert';
+
+function fmtDate(iso?: string) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function PostList({ posts, label }: { posts: GmbPostSample[]; label: string }) {
+  if (!posts.length) return null;
+  return (
+    <div style={{ marginTop: '8px' }}>
+      <div style={{ fontSize: '11px', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+        {label}
+      </div>
+      {posts.map(p => (
+        <div key={p._id} style={{
+          background: 'rgba(0,0,0,0.06)',
+          borderRadius: '6px',
+          padding: '6px 8px',
+          marginBottom: '4px',
+          fontSize: '11px',
+          color: '#78350f',
+        }}>
+          <div style={{ fontWeight: 600, marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {p.title || p.theme || '(sem título)'}
+          </div>
+          <div style={{ display: 'flex', gap: '8px', opacity: 0.8 }}>
+            <span>📅 {fmtDate(p.lastErrorAt || p.createdAt)}</span>
+            {p.retryCount != null && p.retryCount > 0 && <span>🔁 {p.retryCount}x</span>}
+          </div>
+          {p.error && (
+            <div style={{ marginTop: '2px', color: '#b45309', fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {p.error.slice(0, 80)}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function GmbAlertSection({ alert }: { alert: GmbHealth }) {
+  const [open, setOpen] = React.useState(false);
+  const hasDetails =
+    alert.details.noImageSample.length > 0 ||
+    alert.details.retryingSample.length > 0 ||
+    alert.details.failedSample.length > 0;
+
+  return (
+    <div style={{
+      borderBottom: '1px solid #f3f4f6',
+      background: '#fff7ed',
+      borderLeft: '3px solid #f97316',
+    }}>
+      {/* Cabeçalho clicável */}
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{ padding: '12px 16px', cursor: hasDetails ? 'pointer' : 'default', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}
+      >
+        <div>
+          <strong style={{ color: '#9a3412', fontSize: '13px' }}>📍 Google Meu Negócio</strong>
+          <div style={{ fontSize: '12px', color: '#9a3412', marginTop: '4px' }}>
+            {alert.failed > 0    && <div>❌ {alert.failed} post(s) com falha permanente</div>}
+            {alert.retrying > 0  && <div>🔄 {alert.retrying} falhando repetidamente no Google</div>}
+            {alert.stuckPublished > 0 && <div>⏳ {alert.stuckPublished} sem confirmação do Make</div>}
+            {alert.noImage > 0   && <div>🖼️ {alert.noImage} sem imagem (bloqueados)</div>}
+          </div>
+        </div>
+        {hasDetails && (
+          <span style={{ fontSize: '11px', color: '#b45309', marginLeft: '8px', marginTop: '2px', flexShrink: 0 }}>
+            {open ? '▲ fechar' : '▼ detalhes'}
+          </span>
+        )}
+      </div>
+
+      {/* Lista de detalhes expandível */}
+      {open && hasDetails && (
+        <div style={{ padding: '0 16px 12px', maxHeight: '240px', overflowY: 'auto' }}>
+          <PostList posts={alert.details.failedSample}   label="Com falha permanente" />
+          <PostList posts={alert.details.retryingSample} label="Falhando repetidamente" />
+          <PostList posts={alert.details.noImageSample}  label="Sem imagem (amostras)" />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default NotificationBellFixed;
